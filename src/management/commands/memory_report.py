@@ -210,12 +210,20 @@ class Command(BaseCommand):
         """Report performance middleware stats"""
         self.stdout.write(self.style.HTTP_INFO('6. Performance Middleware:'))
 
+        # v3.18.7: this block imported `_performance_metrics`, a module-level
+        # dict removed from performance.py on 2026-04-08 (f341820) when metrics
+        # moved to the shared cache. The import is inside `except Exception`, so
+        # for four months this section printed
+        # `Error: cannot import name '_performance_metrics'` instead of stats —
+        # and took `get_performance_summary`, in the same import statement and
+        # working fine, down with it.
         try:
-            from src.middleware.performance import get_performance_summary, _performance_metrics
+            from src.middleware.performance import get_performance_summary, MAX_STORED
             summary = get_performance_summary()
-            self.stdout.write(f'   Stored requests: {len(_performance_metrics["requests"])}')
-            self.stdout.write(f'   Max stored: {_performance_metrics["max_stored"]}')
+            self.stdout.write(f'   Stored requests: {summary["total_requests"]}')
+            self.stdout.write(f'   Max stored: {MAX_STORED}')
             self.stdout.write(f'   Avg response time: {summary["avg_response_time_ms"]:.1f} ms')
+            self.stdout.write(f'   Avg queries/request: {summary["avg_db_queries"]}')
             self.stdout.write(f'   Requests last hour: {summary["requests_last_hour"]}')
         except Exception as e:
             self.stdout.write(f'   Error: {e}')
@@ -275,11 +283,23 @@ class Command(BaseCommand):
             recommendations.append('Consider using Redis for caching instead of LocMemCache')
 
         # Check performance middleware
+        # v3.18.7: same dead `_performance_metrics` import as section 6, but
+        # under a bare `except Exception: pass` — so this recommendation could
+        # never fire and said nothing about why. The except is now narrowed to
+        # the errors a cache read can actually produce; an ImportError here
+        # should be a traceback, not a silently absent recommendation. (Third
+        # instance this month of CLAUDE.md's rule that a guard swallowing
+        # exceptions reports the absence of a signal as the absence of a
+        # problem.)
         try:
-            from src.middleware.performance import _performance_metrics
-            if len(_performance_metrics['requests']) > 80:
-                recommendations.append('Performance middleware storing many requests - consider reducing max_stored')
-        except Exception:
+            from src.middleware.performance import get_performance_summary, MAX_STORED
+            stored = get_performance_summary()['total_requests']
+            if stored > MAX_STORED * 0.8:
+                recommendations.append(
+                    f'Performance middleware storing {stored} requests '
+                    f'(cap {MAX_STORED}) - consider reducing MAX_STORED'
+                )
+        except (KeyError, TypeError, ValueError):
             pass
 
         if recommendations:

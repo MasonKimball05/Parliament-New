@@ -402,6 +402,12 @@ def _seed_site_settings(defaults):
     ]
     if missing:
         SiteSetting.objects.bulk_create(missing, ignore_conflicts=True)
+        # v3.18.7: bulk_create sends no post_save, so the invalidation receiver
+        # never fires here. `get_setting` caches a miss as `found: False`, and
+        # any key seeded above may well have been asked for (and missed) already
+        # — leaving it cached absent for up to the TTL after the row exists.
+        for setting in missing:
+            SiteSetting.invalidate_cache(setting.key)
 
 @require_admin_v2_auth
 def admin_v2_dashboard(request):

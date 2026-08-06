@@ -198,6 +198,12 @@ from src.view.onboarding import (
     dismiss_checklist, skip_profile_item, reset_onboarding,
 )
 from src.view.view_legislation_history import view_legislation_history
+from src.view.legislation_drafts import (
+    create_legislation_draft,
+    edit_legislation_draft,
+    delete_legislation_draft,
+    publish_legislation_draft,
+)
 from src.view.login_view import login_view
 from src.view.logout_view import logout_view
 from src.view.profile_view import profile_view
@@ -576,6 +582,14 @@ urlpatterns = [
     path('legislation/<int:legislation_id>/document/', view_legislation_document, name='view_document'),
     path('legislation/<int:legislation_id>/download/', download_legislation_document, name='download_legislation_document'),
     path('legislation/history/', view_legislation_history, name='view_legislation_history'),
+    # v3.19.0 — private drafts on the My Work page. Note the URL prefix is
+    # `legislation/drafts/` and NOT `legislation/<int:...>/`: a draft id and a
+    # legislation id are different keyspaces and must not share a route shape,
+    # or a mistyped reverse() silently resolves to the wrong object.
+    path('legislation/drafts/new/', create_legislation_draft, name='create_legislation_draft'),
+    path('legislation/drafts/<int:draft_id>/edit/', edit_legislation_draft, name='edit_legislation_draft'),
+    path('legislation/drafts/<int:draft_id>/delete/', delete_legislation_draft, name='delete_legislation_draft'),
+    path('legislation/drafts/<int:draft_id>/publish/', publish_legislation_draft, name='publish_legislation_draft'),
     path('legislation/<int:legislation_id>/edit/', edit_legislation, name='edit_legislation'),
     path('legislation/<int:legislation_id>/assign/', assign_appointment, name='assign_appointment'),
     path('legislation/<int:legislation_id>/reopen/', reopen_legislation, name='reopen_legislation'),

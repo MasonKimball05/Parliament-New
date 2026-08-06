@@ -21,6 +21,8 @@ from src.tasks.votes import (
     auto_open_close_committee_votes,
     auto_open_close_slating_votes,
     publish_scheduled_announcements,
+    announce_legislation_availability,
+    notify_available_legislation,
 )
 from src.tasks.cleanup import (
     cleanup_expired_sessions,
@@ -47,6 +49,8 @@ __all__ = [
     'auto_open_close_committee_votes',
     'auto_open_close_slating_votes',
     'publish_scheduled_announcements',
+    'announce_legislation_availability',
+    'notify_available_legislation',
     'cleanup_expired_sessions',
     'prune_expired_login_lockouts',
     'expire_stale_ip_blacklist_entries',

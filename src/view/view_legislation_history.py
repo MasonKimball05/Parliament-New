@@ -5,10 +5,12 @@ from django.urls import reverse
 from django.db.models import Count, Q
 from django.db.models import Prefetch
 from src.models.users import member_defer
+from ..forms import LegislationDraftForm
 from ..models import (
-    Legislation, Vote, AnnouncementPoll, ParliamentUser,
+    Legislation, LegislationDraft, Vote, AnnouncementPoll, ParliamentUser,
     MEMBER_DISPLAY_FIELDS, MEMBER_PROFILE_FIELDS,
 )
+from .legislation_drafts import MY_DRAFTS_LIMIT, _can_publish
 
 #: Ceiling on the "my polls" panel at the bottom of this page. See the comment
 #: at its queryset — it is a ceiling on an already-user-scoped list, not a page
@@ -220,6 +222,37 @@ def view_legislation_history(request):
         .order_by('-created_at')[:MY_POLLS_LIMIT]
     )
 
+    # v3.19.0 — the author's private drafts.
+    #
+    # ⚠️ `author=user` is the whole access control for this panel, and it is the
+    # reason a draft is a separate model rather than a flag on Legislation: the
+    # queryset cannot accidentally widen to somebody else's row, because there is
+    # no other row in scope. `select_related('published_legislation')` because
+    # the template links published drafts to the bill they became, and a
+    # published draft is the common case for anyone who has used this a while.
+    #
+    # `ready_to_publish()` is evaluated here rather than in the template so the
+    # reason a draft cannot be published is available as text next to a disabled
+    # button — a greyed-out control with no explanation is the thing people file
+    # bugs about.
+    my_drafts_qs = (
+        LegislationDraft.objects
+        .filter(author=user)
+        .select_related('published_legislation')
+        .order_by('-updated_at')[:MY_DRAFTS_LIMIT]
+    )
+    my_drafts = []
+    unpublished_count = 0
+    for draft in my_drafts_qs:
+        ready, reason = draft.ready_to_publish()
+        if not draft.is_published:
+            unpublished_count += 1
+        my_drafts.append({
+            'draft': draft,
+            'ready_to_publish': ready,
+            'not_ready_reason': reason,
+        })
+
     return render(request, 'legislation_history.html', {
         'legislation_history': legislation_history,
         'page_obj': page_obj,
@@ -227,4 +260,12 @@ def view_legislation_history(request):
         'status_filter': status_filter,
         'status_counts': status_counts,
         'my_polls': my_polls,
+        'my_drafts': my_drafts,
+        'draft_count': unpublished_count,
+        'draft_form': LegislationDraftForm(),
+        'can_publish_drafts': _can_publish(user),
+        # Which tab to open on load. The page also remembers the last tab in
+        # localStorage; an explicit ?tab= wins over that, which is what makes
+        # the post-redirect from the draft views land where the user was.
+        'initial_tab': request.GET.get('tab', ''),
     })

@@ -40,8 +40,18 @@ class FeatureFlag(models.Model):
         status = "✓" if self.is_enabled else "✗"
         return f"{status} {self.display_name}"
 
-    # Flags that should default to DISABLED if they don't exist
-    DISABLED_BY_DEFAULT = ['maintenance_mode']
+    # Flags that should default to DISABLED if they don't exist.
+    #
+    # ⚠️ v3.19.1 — `cnb_foreword` IS LOAD-BEARING HERE, NOT TIDINESS.
+    # Everything else in the C&B set (`cnb_constitution`, `cnb_bylaws`,
+    # `cnb_appendix`) is governance already in force, so the normal fail-OPEN
+    # default is correct: a database with no flag rows should show the
+    # Constitution, not hide it. The Foreword is the opposite case — it is
+    # UNPASSED text seeded ahead of the vote, and fail-open would publish it to
+    # the whole chapter the moment anyone deployed without running
+    # `seed_feature_flags`. This one line is what makes `GoverningDocument.enabled()`
+    # fail closed. Do not remove it, and see that method for the other half.
+    DISABLED_BY_DEFAULT = ['maintenance_mode', 'cnb_foreword']
 
     @classmethod
     def is_feature_enabled(cls, feature_name):
@@ -252,17 +262,59 @@ class SiteSetting(models.Model):
                 return json.loads(self.default_value)
         return self.value
 
+    CACHE_TTL = 300  # correctness comes from invalidation, not expiry
+
+    @classmethod
+    def _cache_key(cls, key):
+        return f'site_setting:{key}'
+
+    @classmethod
+    def invalidate_cache(cls, key=None):
+        """
+        Drop cached lookups. Called from the post_save/post_delete receivers at
+        the bottom of this module, and directly from any path that writes rows
+        without going through Model.save() — `_seed_site_settings`' bulk_create
+        in admin_v2 is the one such caller today.
+        """
+        from django.core.cache import cache
+        if key is not None:
+            cache.delete(cls._cache_key(key))
+            return
+        cache.delete_many([cls._cache_key(k) for k in cls.objects.values_list('key', flat=True)])
+
     @classmethod
     def get_setting(cls, key, default=None):
         """
         Get a setting value by key
         Usage: SiteSetting.get_setting('chat_active_poll_interval', 3000)
+
+        v3.18.7: cached, for exactly the reason `FeatureFlag.is_feature_enabled`
+        was cached in v3.17.1 — this is a plain `objects.get` and one of its
+        callers is `Enforce2FAMiddleware`, which runs on every authenticated
+        request. The two classes have always answered the same shape of question
+        (look up a row by key, return its value) and only one of them had a
+        cache; that asymmetry was the whole of the 08-05 finding.
+
+        ⚠️ The cache stores whether the ROW EXISTED, not the default. Callers
+        pass different defaults for the same key, so caching a miss as its
+        default would let the first caller's fallback leak into the second's.
+        `found` is what keeps a stored None distinguishable from a missing row.
         """
+        from django.core.cache import cache
+
+        cache_key = cls._cache_key(key)
+        cached = cache.get(cache_key)
+        if cached is not None:
+            return cached['value'] if cached['found'] else default
+
         try:
             setting = cls.objects.get(key=key)
-            return setting.get_value()
+            payload = {'found': True, 'value': setting.get_value()}
         except cls.DoesNotExist:
-            return default
+            payload = {'found': False, 'value': None}
+
+        cache.set(cache_key, payload, cls.CACHE_TTL)
+        return payload['value'] if payload['found'] else default
 
     @classmethod
     def set_setting(cls, key, value, modified_by=''):
@@ -557,3 +609,15 @@ def _invalidate_feature_flag_cache(sender, instance, **kwargs):
 def _invalidate_page_toggle_cache(sender, instance, **kwargs):
     PageToggle.invalidate_cache(instance.url_name)
     _drop_context_dict()
+
+
+# v3.18.7: SiteSetting joins them. No `_drop_context_dict()` here — settings are
+# not part of the `feature_flags` context dict, so there is nothing template-side
+# to keep in step. `set_setting` goes through `save()`, and the admin's own edit
+# path (`admin_v2.py:928`) does too, so both are covered. The one write that
+# signals cannot see is `_seed_site_settings`' `bulk_create`, which calls
+# `invalidate_cache()` itself.
+@receiver(post_save, sender=SiteSetting)
+@receiver(post_delete, sender=SiteSetting)
+def _invalidate_site_setting_cache(sender, instance, **kwargs):
+    SiteSetting.invalidate_cache(instance.key)

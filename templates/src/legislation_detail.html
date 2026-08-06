@@ -28,7 +28,14 @@
     <!-- Detail Card -->
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden mb-6">
         <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-            <div class="flex items-start justify-between gap-4">
+            <!-- items-center, not items-start: the meta line is one line of
+                 text (~20px) and the status pill is text-sm + py-1.5 + a
+                 border (~34px). items-start aligned both to the TOP of the
+                 row, so the text sat ~7px above the pill's optical centre and
+                 read as top-heavy. Centring is also what degrades best when
+                 the meta line wraps on mobile — the pill sits against the
+                 middle of the block rather than pinned to its first line. -->
+            <div class="flex items-center justify-between gap-4">
                 <div class="flex-1 min-w-0">
                     <div class="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-sm text-gray-500 dark:text-gray-400">
                         <span class="flex items-center gap-1">

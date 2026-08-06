@@ -1,7 +1,19 @@
 """
-Middleware for automatic activity logging
+Login/logout ActivityLog signal receivers.
+
+⚠️ THIS FILE CONTAINS NO MIDDLEWARE, despite its name and its home in
+`src/middleware/`. It is three `django.contrib.auth` signal receivers, and it
+is LIVE — loaded by `SrcConfig.ready()` (`src/apps.py:43`), which is the only
+thing that references it. It is deliberately absent from `MIDDLEWARE` and from
+this package's `__init__`, because it is not a middleware.
+
+Recorded because the 08-06-26 review flagged this file as dead code on exactly
+that evidence — not in `MIDDLEWARE`, not exported by the package, no importer
+under any name resembling a middleware — and was wrong. Every one of those
+observations was true; the conclusion did not follow, because the file is
+misfiled rather than unused. If it is ever moved to `src/signals.py` (where it
+belongs), `apps.py:43` must move with it.
 """
-from django.utils.deprecation import MiddlewareMixin
 from src.models import ActivityLog
 from django.contrib.auth.signals import user_logged_in, user_logged_out, user_login_failed
 from django.dispatch import receiver

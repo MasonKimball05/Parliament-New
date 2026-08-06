@@ -43,6 +43,14 @@
             Polls &amp; Surveys
             <span class="ml-1.5 text-xs opacity-60">{{ my_polls|length }}</span>
         </button>
+        {# v3.19.0 — private drafts. Count is UNPUBLISHED drafts only: a published
+           draft stays in the list for its link back to the bill, but counting it
+           here would make the badge stop matching what "drafts" means. #}
+        <button id="tab-btn-drafts"
+                class="flex-1 px-4 py-2 rounded-md text-sm font-medium transition-colors text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50">
+            Drafts
+            <span class="ml-1.5 text-xs opacity-60">{{ draft_count }}</span>
+        </button>
     </div>
 
     <!-- ══════════════════ LEGISLATION TAB ══════════════════ -->
@@ -468,11 +476,172 @@
 
     </div>{# end section-polls #}
 
+    <!-- ══════════════════ DRAFTS TAB (v3.19.0) ══════════════════ -->
+    <div id="section-drafts" class="hidden">
+
+        <!-- New draft -->
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm mb-5 overflow-hidden">
+            <button id="draft-new-toggle"
+                    class="w-full flex items-center justify-between px-6 py-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                <span class="flex items-center gap-2">
+                    <svg class="w-5 h-5 text-primary-600 dark:text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                    </svg>
+                    <span class="font-semibold text-gray-900 dark:text-gray-100">Start a new bill</span>
+                </span>
+                <svg id="draft-new-chevron" class="w-5 h-5 text-gray-400 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                </svg>
+            </button>
+
+            <div id="draft-new-body" class="hidden border-t border-gray-200 dark:border-gray-700 px-6 py-5">
+                <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                    Drafts are private to you. Nobody else — including officers — sees this
+                    until you publish it.
+                </p>
+                <form method="post" action="{% url 'create_legislation_draft' %}" enctype="multipart/form-data" class="space-y-4">
+                    {% csrf_token %}
+                    <div>
+                        <label for="{{ draft_form.title.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Title</label>
+                        {{ draft_form.title }}
+                    </div>
+                    <div>
+                        <label for="{{ draft_form.description.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Description</label>
+                        {{ draft_form.description }}
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">You can leave this thin for now — you will need a document or 20+ characters to publish.</p>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <label for="{{ draft_form.planned_available_at.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Planned date</label>
+                            {{ draft_form.planned_available_at }}
+                            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">When you intend to present it. Can be left blank.</p>
+                        </div>
+                        <div>
+                            <label for="{{ draft_form.document.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Document</label>
+                            {{ draft_form.document }}
+                            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Optional. PDF or DOCX, 20 MB max.</p>
+                        </div>
+                    </div>
+                    <div>
+                        <label for="{{ draft_form.notes.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Private notes</label>
+                        {{ draft_form.notes }}
+                    </div>
+                    <div class="flex justify-end">
+                        <button type="submit" class="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-sm font-medium transition-colors">
+                            Save draft
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        {% if not my_drafts %}
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-10 text-center">
+            <svg class="w-12 h-12 mx-auto text-gray-300 dark:text-gray-600 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+            </svg>
+            <p class="text-gray-500 dark:text-gray-400 text-sm">No drafts yet.</p>
+            <p class="text-gray-400 dark:text-gray-500 text-xs mt-1">Start one above to work on a bill before you present it.</p>
+        </div>
+        {% else %}
+        <div class="space-y-3">
+            {% for item in my_drafts %}
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden border-l-4 {% if item.draft.is_published %}border-green-500{% elif item.ready_to_publish %}border-primary-500{% else %}border-gray-300 dark:border-gray-600{% endif %}">
+                <div class="px-6 py-4">
+                    <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                        <div class="min-w-0 flex-1">
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <h3 class="font-semibold text-gray-900 dark:text-gray-100 truncate">{{ item.draft.title }}</h3>
+                                {% if item.draft.is_published %}
+                                <span class="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300">Published</span>
+                                {% elif item.ready_to_publish %}
+                                <span class="text-xs px-2 py-0.5 rounded-full bg-primary-100 text-primary-800 dark:bg-primary-900/40 dark:text-primary-300">Ready</span>
+                                {% else %}
+                                <span class="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300">In progress</span>
+                                {% endif %}
+                            </div>
+
+                            {% if item.draft.description %}
+                            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1 line-clamp-2">{{ item.draft.description|truncatechars:160 }}</p>
+                            {% endif %}
+
+                            <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-500 dark:text-gray-400 mt-2">
+                                <span>Updated {{ item.draft.updated_at|timesince }} ago</span>
+                                {% if item.draft.planned_available_at %}
+                                <span>Planned for {{ item.draft.planned_available_at|date:"M d, Y · g:i A" }}</span>
+                                {% endif %}
+                                {% if item.draft.document %}
+                                <span class="inline-flex items-center gap-1">
+                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"></path>
+                                    </svg>
+                                    Document attached
+                                </span>
+                                {% endif %}
+                            </div>
+
+                            {% if item.draft.is_published and item.draft.published_legislation %}
+                            <p class="text-xs text-green-700 dark:text-green-400 mt-2">
+                                Published {{ item.draft.published_at|date:"M d, Y" }} —
+                                <a href="{% url 'legislation_detail' item.draft.published_legislation.id %}" class="underline hover:no-underline">view the bill</a>
+                            </p>
+                            {% elif not item.ready_to_publish %}
+                            <p class="text-xs text-amber-700 dark:text-amber-400 mt-2">{{ item.not_ready_reason }}</p>
+                            {% endif %}
+                        </div>
+
+                        {% if not item.draft.is_published %}
+                        <div class="flex items-center gap-2 flex-shrink-0 flex-wrap">
+                            <a href="{% url 'edit_legislation_draft' item.draft.id %}"
+                               class="px-3 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                                Edit
+                            </a>
+
+                            {% if can_publish_drafts %}
+                            <form method="post" action="{% url 'publish_legislation_draft' item.draft.id %}"
+                                  class="js-confirm-submit inline"
+                                  data-confirm-msg="Publish &quot;{{ item.draft.title }}&quot; to the chapter? Voting stays closed until you open it.">
+                                {% csrf_token %}
+                                <button type="submit"
+                                        {% if not item.ready_to_publish %}disabled title="{{ item.not_ready_reason }}"{% endif %}
+                                        class="px-3 py-1.5 text-sm rounded-lg font-medium transition-colors {% if item.ready_to_publish %}bg-primary-600 hover:bg-primary-700 text-white{% else %}bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed{% endif %}">
+                                    Publish
+                                </button>
+                            </form>
+                            {% elif item.ready_to_publish %}
+                            {# v3.19.0 — drafting is open to every member; publishing to the
+                               chapter ballot stays officer-gated, which is the pre-existing
+                               boundary on /legislation/upload/. See the module docstring in
+                               src/view/legislation_drafts.py for how to change this. #}
+                            <span class="text-xs text-gray-500 dark:text-gray-400 px-2 py-1.5">
+                                Ready — ask an officer to present it
+                            </span>
+                            {% endif %}
+
+                            <form method="post" action="{% url 'delete_legislation_draft' item.draft.id %}"
+                                  class="js-confirm-submit inline"
+                                  data-confirm-msg="Delete the draft &quot;{{ item.draft.title }}&quot;? This cannot be undone.">
+                                {% csrf_token %}
+                                <button type="submit" class="px-3 py-1.5 text-sm rounded-lg border border-red-200 dark:border-red-900 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+                                    Delete
+                                </button>
+                            </form>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+    </div>{# end section-drafts #}
+
 </div>
 
 <script nonce="{{ request.csp_nonce }}">
 function showTab(tab) {
-    var tabs = ['legislation', 'polls'];
+    var tabs = ['legislation', 'polls', 'drafts'];
     tabs.forEach(function(t) {
         var section = document.getElementById('section-' + t);
         var btn = document.getElementById('tab-btn-' + t);
@@ -494,11 +663,46 @@ document.addEventListener('DOMContentLoaded', function() {
     if (legBtn) legBtn.addEventListener('click', function() { showTab('legislation'); });
     var pollsBtn = document.getElementById('tab-btn-polls');
     if (pollsBtn) pollsBtn.addEventListener('click', function() { showTab('polls'); });
+    var draftsBtn = document.getElementById('tab-btn-drafts');
+    if (draftsBtn) draftsBtn.addEventListener('click', function() { showTab('drafts'); });
 
-    // Restore last active tab
+    // v3.19.0 — collapsible "start a new bill" panel.
+    var newToggle = document.getElementById('draft-new-toggle');
+    var newBody = document.getElementById('draft-new-body');
+    var newChevron = document.getElementById('draft-new-chevron');
+    if (newToggle && newBody) {
+        newToggle.addEventListener('click', function() {
+            newBody.classList.toggle('hidden');
+            if (newChevron) newChevron.classList.toggle('rotate-180');
+        });
+    }
+
+    // Which tab opens on load.
+    //
+    // An explicit ?tab= wins over the remembered one — that is what makes the
+    // redirect after saving/publishing a draft land back on the Drafts tab
+    // rather than on whatever tab the user last looked at. Without this the
+    // form appears to do nothing: it saves, redirects, and shows Legislation.
+    var initial = '{{ initial_tab|escapejs }}';
     var saved = null;
     try { saved = localStorage.getItem('my_work_tab'); } catch(e) {}
-    if (saved === 'polls') { showTab('polls'); }
+
+    var target = initial || saved;
+    if (target === 'polls' || target === 'drafts') {
+        showTab(target);
+    }
+
+    // ⚠️ `js-confirm-submit` has NO global handler — every template that uses
+    // the class wires it up itself (songbook_categories.html:218,
+    // cnb/resolution_detail.html:948). Without these five lines the Publish and
+    // Delete buttons submit with no confirmation at all, which for Delete is
+    // destructive and silent. Checked 08-05-26; if a shared handler ever lands
+    // in base.html, delete this block rather than leaving both.
+    document.querySelectorAll('.js-confirm-submit').forEach(function(form) {
+        form.addEventListener('submit', function(e) {
+            if (!confirm(form.dataset.confirmMsg)) e.preventDefault();
+        });
+    });
 });
 </script>
 {% endblock %}

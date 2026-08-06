@@ -209,13 +209,37 @@ def _create_appointment(request):
 
 
 def _notify(legislation):
+    """
+    Announce a newly uploaded bill — but only if it is actually available.
+
+    ⚠️ v3.19.0 CHANGED THE TIMING HERE, and it is a deliberate behaviour change.
+
+    This used to fire unconditionally the moment the row was saved. `available_at`
+    is a required field that officers routinely set in the future, so a bill dated
+    three weeks out pushed "New Legislation: …" to every active member for
+    something none of them could open — and nothing announced it again when it
+    *did* become available. The notification was either premature or absent.
+
+    Now: available already → announce inline (unchanged from the member's point
+    of view). Dated in the future → say nothing, and let
+    `tasks.notify_available_legislation` announce it the minute it lands.
+
+    Both paths go through `announce_legislation_availability`, which stamps
+    `availability_notified_at` as its claim, so the inline call and the periodic
+    task cannot both send. Do not re-add a bare `notify_all_active_members` call
+    here: it would bypass the stamp and the task would announce the bill a
+    second time when `available_at` passed.
+    """
+    from src.tasks.votes import announce_legislation_availability
+
     try:
-        notify_all_active_members(
-            'legislation_new',
-            f'New {"Appointment Vote" if legislation.legislation_type == "appointment" else "Legislation"}: {legislation.title}',
-            link='/vote/',
-            source_type='Legislation',
-            source_id=legislation.id,
-        )
+        if not legislation.is_available():
+            logger.info(
+                'Legislation id=%s ("%s") is dated %s — deferring the chapter '
+                'notification to tasks.notify_available_legislation.',
+                legislation.pk, legislation.title, legislation.available_at,
+            )
+            return
+        announce_legislation_availability(legislation)
     except Exception as e:
         logger.error('Failed to send legislation notifications: %s', e, exc_info=True)

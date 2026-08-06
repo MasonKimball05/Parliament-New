@@ -9,7 +9,6 @@ Entries are stored as a Python list of tuples via pickle; no JSON layer.
 import time
 import logging
 from datetime import timedelta
-from django.conf import settings
 from django.core.cache import cache
 from django.db import connection
 from django.utils import timezone
@@ -112,6 +111,59 @@ def clear_old_metrics():
     cache.set(CACHE_KEY, kept, CACHE_TTL)
 
 
+class _QueryCounter:
+    """
+    Counts and times queries via `connection.execute_wrapper`.
+
+    ⚠️ v3.18.7 — WHY NOT `len(connection.queries)`, WHICH IS WHAT THIS REPLACED.
+    `connection.queries` is populated only when `connection.queries_logged` is
+    true, and that is `force_debug_cursor or settings.DEBUG`
+    (django/db/backends/base/base.py:170). Production runs DEBUG=False, so the
+    deque is never appended to and the before/after delta was **always 0** —
+    for every request, forever. Two consequences, and the second is the one
+    that cost something:
+
+      * `avg_db_queries` / `avg_db_time_ms` in `get_performance_summary()` were
+        permanently 0;
+      * the slow-request alarm below logged `(0 queries, 0ms DB time)` on every
+        slow page. In a codebase whose last six weeks are almost entirely N+1
+        hunts, an alert that fires on a slow page and reports no database work
+        points the investigator away from the answer roughly every time.
+
+    The tell that this was an oversight and not a decision: `db_time_ms` was
+    already wrapped in `if settings.DEBUG`, one statement below the unguarded
+    count. The author knew DEBUG gates the query log, guarded the timing line,
+    and missed the counting line directly above it.
+
+    `execute_wrapper` is independent of DEBUG — it is the same mechanism
+    `dev_mode.py:78` uses, which is why prod dev mode could find the N+1s in
+    v3.18.3 and v3.18.6 that this middleware could not. Cost is one function
+    call and two `perf_counter()` reads per query, which is noise beside the
+    query itself.
+
+    Single-database only: `execute_wrapper` is per-connection and this wraps
+    `default`. Parliament has one database; if that ever changes, this counts
+    a subset rather than reporting zero, which is the better failure.
+    """
+
+    __slots__ = ('count', 'total_ms')
+
+    def __init__(self):
+        self.count = 0
+        self.total_ms = 0.0
+
+    def __call__(self, execute, sql, params, many, context):
+        start = time.perf_counter()
+        try:
+            return execute(sql, params, many, context)
+        finally:
+            # In `finally` so a failing query is still counted — a request that
+            # is slow *because* queries are erroring is exactly when the number
+            # matters.
+            self.count += 1
+            self.total_ms += (time.perf_counter() - start) * 1000
+
+
 class PerformanceMiddleware:
     """
     Middleware to track request performance metrics.
@@ -125,23 +177,16 @@ class PerformanceMiddleware:
         if request.path.startswith('/static/') or request.path == '/health/':
             return self.get_response(request)
 
-        start_queries = len(connection.queries)
+        counter = _QueryCounter()
         start_time = time.perf_counter()
 
-        response = self.get_response(request)
+        with connection.execute_wrapper(counter):
+            response = self.get_response(request)
 
         duration_ms = (time.perf_counter() - start_time) * 1000
 
-        end_queries = len(connection.queries)
-        db_query_count = end_queries - start_queries
-        db_time_ms = 0.0
-
-        if settings.DEBUG:
-            try:
-                for query in connection.queries[start_queries:end_queries]:
-                    db_time_ms += float(query.get('time', 0)) * 1000
-            except (ValueError, TypeError):
-                pass
+        db_query_count = counter.count
+        db_time_ms = counter.total_ms
 
         try:
             _append_metric((

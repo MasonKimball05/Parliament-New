@@ -6,8 +6,80 @@ Last amended: January 26, 2025.
 
 DOCUMENTS = [
     {
+        # ── FOREWORD (v3.19.1) ───────────────────────────────────────────────
+        #
+        # ⚠️ THIS TEXT IS NOT YET IN FORCE. It is the foreword of the NEW
+        # Constitution and Bylaws (`exportable_media/legislation_docs/New-Bylaws.docx`,
+        # authored 8/6/26), staged here ahead of the chapter vote so that
+        # passing it is a flag toggle rather than a deploy.
+        #
+        # It is invisible to members until the `cnb_foreword` feature flag is
+        # switched on at /admin-v2/. That flag seeds DISABLED and is listed in
+        # `FeatureFlag.DISABLED_BY_DEFAULT`, so even an install that never runs
+        # `seed_feature_flags` reads it as off — Python flag lookups otherwise
+        # fail OPEN, which would publish unpassed governance.
+        #
+        # STRUCTURE: prose only. Unlike every other document here it has NO
+        # articles — the whole text lives in `preamble`, because a foreword is
+        # continuous prose with a dedication and a signature, not numbered
+        # sections. `GoverningDocument.is_prose_only` derives that from the
+        # absence of articles, and the viewer labels the block "Foreword"
+        # rather than "Preamble" on the strength of it.
+        #
+        # CONSEQUENCE WORTH KNOWING: having no Sections means the foreword
+        # CANNOT be amended through the C&B resolution flow, which targets
+        # Section rows. That is intended — a foreword is the author's note, not
+        # legislation — but if it ever needs to be amendable it has to be
+        # restructured into articles/sections first.
+        'doc_type': 'foreword',
+        'title': 'Foreword',
+        'display_order': 0,
+        'amendment_protection_weeks': 0,
+        'preamble': (
+            'This document is one of many that was built by brothers whose goal was to plant trees '
+            'for future Betas to enjoy their shade. This document is the structure of our governance; '
+            'it has been put together with a great amount of collaboration with the chapter. This is a '
+            'collection of what we as a chapter found to best benefit us in situations we have '
+            'encountered. While this document is binding upon every member of the chapter, I hope that '
+            'it does not become overbearing. This document is not meant to be a burden or a bat to beat '
+            'someone with — it is meant to give guidance from past members for future situations.\n\n'
+
+            'The inspiration for this document was largely the chaos we encountered of having no idea '
+            'what to do in situation after situation. By setting clear paths for resolution in a given '
+            'situation, my hope is that you may be able to avoid some of the pitfalls we experienced '
+            'prior to this document\'s creation. This document is not perfect, I understand that; there '
+            'are clear avenues to amend or repair issues in the document, and indeed numerous changes '
+            'and fixes have already been made. Do not feel obligated to leave the work of the past '
+            'unchanged if it is broken.\n\n'
+
+            'There are times when the document stresses the importance of following its prescription, '
+            'but other times it does not. This is intentional; my suggestion is to look at this and '
+            'understand why we may have chosen to write something one way or another. My biggest fear '
+            'is this: please, do not let the words of this document be a chain, but do not disregard '
+            'the work and mistakes we have made in the past either.\n\n'
+
+            'Our motto is Ἀρετή Μονάζει (Virtue Stands Alone) — we are the only chapter of Beta whose '
+            'seal contains an open Bible. “Virtue stands alone” is a reference to our unique standing '
+            'as a chapter. We are a chapter of Christian men at a Christian institution, and we have '
+            'chosen to stand out in this way to the world because it is what makes us who we are. Do '
+            'not lose sight of who we are or who we should be, even when you must stand alone.\n\n'
+
+            'To Ian Viner, Brennan Paulus, Xander Guill, and Jacob Hoffman,\n\n'
+
+            'This document is perhaps our greatest work and test for the future of the chapter. All of '
+            'your time, dedication, and work has not been forgotten or unnoticed. I only hope that '
+            'future Betas can emulate half the effort each of you put into the building of this '
+            'foundational document.\n\n'
+
+            'Mason Kimball (αμ 73), 8/6/26\n'
+            'Author, Constitution and Bylaws Chair, Executive Vice President'
+        ),
+        'articles': [],
+    },
+    {
         'doc_type': 'constitution',
         'title': 'Constitution of the Samford Chapter, the Alpha Mu of Beta Theta Pi',
+        'display_order': 10,
         'amendment_protection_weeks': 15,
         'preamble': (
             'Constitution of the Samford Chapter, the Alpha Mu of Beta Theta Pi.'
@@ -454,6 +526,7 @@ DOCUMENTS = [
     {
         'doc_type': 'bylaws',
         'title': 'Bylaws of the Samford Chapter, the Alpha Mu of Beta Theta Pi',
+        'display_order': 20,
         'amendment_protection_weeks': 10,
         'preamble': (
             'Bylaws of the Samford Chapter, the Alpha Mu of Beta Theta Pi.'
@@ -1565,6 +1638,7 @@ DOCUMENTS = [
     {
         'doc_type': 'appendix',
         'title': 'Appendix',
+        'display_order': 30,
         'articles': [
             {
                 'number': '1',

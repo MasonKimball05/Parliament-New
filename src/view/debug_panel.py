@@ -421,18 +421,36 @@ def debug_template_context(request):
 @require_http_methods(["GET"])
 @admin_required
 def debug_performance_metrics(request):
-    """Get performance metrics from middleware"""
-    # Get performance data from cache if PerformanceMiddleware is storing it
-    perf_key = 'perf_metrics_recent'
-    recent_metrics = cache.get(perf_key, [])
+    """
+    Get performance metrics from PerformanceMiddleware.
 
-    # Calculate averages
-    if recent_metrics:
-        avg_response_time = sum(m.get('response_time', 0) for m in recent_metrics) / len(recent_metrics)
-        avg_db_queries = sum(m.get('db_queries', 0) for m in recent_metrics) / len(recent_metrics)
-    else:
-        avg_response_time = 0
-        avg_db_queries = 0
+    ⚠️ v3.18.7 — THIS ENDPOINT RETURNED ZEROS FOR SIX MONTHS. Worth recording,
+    because it broke in a way no error ever surfaced:
+
+      * it read the cache key `perf_metrics_recent`, and the middleware writes
+        `perf_requests`. `git log -S` dates the read to 2026-02-08 and it was
+        never written by anything, at any point — so every field below derived
+        from it was 0 on every call this endpoint has ever served;
+      * the shapes did not match either. This read `m.get('response_time')` on
+        each entry; the middleware stores plain TUPLES. Even with the key
+        corrected, this would have raised AttributeError. Two independent
+        breaks stacked, the outer one masking the inner.
+
+    It now delegates to `get_performance_summary()` — the same function the
+    admin-v2 dashboard uses, i.e. the one reader that was known to work — so
+    there is a single source of truth for these numbers and no second copy of
+    the aggregation logic to drift.
+
+    (The 08-06 review suggested deleting this endpoint outright on the grounds
+    that the dashboard already covers it. Deviated deliberately: this is one of
+    six sibling `/api/debug/*` endpoints, deleting one member of that family
+    leaves a hole for the next person to wonder about, and the rewrite is ten
+    lines against a data source that already exists.)
+    """
+    from src.middleware.performance import get_performance_summary, get_slow_requests
+
+    summary = get_performance_summary()
+    slow = get_slow_requests(threshold_ms=1000, limit=10)
 
     # Get blocked request count from maintenance mode
     blocked_count = cache.get('maintenance_blocked_count', 0)
@@ -441,10 +459,24 @@ def debug_performance_metrics(request):
     return JsonResponse({
         'maintenance_blocked_requests': blocked_count,
         'maintenance_started_at': started_at.isoformat() if started_at else None,
-        'recent_metrics_count': len(recent_metrics),
-        'avg_response_time_ms': round(avg_response_time * 1000, 2),
-        'avg_db_queries': round(avg_db_queries, 1),
-        'recent_requests': recent_metrics[-10:],  # Last 10
+        'recent_metrics_count': summary['total_requests'],
+        'requests_last_hour': summary['requests_last_hour'],
+        'avg_response_time_ms': summary['avg_response_time_ms'],
+        'max_response_time_ms': summary['max_response_time_ms'],
+        'avg_db_queries': summary['avg_db_queries'],
+        'avg_db_time_ms': summary['avg_db_time_ms'],
+        # Entries are (timestamp, duration_ms, path, db_queries, db_time_ms)
+        # tuples — serialised field by field because a datetime is not JSON.
+        'slowest_requests': [
+            {
+                'at': entry[0].isoformat(),
+                'duration_ms': round(entry[1], 1),
+                'path': entry[2],
+                'db_queries': entry[3],
+                'db_time_ms': round(entry[4], 1),
+            }
+            for entry in slow
+        ],
     })
 
 

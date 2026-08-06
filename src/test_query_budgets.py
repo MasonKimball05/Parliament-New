@@ -806,3 +806,214 @@ class ServiceDashboardQueryBudgetTests(QueryBudgetMixin, TestCase):
                 self.assertEqual(
                     row['expected_hours'],
                     Decimal('15.00') if i % 4 == 0 else Decimal('10.00'))
+
+
+# ---------------------------------------------------------------------------
+# The middleware chain
+# ---------------------------------------------------------------------------
+
+def _tables_touched(captured, table):
+    """Queries in `captured` that name `table`. Case-insensitive substring."""
+    return [q['sql'] for q in captured if table.lower() in q['sql'].lower()]
+
+
+class MiddlewareChainQueryBudgetTests(QueryBudgetMixin, TestCase):
+    """
+    A budget for the code that runs on EVERY request, measured as its own
+    number instead of as a share of everyone else's.
+
+    WHY THIS CLASS EXISTS — and it is a blind spot, not an oversight
+    ----------------------------------------------------------------
+    Every budget above is per-view. Middleware cost is a **constant added to
+    all of them**, so it hides inside each ceiling equally and reads as the
+    floor rather than as a finding. Two separate reviews hit this:
+
+    * 08-05-26 found `Enforce2FAMiddleware` spending 3–4 uncached queries on
+      every authenticated request, and noted it was invisible here for exactly
+      this reason;
+    * 08-06-26 then found a SECOND one — `EmergencyLockdownMiddleware` doing an
+      uncached `get_or_create` on the `SystemLockdown` singleton on every
+      request *including anonymous ones*, in a file no review had ever opened.
+
+    Two findings, one blind spot. The blind spot is structural, so the response
+    is structural: measure a request whose view does almost nothing, and
+    everything left is chain overhead by construction.
+
+    ⚠️ NO `BUDGET` CONSTANT, DELIBERATELY — SAME RULE AS v3.18.6.
+    ------------------------------------------------------------
+    This module's standard is that a ceiling is a **measured** number, and
+    there is no working Django in the environment these tests were written in.
+    An invented ceiling reads exactly like a measured one and is worse than
+    none. So this class asserts constant-free PROPERTIES instead, each of which
+    would have failed against the pre-v3.18.7 tree.
+
+    **To finish the job:** run this class, take the count from
+    `test_the_chain_reports_its_own_cost` twice, cold, and add
+
+        BUDGET = <n>
+        def test_the_chain_stays_within_budget(self): ...
+
+    plus an entry in `BudgetHygieneTests.declared`. Measure it AFTER any other
+    hot-path fix in flight, not between — v3.18.7 removes 2–4 queries from
+    every page in this suite, which will push every existing ceiling more than
+    `STALENESS_SLACK` out of date and (correctly) fail the ratchet.
+    """
+
+    def setUp(self):
+        self.member = make_user('qb-chain', 'Chain Member', member_type='Member')
+
+    def _measure_path(self, path, *, authenticated, warm):
+        """
+        Queries for one GET, with the cache either cold or warmed by a prior
+        identical request.
+
+        Unlike `QueryBudgetMixin.measure` this does not assert a 200: a
+        redirect has still run every middleware's request phase, which is the
+        thing being counted. It asserts the status is not a 500 instead — a
+        crashing request short-circuits the chain and would measure nothing.
+        """
+        from django.core.cache import cache
+        cache.clear()
+
+        client = Client()
+        if authenticated:
+            client.force_login(self.member)
+
+        if warm:
+            primer = client.get(path)
+            self.assertLess(primer.status_code, 500, f'{path} 500ed while priming')
+
+        with CaptureQueriesContext(connection) as captured:
+            response = client.get(path)
+        self.assertLess(
+            response.status_code, 500,
+            f'{path} returned {response.status_code}; a crashing request '
+            f'short-circuits the chain, so this count means nothing.',
+        )
+        return list(captured.captured_queries)
+
+    # -- the two regressions this class was written for ---------------------
+
+    def test_the_lockdown_singleton_is_not_read_on_every_request(self):
+        """
+        v3.18.7. `EmergencyLockdownMiddleware` exempts only /static/, /media/,
+        /health/ and /favicon.ico, so before the fix this row was SELECTed on
+        essentially every request in the application — the widest per-request
+        DB read there was, and paid by anonymous traffic too.
+
+        Asserted on the warm path because that is the steady state: cold, one
+        read is correct and expected.
+        """
+        captured = self._measure_path(reverse('login'), authenticated=False, warm=True)
+        hits = _tables_touched(captured, 'systemlockdown')
+        self.assertEqual(
+            hits, [],
+            f'SystemLockdown was queried {len(hits)}× on a warm anonymous '
+            f'request. `get_instance()` is cached (models/security.py) and '
+            f'invalidated by a post_save receiver — if this fails, either the '
+            f'cache was bypassed or the receiver is firing when it should not.'
+            f'\n  {hits[:2]}',
+        )
+
+    def test_site_settings_are_not_read_on_every_authenticated_request(self):
+        """
+        v3.18.7. `Enforce2FAMiddleware` calls
+        `SiteSetting.get_setting('2fa_policy_mode')`, which was a plain
+        uncached `objects.get` — the 08-05 finding. `FeatureFlag` in the same
+        module had been cached since v3.17.1; `SiteSetting` simply was not the
+        one that hurt first.
+        """
+        captured = self._measure_path(reverse('home'), authenticated=True, warm=True)
+        hits = _tables_touched(captured, 'sitesetting')
+        self.assertEqual(
+            hits, [],
+            f'SiteSetting was queried {len(hits)}× on a warm authenticated '
+            f'request; `get_setting` is cached with post_save invalidation.'
+            f'\n  {hits[:2]}',
+        )
+
+    # -- the properties that outlive both fixes ------------------------------
+
+    def test_an_anonymous_request_is_cheaper_than_an_authenticated_one(self):
+        """
+        An ordering that should be obvious and was **false** before v3.18.7 for
+        the lockdown read, which charged both alike.
+
+        This is the assertion most likely to catch the NEXT one of these,
+        because it needs no advance knowledge of which middleware or which
+        table — a new per-request read added to the chain without an
+        authentication check moves the two numbers together.
+        """
+        anonymous = len(self._measure_path(reverse('login'), authenticated=False, warm=True))
+        authenticated = len(self._measure_path(reverse('home'), authenticated=True, warm=True))
+        self.assertLess(
+            anonymous, authenticated,
+            f'An anonymous request cost {anonymous} queries and an '
+            f'authenticated one {authenticated}. Anonymous traffic should be '
+            f'strictly cheaper: it needs no session lookup, no 2FA policy, no '
+            f'user row. If these have converged, something in the chain is '
+            f'querying without first checking `request.user.is_authenticated`.',
+        )
+
+    def test_the_chain_reaches_a_steady_state(self):
+        """
+        Request N and request N+1 must cost the same.
+
+        This is the property that makes the number worth pinning at all: if
+        consecutive identical requests differ, the chain has per-request work
+        that is not converging and no ceiling would be stable. It is also how
+        you tell a genuine cache from a TTL that happens to be long.
+        """
+        from django.core.cache import cache
+        cache.clear()
+
+        client = Client()
+        client.force_login(self.member)
+        home_url = reverse('home')
+        client.get(home_url)  # prime
+
+        counts = []
+        for _ in range(2):
+            with CaptureQueriesContext(connection) as captured:
+                client.get(home_url)
+            counts.append(len(captured.captured_queries))
+
+        self.assertEqual(
+            counts[0], counts[1],
+            f'Two consecutive warm requests cost {counts[0]} and {counts[1]} '
+            f'queries. Something in the chain is doing work that neither '
+            f'caches nor repeats predictably, so no ceiling here can be '
+            f'stable until it is found.',
+        )
+
+    def test_the_chain_reports_its_own_cost(self):
+        """
+        Not an assertion so much as **the measurement instrument** — this is the
+        test to read the future `BUDGET` off. It fails only on an absurd number,
+        so it will not flake before anyone has pinned one.
+
+        Deliberately reported for both the cold and warm paths: the gap between
+        them is the size of the caching this release added, and a future run
+        where the two converge means a cache stopped working.
+        """
+        home_url = reverse('home')
+        cold = len(self._measure_path(home_url, authenticated=True, warm=False))
+        warm = len(self._measure_path(home_url, authenticated=True, warm=True))
+
+        print(
+            f'\n[middleware chain] authenticated GET {home_url} — '
+            f'cold: {cold} queries, warm: {warm} queries'
+        )
+
+        self.assertLess(
+            warm, 200,
+            f'A warm authenticated request cost {warm} queries. Whatever the '
+            f'right ceiling is, it is not that.',
+        )
+        self.assertLessEqual(
+            warm, cold,
+            f'The warm path ({warm}) cost MORE than the cold one ({cold}), '
+            f'which should be impossible — a warm cache cannot add queries. '
+            f'Suspect a cache write that itself reads, or invalidation firing '
+            f'on read.',
+        )

@@ -285,3 +285,128 @@ def notify_expired_vote_receipts():
         )
     if per_user:
         logger.info(f"[tasks] notify_expired_vote_receipts: notified {len(per_user)} member(s)")
+
+
+# ---------------------------------------------------------------------------
+# v3.19.0 — announce legislation when it becomes AVAILABLE, not when it is saved
+# ---------------------------------------------------------------------------
+#
+# WHY: `upload_legislation._notify()` fired the moment the row was saved. For a
+# bill dated three weeks out that pushed "New Legislation: …" to every active
+# member for something none of them could open, and by the time it *was*
+# openable the notification was three weeks stale. Drafts (v3.19.0) make future
+# dating the normal case rather than the exception, so the timing had to move.
+#
+# THE IDEMPOTENCY RULE, and it is the whole design: a row is announced exactly
+# once, and the record of that is `Legislation.availability_notified_at`. The
+# task claims rows by stamping them inside the same transaction that sends, so
+# a beat tick that overlaps the previous one, a worker that dies mid-loop, or a
+# manual re-run cannot double-notify. NULL means "not yet announced" — which is
+# why migration 0014 backfills every pre-existing row. Without that backfill the
+# first tick after deploy would announce the entire historical table.
+
+def announce_legislation_availability(legislation):
+    """
+    Notify the chapter that one bill is now available, exactly once.
+
+    Returns True if this call sent the notification, False if it was already
+    announced. Safe to call directly (the publish view does, for a bill that is
+    already available) and from the periodic task below.
+
+    The stamp is written with a CONDITIONAL update rather than a read-then-write:
+    `filter(pk=…, availability_notified_at__isnull=True).update(...)` returns the
+    number of rows it changed, so two workers racing on the same bill produce one
+    winner and one no-op. A `select_for_update()` would also work and is what the
+    auto-close loop above uses, but that loop has real work to do inside the
+    transaction; here the update IS the claim, so the cheaper form is correct.
+    """
+    from src.models import Legislation
+    from src.notification_service import notify_all_active_members
+
+    claimed = Legislation.objects.filter(
+        pk=legislation.pk,
+        availability_notified_at__isnull=True,
+    ).update(availability_notified_at=timezone.now())
+
+    if not claimed:
+        return False
+
+    try:
+        notify_all_active_members(
+            'legislation_new',
+            'New {}: {}'.format(
+                'Appointment Vote' if legislation.legislation_type == 'appointment'
+                else 'Legislation',
+                legislation.title,
+            ),
+            link='/vote/',
+            source_type='Legislation',
+            source_id=legislation.id,
+        )
+    except Exception as e:
+        # ⚠️ The stamp is NOT rolled back on a send failure, deliberately.
+        #
+        # Rolling it back means the next tick retries — and `notify_all_active_
+        # members` is not atomic: it creates one Notification row per member, so
+        # a failure partway through has already notified some of them. Retrying
+        # would notify those members a second time. An unsent announcement is a
+        # bill nobody was told about, which is visible on the vote page anyway;
+        # a double announcement is a bug members see and report.
+        #
+        # The log line is the recovery path: it names the bill, and re-announcing
+        # is a one-liner in the shell if it matters.
+        logger.error(
+            '[tasks] announce_legislation_availability: notification failed for '
+            'legislation id=%s ("%s") — it is stamped as announced and will NOT '
+            'be retried. Re-send manually if needed. %s',
+            legislation.pk, legislation.title, e, exc_info=True,
+        )
+    return True
+
+
+@shared_task(name='tasks.notify_available_legislation')
+def notify_available_legislation():
+    """
+    Announce every bill whose `available_at` has passed and that has not been
+    announced yet. Runs every minute alongside the auto-open/close tasks.
+    """
+    from src.models import Legislation
+
+    now = timezone.now()
+
+    # ⚠️ THE LOOKBACK WINDOW IS A SAFETY NET, NOT AN OPTIMISATION.
+    #
+    # Migration 0014 backfills the historical table, so in a correct deploy this
+    # filter changes nothing. It exists for the deploy that is NOT correct: if
+    # the migration is skipped, or a dump is restored from before it, or someone
+    # bulk-inserts bills with `queryset.update()` (which no signal sees), the
+    # unbounded version of this query would announce years of legislation to
+    # every member within one minute and there would be no undoing it.
+    #
+    # Seven days is long enough that a worker outage over a weekend still sends,
+    # and short enough that a backfill accident stays small. A bill older than
+    # this that was genuinely never announced is a manual `announce_...()` call.
+    cutoff = now - timezone.timedelta(days=7)
+
+    pending = Legislation.objects.filter(
+        available_at__lte=now,
+        available_at__gte=cutoff,
+        availability_notified_at__isnull=True,
+        is_active=True,
+    ).exclude(status='removed')
+
+    sent = 0
+    for legislation in pending:
+        try:
+            if announce_legislation_availability(legislation):
+                sent += 1
+        except Exception as e:
+            # One bad row must not stop the rest of the batch.
+            logger.error(
+                '[tasks] notify_available_legislation: failed on id=%s: %s',
+                legislation.pk, e, exc_info=True,
+            )
+
+    if sent:
+        logger.info('[tasks] notify_available_legislation: announced %s bill(s)', sent)
+    return sent

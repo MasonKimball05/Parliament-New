@@ -570,10 +570,47 @@ class SystemLockdown(models.Model):
         status = 'ACTIVE' if self.is_active else 'Inactive'
         return f"System Lockdown - {status}"
 
+    CACHE_KEY = 'system_lockdown_instance'
+    CACHE_TTL = 300  # backstop only; correctness comes from invalidation
+
+    @classmethod
+    def invalidate_cache(cls):
+        from django.core.cache import cache
+        cache.delete(cls.CACHE_KEY)
+
     @classmethod
     def get_instance(cls):
-        """Get or create the singleton lockdown instance"""
+        """
+        Get or create the singleton lockdown instance.
+
+        v3.18.7: cached. `EmergencyLockdownMiddleware` calls this on EVERY
+        request — authenticated or not, exempting only /static/, /media/,
+        /health/ and /favicon.ico — so this was the widest per-request DB read
+        in the application, wider than the 2FA middleware's (which at least only
+        charges authenticated users). It reads a singleton row whose `is_active`
+        is False essentially permanently.
+
+        ⚠️ THIS CACHES A SECURITY CONTROL, so the invalidation is the load-
+        bearing half and the TTL is not a substitute for it. A stale
+        `is_active=False` means an activated lockdown does not take effect —
+        a control failing open — and a five-minute delay defeats the word
+        "emergency". Invalidation is a post_save/post_delete receiver at the
+        bottom of this module rather than a `cache.delete` inside
+        activate()/deactivate(), so the admin's own edit of `is_active` is
+        covered too; those two methods are not the only writers.
+
+        Caching also removes a second, quieter problem: `get_or_create` in a
+        request path means that if the row is ever missing, every concurrent
+        request races to create it.
+        """
+        from django.core.cache import cache
+
+        instance = cache.get(cls.CACHE_KEY)
+        if instance is not None:
+            return instance
+
         instance, _ = cls.objects.get_or_create(pk=1)
+        cache.set(cls.CACHE_KEY, instance, cls.CACHE_TTL)
         return instance
 
     def activate(self, admin, reason, whitelisted_ips=None):
@@ -836,3 +873,29 @@ class EmailVerificationToken(models.Model):
     @property
     def is_valid(self):
         return not self.used and timezone.now() < self.expires_at
+
+
+# ---------------------------------------------------------------------------
+# Cache invalidation
+# ---------------------------------------------------------------------------
+#
+# v3.18.7. `SystemLockdown.get_instance()` is cached (see the note there) and
+# correctness comes from invalidating on write, not from the TTL — this is an
+# emergency control, and a stale copy means it fails open for the length of the
+# expiry.
+#
+# A post_save receiver rather than a `cache.delete` inside activate()/
+# deactivate() for the same reason v3.17.3 moved the flag invalidation to
+# signals: those two methods are not the only writers. `SystemLockdownAdmin`
+# (admin.py:2130) lets an admin edit `is_active`, `whitelisted_ips` and
+# `message` directly on the changeform, and that path calls save() without
+# going anywhere near activate(). The signal covers both; a delete() inside the
+# two methods would have covered one and looked complete.
+from django.db.models.signals import post_delete, post_save
+from django.dispatch import receiver
+
+
+@receiver(post_save, sender=SystemLockdown)
+@receiver(post_delete, sender=SystemLockdown)
+def _invalidate_system_lockdown_cache(sender, instance, **kwargs):
+    SystemLockdown.invalidate_cache()

@@ -30,6 +30,7 @@ from src.models.transitions import (
 from src.models.legislation import (
     validate_legislation_file,
     Legislation,
+    LegislationDraft,
     Vote,
 )
 
@@ -241,6 +242,7 @@ __all__ = [
     # Legislation
     'validate_legislation_file',
     'Legislation',
+    'LegislationDraft',
     'Vote',
     # Committees
     'Committee',

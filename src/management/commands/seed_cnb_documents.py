@@ -10,10 +10,17 @@ Usage:
     python manage.py seed_cnb_documents
 
 Options:
-    --update   Update existing records (title, preamble, protection_weeks) instead
-               of skipping them. Never overwrites section content that has already
-               been edited (i.e., content that is NOT still the PLACEHOLDER string).
-    --force    Overwrite section content even if it has been edited. Use with caution.
+    --update   Update existing records (title, display_order, preamble,
+               protection_weeks) instead of skipping them. Never overwrites
+               content that has already been edited — that means section content
+               which is no longer the PLACEHOLDER string, and (v3.19.1) the
+               preamble of a PROSE-ONLY document, whose preamble IS its content.
+    --force    Overwrite content even if it has been edited. Use with caution.
+
+v3.19.1 — the Foreword is the first prose-only document: no articles, whole text
+in `preamble`. It is seeded ahead of the chapter vote and stays invisible to
+members until the `cnb_foreword` feature flag is enabled. Seeding it does NOT
+publish it; run `seed_feature_flags` too, then toggle the flag when it passes.
 """
 
 from django.core.management.base import BaseCommand
@@ -52,11 +59,18 @@ class Command(BaseCommand):
 
         for doc_data in DOCUMENTS:
             doc_type = doc_data['doc_type']
+            # v3.19.1: a document with no articles keeps its entire text in
+            # `preamble` (the Foreword). That makes the preamble CONTENT for
+            # such a document, not metadata — see the guard in the update
+            # branch below.
+            is_prose_only = not doc_data.get('articles')
+
             doc, created = GoverningDocument.objects.get_or_create(
                 doc_type=doc_type,
                 defaults={
                     'title': doc_data['title'],
                     'preamble': doc_data.get('preamble', ''),
+                    'display_order': doc_data.get('display_order', 0),
                     'amendment_protection_weeks': doc_data.get('amendment_protection_weeks', 15),
                 },
             )
@@ -68,10 +82,31 @@ class Command(BaseCommand):
                 )
             elif update:
                 doc.title = doc_data['title']
-                doc.preamble = doc_data.get('preamble', doc.preamble)
+                doc.display_order = doc_data.get('display_order', doc.display_order)
                 doc.amendment_protection_weeks = doc_data.get(
                     'amendment_protection_weeks', doc.amendment_protection_weeks
                 )
+
+                # ⚠️ v3.19.1 — `--update` MUST NOT CLOBBER A PROSE-ONLY DOCUMENT.
+                # This command's contract is that `--update` refreshes metadata
+                # and never overwrites content someone has edited; `--force` is
+                # the escape hatch. That contract was written when content only
+                # ever lived in Section.content, and it silently stopped holding
+                # the moment a document existed whose text is its preamble.
+                # Editing the Foreword in the C&B manager and then running
+                # `--update` — a command documented as safe — would have thrown
+                # the edit away with no warning.
+                if is_prose_only and not force:
+                    if doc.preamble != doc_data.get('preamble', ''):
+                        self.stdout.write(
+                            self.style.WARNING(
+                                f'    ! Kept edited text for {doc.get_doc_type_display()} '
+                                f'(prose-only document; use --force to overwrite it)'
+                            )
+                        )
+                else:
+                    doc.preamble = doc_data.get('preamble', doc.preamble)
+
                 doc.save()
                 total_docs += 1
                 self.stdout.write(

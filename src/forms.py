@@ -1,7 +1,7 @@
 from django import forms
 from django.conf import settings
 from .models import (
-    Legislation, Announcement, Event, CommitteeDocument, Committee,
+    Legislation, LegislationDraft, Announcement, Event, CommitteeDocument, Committee,
     PassedResolution, ResolutionSectionImpact, KaiReport, UserPreferences,
     ParliamentUser, Role, ServicePeriod, ServiceMemberExpectation, ServiceHoursSubmission,
     Song, SongCategory
@@ -78,6 +78,98 @@ class LegislationForm(forms.ModelForm):
                 raise forms.ValidationError('Unable to verify file type. Please try again.')
 
         return file
+
+
+class LegislationDraftForm(forms.ModelForm):
+    """
+    v3.19.0 — the My Work draft editor.
+
+    ⚠️ THIS FORM IS DELIBERATELY MORE PERMISSIVE THAN `LegislationForm`, and the
+    asymmetry is the point. `LegislationForm.clean` requires a document OR 20+
+    characters of description, because a bill going to the chapter must be
+    readable. A *draft* is a work in progress — refusing to save an unfinished
+    one is how you get people writing bills in a Google Doc instead.
+
+    The floor is not dropped, only moved: `LegislationDraft.ready_to_publish()`
+    applies exactly the same rule at publish time, and the My Work page greys
+    out the publish button and says which half is missing. Validation belongs at
+    the boundary the promise is made at, not at every keystroke before it.
+    """
+
+    class Meta:
+        model = LegislationDraft
+        fields = [
+            'title', 'description', 'document',
+            'planned_available_at', 'planned_voting_ends_at',
+            'notes', 'vote_mode', 'required_percentage',
+            'anonymous_vote', 'allow_abstain',
+        ]
+        widgets = {
+            'planned_available_at': forms.DateTimeInput(attrs={
+                'type': 'datetime-local',
+                'class': 'w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent',
+            }),
+            'planned_voting_ends_at': forms.DateTimeInput(attrs={
+                'type': 'datetime-local',
+                'class': 'w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent',
+            }),
+            'description': forms.Textarea(attrs={
+                'rows': 6,
+                'class': 'w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent',
+            }),
+            'notes': forms.Textarea(attrs={
+                'rows': 3,
+                'placeholder': 'Only you can see this. Not copied to the published bill.',
+                'class': 'w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent',
+            }),
+            'title': forms.TextInput(attrs={
+                'class': 'w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent',
+            }),
+        }
+        help_texts = {
+            'planned_available_at': 'When you intend to present this. Leave blank while you are still deciding — you will need it to publish.',
+            'planned_voting_ends_at': 'Optional: when voting should close automatically.',
+            'document': 'Optional while drafting. PDF or DOCX, 20 MB max.',
+            'notes': 'Private to you. Never copied to the published bill.',
+        }
+
+    def clean_document(self):
+        file = self.cleaned_data.get('document')
+        if not file:
+            return file
+
+        if not file.name.lower().endswith(('.pdf', '.docx')):
+            raise forms.ValidationError('Only PDF and DOCX files are allowed.')
+
+        if file.size > 20 * 1024 * 1024:
+            raise forms.ValidationError('File size must not exceed 20 MB.')
+
+        # MIME sniff to stop extension spoofing — same check as LegislationForm.
+        # It matters here even though a draft is private, because publish copies
+        # the file across to the real bill WITHOUT re-validating it. This is the
+        # only place the draft's document is ever checked.
+        try:
+            mime = magic.from_buffer(file.read(2048), mime=True)
+            file.seek(0)
+            allowed_mimes = [
+                'application/pdf',
+                'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            ]
+            if mime not in allowed_mimes:
+                raise forms.ValidationError(
+                    f'Invalid file type. Expected PDF or DOCX, but got {mime}.'
+                )
+        except forms.ValidationError:
+            # v3.19.0 — re-raise BEFORE the bare handler below. LegislationForm's
+            # version of this block swallows its own ValidationError into the
+            # generic "Unable to verify file type" message, which is why a
+            # spoofed .pdf reports a confusing error there. Do not copy that.
+            raise
+        except Exception:
+            raise forms.ValidationError('Unable to verify file type. Please try again.')
+
+        return file
+
 
 class AnnouncementForm(forms.ModelForm):
     visible_to = forms.MultipleChoiceField(

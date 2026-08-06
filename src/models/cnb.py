@@ -4,10 +4,22 @@ from django.conf import settings
 
 class GoverningDocument(models.Model):
     DOCUMENT_TYPES = [
+        ('foreword', 'Foreword'),
         ('constitution', 'Constitution'),
         ('bylaws', 'Bylaws'),
         ('appendix', 'Appendix'),
     ]
+
+    #: v3.19.1 — the feature flag that shows each document to members.
+    #: One flag per document so any of them can be pulled without a deploy.
+    #: See `enabled()` below, and `FeatureFlag.DISABLED_BY_DEFAULT` for why
+    #: `cnb_foreword` is the one that must fail CLOSED.
+    FLAG_FOR_DOC_TYPE = {
+        'foreword': 'cnb_foreword',
+        'constitution': 'cnb_constitution',
+        'bylaws': 'cnb_bylaws',
+        'appendix': 'cnb_appendix',
+    }
 
     doc_type = models.CharField(max_length=20, choices=DOCUMENT_TYPES, unique=True)
     title = models.CharField(
@@ -31,12 +43,90 @@ class GoverningDocument(models.Model):
         )
     )
 
+    display_order = models.PositiveIntegerField(
+        default=0,
+        help_text=(
+            'Order this document appears in the viewer and table of contents. '
+            'Foreword 0, Constitution 10, Bylaws 20, Appendix 30 — gaps left so '
+            'a document can be inserted without renumbering.'
+        ),
+    )
+
     class Meta:
+        # ⚠️ v3.19.1 — THIS ORDERING DID NOT EXIST BEFORE, AND ITS ABSENCE WAS
+        # ABOUT TO BECOME VISIBLE. Every query in view/officer/cnb.py is a bare
+        # `.all()`, and with no Meta.ordering the database is free to return
+        # rows in any order it likes. It happened to look right because the
+        # three documents were seeded in reading order and rarely updated —
+        # Postgres returns unmodified rows roughly in insertion order, until an
+        # UPDATE moves one, at which point the viewer silently reorders.
+        #
+        # A Foreword makes that latent bug certain rather than likely: it is
+        # created LAST (it is the new row) and must render FIRST. Without an
+        # explicit order it would have appeared after the Appendix, and the
+        # cause would have looked like a template problem.
+        ordering = ['display_order', 'doc_type']
         verbose_name = 'Governing Document'
         verbose_name_plural = 'Governing Documents'
 
     def __str__(self):
         return self.get_doc_type_display()
+
+    @property
+    def is_prose_only(self):
+        """
+        True for a document whose text lives entirely in `preamble` with no
+        Articles — the Foreword is the only one today.
+
+        Derived rather than stored: a flag would be one more thing to keep in
+        step with reality, and reality here is simply "does it have articles".
+        Templates use this to label the prose block correctly, since calling a
+        Foreword a "Preamble" is the sort of wrong word nobody fixes later.
+        """
+        return not self.articles.exists()
+
+    @classmethod
+    def enabled_doc_types(cls):
+        """
+        The doc_types whose feature flag is currently on.
+
+        ⚠️ READ `FeatureFlag.is_feature_enabled`'s DOCSTRING BEFORE CHANGING
+        THIS. Flags fail OPEN in Python — a missing row returns True — unless
+        the name is in `DISABLED_BY_DEFAULT`. That default is right for the
+        three documents already in force (a DB with no flag rows should show
+        the Constitution, not hide it) and catastrophically wrong for the
+        Foreword, which is unpassed governance: an unseeded flag would PUBLISH
+        it. `cnb_foreword` is therefore listed in `DISABLED_BY_DEFAULT`, which
+        is the only thing making this fail closed. Do not remove it there
+        without changing the logic here.
+        """
+        from src.models_feature_flags import FeatureFlag
+
+        return [
+            doc_type
+            for doc_type, flag in cls.FLAG_FOR_DOC_TYPE.items()
+            if FeatureFlag.is_feature_enabled(flag)
+        ]
+
+    @classmethod
+    def enabled(cls):
+        """
+        Documents members are allowed to see. **Member-facing surfaces only.**
+
+        Officer management (`/officers/cnb/*`) deliberately does NOT use this —
+        you have to be able to edit a document before you turn it on, which is
+        the entire workflow the Foreword exists for. `manage_document` and the
+        CNB dashboard therefore keep querying every row.
+
+        A doc_type with no entry in `FLAG_FOR_DOC_TYPE` is treated as visible,
+        so adding a fifth document type without a flag fails toward the old
+        behaviour rather than vanishing with no error.
+        """
+        known = set(cls.FLAG_FOR_DOC_TYPE)
+        allowed = set(cls.enabled_doc_types())
+        return cls.objects.exclude(
+            models.Q(doc_type__in=known) & ~models.Q(doc_type__in=allowed)
+        )
 
 
 class Article(models.Model):

@@ -25,6 +25,14 @@ SCHEDULES = [
         'task': 'tasks.auto_open_close_chapter_votes',
         'interval': {'every': 1, 'period': IntervalSchedule.MINUTES},
     },
+    # v3.19.0 — announce bills when available_at arrives, not when they are
+    # saved. Every minute, same cadence as the open/close tasks, because a bill
+    # becoming available is the same kind of scheduled transition.
+    {
+        'name': 'Notify chapter of newly available legislation',
+        'task': 'tasks.notify_available_legislation',
+        'interval': {'every': 1, 'period': IntervalSchedule.MINUTES},
+    },
     {
         'name': 'Auto open/close committee votes',
         'task': 'tasks.auto_open_close_committee_votes',

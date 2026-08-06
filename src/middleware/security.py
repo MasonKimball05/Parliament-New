@@ -387,9 +387,22 @@ class InputSanitizationMiddleware:
 
     def __init__(self, get_response):
         self.get_response = get_response
-        # Paths to skip checking (e.g., admin that has its own handling,
-        # or officer pages that accept rich HTML content with legitimate CSS/HTML)
-        self.skip_paths = [
+        # Paths to skip PATTERN SCANNING on (e.g., admin that has its own
+        # handling, or officer pages that accept rich HTML content with
+        # legitimate CSS/HTML).
+        #
+        # ⚠️ v3.18.7 — READ THIS BEFORE ADDING A SECOND USE FOR THIS LIST.
+        # This list means one thing only: "the CONTENT of requests to these
+        # paths trips the SQLi/XSS regexes, so do not scan it." It is not a
+        # statement that these paths are trusted, exempt from security, or
+        # cheap. Until v3.18.7 the IPBlacklist gate sat below the early return
+        # that consumes this list, under a comment claiming it applied to "all
+        # requests" — so an IP you had explicitly blocked could still reach
+        # /admin/ and could still POST to the public /contact/submit/ form.
+        # The honeypot auto-blacklists scanners specifically so that gate
+        # blocks them (view/honeypot.py:120), and /admin/ is where scanners go
+        # next. The gate now runs above the early return; keep it there.
+        self.skip_scan_paths = [
             '/admin/',
             '/static/',
             '/media/',
@@ -398,6 +411,19 @@ class InputSanitizationMiddleware:
             '/officers/edit-landing-page/',  # Rich HTML editor — CSS semicolons trigger false positives
             '/contact/submit/',              # Public contact form — free-text messages trigger false positives
             '/legislation/',                 # Officer notes are free-text and may contain SQL-like patterns
+        ]
+        # (Renamed from `skip_paths` in v3.18.7 so the name says what the list
+        # governs. Verified no other reader in the tree, so no alias is kept —
+        # a compatibility shim nobody needs is one more thing to believe.)
+        #
+        # Paths exempt from the IPBlacklist gate. Deliberately much shorter
+        # than the scan list: these are served by nginx in production and never
+        # reach Django there, so the exemption is a cost saving in dev and
+        # nothing more. /media/ additionally has its own @login_required gate
+        # (serve_media.py, v3.14.1).
+        self.blacklist_exempt_paths = [
+            '/static/',
+            '/media/',
         ]
         # Maximum input length before truncating for logging
         self.max_log_length = 500
@@ -413,26 +439,34 @@ class InputSanitizationMiddleware:
 
         ip_address = self.get_client_ip(request)
 
-        # Skip checking for static files and certain paths
-        if any(request.path.startswith(path) for path in self.skip_paths):
+        # --- IPBlacklist gate ---
+        # v3.18.7: this now runs ABOVE the pattern-scan early return, so it
+        # applies to /admin/ and /contact/submit/ too. Exempt only what
+        # `blacklist_exempt_paths` names, and see the ⚠️ in __init__ for why the
+        # two lists must not be merged back together. Cached 5 minutes on BOTH
+        # outcomes (the `is None` test, not a falsiness test, is what makes a
+        # cached negative a hit rather than a re-query), so moving it up adds no
+        # measurable per-request cost.
+        if not any(request.path.startswith(p) for p in self.blacklist_exempt_paths):
+            blacklist_cache_key = f'ip_blacklisted_{ip_address}'
+            is_blacklisted = cache.get(blacklist_cache_key)
+            if is_blacklisted is None:
+                try:
+                    from src.models import IPBlacklist
+                    is_blacklisted = IPBlacklist.objects.filter(ip_address=ip_address, is_active=True).exists()
+                except Exception:
+                    is_blacklisted = False
+                cache.set(blacklist_cache_key, is_blacklisted, 300)
+            if is_blacklisted:
+                logger.warning(
+                    f"BLACKLISTED_IP_BLOCKED: {ip_address} attempted {request.method} {request.path}"
+                )
+                return _render_403(request, 'Your IP address has been blocked. Contact an administrator if you believe this is an error.')
+
+        # Skip pattern scanning for static files and certain paths
+        if any(request.path.startswith(path) for path in self.skip_scan_paths):
             response = self.get_response(request)
             return self.add_security_headers(response, request.csp_nonce, path=request.path, request=request)
-
-        # Enforce IPBlacklist for all requests (cache result for 5 minutes to avoid per-request DB hits)
-        blacklist_cache_key = f'ip_blacklisted_{ip_address}'
-        is_blacklisted = cache.get(blacklist_cache_key)
-        if is_blacklisted is None:
-            try:
-                from src.models import IPBlacklist
-                is_blacklisted = IPBlacklist.objects.filter(ip_address=ip_address, is_active=True).exists()
-            except Exception:
-                is_blacklisted = False
-            cache.set(blacklist_cache_key, is_blacklisted, 300)
-        if is_blacklisted:
-            logger.warning(
-                f"BLACKLISTED_IP_BLOCKED: {ip_address} attempted {request.method} {request.path}"
-            )
-            return _render_403(request, 'Your IP address has been blocked. Contact an administrator if you believe this is an error.')
 
         # Authenticated users are already past auth/CSRF/session checks.
         # Django's ORM parameterizes all queries and templates auto-escape output,

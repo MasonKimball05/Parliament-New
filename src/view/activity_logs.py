@@ -225,9 +225,13 @@ def export_activity_logs(request):
     if search_query:
         logs = logs.filter(audit_search_q(search_query, request.user))
 
-    # v3.18.4 — bounded. See `EXPORT_LIMIT`. `truncated` drives a first CSV row
-    # saying so, because a silently short export is worse than a refused one:
-    # the reader cannot tell a complete history from a clipped one.
+    # v3.18.4 — bounded. See `EXPORT_LIMIT`. `truncated` drives a TRAILING CSV
+    # row saying so, because a silently short export is worse than a refused
+    # one: the reader cannot tell a complete history from a clipped one.
+    # (v3.18.5 moved the banner from first row to last and explained why forty
+    # lines below, but left this comment saying "first" — so the file stated
+    # both. Corrected v3.18.7. The rule it violated is this codebase's own:
+    # don't leave a claim in a document nobody revisits.)
     total_matched = logs.count()
     truncated = total_matched > EXPORT_LIMIT
     logs = logs[:EXPORT_LIMIT]

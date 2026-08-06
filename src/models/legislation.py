@@ -109,6 +109,27 @@ class Legislation(models.Model):
         help_text="Voting stays closed until the author opens it manually "
                   "(only meaningful while voting_starts_at is empty)")
     created_at = models.DateTimeField(auto_now_add=True)
+
+    #: v3.19.0 — when the chapter was told this bill exists.
+    #:
+    #: Before this, `upload_legislation._notify()` fired the moment the row was
+    #: saved, even for a bill dated three weeks out: everyone got "New
+    #: Legislation" for something they could not open. The notification now
+    #: fires when `available_at` actually arrives (see
+    #: `tasks.notify_available_legislation`), and this column is what makes
+    #: that idempotent — the task claims a row by stamping it, so a beat that
+    #: runs twice, or a worker that dies mid-loop, cannot double-notify.
+    #:
+    #: ⚠️ NULL MEANS "NOT YET ANNOUNCED", so every row that existed before this
+    #: field did is backfilled in migration 0014. Without that backfill the
+    #: first beat tick after deploy would treat the entire historical table as
+    #: unannounced and push one notification per bill to every active member.
+    availability_notified_at = models.DateTimeField(
+        null=True, blank=True,
+        help_text='When the chapter was notified this became available. '
+                  'NULL means not yet announced.',
+    )
+
     voting_ends_at = models.DateTimeField(null=True, blank=True, help_text="Optional: When voting should automatically close")
     voting_ended_at = models.DateTimeField(null=True, blank=True)
     passed = models.BooleanField(default=False)
@@ -321,6 +342,144 @@ class Legislation(models.Model):
     def get_unique_voter_count(self):
         """Get the number of unique voters (for multi-select plurality)."""
         return Vote.objects.filter(legislation=self).values('user').distinct().count()
+
+
+class LegislationDraft(models.Model):
+    """
+    A bill an author is still writing — private to them until they publish it.
+
+    ⚠️ WHY THIS IS A SEPARATE MODEL AND NOT `Legislation.is_draft` (v3.19.0).
+    ============================================================================
+    The obvious implementation is a boolean on `Legislation`. It was rejected
+    deliberately, and the reason is worth keeping because it will look like
+    over-engineering to the next reader.
+
+    `Legislation` is queried from **35+ places**: every view in `src/view/`,
+    `src/api/views.py`, `global_search.py`, four Celery tasks, `admin.py`,
+    `chapter_stats.py` and five management commands. A boolean means every one
+    of those has to remember to exclude drafts. That is the exact failure shape
+    this codebase has paid for in five consecutive releases (v3.16.3, v3.18.1,
+    v3.18.3, v3.18.4, v3.18.5) — *a rule stated correctly, a helper written to
+    enforce it, then one call site left outside the helper* — except that here
+    the consequence is an unfinished bill appearing on the chapter ballot.
+
+    Filtering in the default manager instead fails closed, but breaks the
+    reverse related managers: `user.co_authored_legislation.all()` is used by
+    the user-merge code in `admin.py:440` and `manage_members.py:482`, and a
+    filtered default manager would silently drop a draft's co-authorship during
+    a merge. `_base_manager` stays unfiltered, so FK traversal would disagree
+    with `_default_manager` about whether a row exists — two answers to one
+    question, which is the "second copy" pattern again.
+
+    **A separate table has neither problem by construction.** A draft cannot
+    leak into a `Legislation` queryset because it is not in that table. The
+    migration is purely additive: nothing that works today changes.
+
+    The cost is that the publish step copies fields across. That is a real cost
+    and it is the right one to pay — a copy that is visibly wrong beats a
+    filter that is invisibly missing.
+
+    NOT stored here, deliberately: vote counts, `passed`, `voting_closed`,
+    `status`. A draft has never been voted on, so those fields would be
+    meaningless and would invite someone to render a draft through a template
+    built for a real bill.
+    """
+
+    author = models.ForeignKey(
+        'ParliamentUser',
+        on_delete=models.CASCADE,
+        related_name='legislation_drafts',
+        help_text='Only this member can see, edit or publish the draft.',
+    )
+
+    title = models.CharField(max_length=200)
+    description = models.TextField(
+        blank=True,
+        help_text='Working text. Unlike Legislation, a draft may be empty — '
+                  'the 20-character floor is enforced at publish, not while writing.',
+    )
+    document = models.FileField(
+        upload_to='legislation_drafts/',
+        validators=[validate_legislation_file],
+        storage=DualLocationStorage(),
+        blank=True, null=True,
+    )
+
+    #: What the author intends `Legislation.available_at` to be. Nullable
+    #: because a draft is allowed to be undated; publish requires a value.
+    planned_available_at = models.DateTimeField(
+        null=True, blank=True,
+        help_text='When you intend to present this. Becomes available_at at publish.',
+    )
+    planned_voting_ends_at = models.DateTimeField(null=True, blank=True)
+
+    #: Author-only scratch space. Never copied to the published bill — this is
+    #: the field that makes a draft worth having rather than just an early
+    #: upload, and it must not survive publication.
+    notes = models.TextField(
+        blank=True,
+        help_text='Private notes. Never copied to the published bill.',
+    )
+
+    vote_mode = models.CharField(
+        max_length=20,
+        choices=[('percentage', 'Percentage'), ('piecewise', 'Piecewise'), ('plurality', 'Plurality')],
+        default='percentage',
+    )
+    required_percentage = models.CharField(
+        max_length=10, choices=Legislation.VOTE_THRESHOLDS, default='51',
+    )
+    anonymous_vote = models.BooleanField(default=False)
+    allow_abstain = models.BooleanField(default=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    #: Set once the draft has been turned into a real bill. The draft row is
+    #: KEPT rather than deleted so the author's My Work page can show the link,
+    #: and so `notes` remain available to them afterwards.
+    published_legislation = models.ForeignKey(
+        Legislation,
+        null=True, blank=True,
+        on_delete=models.SET_NULL,
+        related_name='source_draft',
+    )
+    published_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-updated_at']
+        verbose_name = 'Legislation Draft'
+        verbose_name_plural = 'Legislation Drafts'
+        indexes = [
+            # ⚠️ The name is explicit, not auto-generated. Django derives an
+            # index name from a hash of the table and columns when you omit it,
+            # and migration 0014 is hand-written — an auto name in the model and
+            # a chosen one in the migration disagree, and `makemigrations
+            # --check` (the CI gate from v3.18.1) fails on the difference. Naming
+            # it in both places is what makes the two agree.
+            models.Index(fields=['author', '-updated_at'], name='src_legdraft_author_upd_idx'),
+        ]
+
+    def __str__(self):
+        return f'Draft: {self.title}'
+
+    @property
+    def is_published(self):
+        return self.published_legislation_id is not None
+
+    def ready_to_publish(self):
+        """
+        `(ok: bool, reason: str)` — the same floor `LegislationForm.clean`
+        applies, checked here so the My Work page can grey out the button and
+        say why instead of failing on submit.
+        """
+        if self.is_published:
+            return False, 'This draft has already been published.'
+        if not self.planned_available_at:
+            return False, 'Set a date for when this becomes available.'
+        if not self.document and len((self.description or '').strip()) < 20:
+            return False, 'Attach a document or write at least 20 characters of description.'
+        return True, ''
 
 
 class Vote(models.Model):

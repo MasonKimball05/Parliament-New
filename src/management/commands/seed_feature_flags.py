@@ -114,6 +114,66 @@ class Command(BaseCommand):
                 'category': 'admin',
                 'is_enabled': False,  # Require manual approval by default (safer)
             },
+
+            # ── Constitution & Bylaws, one flag per document (v3.19.1) ───────
+            #
+            # These gate `GoverningDocument.enabled()`, which is what the
+            # member-facing viewer and the resolution reference pickers query.
+            # Officer management at /officers/cnb/* is deliberately NOT gated —
+            # a document has to be editable before it is turned on.
+            #
+            # ⚠️ These four gate REAL BEHAVIOUR. CLAUDE.md records 16 seeded
+            # flags that gate nothing and are a handoff hazard precisely because
+            # they look like they do something; do not let these become the
+            # 17th through 20th. If a future change stops consulting
+            # `GoverningDocument.enabled()`, delete these rows in the same
+            # commit.
+            {
+                'name': 'cnb_foreword',
+                'display_name': 'C&B — Foreword',
+                'description': (
+                    'Show the Foreword on /constitution-bylaws/. '
+                    'OFF until the new Constitution and Bylaws pass chapter vote — the '
+                    'seeded text is the real foreword, staged ahead of the vote. '
+                    'This flag is also listed in FeatureFlag.DISABLED_BY_DEFAULT, '
+                    'so a missing row reads as DISABLED rather than enabled; that is '
+                    'deliberate and is what stops an un-seeded install publishing '
+                    'unpassed governance.'
+                ),
+                'category': 'documents',
+                'is_enabled': False,
+            },
+            {
+                'name': 'cnb_constitution',
+                'display_name': 'C&B — Constitution',
+                'description': (
+                    'Show the Constitution on /constitution-bylaws/ and in the '
+                    'resolution reference picker. On by default — this is governance '
+                    'in force. Turn off only to stage a replacement.'
+                ),
+                'category': 'documents',
+                'is_enabled': True,
+            },
+            {
+                'name': 'cnb_bylaws',
+                'display_name': 'C&B — Bylaws',
+                'description': (
+                    'Show the Bylaws on /constitution-bylaws/ and in the resolution '
+                    'reference picker. On by default — this is governance in force.'
+                ),
+                'category': 'documents',
+                'is_enabled': True,
+            },
+            {
+                'name': 'cnb_appendix',
+                'display_name': 'C&B — Appendix',
+                'description': (
+                    'Show the Appendix on /constitution-bylaws/ and in the resolution '
+                    'reference picker. On by default — this is governance in force.'
+                ),
+                'category': 'documents',
+                'is_enabled': True,
+            },
         ]
 
         for flag_data in feature_flags:

@@ -92,6 +92,14 @@
                                 Art. {{ article.number }} — {{ article.title }}
                                 {% if not article.is_active %}<span class="text-xs text-amber-500 no-underline not-italic">(suspended)</span>{% endif %}
                             </a>
+                            {% empty %}
+                            {# v3.19.1 — a prose-only document (the Foreword) has no articles, so
+                               without this the sidebar showed a heading above an empty nav and
+                               there was no way to jump to it. Links to the document itself. #}
+                            <a href="#{{ doc.doc_type }}"
+                               class="block text-sm text-gray-700 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 transition-colors py-0.5 pl-2 border-l-2 border-transparent hover:border-primary-400">
+                                Read {{ doc.get_doc_type_display }}
+                            </a>
                             {% endfor %}
                         </nav>
                     </div>
@@ -111,11 +119,19 @@
             <!-- Document body -->
             <div class="lg:col-span-3 space-y-10">
                 {% for doc in documents %}
-                <div>
+                <div id="{{ doc.doc_type }}">
                     <h2 class="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-1">{{ doc.title }}</h2>
                     {% if doc.preamble %}
                     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-6 text-sm text-gray-700 dark:text-gray-300 leading-relaxed border-l-4 border-primary-300 dark:border-primary-700">
-                        <p class="text-xs font-semibold text-primary-600 dark:text-primary-400 uppercase tracking-wide mb-3">Preamble</p>
+                        {# v3.19.1 — a prose-only document (the Foreword) keeps its whole text in
+                           `preamble`, so this block is the document, not an introduction to it.
+                           Labelling it "Preamble" would be the wrong word in the one place a
+                           reader looks first — and wrong words in templates do not get fixed
+                           later, they get quoted back. `is_prose_only` reads the prefetched
+                           articles relation, so it costs no query here. #}
+                        <p class="text-xs font-semibold text-primary-600 dark:text-primary-400 uppercase tracking-wide mb-3">
+                            {% if doc.is_prose_only %}{{ doc.get_doc_type_display }}{% else %}Preamble{% endif %}
+                        </p>
                         {{ doc.preamble|linebreaks }}
                     </div>
                     {% endif %}

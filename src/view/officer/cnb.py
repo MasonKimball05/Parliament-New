@@ -33,7 +33,14 @@ def cnb_viewer(request):
     Tab is selected via ?tab= query param: 'document' (default), 'resolutions', 'manage'.
     The 'manage' tab is only shown to CNB permission holders.
     """
-    documents = GoverningDocument.objects.prefetch_related('articles__sections').all()
+    # v3.19.1: `.enabled()` rather than `.objects.all()` — one feature flag per
+    # document (`cnb_foreword` / `cnb_constitution` / `cnb_bylaws` /
+    # `cnb_appendix`), so a document can be pulled or staged without a deploy.
+    # This is the MEMBER-facing surface; officer management below deliberately
+    # keeps querying every row, because a document has to be editable before it
+    # can be turned on. Ordering now comes from Meta (v3.19.1) instead of from
+    # whatever the database happened to return.
+    documents = GoverningDocument.enabled().prefetch_related('articles__sections')
     # v3.17.3: `created_by` was joined and never read by cnb/viewer.html.
     #
     # v3.17.5: `prefetch_related('amendments')` REMOVED and replaced with a
@@ -340,9 +347,12 @@ def resolution_detail(request, resolution_id):
     ).exists()
     can_edit = is_editable_status and (is_cnb or is_editor_collab)
 
-    # Section selector for the amendment modal — only needed by editors
+    # Section selector for the amendment modal — only needed by editors.
+    # v3.19.1: gated. A document that is switched off should not be amendable,
+    # and a resolution written against one would be invisible to the chapter it
+    # governs.
     documents = (
-        GoverningDocument.objects.prefetch_related('articles__sections').all()
+        GoverningDocument.enabled().prefetch_related('articles__sections')
         if can_edit else []
     )
 
@@ -377,7 +387,7 @@ def create_resolution(request):
         notes = request.POST.get('additional_notes', '').strip()
         vote_date_raw = request.POST.get('vote_date', '').strip()
 
-        ref_docs = GoverningDocument.objects.prefetch_related('articles__sections').all()
+        ref_docs = GoverningDocument.enabled().prefetch_related('articles__sections')  # v3.19.1: per-document flags
 
         if not title:
             messages.error(request, 'A title is required.')
@@ -406,7 +416,7 @@ def create_resolution(request):
         messages.success(request, f'Resolution "{title}" created.')
         return redirect('cnb_resolution_detail', resolution_id=resolution.pk)
 
-    ref_docs = GoverningDocument.objects.prefetch_related('articles__sections').all()
+    ref_docs = GoverningDocument.enabled().prefetch_related('articles__sections')  # v3.19.1: per-document flags
     return render(request, 'cnb/resolution_form.html', {'action': 'Create', 'ref_docs': ref_docs})
 
 
@@ -451,7 +461,7 @@ def edit_resolution(request, resolution_id):
             return redirect(reverse('cnb_resolution_print', kwargs={'resolution_id': resolution.pk}) + '?from_save=1')
         return redirect('cnb_resolution_detail', resolution_id=resolution.pk)
 
-    ref_docs = GoverningDocument.objects.prefetch_related('articles__sections').all()
+    ref_docs = GoverningDocument.enabled().prefetch_related('articles__sections')  # v3.19.1: per-document flags
     context = {'resolution': resolution, 'action': 'Edit', 'ref_docs': ref_docs}
     return render(request, 'cnb/resolution_form.html', context)
 
