@@ -67,11 +67,16 @@ class MaintenanceModeMiddleware:
         return False
 
     def _get_client_ip(self, request):
-        """Get client IP address"""
-        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
-        if x_forwarded_for:
-            return x_forwarded_for.split(',')[-1].strip()
-        return request.META.get('REMOTE_ADDR', 'unknown')
+        """
+        Get client IP address.
+
+        v3.18.8: delegates instead of reimplementing — the inline version
+        ignored BEHIND_CLOUDFLARE and logged the Cloudflare edge. Every other
+        middleware in this package already imported the helper; this one was
+        the odd one out. See the note in models/activity.py.
+        """
+        from src.utils.security_utils import get_client_ip
+        return get_client_ip(request) or 'unknown'
 
     def _increment_blocked_count(self):
         """Increment the blocked request counter for admin stats"""

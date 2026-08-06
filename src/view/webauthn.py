@@ -254,7 +254,11 @@ def passkey_authenticate_complete(request):
     ).first()
 
     if not db_cred:
-        security_logger.warning(f'Passkey auth: unknown credential ID from {request.META.get("REMOTE_ADDR")}')
+        # v3.18.8: was REMOTE_ADDR, which behind nginx's unix socket is the
+        # socket peer, not the visitor. `get_client_ip` is already imported at
+        # the top of this module and used elsewhere in it — this line was the
+        # one that missed.
+        security_logger.warning(f'Passkey auth: unknown credential ID from {get_client_ip(request)}')
         return JsonResponse({'error': 'Unknown credential.'}, status=400)
 
     try:

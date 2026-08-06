@@ -3020,12 +3020,17 @@ def lockdown_control(request):
 
         return redirect('admin_v2_lockdown')
 
-    # Get current IP for whitelisting suggestion
-    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
-    if x_forwarded_for:
-        current_ip = x_forwarded_for.split(',')[-1].strip()
-    else:
-        current_ip = request.META.get('REMOTE_ADDR', 'unknown')
+    # Get current IP for whitelisting suggestion.
+    #
+    # ⚠️ v3.18.8 — THIS ONE HAD TEETH. The inline parse it replaces ignored
+    # BEHIND_CLOUDFLARE and returned the Cloudflare edge, and this value is
+    # offered to an admin as "the IP to whitelist" while activating EMERGENCY
+    # LOCKDOWN. Whitelisting a Cloudflare edge does not whitelist you — it
+    # whitelists every visitor Cloudflare happens to route through that edge,
+    # which during a lockdown plausibly includes whoever you locked down for.
+    # A whitelist that admits the attacker is worse than no lockdown at all.
+    from src.utils.security_utils import get_client_ip
+    current_ip = get_client_ip(request) or 'unknown'
 
     return render(request, 'admin_v2/lockdown_control.html', {
         'lockdown': lockdown,

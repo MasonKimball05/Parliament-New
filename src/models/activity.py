@@ -199,13 +199,30 @@ class ActivityLog(models.Model):
         # Extract IP and user agent from request if provided
         if request:
             if not ip_address:
-                # Check X-Forwarded-For header first (for requests behind proxy/load balancer)
-                x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
-                if x_forwarded_for:
-                    # Take the rightmost IP — nginx appends the real client IP there.
-                    ip_address = x_forwarded_for.split(',')[-1].strip()
-                else:
-                    ip_address = request.META.get('REMOTE_ADDR')
+                # ⚠️ v3.18.8 — USE THE HELPER. DO NOT INLINE THIS AGAIN.
+                #
+                # This block used to parse X-Forwarded-For itself and take the
+                # rightmost entry, with a comment saying "nginx appends the real
+                # client IP there." That is true of nginx alone and FALSE once
+                # Cloudflare sits in front of it: nginx's socket peer is then the
+                # Cloudflare edge, so the rightmost entry is Cloudflare and the
+                # visitor's address — which Cloudflare puts earlier in the header
+                # and also in CF-Connecting-IP — was discarded.
+                #
+                # Result, found 08-06-26 from a prod activity-log export: EVERY IP
+                # in this table was a Cloudflare edge. Members' logins and a
+                # 47-attempt credential-stuffing burst were recorded from the same
+                # address pool, so the log could not tell them apart. `.env` had
+                # BEHIND_CLOUDFLARE=True the whole time and it worked everywhere it
+                # was consulted — this function simply never asked.
+                #
+                # `get_client_ip` is the single place that knows about the proxy
+                # chain, and knows why rightmost-is-safe holds without Cloudflare
+                # and not with it. There were five copies of this logic; there is
+                # now one, and `src/test_client_ip_single_source.py` fails if a
+                # sixth appears.
+                from src.utils.security_utils import get_client_ip
+                ip_address = get_client_ip(request)
             if not user_agent:
                 user_agent = request.META.get('HTTP_USER_AGENT', '')[:500]
 

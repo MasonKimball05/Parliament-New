@@ -12,6 +12,7 @@ from datetime import timedelta
 from src.feature_flag_decorators import require_page_enabled
 from src.models.users import member_defer, member_prefetch
 from src.utils.visibility import visible_to_q
+from src.utils.security_utils import get_client_ip
 from src.context_processors import get_user_prefs
 
 def transition_checklist_cards(user):
@@ -40,7 +41,8 @@ def transition_checklist_cards(user):
 @require_page_enabled('home')
 @log_function_call
 def home(request):
-    logger.info(f"User: {request.user} | Authenticated: {request.user.is_authenticated} | IP: {request.META.get('REMOTE_ADDR')} | Page accessed: home")
+    # v3.18.8: was REMOTE_ADDR — the nginx socket peer, not the visitor.
+    logger.info(f"User: {request.user} | Authenticated: {request.user.is_authenticated} | IP: {get_client_ip(request)} | Page accessed: home")
 
     now = timezone.now()
     week_ago = now - timedelta(days=7)

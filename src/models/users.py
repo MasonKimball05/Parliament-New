@@ -882,12 +882,15 @@ class UserSession(models.Model):
             request.session.create()
             session_key = request.session.session_key
 
-        # Get IP address
-        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
-        if x_forwarded_for:
-            ip_address = x_forwarded_for.split(',')[-1].strip()
-        else:
-            ip_address = request.META.get('REMOTE_ADDR')
+        # Get IP address.
+        # v3.18.8: was an inline X-Forwarded-For parse that ignored
+        # BEHIND_CLOUDFLARE, so every UserSession row stored the Cloudflare edge
+        # rather than the member. That fed the Active Sessions panel AND the
+        # session-fingerprint warning's "Stored IP / Current IP" pair, which is
+        # the line someone reads when deciding whether a session was stolen.
+        # See the note in models/activity.py.
+        from src.utils.security_utils import get_client_ip
+        ip_address = get_client_ip(request)
 
         user_agent = request.META.get('HTTP_USER_AGENT', '')[:500]
         device_type, browser, operating_system = cls.parse_user_agent(user_agent)
