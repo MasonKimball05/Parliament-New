@@ -105,21 +105,38 @@ class TheDraftDoesNotAppearOnAnyChapterFacingPage(DraftTestCase):
     """
 
     #: Pages that render legislation to somebody other than its author. Each is
-    #: `(url_name, viewer_attr)`. The list is a convenience for readable failure
-    #: messages — the *guarantee* comes from the assertion being on the response
-    #: body, so adding a page here is cheap and forgetting to is not fatal the
-    #: way forgetting a queryset filter would be.
+    #: `(url_name, viewer_attr, echoes_query)`.
+    #:
+    #: ⚠️ `echoes_query` EXISTS BECAUSE THIS TEST WAS WRONG ON ITS FIRST RUN.
+    #:
+    #: Every surface is probed with `?q=SECRETBILLTITLE`, so that a page which
+    #: *does* search legislation gets a real chance to surface the draft. But
+    #: `global_search` renders the query back into its `<input value=...>` and
+    #: into *Found N results for "…"* — so the title appeared in the body of a
+    #: page whose Legislation section was empty, and the test called it a leak.
+    #:
+    #: That is this module's own stated rule, walked into: *an assertion that
+    #: cannot distinguish the bug from the fixture is not an assertion.* The
+    #: title could not distinguish "the draft was rendered" from "the search box
+    #: repeated what I typed."
+    #:
+    #: The fix is not to skip the search page — that is the surface most likely
+    #: to leak. It is to probe with tokens that are never submitted as input, so
+    #: their presence can only mean the draft object was rendered. The title
+    #: check is kept everywhere it is still meaningful.
     SURFACES = [
-        ('home', 'other'),
-        ('vote', 'other'),
-        ('passed_legislation', 'other'),
-        ('global_search', 'other'),
-        ('chapter_documents', 'other'),
-        ('view_all_activity', 'officer'),
+        ('home', 'other', False),
+        ('vote', 'other', False),
+        ('passed_legislation', 'other', False),
+        ('global_search', 'other', True),
+        ('chapter_documents', 'other', False),
+        ('view_all_activity', 'officer', False),
     ]
 
     def test_no_chapter_facing_page_renders_the_draft(self):
-        for url_name, viewer_attr in self.SURFACES:
+        draft_url = f'/legislation/drafts/{self.draft.id}/'
+
+        for url_name, viewer_attr, echoes_query in self.SURFACES:
             viewer = getattr(self, viewer_attr)
             client = self.login(viewer)
             with self.subTest(page=url_name, viewer=viewer.user_id):
@@ -131,7 +148,7 @@ class TheDraftDoesNotAppearOnAnyChapterFacingPage(DraftTestCase):
 
                 response = client.get(url, {'q': 'SECRETBILLTITLE'})
 
-                # A 302 or a 403 would make the body assertion below pass for
+                # A 302 or a 403 would make the body assertions below pass for
                 # entirely the wrong reason. Fail loudly instead — this is the
                 # control, and it is the half that v3.18.5 warned about.
                 self.assertEqual(
@@ -142,14 +159,58 @@ class TheDraftDoesNotAppearOnAnyChapterFacingPage(DraftTestCase):
                 )
 
                 body = response.content.decode('utf-8', errors='ignore')
+
+                # These three can only appear if the draft OBJECT was rendered.
+                # None of them is ever sent as input by any test in this module.
                 self.assertNotIn(
-                    'SECRETBILLTITLE', body,
-                    f'{url_name} rendered a private draft to {viewer.user_id}.',
+                    'SECRETBODYTOKEN', body,
+                    f'{url_name} rendered a private draft\'s description to '
+                    f'{viewer.user_id}.',
                 )
                 self.assertNotIn(
                     'PRIVATENOTETOKEN', body,
                     f'{url_name} rendered a draft\'s private notes to {viewer.user_id}.',
                 )
+                self.assertNotIn(
+                    draft_url, body,
+                    f'{url_name} rendered a link to a private draft for '
+                    f'{viewer.user_id}.',
+                )
+
+                # The title is only a valid probe where the page does not repeat
+                # the query back to the user.
+                if not echoes_query:
+                    self.assertNotIn(
+                        'SECRETBILLTITLE', body,
+                        f'{url_name} rendered a private draft to {viewer.user_id}.',
+                    )
+
+    def test_the_search_page_echo_is_an_echo_and_not_a_result(self):
+        """
+        The assertion that keeps `echoes_query=True` honest.
+
+        Marking a surface as "echoes the query" removes the title check from it,
+        which is exactly the kind of exemption that later hides a real leak. So
+        this pins down *why* the title appears there: the search term is
+        reflected into the form, and the legislation result set is empty.
+
+        If global_search ever does start returning drafts, the body/notes/URL
+        probes above catch it — and so does the result-count assertion here.
+        """
+        client = self.login(self.other)
+        response = client.get(reverse('global_search'), {'q': 'SECRETBILLTITLE'})
+        self.assertEqual(response.status_code, 200)
+
+        # Assert on the CONTEXT, not the HTML, so a template change cannot mask
+        # it. `global_search` builds one `results` dict and only sets the
+        # 'legislation' key when the queryset is non-empty (global_search.py:147),
+        # so an absent key and an empty list both mean "nothing matched".
+        results = response.context['results']
+        self.assertFalse(
+            results.get('legislation'),
+            'global_search returned legislation results for a private draft: '
+            f'{results.get("legislation")!r}',
+        )
 
     def test_the_control_the_author_does_see_their_own_draft(self):
         """
