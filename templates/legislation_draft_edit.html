@@ -138,10 +138,12 @@
 
 </div>
 
-{# ⚠️ `js-confirm-submit` has no global handler — each template wires its own.
-   See the note in legislation_history.html. Nonce is required: a nonce-less
-   inline script is silently dead in production (v3.15.9's lesson — dev sends no
-   CSP header, so this only breaks after deploy). #}
+{% comment %}
+⚠️ `js-confirm-submit` has no global handler — each template wires its own.
+See the note in legislation_history.html. Nonce is required: a nonce-less
+inline script is silently dead in production (v3.15.9's lesson — dev sends no
+CSP header, so this only breaks after deploy).
+{% endcomment %}
 <script nonce="{{ request.csp_nonce }}">
 document.addEventListener('DOMContentLoaded', function() {
     document.querySelectorAll('.js-confirm-submit').forEach(function(form) {

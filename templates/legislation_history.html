@@ -43,9 +43,11 @@
             Polls &amp; Surveys
             <span class="ml-1.5 text-xs opacity-60">{{ my_polls|length }}</span>
         </button>
-        {# v3.19.0 — private drafts. Count is UNPUBLISHED drafts only: a published
-           draft stays in the list for its link back to the bill, but counting it
-           here would make the badge stop matching what "drafts" means. #}
+        {% comment %}
+        v3.19.0 — private drafts. Count is UNPUBLISHED drafts only: a published
+        draft stays in the list for its link back to the bill, but counting it
+        here would make the badge stop matching what "drafts" means.
+        {% endcomment %}
         <button id="tab-btn-drafts"
                 class="flex-1 px-4 py-2 rounded-md text-sm font-medium transition-colors text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50">
             Drafts
@@ -609,10 +611,12 @@
                                 </button>
                             </form>
                             {% elif item.ready_to_publish %}
-                            {# v3.19.0 — drafting is open to every member; publishing to the
-                               chapter ballot stays officer-gated, which is the pre-existing
-                               boundary on /legislation/upload/. See the module docstring in
-                               src/view/legislation_drafts.py for how to change this. #}
+                            {% comment %}
+                            v3.19.0 — drafting is open to every member; publishing to the
+                            chapter ballot stays officer-gated, which is the pre-existing
+                            boundary on /legislation/upload/. See the module docstring in
+                            src/view/legislation_drafts.py for how to change this.
+                            {% endcomment %}
                             <span class="text-xs text-gray-500 dark:text-gray-400 px-2 py-1.5">
                                 Ready — ask an officer to present it
                             </span>

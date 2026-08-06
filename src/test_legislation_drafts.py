@@ -68,10 +68,16 @@ class DraftTestCase(TestCase):
             'drf-off-author', 'Oscar OfficerAuthor', member_type='Officer',
         )
 
+        # Three distinct probe tokens, and the split matters — see
+        # TheDraftDoesNotAppearOnAnyChapterFacingPage. The TITLE is what we
+        # search for, so a search page legitimately echoes it back and it is
+        # useless as a leak probe there. The BODY and NOTES tokens are never
+        # submitted as input by any test, so their presence in a response can
+        # only mean the draft object itself was rendered.
         self.draft = LegislationDraft.objects.create(
             author=self.author,
             title='SECRETBILLTITLE Establishing A Thing',
-            description='A description long enough to clear the twenty character floor.',
+            description='SECRETBODYTOKEN — a description long enough to clear the floor.',
             planned_available_at=timezone.now() + timedelta(days=14),
             notes='PRIVATENOTETOKEN — do not show this to anyone.',
         )
