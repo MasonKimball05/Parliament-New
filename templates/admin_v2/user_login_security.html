@@ -261,6 +261,43 @@
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-6">
         <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">⚠️ Security Actions</h2>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {% comment %}
+            v3.19.2 — Release Login Lockout.
+
+            Placed first because it is the one action here that is routine and
+            reversible: a member mistypes his password five times, gets locked
+            for 30 minutes, and texts you. Everything else in this panel is a
+            bigger decision.
+
+            Not shown conditionally on "is this user locked out", deliberately.
+            The account lockout `login_view.py` sets is cache-only and writes no
+            LoginLockout row, so there is no cheap, reliable way to ask — and a
+            button that hides itself when the state it clears is invisible is a
+            button that is missing exactly when you need it.
+            {% endcomment %}
+            <div class="border dark:border-gray-700 rounded-lg p-4">
+                <h3 class="font-bold text-gray-900 dark:text-gray-100 mb-2">Release Login Lockout</h3>
+                <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                    Clears every login rate-limit and lockout on this account — both the
+                    per-account lockout and the middleware's username bucket, including
+                    the failed-attempt counters. They can sign in immediately.
+                </p>
+                <p class="text-xs text-gray-500 dark:text-gray-500 mb-4">
+                    Does not touch IP-based lockouts — those are cleared from
+                    <a href="{% url 'admin_v2_lockouts' %}" class="underline hover:text-primary-600 dark:hover:text-primary-400">Lockout Management</a>,
+                    since an IP may be shared by several members.
+                </p>
+                <form method="post" action="{% url 'admin_v2_release_user_lockout' target_user.user_id %}"
+                      class="js-confirm-submit"
+                      data-confirm-msg="Release all login lockouts for this user?">
+                    {% csrf_token %}
+                    <button type="submit"
+                            class="w-full px-4 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-white text-sm font-semibold transition-colors">
+                        Release Lockout
+                    </button>
+                </form>
+            </div>
+
             <!-- Force Password Reset -->
             <div class="border dark:border-gray-700 rounded-lg p-4">
                 <h3 class="font-bold text-gray-900 dark:text-gray-100 mb-2">Force Password Reset</h3>

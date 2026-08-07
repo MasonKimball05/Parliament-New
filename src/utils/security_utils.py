@@ -15,6 +15,98 @@ from src.geo_utils import get_ip_geo
 logger = logging.getLogger('security')
 
 
+def clear_lockouts_for(username=None, ip_address=None, cleared_by=None):
+    """
+    Release EVERY login lockout for a username and/or IP. The one place that
+    knows all of them.
+
+    ⚠️ v3.19.2 — WHY THIS EXISTS, AND WHY THE OLD CODE DID NOT WORK.
+
+    Parliament locks logins out through **two independent systems with two
+    different key schemes**, and until now every clearing site hand-listed the
+    keys it happened to know about:
+
+      `login_view.py`                    `middleware/security.py`
+      ------------------------------     ------------------------------
+      login_attempts_{ip}                login_attempts_ip_{ip}
+      login_lockout_{ip}                 login_lockout_ip_{ip}
+      account_login_attempts_{user}      login_attempts_user_{user}
+      account_login_lockout_{user}       login_lockout_user_{user}
+      account_login_ips_{user}
+
+    The admin's "Clear lockout" button deleted six of those nine, under a
+    comment reading *"Clear cache keys for all three systems"*. The three it
+    missed were the whole `account_*` family — i.e. **the username lockout set
+    by `login_view.py`, which is the one an ordinary member actually hits by
+    mistyping his password five times.** Clearing a lockout from the admin
+    reported success and left the member locked out until it expired on its own.
+
+    ⚠️ **Clearing the lockout key alone is not enough, and this is the subtle
+    half.** The *attempt counter* has to go too. Leave it at 5 and the next
+    failed attempt re-locks the account instantly — which looks exactly like the
+    button not working, and is worse than it not working, because it reports
+    success.
+
+    Returns a dict of what was cleared, so callers can report honestly rather
+    than assuming.
+    """
+    from django.core.cache import cache
+
+    cleared = {'cache_keys': [], 'lockout_rows': 0}
+
+    def drop(key):
+        cache.delete(key)
+        cleared['cache_keys'].append(key)
+
+    if username:
+        # login_view.py's account lockout (see get_account_*_key there)
+        drop(f'account_login_attempts_{username}')
+        drop(f'account_login_lockout_{username}')
+        drop(f'account_login_ips_{username}')
+        # LoginRateLimitMiddleware's username bucket
+        drop(f'login_attempts_user_{username}')
+        drop(f'login_lockout_user_{username}')
+
+    if ip_address:
+        # login_view.py's IP bucket
+        drop(f'login_attempts_{ip_address}')
+        drop(f'login_lockout_{ip_address}')
+        # LoginRateLimitMiddleware's IP bucket
+        drop(f'login_attempts_ip_{ip_address}')
+        drop(f'login_lockout_ip_{ip_address}')
+        # Password-reset limiter, same window
+        drop(f'password_reset_attempts_{ip_address}')
+        drop(f'password_reset_lockout_{ip_address}')
+        # So the whitelist re-reads rather than serving a stale negative
+        drop(f'ip_whitelist_{ip_address}')
+
+    # Mark the persisted rows cleared so the admin list agrees with reality.
+    from django.db.models import Q
+
+    from src.models import LoginLockout
+
+    predicate = Q()
+    if username:
+        predicate |= Q(username=username)
+    if ip_address:
+        predicate |= Q(ip_address=ip_address)
+
+    if predicate:
+        rows = LoginLockout.objects.filter(predicate, is_cleared=False)
+        cleared['lockout_rows'] = rows.update(
+            is_cleared=True,
+            cleared_at=timezone.now(),
+            cleared_by=cleared_by,
+        )
+
+    logger.info(
+        f"Lockouts cleared (username={username!r}, ip={ip_address!r}) by "
+        f"{getattr(cleared_by, 'username', 'system')}: "
+        f"{len(cleared['cache_keys'])} cache keys, {cleared['lockout_rows']} rows"
+    )
+    return cleared
+
+
 def get_client_ip(request):
     """
     Get the client's IP address from the request.

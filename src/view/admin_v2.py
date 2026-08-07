@@ -1914,6 +1914,80 @@ def toggle_watch_flag(request, user_id):
 
 @require_admin_v2_auth
 @require_POST
+def release_user_lockout(request, user_id):
+    """
+    Manually release every login lockout on one member. (v3.19.2, QOL.)
+
+    Why this is a button and not a note to wait it out: a member who mistypes
+    his password five times is locked for 30 minutes, and the existing
+    `/admin-v2/lockouts/` page only lists lockouts that produced a
+    `LoginLockout` ROW. The `account_*` lockout that `login_view.py` sets does
+    not create one, so the most common lockout a real member hits was not
+    visible there at all — there was nothing to click. This works from the
+    user's own page and does not care whether a row exists.
+
+    All the real work is in `clear_lockouts_for`, which knows all nine cache
+    keys across the two lockout systems. Read its docstring before changing
+    anything here — in particular, clearing a lockout key without its attempt
+    counter re-locks the account on the next failed attempt while reporting
+    success.
+    """
+    from src.utils.security_utils import clear_lockouts_for
+
+    user = get_object_or_404(ParliamentUser, user_id=user_id)
+
+    # Clear by username. Deliberately NOT by IP: a member's lockout is on his
+    # account, and his last-known IP may be shared (campus NAT, or a Cloudflare
+    # edge in any row written before v3.18.8). Clearing an IP lockout because
+    # one member is locked out would release everyone behind that address,
+    # which is a different and much larger decision than the one this button
+    # says it makes.
+    cleared = clear_lockouts_for(username=user.username, cleared_by=request.user)
+
+    # 'account_unlocked' already exists in AdminActionLog.ACTION_CHOICES, so
+    # this needs no migration and lands in the same audit filter as the other
+    # unlock paths.
+    log_admin_action(
+        actor=request.user,
+        action='account_unlocked',
+        request=request,
+        target_user=user,
+        target_repr=user.username,
+        detail=(
+            f'Released login lockouts from the user security page: '
+            f"{len(cleared['cache_keys'])} cache keys cleared, "
+            f"{cleared['lockout_rows']} LoginLockout record(s) marked cleared"
+        ),
+    )
+
+    if cleared['lockout_rows']:
+        messages.success(
+            request,
+            f"Login lockout released for {user.name}. "
+            f"{cleared['lockout_rows']} lockout record(s) marked cleared — "
+            f"they can sign in immediately.",
+        )
+    else:
+        # Honest wording: there is no cheap way to know whether a cache-only
+        # lockout was actually in place, because `cache.delete` on an absent
+        # key is indistinguishable from one on a present key. Saying "released"
+        # unconditionally would be the same class of claim as the comment this
+        # release deleted.
+        messages.success(
+            request,
+            f"Cleared all login rate-limit state for {user.name}. If they were "
+            f"locked out, they can sign in immediately; if they were not, "
+            f"nothing changed.",
+        )
+
+    logger.info(
+        f"Admin {request.user.username} released login lockouts for {user.username}"
+    )
+    return redirect('admin_v2_user_login_security', user_id=user_id)
+
+
+@require_admin_v2_auth
+@require_POST
 def force_password_reset(request, user_id):
     """
     Force a user to reset their password
@@ -3200,21 +3274,18 @@ def manage_lockouts(request):
                 ip = lockout.ip_address
                 username = lockout.username
 
-                # Clear cache keys for all three systems
-                cache.delete(f'login_lockout_{ip}')
-                cache.delete(f'login_attempts_{ip}')
-                cache.delete(f'login_lockout_ip_{ip}')
-                cache.delete(f'login_attempts_ip_{ip}')
-                if username:
-                    cache.delete(f'login_lockout_user_{username}')
-                    cache.delete(f'login_attempts_user_{username}')
-                # Also clear whitelist cache so it refreshes
-                cache.delete(f'ip_whitelist_{ip}')
-
-                lockout.is_cleared = True
-                lockout.cleared_at = timezone.now()
-                lockout.cleared_by = request.user
-                lockout.save(update_fields=['is_cleared', 'cleared_at', 'cleared_by'])
+                # v3.19.2: was a hand-written list of six cache keys under a
+                # comment claiming "all three systems". It missed the entire
+                # `account_*` family — the username lockout `login_view.py`
+                # sets, which is the one a member actually hits by mistyping his
+                # password. This button reported success and left him locked
+                # out. One helper now knows every key; see `clear_lockouts_for`.
+                from src.utils.security_utils import clear_lockouts_for
+                clear_lockouts_for(
+                    username=username or None,
+                    ip_address=ip,
+                    cleared_by=request.user,
+                )
 
                 messages.success(request, f'Lockout cleared for {ip}.')
                 logger.info(f"Admin {request.user.username} cleared lockout for IP {ip}")
@@ -3269,17 +3340,13 @@ def manage_lockouts(request):
                         is_active=True,
                     )
 
-                # Clear all cache lockout keys
-                cache.delete(f'login_lockout_{ip}')
-                cache.delete(f'login_attempts_{ip}')
-                cache.delete(f'login_lockout_ip_{ip}')
-                cache.delete(f'login_attempts_ip_{ip}')
-                cache.delete(f'ip_whitelist_{ip}')
-
-                lockout.is_cleared = True
-                lockout.cleared_at = timezone.now()
-                lockout.cleared_by = request.user
-                lockout.save(update_fields=['is_cleared', 'cleared_at', 'cleared_by'])
+                # v3.19.2: one helper, every key. See `clear_lockouts_for`.
+                from src.utils.security_utils import clear_lockouts_for
+                clear_lockouts_for(
+                    username=lockout.username or None,
+                    ip_address=ip,
+                    cleared_by=request.user,
+                )
 
                 messages.success(request, f'IP {ip} has been whitelisted and lockout cleared.')
                 logger.info(f"Admin {request.user.username} whitelisted IP {ip} from lockout management")
@@ -3291,20 +3358,14 @@ def manage_lockouts(request):
                 is_cleared=False,
                 expires_at__gt=timezone.now()
             ))
-            now = timezone.now()
+            # v3.19.2: one helper, every key. See `clear_lockouts_for`.
+            from src.utils.security_utils import clear_lockouts_for
             for lockout in to_clear:
-                cache.delete(f'login_lockout_{lockout.ip_address}')
-                cache.delete(f'login_attempts_{lockout.ip_address}')
-                cache.delete(f'login_lockout_ip_{lockout.ip_address}')
-                cache.delete(f'login_attempts_ip_{lockout.ip_address}')
-                if lockout.username:
-                    cache.delete(f'login_lockout_user_{lockout.username}')
-                    cache.delete(f'login_attempts_user_{lockout.username}')
-                cache.delete(f'ip_whitelist_{lockout.ip_address}')
-                lockout.is_cleared = True
-                lockout.cleared_at = now
-                lockout.cleared_by = request.user
-                lockout.save(update_fields=['is_cleared', 'cleared_at', 'cleared_by'])
+                clear_lockouts_for(
+                    username=lockout.username or None,
+                    ip_address=lockout.ip_address,
+                    cleared_by=request.user,
+                )
             messages.success(request, f'Cleared {len(to_clear)} active lockout(s).')
             logger.info(f"Admin {request.user.username} bulk-cleared {len(to_clear)} lockouts")
 
