@@ -460,6 +460,12 @@ def debug_performance_metrics(request):
         'maintenance_blocked_requests': blocked_count,
         'maintenance_started_at': started_at.isoformat() if started_at else None,
         'recent_metrics_count': summary['total_requests'],
+        # v3.19.3: the averages below are over a 1-in-N sample (slow requests
+        # kept unconditionally), so the response says so rather than leaving a
+        # caller to assume otherwise. `total_requests` is exact.
+        'sampled': summary.get('sampled', False),
+        'sample_rate': summary.get('sample_rate'),
+        'stored_samples': summary.get('stored_samples'),
         'requests_last_hour': summary['requests_last_hour'],
         'avg_response_time_ms': summary['avg_response_time_ms'],
         'max_response_time_ms': summary['max_response_time_ms'],

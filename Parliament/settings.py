@@ -300,6 +300,26 @@ del _site_url, _csrf_env
 # (which would be Cloudflare's proxy IP, not the visitor's IP).
 BEHIND_CLOUDFLARE = os.getenv('BEHIND_CLOUDFLARE', 'False') == 'True'
 
+# v3.19.3 — verify the socket peer before trusting CF-Connecting-IP.
+#
+# ⚠️ DEFAULTS OFF, DELIBERATELY, so this release changes no behaviour on deploy.
+# `CF-Connecting-IP` is an ordinary request header: Cloudflare overwrites it on
+# traffic that passes through Cloudflare, and on anything reaching the origin
+# directly it is whatever the client sent. Since v3.18.8 that header decides the
+# IP blocklist, both per-IP login rate limiters, the honeypot ban, the geo gate
+# and every audit row — so if the origin is reachable directly, all of those are
+# attacker-selectable.
+#
+# Turn this ON once you have confirmed the origin is NOT directly reachable, or
+# turn it on to find out: with it on, a forged header is ignored (the peer is
+# used instead) and logged as FORGED_CF_HEADER. `manage.py preflight --live-url`
+# probes for this and reports it.
+#
+# The real fix is a firewall rule or nginx `set_real_ip_from` — see
+# `src/utils/security_utils.get_client_ip`. This setting is the application-level
+# backstop for when that is not in place, not a replacement for it.
+CLOUDFLARE_VERIFY_ORIGIN = os.getenv('CLOUDFLARE_VERIFY_ORIGIN', 'False') == 'True'
+
 # Security Headers
 # X-XSS-Protection is deprecated; we rely on CSP instead.
 # (InputSanitizationMiddleware sets 'X-XSS-Protection: 0' explicitly.

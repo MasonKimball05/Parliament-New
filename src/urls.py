@@ -204,6 +204,7 @@ from src.view.legislation_drafts import (
     edit_legislation_draft,
     delete_legislation_draft,
     publish_legislation_draft,
+    serve_legislation_draft_document,
 )
 from src.view.login_view import login_view
 from src.view.logout_view import logout_view
@@ -591,6 +592,11 @@ urlpatterns = [
     path('legislation/drafts/<int:draft_id>/edit/', edit_legislation_draft, name='edit_legislation_draft'),
     path('legislation/drafts/<int:draft_id>/delete/', delete_legislation_draft, name='delete_legislation_draft'),
     path('legislation/drafts/<int:draft_id>/publish/', publish_legislation_draft, name='publish_legislation_draft'),
+    # v3.19.3 — the ONLY way to read a draft's attachment. `/media/` is
+    # @login_required and nothing more, so it cannot enforce authorship; this
+    # route goes through `_get_own_draft`. Templates must link here and never
+    # to `draft.document.url`.
+    path('legislation/drafts/<int:draft_id>/document/', serve_legislation_draft_document, name='legislation_draft_document'),
     path('legislation/<int:legislation_id>/edit/', edit_legislation, name='edit_legislation'),
     path('legislation/<int:legislation_id>/assign/', assign_appointment, name='assign_appointment'),
     path('legislation/<int:legislation_id>/reopen/', reopen_legislation, name='reopen_legislation'),

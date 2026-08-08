@@ -61,8 +61,19 @@
             <div>
                 <label for="{{ form.document.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Document</label>
                 {% if draft.document %}
+                {% comment %}
+                v3.19.3 — `document_display_name`, not `document.name`. The stored
+                name is a uuid now (see `legislation_draft_upload_path`), so the old
+                `|cut:"legislation_drafts/"` would show the author a filename they
+                never chose. And the link goes to the author-scoped route, NOT to
+                `draft.document.url` — that resolves to /media/, which is
+                @login_required and cannot check who owns the draft.
+                {% endcomment %}
                 <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">
-                    Currently attached: <span class="font-mono">{{ draft.document.name|cut:"legislation_drafts/" }}</span>
+                    Currently attached:
+                    <a href="{% url 'legislation_draft_document' draft.id %}" target="_blank" rel="noopener"
+                       class="font-mono text-primary-600 dark:text-primary-400 hover:underline">{{ draft.document_display_name }}</a>
+                    <span class="text-gray-400 dark:text-gray-500">— only you can open this</span>
                 </p>
                 {% endif %}
                 {{ form.document }}

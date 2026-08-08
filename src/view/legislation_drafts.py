@@ -39,10 +39,16 @@ releases of this codebase have documented: the call site that forgets is the one
 that leaks.
 """
 import logging
+import mimetypes
+import os
 
+from django.conf import settings
 from django.contrib import messages
+from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404, redirect, render
+from django.db import transaction
 from django.utils import timezone
+from django.utils.http import content_disposition_header
 from django.views.decorators.http import require_POST
 
 from django.contrib.auth.decorators import login_required
@@ -134,6 +140,67 @@ def edit_legislation_draft(request, draft_id):
 
 
 @login_required
+@log_function_call
+def serve_legislation_draft_document(request, draft_id):
+    """
+    Stream a draft's attachment to its author, and to nobody else.
+
+    ⚠️ v3.19.3 — WHY THIS EXISTS. The draft ROW was always author-scoped
+    (`_get_own_draft`). The FILE was not. `LegislationDraft.document` saves into
+    `MEDIA_ROOT/legislation_drafts/`, and `/media/<path>` is served by
+    `view/serve_media.py`, whose entire gate is `@login_required` — no owner
+    check, and no way to do one, because it resolves a path on disk and knows
+    nothing about which model owns it.
+
+    That gate is correct for everything else under `/media/`: uploaded
+    legislation, minutes and profile pictures are all meant to be read by
+    members. Drafts are the first thing in this codebase stored there under a
+    NARROWER promise than "members may read this" — the feature says "Only you
+    can see it until it is published" in four places. The gate did not get
+    weaker; the content behind it got more sensitive, and nobody re-derived
+    whether the gate still matched.
+
+    So: the file's protection is now the same object as the row's. Both go
+    through `_get_own_draft()`, both 404 on someone else's draft, and there is
+    one access rule rather than two that have to agree.
+
+    The uuid filenames (`legislation_draft_upload_path`) sit UNDERNEATH this,
+    not instead of it — they remove the guessability the v3.14.2 slugifier
+    introduced, but a random path is not an access control and must never be
+    treated as one.
+    """
+    draft = _get_own_draft(request, draft_id)
+
+    if not draft.document:
+        raise Http404('No document attached to this draft.')
+
+    # The path comes from the FileField, not from the request, so traversal is
+    # not reachable here. Guarded anyway, for the same reason `serve_media` is:
+    # the check is two lines and it stops this from being the exception if the
+    # storage layer ever changes underneath it.
+    media_root = os.path.realpath(settings.MEDIA_ROOT)
+    resolved = os.path.realpath(draft.document.path)
+    if not resolved.startswith(media_root + os.sep) or not os.path.isfile(resolved):
+        raise Http404('File not found')
+
+    content_type, _ = mimetypes.guess_type(resolved)
+    response = FileResponse(
+        open(resolved, 'rb'),
+        content_type=content_type or 'application/octet-stream',
+    )
+    response['Content-Disposition'] = content_disposition_header(
+        as_attachment=False,
+        # The author's own filename, not the uuid on disk.
+        filename=draft.document_display_name or os.path.basename(resolved),
+    )
+    # `no-store`, not `private, max-age=…` as `serve_media` uses. A shared cache
+    # was never the risk here — a private draft simply has no business sitting
+    # in a browser cache on a shared library machine after the member logs out.
+    response['Cache-Control'] = 'no-store, no-cache, must-revalidate, private'
+    return response
+
+
+@login_required
 @require_POST
 @log_function_call
 def delete_legislation_draft(request, draft_id):
@@ -199,17 +266,58 @@ def publish_legislation_draft(request, draft_id):
     # a private field chapter-visible, which is the v3.16.2 boundary in
     # miniature.
 
-    if draft.document:
-        # Reuse the stored file rather than re-uploading it. `DualLocationStorage`
-        # saves to MEDIA_ROOT only (confirmed 07-31-26), so this does not put a
-        # draft into the git-tracked exportable_media/ directory.
-        legislation.document = draft.document
+    # ⚠️ v3.19.3 — ATOMIC, because publishing is no longer one save.
+    #
+    # It used to be: build the Legislation, point its `document` at the draft's
+    # file, save once. The copy below makes it three writes (the bill, the
+    # bill's document, the draft's back-link), and a failure between them used
+    # to be impossible and now is not — a raised exception partway through would
+    # otherwise leave a published bill with no document and no draft linking to
+    # it, which is a bill on the chapter ballot that its author cannot find.
+    #
+    # The FILE write is not transactional and cannot be. A rollback after the
+    # copy leaves an orphaned file in `legislation_docs/`, which costs disk and
+    # nothing else — strictly the better failure of the two, and the reason the
+    # copy sits inside rather than outside.
+    with transaction.atomic():
+        legislation.save()
 
-    legislation.save()
+        if draft.document:
+            # ⚠️ v3.19.3 — COPY, do not re-point. This used to be
+            # `legislation.document = draft.document`, which left both rows sharing
+            # one path under `legislation_drafts/`. Two problems, and the first is
+            # the one that matters now:
+            #
+            #  * `legislation_drafts/` is author-private by construction as of
+            #    v3.19.3 — that is what `serve_legislation_draft_document` enforces
+            #    and what the uuid names are for. A PUBLISHED bill has to be
+            #    chapter-readable, so leaving its document in the private directory
+            #    makes the directory mean two things and guarantees that any future
+            #    rule of the form "deny legislation_drafts/" breaks published bills.
+            #  * the shared path was also a latent footgun: the two rows are
+            #    independently deletable, and any cleanup command that ever sweeps
+            #    the drafts directory would silently take the published bill's
+            #    document with it.
+            #
+            # The copy goes through `Legislation.document`'s own field, so it lands
+            # in `legislation_docs/` with that field's storage and sanitiser, and
+            # under the name the author actually uploaded rather than the uuid.
+            # `DualLocationStorage` saves to MEDIA_ROOT only (confirmed 07-31-26),
+            # so this does not write into the git-tracked exportable_media/ copy.
+            from django.core.files import File
 
-    draft.published_legislation = legislation
-    draft.published_at = timezone.now()
-    draft.save(update_fields=['published_legislation', 'published_at', 'updated_at'])
+            published_name = draft.document_display_name or os.path.basename(draft.document.name)
+            try:
+                draft.document.open('rb')
+                # `File(...)`, not `ContentFile(read())` — FieldFile.save streams via
+                # chunks(), so a 20 MB attachment is not held in memory twice.
+                legislation.document.save(published_name, File(draft.document.file), save=True)
+            finally:
+                draft.document.close()
+
+        draft.published_legislation = legislation
+        draft.published_at = timezone.now()
+        draft.save(update_fields=['published_legislation', 'published_at', 'updated_at'])
 
     # The chapter is NOT notified here. `tasks.notify_available_legislation`
     # fires when `available_at` actually arrives — see that task and the

@@ -786,6 +786,24 @@ class TwoFactorRequirementAdmin(admin.ModelAdmin):
 # If it is ever registered, it MUST exclude `token` (see APIToken/
 # EmailVerificationToken). Members rotate their own token via
 # regenerate_calendar_token; officers don't need admin visibility.
+#
+# LegislationDraft (src/models/legislation.py, v3.19.0) is intentionally NOT
+# registered either. A draft is private to its author — `_get_own_draft()`
+# scopes every read to `author=request.user`, and as of v3.19.3 the attachment
+# is served only through `serve_legislation_draft_document`, which uses the same
+# helper. Registering it would hand every admin the whole chapter's unfinished
+# bills, and `notes` is explicitly author-only scratch space that
+# `publish_legislation_draft` goes out of its way NOT to copy onto the published
+# bill. `export_as_csv` would dump both.
+#
+# This comment exists because of what happened to CalendarSubscription above:
+# an unregistered model is indistinguishable from an oversight, and v3.16.0's
+# framing ("registers all 82 previously-missing models") is exactly the kind of
+# sweep that finds one and helpfully closes it. If LegislationDraft is ever
+# registered it MUST exclude `notes` and `document`, and read-only is the right
+# default — an admin editing someone's draft is not a workflow anybody asked
+# for. Raised by the 08-07-26 auto-run; see CLAUDE.md's admin confidentiality
+# boundary for the general rule.
 
 
 # ──────────────────────────────────────────────────────────────── webauthn

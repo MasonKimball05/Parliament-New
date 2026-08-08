@@ -3281,13 +3281,25 @@ def manage_lockouts(request):
                 # password. This button reported success and left him locked
                 # out. One helper now knows every key; see `clear_lockouts_for`.
                 from src.utils.security_utils import clear_lockouts_for
-                clear_lockouts_for(
+                # v3.19.3: `match='all'`. This button clears ONE row, and passing
+                # both values with the default OR marked cleared every lockout
+                # sharing either the username or the IP — on a campus-NAT address
+                # that is everyone behind it, while the message named one IP.
+                # `release_user_lockout` states the rule; this call site was
+                # outside it.
+                cleared = clear_lockouts_for(
                     username=username or None,
                     ip_address=ip,
                     cleared_by=request.user,
+                    match='all',
                 )
 
-                messages.success(request, f'Lockout cleared for {ip}.')
+                messages.success(
+                    request,
+                    f'Lockout cleared for {ip}'
+                    + (f' ({username}).' if username else '.')
+                    + f" {cleared['lockout_rows']} record(s) marked cleared.",
+                )
                 logger.info(f"Admin {request.user.username} cleared lockout for IP {ip}")
             except LoginLockout.DoesNotExist:
                 messages.error(request, 'Lockout record not found.')
@@ -3341,11 +3353,16 @@ def manage_lockouts(request):
                     )
 
                 # v3.19.2: one helper, every key. See `clear_lockouts_for`.
+                # v3.19.3: `match='all'` — same narrowing as the plain clear
+                # above. Whitelisting an IP is deliberately IP-wide at the
+                # IPWhitelist level; the LOCKOUT ROW being marked cleared should
+                # still be the one that was clicked.
                 from src.utils.security_utils import clear_lockouts_for
                 clear_lockouts_for(
                     username=lockout.username or None,
                     ip_address=ip,
                     cleared_by=request.user,
+                    match='all',
                 )
 
                 messages.success(request, f'IP {ip} has been whitelisted and lockout cleared.')
@@ -3359,6 +3376,11 @@ def manage_lockouts(request):
                 expires_at__gt=timezone.now()
             ))
             # v3.19.2: one helper, every key. See `clear_lockouts_for`.
+            # v3.19.3: this one KEEPS the default `match='any'` — "clear all
+            # active lockouts" means exactly that, so widening past the row is
+            # the intent here rather than an accident. Recorded because the two
+            # call sites above now differ from this one and the difference is
+            # deliberate.
             from src.utils.security_utils import clear_lockouts_for
             for lockout in to_clear:
                 clear_lockouts_for(

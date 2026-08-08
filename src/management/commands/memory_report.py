@@ -220,11 +220,21 @@ class Command(BaseCommand):
         try:
             from src.middleware.performance import get_performance_summary, MAX_STORED
             summary = get_performance_summary()
-            self.stdout.write(f'   Stored requests: {summary["total_requests"]}')
-            self.stdout.write(f'   Max stored: {MAX_STORED}')
-            self.stdout.write(f'   Avg response time: {summary["avg_response_time_ms"]:.1f} ms')
-            self.stdout.write(f'   Avg queries/request: {summary["avg_db_queries"]}')
-            self.stdout.write(f'   Requests last hour: {summary["requests_last_hour"]}')
+            # v3.19.3: `total_requests` is now an exact `cache.incr` counter and
+            # is unbounded, so it is no longer the thing to compare against
+            # MAX_STORED — `stored_samples` is. Reporting both, because the gap
+            # between them IS the sampling and is the number someone reading a
+            # memory report wants to see.
+            self.stdout.write(f'   Requests seen (exact): {summary["total_requests"]}')
+            self.stdout.write(f'   Stored samples: {summary["stored_samples"]} / {MAX_STORED}')
+            if summary.get('sampled'):
+                self.stdout.write(
+                    f'   Sampling: 1 in {summary["sample_rate"]}, plus every request '
+                    f'over the slow threshold'
+                )
+            self.stdout.write(f'   Avg response time: {summary["avg_response_time_ms"]:.1f} ms (sampled)')
+            self.stdout.write(f'   Avg queries/request: {summary["avg_db_queries"]} (sampled)')
+            self.stdout.write(f'   Samples last hour: {summary["requests_last_hour"]}')
         except Exception as e:
             self.stdout.write(f'   Error: {e}')
 
@@ -293,11 +303,15 @@ class Command(BaseCommand):
         # problem.)
         try:
             from src.middleware.performance import get_performance_summary, MAX_STORED
-            stored = get_performance_summary()['total_requests']
+            # v3.19.3: `stored_samples`, not `total_requests` — the latter is now
+            # an unbounded exact counter, so comparing it to MAX_STORED would
+            # fire this recommendation permanently after the first few hundred
+            # requests. The buffer size is what MAX_STORED governs.
+            stored = get_performance_summary()['stored_samples']
             if stored > MAX_STORED * 0.8:
                 recommendations.append(
-                    f'Performance middleware storing {stored} requests '
-                    f'(cap {MAX_STORED}) - consider reducing MAX_STORED'
+                    f'Performance middleware buffer near capacity '
+                    f'({stored}/{MAX_STORED} samples) - consider reducing MAX_STORED'
                 )
         except (KeyError, TypeError, ValueError):
             pass

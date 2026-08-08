@@ -1,3 +1,6 @@
+import os
+import uuid
+
 from django.db import models
 from django.core.exceptions import ValidationError
 from django.utils import timezone
@@ -8,6 +11,41 @@ def validate_legislation_file(value):
     """Validates the file extension."""
     if not value.name.endswith('.pdf') and not value.name.endswith('.docx'):
         raise ValidationError('Only PDF and DOCX files are allowed.')
+
+
+def legislation_draft_upload_path(instance, filename):
+    """
+    Storage path for a draft's attachment: `legislation_drafts/<uuid>.<ext>`.
+
+    ⚠️ v3.19.3 — THE RANDOM NAME IS DEFENCE IN DEPTH, NOT THE ACCESS CONTROL.
+    The access control is `serve_legislation_draft_document`, which goes through
+    `_get_own_draft()`. Read that first; this callable exists because of what
+    was underneath it.
+
+    Drafts previously used `upload_to='legislation_drafts/'`, which keeps the
+    author's own filename — and `SanitizedFilenameMixin` (v3.14.2) slugifies it
+    at save time, so the stored name was *derived deterministically from the
+    title the author chose*. Django's random 7-character suffix only appears on
+    a collision. A draft called "Dues Restructuring Amendment" landed at
+    `/media/legislation_drafts/dues-restructuring-amendment.docx`, and `/media/`
+    is served by `serve_media`, which is `@login_required` and nothing else — so
+    the path was guessable by any member, including a pledge.
+
+    The slugifier is still the right fix for what it was written for. It simply
+    moved this file from unguessable to guessable, and nothing else was
+    protecting the path. The published bill gets a readable name again: publish
+    COPIES the file into `legislation_docs/` under
+    `document_original_name` (see `publish_legislation_draft`), so nothing in
+    `legislation_drafts/` is ever chapter-visible and the opaque name never
+    reaches a member's download.
+    """
+    ext = os.path.splitext(filename)[1].lower()
+    if ext not in ('.pdf', '.docx'):
+        # Belt and braces: the form and `validate_legislation_file` both reject
+        # anything else, so reaching here means a programmatic save. Refuse to
+        # invent an extension rather than writing an unlabelled blob.
+        ext = ''
+    return f'legislation_drafts/{uuid.uuid4().hex}{ext}'
 
 
 class LegislationQuerySet(models.QuerySet):
@@ -399,11 +437,21 @@ class LegislationDraft(models.Model):
                   'the 20-character floor is enforced at publish, not while writing.',
     )
     document = models.FileField(
-        upload_to='legislation_drafts/',
+        # v3.19.3: a callable returning `legislation_drafts/<uuid>.<ext>`. See
+        # that function — the random name is defence in depth underneath
+        # `serve_legislation_draft_document`, not a substitute for it.
+        upload_to=legislation_draft_upload_path,
         validators=[validate_legislation_file],
         storage=DualLocationStorage(),
         blank=True, null=True,
     )
+
+    #: The name the author uploaded, kept because the stored name is now a
+    #: uuid. Publish restores it on the copy it makes, so a member downloading
+    #: a bill gets `dues-restructuring-amendment.docx` and never sees the
+    #: opaque draft name. Blank on rows created before v3.19.3, and on those
+    #: the stored basename is used instead.
+    document_original_name = models.CharField(max_length=255, blank=True)
 
     #: What the author intends `Legislation.available_at` to be. Nullable
     #: because a draft is allowed to be undated; publish requires a value.
@@ -466,6 +514,22 @@ class LegislationDraft(models.Model):
     @property
     def is_published(self):
         return self.published_legislation_id is not None
+
+    @property
+    def document_display_name(self):
+        """
+        What to show the author for their attachment.
+
+        v3.19.3: the stored name is a uuid, so templates must not render
+        `document.name` any more — it would show the author a filename they did
+        not choose and cannot recognise. Falls back to the stored basename for
+        rows written before this release, whose name IS the original.
+        """
+        if self.document_original_name:
+            return self.document_original_name
+        if self.document:
+            return os.path.basename(self.document.name)
+        return ''
 
     def ready_to_publish(self):
         """

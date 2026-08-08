@@ -214,6 +214,103 @@ class Command(CheckEnvCommand):
         except Exception as e:
             self.warn('Live media gate', f'could not reach site: {str(e)[:70]}')
 
+    # ------------------------------------------------------- cloudflare origin
+
+    def check_cloudflare_origin(self):
+        """
+        Is the origin reachable without going through Cloudflare? (v3.19.3)
+
+        Why this is worth a preflight check rather than a code comment: since
+        v3.18.8 the `CF-Connecting-IP` header decides what the IP blocklist
+        blocks, what both per-IP login rate limiters count, what the honeypot
+        bans, what the geo gate sees, and what every `ActivityLog`,
+        `LoginHistory` and `UserSession` row records. It is an ordinary request
+        header. If anything can reach the origin without passing through
+        Cloudflare, all of that becomes attacker-selectable — and there is no
+        way to determine that from inside Django, because a request that
+        bypassed the edge looks entirely normal by the time a view sees it.
+
+        So this probes from outside, which is the only place the question can be
+        answered.
+        """
+        from django.conf import settings
+
+        from src.utils.cloudflare_ranges import (
+            GENERATED, cloudflare_networks, declared_range_count,
+        )
+
+        behind_cf = getattr(settings, 'BEHIND_CLOUDFLARE', False)
+        verifying = getattr(settings, 'CLOUDFLARE_VERIFY_ORIGIN', False)
+
+        if not behind_cf:
+            self.ok('Cloudflare origin', 'BEHIND_CLOUDFLARE=False — check not applicable')
+            return
+
+        # The range table itself: parsed count must match the declared one, or a
+        # malformed entry is silently narrowing verification.
+        parsed, declared = len(cloudflare_networks()), declared_range_count()
+        if parsed != declared:
+            self.fail('Cloudflare ranges',
+                      f'{declared - parsed} of {declared} entries failed to parse in '
+                      'src/utils/cloudflare_ranges.py — verification is narrower than it looks')
+        else:
+            self.ok('Cloudflare ranges', f'{parsed} ranges parsed (generated {GENERATED})')
+
+        try:
+            from datetime import date
+            age_days = (date.today() - date.fromisoformat(GENERATED)).days
+            if age_days > 365:
+                self.warn('Cloudflare range age',
+                          f'{age_days} days old — refresh from cloudflare.com/ips-v4 and '
+                          '/ips-v6. A missing range does not admit a forgery; it makes '
+                          'audit rows record the edge again for that traffic.')
+        except ValueError:
+            self.warn('Cloudflare range age', f'GENERATED is not an ISO date: {GENERATED!r}')
+
+        if not self._live_url:
+            self.warn('Cloudflare origin',
+                      'skipped — pass --live-url to probe whether a forged '
+                      'CF-Connecting-IP survives to the application')
+            return
+
+        # The probe: send a header no legitimate client sends and see whether the
+        # site treats it as our address. `/login/` because it is anonymous, cheap
+        # and always present; a GET does not consume a rate-limit bucket (both
+        # limiters gate on POST).
+        forged = '192.0.2.111'  # TEST-NET-1, RFC 5737 — never a real visitor
+        try:
+            import requests
+            url = self._live_url.rstrip('/') + '/login/'
+            r = requests.get(
+                url, timeout=10, allow_redirects=False,
+                headers={'CF-Connecting-IP': forged},
+            )
+        except Exception as e:
+            self.warn('Cloudflare origin', f'could not reach site: {str(e)[:70]}')
+            return
+
+        # Reaching the edge at all means the hostname resolves through Cloudflare,
+        # which is necessary but not sufficient — the origin may still answer on
+        # its raw IP. Say so rather than implying a clean bill of health.
+        via_cf = any(h.lower() in ('cf-ray', 'cf-cache-status') for h in r.headers)
+
+        if not via_cf:
+            self.fail('Cloudflare origin',
+                      f'{url} answered WITHOUT a CF-Ray header — this request did not '
+                      'pass through Cloudflare, so CF-Connecting-IP is client-supplied. '
+                      'Restrict the origin at the firewall, or set '
+                      'CLOUDFLARE_VERIFY_ORIGIN=True as a stopgap.')
+        elif verifying:
+            self.ok('Cloudflare origin',
+                    'reached via Cloudflare; CLOUDFLARE_VERIFY_ORIGIN=True, so a forged '
+                    'header from a direct connection would be ignored and logged')
+        else:
+            self.warn('Cloudflare origin',
+                      'reached via Cloudflare, but CLOUDFLARE_VERIFY_ORIGIN=False — this '
+                      'probe cannot tell whether the origin ALSO answers on its raw IP. '
+                      'Confirm the firewall, or set CLOUDFLARE_VERIFY_ORIGIN=True and '
+                      'watch for FORGED_CF_HEADER in the security log.')
+
     # ------------------------------------------------------------------ handle
 
     def handle(self, *args, **options):
@@ -238,6 +335,7 @@ class Command(CheckEnvCommand):
         # …plus the preflight-only runtime invariants.
         self.check_celery_schedules()
         self.check_media_gate()
+        self.check_cloudflare_origin()   # v3.19.3
 
         # Summary + exit semantics (this is the part check_env doesn't have).
         self.stdout.write(f"\n{'─' * 64}")

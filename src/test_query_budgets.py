@@ -560,6 +560,63 @@ class BudgetHygieneTests(TestCase):
                 f'or the budget was set to whatever made the test pass.',
             )
 
+    #: v3.19.3 — classes that assert properties but declare no measured ceiling.
+    #: Each is legitimate at the moment it is written (see each class docstring:
+    #: a ceiling is a MEASURED number and there was no working Django), but the
+    #: exception has now been taken three times and the whole point of a ratchet
+    #: suite is that it ratchets. This list is the standing to-do, in the file
+    #: rather than in a changelog nobody re-reads.
+    #:
+    #: ⚠️ MEASURE THESE **AFTER** DEPLOYING v3.18.7, NOT BEFORE. That release
+    #: removes 2–4 queries from every page in this suite, so every existing
+    #: BUDGET will also need re-measuring — one pass, not two, or the suite is
+    #: red in between for a reason nobody will remember.
+    AWAITING_MEASUREMENT = (
+        'TwoFactorDashboardQueryBudgetTests',
+        'ServiceDashboardQueryBudgetTests',
+        'MiddlewareChainQueryBudgetTests',
+    )
+
+    def test_the_unmeasured_list_is_accurate_in_both_directions(self):
+        """
+        Keep `AWAITING_MEASUREMENT` honest.
+
+        A to-do list that is allowed to drift is worse than none: it stops being
+        read the first time someone finds a stale entry on it. So this fails
+        both ways — a class that has since gained a `BUDGET` must come OFF the
+        list, and a budget class that has none must be ON it.
+
+        This deliberately does not fail merely because the list is non-empty.
+        The classes are exempt for a stated and correct reason; what must not
+        happen is the exemption becoming invisible.
+        """
+        import inspect
+
+        from src import test_query_budgets as module
+
+        budget_classes = {
+            name: obj for name, obj in inspect.getmembers(module, inspect.isclass)
+            if name.endswith('QueryBudgetTests') and obj.__module__ == module.__name__
+        }
+        self.assertTrue(budget_classes, 'No budget classes found — the naming convention moved.')
+
+        unmeasured = {
+            name for name, obj in budget_classes.items()
+            if getattr(obj, 'BUDGET', None) is None
+        }
+        listed = set(self.AWAITING_MEASUREMENT)
+
+        self.assertEqual(
+            unmeasured - listed, set(),
+            f'{sorted(unmeasured - listed)} declare no BUDGET and are not in '
+            f'AWAITING_MEASUREMENT. Add them, or measure them.',
+        )
+        self.assertEqual(
+            listed - unmeasured, set(),
+            f'{sorted(listed - unmeasured)} now have a measured BUDGET — remove '
+            f'them from AWAITING_MEASUREMENT so the list stays worth reading.',
+        )
+
     def test_normalize_sql_collapses_parameter_differences(self):
         """
         The duplicate detector is only as good as its notion of "same shape".

@@ -36,6 +36,7 @@ from django.db import connection
 from django.test import Client, TestCase, override_settings
 from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
+from django.utils import timezone  # v3.19.3 — PerformanceMetricWriteCostTests
 
 from src.models import IPBlacklist, ParliamentUser, SystemLockdown, UserSession
 from src.models_feature_flags import SiteSetting
@@ -664,4 +665,142 @@ class MonitoringReaderLivenessTests(TestCase):
             f'is written nowhere in the repo — this is the six-month bug '
             f'returning. Note this checks CALL SITES, not mentions: a docstring '
             f'naming the key is fine and deliberate.',
+        )
+
+
+# ---------------------------------------------------------------------------
+# v3.19.3 — the chain's CACHE cost
+# ---------------------------------------------------------------------------
+
+
+class PerformanceMetricWriteCostTests(TestCase):
+    """
+    `PerformanceMiddleware`'s own bookkeeping, measured as bytes and round
+    trips rather than as queries.
+
+    ⚠️ WHY THIS CLASS EXISTS, AND IT IS THE SAME LESSON ONE RESOURCE OVER.
+    v3.18.7 added `MiddlewareChainQueryBudgetTests` in direct response to the
+    08-06 finding that middleware cost hides inside every per-view ceiling and
+    reads as the floor. That was right, and it counts QUERIES — so it was
+    structurally unable to see that the single most expensive per-request
+    operation in the chain was a CACHE write: `_append_metric` did a
+    read-modify-write of the entire 500-entry history on every request,
+    measured at ~0.25 ms of CPU and ~19 KB of Redis traffic in two serialised
+    round trips, on every page, every /media/ download and every 404.
+
+    CLAUDE.md already records this shape twice — v3.18.5's miss was a *column*
+    rather than a call site, which forced the generalisation once. A *resource*
+    is the next widening: **a per-request budget has to name what it measures,
+    and "queries" was never the only answer.**
+
+    These assertions are about the write pattern, not about a byte count on a
+    particular Redis build, because a byte ceiling would be measuring the
+    compressor.
+    """
+
+    def setUp(self):
+        from src.middleware import performance
+
+        cache.delete(performance.CACHE_KEY)
+        cache.delete(performance.COUNT_KEY)
+        cache.delete(performance.SAMPLED_KEY)
+
+    def test_an_ordinary_request_usually_writes_no_history(self):
+        """
+        The property the fix is for: a fast request must NOT re-serialise the
+        buffer. Sampled at 1-in-N, so this is asserted by forcing the sampler
+        rather than by running many requests and hoping — a flaky assertion
+        about a random draw is worse than no assertion.
+
+        **This fails against the pre-v3.19.3 tree**, where every call wrote.
+        """
+        from src.middleware import performance
+
+        with patch.object(performance.random, 'randrange', return_value=1):
+            with patch.object(performance.cache, 'set') as mock_set:
+                performance._append_metric(
+                    (timezone.now(), 12.0, '/home/', 3, 4.0)
+                )
+
+        history_writes = [
+            c for c in mock_set.call_args_list
+            if c.args and c.args[0] == performance.CACHE_KEY
+        ]
+        self.assertEqual(
+            history_writes, [],
+            'A fast, unsampled request re-serialised the metrics buffer. That '
+            'is the ~19 KB / 2-round-trip cost this release removed.',
+        )
+
+    def test_a_slow_request_is_always_stored(self):
+        """
+        The other half, and the one that makes sampling safe to do at all: the
+        data every N+1 hunt in this codebase has actually used is the slow
+        list, and it must be complete. Forcing the sampler to say "skip" proves
+        the slow path bypasses it rather than merely usually winning.
+        """
+        from src.middleware import performance
+
+        with patch.object(performance.random, 'randrange', return_value=1):
+            performance._append_metric(
+                (timezone.now(), performance.ALWAYS_STORE_ABOVE_MS + 1, '/slow/', 40, 900.0)
+            )
+
+        stored = performance._get_entries()
+        self.assertEqual(
+            [e[2] for e in stored], ['/slow/'],
+            'A slow request was sampled away. Slow requests must be stored '
+            'unconditionally — sampling them would break the only use this '
+            'data has ever been put to.',
+        )
+
+    def test_the_total_count_is_exact_and_not_sampled(self):
+        """
+        Sampling must not make the totals lies. `total_requests` comes from
+        `cache.incr` now, so it counts every request including the ones whose
+        timings were discarded — and is *more* accurate than before, when it
+        was `len(entries)` and therefore pinned at MAX_STORED under any real
+        traffic.
+        """
+        from src.middleware import performance
+
+        with patch.object(performance.random, 'randrange', return_value=1):
+            for _ in range(50):
+                performance._append_metric(
+                    (timezone.now(), 5.0, '/home/', 2, 1.0)
+                )
+
+        summary = performance.get_performance_summary()
+        self.assertEqual(
+            summary['total_requests'], 50,
+            'Every request must be counted even when its timing is not stored.',
+        )
+        self.assertEqual(
+            summary['stored_samples'], 0,
+            'None of those should have been stored — randrange was forced to skip.',
+        )
+        self.assertTrue(
+            summary['sampled'],
+            'The summary must declare that its averages are sampled, or a '
+            'caller will render an estimate as a measurement.',
+        )
+
+    def test_the_write_is_bounded_when_it_does_happen(self):
+        """
+        Sampling reduces how OFTEN the buffer is rewritten; it does not change
+        the fact that a rewrite is O(MAX_STORED). Pinning the bound here so a
+        future MAX_STORED increase is a visible decision rather than a silent
+        multiplication of the cost that remains.
+        """
+        from src.middleware import performance
+
+        with patch.object(performance.random, 'randrange', return_value=0):
+            for i in range(performance.MAX_STORED + 25):
+                performance._append_metric(
+                    (timezone.now(), 5.0, f'/p{i}/', 2, 1.0)
+                )
+
+        self.assertEqual(
+            len(performance._get_entries()), performance.MAX_STORED,
+            'The buffer must stay capped at MAX_STORED.',
         )

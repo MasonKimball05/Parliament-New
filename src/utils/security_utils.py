@@ -15,10 +15,40 @@ from src.geo_utils import get_ip_geo
 logger = logging.getLogger('security')
 
 
-def clear_lockouts_for(username=None, ip_address=None, cleared_by=None):
+def clear_lockouts_for(username=None, ip_address=None, cleared_by=None, match='any'):
     """
     Release EVERY login lockout for a username and/or IP. The one place that
     knows all of them.
+
+    ⚠️ v3.19.3 — `match` DECIDES WHICH `LoginLockout` ROWS GET MARKED CLEARED,
+    and getting it wrong widens an admin action past what its button says.
+
+    * `match='any'` (default) — every row for this username **or** this IP.
+      Correct for "clear everything", which is what the bulk button means.
+    * `match='all'` — only rows matching every value supplied. Correct for
+      "clear this one row", where passing both values should narrow the
+      selection rather than widen it.
+
+    The default is `'any'` because that is what the three existing callers were
+    already doing when this parameter was added, and a silent change of
+    behaviour for callers that did not opt in would be worse than the bug.
+
+    **Why this parameter exists at all.** `release_user_lockout` (v3.19.2) gets
+    this exactly right and says why: *"a member's lockout is on his account, and
+    his last-known IP may be shared (campus NAT). Clearing an IP lockout because
+    one member is locked out would release everyone behind that address, which
+    is a different and much larger decision than the one this button says it
+    makes."* That reasoning is correct — and `manage_lockouts` one file over
+    passed both values for a single-row clear, doing the thing the docstring
+    warns against while reporting `Lockout cleared for {ip}`. Sixth consecutive
+    release of *a rule stated correctly, and one call site outside it*; the
+    parameter makes the choice explicit at each call site instead of implicit in
+    the helper.
+
+    Note the CACHE keys are cleared for whatever is passed, regardless of
+    `match` — clearing a stale counter is harmless and clearing too few is the
+    failure this helper was written to fix. `match` governs only the persisted
+    rows, which is the bookkeeping an admin reads back.
 
     ⚠️ v3.19.2 — WHY THIS EXISTS, AND WHY THE OLD CODE DID NOT WORK.
 
@@ -86,10 +116,19 @@ def clear_lockouts_for(username=None, ip_address=None, cleared_by=None):
     from src.models import LoginLockout
 
     predicate = Q()
-    if username:
-        predicate |= Q(username=username)
-    if ip_address:
-        predicate |= Q(ip_address=ip_address)
+    if match == 'all':
+        # AND: narrow to rows matching everything supplied. `Q()` is the
+        # identity for `&` as well as for `|`, so the accumulation is the same
+        # shape — only the operator differs.
+        if username:
+            predicate &= Q(username=username)
+        if ip_address:
+            predicate &= Q(ip_address=ip_address)
+    else:
+        if username:
+            predicate |= Q(username=username)
+        if ip_address:
+            predicate |= Q(ip_address=ip_address)
 
     if predicate:
         rows = LoginLockout.objects.filter(predicate, is_cleared=False)
@@ -107,23 +146,106 @@ def clear_lockouts_for(username=None, ip_address=None, cleared_by=None):
     return cleared
 
 
+def _peer_is_cloudflare(request):
+    """
+    True if the request's SOCKET PEER is a published Cloudflare address.
+
+    The peer is the rightmost X-Forwarded-For entry (nginx appends the real
+    socket IP there via `$proxy_add_x_forwarded_for`) or `REMOTE_ADDR` when no
+    XFF is present. That is the one value in the request an outside client
+    cannot choose, which is the whole reason it is the thing checked here.
+
+    Returns False on a malformed address or an unreadable range file — the
+    caller treats that as "not verified", so the failure mode is falling back to
+    the unforgeable-but-less-accurate rightmost-XFF value rather than trusting a
+    header we could not validate. Fails toward the wrong IP, never toward a
+    chosen one.
+    """
+    import ipaddress
+
+    from src.utils.cloudflare_ranges import cloudflare_networks
+
+    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+    peer = (
+        x_forwarded_for.split(',')[-1].strip() if x_forwarded_for
+        else request.META.get('REMOTE_ADDR', '')
+    )
+    if not peer:
+        return False
+
+    try:
+        addr = ipaddress.ip_address(peer)
+    except ValueError:
+        return False
+
+    return any(addr in network for network in cloudflare_networks())
+
+
 def get_client_ip(request):
     """
     Get the client's IP address from the request.
 
-    When BEHIND_CLOUDFLARE=True in settings, Cloudflare sits in front of nginx
-    and sets the CF-Connecting-IP header to the real visitor IP. We use that
-    directly because it is set by Cloudflare and cannot be forged by the visitor.
+    ⚠️ v3.19.3 — READ THIS BEFORE BUILDING ANYTHING IP-BASED ON TOP OF IT.
 
-    Otherwise we sit behind a single nginx proxy. nginx appends the real client
-    IP as the RIGHTMOST entry in X-Forwarded-For via $proxy_add_x_forwarded_for.
-    Taking the rightmost value prevents spoofing: an attacker can forge leading
-    XFF entries, but nginx always appends the actual socket IP.
+    This function's answer is the input to the IP blocklist, both per-IP login
+    rate limiters, the honeypot auto-ban, the geo gate, the lockdown whitelist
+    suggestion, and every row in `ActivityLog`, `LoginHistory` and `UserSession`.
+    v3.18.8 consolidated five inline copies onto it, which was right — and which
+    also means one function now decides all of that.
+
+    **The previous docstring said CF-Connecting-IP "is set by Cloudflare and
+    cannot be forged by the visitor." That was not true as written.**
+    `CF-Connecting-IP` is an ordinary request header. Cloudflare overwrites it on
+    requests that pass THROUGH Cloudflare; on a request that reaches the origin
+    any other way — a stale A record, the raw origin IP, an unproxied subdomain —
+    whatever the client sent is what arrives. The claim was true of the intended
+    deployment and silently false of any request that bypassed it, which is the
+    same shape as two other comments this codebase deleted in the same week
+    (`InputSanitizationMiddleware`'s "for all requests", `ActivityLog`'s "nginx
+    appends the real client IP there").
+
+    So the trust is now conditional and the condition is explicit:
+
+    * `CLOUDFLARE_VERIFY_ORIGIN=True` — `CF-Connecting-IP` is honoured only when
+      the socket peer is itself a published Cloudflare address. A forged header
+      from a direct connection is ignored and the peer is used instead.
+    * `CLOUDFLARE_VERIFY_ORIGIN=False` (**the default, so nothing changes on
+      deploy**) — the header is honoured whenever `BEHIND_CLOUDFLARE=True`,
+      exactly as before. Correct only if the origin refuses non-Cloudflare
+      connections at the firewall.
+
+    **The real fix is at the network layer, and this setting is not a substitute
+    for it.** Firewalling :80/:443 to Cloudflare's ranges (or nginx's
+    `set_real_ip_from` + `real_ip_header CF-Connecting-IP`) fixes every consumer
+    at once, including ones nobody has written yet, and costs nothing per
+    request. Turn this on when you want the application to stop depending on
+    that being true; `manage.py preflight --live-url` will tell you whether it
+    currently is.
+
+    Without Cloudflare: a single nginx proxy appends the real client IP as the
+    RIGHTMOST X-Forwarded-For entry via `$proxy_add_x_forwarded_for`. Rightmost
+    is the unforgeable one — leading entries are attacker-supplied. **Note that
+    this inverts behind Cloudflare**, where nginx's socket peer is the edge; that
+    inversion is what v3.18.8 fixed and is why this function exists at all.
     """
     if getattr(settings, 'BEHIND_CLOUDFLARE', False):
         cf_ip = request.META.get('HTTP_CF_CONNECTING_IP')
-        if cf_ip:
+        if cf_ip and (
+            not getattr(settings, 'CLOUDFLARE_VERIFY_ORIGIN', False)
+            or _peer_is_cloudflare(request)
+        ):
             return cf_ip.strip()
+        if cf_ip:
+            # Verification is on and the peer is not Cloudflare: someone reached
+            # the origin directly and sent this header. Log it — this is the
+            # signal that the origin is exposed, and it is worth a WARNING even
+            # though the request is handled safely, because the fix is a
+            # firewall rule and nobody will make it without knowing.
+            logger.warning(
+                'FORGED_CF_HEADER: CF-Connecting-IP=%s from non-Cloudflare peer on %s %s '
+                '— origin is reachable directly; restrict it at the firewall.',
+                cf_ip.strip()[:64], request.method, request.path,
+            )
 
     x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
     if x_forwarded_for:

@@ -170,6 +170,31 @@ class LegislationDraftForm(forms.ModelForm):
 
         return file
 
+    def save(self, commit=True):
+        """
+        Record the uploaded filename before the storage layer replaces it.
+
+        v3.19.3: `LegislationDraft.document` now stores `<uuid>.<ext>` (see
+        `legislation_draft_upload_path`), so the author's own filename is lost
+        at save time unless it is captured here. This is the only place it is
+        still available — `upload_to` receives it but has nowhere to put it.
+
+        Guarded on `changed_data` so editing a draft's title does not blank the
+        name recorded when the file was uploaded two weeks ago.
+        """
+        instance = super().save(commit=False)
+
+        if 'document' in self.changed_data:
+            uploaded = self.cleaned_data.get('document')
+            # Cleared the attachment → clear the remembered name with it, or the
+            # next upload inherits the old one.
+            instance.document_original_name = getattr(uploaded, 'name', '') or ''
+
+        if commit:
+            instance.save()
+            self.save_m2m()
+        return instance
+
 
 class AnnouncementForm(forms.ModelForm):
     visible_to = forms.MultipleChoiceField(
