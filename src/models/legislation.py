@@ -1,3 +1,4 @@
+import logging
 import os
 import uuid
 
@@ -5,6 +6,8 @@ from django.db import models
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 from src.storage import DualLocationStorage
+
+logger = logging.getLogger(__name__)
 
 
 def validate_legislation_file(value):
@@ -46,6 +49,50 @@ def legislation_draft_upload_path(instance, filename):
         # invent an extension rather than writing an unlabelled blob.
         ext = ''
     return f'legislation_drafts/{uuid.uuid4().hex}{ext}'
+
+
+def delete_draft_document_file(name):
+    """
+    Remove a draft attachment from disk. Returns True if a file was deleted.
+
+    ⚠️ v3.19.4 — THE ONE PLACE A DRAFT FILE IS DELETED, and the guard is the
+    point of it.
+
+    `DualLocationStorage.path()` falls back to `BASE_DIR/exportable_media/` when
+    a name is absent from `MEDIA_ROOT` — and `exportable_media/` is **committed
+    to a public repo by design** (CLAUDE.md's standing disposition). An unguarded
+    `document.delete()` on a row whose file had already gone missing would
+    therefore resolve to the public directory and delete a governing document
+    from the working tree. Nothing in the current code can reach that state, and
+    that is exactly the kind of reasoning that stops being true later; the guard
+    costs two lines.
+
+    So: resolve, confirm the result is under `MEDIA_ROOT`, then unlink. Anything
+    else is left alone and reported as "nothing deleted", never as an error — a
+    file that is already gone is the desired end state.
+    """
+    if not name:
+        return False
+
+    from django.conf import settings
+
+    media_root = os.path.realpath(settings.MEDIA_ROOT)
+    candidate = os.path.realpath(os.path.join(media_root, name))
+
+    if not candidate.startswith(media_root + os.sep):
+        return False
+    if not os.path.isfile(candidate):
+        return False
+
+    try:
+        os.remove(candidate)
+        return True
+    except OSError:
+        # Disk-level failure. The row is already gone or already re-pointed, so
+        # there is nothing to roll back and nothing a caller could usefully do.
+        # Losing the file is the cleanup; losing the request is not.
+        logger.warning('Could not delete draft attachment %s', name, exc_info=True)
+        return False
 
 
 class LegislationQuerySet(models.QuerySet):
@@ -554,3 +601,47 @@ class Vote(models.Model):
     # Used by My Ballots and to keep regenerated receipts anchored to the
     # original cast time.
     cast_at = models.DateTimeField(auto_now_add=True, null=True, blank=True)
+
+
+# ─────────────────────────────────────────────────────── draft file lifecycle
+#
+# ⚠️ v3.19.4 — WHO OWNS A DRAFT'S FILE. Registered at module scope, in the model
+# module, matching `models_feature_flags.py`. This module is imported by
+# `src/models/__init__.py`, so the receiver is connected whenever models are.
+#
+# WHY THIS EXISTS. Django has not deleted files on model delete since 1.3 — a
+# deliberate change, because a file can be shared between rows and an ORM delete
+# is not a good place to find out. For `LegislationDraft` that reasoning does not
+# apply and has not since v3.19.3: the attachment lives at a uuid under
+# `legislation_drafts/`, it is referenced by exactly one row, and publish now
+# COPIES it into `legislation_docs/` rather than re-pointing at it. So the file
+# has precisely one owner, and without this receiver every deleted draft left an
+# unreferenced blob that nothing in the codebase could ever identify again.
+#
+# ⚠️ DO NOT GENERALISE THIS TO `Legislation.document`. That field's file IS
+# shared in the way Django's default protects against: publish copies a draft's
+# bytes into it, and older bills may point at paths under `exportable_media/`,
+# which is public-by-design and hand-curated. A published bill's document is
+# chapter history and must outlive the row.
+from django.db.models.signals import post_delete       # noqa: E402
+from django.dispatch import receiver                    # noqa: E402
+
+
+@receiver(post_delete, sender=LegislationDraft, dispatch_uid='legislation_draft_document_cleanup')
+def _delete_draft_document_on_delete(sender, instance, **kwargs):
+    """
+    Remove the attachment when its draft row goes away.
+
+    `post_delete`, not `pre_delete`: if the delete is rolled back the row comes
+    back, and a `pre_delete` unlink would have already destroyed a file the
+    restored row still points at. `post_delete` still fires inside the
+    transaction, so a rollback after this point can strand a row without its
+    file — that is the lesser failure, and it is the same trade
+    `publish_legislation_draft` makes for the same reason.
+
+    Deliberately silent. A member clicking Delete has been told the draft is
+    gone; whether a blob was reclaimed is not their problem, and raising here
+    would fail a delete that already succeeded.
+    """
+    if instance.document:
+        delete_draft_document_file(instance.document.name)

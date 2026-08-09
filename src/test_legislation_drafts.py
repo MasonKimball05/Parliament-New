@@ -591,3 +591,331 @@ class TheBackfillKeepsHistoricalBillsQuiet(TestCase):
         )
         self.assertEqual(notify_available_legislation(), 0)
         self.assertEqual(Notification.objects.filter(source_type='Legislation').count(), 0)
+
+
+# ---------------------------------------------------------------------------
+# 6. v3.19.4 — who owns the file
+# ---------------------------------------------------------------------------
+
+
+class ADraftAttachmentHasExactlyOneLifetime(TestCase):
+    """
+    v3.19.4 — every draft attachment is deleted by exactly one thing, and no
+    code path leaves one behind.
+
+    ⚠️ WHY THIS NEEDED FIXING. Django has not deleted files on model delete
+    since 1.3, and that default is right in general: a file can be shared
+    between rows and an ORM delete is a bad place to discover it. For
+    `LegislationDraft` the premise stopped holding at v3.19.3 — the attachment
+    is at a uuid under `legislation_drafts/`, referenced by exactly one row, and
+    publish now COPIES it into `legislation_docs/` rather than re-pointing at
+    it. So it has one owner, and until v3.19.4 nothing ever exercised that
+    ownership:
+
+      * deleting a draft left the blob behind, unreferenced and unnameable;
+      * publishing left a SECOND copy behind, because the copy that made the
+        published bill safe never said what happened to the original.
+
+    The v3.19.3 fix removed a footgun (two rows, one path) and replaced it with
+    an orphan set with no owner. These tests are the ownership.
+
+    ⚠️ `MEDIA_ROOT` is overridden per test into a temporary directory. Without
+    that these tests write into the real one and — worse — a bug in the guard
+    would delete out of the developer's actual media folder.
+    """
+
+    def setUp(self):
+        import shutil
+        import tempfile
+
+        self.media = tempfile.mkdtemp(prefix='parliament-draft-test-')
+        self.addCleanup(shutil.rmtree, self.media, ignore_errors=True)
+
+        self.author = make_user('drf-file-auth', 'Fiona Fileauthor', member_type='Officer')
+
+    def _attach(self, draft, body=b'%PDF-1.4 pretend'):
+        """Give `draft` a real file on disk and return its stored name."""
+        from django.core.files.base import ContentFile
+
+        draft.document.save('Dues Restructuring Amendment.pdf', ContentFile(body), save=True)
+        return draft.document.name
+
+    def _make_draft(self, **kw):
+        defaults = dict(
+            author=self.author,
+            title='A Bill With An Attachment',
+            description='Long enough to clear the twenty character publish floor.',
+            planned_available_at=timezone.now() + timedelta(days=7),
+        )
+        defaults.update(kw)
+        return LegislationDraft.objects.create(**defaults)
+
+    # ───────────────────────────────────────────────────────────── delete
+
+    def test_deleting_a_draft_deletes_its_file(self):
+        """**Fails against the v3.19.3 tree**, where the blob was left behind."""
+        import os
+
+        from django.test import override_settings
+
+        with override_settings(MEDIA_ROOT=self.media):
+            draft = self._make_draft()
+            name = self._attach(draft)
+            path = os.path.join(self.media, name)
+            self.assertTrue(os.path.isfile(path), 'fixture did not write a file')
+
+            draft.delete()
+
+            self.assertFalse(os.path.isfile(path))
+
+    def test_deleting_a_draft_with_no_attachment_is_not_an_error(self):
+        from django.test import override_settings
+
+        with override_settings(MEDIA_ROOT=self.media):
+            self._make_draft().delete()
+            self.assertEqual(LegislationDraft.objects.count(), 0)
+
+    def test_a_missing_file_does_not_break_the_delete(self):
+        """
+        The row is what the member asked to remove. A cleanup that raises would
+        fail a delete that has already succeeded, so a file that is already gone
+        must be the desired end state and not an error.
+        """
+        import os
+
+        from django.test import override_settings
+
+        with override_settings(MEDIA_ROOT=self.media):
+            draft = self._make_draft()
+            name = self._attach(draft)
+            os.remove(os.path.join(self.media, name))
+
+            draft.delete()                       # must not raise
+            self.assertEqual(LegislationDraft.objects.count(), 0)
+
+    # ──────────────────────────────────────────────────────────── publish
+
+    def test_publishing_removes_the_private_original_and_keeps_the_copy(self):
+        """
+        The whole point of the v3.19.3 copy is that the published bill's bytes
+        live somewhere chapter-readable. The private original is then redundant,
+        and v3.19.3 left it on disk forever.
+
+        ⚠️ `captureOnCommitCallbacks` is required: the unlink is deferred with
+        `transaction.on_commit`, deliberately, so that turning on
+        `ATOMIC_REQUESTS` cannot turn it into "delete the only copy on a later
+        rollback". Under `TestCase` nothing ever commits, so without this the
+        callback silently never runs and the test passes for the wrong reason.
+        """
+        import os
+
+        from django.test import override_settings
+
+        with override_settings(MEDIA_ROOT=self.media):
+            draft = self._make_draft()
+            private_name = self._attach(draft)
+            private_path = os.path.join(self.media, private_name)
+
+            client = Client()
+            client.force_login(self.author)
+            with self.captureOnCommitCallbacks(execute=True):
+                client.post(reverse('publish_legislation_draft', args=[draft.id]))
+
+            legislation = Legislation.objects.get()
+
+            self.assertTrue(
+                legislation.document, 'the published bill must have a document',
+            )
+            self.assertTrue(
+                os.path.isfile(os.path.join(self.media, legislation.document.name)),
+                'the published copy must exist on disk',
+            )
+            self.assertFalse(
+                os.path.isfile(private_path),
+                'the redundant private original must be gone',
+            )
+
+            draft.refresh_from_db()
+            self.assertFalse(draft.document, 'the draft must no longer claim a file')
+
+    def test_the_published_copy_is_not_in_the_private_directory(self):
+        from django.test import override_settings
+
+        with override_settings(MEDIA_ROOT=self.media):
+            draft = self._make_draft()
+            self._attach(draft)
+
+            client = Client()
+            client.force_login(self.author)
+            with self.captureOnCommitCallbacks(execute=True):
+                client.post(reverse('publish_legislation_draft', args=[draft.id]))
+
+            name = Legislation.objects.get().document.name
+            self.assertNotIn('legislation_drafts/', name)
+            self.assertIn('legislation_docs/', name)
+
+    def test_the_published_copy_carries_the_authors_filename(self):
+        """
+        The uuid is a storage detail and must never reach a member's download.
+        `document_original_name` is what publish names the copy with.
+        """
+        from django.test import override_settings
+
+        with override_settings(MEDIA_ROOT=self.media):
+            draft = self._make_draft(document_original_name='Dues Restructuring Amendment.pdf')
+            self._attach(draft)
+
+            client = Client()
+            client.force_login(self.author)
+            with self.captureOnCommitCallbacks(execute=True):
+                client.post(reverse('publish_legislation_draft', args=[draft.id]))
+
+            name = Legislation.objects.get().document.name
+            self.assertIn('dues-restructuring-amendment', name)
+
+    def test_the_bytes_survive_the_move(self):
+        """
+        A test that only checks paths would pass on a zero-byte copy. The point
+        of the exercise is that the chapter can read the bill.
+        """
+        from django.test import override_settings
+
+        with override_settings(MEDIA_ROOT=self.media):
+            draft = self._make_draft()
+            self._attach(draft, body=b'%PDF-1.4 UNIQUEBODYBYTES')
+
+            client = Client()
+            client.force_login(self.author)
+            with self.captureOnCommitCallbacks(execute=True):
+                client.post(reverse('publish_legislation_draft', args=[draft.id]))
+
+            with Legislation.objects.get().document.open('rb') as fh:
+                self.assertIn(b'UNIQUEBODYBYTES', fh.read())
+
+    def test_deleting_a_published_draft_does_not_touch_the_bill(self):
+        """
+        ⚠️ THE ONE THAT MAKES THE `post_delete` RECEIVER SAFE.
+
+        A published draft's row is still deletable, and its receiver still
+        fires. Because publish cleared `draft.document`, there is nothing for it
+        to unlink — so the bill's own copy is untouched. If publish ever stops
+        clearing the field, this fails, which is the point: the receiver and the
+        publish path are two halves of one invariant.
+        """
+        import os
+
+        from django.test import override_settings
+
+        with override_settings(MEDIA_ROOT=self.media):
+            draft = self._make_draft()
+            self._attach(draft)
+
+            client = Client()
+            client.force_login(self.author)
+            with self.captureOnCommitCallbacks(execute=True):
+                client.post(reverse('publish_legislation_draft', args=[draft.id]))
+
+            legislation = Legislation.objects.get()
+            bill_path = os.path.join(self.media, legislation.document.name)
+
+            draft.refresh_from_db()
+            draft.delete()
+
+            self.assertTrue(
+                os.path.isfile(bill_path),
+                'Deleting the draft must never remove the published bill\'s document.',
+            )
+
+
+class TheUnlinkGuardRefusesToLeaveMediaRoot(TestCase):
+    """
+    `delete_draft_document_file`'s guard, tested directly.
+
+    ⚠️ WHY THE GUARD EXISTS AND WHY IT IS WORTH ITS OWN CLASS.
+    `DualLocationStorage.path()` falls back to `BASE_DIR/exportable_media/` when
+    a name is absent from `MEDIA_ROOT` — and `exportable_media/` is **committed
+    to a public repo by design** (CLAUDE.md's standing disposition) and contains
+    the chapter's governing documents. So a plain `document.delete()` on a row
+    whose file had already gone missing could resolve into the public directory
+    and delete a governing document out of the working tree.
+
+    Nothing in the current code can reach that state. That is exactly the kind
+    of fact that stops being true later, which is why the guard is unconditional
+    and why it is tested against inputs the application cannot currently
+    produce.
+    """
+
+    def setUp(self):
+        import shutil
+        import tempfile
+
+        self.media = tempfile.mkdtemp(prefix='parliament-guard-test-')
+        self.addCleanup(shutil.rmtree, self.media, ignore_errors=True)
+
+    def test_it_deletes_a_file_inside_media_root(self):
+        import os
+
+        from django.test import override_settings
+
+        from src.models.legislation import delete_draft_document_file
+
+        os.makedirs(os.path.join(self.media, 'legislation_drafts'))
+        target = os.path.join(self.media, 'legislation_drafts', 'abc.pdf')
+        with open(target, 'wb') as fh:
+            fh.write(b'draft')
+
+        with override_settings(MEDIA_ROOT=self.media):
+            self.assertTrue(delete_draft_document_file('legislation_drafts/abc.pdf'))
+        self.assertFalse(os.path.exists(target))
+
+    def test_it_refuses_to_traverse_out_of_media_root(self):
+        import os
+
+        from django.test import override_settings
+
+        from src.models.legislation import delete_draft_document_file
+
+        outside_dir = os.path.join(self.media, '..', 'guard-outside')
+        os.makedirs(outside_dir, exist_ok=True)
+        self.addCleanup(
+            lambda: os.path.exists(os.path.join(outside_dir, 'Kai-Binder.pdf'))
+            and os.remove(os.path.join(outside_dir, 'Kai-Binder.pdf'))
+        )
+        victim = os.path.join(outside_dir, 'Kai-Binder.pdf')
+        with open(victim, 'wb') as fh:
+            fh.write(b'PUBLIC GOVERNING DOCUMENT')
+
+        with override_settings(MEDIA_ROOT=self.media):
+            for name in (
+                '../guard-outside/Kai-Binder.pdf',
+                'legislation_drafts/../../guard-outside/Kai-Binder.pdf',
+                victim,                                    # absolute path
+            ):
+                self.assertFalse(
+                    delete_draft_document_file(name),
+                    f'{name!r} escaped MEDIA_ROOT',
+                )
+
+        self.assertTrue(os.path.isfile(victim), 'the file outside MEDIA_ROOT survived')
+
+    def test_an_empty_or_missing_name_is_false_not_an_error(self):
+        from django.test import override_settings
+
+        from src.models.legislation import delete_draft_document_file
+
+        with override_settings(MEDIA_ROOT=self.media):
+            self.assertFalse(delete_draft_document_file(''))
+            self.assertFalse(delete_draft_document_file(None))
+            self.assertFalse(delete_draft_document_file('legislation_drafts/nope.pdf'))
+
+    def test_a_directory_is_not_deleted(self):
+        import os
+
+        from django.test import override_settings
+
+        from src.models.legislation import delete_draft_document_file
+
+        os.makedirs(os.path.join(self.media, 'legislation_drafts'))
+        with override_settings(MEDIA_ROOT=self.media):
+            self.assertFalse(delete_draft_document_file('legislation_drafts'))
+        self.assertTrue(os.path.isdir(os.path.join(self.media, 'legislation_drafts')))

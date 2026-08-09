@@ -804,3 +804,170 @@ class PerformanceMetricWriteCostTests(TestCase):
             len(performance._get_entries()), performance.MAX_STORED,
             'The buffer must stay capped at MAX_STORED.',
         )
+
+
+class EveryCounterThisModuleWritesIsAlsoRead(TestCase):
+    """
+    v3.19.4 — the `perf_sampled_count` class of bug, asserted rather than
+    remembered.
+
+    ⚠️ WHAT WENT WRONG, because the shape is the point. v3.19.3 correctly
+    identified that `total_requests` was a **saturating `len()`** capped at
+    `MAX_STORED`, and replaced it with an exact `cache.incr` counter. In the
+    same function it introduced `stored_samples` — another saturating `len()`,
+    with the same defect, sixty lines from the fix — **while incrementing
+    `SAMPLED_KEY` on every stored write and never reading the value.**
+
+    One writer, no readers. It cost a Redis round trip per stored sample and
+    held exactly the number `stored_samples` was being mistaken for.
+
+    `MonitoringReaderLivenessTests.test_no_view_reads_the_dead_perf_cache_key`
+    (v3.18.7) greps for readers of a *named* key and could not see this: a key
+    with writers and no readers at all is a different shape from a key whose
+    reader was deleted. **The guard was written against the instance; this one
+    is written against the property**, which is the fourth time this codebase
+    has had to make that generalisation.
+    """
+
+    def test_the_sampled_counter_reaches_the_summary(self):
+        """
+        The regression test proper: bump the counter and require the summary to
+        show it. Fails against the v3.19.3 tree, where the value was written
+        and discarded.
+        """
+        from src.middleware import performance
+
+        cache.delete(performance.CACHE_KEY)
+        cache.delete(performance.COUNT_KEY)
+        cache.delete(performance.SAMPLED_KEY)
+
+        with patch.object(performance.random, 'randrange', return_value=0):
+            for _ in range(7):
+                performance._append_metric((timezone.now(), 5.0, '/home/', 2, 1.0))
+        with patch.object(performance.random, 'randrange', return_value=1):
+            for _ in range(93):
+                performance._append_metric((timezone.now(), 5.0, '/home/', 2, 1.0))
+
+        summary = performance.get_performance_summary()
+
+        self.assertEqual(summary['total_requests'], 100, 'Exact: every request.')
+        self.assertEqual(
+            summary['sampled_requests'], 7,
+            'Exact: every request that was STORED. This is the key that was '
+            'written and never read.',
+        )
+        self.assertEqual(summary['stored_samples'], 7, 'Buffer occupancy.')
+
+    def test_stored_samples_saturates_and_sampled_requests_does_not(self):
+        """
+        The distinction the names now carry, pinned so a future refactor cannot
+        quietly collapse them back together.
+
+        `stored_samples` is buffer occupancy and is *supposed* to stop at
+        `MAX_STORED` — that is not a defect, it is what a ring buffer does.
+        `sampled_requests` is a count of events and must keep going. Reporting
+        the first where the second is meant is the whole bug.
+        """
+        from src.middleware import performance
+
+        cache.delete(performance.CACHE_KEY)
+        cache.delete(performance.COUNT_KEY)
+        cache.delete(performance.SAMPLED_KEY)
+
+        overshoot = performance.MAX_STORED + 40
+        with patch.object(performance.random, 'randrange', return_value=0):
+            for i in range(overshoot):
+                performance._append_metric((timezone.now(), 5.0, f'/p{i}/', 2, 1.0))
+
+        summary = performance.get_performance_summary()
+
+        self.assertEqual(
+            summary['stored_samples'], performance.MAX_STORED,
+            'Occupancy saturates. Correct, and the reason it must not be used '
+            'as a count.',
+        )
+        self.assertEqual(
+            summary['sampled_requests'], overshoot,
+            'The counter must not saturate — it is the honest denominator for '
+            'every average in the dict.',
+        )
+
+    def test_the_summary_does_not_call_a_buffer_count_a_request_count(self):
+        """
+        v3.19.4 renamed `requests_last_hour`/`requests_last_5min` to
+        `samples_last_hour`/`samples_last_5min`.
+
+        This is a naming assertion and it is worth having as a test rather than
+        as a comment, because the old names were *documented in two different
+        and mutually contradictory ways in the same file* — one docstring said
+        they came from `cache.incr` counters and were exact, an inline comment
+        four lines away said they were sample counts scaled to estimate real
+        traffic, and the code did neither. The name is now the documentation.
+        """
+        from src.middleware import performance
+
+        cache.delete(performance.CACHE_KEY)
+        cache.delete(performance.COUNT_KEY)
+        cache.delete(performance.SAMPLED_KEY)
+
+        for summary in (
+            performance.get_performance_summary(),          # the `empty` path
+            self._summary_with_one_entry(),                 # the populated path
+        ):
+            self.assertIn('samples_last_hour', summary)
+            self.assertIn('samples_last_5min', summary)
+            self.assertNotIn(
+                'requests_last_hour', summary,
+                'A buffer count must not be named as though it were traffic. '
+                'If a reader needs estimated traffic, sample `total_requests` '
+                'at two points in time.',
+            )
+            self.assertNotIn('requests_last_5min', summary)
+
+    def _summary_with_one_entry(self):
+        from src.middleware import performance
+
+        with patch.object(performance.random, 'randrange', return_value=0):
+            performance._append_metric((timezone.now(), 5.0, '/home/', 2, 1.0))
+        return performance.get_performance_summary()
+
+    def test_every_reader_of_the_summary_asks_for_a_key_it_returns(self):
+        """
+        The rename's blast radius, checked mechanically rather than by grep at
+        review time.
+
+        Reads the source of every module known to consume
+        `get_performance_summary()` and asserts that each `summary['…']` /
+        `summary.get('…')` subscript names a key the function actually returns.
+        A missing key is a `KeyError` on the admin dashboard or a silent `None`
+        in a JSON response, and neither shows up until someone opens the page.
+        """
+        import re
+        from pathlib import Path
+
+        from django.conf import settings
+
+        from src.middleware import performance
+
+        cache.delete(performance.CACHE_KEY)
+        valid = set(performance.get_performance_summary().keys())
+
+        readers = [
+            Path(settings.BASE_DIR) / 'src' / 'view' / 'debug_panel.py',
+            Path(settings.BASE_DIR) / 'src' / 'management' / 'commands' / 'memory_report.py',
+        ]
+        # `[a-z0-9_]`, not `[a-z_]` — `samples_last_5min` has a digit in it, and
+        # a key-name regex that cannot match every key it is checking silently
+        # checks fewer of them than it claims to.
+        pattern = re.compile(r"""summary(?:\.get\(|\[)\s*['"]([a-z0-9_]+)['"]""")
+
+        for path in readers:
+            if not path.exists():                 # pragma: no cover
+                continue
+            for key in set(pattern.findall(path.read_text())):
+                self.assertIn(
+                    key, valid,
+                    f'{path.name} reads summary["{key}"], which '
+                    f'get_performance_summary() does not return. '
+                    f'Available: {sorted(valid)}',
+                )

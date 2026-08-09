@@ -146,14 +146,31 @@ def clear_lockouts_for(username=None, ip_address=None, cleared_by=None, match='a
     return cleared
 
 
-def _peer_is_cloudflare(request):
+def _socket_peer(request):
     """
-    True if the request's SOCKET PEER is a published Cloudflare address.
+    The request's socket peer as a string, or `''`.
 
     The peer is the rightmost X-Forwarded-For entry (nginx appends the real
     socket IP there via `$proxy_add_x_forwarded_for`) or `REMOTE_ADDR` when no
     XFF is present. That is the one value in the request an outside client
     cannot choose, which is the whole reason it is the thing checked here.
+
+    v3.19.4 — split out of `_peer_is_cloudflare` so the forged-header log can
+    throttle on the peer without computing it a second time. **Do not use this
+    as the client IP** — it is the edge address behind Cloudflare, which is the
+    exact bug v3.18.8 existed to fix. It identifies the *connection*, not the
+    visitor, and that is all it is for.
+    """
+    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+    return (
+        x_forwarded_for.split(',')[-1].strip() if x_forwarded_for
+        else request.META.get('REMOTE_ADDR', '')
+    )
+
+
+def _peer_is_cloudflare(request):
+    """
+    True if the request's SOCKET PEER is a published Cloudflare address.
 
     Returns False on a malformed address or an unreadable range file — the
     caller treats that as "not verified", so the failure mode is falling back to
@@ -165,11 +182,7 @@ def _peer_is_cloudflare(request):
 
     from src.utils.cloudflare_ranges import cloudflare_networks
 
-    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
-    peer = (
-        x_forwarded_for.split(',')[-1].strip() if x_forwarded_for
-        else request.META.get('REMOTE_ADDR', '')
-    )
+    peer = _socket_peer(request)
     if not peer:
         return False
 
@@ -179,6 +192,84 @@ def _peer_is_cloudflare(request):
         return False
 
     return any(addr in network for network in cloudflare_networks())
+
+
+#: Seconds between `FORGED_CF_HEADER` lines for the same peer. See
+#: `_log_forged_cf_header`.
+FORGED_CF_LOG_WINDOW = 300
+
+
+def _log_forged_cf_header(request, cf_ip):
+    """
+    Log a forged `CF-Connecting-IP`, at most once per peer per window.
+
+    ⚠️ v3.19.4 — WHY THIS IS THROTTLED, AND WHY THE THROTTLE IS ON THE PEER.
+
+    v3.19.3 logged this unconditionally. Three things compounded:
+
+      1. `get_client_ip` runs **more than once per request** —
+         `InputSanitizationMiddleware` calls it on every request, and
+         `SessionTrackingMiddleware` and `EmergencyLockdownMiddleware` call it on
+         their own conditions — so one forged request wrote several identical
+         lines.
+      2. The `security` logger's only file handler is a `RotatingFileHandler` at
+         10 MB × 3 backups, **shared with `django`, `src`, `admin_actions` and
+         `function_calls`**. There is no separate security log to protect.
+      3. The condition that triggers it is, by construction, an attacker who has
+         already found a route to the origin — i.e. someone in a position to
+         repeat it as often as they like.
+
+    So the alarm could roll the log and take every other security event with it.
+    Not a fast or quiet attack, and not the reason to fix it: **an alarm that
+    destroys the record when it fires is the wrong shape regardless of how hard
+    it is to abuse.**
+
+    The throttle is on the SOCKET PEER rather than on the forged value, because
+    the forged value is chosen by the attacker and would give them one log line
+    per made-up address — a throttle keyed on attacker-controlled input is not a
+    throttle. The peer is the one thing they cannot pick.
+
+    Suppressed hits are counted, and the count rides on the next line that gets
+    through, so the volume is still visible. `cache.add` is atomic, so two
+    workers racing produce one line, not two.
+    """
+    import ipaddress
+
+    # Local import, matching `clear_lockouts_for` above — this module has no
+    # module-level `cache` and importing one here would change its import graph
+    # for the sake of one helper.
+    from django.core.cache import cache
+
+    peer = _socket_peer(request)
+
+    # A cache key must be a well-formed short string. When verification is ON and
+    # nginx is absent, XFF is entirely client-supplied, so `peer` can be
+    # anything — normalise through `ip_address` and bucket the rest together
+    # rather than letting a chosen value shape the key.
+    try:
+        peer_key = str(ipaddress.ip_address(peer))
+    except ValueError:
+        peer_key = 'unparseable'
+
+    count_key = f'forged_cf_suppressed_{peer_key}'
+
+    if not cache.add(f'forged_cf_seen_{peer_key}', 1, FORGED_CF_LOG_WINDOW):
+        try:
+            cache.incr(count_key)
+        except ValueError:
+            cache.set(count_key, 1, FORGED_CF_LOG_WINDOW)
+        return
+
+    suppressed = cache.get(count_key) or 0
+    cache.delete(count_key)
+
+    logger.warning(
+        'FORGED_CF_HEADER: CF-Connecting-IP=%s from non-Cloudflare peer %s on %s %s '
+        '— origin is reachable directly; restrict it at the firewall.%s',
+        cf_ip.strip()[:64], peer_key, request.method, request.path[:200],
+        f' ({suppressed} further hits suppressed in the last {FORGED_CF_LOG_WINDOW}s)'
+        if suppressed else '',
+    )
 
 
 def get_client_ip(request):
@@ -241,11 +332,11 @@ def get_client_ip(request):
             # signal that the origin is exposed, and it is worth a WARNING even
             # though the request is handled safely, because the fix is a
             # firewall rule and nobody will make it without knowing.
-            logger.warning(
-                'FORGED_CF_HEADER: CF-Connecting-IP=%s from non-Cloudflare peer on %s %s '
-                '— origin is reachable directly; restrict it at the firewall.',
-                cf_ip.strip()[:64], request.method, request.path,
-            )
+            #
+            # v3.19.4: throttled per peer. See `_log_forged_cf_header` — the
+            # unthrottled version could roll a log file this logger shares with
+            # every other security event.
+            _log_forged_cf_header(request, cf_ip)
 
     x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
     if x_forwarded_for:

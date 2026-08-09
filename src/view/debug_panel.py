@@ -463,10 +463,18 @@ def debug_performance_metrics(request):
         # v3.19.3: the averages below are over a 1-in-N sample (slow requests
         # kept unconditionally), so the response says so rather than leaving a
         # caller to assume otherwise. `total_requests` is exact.
+        #
+        # v3.19.4: `requests_last_hour` renamed to `samples_last_hour` — it was
+        # never a request count, and the old name invited exactly the reading it
+        # could not support. `sampled_requests` added: the exact count of what
+        # was stored, which is the honest denominator for the averages below.
+        # This endpoint is admin-only debug JSON with no in-repo consumer
+        # (grepped), so the rename costs nothing.
         'sampled': summary.get('sampled', False),
         'sample_rate': summary.get('sample_rate'),
+        'sampled_requests': summary.get('sampled_requests'),
         'stored_samples': summary.get('stored_samples'),
-        'requests_last_hour': summary['requests_last_hour'],
+        'samples_last_hour': summary['samples_last_hour'],
         'avg_response_time_ms': summary['avg_response_time_ms'],
         'max_response_time_ms': summary['max_response_time_ms'],
         'avg_db_queries': summary['avg_db_queries'],

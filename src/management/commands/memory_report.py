@@ -225,16 +225,36 @@ class Command(BaseCommand):
             # MAX_STORED — `stored_samples` is. Reporting both, because the gap
             # between them IS the sampling and is the number someone reading a
             # memory report wants to see.
+            #
+            # v3.19.4: `sampled_requests` added (the exact stored-write counter,
+            # which existed and was read by nothing), and the effective sample
+            # rate derived from the two exact counters rather than quoted from
+            # the constant. They differ — slow requests are stored
+            # unconditionally — and the difference is the useful number here.
             self.stdout.write(f'   Requests seen (exact): {summary["total_requests"]}')
-            self.stdout.write(f'   Stored samples: {summary["stored_samples"]} / {MAX_STORED}')
+            self.stdout.write(f'   Requests stored (exact): {summary["sampled_requests"]}')
+            self.stdout.write(f'   Retained in buffer: {summary["stored_samples"]} / {MAX_STORED}')
             if summary.get('sampled'):
                 self.stdout.write(
                     f'   Sampling: 1 in {summary["sample_rate"]}, plus every request '
                     f'over the slow threshold'
                 )
+                if summary['total_requests'] and summary['sampled_requests']:
+                    effective = summary['total_requests'] / summary['sampled_requests']
+                    self.stdout.write(f'   Effective rate: 1 in {effective:.1f} (measured)')
             self.stdout.write(f'   Avg response time: {summary["avg_response_time_ms"]:.1f} ms (sampled)')
             self.stdout.write(f'   Avg queries/request: {summary["avg_db_queries"]} (sampled)')
-            self.stdout.write(f'   Samples last hour: {summary["requests_last_hour"]}')
+            self.stdout.write(f'   Samples retained, last hour: {summary["samples_last_hour"]}')
+
+            # v3.19.4 — the number this section exists to report. `MAX_STORED`
+            # bounds the entry COUNT; what a memory report is asked about is
+            # bytes, and the two are only loosely related because `path` varies.
+            import pickle
+            from src.middleware.performance import _get_entries
+            _entries = _get_entries()
+            if _entries:
+                _bytes = len(pickle.dumps(_entries, protocol=pickle.HIGHEST_PROTOCOL))
+                self.stdout.write(f'   Buffer size: {_bytes / 1024:.1f} KB uncompressed')
         except Exception as e:
             self.stdout.write(f'   Error: {e}')
 
@@ -302,18 +322,45 @@ class Command(BaseCommand):
         # exceptions reports the absence of a signal as the absence of a
         # problem.)
         try:
-            from src.middleware.performance import get_performance_summary, MAX_STORED
-            # v3.19.3: `stored_samples`, not `total_requests` — the latter is now
-            # an unbounded exact counter, so comparing it to MAX_STORED would
-            # fire this recommendation permanently after the first few hundred
-            # requests. The buffer size is what MAX_STORED governs.
-            stored = get_performance_summary()['stored_samples']
-            if stored > MAX_STORED * 0.8:
+            import pickle
+
+            from src.middleware.performance import (
+                CACHE_KEY, MAX_STORED, _get_entries, get_performance_summary,
+            )
+
+            # ⚠️ v3.19.4 — OCCUPANCY IS NOT A PROBLEM SIGNAL, AND THIS CHECK
+            # SPENT TWO RELEASES MEASURING IT.
+            #
+            # It first compared `total_requests` to MAX_STORED. v3.19.3 saw that
+            # `total_requests` had become an unbounded counter and swapped in
+            # `stored_samples` — a correct observation about the wrong quantity.
+            # `stored_samples` is `len()` of a ring buffer that is TRIMMED TO
+            # MAX_STORED ON EVERY WRITE, so `> MAX_STORED * 0.8` is the steady
+            # state of a buffer doing its job. The condition could not be false
+            # on a site that had served ten thousand requests; sampling moved
+            # when it latched on, not whether.
+            #
+            # The general form, worth keeping: **before writing a threshold, ask
+            # what the world looks like when it is NOT crossed.** If the answer
+            # is "a brand-new process", the threshold measures uptime.
+            #
+            # This is a MEMORY report, so the question it should actually answer
+            # is how many bytes the buffer costs. That can be false, it can get
+            # worse if MAX_STORED or the entry shape changes, and it is the
+            # number someone reading this section came for.
+            summary = get_performance_summary()
+            entries = _get_entries()
+            buffer_bytes = len(pickle.dumps(entries, protocol=pickle.HIGHEST_PROTOCOL)) if entries else 0
+            if buffer_bytes > 512 * 1024:
                 recommendations.append(
-                    f'Performance middleware buffer near capacity '
-                    f'({stored}/{MAX_STORED} samples) - consider reducing MAX_STORED'
+                    f'Performance buffer is {buffer_bytes / 1024:.0f} KB under `{CACHE_KEY}` '
+                    f'({summary["stored_samples"]}/{MAX_STORED} entries) - reduce MAX_STORED, '
+                    f'or shorten the stored `path`, which dominates the entry size'
                 )
-        except (KeyError, TypeError, ValueError):
+        # ImportError is deliberately NOT caught — see the v3.18.7 note above.
+        # A missing name here is a code defect and should be a traceback, not a
+        # silently absent recommendation.
+        except (KeyError, TypeError, ValueError, pickle.PicklingError):
             pass
 
         if recommendations:

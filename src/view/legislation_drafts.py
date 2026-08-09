@@ -56,6 +56,10 @@ from django.contrib.auth.decorators import login_required
 from ..decorators import officer_required, log_function_call
 from ..forms import LegislationDraftForm
 from src.models import Legislation, LegislationDraft
+# v3.19.4 — the single guarded unlink for draft attachments; see its docstring
+# for why `document.delete()` is not used directly (DualLocationStorage resolves
+# missing names into the public exportable_media/ directory).
+from src.models.legislation import delete_draft_document_file
 
 logger = logging.getLogger(__name__)
 
@@ -279,6 +283,11 @@ def publish_legislation_draft(request, draft_id):
     # copy leaves an orphaned file in `legislation_docs/`, which costs disk and
     # nothing else — strictly the better failure of the two, and the reason the
     # copy sits inside rather than outside.
+    # v3.19.4 — remembered before the field is cleared below, so the private
+    # original can be removed once the copy is durable. Read here rather than
+    # inside the block because `draft.document` is set to None in it.
+    private_original = draft.document.name if draft.document else None
+
     with transaction.atomic():
         legislation.save()
 
@@ -315,9 +324,47 @@ def publish_legislation_draft(request, draft_id):
             finally:
                 draft.document.close()
 
+            # ⚠️ v3.19.4 — THE COPY REPLACES THE ORIGINAL; IT DOES NOT JOIN IT.
+            #
+            # v3.19.3 made publish copy the file out of the private directory
+            # instead of re-pointing at it, which was right. What it did not do
+            # was say what happens to the original — so every published draft
+            # left a second copy under `legislation_drafts/<uuid>` that nothing
+            # referenced, nothing could name, and no code path would ever
+            # delete. The footgun the copy removed (two rows, one path) was
+            # replaced by an orphan set with no owner.
+            #
+            # Clearing the field here and unlinking after commit gives the file
+            # exactly one lifetime. `document_original_name` is KEPT — it is the
+            # record of what was published and it costs nothing, and
+            # `document_display_name` returning it with no file attached is
+            # harmless because every template gates on `draft.document` first.
+            #
+            # Nothing is lost by this: the bytes are in `legislation_docs/`
+            # under the author's own filename, chapter-readable, linked from the
+            # draft row's "view the bill" line, and the draft is immutable from
+            # this point — `edit_legislation_draft` redirects on
+            # `is_published`.
+            draft.document = None
+
         draft.published_legislation = legislation
         draft.published_at = timezone.now()
-        draft.save(update_fields=['published_legislation', 'published_at', 'updated_at'])
+        draft.save(update_fields=[
+            'published_legislation', 'published_at', 'document', 'updated_at',
+        ])
+
+    # ⚠️ AFTER COMMIT, NOT AFTER THE BLOCK. If `ATOMIC_REQUESTS` is ever turned
+    # on, the `atomic()` above becomes a savepoint inside the request's
+    # transaction and "the block ended" would no longer mean "the copy is
+    # durable" — deleting here would then destroy the only copy on a later
+    # rollback. `on_commit` is correct either way and costs nothing today.
+    #
+    # NOTE FOR TESTS: `on_commit` callbacks do not run under `TestCase` unless
+    # wrapped in `self.captureOnCommitCallbacks(execute=True)`.
+    if private_original:
+        transaction.on_commit(
+            lambda: delete_draft_document_file(private_original)
+        )
 
     # The chapter is NOT notified here. `tasks.notify_available_legislation`
     # fires when `available_at` actually arrives — see that task and the

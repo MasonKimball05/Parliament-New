@@ -80,20 +80,31 @@ def _append_metric(entry: tuple):
     Same blind spot one resource over, which is why `test_middleware_hot_path`
     now asserts on cache traffic too.
 
-    WHAT SAMPLING COSTS, STATED PLAINLY so nobody is surprised by a number:
+    WHAT SAMPLING COSTS, STATED PLAINLY so nobody is surprised by a number.
 
-    * `slow_requests` and `get_slow_requests()` are **unaffected** — anything
-      over `ALWAYS_STORE_ABOVE_MS` is stored unconditionally. The N+1 hunts that
-      this data has actually been used for lose nothing.
-    * `total_requests` and `requests_last_hour` are **exact**, because they now
-      come from `cache.incr` counters rather than from `len(entries)`. This is
-      more accurate than before: the 500-entry buffer meant `total_requests`
-      silently saturated and "last hour" was really "last few minutes".
+    ⚠️ v3.19.4 — THREE CLAIMS IN THIS LIST WERE WRONG WHEN v3.19.3 SHIPPED, and
+    they were wrong in a specific way worth naming: they described the design
+    that was intended rather than the code that was written. Nobody re-read them
+    against the finished function. Corrected below; see `get_performance_summary`.
+
+    * `slow_requests` and `get_slow_requests()` are **not sampled at write
+      time** — anything over `ALWAYS_STORE_ABOVE_MS` is stored unconditionally.
+      They are NOT "complete": a slow entry lands in the same `MAX_STORED` ring
+      buffer as the samples and is evicted FIFO like anything else. Sampling
+      made this much better (500 slots now span ~10,000 requests rather than
+      500) without making it absolute, and the earlier word for it was too
+      strong.
+    * `total_requests` is **exact**, because it comes from a `cache.incr`
+      counter rather than from `len(entries)`. That is a real improvement: the
+      500-entry buffer meant `total_requests` silently saturated at 500.
+      `sampled_requests` is exact for the same reason. **`samples_last_hour` is
+      NOT** — it is a `len()` over the retained buffer, has never come from a
+      counter, and cannot, because a counter has no timestamps to filter on.
     * `avg_response_time_ms` / `avg_db_queries` / `avg_db_time_ms` become
       **estimates over a 1-in-20 sample, biased upward** because slow requests
       are kept preferentially. They were never precise — the buffer overwrote
       itself continuously — but the bias is new and is why `get_performance_summary`
-      labels them.
+      labels them and why every reader must render that label.
     """
     duration_ms = entry[1]
     _bump(COUNT_KEY)
@@ -136,33 +147,54 @@ def get_performance_summary():
     """
     Return aggregated performance stats for the dashboard.
 
-    ⚠️ v3.19.3 — TWO KINDS OF NUMBER LIVE IN THIS DICT AND THEY ARE NOT EQUALLY
-    TRUSTWORTHY. `_append_metric` samples (see its docstring for why), so:
+    ⚠️ THREE KINDS OF NUMBER LIVE IN THIS DICT AND THEY ARE NOT EQUALLY
+    TRUSTWORTHY. `_append_metric` samples (see its docstring for why), so —
+    **and the key name now says which kind it is, which is the v3.19.4 change**:
 
-    * `total_requests` and `stored_samples` are **exact counts** from
-      `cache.incr`. `total_requests` is now genuinely every request, which it
-      never was before — it used to be `len(entries)`, i.e. capped at
-      `MAX_STORED` and therefore pinned at 500 on any real traffic.
-    * everything averaged is an **estimate over the stored sample**, biased
-      upward because requests above `ALWAYS_STORE_ABOVE_MS` are kept
-      unconditionally. `sampled` says so, so a caller rendering these can label
-      them rather than implying a precision that is not there.
-    * `slow_requests` and `get_slow_requests()` are **complete**, not sampled —
-      that is the point of storing slow requests unconditionally, and it is the
-      data every N+1 hunt in this codebase has actually used.
+    * **Exact counters** (`cache.incr`, unbounded, survive buffer eviction):
+      `total_requests` — every request the middleware saw;
+      `sampled_requests` — every request it decided to store.
+      Their ratio is the *effective* sample rate, which is not `sample_rate`:
+      slow requests are stored unconditionally, so the realised ratio is always
+      a little richer than 1-in-N and drifts with how slow the site is.
+    * **Buffer facts** (bounded by `MAX_STORED`, describe what is retained
+      *right now*): `stored_samples`, `samples_last_hour`, `samples_last_5min`.
+      ⚠️ **These are not request counts and must never be rendered as traffic.**
+      v3.19.3 called the last two `requests_last_hour`/`requests_last_5min` and
+      documented them as counter-derived and as "scaled to an estimate of real
+      traffic"; they were neither, and no scaling was ever performed. They are
+      renamed rather than scaled, because inventing a multiplier would be a
+      second wrong number wearing the first one's name. If you want estimated
+      traffic in a window, the honest source is `total_requests` sampled at two
+      points in time, not this buffer.
+    * **Estimates over the retained sample**, biased upward because requests
+      above `ALWAYS_STORE_ABOVE_MS` are kept preferentially:
+      `avg_response_time_ms`, `avg_db_queries`, `avg_db_time_ms`,
+      `max_response_time_ms`, `slow_requests`. `sampled` and `sample_rate` are
+      in the dict so **every** reader can label them — `memory_report`,
+      `debug_performance_metrics` and the admin-v2 dashboard card all do as of
+      v3.19.4. The dashboard was the one that did not, and it is the only one a
+      person actually looks at.
     """
     entries = _get_entries()
     total = cache.get(COUNT_KEY) or 0
+    # v3.19.4 — this counter has existed since v3.19.3 and nothing read it.
+    # `stored_samples` was `len(entries)`, i.e. a saturating count capped at
+    # MAX_STORED — the exact failure the same release correctly diagnosed and
+    # fixed for `total_requests`, reintroduced sixty lines below the fix, while
+    # the counter that answers it was being incremented and thrown away.
+    sampled = cache.get(SAMPLED_KEY) or 0
 
     empty = {
         'total_requests': total,
+        'sampled_requests': sampled,
         'avg_response_time_ms': 0,
         'max_response_time_ms': 0,
         'slow_requests': 0,
         'avg_db_queries': 0,
         'avg_db_time_ms': 0,
-        'requests_last_hour': 0,
-        'requests_last_5min': 0,
+        'samples_last_hour': 0,
+        'samples_last_5min': 0,
         'stored_samples': len(entries),
         'sampled': True,
         'sample_rate': SAMPLE_ONE_IN,
@@ -187,16 +219,17 @@ def get_performance_summary():
 
     return {
         'total_requests': total,
+        'sampled_requests': sampled,
         'avg_response_time_ms': round(sum(durations) / len(durations), 1),
         'max_response_time_ms': round(max(durations), 1),
         'slow_requests': sum(1 for d in durations if d > ALWAYS_STORE_ABOVE_MS),
         'avg_db_queries': round(sum(db_queries) / len(db_queries), 1),
         'avg_db_time_ms': round(sum(db_times) / len(db_times), 1),
-        # Sample counts, scaled to an estimate of real traffic. Named
-        # `_last_hour` for compatibility with the two existing readers; the
-        # unscaled figure is `stored_samples`.
-        'requests_last_hour': len(recent),
-        'requests_last_5min': len(very_recent),
+        # v3.19.4 — RAW BUFFER COUNTS, AND THE NAME NOW SAYS SO. Not scaled, not
+        # counter-derived, not traffic. See the docstring; the old names claimed
+        # all three.
+        'samples_last_hour': len(recent),
+        'samples_last_5min': len(very_recent),
         'stored_samples': len(entries),
         'sampled': True,
         'sample_rate': SAMPLE_ONE_IN,

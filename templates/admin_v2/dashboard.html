@@ -503,7 +503,17 @@
                     </div>
                     <div>
                         <h3 class="font-bold text-gray-900 dark:text-gray-100">Performance</h3>
-                        <p class="text-sm text-gray-500 dark:text-gray-400">{{ performance.avg_response_time_ms|default:"0" }}ms avg response</p>
+                        {% comment %}
+                        v3.19.4 — the sampling label. `avg_response_time_ms`,
+                        `max_response_time_ms` and `slow_requests` are computed over a
+                        1-in-N sample that keeps slow requests preferentially, so they
+                        read HIGH. `memory_report` and the debug JSON both said so from
+                        v3.19.3; this card, the only one a person looks at, did not.
+                        `total_requests` is exact and is labelled separately below.
+                        {% endcomment %}
+                        <p class="text-sm text-gray-500 dark:text-gray-400">
+                            {{ performance.avg_response_time_ms|default:"0" }}ms avg response{% if performance.sampled %}<span class="text-gray-400 dark:text-gray-500"> · sampled 1 in {{ performance.sample_rate }}</span>{% endif %}
+                        </p>
                     </div>
                 </div>
                 <svg class="chevron-icon w-5 h-5 text-gray-400 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -514,7 +524,7 @@
                 <div class="grid grid-cols-3 gap-2 mb-4 text-center text-sm">
                     <div class="bg-gray-50 dark:bg-gray-700 rounded p-2">
                         <div class="font-bold text-gray-900 dark:text-gray-100">{{ performance.total_requests|default:"0" }}</div>
-                        <div class="text-xs text-gray-500 dark:text-gray-400">Requests</div>
+                        <div class="text-xs text-gray-500 dark:text-gray-400">Requests <span class="text-gray-400 dark:text-gray-500">(exact)</span></div>
                     </div>
                     <div class="bg-gray-50 dark:bg-gray-700 rounded p-2">
                         <div class="font-bold text-gray-900 dark:text-gray-100">{{ performance.max_response_time_ms|default:"0" }}</div>
@@ -525,6 +535,20 @@
                         <div class="text-xs text-gray-500 dark:text-gray-400">Slow</div>
                     </div>
                 </div>
+                {% if performance.sampled %}
+                {% comment %}
+                v3.19.4 — the exact/estimated split, spelled out once. "Requests" is
+                the `cache.incr` counter and is every request; Max and Slow come from
+                the retained sample. Without this line the three numbers look like
+                they came from the same place, which was the whole problem.
+                {% endcomment %}
+                <p class="text-xs text-gray-500 dark:text-gray-400 mb-3 -mt-2">
+                    Requests is an exact count. Max and Slow are measured over
+                    {{ performance.stored_samples|default:"0" }} retained samples
+                    (of {{ performance.sampled_requests|default:"0" }} stored), which keep
+                    slow requests preferentially — so they read high.
+                </p>
+                {% endif %}
                 <button id="health-check-btn" class="w-full p-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition flex items-center justify-center gap-2">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
