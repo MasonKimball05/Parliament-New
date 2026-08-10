@@ -105,3 +105,162 @@ class ServeMediaTests(TestCase):
                         '/internal_media'):
             resp = self.client.get(self.url)
         self.assertEqual(resp.status_code, 302)
+
+
+@override_settings(MEDIA_ROOT=_TMP_MEDIA)
+class PrivateMediaDirectoriesAreNotServedHere(TestCase):
+    """
+    ⚠️ v3.19.5 — `/media/` MUST NOT SERVE A LEGISLATION DRAFT, and this class is
+    the regression test for a finding that was reported FIXED and was not.
+
+    v3.19.3 found that any authenticated member could fetch any member's private
+    draft attachment at `/media/legislation_drafts/<name>`. It fixed that by
+    building `serve_legislation_draft_document` (author-scoped, via
+    `_get_own_draft`) and repointing both templates at it — and the 08-08 review
+    closed the finding after confirming no template still referenced
+    `draft.document.url`.
+
+    **Removing the link is not removing the route.** `media/<path:path>` was
+    untouched and still resolved anything under `MEDIA_ROOT`, so the only thing
+    standing between a draft and any logged-in member was the uuid filename that
+    v3.19.3 labelled, in four places, *"defence in depth, explicitly NOT the
+    access control"*. Files predating migration `0016` did not even have that:
+    their names are `slugify()` of the uploaded filename.
+
+    So these tests are deliberately about the ROUTE and not about the fix. They
+    do not construct a `LegislationDraft` at all — a file sitting in the
+    directory is enough, which is the point: **orphaned draft files, of which
+    this feature has produced several, have no row to be scoped by.**
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        os.makedirs(os.path.join(_TMP_MEDIA, 'legislation_drafts'), exist_ok=True)
+        # Two names: the post-0016 uuid shape, and the pre-0016 slug shape that
+        # is guessable from a bill's title. Both must be refused.
+        for name in ('deadbeefdeadbeefdeadbeefdeadbeef.pdf',
+                     'dues-restructuring-amendment.pdf'):
+            with open(os.path.join(_TMP_MEDIA, 'legislation_drafts', name), 'wb') as f:
+                f.write(b'%PDF-1.4 private draft')
+
+        # The control's fixture is built HERE and not borrowed from
+        # `ServeMediaTests`, which writes the same file. Test class execution
+        # order is not guaranteed, and a control that only exists when another
+        # class happened to run first is a control that reports "refused"
+        # (correct-looking) when it should report "served".
+        os.makedirs(os.path.join(_TMP_MEDIA, 'legislation_docs'), exist_ok=True)
+        with open(os.path.join(_TMP_MEDIA, 'legislation_docs', 'doc.pdf'), 'wb') as f:
+            f.write(b'%PDF-1.4 test payload')
+
+        # Near-miss: a public directory whose name starts with a private one.
+        # `legislation_drafts` must not match `legislation_drafts_public` — a
+        # `startswith` check would fail this and nothing else would notice.
+        os.makedirs(os.path.join(_TMP_MEDIA, 'legislation_drafts_public'), exist_ok=True)
+        with open(os.path.join(_TMP_MEDIA, 'legislation_drafts_public', 'ok.pdf'), 'wb') as f:
+            f.write(b'%PDF-1.4 public')
+
+    def setUp(self):
+        self.client = Client()
+        self.member = ParliamentUser.objects.create_user(
+            user_id='pm1', name='Nosy Member', username='pm1',
+            member_type='Member')
+        self.client.force_login(self.member)
+
+    def test_a_member_cannot_fetch_a_draft_by_its_uuid_name(self):
+        resp = self.client.get(reverse('serve_media', kwargs={
+            'path': 'legislation_drafts/deadbeefdeadbeefdeadbeefdeadbeef.pdf'}))
+        self.assertEqual(resp.status_code, 404)
+
+    def test_a_member_cannot_fetch_a_pre_0016_draft_by_its_guessable_name(self):
+        """The population `0016` deliberately declined to rename."""
+        resp = self.client.get(reverse('serve_media', kwargs={
+            'path': 'legislation_drafts/dues-restructuring-amendment.pdf'}))
+        self.assertEqual(resp.status_code, 404)
+
+    def test_the_prefix_check_reads_the_resolved_path_not_the_request(self):
+        """
+        ⚠️ The assertion that makes the guard worth having.
+
+        `legislation_docs/../legislation_drafts/x.pdf` has a first segment of
+        `legislation_docs` and resolves into the private directory. A check
+        written against `path` rather than against what `path` resolves to would
+        pass this and serve the file — which is the same "checked the input, not
+        the value" shape as the finding this class exists for.
+        """
+        resp = self.client.get(
+            '/media/legislation_docs/../legislation_drafts/'
+            'deadbeefdeadbeefdeadbeefdeadbeef.pdf')
+        self.assertIn(resp.status_code, (404, 400))
+
+        # Same thing with the separators percent-encoded, so the check cannot be
+        # satisfied by Django's URL resolver normalising the path for us.
+        resp = self.client.get(
+            '/media/legislation_docs/%2e%2e/legislation_drafts/'
+            'deadbeefdeadbeefdeadbeefdeadbeef.pdf')
+        self.assertIn(resp.status_code, (404, 400))
+
+    def test_it_is_refused_in_accel_mode_too(self):
+        """
+        The X-Accel path hands the URI to nginx and never touches the bytes, so a
+        guard placed after the response is built would leak here and nowhere
+        else. Nothing about this may depend on which serving mode is configured.
+        """
+        with mock.patch('src.view.serve_media.MEDIA_ACCEL_PREFIX',
+                        '/internal_media'):
+            resp = self.client.get(reverse('serve_media', kwargs={
+                'path': 'legislation_drafts/deadbeefdeadbeefdeadbeefdeadbeef.pdf'}))
+        self.assertEqual(resp.status_code, 404)
+        self.assertNotIn('X-Accel-Redirect', resp)
+
+    def test_the_control_a_public_media_directory_still_works(self):
+        """
+        The negative control, and it is not decoration: a guard that refused
+        everything would pass every assertion above. `legislation_docs/` is the
+        directory `/media/`'s promise is actually correct for.
+        """
+        resp = self.client.get(reverse('serve_media', kwargs={
+            'path': 'legislation_docs/doc.pdf'}))
+        self.assertEqual(resp.status_code, 200)
+
+    def test_the_control_a_directory_whose_name_merely_starts_with_a_private_one(self):
+        """
+        ⚠️ The second control, and the reason the check splits on the path
+        separator instead of using `startswith`.
+
+        `legislation_drafts_public/` is not `legislation_drafts/`. A prefix
+        comparison would refuse it, and the failure would be invisible — refusing
+        to serve a file looks exactly like the guard working.
+        """
+        resp = self.client.get(reverse('serve_media', kwargs={
+            'path': 'legislation_drafts_public/ok.pdf'}))
+        self.assertEqual(resp.status_code, 200)
+
+    def test_the_private_set_names_only_directories_that_have_their_own_view(self):
+        """
+        ⚠️ The property, not the instance — the fifth time this codebase has had
+        to make that move (a call site, a branch, a column, a resource, a route).
+
+        An entry in `PRIVATE_MEDIA_PREFIXES` says "this is served somewhere
+        else". If it is not served anywhere else, the entry is not a redaction,
+        it is a feature deletion — and the failure would be invisible, because
+        refusing to serve a file looks exactly like the fix working.
+        """
+        from django.urls import get_resolver
+
+        from src.view.serve_media import PRIVATE_MEDIA_PREFIXES
+
+        self.assertTrue(PRIVATE_MEDIA_PREFIXES, 'The set must not be empty.')
+
+        # Every prefix needs a named route that is NOT serve_media.
+        route_names = set(get_resolver().reverse_dict.keys())
+        expected = {'legislation_drafts': 'legislation_draft_document'}
+        for prefix in PRIVATE_MEDIA_PREFIXES:
+            self.assertIn(
+                prefix, expected,
+                f'{prefix!r} was added to PRIVATE_MEDIA_PREFIXES without '
+                f'recording which view serves it instead. Add it here.')
+            self.assertIn(
+                expected[prefix], route_names,
+                f'{prefix!r} is refused by /media/ but {expected[prefix]!r} is '
+                f'not routed — the files are now unreachable by anyone.')

@@ -142,6 +142,69 @@ class TheForgedHeaderWarningIsThrottled(TestCase):
 
         self.assertEqual(warn.call_args.args[-1], '')
 
+    def test_the_count_survives_a_burst_that_stops(self):
+        """
+        ⚠️ v3.19.5 — THE CASE THE COUNT EXISTS FOR, AND THE ONE IT USED TO LOSE.
+
+        v3.19.4 gave the gate key and the counter key the same TTL. They are
+        written at different moments — the gate by the FIRST hit, the counter by
+        the SECOND — so the counter expired a moment AFTER the gate, and was only
+        ever read by a hit landing inside that sliver. A **burst that stops** (a
+        scanner sweep, a one-off probe run: exactly the shape this alarm is meant
+        to characterise) had its whole tally expire unread, and the operator got
+        one line with no number, unable to tell one probe from ten thousand.
+
+        Simulated the way the cache actually behaves: the gate expires, the
+        counter does not, and a hit arriving well after the window still carries
+        the tally.
+
+        **Fails against the v3.19.4 tree** — there both keys were given
+        `FORGED_CF_LOG_WINDOW`, so deleting the counter alongside the gate (which
+        is what expiry does) leaves nothing to report.
+        """
+        from src.utils.security_utils import (
+            FORGED_CF_COUNT_TTL, FORGED_CF_LOG_WINDOW,
+        )
+
+        self.assertGreater(
+            FORGED_CF_COUNT_TTL, FORGED_CF_LOG_WINDOW,
+            'The counter must outlive the gate, or a burst that ends is never '
+            'reported. Equal TTLs read as equal lifetimes and are not, because '
+            'the two keys are created one hit apart.',
+        )
+
+        with patch.object(security_utils.logger, 'warning') as warn:
+            for _ in range(30):
+                get_client_ip(self._request(DIRECT_PEER))
+
+            # The burst ends. Only the GATE expires — the counter's longer TTL is
+            # the entire fix, so only the gate is removed here.
+            cache.delete(f'forged_cf_seen_{DIRECT_PEER}')
+
+            # ...and much later, one more probe.
+            get_client_ip(self._request(DIRECT_PEER))
+
+        self.assertEqual(warn.call_count, 2)
+        self.assertIn('29 further hits suppressed', warn.call_args_list[1].args[-1])
+
+    def test_the_suppression_suffix_does_not_claim_a_window_it_cannot_know(self):
+        """
+        The suffix used to read "in the last 300s". Once the counter outlives the
+        gate that is no longer true — a tally can span several windows — and a
+        log line that states a duration it cannot vouch for is the same class of
+        false comment this codebase has now deleted five of.
+        """
+        with patch.object(security_utils.logger, 'warning') as warn:
+            for _ in range(5):
+                get_client_ip(self._request(DIRECT_PEER))
+            cache.delete(f'forged_cf_seen_{DIRECT_PEER}')
+            get_client_ip(self._request(DIRECT_PEER))
+
+        suffix = warn.call_args_list[1].args[-1]
+        self.assertIn('suppressed', suffix)
+        self.assertNotIn('300', suffix)
+        self.assertNotIn('last ', suffix)
+
     # ─────────────────────────────────────────── the key cannot be steered
 
     def test_an_unparseable_peer_cannot_shape_the_cache_key(self):

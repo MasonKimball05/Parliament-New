@@ -29,6 +29,7 @@ would pass for the wrong reason against the pre-fix tree, that is called out
 on the test itself.
 """
 
+from datetime import timedelta          # v3.19.5 — EveryThresholdHasBothAnswers
 from unittest.mock import patch
 
 from django.core.cache import cache
@@ -971,3 +972,217 @@ class EveryCounterThisModuleWritesIsAlsoRead(TestCase):
                     f'get_performance_summary() does not return. '
                     f'Available: {sorted(valid)}',
                 )
+
+
+class EveryThresholdHasBothAnswers(TestCase):
+    """
+    ⚠️ v3.19.5 — A THRESHOLD MUST BE CROSSABLE **AND** UNCROSSABLE, and this one
+    has now been wrong three releases running in both directions.
+
+    `memory_report`'s "the performance buffer is costing too much" recommendation:
+
+      * v3.18.7 and earlier — `total_requests > MAX_STORED * 0.8`. Always true
+        once `total_requests` became an unbounded counter.
+      * v3.19.3 — swapped to `stored_samples > MAX_STORED * 0.8`. A correct
+        observation about the wrong quantity: a full ring buffer is the *steady
+        state* of a ring buffer trimmed on every write. Also always true.
+      * v3.19.4 — spotted that, wrote down the right rule (*before writing a
+        threshold, ask what the world looks like when it is NOT crossed*), and
+        replaced it with `buffer_bytes > 512 * 1024`. **Never** true: roughly 38x
+        a completely full buffer.
+
+    Two releases were spent swapping the variable inside a condition whose
+    *shape* was the bug, and then one more overshooting in the other direction.
+    The rule needed its mirror — **also ask what the world looks like when it IS
+    crossed** — and a check that cannot fire is worse than no check, because it
+    reads as coverage.
+
+    These tests assert the property directly: build the world where it should
+    fire, build the world where it should not, and require the answers to differ.
+    A test that only did the first half is what every previous version would have
+    passed.
+
+    ⚠️ EVERY FIXTURE HERE USES DISTINCT PATHS AND DISTINCT TIMESTAMPS, AND THAT
+    IS THE MOST IMPORTANT LINE IN THIS CLASS. `pickle` memoises repeated objects,
+    so a buffer of 500 *identical* entries serialises the timestamp and the path
+    once and back-references them 499 times — 13,577 bytes against 22-33 KB for
+    the same number of real requests. That is almost certainly how the 13,693
+    figure quoted in `_append_metric` was produced, and it is 1.6-2.5x too small.
+    A fixture whose rows are identical does not measure serialisation, because
+    every serialiser worth using deduplicates. Do not "simplify" these builders
+    into a list multiplication.
+    """
+
+    def setUp(self):
+        from src.middleware import performance
+
+        cache.delete(performance.CACHE_KEY)
+        self.addCleanup(cache.delete, performance.CACHE_KEY)
+
+    def _entries(self, count, path_for):
+        """
+        `count` entries of the real tuple shape.
+
+        `path_for` is called with the index, so every entry can carry a distinct
+        path — see the class docstring for why that is not optional. The
+        timestamp and duration vary for the same reason.
+        """
+        now = timezone.now()
+        return [
+            (now + timedelta(seconds=i), 12.5 + i * 0.01, path_for(i), 3, 4.2)
+            for i in range(count)
+        ]
+
+    #: What a busy chapter's buffer actually looks like: a handful of routes,
+    #: some carrying an id. Measured at 44-67 B/entry.
+    ORDINARY_ROUTES = [
+        '/legislation/history/', '/vote/', '/home/', '/calendar/', '/profile/',
+        '/admin-v2/dashboard/', '/service-hours/dashboard/',
+        '/committee/3/vote/', '/global-search/',
+    ]
+
+    def _ordinary(self, i):
+        if i % 3 == 0:                      # id-bearing URLs are the distinct ones
+            return f'/legislation/{i}/vote/'
+        return self.ORDINARY_ROUTES[i % len(self.ORDINARY_ROUTES)]
+
+    def test_a_full_buffer_of_ordinary_traffic_is_under_budget(self):
+        """
+        ⚠️ THE HALF THAT v3.19.4 FAILED AND EVERY EARLIER VERSION PASSED.
+
+        `MAX_STORED` ordinary requests is the normal steady state of a busy site.
+        If that trips the recommendation, the recommendation is measuring uptime.
+        """
+        from src.middleware import performance
+
+        entries = self._entries(performance.MAX_STORED, self._ordinary)
+        over, size = performance.buffer_is_over_budget(entries)
+
+        self.assertFalse(
+            over,
+            f'A full buffer of ordinary traffic ({size} bytes, '
+            f'{size / performance.MAX_STORED:.0f} B/entry) must not be flagged — '
+            f'that is what the buffer is for.',
+        )
+
+    def test_a_full_buffer_of_very_long_paths_is_over_budget(self):
+        """
+        ⚠️ THE HALF v3.19.4 COULD NOT PASS AT ANY INPUT, which is what made it
+        decoration.
+
+        `path` is the only part of the tuple that varies (the rest is three
+        numbers and a timestamp), so this is the realistic way the buffer grows —
+        a scanner sweeping long URLs, or a route gaining a long serialised query
+        parameter. Measured at ~2,059 B/entry, ~1 MB for a full buffer.
+        """
+        from src.middleware import performance
+
+        entries = self._entries(
+            performance.MAX_STORED, lambda i: f'/search/?q={i}' + 'a' * 2000)
+        over, size = performance.buffer_is_over_budget(entries)
+
+        self.assertTrue(
+            over,
+            f'A full buffer of 2 KB paths ({size} bytes) must be flagged, or the '
+            f'check can never fire and is not a check.',
+        )
+
+    def test_the_budget_is_relative_to_the_bound_it_is_about(self):
+        """
+        The 512 KB constant was stale before it was written, and would have gone
+        staler still the moment someone tuned `MAX_STORED` — which is the bound
+        the recommendation actually asks about. Expressing the budget per entry
+        keeps the two in step, and stops the check firing on a cold process that
+        has served twenty requests.
+        """
+        from src.middleware import performance
+
+        def long_path(i):
+            return f'/x/{i}/' + 'a' * 2000
+
+        over_at_full, _ = performance.buffer_is_over_budget(
+            self._entries(performance.MAX_STORED, long_path))
+        over_at_ten, _ = performance.buffer_is_over_budget(
+            self._entries(10, long_path))
+
+        self.assertTrue(over_at_full)
+        self.assertFalse(
+            over_at_ten,
+            'Ten entries cannot exceed a budget expressed per entry, whatever '
+            'they contain — otherwise the check fires on a cold process.',
+        )
+
+    def test_an_empty_buffer_is_zero_bytes_and_not_an_error(self):
+        from src.middleware import performance
+
+        over, size = performance.buffer_is_over_budget([])
+        self.assertEqual(size, 0)
+        self.assertFalse(over)
+
+    def test_the_headroom_the_budget_was_chosen_for_still_exists(self):
+        """
+        ⚠️ The assertion that keeps `BYTES_PER_ENTRY_BUDGET` honest.
+
+        192 was chosen to sit ~3x above realistic traffic and below a buffer of
+        200-character paths. If the entry shape changes enough that ordinary
+        traffic creeps toward the budget, the check quietly turns into the
+        always-true one it replaced — and the next person to touch it will be
+        reasoning from this docstring rather than from the tree. Deliberately
+        loose: it asserts the headroom, not the number.
+        """
+        from src.middleware import performance
+
+        entries = self._entries(performance.MAX_STORED, self._ordinary)
+        per_entry = performance.buffer_size_bytes(entries) / performance.MAX_STORED
+
+        self.assertLess(
+            per_entry, performance.BYTES_PER_ENTRY_BUDGET / 2,
+            f'Ordinary entries now cost {per_entry:.0f} B, over half the '
+            f'{performance.BYTES_PER_ENTRY_BUDGET} B budget. Re-measure and '
+            f're-derive the budget rather than raising it — the headroom was '
+            f'the point, and a threshold with none is the bug this replaced.',
+        )
+
+    def test_identical_entries_do_not_measure_the_buffer(self):
+        """
+        ⚠️ THE MEASUREMENT TRAP ITSELF, asserted so nobody re-derives a threshold
+        from a memoised fixture the way all three previous versions did.
+
+        Same count, same tuple shape, ~2x the bytes — the only difference is
+        whether the entries repeat. If this ever stops holding, the serialiser
+        changed and every byte figure in this module needs re-deriving.
+        """
+        from src.middleware import performance
+
+        now = timezone.now()
+        identical = [(now, 12.5, '/legislation/history/', 3, 4.2)
+                     for _ in range(performance.MAX_STORED)]
+        realistic = self._entries(performance.MAX_STORED, self._ordinary)
+
+        self.assertGreater(
+            performance.buffer_size_bytes(realistic),
+            performance.buffer_size_bytes(identical) * 1.5,
+            'pickle memoises repeated objects, so a fixture of identical entries '
+            'reports a fraction of the real cost. Vary the path when measuring.',
+        )
+
+    def test_the_command_reports_the_same_number_it_judges(self):
+        """
+        Section 6 prints a buffer size and `_show_recommendations` decides whether
+        to warn about one. Before v3.19.5 those were two separate `pickle.dumps`
+        calls over two separate `cache.get`s, which is two chances to disagree —
+        and disagreeing is precisely how someone reads "13 KB" and a warning that
+        it is too large in the same output and believes the warning.
+        """
+        import inspect
+
+        from src.management.commands import memory_report
+
+        source = inspect.getsource(memory_report)
+        self.assertNotIn(
+            'pickle.dumps', source,
+            'memory_report must measure through performance.buffer_size_bytes, '
+            'not with its own pickle call.',
+        )
+        self.assertIn('buffer_size_bytes', source)
+        self.assertIn('buffer_is_over_budget', source)

@@ -619,6 +619,13 @@ class ADraftAttachmentHasExactlyOneLifetime(TestCase):
     The v3.19.3 fix removed a footgun (two rows, one path) and replaced it with
     an orphan set with no owner. These tests are the ownership.
 
+    ⚠️ v3.19.5 — AND FOR ONE RELEASE THIS CLASS'S NAME WAS A CLAIM, NOT A FACT.
+    v3.19.4 covered delete and publish and stopped there, so **replacing** or
+    **clearing** an attachment from the edit form still orphaned the old file —
+    the two things a member does far more often than either of the covered paths.
+    A test class named for a property should assert the property; the four
+    `replace and clear` tests below are the rest of it.
+
     ⚠️ `MEDIA_ROOT` is overridden per test into a temporary directory. Without
     that these tests write into the real one and — worse — a bug in the guard
     would delete out of the developer's actual media folder.
@@ -824,6 +831,158 @@ class ADraftAttachmentHasExactlyOneLifetime(TestCase):
             self.assertTrue(
                 os.path.isfile(bill_path),
                 'Deleting the draft must never remove the published bill\'s document.',
+            )
+
+    # ──────────────────────────────────────────── replace and clear (v3.19.5)
+    #
+    # ⚠️ THE TWO PATHS v3.19.4 DID NOT COVER, AND THE REASON THIS CLASS'S NAME
+    # WAS A CLAIM RATHER THAN A FACT.
+    #
+    # v3.19.4 handled delete (a `post_delete` receiver) and publish (unlink the
+    # private original after commit). Both are correct. Between them they covered
+    # neither thing a member actually does from the edit form. Replacing an
+    # attachment writes a fresh uuid and overwrites the field; clearing it empties
+    # the field. Both leave the previous file on disk with nothing in the database
+    # naming it — the same orphan the release existed to abolish, reached through
+    # the edit button instead of the delete button.
+    #
+    # The rule: **enumerate the ways a reference can END, not the ways you have
+    # already written code for.** Delete is the one that looks like cleanup, so it
+    # is the one that gets cleanup written for it.
+
+    def _post_edit(self, draft, **extra):
+        """POST the edit form as the author, with the fields it requires."""
+        client = Client()
+        client.force_login(self.author)
+        data = {
+            'title': draft.title,
+            'description': draft.description,
+            'notes': draft.notes or '',
+            'vote_mode': draft.vote_mode,
+            'required_percentage': draft.required_percentage,
+            'planned_available_at': draft.planned_available_at.strftime('%Y-%m-%dT%H:%M'),
+        }
+        data.update(extra)
+        with self.captureOnCommitCallbacks(execute=True):
+            return client.post(reverse('edit_legislation_draft', args=[draft.id]), data)
+
+    def test_replacing_an_attachment_removes_the_old_file(self):
+        """**Fails against the v3.19.4 tree**, where the old blob stayed forever."""
+        import os
+
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from django.test import override_settings
+
+        with override_settings(MEDIA_ROOT=self.media):
+            draft = self._make_draft()
+            old_name = self._attach(draft, b'%PDF-1.4 the first one')
+            old_path = os.path.join(self.media, old_name)
+            self.assertTrue(os.path.isfile(old_path), 'fixture did not write a file')
+
+            self._post_edit(draft, document=SimpleUploadedFile(
+                'Replacement.pdf', b'%PDF-1.4 the second one',
+                content_type='application/pdf'))
+
+            draft.refresh_from_db()
+            new_name = draft.document.name
+
+            self.assertNotEqual(new_name, old_name, 'the fixture did not replace anything')
+            self.assertTrue(os.path.isfile(os.path.join(self.media, new_name)),
+                            'the replacement must exist')
+            self.assertFalse(os.path.isfile(old_path),
+                             'the replaced file was orphaned on disk')
+
+    def test_clearing_an_attachment_removes_the_file(self):
+        """**Fails against the v3.19.4 tree.**"""
+        import os
+
+        from django.test import override_settings
+
+        with override_settings(MEDIA_ROOT=self.media):
+            draft = self._make_draft()
+            name = self._attach(draft)
+            path = os.path.join(self.media, name)
+
+            # `ClearableFileInput` signals a clear with `<field>-clear`.
+            self._post_edit(draft, **{'document-clear': 'on'})
+
+            draft.refresh_from_db()
+            self.assertFalse(draft.document, 'the fixture did not clear the field')
+            self.assertFalse(os.path.isfile(path),
+                             'the cleared file was orphaned on disk')
+
+    def test_editing_without_touching_the_attachment_keeps_the_file(self):
+        """
+        ⚠️ THE CONTROL, and the assertion that stops the fix from being a bug.
+
+        Every test above passes against an implementation that unlinks on every
+        save. This one does not. A member renaming a draft must not lose the
+        document they uploaded two weeks ago — which is the same failure mode
+        v3.19.3's `changed_data` guard was written for one field over, and the
+        reason the unlink compares stored NAMES rather than trusting
+        `changed_data` alone.
+        """
+        import os
+
+        from django.test import override_settings
+
+        with override_settings(MEDIA_ROOT=self.media):
+            draft = self._make_draft()
+            name = self._attach(draft)
+            path = os.path.join(self.media, name)
+
+            self._post_edit(draft, title='A Bill With A New Title')
+
+            draft.refresh_from_db()
+            self.assertEqual(draft.title, 'A Bill With A New Title',
+                             'the fixture did not actually edit anything')
+            self.assertEqual(draft.document.name, name)
+            self.assertTrue(os.path.isfile(path),
+                            'an unrelated edit deleted the attachment')
+
+    def test_saving_the_same_form_twice_does_not_unlink_the_new_file(self):
+        """
+        The form keeps its own record of which file it loaded. If that record is
+        not advanced after a save, a second `save()` on the same bound form
+        schedules the unlink again — and by then `previous` names the file the
+        row now points at, so the fix would delete the live attachment.
+        """
+        import os
+
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from django.test import override_settings
+
+        from src.forms import LegislationDraftForm
+
+        with override_settings(MEDIA_ROOT=self.media):
+            draft = self._make_draft()
+            self._attach(draft, b'%PDF-1.4 original')
+
+            form = LegislationDraftForm(
+                data={
+                    'title': draft.title,
+                    'description': draft.description,
+                    'notes': '',
+                    'vote_mode': draft.vote_mode,
+                    'required_percentage': draft.required_percentage,
+                    'planned_available_at': draft.planned_available_at.strftime('%Y-%m-%dT%H:%M'),
+                },
+                files={'document': SimpleUploadedFile(
+                    'Replacement.pdf', b'%PDF-1.4 replacement',
+                    content_type='application/pdf')},
+                instance=draft,
+            )
+            self.assertTrue(form.is_valid(), form.errors)
+
+            with self.captureOnCommitCallbacks(execute=True):
+                form.save()
+            with self.captureOnCommitCallbacks(execute=True):
+                form.save()
+
+            draft.refresh_from_db()
+            self.assertTrue(
+                os.path.isfile(os.path.join(self.media, draft.document.name)),
+                'the second save deleted the file the row points at',
             )
 
 

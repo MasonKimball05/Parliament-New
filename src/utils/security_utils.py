@@ -198,6 +198,27 @@ def _peer_is_cloudflare(request):
 #: `_log_forged_cf_header`.
 FORGED_CF_LOG_WINDOW = 300
 
+#: ⚠️ v3.19.5 — HOW LONG A SUPPRESSED-HIT COUNT OUTLIVES THE GATE IT BELONGS TO,
+#: and it must be LONGER than `FORGED_CF_LOG_WINDOW` rather than equal to it.
+#:
+#: v3.19.4 gave both keys the same TTL, which quietly broke the promise in
+#: `_log_forged_cf_header`'s docstring ("the count rides on the next line that
+#: gets through, so the volume is still visible"). The two clocks start at
+#: different moments: the gate key is created by the FIRST hit, the counter by
+#: the SECOND, so the counter expires slightly AFTER the gate — and it is only
+#: read by a hit that arrives inside that sliver. A burst that stops, which is
+#: what a scanner sweep or a one-off probe run looks like, had its whole tally
+#: expire unread. The operator saw one line with no number and no way to tell one
+#: probe from ten thousand.
+#:
+#: That is the case the count exists for: one forged header is a curiosity,
+#: sustained forgery is a decision to make about the firewall.
+#:
+#: Four windows is arbitrary in the way a grace period is arbitrary — long enough
+#: that a trailing hit still carries the tally, short enough that a count from an
+#: hour ago is not attached to an unrelated event.
+FORGED_CF_COUNT_TTL = FORGED_CF_LOG_WINDOW * 4
+
 
 def _log_forged_cf_header(request, cf_ip):
     """
@@ -232,6 +253,16 @@ def _log_forged_cf_header(request, cf_ip):
     Suppressed hits are counted, and the count rides on the next line that gets
     through, so the volume is still visible. `cache.add` is atomic, so two
     workers racing produce one line, not two.
+
+    ⚠️ v3.19.5 — THE COUNTER OUTLIVES THE GATE ON PURPOSE (`FORGED_CF_COUNT_TTL`).
+    Given both keys the same TTL, the sentence above was false in the one case it
+    is written for: the gate is created by the first hit and the counter by the
+    second, so a burst that ENDS has its tally expire a moment after the gate,
+    unread, and the operator is told nothing about volume. The general shape is
+    worth keeping — **two cache keys that must be read together cannot be given
+    the same TTL if they are written at different moments**, and "the same
+    duration" reads like "the same lifetime" until you ask when each clock
+    starts.
     """
     import ipaddress
 
@@ -257,7 +288,12 @@ def _log_forged_cf_header(request, cf_ip):
         try:
             cache.incr(count_key)
         except ValueError:
-            cache.set(count_key, 1, FORGED_CF_LOG_WINDOW)
+            # `incr` raises on a missing key rather than starting at zero, so the
+            # miss is the normal first-suppression path, not an error. The TTL is
+            # the long one — see `FORGED_CF_COUNT_TTL`; `incr` does not extend an
+            # existing TTL, so this one `set` fixes the lifetime of the whole
+            # tally and it has to be the generous value.
+            cache.set(count_key, 1, FORGED_CF_COUNT_TTL)
         return
 
     suppressed = cache.get(count_key) or 0
@@ -267,7 +303,7 @@ def _log_forged_cf_header(request, cf_ip):
         'FORGED_CF_HEADER: CF-Connecting-IP=%s from non-Cloudflare peer %s on %s %s '
         '— origin is reachable directly; restrict it at the firewall.%s',
         cf_ip.strip()[:64], peer_key, request.method, request.path[:200],
-        f' ({suppressed} further hits suppressed in the last {FORGED_CF_LOG_WINDOW}s)'
+        f' ({suppressed} further hits suppressed since the last line)'
         if suppressed else '',
     )
 

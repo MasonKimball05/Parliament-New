@@ -29,6 +29,38 @@ from django.utils.http import content_disposition_header
 MEDIA_ACCEL_PREFIX = os.getenv('MEDIA_ACCEL_PREFIX', '')
 
 
+#: ⚠️ v3.19.5 — DIRECTORIES UNDER MEDIA_ROOT THAT THIS VIEW MUST NOT SERVE.
+#:
+#: `/media/` makes exactly one promise: *any logged-in member may read this*.
+#: That is correct for uploaded legislation, minutes, songbook audio and profile
+#: pictures — all of it is chapter-visible by intent. It is NOT correct for
+#: anything stored under a narrower promise, and `legislation_drafts/` is the
+#: first such thing in this codebase ("Only you can see it until you publish it",
+#: said in four places).
+#:
+#: **This set exists because removing the LINK is not removing the ROUTE.**
+#: v3.19.3 fixed the draft exposure by building `serve_legislation_draft_document`
+#: — author-scoped, correct — and repointing both templates at it. The 08-08
+#: review confirmed no template still references `draft.document.url` and closed
+#: the finding. But `media/<path:path>` was never touched, so every draft
+#: attachment stayed one guessed filename away from any authenticated member,
+#: and the uuid `upload_to` that v3.19.3 labelled *"defence in depth, explicitly
+#: NOT the access control"* was silently promoted into being the access control.
+#: Files predating migration `0016` are worse off still: their names are
+#: `slugify()` of the uploaded filename, and `0016` deliberately declined to
+#: rename them **on the reasoning that the name was never what protected them** —
+#: a statement that is true only once this set exists.
+#:
+#: So the rule, and it generalises past this one directory: **a new upload
+#: directory inherits /media/'s promise by default. If that is the wrong promise,
+#: it belongs here AND needs its own ownership-aware view.** Adding the view
+#: without adding the entry is the bug this set was written for.
+PRIVATE_MEDIA_PREFIXES = frozenset({
+    # → src.view.legislation_drafts.serve_legislation_draft_document
+    'legislation_drafts',
+})
+
+
 @login_required
 def serve_media(request, path):
     """Serve one uploaded file to a logged-in member."""
@@ -38,6 +70,20 @@ def serve_media(request, path):
     # Directory-traversal guard (same pattern as serve_exportable_media)
     if not resolved.startswith(media_root + os.sep):
         raise Http404('File not found')
+
+    # ⚠️ v3.19.5 — CHECKED ON THE RESOLVED PATH, NOT ON `path`, and the ordering
+    # is the whole point. `legislation_drafts/x.pdf` and
+    # `legislation_docs/../legislation_drafts/x.pdf` are the same file and only
+    # the first has a matching first segment before `realpath` runs. Checking the
+    # input rather than the value it resolves to is the same shape as the finding
+    # this fix closes — so the check sits AFTER the traversal guard, where
+    # `relpath` is guaranteed to produce a segment inside MEDIA_ROOT.
+    #
+    # 404 and not 403, matching `_get_own_draft`: whether a given draft exists is
+    # itself author-private, and a 403 answers that question.
+    if os.path.relpath(resolved, media_root).split(os.sep)[0] in PRIVATE_MEDIA_PREFIXES:
+        raise Http404('File not found')
+
     if not os.path.isfile(resolved):
         raise Http404('File not found')
 

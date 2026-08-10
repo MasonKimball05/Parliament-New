@@ -7,6 +7,7 @@ Gunicorn workers — process-local dicts would always show 0 on multi-worker set
 Entries are stored as a Python list of tuples via pickle; no JSON layer.
 """
 import logging
+import pickle
 import random
 import time
 from datetime import timedelta
@@ -32,6 +33,55 @@ SAMPLE_ONE_IN = 20
 COUNT_KEY = 'perf_request_count'
 SAMPLED_KEY = 'perf_sampled_count'
 COUNTER_TTL = CACHE_TTL
+
+#: ⚠️ v3.19.5 — HOW MANY BYTES PER ENTRY IS TOO MANY, and why it is a per-entry
+#: number rather than a total.
+#:
+#: `memory_report` warns when this buffer costs too much memory. That check has
+#: now been wrong three releases running, in both directions:
+#:
+#:   * `total_requests > MAX_STORED * 0.8` — always true once the counter went
+#:     unbounded (v3.19.3 caught this).
+#:   * `stored_samples > MAX_STORED * 0.8` — always true, because a full ring
+#:     buffer is the steady state of a ring buffer (v3.19.4 caught this, and
+#:     recorded the right rule: *before writing a threshold, ask what the world
+#:     looks like when it is NOT crossed*).
+#:   * `buffer_bytes > 512 * 1024` — **never** true, at ~38x a full buffer.
+#:     The rule above has a mirror nobody wrote down: **also ask what the world
+#:     looks like when it IS crossed.** If the answer is "no world", the check is
+#:     decoration, and a decorative check is worse than none because it reads as
+#:     coverage.
+#:
+#: ⚠️ AND THE NUMBER ALL THREE WERE REASONED FROM IS ITSELF WRONG — PICKLE
+#: MEMOISES. `_append_metric` records "500 entries of the real tuple shape →
+#: 13,693 bytes", i.e. ~27 B/entry, and that has been quoted as the size of this
+#: buffer ever since. It is not. Re-measured 08-09-26 on the same tuple shape:
+#:
+#:     500 entries, one shared timestamp + one shared path      13,577 B   27 B
+#:     500 entries, realistic mix of ~10 distinct app routes    22,201 B   44 B
+#:     500 entries, every path distinct (`/legislation/<id>/`)  33,428 B   67 B
+#:     500 entries, every path distinct, 200 chars             125,937 B  252 B
+#:     500 entries, every path distinct, 2 KB (scanner sweep) 1,029,673 B 2059 B
+#:
+#: The first line reproduces 13,693 to within 116 bytes, which is what it was:
+#: a synthetic buffer whose entries were all *the same objects*, so `pickle`
+#: wrote the timestamp and the path once and back-referenced them 499 times. A
+#: real buffer holds 500 different requests. **The true steady-state cost is
+#: 22–33 KB, not 13.7 KB** — a 1.6-2.5x understatement that has been load-bearing
+#: for three releases of threshold arithmetic. The general form is worth keeping:
+#: **a fixture whose rows are identical does not measure serialisation, because
+#: every serialiser worth using deduplicates.**
+#:
+#: So: a budget per entry, multiplied by the bound that actually governs the
+#: buffer. 192 B/entry sits ~3-4x above realistic traffic (44-67 B) and below a
+#: buffer of 200-character paths (252 B) — so it is false in the steady state,
+#: true when paths grow enough to matter, and **it keeps meaning the same thing
+#: after someone changes `MAX_STORED`.** A fixed total would not; that is how the
+#: 512 KB came to be stale before it was even written.
+#:
+#: `path` is what varies (the rest of the tuple is three numbers and a
+#: timestamp), so a crossing means paths grew, not that traffic did.
+BYTES_PER_ENTRY_BUDGET = 192
 
 
 def _bump(key):
@@ -72,6 +122,19 @@ def _append_metric(entry: tuple):
         after zlib          9,582 bytes
         CPU round trip      ~0.25 ms per request
         Redis traffic       ~19 KB per request, in 2 serialised round trips
+
+    ⚠️ v3.19.5 — THOSE FIGURES ARE AN UNDERSTATEMENT AND THE REASON IS PICKLE
+    MEMOISATION. Re-measured 08-09-26: 13,577 bytes is what you get from 500
+    entries that all share one timestamp and one path string, which is what the
+    fixture must have been — `pickle` writes each repeated object once and
+    back-references it. A real buffer holds 500 *different* requests and costs
+    **22-33 KB** (44-67 B/entry) depending on how many distinct paths are in it.
+    The full table is in `BYTES_PER_ENTRY_BUDGET`'s comment.
+
+    **This does not weaken the case for sampling — it strengthens it**, because
+    every per-request cost above was measured on the same too-small object. Do
+    not re-derive a threshold from the 13,693 figure; use
+    `BYTES_PER_ENTRY_BUDGET`, and if you re-measure, vary the path.
 
     That is plausibly more wall-clock than any single query v3.18.7 removed — and
     v3.18.7 treated each of those as worth fixing. **The instrument built in that
@@ -141,6 +204,46 @@ def _get_entries() -> list:
 def get_performance_metrics():
     """Return raw entries (kept for backwards compat)."""
     return {'requests': _get_entries()}
+
+
+def buffer_size_bytes(entries=None):
+    """
+    Uncompressed pickled size of the metrics buffer, in bytes.
+
+    v3.19.5 — lives here rather than in `memory_report` because the number it is
+    judged against (`BYTES_PER_ENTRY_BUDGET`) and the measurement that number
+    came from (`_append_metric`'s docstring) are both in this module. A threshold
+    and the evidence for it belong in the same file; splitting them is how the
+    512 KB constant came to be written thirty-eight times too large in a file
+    that imports from the one recording the real size.
+
+    `entries` is accepted so a caller that already holds the buffer does not pay
+    a second `cache.get` for it — `memory_report` reads it twice per run and
+    would otherwise pickle it twice as well.
+
+    **Uncompressed on purpose.** django-redis applies zlib on the way out
+    (~9.6 KB for the 13.7 KB measured above), so the wire cost is lower — but
+    the number a *memory* report is asked about is what the list costs when it is
+    live in a worker's heap, and that is closer to the uncompressed figure. The
+    caller says "uncompressed" when it prints it.
+    """
+    if entries is None:
+        entries = _get_entries()
+    if not entries:
+        return 0
+    return len(pickle.dumps(entries, protocol=pickle.HIGHEST_PROTOCOL))
+
+
+def buffer_is_over_budget(entries=None):
+    """
+    True when the buffer costs more than `MAX_STORED * BYTES_PER_ENTRY_BUDGET`.
+
+    Returns `(over, buffer_bytes)` so the caller can report the measurement
+    whether or not it crossed — a recommendation that cannot say how big the
+    thing is is the kind that gets ignored.
+    """
+    buffer_bytes = buffer_size_bytes(entries)
+    return buffer_bytes > MAX_STORED * BYTES_PER_ENTRY_BUDGET, buffer_bytes
 
 
 def get_performance_summary():

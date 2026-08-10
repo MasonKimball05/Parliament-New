@@ -218,7 +218,9 @@ class Command(BaseCommand):
         # and took `get_performance_summary`, in the same import statement and
         # working fine, down with it.
         try:
-            from src.middleware.performance import get_performance_summary, MAX_STORED
+            from src.middleware.performance import (
+                MAX_STORED, _get_entries, buffer_size_bytes, get_performance_summary,
+            )
             summary = get_performance_summary()
             # v3.19.3: `total_requests` is now an exact `cache.incr` counter and
             # is unbounded, so it is no longer the thing to compare against
@@ -249,12 +251,21 @@ class Command(BaseCommand):
             # v3.19.4 — the number this section exists to report. `MAX_STORED`
             # bounds the entry COUNT; what a memory report is asked about is
             # bytes, and the two are only loosely related because `path` varies.
-            import pickle
-            from src.middleware.performance import _get_entries
+            #
+            # v3.19.5 — measured through `buffer_size_bytes`, the same helper the
+            # recommendation in `_show_recommendations` uses, so the printed
+            # number and the number that decides whether to warn about it can no
+            # longer disagree. The entries are passed in rather than re-read:
+            # this section already holds a summary derived from the same buffer,
+            # and the two halves of this command were between them reading it
+            # four times and pickling it twice per run.
             _entries = _get_entries()
             if _entries:
-                _bytes = len(pickle.dumps(_entries, protocol=pickle.HIGHEST_PROTOCOL))
-                self.stdout.write(f'   Buffer size: {_bytes / 1024:.1f} KB uncompressed')
+                _bytes = buffer_size_bytes(_entries)
+                self.stdout.write(
+                    f'   Buffer size: {_bytes / 1024:.1f} KB uncompressed '
+                    f'({_bytes / len(_entries):.0f} B/entry)'
+                )
         except Exception as e:
             self.stdout.write(f'   Error: {e}')
 
@@ -322,10 +333,11 @@ class Command(BaseCommand):
         # exceptions reports the absence of a signal as the absence of a
         # problem.)
         try:
-            import pickle
+            import pickle  # noqa: F401 — referenced by the except clause below
 
             from src.middleware.performance import (
-                CACHE_KEY, MAX_STORED, _get_entries, get_performance_summary,
+                BYTES_PER_ENTRY_BUDGET, CACHE_KEY, MAX_STORED, _get_entries,
+                buffer_is_over_budget,
             )
 
             # ⚠️ v3.19.4 — OCCUPANCY IS NOT A PROBLEM SIGNAL, AND THIS CHECK
@@ -348,14 +360,24 @@ class Command(BaseCommand):
             # is how many bytes the buffer costs. That can be false, it can get
             # worse if MAX_STORED or the entry shape changes, and it is the
             # number someone reading this section came for.
-            summary = get_performance_summary()
+            #
+            # ⚠️ v3.19.5 — AND THE BYTE VERSION WAS 38x TOO LARGE TO EVER FIRE.
+            # `512 * 1024` against a buffer measured at 13,693 bytes when
+            # completely full. The rule above needed its mirror — *also ask what
+            # the world looks like when the threshold IS crossed* — and the
+            # threshold itself needed to be relative to `MAX_STORED`, or it goes
+            # stale the moment someone tunes the bound it is really about. Both
+            # the budget and the comparison now live next to the measurement, in
+            # `performance.py`. See `BYTES_PER_ENTRY_BUDGET`.
             entries = _get_entries()
-            buffer_bytes = len(pickle.dumps(entries, protocol=pickle.HIGHEST_PROTOCOL)) if entries else 0
-            if buffer_bytes > 512 * 1024:
+            over_budget, buffer_bytes = buffer_is_over_budget(entries)
+            if over_budget:
+                per_entry = buffer_bytes / len(entries) if entries else 0
                 recommendations.append(
                     f'Performance buffer is {buffer_bytes / 1024:.0f} KB under `{CACHE_KEY}` '
-                    f'({summary["stored_samples"]}/{MAX_STORED} entries) - reduce MAX_STORED, '
-                    f'or shorten the stored `path`, which dominates the entry size'
+                    f'({len(entries)}/{MAX_STORED} entries, {per_entry:.0f} B/entry vs a '
+                    f'{BYTES_PER_ENTRY_BUDGET} B budget) - shorten the stored `path`, which '
+                    f'dominates the entry size, or reduce MAX_STORED'
                 )
         # ImportError is deliberately NOT caught — see the v3.18.7 note above.
         # A missing name here is a code defect and should be a traceback, not a
