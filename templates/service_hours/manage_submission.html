@@ -59,7 +59,7 @@
                     {% if submission.attachment %}
                     <div>
                         <label class="block text-sm font-medium text-gray-500 dark:text-gray-400">Attachment</label>
-                        <a href="{{ submission.attachment.url }}" target="_blank" class="mt-1 inline-flex items-center text-primary-600 hover:text-primary-800 dark:text-primary-400 dark:hover:text-primary-300">
+                        <a href="{% url 'service_hours_attachment' submission.id %}" target="_blank" class="mt-1 inline-flex items-center text-primary-600 hover:text-primary-800 dark:text-primary-400 dark:hover:text-primary-300">
                             <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/>
                             </svg>
@@ -82,7 +82,7 @@
                         <label class="block text-sm font-medium text-gray-500 dark:text-gray-400">{{ response.field.label }}</label>
                         <p class="mt-1 text-gray-900 dark:text-white">
                             {% if response.field.field_type == 'file' and response.file_value %}
-                                <a href="{{ response.file_value.url }}" target="_blank" class="text-primary-600 hover:text-primary-800 dark:text-primary-400">View File</a>
+                                <a href="{% url 'service_hours_response_file' response.id %}" target="_blank" class="text-primary-600 hover:text-primary-800 dark:text-primary-400">View File</a>
                             {% elif response.field.field_type in 'multiselect,checkbox' %}
                                 {{ response.json_value|join:", " }}
                             {% elif response.number_value %}

@@ -253,8 +253,21 @@ class PrivateMediaDirectoriesAreNotServedHere(TestCase):
         self.assertTrue(PRIVATE_MEDIA_PREFIXES, 'The set must not be empty.')
 
         # Every prefix needs a named route that is NOT serve_media.
+        #
+        # v3.19.6 — five more entries. The set grew from one to six because
+        # nothing had ever enumerated the population it is drawn from; see
+        # `src/test_media_classification.py`, which now does, and note that THIS
+        # test could not have caught the gap — it guards entries that are in the
+        # set and is blind to a directory that was never added.
         route_names = set(get_resolver().reverse_dict.keys())
-        expected = {'legislation_drafts': 'legislation_draft_document'}
+        expected = {
+            'legislation_drafts': 'legislation_draft_document',
+            'kai_reports': 'kai_report_attachment',
+            'slating': 'slating_gpa_screenshot',
+            'excuse_documents': 'excuse_document',
+            'service_hours': 'service_hours_attachment',
+            'bug_reports': 'bug_report_screenshot',
+        }
         for prefix in PRIVATE_MEDIA_PREFIXES:
             self.assertIn(
                 prefix, expected,

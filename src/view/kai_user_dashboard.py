@@ -389,23 +389,30 @@ Please review this request in the Kai management system.
 def user_kai_report_attachment(request, report_id):
     """
     Serve the attachment for a user's own report.
-    This ensures users can only access their own report attachments.
+
+    ⚠️ v3.19.6 — THIS FUNCTION USED TO CHECK ACCESS AND THEN GIVE IT AWAY, and
+    it is worth keeping as a worked example rather than deleting quietly.
+
+    The body was: scope the report to `Q(submitted_by=user) | Q(targeted_to=user)`
+    — correct, careful, exactly the right predicate — and then
+    `return redirect(report.attachment.url)`, i.e. hand the browser
+    `/media/kai_reports/<slug>.pdf`. Anyone who wanted the file could request
+    that URL directly and never touch this view, so the check protected nothing.
+    Its docstring said *"This ensures users can only access their own report
+    attachments."* It ensured nothing of the kind.
+
+    **A permission check that ends in a redirect to an unauthenticated URL is
+    not a permission check. It is a suggestion.** The redirect target is the
+    real access control, and here the redirect target was `/media/`.
+
+    It was also never routed — `urls.py` imports five names from this module and
+    this is not one of them — so it was a landmine rather than a live hole: the
+    next person to wire it up would have believed the docstring. Kept, delegating
+    to the streaming view, so that wiring it up is now safe.
     """
-    user = request.user
+    from src.view.serve_private_upload import serve_kai_report_attachment
 
-    # Allow access if user is submitter or accused
-    report = get_object_or_404(
-        KaiReport,
-        Q(submitted_by=user) | Q(targeted_to=user),
-        id=report_id
-    )
-
-    if not report.attachment:
-        messages.error(request, 'This report has no attachment.')
-        return redirect('user_view_kai_report', report_id=report_id)
-
-    # Redirect to the attachment URL
-    return redirect(report.attachment.url)
+    return serve_kai_report_attachment(request, report_id)
 
 
 @login_required

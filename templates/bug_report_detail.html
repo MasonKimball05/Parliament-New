@@ -186,8 +186,8 @@
             </svg>
             Screenshot
         </h2>
-        <a href="{{ bug_report.screenshot.url }}" target="_blank" class="block">
-            <img src="{{ bug_report.screenshot.url }}" alt="Bug screenshot" class="rounded-lg max-w-full h-auto border border-gray-200 dark:border-gray-700 hover:opacity-90 transition-opacity">
+        <a href="{% url 'bug_report_screenshot' bug_report.id %}" target="_blank" class="block">
+            <img src="{% url 'bug_report_screenshot' bug_report.id %}" alt="Bug screenshot" class="rounded-lg max-w-full h-auto border border-gray-200 dark:border-gray-700 hover:opacity-90 transition-opacity">
         </a>
         <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">Click to view full size</p>
     </div>

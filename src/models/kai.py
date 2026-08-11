@@ -1,7 +1,19 @@
+import os
+
 from django.db import IntegrityError, models, transaction
 from django.db.models import Q
 from django.conf import settings
-from src.storage import DualLocationStorage
+from src.storage import DualLocationStorage, uuid_upload_path
+
+
+def kai_report_attachment_path(instance, filename):
+    """`kai_reports/<uuid>.<ext>` — see `uuid_upload_path` in src/storage.py."""
+    return uuid_upload_path('kai_reports')(instance, filename)
+
+
+def kai_response_file_path(instance, filename):
+    """`kai_reports/custom_fields/<uuid>.<ext>` — see `uuid_upload_path`."""
+    return uuid_upload_path('kai_reports/custom_fields')(instance, filename)
 
 
 class KaiReport(models.Model):
@@ -85,7 +97,9 @@ class KaiReport(models.Model):
     )
     description = models.TextField(help_text="Detailed description of the report")
     attachment = models.FileField(
-        upload_to='kai_reports/',
+        # v3.19.6: `kai_reports/<uuid>.<ext>`. The access control is
+        # `serve_kai_report_attachment`; this is defence in depth underneath it.
+        upload_to=kai_report_attachment_path,
         storage=DualLocationStorage(),
         blank=True,
         null=True,
@@ -743,7 +757,8 @@ class KaiReportFieldResponse(models.Model):
     number_value = models.DecimalField(max_digits=20, decimal_places=5, null=True, blank=True)
     json_value = models.JSONField(null=True, blank=True, help_text='For arrays like multiselect')
     file_value = models.FileField(
-        upload_to='kai_reports/custom_fields/',
+        # v3.19.6 — see `kai_report_attachment_path`.
+        upload_to=kai_response_file_path,
         null=True,
         blank=True,
         storage=DualLocationStorage()
@@ -769,7 +784,14 @@ class KaiReportFieldResponse(models.Model):
         elif self.field.field_type == 'number':
             return self.number_value
         elif self.field.field_type == 'file':
-            return self.file_value.url if self.file_value else None
+            # ⚠️ v3.19.6 — THE BASENAME, NOT THE URL. This returned
+            # `self.file_value.url`, i.e. a `/media/` path into a directory that
+            # `serve_media` now refuses, so it had become a dead link as well as
+            # a leak: the only consumer renders it as TEXT next to the download
+            # link, so the raw storage name was being printed to the page. A
+            # "display value" is a thing to show a human; the link belongs in an
+            # `{% url %}` tag, and it is now in one.
+            return os.path.basename(self.file_value.name) if self.file_value else None
         elif self.field.field_type == 'member_select':
             return self.text_value or ''
         else:

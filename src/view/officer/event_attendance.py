@@ -6,6 +6,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.utils import timezone
 from django.db.models import Q
+from django.urls import reverse
 from datetime import datetime, timedelta
 from src.models import Event, Attendance, ParliamentUser, AttendanceExcuse, ActivityLog
 from src.decorators import officer_required
@@ -193,7 +194,11 @@ def mark_event_attendance(request, event_id):
             excuse_full_reason = excuse.reason
             excuse_submitted_at = excuse.submitted_at
             if excuse.supporting_document:
-                excuse_document_url = excuse.supporting_document.url
+                # v3.19.6 — the ownership-aware route, not `/media/`. This was
+                # `.url`, i.e. `/media/excuse_documents/<slug>.pdf`, which
+                # `serve_media` now refuses. The document is a doctor's note;
+                # see `src/view/serve_private_upload.py`.
+                excuse_document_url = reverse('excuse_document', args=[excuse.id])
 
         member_data.append({
             'user': member,

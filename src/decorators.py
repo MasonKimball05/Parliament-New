@@ -5,6 +5,13 @@ from django.http import HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
 from src.models import Committee
 from src.constants import MemberType
+# v3.19.6 — the predicates behind `officer_required` and `vpp_required`.
+# They live in src/permissions.py because the file views in
+# src/view/serve_private_upload.py need the same rule WITHOUT a request,
+# and because everything defined in THIS module must call `_gate`
+# (test_every_authz_decorator_routes_through_the_gate_helper) — which a
+# pure predicate cannot honestly do. See that module's docstring.
+from src.permissions import user_is_officer_or_chair, user_is_vpp
 from src.dev_mode import record_permission
 
 # Set up the logger to capture function call logs
@@ -62,7 +69,7 @@ def officer_required(view_func):
             return redirect('login')
 
         # Allow Officers, Chairs, and Admins
-        allowed = request.user.is_officer or request.user.member_type == MemberType.CHAIR
+        allowed = user_is_officer_or_chair(request.user)
         if not _gate('officer_required', allowed,
                      f'member_type={request.user.member_type}, is_officer={request.user.is_officer}'):
             return HttpResponseForbidden("Officers and chairs only.")

@@ -1,6 +1,29 @@
+import os
+
 from django.db import models
 from django.conf import settings
-from src.storage import DualLocationStorage
+from src.storage import DualLocationStorage, uuid_upload_path
+
+
+def slating_gpa_screenshot_path(instance, filename):
+    """
+    `slating/gpa_screenshots/<uuid>.<ext>`.
+
+    ⚠️ v3.19.6 — defence in depth under `serve_slating_gpa_screenshot`, not a
+    substitute for it. See `uuid_upload_path` in `src/storage.py` for the
+    full argument, including why existing files are deliberately not renamed.
+
+    This one is an academic record. It was stored under `slugify()` of whatever
+    the applicant's phone called the screenshot — `img-4471.png`,
+    `screenshot.png`, `transcript.png` — and served to every member of the
+    chapter by `/media/`.
+    """
+    return uuid_upload_path('slating/gpa_screenshots')(instance, filename)
+
+
+def slating_response_file_path(instance, filename):
+    """`slating/application_files/<uuid>.<ext>` — see `slating_gpa_screenshot_path`."""
+    return uuid_upload_path('slating/application_files')(instance, filename)
 
 
 class SlatingPeriod(models.Model):
@@ -423,7 +446,8 @@ class SlatingApplication(models.Model):
     gpa_verified = models.BooleanField(default=False)
     gpa_level = models.IntegerField(choices=GPA_LEVEL_CHOICES, null=True, blank=True)
     gpa_screenshot = models.FileField(
-        upload_to='slating/gpa_screenshots/',
+        # v3.19.6 — uuid names; access control is `serve_slating_gpa_screenshot`.
+        upload_to=slating_gpa_screenshot_path,
         null=True, blank=True,
         storage=DualLocationStorage()
     )
@@ -535,7 +559,8 @@ class SlatingApplicationResponse(models.Model):
     number_value = models.DecimalField(max_digits=20, decimal_places=5, null=True, blank=True)
     json_value = models.JSONField(null=True, blank=True)  # For arrays, objects
     file_value = models.FileField(
-        upload_to='slating/application_files/',
+        # v3.19.6 — see `slating_gpa_screenshot_path`.
+        upload_to=slating_response_file_path,
         null=True, blank=True,
         storage=DualLocationStorage()
     )
@@ -555,7 +580,14 @@ class SlatingApplicationResponse(models.Model):
         elif self.field.field_type in ['number', 'decimal', 'gpa']:
             return self.number_value
         elif self.field.field_type in ['file', 'image']:
-            return self.file_value.url if self.file_value else None
+            # ⚠️ v3.19.6 — THE BASENAME, NOT THE URL. This returned
+            # `self.file_value.url`, i.e. a `/media/` path into a directory that
+            # `serve_media` now refuses, so it had become a dead link as well as
+            # a leak: the only consumer renders it as TEXT next to the download
+            # link, so the raw storage name was being printed to the page. A
+            # "display value" is a thing to show a human; the link belongs in an
+            # `{% url %}` tag, and it is now in one.
+            return os.path.basename(self.file_value.name) if self.file_value else None
         else:
             return self.text_value
 

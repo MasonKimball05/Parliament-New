@@ -83,6 +83,54 @@ COUNTER_TTL = CACHE_TTL
 #: timestamp), so a crossing means paths grew, not that traffic did.
 BYTES_PER_ENTRY_BUDGET = 192
 
+#: ⚠️ v3.19.6 — AND THE PER-ENTRY BUDGET WAS COMPARED AGAINST A TOTAL. FOURTH
+#: RELEASE ON THIS ONE CONDITION, AND THE FAILURE CHANGED SHAPE.
+#:
+#: The first three were threshold errors — always true, always true, never true.
+#: This one was a NAMING error, which is harder to see and was locked in by a
+#: test. `buffer_is_over_budget` compared `buffer_bytes > MAX_STORED *
+#: BYTES_PER_ENTRY_BUDGET`, a fixed 96,000-byte total, while three places
+#: described it as per-entry: this constant's own comment ("a budget per entry"),
+#: the recommendation string ("N B/entry vs a 192 B budget"), and the docstring
+#: of `test_the_budget_is_relative_to_the_bound_it_is_about`.
+#:
+#: The consequence is that the answer depended on OCCUPANCY, not on cost.
+#: Measured 08-10-26 on entries of 200-character paths, all at 248 B/entry —
+#: 29 % over the stated budget:
+#:
+#:     500 entries   123,980 B   fires
+#:     400 entries    99,180 B   fires
+#:     387 entries    95,956 B   SILENT   ← 77 % occupancy
+#:     200 entries    49,571 B   SILENT
+#:     100 entries    24,771 B   SILENT
+#:
+#: Same buffer, same per-entry cost, four different answers. A partial buffer is
+#: not exotic: `CACHE_TTL` is 25 h and sampling is 1-in-20, so filling 500 slots
+#: takes ~10,000 non-slow requests, and `memory_report` is a diagnostic someone
+#: runs AFTER noticing something — often after a restart or a cache flush.
+#:
+#: **The test written to prevent this asserted the inverse and passed because of
+#: the bug.** `test_the_budget_is_relative_to_the_bound_it_is_about` fed ten
+#: entries of 2 KB paths (2,063 B/entry, more than tenfold over the budget) and
+#: asserted `assertFalse(over)`, reasoning *"ten entries cannot exceed a budget
+#: expressed per entry, whatever they contain."* Against a budget that really is
+#: per entry, ten entries of 2 KB paths are exactly what DOES exceed it. The
+#: assertion held only because of the `MAX_STORED` multiplier it was there to
+#: describe.
+#:
+#: So the comparison is now per-entry, and the "cold process" worry that test was
+#: gesturing at is handled by this floor instead of by an accidental factor of
+#: `MAX_STORED / len(entries)`. Below 50 entries the average is noise — one
+#: pathological request would trip it — and above it the answer no longer moves
+#: as the buffer fills.
+#:
+#: ⚠️ THE RULE, which is the mirror of v3.19.4's and NOT the same rule: after
+#: asking what the world looks like on both sides of a threshold, **check that
+#: the sentence you print describes the comparison you made.** Three correct
+#: descriptions of a check that did something else is not a typo; it is what a
+#: threshold looks like when nobody ran it.
+MIN_ENTRIES_FOR_BUDGET = 50
+
 
 def _bump(key):
     """
@@ -236,14 +284,29 @@ def buffer_size_bytes(entries=None):
 
 def buffer_is_over_budget(entries=None):
     """
-    True when the buffer costs more than `MAX_STORED * BYTES_PER_ENTRY_BUDGET`.
+    True when the buffer costs more than `BYTES_PER_ENTRY_BUDGET` PER ENTRY.
+
+    v3.19.6 — per entry, which is what this has claimed to be since v3.19.5 and
+    was not: the comparison was against `MAX_STORED * BYTES_PER_ENTRY_BUDGET`, a
+    fixed total, so the same per-entry cost gave different answers at different
+    occupancies. See `MIN_ENTRIES_FOR_BUDGET` for the measurements and for why
+    the floor replaces the `MAX_STORED` multiplier rather than joining it.
 
     Returns `(over, buffer_bytes)` so the caller can report the measurement
     whether or not it crossed — a recommendation that cannot say how big the
     thing is is the kind that gets ignored.
+
+    An empty buffer, or one below the floor, is never over budget: `0 / 0` has no
+    answer and a handful of entries has no meaningful average.
     """
+    if entries is None:
+        entries = _get_entries()
+
     buffer_bytes = buffer_size_bytes(entries)
-    return buffer_bytes > MAX_STORED * BYTES_PER_ENTRY_BUDGET, buffer_bytes
+    if len(entries) < MIN_ENTRIES_FOR_BUDGET:
+        return False, buffer_bytes
+
+    return buffer_bytes > len(entries) * BYTES_PER_ENTRY_BUDGET, buffer_bytes
 
 
 def get_performance_summary():

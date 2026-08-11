@@ -168,6 +168,15 @@ from src.view.pledge_tasks import my_pledge_tasks, pledge_take_quiz
 from src.view.home import home
 from src.view.landing import landing_page, contact_submit
 from src.view.serve_media import serve_media
+# v3.19.6 — the ONLY way to read the eight upload directories whose promise is
+# narrower than /media/'s. See src/view/serve_private_upload.py; templates must
+# link these routes and never `<field>.url`.
+from src.view.serve_private_upload import (
+    serve_bug_report_screenshot, serve_excuse_document,
+    serve_kai_report_attachment, serve_kai_response_file,
+    serve_service_hours_attachment, serve_service_hours_response_file,
+    serve_slating_gpa_screenshot, serve_slating_response_file,
+)
 from src.view.vote_view import (
     vote_view, vote_tally_json, open_legislation_now, verify_vote_receipt,
     cast_vote, mark_attendance_quick, upload_chapter_legislation,
@@ -373,6 +382,28 @@ urlpatterns = [
     # nothing: this pattern matches first). nginx must NOT serve /media/
     # directly anymore; see src/view/serve_media.py.
     path('media/<path:path>', serve_media, name='serve_media'),
+
+    # v3.19.6 — ownership-aware serving for the eight directories now listed in
+    # `PRIVATE_MEDIA_PREFIXES`. Each route re-uses the predicate its host page
+    # already applies; see the module docstring for why the rule is shared
+    # rather than copied. `test_the_private_set_names_only_directories_that_have_
+    # their_own_view` asserts every prefix has one of these.
+    path('kai/reports/<int:report_id>/attachment/',
+         serve_kai_report_attachment, name='kai_report_attachment'),
+    path('kai/reports/responses/<int:response_id>/file/',
+         serve_kai_response_file, name='kai_response_file'),
+    path('slating/applications/<int:app_id>/gpa-screenshot/',
+         serve_slating_gpa_screenshot, name='slating_gpa_screenshot'),
+    path('slating/applications/responses/<int:response_id>/file/',
+         serve_slating_response_file, name='slating_response_file'),
+    path('excuses/<int:excuse_id>/document/',
+         serve_excuse_document, name='excuse_document'),
+    path('service-hours/submissions/<int:submission_id>/attachment/',
+         serve_service_hours_attachment, name='service_hours_attachment'),
+    path('service-hours/responses/<int:response_id>/file/',
+         serve_service_hours_response_file, name='service_hours_response_file'),
+    path('bug-report/<int:report_id>/screenshot/',
+         serve_bug_report_screenshot, name='bug_report_screenshot'),
 
     # Bug Reports
     path('bug-report/', submit_bug_report, name='bug_report'),

@@ -55,9 +55,63 @@ MEDIA_ACCEL_PREFIX = os.getenv('MEDIA_ACCEL_PREFIX', '')
 #: directory inherits /media/'s promise by default. If that is the wrong promise,
 #: it belongs here AND needs its own ownership-aware view.** Adding the view
 #: without adding the entry is the bug this set was written for.
+#:
+#: ⚠️ v3.19.6 — AND THE COMMENT ABOVE WAS WRONG ABOUT "THE FIRST SUCH THING".
+#: `legislation_drafts/` was the ninth. v3.19.5 stated the property correctly,
+#: built the right mechanism, and put one entry in it — because nothing ever
+#: enumerated the population the set is drawn from. Walking
+#: `apps.get_models()` for `FileField`/`ImageField` took four minutes and found
+#: eight more directories under a narrower promise, four of them holding the
+#: most confidential material this application handles: Kai allegation
+#: attachments, slating GPA screenshots and application files, and excuse
+#: documents (the help text on that field says "doctor note").
+#:
+#: **The durable lesson, and it is not the same as v3.19.5's:** building the
+#: general mechanism is not applying it to the general case. A set is only the
+#: general form if something enumerates the population — otherwise it is an `if`
+#: with better manners. That enumeration is now
+#: `src/test_media_classification.py`, which fails when any model gains an
+#: `upload_to` that appears in neither this set nor `PUBLIC_MEDIA_PREFIXES`.
 PRIVATE_MEDIA_PREFIXES = frozenset({
     # → src.view.legislation_drafts.serve_legislation_draft_document
     'legislation_drafts',
+    # → src.view.serve_private_upload, one view each. The trailing directories
+    #   (`kai_reports/custom_fields/` etc.) are covered by their first segment,
+    #   which is what serve_media compares.
+    'kai_reports',
+    'slating',
+    'excuse_documents',
+    'service_hours',
+    'bug_reports',
+})
+
+#: Directories under MEDIA_ROOT that `/media/`'s promise is CORRECT for.
+#:
+#: v3.19.6 — the other half of the classification, and it exists so that the
+#: absence of a decision is a build failure rather than a default. Membership
+#: here is a positive statement: *any logged-in member may read this*. Uploaded
+#: legislation, chapter minutes and committee documents are chapter business;
+#: profile pictures, songbook audio and landing photos are chapter-visible by
+#: intent.
+#:
+#: ⚠️ The four `committee_*` / `document_versions` entries are the ones to
+#: revisit first if this is ever reopened. CLAUDE.md records that
+#: `manage_chapter_document` was tightened on 07-22-26 to guard delete/edit by
+#: *committee ownership*, which is an argument that the READ side may be
+#: narrower than chapter-wide too. The 08-10 review declined to assert either
+#: way and neither does this line — they are classified public because that is
+#: the behaviour that has always shipped, not because anyone has ruled on it.
+PUBLIC_MEDIA_PREFIXES = frozenset({
+    'legislation_docs',
+    'committee_minutes',
+    'committee_documents',
+    'committee_legislation',
+    'document_versions',
+    'profile_pictures',
+    'songbook',
+    'landing_photos',
+    'passed_resolutions',
+    'og_images',
 })
 
 

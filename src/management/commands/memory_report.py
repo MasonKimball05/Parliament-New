@@ -255,10 +255,19 @@ class Command(BaseCommand):
             # v3.19.5 — measured through `buffer_size_bytes`, the same helper the
             # recommendation in `_show_recommendations` uses, so the printed
             # number and the number that decides whether to warn about it can no
-            # longer disagree. The entries are passed in rather than re-read:
-            # this section already holds a summary derived from the same buffer,
-            # and the two halves of this command were between them reading it
-            # four times and pickling it twice per run.
+            # longer disagree.
+            #
+            # v3.19.6 — and the sentence that used to sit here was past-tense
+            # about a fix that was half made. It read "the two halves of this
+            # command WERE between them reading it four times and pickling it
+            # twice", which invites the next reader to believe the count is now
+            # one. It is three reads and two pickles: this section does one
+            # `get_performance_summary` and one `_get_entries`, and
+            # `_generate_recommendations` still calls `_get_entries` on its own.
+            # That is fine — this is a manual management command, not a request
+            # path — but it is stated in the present tense now, because this file
+            # has produced three consecutive findings that were comments
+            # describing an intended design rather than the code beside them.
             _entries = _get_entries()
             if _entries:
                 _bytes = buffer_size_bytes(_entries)
@@ -333,7 +342,10 @@ class Command(BaseCommand):
         # exceptions reports the absence of a signal as the absence of a
         # problem.)
         try:
-            import pickle  # noqa: F401 — referenced by the except clause below
+            # v3.19.6 — the `# noqa: F401` that used to sit here suppressed a
+            # warning no linter would raise: `pickle.PicklingError` in the
+            # `except` clause below IS a use. Kept the explanatory half.
+            import pickle  # referenced by the except clause below
 
             from src.middleware.performance import (
                 BYTES_PER_ENTRY_BUDGET, CACHE_KEY, MAX_STORED, _get_entries,
@@ -365,10 +377,17 @@ class Command(BaseCommand):
             # `512 * 1024` against a buffer measured at 13,693 bytes when
             # completely full. The rule above needed its mirror — *also ask what
             # the world looks like when the threshold IS crossed* — and the
-            # threshold itself needed to be relative to `MAX_STORED`, or it goes
+            # threshold itself needed to be relative to the buffer, or it goes
             # stale the moment someone tunes the bound it is really about. Both
             # the budget and the comparison now live next to the measurement, in
             # `performance.py`. See `BYTES_PER_ENTRY_BUDGET`.
+            #
+            # ⚠️ v3.19.6 — AND THEN THE PER-ENTRY BUDGET WAS COMPARED TO A TOTAL,
+            # so the answer moved with occupancy rather than with cost, and the
+            # message below described a comparison the code had not made. Fourth
+            # release on this condition. `buffer_is_over_budget` is now genuinely
+            # per-entry with a `MIN_ENTRIES_FOR_BUDGET` floor, so `per_entry`
+            # printed here IS the quantity that was tested.
             entries = _get_entries()
             over_budget, buffer_bytes = buffer_is_over_budget(entries)
             if over_budget:

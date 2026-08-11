@@ -1,3 +1,5 @@
+import os
+
 from django.db import models
 from django.utils import timezone
 from src.storage import DualLocationStorage
@@ -291,7 +293,14 @@ class ServiceFieldResponse(models.Model):
         elif self.field.field_type in ['multiselect', 'checkbox']:
             return self.json_value or []
         elif self.field.field_type == 'file':
-            return self.file_value.url if self.file_value else None
+            # ⚠️ v3.19.6 — THE BASENAME, NOT THE URL. This returned
+            # `self.file_value.url`, i.e. a `/media/` path into a directory that
+            # `serve_media` now refuses, so it had become a dead link as well as
+            # a leak: the only consumer renders it as TEXT next to the download
+            # link, so the raw storage name was being printed to the page. A
+            # "display value" is a thing to show a human; the link belongs in an
+            # `{% url %}` tag, and it is now in one.
+            return os.path.basename(self.file_value.name) if self.file_value else None
         return self.text_value
 
 

@@ -54,6 +54,31 @@ class TheForgedHeaderWarningIsThrottled(TestCase):
         self.factory = RequestFactory()
         cache.clear()
 
+    # ⚠️ v3.19.6 — THE LOGGER NOW EMITS TWO KINDS OF LINE AND THE TESTS MUST NOT
+    # CONFLATE THEM.
+    #
+    # Until v3.19.6 a burst produced exactly one line per peer per window, so
+    # `warn.call_count` was the whole story and four tests below asserted on it
+    # directly. The suppressed-hit tally, though, was only ever flushed by the
+    # NEXT line — so a burst that genuinely ENDED took its count to the grave,
+    # which is the case the alarm exists for. It is now also flushed on the write
+    # side at `FORGED_CF_COUNT_MILESTONES` (10/100/1,000/10,000).
+    #
+    # That is a deliberate, bounded increase in log volume: at most four extra
+    # lines per peer per burst, against a throttle whose whole purpose is to stop
+    # a rotating log filling up. The tests split the two so the throttle's real
+    # property — *one THROTTLED line per peer per window, however many calls* —
+    # is still asserted exactly, rather than loosened to "a few".
+    _MILESTONE_MARKER = 'hits suppressed so far'
+
+    def _split_lines(self, warn):
+        """(throttled_lines, milestone_lines) from a patched logger.warning."""
+        throttled, milestones = [], []
+        for call in warn.call_args_list:
+            fmt = call.args[0] if call.args else ''
+            (milestones if self._MILESTONE_MARKER in fmt else throttled).append(call)
+        return throttled, milestones
+
     def _request(self, peer, cf_ip='10.0.0.1', path='/login/'):
         """
         A request whose SOCKET PEER is `peer` and which carries a forged
@@ -84,10 +109,16 @@ class TheForgedHeaderWarningIsThrottled(TestCase):
                 get_client_ip(self._request(DIRECT_PEER))
                 get_client_ip(self._request(DIRECT_PEER))
 
+        throttled, milestones = self._split_lines(warn)
         self.assertEqual(
-            warn.call_count, 1,
+            len(throttled), 1,
             'The detection must log once per peer per window, not once per call.',
         )
+        # v3.19.6: 1,000 calls, of which the FIRST is the throttled line — so
+        # 999 suppressions, crossing 10 and 100 and stopping one short of 1,000.
+        # Asserted exactly rather than as "a few": a milestone set that fired on
+        # every hit would also produce "more than one".
+        self.assertEqual(len(milestones), 2)
 
     def test_rotating_the_forged_value_buys_no_extra_lines(self):
         """
@@ -101,11 +132,16 @@ class TheForgedHeaderWarningIsThrottled(TestCase):
             for i in range(200):
                 get_client_ip(self._request(DIRECT_PEER, cf_ip=f'203.0.113.{i % 256}'))
 
+        throttled, milestones = self._split_lines(warn)
         self.assertEqual(
-            warn.call_count, 1,
+            len(throttled), 1,
             'The throttle must key on the socket peer, which the client cannot '
             'choose — never on the forged value, which is chosen for it.',
         )
+        # 199 suppressed → crosses 10 and 100. Critically this is a function of
+        # the COUNT and not of the 200 distinct forged values: rotating the
+        # header must not buy milestone lines either.
+        self.assertEqual(len(milestones), 2)
 
     def test_distinct_peers_are_throttled_independently(self):
         """
@@ -132,8 +168,9 @@ class TheForgedHeaderWarningIsThrottled(TestCase):
             cache.delete(f'forged_cf_seen_{DIRECT_PEER}')      # window elapses
             get_client_ip(self._request(DIRECT_PEER))
 
-        self.assertEqual(warn.call_count, 2)
-        self.assertIn('49 further hits suppressed', warn.call_args_list[1].args[-1])
+        throttled, _ = self._split_lines(warn)
+        self.assertEqual(len(throttled), 2)
+        self.assertIn('49 further hits suppressed', throttled[1].args[-1])
 
     def test_the_first_line_carries_no_suppression_suffix(self):
         """A clean first sighting should read as one, not as "0 suppressed"."""
@@ -184,8 +221,74 @@ class TheForgedHeaderWarningIsThrottled(TestCase):
             # ...and much later, one more probe.
             get_client_ip(self._request(DIRECT_PEER))
 
-        self.assertEqual(warn.call_count, 2)
-        self.assertIn('29 further hits suppressed', warn.call_args_list[1].args[-1])
+        throttled, _ = self._split_lines(warn)
+        self.assertEqual(len(throttled), 2)
+        self.assertIn('29 further hits suppressed', throttled[1].args[-1])
+
+    def test_a_burst_that_stops_AND_NEVER_RESUMES_still_reports_its_volume(self):
+        """
+        ⚠️ v3.19.6 — THE CASE THE TEST ABOVE DOES NOT COVER, AND THE REASON THE
+        v3.19.5 FIX WAS INCOMPLETE.
+
+        `test_the_count_survives_a_burst_that_stops` is named for a burst that
+        stops and then **sends one more probe** — look at its last line. That
+        probe is a rescue hit, and the longer `FORGED_CF_COUNT_TTL` only ever
+        widens the window in which one can arrive. A sweep that genuinely ends
+        never sends it, so under v3.19.5 the tally expired unread and the
+        operator saw a single line with no number: exactly the symptom the
+        v3.19.5 changelog claims to have fixed.
+
+        **A tally flushed only by the next event cannot report the last event.**
+        The flush has to be on the write side, which is
+        `FORGED_CF_COUNT_MILESTONES`.
+
+        No rescue hit here. The burst starts, runs, and stops.
+
+        **Fails against the v3.19.5 tree**, where the only line emitted is the
+        first one and it carries no volume at all.
+        """
+        with patch.object(security_utils.logger, 'warning') as warn:
+            for _ in range(150):
+                get_client_ip(self._request(DIRECT_PEER))
+            # Nothing further. No expiry simulated, no later probe — the sweep
+            # is simply over, which is what a sweep being over looks like.
+
+        throttled, milestones = self._split_lines(warn)
+
+        self.assertEqual(
+            len(throttled), 1,
+            'The throttle itself is unchanged: still one line per peer per window.',
+        )
+        self.assertTrue(
+            milestones,
+            'A burst that ends must still report its volume somewhere. With no '
+            'later hit, the throttled line is the only one that will ever be '
+            'written and it carries no count.',
+        )
+        self.assertEqual(
+            [c.args[1] for c in milestones], [10, 100],
+            '149 suppressed hits cross 10 and 100 and nothing else — the point '
+            'is an order of magnitude, not a running commentary.',
+        )
+        self.assertIn(DIRECT_PEER, [c.args[2] for c in milestones])
+
+    def test_milestones_are_per_peer_and_bounded(self):
+        """
+        The milestone lines must not reintroduce the flood the throttle removed.
+        Four per peer per burst is the ceiling, by construction.
+        """
+        from src.utils.security_utils import FORGED_CF_COUNT_MILESTONES
+
+        self.assertEqual(len(FORGED_CF_COUNT_MILESTONES), 4)
+
+        with patch.object(security_utils.logger, 'warning') as warn:
+            for peer in (DIRECT_PEER, OTHER_PEER):
+                for _ in range(120):
+                    get_client_ip(self._request(peer))
+
+        throttled, milestones = self._split_lines(warn)
+        self.assertEqual(len(throttled), 2, 'One per peer.')
+        self.assertEqual(len(milestones), 4, 'Two per peer (10, 100), not shared.')
 
     def test_the_suppression_suffix_does_not_claim_a_window_it_cannot_know(self):
         """
@@ -193,17 +296,37 @@ class TheForgedHeaderWarningIsThrottled(TestCase):
         gate that is no longer true — a tally can span several windows — and a
         log line that states a duration it cannot vouch for is the same class of
         false comment this codebase has now deleted five of.
+
+        ⚠️ v3.19.6 — THIS TEST FAILED AGAINST THE COMMIT THAT INTRODUCED IT.
+        `git log -S` puts the assertion and the message it checks both in
+        `b7c80be` (v3.19.5): the suffix was changed to *"since the last line"*
+        and the assertion added was `assertNotIn('last ', suffix)`, which that
+        very string contains. It has never passed. It was never run — the
+        seventh consecutive batch of unexecuted tests.
+
+        The INTENT was right and is kept: the suffix must not state a duration
+        it cannot vouch for, because a tally can now span several windows.
+        "since the last line" states no duration; it names an event, which is
+        exactly the honest phrasing. So the assertion now looks for a claimed
+        duration rather than for the word "last".
         """
+        import re
+
         with patch.object(security_utils.logger, 'warning') as warn:
             for _ in range(5):
                 get_client_ip(self._request(DIRECT_PEER))
             cache.delete(f'forged_cf_seen_{DIRECT_PEER}')
             get_client_ip(self._request(DIRECT_PEER))
 
-        suffix = warn.call_args_list[1].args[-1]
+        throttled, _ = self._split_lines(warn)
+        suffix = throttled[1].args[-1]
         self.assertIn('suppressed', suffix)
         self.assertNotIn('300', suffix)
-        self.assertNotIn('last ', suffix)
+        self.assertIsNone(
+            re.search(r'\d+\s*(s\b|sec|second|minute|hour)', suffix),
+            f'The suffix must not claim a time window it cannot vouch for — a '
+            f'tally can span several. Got: {suffix!r}',
+        )
 
     # ─────────────────────────────────────────── the key cannot be steered
 

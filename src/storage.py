@@ -1,8 +1,49 @@
 import os
 import re
+import uuid
 from django.core.files.storage import FileSystemStorage
 from django.conf import settings
 from django.utils.text import slugify
+
+
+def uuid_upload_path(directory):
+    """
+    Build an `upload_to` callable storing `<directory>/<uuid>.<ext>`.
+
+    ⚠️ v3.19.6 — DEFENCE IN DEPTH, EXPLICITLY NOT THE ACCESS CONTROL. The access
+    control is the ownership-aware view in `src/view/serve_private_upload.py`
+    plus the directory's entry in `PRIVATE_MEDIA_PREFIXES`. Read those first.
+
+    v3.19.3 wrote that same sentence about `legislation_draft_upload_path` and
+    then spent v3.19.5 proving it meant it — the route it named was still open,
+    so the random name was doing exactly the work it said it must never do. The
+    sentence is only true while the route is shut.
+
+    Why the names needed changing at all: `SanitizedFilenameMixin` below
+    slugifies the uploaded filename at save time (v3.14.2), and Django appends
+    its random 7-character suffix ONLY on collision. So the first upload of
+    `IMG_4471.jpeg` was stored — and served — at `kai_reports/img-4471.jpeg`.
+    For directories holding allegation evidence, GPA screenshots and application
+    files, a guessable name is a second access control nobody chose.
+
+    ⚠️ `upload_to` IS SAVE-TIME ONLY. Files already on disk keep their slugified
+    names; migration `0017` is `AlterField` and touches no data, deliberately —
+    a data migration that renames real evidence is the riskiest thing available
+    here, and the route being shut is what protects those files. This stops the
+    guessable population GROWING. It does not retire it.
+
+    ⚠️ Lives HERE, not beside the models that use it. Django serialises
+    `upload_to` into migrations by import path, so each field needs a
+    module-level callable with a stable identity — and putting the shared factory
+    in one model module would have made every other model module import it,
+    which is how `src/models/` acquires import cycles.
+    """
+    def _upload_to(instance, filename):
+        ext = os.path.splitext(filename)[1].lower()
+        ext = ''.join(c for c in ext if c.isalnum() or c == '.')
+        return f'{directory}/{uuid.uuid4().hex}{ext}'
+
+    return _upload_to
 
 
 class SanitizedFilenameMixin:

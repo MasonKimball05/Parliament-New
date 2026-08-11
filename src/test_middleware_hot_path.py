@@ -1087,30 +1087,125 @@ class EveryThresholdHasBothAnswers(TestCase):
             f'check can never fire and is not a check.',
         )
 
-    def test_the_budget_is_relative_to_the_bound_it_is_about(self):
+    def test_a_cold_process_does_not_trip_the_budget(self):
         """
-        The 512 KB constant was stale before it was written, and would have gone
-        staler still the moment someone tuned `MAX_STORED` — which is the bound
-        the recommendation actually asks about. Expressing the budget per entry
-        keeps the two in step, and stops the check firing on a cold process that
-        has served twenty requests.
+        ⚠️ v3.19.6 — THIS TEST USED TO ASSERT THE OPPOSITE OF WHAT IT SAID, AND
+        IT PASSED BECAUSE OF THE BUG IT WAS WRITTEN TO PREVENT.
+
+        It was `test_the_budget_is_relative_to_the_bound_it_is_about`, and it
+        fed ten entries of 2 KB paths — ~2,063 B/entry, more than tenfold over
+        `BYTES_PER_ENTRY_BUDGET` — then asserted `assertFalse(over)`, reasoning:
+
+            'Ten entries cannot exceed a budget expressed per entry, whatever
+             they contain'
+
+        Against a budget that really is per entry, ten entries of 2 KB paths are
+        precisely what DOES exceed it. The assertion held only because
+        `buffer_is_over_budget` was comparing against `MAX_STORED *
+        BYTES_PER_ENTRY_BUDGET` — a fixed 96,000-byte TOTAL — which is the defect
+        this class exists to catch, described in three places as per-entry and
+        locked in by this test.
+
+        The worry underneath it was real and is kept: a cold process must not
+        trip the check. That is now `MIN_ENTRIES_FOR_BUDGET`, an explicit floor,
+        rather than an accidental factor of `MAX_STORED / len(entries)`.
+
+        **The rule this adds to the class: a test whose justification and whose
+        assertion can both be true of different code has not pinned either.**
         """
         from src.middleware import performance
 
         def long_path(i):
             return f'/x/{i}/' + 'a' * 2000
 
-        over_at_full, _ = performance.buffer_is_over_budget(
-            self._entries(performance.MAX_STORED, long_path))
-        over_at_ten, _ = performance.buffer_is_over_budget(
-            self._entries(10, long_path))
-
-        self.assertTrue(over_at_full)
+        # Below the floor: no meaningful average, so no answer.
+        under_floor, _ = performance.buffer_is_over_budget(
+            self._entries(performance.MIN_ENTRIES_FOR_BUDGET - 1, long_path))
         self.assertFalse(
-            over_at_ten,
-            'Ten entries cannot exceed a budget expressed per entry, whatever '
-            'they contain — otherwise the check fires on a cold process.',
+            under_floor,
+            'A cold process with a handful of entries has no meaningful average '
+            'and must not trip the budget.',
         )
+
+        # One entry above the floor, same per-entry cost: now it answers.
+        over_floor, _ = performance.buffer_is_over_budget(
+            self._entries(performance.MIN_ENTRIES_FOR_BUDGET, long_path))
+        self.assertTrue(
+            over_floor,
+            'Once there are enough entries to average, 2 KB paths are over '
+            'budget at ANY occupancy — that is what "per entry" means.',
+        )
+
+    def test_the_answer_does_not_depend_on_how_full_the_buffer_is(self):
+        """
+        ⚠️ v3.19.6 — THE ASSERTION THIS CLASS WAS MISSING, and the one that fails
+        against every previous version of the check.
+
+        `EveryThresholdHasBothAnswers` asked its question at full occupancy only.
+        Measured 08-10-26 on entries of 200-character paths, all at 248 B/entry —
+        29 % over the stated budget — the old total-based check answered:
+
+            500 entries  123,980 B  fires
+            400 entries   99,180 B  fires
+            387 entries   95,956 B  SILENT
+            200 entries   49,571 B  SILENT
+            100 entries   24,771 B  SILENT
+
+        Same buffer, same per-entry cost, four different answers. A partial
+        buffer is not exotic — `CACHE_TTL` is 25 h and sampling is 1-in-20, so
+        filling 500 slots takes ~10,000 non-slow requests, and `memory_report` is
+        run *after* someone notices something, often after a restart.
+
+        A budget expressed per entry must be scale-invariant above the floor.
+        """
+        from src.middleware import performance
+
+        # 248 B/entry: over the 192 B budget, but nowhere near the old 96,000 B
+        # total until the buffer is ~77 % full. That gap is the bug.
+        def long_path(i):
+            return f'/x{i}/' + 'a' * 195
+
+        answers = {
+            n: performance.buffer_is_over_budget(self._entries(n, long_path))[0]
+            for n in (performance.MIN_ENTRIES_FOR_BUDGET, 100, 200, 387, 500)
+        }
+
+        self.assertEqual(
+            set(answers.values()), {True},
+            f'The same per-entry cost gave different answers at different '
+            f'occupancies: {answers}. The budget is per entry; the answer must '
+            f'not depend on how full the buffer happens to be.',
+        )
+
+    def test_the_recommendation_reports_the_comparison_it_actually_made(self):
+        """
+        ⚠️ v3.19.6 — THE NAMING HALF, which is what went wrong this time.
+
+        The first three versions of this threshold were wrong about the WORLD
+        (always true, always true, never true). The fourth was wrong about
+        ITSELF: the code compared a total and the message said "N B/entry vs a
+        192 B budget", so a reader checking the arithmetic would have concluded
+        the check was fine.
+
+        This asserts the printed quantity is the tested quantity, by requiring
+        that a buffer whose per-entry average is under budget is not flagged
+        however many entries it holds — which is only true if the comparison is
+        the one the message describes.
+        """
+        from src.middleware import performance
+
+        # ~54 B/entry: comfortably under the 192 B budget. Under the old total
+        # comparison a large enough buffer of these would eventually cross
+        # 96,000 bytes and be flagged while the message claimed 54 < 192.
+        for n in (performance.MIN_ENTRIES_FOR_BUDGET, 500):
+            over, size = performance.buffer_is_over_budget(
+                self._entries(n, self._ordinary))
+            self.assertFalse(
+                over,
+                f'{n} ordinary entries ({size} B, {size / n:.0f} B/entry) are '
+                f'under the {performance.BYTES_PER_ENTRY_BUDGET} B budget and '
+                f'must not be flagged — the message would say so either way.',
+            )
 
     def test_an_empty_buffer_is_zero_bytes_and_not_an_error(self):
         from src.middleware import performance

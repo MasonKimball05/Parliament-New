@@ -219,6 +219,38 @@ FORGED_CF_LOG_WINDOW = 300
 #: hour ago is not attached to an unrelated event.
 FORGED_CF_COUNT_TTL = FORGED_CF_LOG_WINDOW * 4
 
+#: ⚠️ v3.19.6 — SUPPRESSED-HIT COUNTS THAT GET LOGGED WITHOUT WAITING FOR A
+#: RESCUE HIT, because the TTL fix above does not actually close the hole it was
+#: written for and the 08-09 report's suggested fix (mine) was the incomplete one.
+#:
+#: Trace a burst that ENDS — a scanner sweep, a one-off probe run, which is the
+#: shape a sweep usually has. 10,000 hits from one peer between t=0 and t=60,
+#: then silence:
+#:
+#:   t=0        `cache.add` succeeds → line #1 logged, NO count (the counter does
+#:              not exist yet).
+#:   t=1…60     hits 2–10,000 increment the counter; TTL 1200 s from hit #2.
+#:   t=60…1260  nothing arrives. Nothing reads the counter.
+#:   t≈1262     the counter expires. **The 9,999 is never logged.**
+#:
+#: The operator sees exactly what v3.19.4 saw: one line, no number, no way to
+#: tell one probe from ten thousand. Lengthening the TTL widened the window in
+#: which a rescue hit could carry the tally from ~5 minutes to ~20; it did not
+#: remove the dependence on a rescue hit arriving at all.
+#:
+#: **The general form: a tally that is only flushed by the next event cannot
+#: report the last event.** Lengthening the window trades probability of loss
+#: against staleness of the number; it never reaches zero, because the flush is
+#: on the wrong edge. So flush on the WRITE side: log again when the suppressed
+#: count crosses one of these. Self-limiting (at most four extra lines per peer
+#: per burst), needs no scheduler, and guarantees volume is visible without
+#: waiting for a hit that may never come.
+#:
+#: Powers of ten because the question the operator is answering is an
+#: order-of-magnitude one — "curiosity or firewall decision" — not a precise
+#: count. Keep `FORGED_CF_COUNT_TTL` as well; the two are complementary.
+FORGED_CF_COUNT_MILESTONES = frozenset({10, 100, 1000, 10000})
+
 
 def _log_forged_cf_header(request, cf_ip):
     """
@@ -263,6 +295,15 @@ def _log_forged_cf_header(request, cf_ip):
     the same TTL if they are written at different moments**, and "the same
     duration" reads like "the same lifetime" until you ask when each clock
     starts.
+
+    ⚠️ v3.19.6 — AND THAT STILL DID NOT FIX THE CASE IT NAMED. A longer TTL only
+    widens the window in which a rescue hit can carry the tally; a burst that
+    truly ends has no next hit, so its count still expired unread. The sentence
+    two paragraphs up — *"the count rides on the next line that gets through"* —
+    is a promise that cannot be kept by anything reading on the next line. It is
+    now also flushed on the WRITE side at `FORGED_CF_COUNT_MILESTONES`, which is
+    where the full argument lives. **A tally flushed only by the next event
+    cannot report the last event.**
     """
     import ipaddress
 
@@ -286,7 +327,7 @@ def _log_forged_cf_header(request, cf_ip):
 
     if not cache.add(f'forged_cf_seen_{peer_key}', 1, FORGED_CF_LOG_WINDOW):
         try:
-            cache.incr(count_key)
+            suppressed_now = cache.incr(count_key)
         except ValueError:
             # `incr` raises on a missing key rather than starting at zero, so the
             # miss is the normal first-suppression path, not an error. The TTL is
@@ -294,6 +335,21 @@ def _log_forged_cf_header(request, cf_ip):
             # existing TTL, so this one `set` fixes the lifetime of the whole
             # tally and it has to be the generous value.
             cache.set(count_key, 1, FORGED_CF_COUNT_TTL)
+            suppressed_now = 1
+
+        # v3.19.6 — flush on the write side. See `FORGED_CF_COUNT_MILESTONES`:
+        # a burst that ends never produces the "next line" the throttle was
+        # relying on to carry its tally, so the volume has to be able to announce
+        # itself. This does NOT reset the counter or the gate — the milestone
+        # line is additional to the throttled one, not a substitute, so the
+        # normal per-window line still arrives with the full running total.
+        if suppressed_now in FORGED_CF_COUNT_MILESTONES:
+            logger.warning(
+                'FORGED_CF_HEADER: %s hits suppressed so far from non-Cloudflare '
+                'peer %s — sustained forgery, not a stray probe; restrict the '
+                'origin at the firewall.',
+                suppressed_now, peer_key,
+            )
         return
 
     suppressed = cache.get(count_key) or 0

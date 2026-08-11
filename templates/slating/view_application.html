@@ -148,7 +148,7 @@
                         {% elif response.json_value %}
                         {{ response.json_value|join:", " }}
                         {% elif response.file_value %}
-                        <a href="{{ response.file_value.url }}" target="_blank" class="text-primary-600 dark:text-primary-400 hover:underline">
+                        <a href="{% url 'slating_response_file' response.id %}" target="_blank" class="text-primary-600 dark:text-primary-400 hover:underline">
                             View File
                         </a>
                         {% else %}
