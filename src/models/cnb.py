@@ -99,13 +99,24 @@ class GoverningDocument(models.Model):
         it. `cnb_foreword` is therefore listed in `DISABLED_BY_DEFAULT`, which
         is the only thing making this fail closed. Do not remove it there
         without changing the logic here.
+
+        v3.19.7 — resolved in ONE query instead of one per document. This loop
+        was the `5x src_featureflag` that `test_url_smoke` and
+        `test_detail_route_smoke` had been failing on since v3.19.1, on
+        `/constitution-bylaws/` and `/cnb/resolutions/new/`. `resolve_many`
+        applies the same defaults and writes the same cache entries, so the
+        paragraph above is unaffected: `cnb_foreword` still resolves through
+        `DISABLED_BY_DEFAULT` when it has no row, and that is asserted in
+        `src/test_cnb_foreword.py`.
         """
         from src.models_feature_flags import FeatureFlag
+
+        enabled = FeatureFlag.resolve_many(cls.FLAG_FOR_DOC_TYPE.values())
 
         return [
             doc_type
             for doc_type, flag in cls.FLAG_FOR_DOC_TYPE.items()
-            if FeatureFlag.is_feature_enabled(flag)
+            if enabled[flag]
         ]
 
     @classmethod

@@ -46,6 +46,55 @@ def uuid_upload_path(directory):
     return _upload_to
 
 
+def _reject_browser_executable(name):
+    """
+    v3.19.7 — refuse to STORE a file whose extension the browser executes.
+
+    ⚠️ THIS IS THE LAYER NO WRITER CAN FORGET, AND IT EXISTS BECAUSE FOUR
+    FORGOT. `validate_uploaded_file` is the real validation — allowlist, size,
+    and a MIME sniff that must agree with the extension — and the four writers
+    that skipped it entirely (both slating upload paths and the Kai and
+    service-hours custom-field writers) skipped it silently, because a view that
+    assigns `request.FILES[...]` straight to a model field looks exactly like a
+    view that validated first. There is no `grep` that distinguishes them.
+
+    Every upload in this application, from every writer, passes through
+    `Storage.get_valid_name`. So the smallest guarantee that cannot be bypassed
+    lives here. It is deliberately a BLOCKLIST and not the allowlist: the
+    allowlist in `file_validation.py` has no audio types, and songbook uploads
+    are legitimate — a global allowlist at this layer would break real features
+    for no security gain, since the per-view validation already applies one
+    where it belongs.
+
+    ⚠️ WHAT THIS DOES AND DOES NOT PROMISE. It stops a `.html`/`.svg`/`.js`
+    reaching disk. It does NOT check content, so a `.pdf` full of HTML still
+    lands — that is `validate_uploaded_file`'s job, and the reason both layers
+    exist. And it is not the mitigation either: the mitigation is that
+    `serve_private_upload` only renders an allowlist of content types inline.
+    Three layers, deliberately, because the file that gets through any two of
+    them should still be harmless.
+
+    Raises `SuspiciousFileOperation` (a subclass of Exception that Django's file
+    handling already anticipates) rather than `ValidationError`, because this is
+    reached during `save()` and not during form cleaning — a caller that wants a
+    friendly message must validate before saving, which is the point.
+    """
+    from django.core.exceptions import SuspiciousFileOperation
+
+    # Local import: `file_validation` imports python-magic at module scope, and
+    # this module is imported by every model module at startup. The constant is
+    # not duplicated here on purpose — one blocklist, two enforcement points.
+    from src.utils.file_validation import BLOCKED_EXTENSIONS
+
+    ext = os.path.splitext(name.lower())[1]
+    if ext in BLOCKED_EXTENSIONS:
+        raise SuspiciousFileOperation(
+            f'Refusing to store "{name}": the extension "{ext}" is one the '
+            f'browser executes, and uploads are served back from this origin. '
+            f'See src/utils/file_validation.py.'
+        )
+
+
 class SanitizedFilenameMixin:
     """v3.14.2 — slugify uploaded filenames at save time.
 
@@ -65,7 +114,9 @@ class SanitizedFilenameMixin:
         stem, ext = os.path.splitext(name)
         stem = slugify(stem) or 'file'
         ext = re.sub(r'[^a-z0-9]', '', ext.lower())
-        return f'{stem}.{ext}' if ext else stem
+        cleaned = f'{stem}.{ext}' if ext else stem
+        _reject_browser_executable(cleaned)
+        return cleaned
 
 
 class SanitizedFileSystemStorage(SanitizedFilenameMixin, FileSystemStorage):

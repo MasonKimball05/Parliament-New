@@ -27,6 +27,41 @@ from src.models.users import member_defer
 logger = logging.getLogger('function_calls')
 
 
+def _validated_upload(request, field, value):
+    """
+    v3.19.7 — validate a custom-field upload, or drop it with a message.
+
+    Both service-hours custom-field writers (create and edit) assigned
+    `request.FILES.get(...)` straight to `ServiceFieldResponse.file_value` with
+    no validation, while the submission's own `attachment` — the same form, the
+    same member, the directory next door — went through
+    `ServiceHoursSubmissionForm.clean_attachment`.
+
+    Returns the file if it passes and `None` if it does not, so the caller reads
+    as an assignment either way. Dropping rather than failing the POST is
+    deliberate and matches the Kai writer: the submission is already saved by
+    this point, and refusing a receipt should not discard the hours it belongs
+    to. The member is told, so the drop is never silent.
+
+    ⚠️ Shared by both call sites ON PURPOSE. The create path and the edit path
+    are the same eight lines twice, and this codebase's recurring failure is a
+    rule applied at the site where it was written and not at the site it was
+    copied to — the edit path here is exactly that, one release later.
+    """
+    from django.core.exceptions import ValidationError
+
+    from src.utils.file_validation import validate_uploaded_file
+
+    if not value or not hasattr(value, 'read'):
+        return value
+    try:
+        validate_uploaded_file(value)
+    except ValidationError as exc:
+        messages.error(request, f'{field.label}: {"; ".join(exc.messages)}')
+        return None
+    return value
+
+
 def _notify_vpp_new_submission(submission, is_resubmission=False):
     """Send a notification email to all VPP role holders when a service hour submission is received."""
     from src.models import ParliamentUser
@@ -275,7 +310,12 @@ def submit_service_hours(request):
                     elif field.field_type in ['multiselect', 'checkbox']:
                         response.json_value = request.POST.getlist(field_name)
                     elif field.field_type == 'file':
-                        response.file_value = value
+                        # v3.19.7 — was assigned straight from request.FILES.
+                        # See `_validated_upload` for why, and for the one
+                        # sentence that matters: the submission's own attachment
+                        # is validated by `ServiceHoursSubmissionForm`, and this
+                        # field writes to the directory next door.
+                        response.file_value = _validated_upload(request, field, value)
 
                     response.save()
 
@@ -373,7 +413,11 @@ def edit_service_submission(request, submission_id):
                     elif field.field_type in ['multiselect', 'checkbox']:
                         response.json_value = request.POST.getlist(field_name)
                     elif field.field_type == 'file':
-                        response.file_value = value
+                        # v3.19.7 — see `_validated_upload`. This is the edit
+                        # path; the create path above had the same gap, which is
+                        # the usual shape — a rule applied where it was written
+                        # and not where it was copied.
+                        response.file_value = _validated_upload(request, field, value)
                     response.save()
                 elif not created:
                     # Clear existing value if empty

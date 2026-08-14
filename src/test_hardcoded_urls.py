@@ -95,6 +95,23 @@ _NOT_SITE_PATHS = {
     # v3.17.7 shipped without anyone running it — the same "a guard nobody ran"
     # shape the module itself is about.
     '/exportable_media/',
+    # v3.19.7 — synthetic paths inside test fixtures. Both are strings a test
+    # INVENTS rather than a route it visits, and neither can be written as a
+    # `reverse()`:
+    #   * `/slow/` labels a hand-built performance-metric tuple in
+    #     `test_middleware_hot_path`; the assertion is that a slow entry is
+    #     stored unconditionally, and the path is only there to be recognised.
+    #   * `/test_` is a MODULE-path fragment in `test_client_ip_single_source`
+    #     (`'/test_' in rel`), matched against filenames, not URLs. It is here
+    #     rather than in `_SKIP_PREFIXES` because the scanner has no way to tell
+    #     a filename fragment from a URL prefix by shape alone.
+    #
+    # ⚠️ The third and fourth offenders in this group were NOT exempted:
+    # `/global-search/` in the same fixture was a genuine mistake (the route is
+    # `/search/`) and was fixed. **The exemption list is for strings that are not
+    # site paths — not for site paths that are wrong.** Adding a wrong path here
+    # would have converted a caught bug into a documented one.
+    '/slow/', '/test_',
     # Honeypot decoys: the whole point is that they are not real routes.
     '/phpmyadmin',
     # `admin_v2.py` skips page-visit tracking for BOTH spellings of the admin

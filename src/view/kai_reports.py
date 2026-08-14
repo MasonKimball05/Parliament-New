@@ -67,6 +67,28 @@ def submit_kai_report(request):
                     value = request.POST.get(field_key, '').strip()
                     file_value = request.FILES.get(field_key)
 
+                    # ⚠️ v3.19.7 — a custom-field file was assigned straight from
+                    # request.FILES with no validation of any kind, while the
+                    # report's OWN attachment three fields up goes through
+                    # `KaiReportForm.clean_attachment` (extension allowlist +
+                    # MIME sniff). Same form, same submitter, same directory —
+                    # `kai_reports/custom_fields/` sits beside
+                    # `kai_reports/` — and one half was checked.
+                    #
+                    # The file is dropped and the member is TOLD, rather than the
+                    # whole POST being failed: by this point the report has been
+                    # saved, and a rejected attachment must not take the
+                    # allegation text down with it. A silent drop would be the
+                    # worst of the three.
+                    if file_value:
+                        try:
+                            validate_uploaded_file(file_value)
+                        except ValidationError as exc:
+                            messages.error(
+                                request,
+                                f'{field.label}: {"; ".join(exc.messages)}')
+                            file_value = None
+
                     # Only save if there's a value
                     if value or file_value:
                         response_data = {

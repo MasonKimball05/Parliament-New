@@ -198,15 +198,30 @@ def admin_api_tokens(request):
         ('rejected', 'Rejected'),
     ]
 
-    # Load the two API-related feature flags for the settings panel
-    try:
-        flag_rest_api = FeatureFlag.objects.get(name='rest_api')
-    except FeatureFlag.DoesNotExist:
-        flag_rest_api = None
-    try:
-        flag_auto_approve = FeatureFlag.objects.get(name='api_token_auto_approve')
-    except FeatureFlag.DoesNotExist:
-        flag_auto_approve = None
+    # Load the two API-related feature flags for the settings panel.
+    #
+    # v3.19.7 — one query, was two `objects.get()`s.
+    #
+    # ⚠️ AND THE EXEMPTION THAT COVERED THEM DESCRIBED SOMETHING ELSE. This page
+    # was in `test_url_smoke.ACCEPTED_REPEATS` as *"reads three different flags
+    # through the cached `FeatureFlag.is_feature_enabled`; the repeats are cache
+    # misses on a cold cache"* — which was the reason a reviewer would accept.
+    # Two of the three were these, and they do not go through
+    # `is_feature_enabled` at all: they are raw `.get()`s that read the row
+    # object (the panel renders the toggle state and the display name), so they
+    # bypass the v3.17.1 cache and repeat on a WARM cache, on every request,
+    # forever. The exemption was accurate about the count and wrong about the
+    # cause, and being wrong about the cause is what made it look temporary.
+    #
+    # These two must stay row reads — the template needs the objects — so the
+    # fix is to fetch them together rather than to cache them.
+    _api_flags = {
+        flag.name: flag
+        for flag in FeatureFlag.objects.filter(
+            name__in=('rest_api', 'api_token_auto_approve'))
+    }
+    flag_rest_api = _api_flags.get('rest_api')
+    flag_auto_approve = _api_flags.get('api_token_auto_approve')
 
     context = {
         'tokens': tokens,

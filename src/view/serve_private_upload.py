@@ -71,6 +71,55 @@ from ..permissions import user_is_officer_or_chair, user_is_vpp
 logger = logging.getLogger(__name__)
 
 
+#: ⚠️ v3.19.7 — CONTENT TYPES THIS MODULE WILL RENDER IN THE BROWSER. Everything
+#: else is sent as a download.
+#:
+#: v3.19.6 built these eight views and served every one of them
+#: `as_attachment=False` with a content type from `mimetypes.guess_type`, i.e.
+#: from the stored FILENAME. It reasoned carefully about the `Cache-Control`
+#: header three lines below and not about the `Content-Disposition` header
+#: beside it. Measured on Django 5.2.16:
+#:
+#:     x.html  →  text/html        inline; filename="x.html"
+#:     x.svg   →  image/svg+xml    inline; filename="x.svg"
+#:     x.js    →  text/javascript  inline; filename="x.js"
+#:
+#: **A file rendered inline is a page on this origin.** Not a document the member
+#: downloaded — a page at am-parliament.org, in the session of whoever opened it,
+#: which for these eight views is by construction a Kai reviewer, a slating
+#: committee member, an officer or the VPP. CSP (`script-src 'self' 'nonce-…'`)
+#: blocks an inline `<script>`, but `'self'` permits
+#: `<script src="/slating/applications/responses/<id>/file/">` — and the same
+#: unvalidated field accepts a `.js`. Even with no script at all, a login form
+#: rendered at the real domain is a better phishing page than one hosted
+#: anywhere else, and `form-action 'self'` does not help when the form is
+#: already on `'self'`.
+#:
+#: So: PDFs and raster images render, because that is what the pages need — the
+#: bug-report screenshot is an `<img src>`, and reviewers preview PDFs. Note that
+#: `Content-Disposition` is ignored for subresource loads, so `as_attachment` on
+#: the others does not break any `<img>`.
+#:
+#: ⚠️ `image/svg+xml` IS NOT IN THIS SET, and that is the whole point of having
+#: the set rather than a `startswith('image/')` test. An SVG is an XML document
+#: that may contain `<script>`; it is an image everywhere except in the way that
+#: matters here.
+#:
+#: **The rule, and it is v3.19.6's own rule applied one layer up: this is a
+#: classification, so it must be an allowlist.** A blocklist of "types we render
+#: unsafely" is a list of the ones somebody thought of; the next content type
+#: that renders arrives already permitted.
+INLINE_SAFE_CONTENT_TYPES = frozenset({
+    'application/pdf',
+    'image/jpeg',
+    'image/png',
+    'image/gif',
+    'image/webp',
+    'image/bmp',
+    'image/tiff',
+})
+
+
 def _stream_private_file(fieldfile, download_name=None):
     """
     Stream one already-authorised upload, or 404.
@@ -110,14 +159,23 @@ def _stream_private_file(fieldfile, download_name=None):
         raise Http404('File not found')
 
     content_type, _ = mimetypes.guess_type(resolved)
-    response = FileResponse(
-        open(resolved, 'rb'),
-        content_type=content_type or 'application/octet-stream',
-    )
+    content_type = content_type or 'application/octet-stream'
+    response = FileResponse(open(resolved, 'rb'), content_type=content_type)
+
+    # v3.19.7 — render only what is safe to render; download everything else.
+    # See `INLINE_SAFE_CONTENT_TYPES`. `application/octet-stream` falls through
+    # to `True` here, which is the right default: a type we could not identify
+    # is a type we have not reasoned about.
     response['Content-Disposition'] = content_disposition_header(
-        as_attachment=False,
+        as_attachment=content_type not in INLINE_SAFE_CONTENT_TYPES,
         filename=download_name or os.path.basename(resolved),
     )
+    # Belt to the disposition's braces: `SECURE_CONTENT_TYPE_NOSNIFF` sets this
+    # globally, but this response is the one place in the application where the
+    # body is member-supplied and the type is guessed from a member-supplied
+    # name, so it is stated locally as well rather than inherited from a setting
+    # someone could turn off for an unrelated reason.
+    response['X-Content-Type-Options'] = 'nosniff'
     # `no-store`, matching `serve_legislation_draft_document` and NOT
     # `serve_media`'s `private, max-age=3600`. A shared cache was never the
     # risk; a confidential file sitting in a browser cache on a shared machine

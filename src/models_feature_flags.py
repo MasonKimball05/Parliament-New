@@ -83,20 +83,90 @@ class FeatureFlag(models.Model):
             record_flag(feature_name, cached['result'], cached['source'] + ' (cached)')
             return cached['result']
 
-        try:
-            flag = cls.objects.get(name=feature_name)
-            result, source = flag.is_enabled, 'db row'
-        except cls.DoesNotExist:
-            # Some flags should default to disabled for safety
-            if feature_name in cls.DISABLED_BY_DEFAULT:
+        # v3.19.7 — one decision point. The default/fail-open rules used to live
+        # here and would now have to be repeated in `resolve_many`; a second copy
+        # of a fail-OPEN default is the last thing this codebase needs two of.
+        return cls.resolve_many([feature_name])[feature_name]
+
+    @classmethod
+    def resolve_many(cls, feature_names):
+        """
+        Resolve N flags in ONE query, and prime the same per-name cache entries
+        `is_feature_enabled` reads.
+
+        v3.19.7 — added because `GoverningDocument.enabled_doc_types()` asks for
+        four flags in a loop, and `/constitution-bylaws/` and
+        `/cnb/resolutions/new/` were therefore doing **5x src_featureflag** on a
+        cold cache. `test_url_smoke` and `test_detail_route_smoke` had been red
+        on exactly that since v3.19.1 and were carried through five reports as
+        "pre-existing".
+
+        ⚠️ THIS IS NOT A SECOND CACHE. It writes the identical
+        `_cache_key(name)` entries in the identical `{'result', 'source'}` shape,
+        so a `resolve_many` call warms `is_feature_enabled` and vice versa, and
+        the v3.17.3 `post_save`/`post_delete` invalidation continues to cover
+        both without knowing this method exists. **A bulk accessor with its own
+        cache key is a second source of truth that diverges the first time
+        something is toggled.**
+
+        ⚠️ The per-name default rules are applied here and NOWHERE ELSE.
+        `is_feature_enabled` delegates. Note in particular that a name with no
+        row is resolved from `DISABLED_BY_DEFAULT` exactly as before — the bulk
+        query returns fewer rows than names asked for, and every missing name
+        must go through the same branch, which is the one thing a `filter(...)`
+        rewrite of this kind usually gets wrong.
+
+        Returns `{name: bool}` for every name given.
+        """
+        from django.core.cache import cache
+        from src.dev_mode import record_flag
+
+        names = list(dict.fromkeys(feature_names))  # de-dupe, keep order
+        results = {}
+        missing = []
+
+        for name in names:
+            cached = cache.get(cls._cache_key(name))
+            if cached is not None:
+                record_flag(name, cached['result'], cached['source'] + ' (cached)')
+                results[name] = cached['result']
+            else:
+                missing.append(name)
+
+        if not missing:
+            return results
+
+        # ⚠️ NO `.only('name', 'is_enabled')`, AND THIS IS NOT AN OVERSIGHT.
+        # The first draft had one. It saves nothing measurable on a table of ~40
+        # narrow rows, and it changed the SELECT column list — which SPLIT this
+        # query's shape away from every other read of this table. The N+1 sweep
+        # in `test_url_smoke` groups by normalised SQL text, so `admin_api_tokens`
+        # went from "3x src_featureflag" to two different shapes at 2x and 1x,
+        # dropped under `REPEAT_THRESHOLD`, and `test_accepted_repeats_are_still_
+        # repeating` failed on an entry whose N+1 was still entirely there.
+        #
+        # **A detector that groups by query shape can be silenced by changing the
+        # shape.** Narrowing a column list is the easiest accidental way to do
+        # it, and the result looks exactly like having fixed something.
+        rows = {
+            flag.name: flag.is_enabled
+            for flag in cls.objects.filter(name__in=missing)
+        }
+
+        for name in missing:
+            if name in rows:
+                result, source = rows[name], 'db row'
+            elif name in cls.DISABLED_BY_DEFAULT:
                 result, source = False, 'no row → DISABLED_BY_DEFAULT'
             else:
-                # Default to enabled if flag doesn't exist
                 result, source = True, 'no row → fail-open default'
 
-        cache.set(cache_key, {'result': result, 'source': source}, cls.CACHE_TTL)
-        record_flag(feature_name, result, source)
-        return result
+            cache.set(cls._cache_key(name), {'result': result, 'source': source},
+                      cls.CACHE_TTL)
+            record_flag(name, result, source)
+            results[name] = result
+
+        return results
 
     CACHE_TTL = 300  # seconds; correctness comes from invalidation, not expiry
 

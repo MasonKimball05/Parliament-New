@@ -14,6 +14,7 @@ from src.models import (
     SlatingFormField, SlatingPosition, SlatingActivity
 )
 from src.decorators import pledge_page_allowed
+from src.utils.file_validation import validate_uploaded_file
 
 
 @login_required
@@ -98,14 +99,24 @@ def _handle_application_submit(request, period, user, existing_app, form_fields,
 
     gpa_screenshot = request.FILES.get('gpa_screenshot')
     if gpa_screenshot:
-        # Validate file
-        allowed_types = ['image/jpeg', 'image/png', 'image/gif', 'application/pdf']
-        if hasattr(gpa_screenshot, 'content_type') and gpa_screenshot.content_type not in allowed_types:
-            errors.append("GPA screenshot must be an image or PDF")
-        elif gpa_screenshot.size > 10 * 1024 * 1024:  # 10MB
-            errors.append("GPA screenshot must be under 10MB")
-        else:
+        # ⚠️ v3.19.7 — THIS USED TO VALIDATE THE UPLOADER'S OWN CLAIM.
+        # The check was `gpa_screenshot.content_type not in [image/*, pdf]`, and
+        # `UploadedFile.content_type` is the `Content-Type` header of the
+        # multipart part — sent by the client, never measured. A file named
+        # `transcript.html` declaring `image/png` passed, was stored as
+        # `slating/gpa_screenshots/<uuid>.html`, and was served back to the
+        # committee as `text/html` from this origin. The `hasattr` guard made it
+        # weaker still: a part with no declared type skipped the check entirely.
+        #
+        # `validate_uploaded_file` measures the content with python-magic and
+        # requires it to agree with the extension. **Replacing rather than
+        # adding to the old check is deliberate — a header the uploader controls
+        # is not a second opinion, and leaving it in would suggest it was one.**
+        try:
+            validate_uploaded_file(gpa_screenshot)
             application.gpa_screenshot = gpa_screenshot
+        except ValidationError as exc:
+            errors.append(f"GPA screenshot: {'; '.join(exc.messages)}")
 
     # Process tiered position preferences
     first_choice = request.POST.getlist('positions_first_choice')
@@ -143,7 +154,15 @@ def _handle_application_submit(request, period, user, existing_app, form_fields,
         if field.field_type in ['file', 'image']:
             value = request.FILES.get(f'field_{field.id}')
             if value:
-                # Validate file
+                # v3.19.7 — measured validation first (see the GPA screenshot
+                # above for why the declared `content_type` is not evidence),
+                # then the per-field limits the form author configured. Both:
+                # `allowed_file_types` is a narrowing the chapter chose and
+                # `validate_uploaded_file` is the floor nobody may drop below.
+                try:
+                    validate_uploaded_file(value)
+                except ValidationError as exc:
+                    field_error = f"{field.label}: {'; '.join(exc.messages)}"
                 if field.allowed_file_types and hasattr(value, 'content_type'):
                     if value.content_type not in field.allowed_file_types:
                         field_error = f"{field.label}: Invalid file type"

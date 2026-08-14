@@ -574,6 +574,22 @@ if 'test' in _sys.argv or os.getenv('PYTEST_CURRENT_TEST'):
     CELERY_TASK_ALWAYS_EAGER = True
     CELERY_TASK_EAGER_PROPAGATES = True
 
+# v3.19.7 — Django's runner plus a cache reset before every test.
+#
+# The database is rolled back between tests; the cache never was, and since
+# v3.18.7 the cache holds the 2FA policy, every feature flag and the lockdown
+# state — all read by middleware on every authenticated request. The visible
+# symptom was that the suite's failure count depended on how it was PARTITIONED:
+# 12 failures in one grouping, 8 in another, same commit. See
+# `src/test_runner.py` for the full account.
+# ⚠️ NOT named `src/test_runner.py`, which is what it was called for about an
+# hour. `test*.py` is Django's discovery pattern, so the runner listed itself
+# among the test modules — and the first thing it did was make a partition
+# comparison come out 24 tests short, because the module list it polluted was
+# the one being partitioned. A file that changes how tests are found should not
+# look like a test.
+TEST_RUNNER = 'src.cache_isolated_runner.CacheIsolatedTestRunner'
+
 # Password Reset Settings
 PASSWORD_RESET_TIMEOUT = 1800  # 30 minutes (in seconds) - shorter window for security
 PASSWORD_RESET_TIMEOUT_DAYS = 0  # Deprecated, but set to 0 for clarity

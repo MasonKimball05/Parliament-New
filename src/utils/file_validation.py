@@ -65,13 +65,36 @@ ALLOWED_FILE_TYPES = {
 }
 
 # Dangerous extensions that should NEVER be allowed
+#
+# ⚠️ v3.19.7 — THE BLOCKLIST USED TO NAME THINGS THAT RUN ON THE *SERVER* AND
+# NOTHING THAT RUNS IN THE *BROWSER*, WHICH IS THE THREAT THIS APPLICATION HAS.
+# Parliament never executes an upload; it serves uploads back to members from
+# its own origin. `.php` and `.exe` were never reachable here. `.html` and
+# `.svg` were: a file served with `Content-Type: text/html` from
+# am-parliament.org is a page on am-parliament.org, with the session cookie of
+# whoever opened it, and CSP's `script-src 'self'` will happily load a second
+# uploaded file as its script. Two of the three most dangerous extensions for
+# this codebase were missing while `.jsp` — for a server that has never run
+# Java — was present.
+#
+# The rule this encodes: **an upload blocklist should name what is dangerous
+# WHERE THE FILE ENDS UP, not what is dangerous in general.** See
+# `src/view/serve_private_upload.py` for the layer that actually decides
+# whether a file renders, and `SanitizedFilenameMixin.get_valid_name` in
+# `src/storage.py` for the one place every write funnels through.
 BLOCKED_EXTENSIONS = {
     # Executables
     '.exe', '.dll', '.bat', '.cmd', '.com', '.msi', '.scr',
     # Scripts
-    '.sh', '.bash', '.ps1', '.vbs', '.js', '.jar',
+    '.sh', '.bash', '.ps1', '.vbs', '.js', '.mjs', '.jar',
     # Web files that could be executed
     '.php', '.asp', '.aspx', '.jsp', '.cgi',
+    # v3.19.7 — markup the BROWSER executes when served from our own origin.
+    # `.svg` is in this list for the same reason as `.html`: an SVG is an XML
+    # document that may contain <script>, and it is served as image/svg+xml,
+    # which browsers render rather than download.
+    '.html', '.htm', '.xhtml', '.xht', '.shtml', '.mhtml', '.mht',
+    '.svg', '.svgz', '.xsl', '.xslt',
     # Other dangerous
     '.app', '.deb', '.rpm', '.dmg', '.pkg',
 }
@@ -135,28 +158,44 @@ def validate_mime_type(uploaded_file):
     if not allowed_mimes:
         raise ValidationError(f'No MIME types defined for {ext}')
 
-    # Get actual MIME type from file content
+    # Get actual MIME type from file content.
+    #
+    # ⚠️ v3.19.7 — THE `except Exception` USED TO WRAP THE `raise` AS WELL AS THE
+    # DETECTION, so this function's entire purpose was cancelled by its own error
+    # handling: a genuine extension/content mismatch raised `ValidationError`
+    # INSIDE the `try`, was caught by `except Exception`, and was downgraded to a
+    # log line nobody reads. Every caller believed it was getting a content check
+    # and was getting a `logger.warning`.
+    #
+    # The intent of the broad catch is still right and is kept — python-magic
+    # needs libmagic, and a missing system library must not take out every upload
+    # form in the application. So the try now covers ONLY the detection call, and
+    # the decision is made outside it.
+    #
+    # **The general form, and it is worth keeping: a `try` that contains both the
+    # detection and the verdict cannot fail open on one without failing open on
+    # the other.** Narrow the block to the thing that is allowed to fail.
     try:
         # Read a chunk of the file to detect type
         chunk = uploaded_file.read(2048)
         uploaded_file.seek(0)  # Reset file pointer
 
         actual_mime = magic.from_buffer(chunk, mime=True)
-
-        # Check if actual MIME matches allowed MIME types
-        if actual_mime not in allowed_mimes:
-            raise ValidationError(
-                f'File content does not match extension. '
-                f'File appears to be "{actual_mime}" but has extension "{ext}". '
-                f'This could be a malicious file.'
-            )
-
     except Exception as e:
         # If MIME detection fails, log but don't block
         # (python-magic might not be available on all systems)
         import logging
         logger = logging.getLogger('function_calls')
         logger.warning(f'MIME type validation failed for {uploaded_file.name}: {e}')
+        return
+
+    # Check if actual MIME matches allowed MIME types
+    if actual_mime not in allowed_mimes:
+        raise ValidationError(
+            f'File content does not match extension. '
+            f'File appears to be "{actual_mime}" but has extension "{ext}". '
+            f'This could be a malicious file.'
+        )
 
 
 def validate_file_size(uploaded_file):

@@ -196,16 +196,64 @@ class ReleaseLockoutViewTests(TestCase):
         The negative control that matters: this button unlocks accounts, so an
         ordinary member reaching it would be a way to undo the brute-force
         protection entirely.
+
+        ⚠️ v3.19.7 — THIS TEST WAS UNPASSABLE BY CONSTRUCTION AND HAD NEVER
+        PASSED. It asserted `assertNotEqual(status, 302)` and then, three lines
+        later, `assertIn(status, (302, 403, 404))` — 302 forbidden and permitted
+        by the same test. It could only go green if the denial path returned 403
+        or 404, and it does not: `require_admin_v2_auth` answers a
+        non-allowlisted user with `messages.error(...)` + `redirect('home')`.
+
+        **The endpoint is not vulnerable — verified by reading the decorator,
+        and now by the assertion below.** The defect was in the test, and the
+        cost of it was that the only guard on an account-unlock endpoint sat red
+        in the suite being read as "pre-existing".
+
+        THE FIX, AND IT IS THIS REPO'S OWN RULE: *an assertion that cannot
+        distinguish the bug from the fixture is not an assertion.* A denial that
+        redirects and a success that redirects are the same integer, so the
+        status code cannot answer the question at all. **Assert the effect.**
+        The lockout either survived the outsider's POST or it did not, and that
+        is true regardless of what the view returns, what middleware wraps it,
+        or whether someone later changes the denial to a 403.
         """
+        cache.set(get_account_lockout_key(self.member.username), timezone.now(), 1800)
+        cache.set(get_account_attempts_key(self.member.username), 5, 900)
+
         outsider = make_user('not-an-admin')
         self.client.force_login(outsider)
-        response = self.client.post(self.url)
-        self.assertNotEqual(
-            response.status_code, 302,
-            'A non-admin got a successful redirect from the lockout release '
-            'endpoint.',
+        self.client.post(self.url)
+
+        locked, _ = is_account_locked(self.member.username)
+        self.assertTrue(
+            locked,
+            'A non-admin POST cleared the account lockout. The brute-force '
+            'protection can be undone by any logged-in member.',
         )
-        self.assertIn(response.status_code, (302, 403, 404))
+
+    def test_the_denial_is_not_mistaken_for_a_success(self):
+        """
+        v3.19.7 — the companion control, and the reason the test above no longer
+        looks at the status code.
+
+        The positive test (`test_it_releases_the_lockout`) asserts a 302 on
+        success. The denial is ALSO a 302. So this records, once and explicitly,
+        that the two are indistinguishable by status — a fact that made the
+        previous negative control unpassable, and that would otherwise be
+        rediscovered by the next person who writes one.
+
+        If the denial path is ever changed to a 403, this test fails and should
+        be updated rather than deleted: the point is that somebody has decided
+        what the denial looks like, not that it looks like this forever.
+        """
+        outsider = make_user('denial-shape')
+        self.client.force_login(outsider)
+        response = self.client.post(self.url)
+        self.assertEqual(
+            response.status_code, 302,
+            'The admin-v2 gate refuses by redirecting. If that changed, the '
+            'negative control above should assert the new shape too.',
+        )
 
     def test_it_writes_an_audit_row(self):
         from src.models import AdminActionLog

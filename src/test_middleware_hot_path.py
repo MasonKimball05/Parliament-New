@@ -22,11 +22,32 @@ deliberately about observable behaviour rather than about implementation:
 return". The second phrasing passes for the wrong reason as soon as someone
 rearranges the file.
 
-⚠️ NOT YET EXECUTED — see the changelog. These were written in an environment
-with no working Django (the repo `.venv` is a macOS interpreter). Run
-`manage.py test src.test_middleware_hot_path` before deploying. Where a test
-would pass for the wrong reason against the pre-fix tree, that is called out
-on the test itself.
+✅ EXECUTED 08-11-26 (the note below stood from 08-06 to 08-10 and is kept as
+history). Django runs in the review sandbox now: `pip install -r
+requirements.txt`, then `DB_BACKEND=sqlite REDIS_URL= DJANGO_DEBUG=False`.
+The original note read: *"NOT YET EXECUTED — written in an environment with no
+working Django (the repo `.venv` is a macOS interpreter)."*
+
+⚠️ AND WHEN IT WAS FINALLY RUN, TWO TESTS IN THIS MODULE COULD NOT PASS — not
+because the middleware was broken but because **v3.19.3 made the thing they
+assert probabilistic.** Both `PerformanceQueryCountingTests.test_the_middleware_
+records_a_nonzero_count_for_a_real_request` and `MonitoringReaderLivenessTests.
+test_the_debug_endpoint_returns_real_numbers` make ONE request and then assert a
+stored metric exists for it; `_append_metric` opens with
+`if random.randrange(SAMPLE_ONE_IN): return`, so one request is stored with
+probability 1 in 20 and both tests failed ~95 % of runs. The 08-10 batch ran
+them, saw them red, and recorded the cause as "cache-throttle timing; may be
+LocMem-vs-Redis". It was neither.
+
+**The rule, v3.19.7, and it is a narrower cousin of this repo's threshold rule:
+when you make an operation probabilistic, every test asserting that the
+operation happened becomes a coin flip — and a coin flip that usually loses is
+indistinguishable from a broken feature.** Both tests now pin `SAMPLE_ONE_IN`
+to 1 for the duration of the request, which is the honest fix: they are about
+whether the middleware RECORDS, not about whether it SAMPLES. The sampling
+behaviour has its own tests elsewhere in this module, and the two liveness tests
+additionally assert `total_requests`, the exact counter v3.19.3 introduced
+precisely so that sampling could not make the totals lie.
 """
 
 from datetime import timedelta          # v3.19.5 — EveryThresholdHasBothAnswers
@@ -457,13 +478,23 @@ class PerformanceQueryCountingTests(TestCase):
         )
 
     def test_the_middleware_records_a_nonzero_count_for_a_real_request(self):
+        """
+        ⚠️ v3.19.7 — `SAMPLE_ONE_IN` is pinned to 1 here. Without it this test
+        stores the request with probability 1/20 and fails 95 % of the time,
+        which is what it did on every run from v3.19.3 onwards. The subject is
+        whether the middleware counts queries at all — the sampling rate is a
+        different question with its own tests, and letting it decide this one
+        made a real guard look like a flaky one.
+        """
+        from src.middleware import performance
+        from src.middleware.performance import _get_entries
+
         user = make_user('perf-user')
         cache.clear()
         client = Client()
         client.force_login(user)
-        client.get(reverse('home'))
-
-        from src.middleware.performance import _get_entries
+        with patch.object(performance, 'SAMPLE_ONE_IN', 1):
+            client.get(reverse('home'))
 
         entries = [e for e in _get_entries() if e[2] == reverse('home')]
         self.assertTrue(entries, 'No metric was recorded for the home page.')
@@ -471,6 +502,32 @@ class PerformanceQueryCountingTests(TestCase):
             entries[-1][3], 0,
             'The home page was recorded as costing 0 queries. That is the '
             'number this release exists to stop reporting.',
+        )
+
+    def test_the_exact_request_counter_is_not_affected_by_sampling(self):
+        """
+        v3.19.7 — the liveness assertion that needs no pinning, and the reason
+        `total_requests` was made an exact `cache.incr` in v3.19.3 rather than a
+        `len()` of the buffer.
+
+        This is the check to reach for first when asking "is the monitoring
+        alive": it is true after one request, every time, whatever the sample
+        rate is set to. A test that has to control the sample rate to observe
+        the system is a test that will break again the next time the rate moves.
+        """
+        from src.middleware.performance import get_performance_summary
+
+        user = make_user('perf-counter-user')
+        cache.clear()
+        client = Client()
+        client.force_login(user)
+        client.get(reverse('home'))
+
+        self.assertGreater(
+            get_performance_summary()['total_requests'], 0,
+            'total_requests is an exact counter incremented on every request '
+            'regardless of sampling. Zero here means the middleware is not '
+            'running at all.',
         )
 
 
@@ -572,11 +629,22 @@ class MonitoringReaderLivenessTests(TestCase):
     """
 
     def test_the_debug_endpoint_returns_real_numbers(self):
+        """
+        ⚠️ v3.19.7 — `SAMPLE_ONE_IN` pinned to 1 for the metric-generating
+        request; see the module docstring. `recent_metrics_count` counts STORED
+        samples, so under 1-in-20 sampling a single request leaves it at zero
+        95 % of the time — and this test's own failure message says the endpoint
+        "is reading the wrong cache key again", which is a confident diagnosis
+        of the wrong thing.
+        """
+        from src.middleware import performance
+
         admin = make_user('debug-admin', is_admin=True)
         cache.clear()
         client = Client()
         client.force_login(admin)
-        client.get(reverse('home'))  # generate at least one metric
+        with patch.object(performance, 'SAMPLE_ONE_IN', 1):
+            client.get(reverse('home'))  # generate at least one metric
 
         response = client.get(reverse('debug_performance_metrics'))
         self.assertEqual(response.status_code, 200)
@@ -1038,8 +1106,17 @@ class EveryThresholdHasBothAnswers(TestCase):
     ORDINARY_ROUTES = [
         '/legislation/history/', '/vote/', '/home/', '/calendar/', '/profile/',
         '/admin-v2/dashboard/', '/service-hours/dashboard/',
-        '/committee/3/vote/', '/global-search/',
+        '/committee/3/vote/', '/search/',
     ]
+    # v3.19.7 — `/global-search/` was in this list and is not a route; the
+    # global search page is `/search/` (url name `global_search`). Caught by
+    # `test_hardcoded_urls`, which had been red on it since the fixture was
+    # written. Harmless here — these strings are only measured for their BYTE
+    # LENGTH, and the two differ by seven — but the fixture's stated purpose is
+    # "ordinary routes this application actually serves", and a made-up path
+    # quietly makes it a fixture about nothing. Fixed rather than exempted: the
+    # exemption list is for strings that are not site paths, and this one was
+    # trying to be.
 
     def _ordinary(self, i):
         if i % 3 == 0:                      # id-bearing URLs are the distinct ones

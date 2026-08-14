@@ -46,6 +46,12 @@ class SrcConfig(AppConfig):
         # Kai module, which is the silent failure mode of removing the
         # `is_admin` shortcut. See src/checks_kai.py.
         import src.checks_kai  # noqa: F401  (registers a system check)
+        # v3.19.7 — deploy guard: warns (src.W003) when a changelog that git
+        # says is committed still claims it is not, or has no DEPLOYED.md row.
+        # Those two lines record facts that do not exist until after the commit,
+        # so they are always written stale — five releases running. See
+        # src/checks_ledger.py, and note it says nothing about DEPLOYMENT.
+        import src.checks_ledger  # noqa: F401  (registers a system check)
 
         from django.db.models.signals import post_migrate
         post_migrate.connect(_set_committee_flags, sender=self)

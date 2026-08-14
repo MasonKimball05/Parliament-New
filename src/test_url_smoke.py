@@ -68,10 +68,22 @@ ACCEPTED_REPEATS = {
     # view_all_activity fix in this release; not batched yet.
     ('my_excuses', 'src_attendanceexcuse'),
     ('review_excuses', 'src_attendanceexcuse'),
-    # admin-v2 API tokens page reads three different flags through the cached
-    # `FeatureFlag.is_feature_enabled`; the repeats are cache misses on a cold
-    # cache, which is what this sweep always has (it clears the cache per page).
-    ('admin_api_tokens', 'src_featureflag'),
+    # ⚠️ v3.19.7 — `('admin_api_tokens', 'src_featureflag')` WAS HERE AND IS
+    # DELETED, which is this guard working exactly as designed: the repeat is
+    # gone, so the exemption goes with it.
+    #
+    # It is worth recording WHY it survived five months, because the entry read
+    # plausibly and was wrong. It said the page *"reads three different flags
+    # through the cached `FeatureFlag.is_feature_enabled`; the repeats are cache
+    # misses on a cold cache"* — i.e. an artefact of the sweep, harmless in
+    # production. Two of the three were raw `FeatureFlag.objects.get(name=…)`
+    # calls in `src/view/api.py` that never touched the cache and therefore
+    # repeated on a WARM cache too, on every request. The count was right; the
+    # cause was wrong; and the wrong cause is what made it sound temporary.
+    #
+    # **An exemption is a claim about a mechanism, not about a number. Write the
+    # mechanism down and check it, or the entry becomes permanent by sounding
+    # reasonable.**
 }
 
 #: Transaction control statements are not queries anyone can fix.
