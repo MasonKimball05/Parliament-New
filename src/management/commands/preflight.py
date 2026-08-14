@@ -311,6 +311,57 @@ class Command(CheckEnvCommand):
                       'Confirm the firewall, or set CLOUDFLARE_VERIFY_ORIGIN=True and '
                       'watch for FORGED_CF_HEADER in the security log.')
 
+    def check_system_checks(self):
+        """
+        v3.19.8 — run Django's own system checks and make them GATE the deploy.
+
+        ⚠️ WHY THIS IS HERE AND NOT LEFT TO `manage.py check`. `src.W002` (the
+        Kai schema looks unmigrated) and `src.W003` (the release ledger
+        disagrees with git) are both things you would want to stop a deploy, and
+        both are `Warning`, which stops nothing. `manage.py check` prints them
+        and exits 0.
+
+        `src.W003`'s own changelog makes the argument for its existence — *no
+        amount of care at authoring time can fix a line whose value does not
+        exist until after the writing is over* — and then relies on somebody
+        happening to run `manage.py check`. Nobody did: v3.19.7 was committed on
+        08-13-26 with its ledger lines still reading "not yet", and the check
+        that would have said so sat silent for two days until the nightly review
+        ran it by hand.
+
+        **A guard needs a trigger it does not have to be remembered.** This
+        command already gates deploys and cron, so it is the trigger that
+        already exists.
+
+        The severity mapping is deliberately not 1:1 with Django's: an `Error`
+        or `Critical` is an error here, and `src.W002`/`src.W003` are promoted
+        to errors because they are release-integrity facts rather than style
+        advice. Every other warning stays a warning — promoting all of them
+        would make this noisy, and a preflight nobody reads is the failure mode
+        it was built to avoid.
+        """
+        from django.core import checks as dj_checks
+
+        GATING = {'src.W002', 'src.W003'}
+
+        try:
+            messages = dj_checks.run_checks()
+        except Exception as exc:  # pragma: no cover - a crashing check is itself a finding
+            self.fail('System checks', f'could not run: {exc}')
+            return
+
+        blocking = [m for m in messages
+                    if m.is_serious(dj_checks.ERROR) or m.id in GATING]
+        advisory = [m for m in messages if m not in blocking]
+
+        for m in blocking:
+            self.fail(f'System check {m.id or ""}'.strip(), str(m.msg).splitlines()[0])
+        for m in advisory:
+            self.warn(f'System check {m.id or ""}'.strip(), str(m.msg).splitlines()[0])
+
+        if not messages:
+            self.ok('System checks', 'no issues (includes the Kai schema and release-ledger gates)')
+
     # ------------------------------------------------------------------ handle
 
     def handle(self, *args, **options):
@@ -336,6 +387,7 @@ class Command(CheckEnvCommand):
         self.check_celery_schedules()
         self.check_media_gate()
         self.check_cloudflare_origin()   # v3.19.3
+        self.check_system_checks()       # v3.19.8 — src.W002/W003 gate the deploy
 
         # Summary + exit semantics (this is the part check_env doesn't have).
         self.stdout.write(f"\n{'─' * 64}")

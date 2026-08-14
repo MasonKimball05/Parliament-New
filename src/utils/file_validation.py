@@ -29,19 +29,39 @@ MAX_FILE_SIZE = getattr(settings, 'FILE_UPLOAD_MAX_MEMORY_SIZE', 20 * 1024 * 102
 # Allowed file extensions and their MIME types
 ALLOWED_FILE_TYPES = {
     # Documents
+    #
+    # ⚠️ v3.19.8 — THE THREE LEGACY OLE2 ENTRIES CARRY GENERIC TYPES AS WELL AS
+    # THEIR SPECIFIC ONE, AND THIS IS THE ONE PLACE IN THIS MAP THAT IS NOT
+    # BACKED BY A FIXTURE. `.doc`/`.xls`/`.ppt` are OLE2 compound documents;
+    # libmagic reports them as `application/msword` when it recognises the
+    # internal streams and as `application/x-ole-storage`, `vnd.ms-office` or
+    # `CDFV2` when it only recognises the container — which varies by libmagic
+    # version, i.e. by which machine the check runs on. Listing only the
+    # specific type is exactly the shape that made `.xlsx` reject every real
+    # spreadsheet. See `NO_FIXTURE` in `src/test_upload_type_fixtures.py`: a
+    # valid OLE2 file cannot be built without a dependency this project does not
+    # have, so the mapping is pinned by a test and the file is not. That is
+    # weaker and it is recorded as weaker.
+    #
+    # The cost of the generic types is that a `.xls` renamed `.doc` passes. Both
+    # are Office documents the browser downloads, so the interesting question —
+    # is this markup wearing a document extension — is still answered.
     '.pdf': ['application/pdf'],
-    '.doc': ['application/msword'],
+    '.doc': ['application/msword', 'application/x-ole-storage',
+             'application/vnd.ms-office', 'application/CDFV2'],
     '.docx': ['application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
     '.odt': ['application/vnd.oasis.opendocument.text'],
 
     # Spreadsheets
-    '.xls': ['application/vnd.ms-excel'],
+    '.xls': ['application/vnd.ms-excel', 'application/x-ole-storage',
+             'application/vnd.ms-office', 'application/CDFV2'],
     '.xlsx': ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'],
     '.ods': ['application/vnd.oasis.opendocument.spreadsheet'],
     '.csv': ['text/csv', 'text/plain', 'application/csv'],
 
     # Presentations
-    '.ppt': ['application/vnd.ms-powerpoint'],
+    '.ppt': ['application/vnd.ms-powerpoint', 'application/x-ole-storage',
+             'application/vnd.ms-office', 'application/CDFV2'],
     '.pptx': ['application/vnd.openxmlformats-officedocument.presentationml.presentation'],
     '.odp': ['application/vnd.oasis.opendocument.presentation'],
 
@@ -146,10 +166,156 @@ def validate_file_extension(filename):
         )
 
 
+#: How much of the file `magic` gets to look at.
+#:
+#: ⚠️ v3.19.8 — WAS 2048, AND THAT ONE NUMBER REJECTED EVERY SPREADSHEET IN THE
+#: CHAPTER. An OOXML file is a zip, and libmagic cannot tell WHICH OOXML it is
+#: until it has seen entries that sit past the first 2 KB of any real document.
+#: Measured on libmagic 5.41 against a real `.xlsx`:
+#:
+#:     window=  2048 -> application/zip                      ← the old window
+#:     window=  8192 -> …spreadsheetml.sheet                 ← the truth
+#:
+#: `application/zip` is not in `ALLOWED_FILE_TYPES['.xlsx']`, so the answer was
+#: "this could be a malicious file", deterministically, for every real
+#: spreadsheet. 64 KB costs nothing (the file is already on disk or in memory)
+#: and covers the container formats with room to spare.
+SNIFF_BYTES = 65536
+
+#: Extensions whose real type lives INSIDE a zip container, and how to read it.
+#:
+#: ⚠️ WIDENING THE WINDOW WAS NECESSARY AND NOT SUFFICIENT, which is why this
+#: exists. A real `.docx` measured on the same libmagic returns
+#: `application/octet-stream` at EVERY window size including the whole file and
+#: including `magic.from_file` — libmagic's OOXML rules fall back to
+#: octet-stream when they recognise the container but not the subtype.
+#:
+#: The tempting fix is to add `application/zip` and `application/octet-stream`
+#: to the `.docx` row. That makes the check pass and makes it meaningless:
+#: `application/octet-stream` is what libmagic says about anything it cannot
+#: identify, so admitting it admits everything.
+#:
+#: **So these formats are validated STRUCTURALLY instead — we open the zip and
+#: read the type the file declares about itself.** That is the question the MIME
+#: map was always pretending to answer, and unlike libmagic's heuristics it does
+#: not depend on which version of a system library the server happens to have.
+OOXML_MARKERS = {
+    '.docx': 'wordprocessingml.document',
+    '.xlsx': 'spreadsheetml.sheet',
+    '.pptx': 'presentationml.presentation',
+}
+
+#: ODF stores its type in a `mimetype` entry, uncompressed and first, precisely
+#: so that it can be read without unpacking. (This is why ODF was never broken
+#: by the 2 KB window and OOXML was.)
+ODF_MIMETYPES = {
+    '.odt': 'application/vnd.oasis.opendocument.text',
+    '.ods': 'application/vnd.oasis.opendocument.spreadsheet',
+    '.odp': 'application/vnd.oasis.opendocument.presentation',
+}
+
+#: `[Content_Types].xml` is a manifest, not content. A legitimate one is a few
+#: kilobytes; the cap is here so that a crafted entry claiming to decompress to
+#: 4 GB cannot be read into memory by the validator that exists to reject it.
+_MANIFEST_READ_CAP = 1024 * 1024
+
+
+def _validate_zip_container(uploaded_file, ext):
+    """
+    Validate a zip-backed document by reading what it says it is.
+
+    Handles the three OOXML and three ODF extensions, plus plain `.zip` (which
+    only has to be a readable zip). Raises `ValidationError` on a mismatch;
+    returns normally on success.
+
+    ⚠️ THIS RAISES ITS OWN VERDICT AND CATCHES NOTHING BROAD, deliberately. The
+    v3.19.7 lesson that `validate_mime_type` had never rejected anything for
+    seven months is that *a `try` containing both the detection and the verdict
+    cannot fail open on one without failing open on the other*. Here the
+    detection cannot fail in a way that should be tolerated: `zipfile` is in the
+    standard library, so unlike libmagic there is no missing-system-package case
+    to stay open for. A file that will not open as a zip while claiming a
+    zip-backed extension IS the finding.
+    """
+    import zipfile
+
+    # ⚠️ THE REWIND WRAPS THE WHOLE FUNCTION, NOT JUST THE OPEN, AND A TEST HAD
+    # TO SAY SO. The first draft of this put `finally: seek(0)` on the `try`
+    # around `ZipFile()` only — correct for the pointer as of that line, and
+    # wrong by the time the function returned, because `archive.open(...)` below
+    # reads the manifest and moves it again. `.docx` came back at offset 413 and
+    # `.odt` at 77, so the caller's `save()` would have stored a truncated
+    # document. `test_validation_leaves_the_file_pointer_at_the_start` caught it
+    # on the first run.
+    #
+    # **A validator that consumes the stream is a data-loss bug wearing a
+    # security fix's clothes**, and it is invisible to every test that only asks
+    # whether validation passed.
+    uploaded_file.seek(0)
+    try:
+        try:
+            archive = zipfile.ZipFile(uploaded_file)
+            names = set(archive.namelist())
+        except (zipfile.BadZipFile, OSError, EOFError):
+            # `from None` drops the implicit `__context__` chain, and it is not
+            # cosmetic: Django's parallel test runner pickles failures across
+            # process boundaries, and a chained exception drags a traceback
+            # object along, which cannot be pickled. The symptom is
+            # `TypeError: cannot pickle 'traceback' object` **instead of** the
+            # test failure — so the real result is replaced by a report about
+            # the transport. A validator whose rejections cannot cross a process
+            # boundary makes every failure it causes invisible.
+            raise ValidationError(
+                f'File content does not match extension. A "{ext}" file must be a '
+                f'valid document archive and this one could not be opened. '
+                f'This could be a malicious file.'
+            ) from None
+
+        if ext in ODF_MIMETYPES:
+            if 'mimetype' not in names:
+                raise ValidationError(
+                    f'File content does not match extension. A "{ext}" file must '
+                    f'declare its type and this one does not.'
+                )
+            with archive.open('mimetype') as fh:
+                declared = fh.read(_MANIFEST_READ_CAP).decode('ascii', 'replace').strip()
+            if declared != ODF_MIMETYPES[ext]:
+                raise ValidationError(
+                    f'File content does not match extension. File declares itself '
+                    f'"{declared}" but has extension "{ext}". '
+                    f'This could be a malicious file.'
+                )
+            return
+
+        if ext in OOXML_MARKERS:
+            if '[Content_Types].xml' not in names:
+                raise ValidationError(
+                    f'File content does not match extension. A "{ext}" file must '
+                    f'contain a content-type manifest and this one does not.'
+                )
+            with archive.open('[Content_Types].xml') as fh:
+                manifest = fh.read(_MANIFEST_READ_CAP).decode('utf-8', 'replace')
+            if OOXML_MARKERS[ext] not in manifest:
+                raise ValidationError(
+                    f'File content does not match extension. The document inside '
+                    f'does not match extension "{ext}". '
+                    f'This could be a malicious file.'
+                )
+            return
+
+        # Plain `.zip` — opening it was the whole check.
+    finally:
+        uploaded_file.seek(0)
+
+
 def validate_mime_type(uploaded_file):
     """
-    Validate MIME type matches the file extension
-    Uses python-magic to detect actual file content
+    Validate MIME type matches the file extension.
+
+    Two strategies, chosen by extension: zip-backed document formats are opened
+    and asked what they are (`_validate_zip_container`); everything else is
+    sniffed with python-magic. See `SNIFF_BYTES` and `OOXML_MARKERS` for why
+    that split exists — it is not stylistic, libmagic cannot answer for OOXML.
     """
     # Get the declared extension
     ext = get_file_extension(uploaded_file.name)
@@ -157,6 +323,12 @@ def validate_mime_type(uploaded_file):
 
     if not allowed_mimes:
         raise ValidationError(f'No MIME types defined for {ext}')
+
+    # v3.19.8 — zip-backed formats are validated by reading the container, not
+    # by guessing from a prefix of the bytes.
+    if ext in OOXML_MARKERS or ext in ODF_MIMETYPES or ext == '.zip':
+        _validate_zip_container(uploaded_file, ext)
+        return
 
     # Get actual MIME type from file content.
     #
@@ -176,9 +348,13 @@ def validate_mime_type(uploaded_file):
     # detection and the verdict cannot fail open on one without failing open on
     # the other.** Narrow the block to the thing that is allowed to fail.
     try:
-        # Read a chunk of the file to detect type
-        chunk = uploaded_file.read(2048)
-        uploaded_file.seek(0)  # Reset file pointer
+        # Read a chunk of the file to detect type.
+        # v3.19.8: `seek(0)` moved into `finally` — a raising `read()` used to
+        # leave the pointer mid-stream for every caller downstream of us.
+        try:
+            chunk = uploaded_file.read(SNIFF_BYTES)
+        finally:
+            uploaded_file.seek(0)  # Reset file pointer
 
         actual_mime = magic.from_buffer(chunk, mime=True)
     except Exception as e:

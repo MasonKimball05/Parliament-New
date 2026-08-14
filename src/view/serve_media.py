@@ -23,7 +23,8 @@ from urllib.parse import quote
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.http import FileResponse, Http404, HttpResponse
-from django.utils.http import content_disposition_header
+
+from ..utils.content_disposition import apply_disposition
 
 # Optional nginx X-Accel-Redirect fast path. Empty = serve via FileResponse.
 MEDIA_ACCEL_PREFIX = os.getenv('MEDIA_ACCEL_PREFIX', '')
@@ -154,8 +155,24 @@ def serve_media(request, path):
 
     # v3.14.2: RFC 5987-safe filename (handles quotes + non-ASCII);
     # was a raw f-string that broke on a `"` in the filename.
-    response['Content-Disposition'] = content_disposition_header(
-        as_attachment=False, filename=os.path.basename(resolved))
+    #
+    # ⚠️ v3.19.8 — AND SINCE v3.14.1 THIS SAID `as_attachment=False` FOR EVERY
+    # TYPE. v3.19.7 built the inline allowlist for the six PRIVATE directories
+    # and left the ten public ones here, which is the larger surface by every
+    # measure that matters: `serve_media` answers every logged-in member in the
+    # chapter, where `serve_private_upload` answers a committee of four.
+    #
+    # It was never exploitable, because `_reject_browser_executable` refuses to
+    # store a `.html`/`.svg`/`.js` from any writer — but that is a blocklist of
+    # extensions somebody thought of, one layer down, and it is not a decision
+    # about what THIS response renders. Both layers stay; see
+    # `src/utils/content_disposition.py`.
+    #
+    # Applied in BOTH branches, deliberately. In X-Accel mode nginx streams the
+    # body and Django supplies only the headers, so this is the only place the
+    # disposition can be set at all — and X-Accel is the production path, i.e.
+    # the one that would have gone unchecked if this sat under the `else`.
+    apply_disposition(response, content_type, os.path.basename(resolved))
     # private: member-only content must never land in shared caches
     # (Cloudflare cached these PDFs publicly before this fix).
     response['Cache-Control'] = 'private, max-age=3600'

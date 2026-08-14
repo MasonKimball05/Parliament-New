@@ -121,6 +121,22 @@ _NOT_SITE_PATHS = {
     # Test fixtures and doc examples.
     '/some-protected-page/', '/login', '/admin-v2', '/events/',
     '/constitution-bylaws/officer-duties/', '/constitution-bylaws/committees/',
+    # v3.19.8 — two more that are genuinely not site paths, and this guard was
+    # right to stop and ask:
+    #   * `/protected-media` (and the URI built beneath it) is an **nginx
+    #     internal location**, the value of `MEDIA_ACCEL_PREFIX`. It is by
+    #     definition not resolvable by Django — that is what `internal;` means
+    #     in the nginx config — and `test_upload_serving_disposition` asserts
+    #     the exact `X-Accel-Redirect` header value, so the string has to be
+    #     written out rather than reversed.
+    #   * `/main.xml` is a **zip entry name** inside a synthesised OOXML package
+    #     in `test_upload_type_fixtures`, matched by the scanner because a
+    #     part name inside a document happens to look like a path.
+    # Same reasoning as `/slow/` and `/test_` above, and the same caveat: these
+    # are here because they are not site paths, not because they are site paths
+    # that fail to resolve.
+    '/protected-media', '/protected-media/legislation_docs/notice.html',
+    '/main.xml',
 }
 
 _SCANNED_SUFFIXES = ('.py', '.html', '.js')

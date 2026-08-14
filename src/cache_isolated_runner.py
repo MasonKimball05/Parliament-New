@@ -80,6 +80,7 @@ had quietly joined the population being partitioned. Renamed to
 look like a test.**
 """
 from django.core.cache import caches
+from django.core.exceptions import ImproperlyConfigured
 from django.test.runner import DiscoverRunner
 from django.test.testcases import SimpleTestCase
 
@@ -87,6 +88,65 @@ from django.test.testcases import SimpleTestCase
 #: `setup_test_environment`) cannot wrap `run` twice and clear the cache
 #: N times per test.
 _PATCHED_ATTR = '_parliament_cache_isolation_installed'
+
+#: Backends this runner is allowed to call `.clear()` on.
+#:
+#: ⚠️ v3.19.8 — THE ISOLATION FIX REACHED OUTSIDE THE TEST PROCESS.
+#:
+#: v3.19.7 correctly identified that the cache is shared state between tests and
+#: cleared every alias before every one of 1,277 of them. What it did not
+#: constrain is WHICH cache. `settings.py` picks the backend from the
+#: environment, not from whether a test is running:
+#:
+#:     if REDIS_URL and not DEBUG:
+#:         CACHES = {'default': {'BACKEND': 'django_redis.cache.RedisCache', …}}
+#:         SESSION_ENGINE = 'django.contrib.sessions.backends.cache'
+#:         SESSION_CACHE_ALIAS = 'default'
+#:
+#: **That alias holds the sessions.** So `manage.py test` run on the production
+#: host, with the production `.env` loaded — which is the normal way anyone would
+#: run it there — flushed live Redis 1,277 times and signed out every logged-in
+#: member. The same hazard existed before v3.19.7 (several modules call
+#: `cache.clear()` in `setUp`) but it was bounded to those modules and visible in
+#: them; making it universal made it silent.
+#:
+#: `settings.py` now forces LocMem + DB sessions under `manage.py test`, so this
+#: list should never fire. It fires anyway, loudly, because a settings change is
+#: a claim and this is the check on it — under `pytest`, for instance, the
+#: settings' `PYTEST_CURRENT_TEST` probe is evaluated at import time, before the
+#: variable is set, so the forcing does not happen and only this does.
+#:
+#: > **Test isolation that reaches outside the test process is not isolation.**
+_CLEARABLE_BACKENDS = (
+    'django.core.cache.backends.locmem.LocMemCache',
+    'django.core.cache.backends.dummy.DummyCache',
+)
+
+
+def _assert_caches_are_disposable():
+    """
+    Refuse to run at all against a cache we must not flush.
+
+    Raised once, in `setup_test_environment`, rather than per test: the answer
+    cannot change during a run, and a guard that fires 1,277 times is a guard
+    someone silences.
+    """
+    from django.conf import settings
+
+    for alias, config in settings.CACHES.items():
+        backend = config.get('BACKEND', '')
+        if backend not in _CLEARABLE_BACKENDS:
+            raise ImproperlyConfigured(
+                f'Refusing to run tests: cache alias "{alias}" is {backend}, and '
+                f'this runner clears every alias before every test. If that is a '
+                f'real Redis it is also the session store (see settings.py — '
+                f'SESSION_ENGINE switches to the cache backend whenever REDIS_URL '
+                f'is set and DEBUG is off), so running the suite against it would '
+                f'sign out every member of the chapter.\n\n'
+                f'Run the suite with REDIS_URL unset. If you genuinely need to '
+                f'test a Redis-backed cache, use override_settings on the '
+                f'individual test rather than pointing the whole run at it.'
+            )
 
 
 def _clear_all_caches():
@@ -98,6 +158,13 @@ def _clear_all_caches():
             # A cache backend that cannot be cleared (an unreachable Redis in a
             # sandbox, say) must not turn every test into an error. The run is
             # still more isolated than it was.
+            #
+            # ⚠️ This swallow is why the backend check above is a SEPARATE, EARLY
+            # assertion and not an exception raised from here. A guard that
+            # swallows exceptions reports the absence of a signal as the absence
+            # of a problem — CLAUDE.md records that failure three times in one
+            # month — so the thing that must not be swallowed cannot live inside
+            # the thing that swallows.
             pass
 
 
@@ -112,6 +179,9 @@ class CacheIsolatedTestRunner(DiscoverRunner):
 
     def setup_test_environment(self, **kwargs):
         super().setup_test_environment(**kwargs)
+
+        # v3.19.8 — before anything is cleared, check what would be cleared.
+        _assert_caches_are_disposable()
 
         if getattr(SimpleTestCase, _PATCHED_ATTR, False):
             return

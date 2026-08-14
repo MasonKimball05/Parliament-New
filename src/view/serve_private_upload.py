@@ -61,7 +61,6 @@ from django.contrib.auth.decorators import login_required
 from django.core.exceptions import SuspiciousFileOperation
 from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404
-from django.utils.http import content_disposition_header
 
 from src.feature_flag_decorators import require_feature_flag
 
@@ -71,53 +70,23 @@ from ..permissions import user_is_officer_or_chair, user_is_vpp
 logger = logging.getLogger(__name__)
 
 
-#: ⚠️ v3.19.7 — CONTENT TYPES THIS MODULE WILL RENDER IN THE BROWSER. Everything
-#: else is sent as a download.
+#: ⚠️ v3.19.8 — MOVED TO `src/utils/content_disposition.py` AND RE-EXPORTED HERE.
 #:
-#: v3.19.6 built these eight views and served every one of them
-#: `as_attachment=False` with a content type from `mimetypes.guess_type`, i.e.
-#: from the stored FILENAME. It reasoned carefully about the `Cache-Control`
-#: header three lines below and not about the `Content-Disposition` header
-#: beside it. Measured on Django 5.2.16:
+#: v3.19.7 defined this set in this module, which was the right decision applied
+#: to the wrong half of the problem: this module serves six private directories
+#: to a Kai reviewer or a slating committee member, and `serve_media` serves ten
+#: PUBLIC ones to every logged-in member — with `as_attachment=False` and a
+#: filename-guessed content type, unchanged since v3.14.1. The fix went where the
+#: attention was rather than where the surface was.
 #:
-#:     x.html  →  text/html        inline; filename="x.html"
-#:     x.svg   →  image/svg+xml    inline; filename="x.svg"
-#:     x.js    →  text/javascript  inline; filename="x.js"
-#:
-#: **A file rendered inline is a page on this origin.** Not a document the member
-#: downloaded — a page at am-parliament.org, in the session of whoever opened it,
-#: which for these eight views is by construction a Kai reviewer, a slating
-#: committee member, an officer or the VPP. CSP (`script-src 'self' 'nonce-…'`)
-#: blocks an inline `<script>`, but `'self'` permits
-#: `<script src="/slating/applications/responses/<id>/file/">` — and the same
-#: unvalidated field accepts a `.js`. Even with no script at all, a login form
-#: rendered at the real domain is a better phishing page than one hosted
-#: anywhere else, and `form-action 'self'` does not help when the form is
-#: already on `'self'`.
-#:
-#: So: PDFs and raster images render, because that is what the pages need — the
-#: bug-report screenshot is an `<img src>`, and reviewers preview PDFs. Note that
-#: `Content-Disposition` is ignored for subresource loads, so `as_attachment` on
-#: the others does not break any `<img>`.
-#:
-#: ⚠️ `image/svg+xml` IS NOT IN THIS SET, and that is the whole point of having
-#: the set rather than a `startswith('image/')` test. An SVG is an XML document
-#: that may contain `<script>`; it is an image everywhere except in the way that
-#: matters here.
-#:
-#: **The rule, and it is v3.19.6's own rule applied one layer up: this is a
-#: classification, so it must be an allowlist.** A blocklist of "types we render
-#: unsafely" is a list of the ones somebody thought of; the next content type
-#: that renders arrives already permitted.
-INLINE_SAFE_CONTENT_TYPES = frozenset({
-    'application/pdf',
-    'image/jpeg',
-    'image/png',
-    'image/gif',
-    'image/webp',
-    'image/bmp',
-    'image/tiff',
-})
+#: Read `src/utils/content_disposition.py` for the rule, the `image/svg+xml`
+#: exclusion, and why audio being absent does not break the songbook. The name
+#: stays importable from here because `src/test_private_upload_rendering.py`
+#: imports it from this module and that test is about this module's behaviour.
+from ..utils.content_disposition import (  # noqa: E402  (placed with the docs it replaces)
+    INLINE_SAFE_CONTENT_TYPES,
+    apply_disposition,
+)
 
 
 def _stream_private_file(fieldfile, download_name=None):
@@ -163,19 +132,13 @@ def _stream_private_file(fieldfile, download_name=None):
     response = FileResponse(open(resolved, 'rb'), content_type=content_type)
 
     # v3.19.7 — render only what is safe to render; download everything else.
-    # See `INLINE_SAFE_CONTENT_TYPES`. `application/octet-stream` falls through
-    # to `True` here, which is the right default: a type we could not identify
-    # is a type we have not reasoned about.
-    response['Content-Disposition'] = content_disposition_header(
-        as_attachment=content_type not in INLINE_SAFE_CONTENT_TYPES,
-        filename=download_name or os.path.basename(resolved),
+    # v3.19.8 — the decision and the `nosniff` header that backs it now live in
+    # `src/utils/content_disposition.py` and are shared with `serve_media`, so
+    # the two upload-serving views cannot drift apart.
+    apply_disposition(
+        response, content_type,
+        download_name or os.path.basename(resolved),
     )
-    # Belt to the disposition's braces: `SECURE_CONTENT_TYPE_NOSNIFF` sets this
-    # globally, but this response is the one place in the application where the
-    # body is member-supplied and the type is guessed from a member-supplied
-    # name, so it is stated locally as well rather than inherited from a setting
-    # someone could turn off for an unrelated reason.
-    response['X-Content-Type-Options'] = 'nosniff'
     # `no-store`, matching `serve_legislation_draft_document` and NOT
     # `serve_media`'s `private, max-age=3600`. A shared cache was never the
     # risk; a confidential file sitting in a browser cache on a shared machine

@@ -270,3 +270,88 @@ class LedgerCheckTests(SimpleTestCase):
         self._ledger(f'| v2.0.0 | *not deployed* | `{sha}` | x |\n')
 
         self.assertEqual(self._run(), [])
+
+
+# ---------------------------------------------------------------------------
+# v3.19.8 — the trigger
+# ---------------------------------------------------------------------------
+
+class TheLedgerCheckActuallyGatesTheDeployTests(SimpleTestCase):
+    """
+    v3.19.8 — `src.W003` works and nothing ran it.
+
+    v3.19.7 built the check with the right argument: *no amount of care at
+    authoring time can fix a line whose value does not exist until after the
+    writing is over*, so the response has to run AFTER the commit. It then left
+    the running to `manage.py check`, which prints warnings and exits 0.
+
+    The result was visible two days later. v3.19.7 was committed on 08-13-26
+    with its own ledger lines reading "not yet"; `src.W003` reported it
+    correctly, to nobody, until the nightly review ran `manage.py check` by
+    hand. Sixth release running.
+
+    > **A guard needs a trigger it does not have to be remembered.**
+
+    `manage.py preflight` already gates deploys and cron, so these assert the
+    promotion rather than re-testing the check: `src.W002` and `src.W003` become
+    ERRORS there, and every other warning stays a warning — promoting all of
+    them would make preflight noisy, and a preflight nobody reads is the exact
+    failure mode it exists to avoid.
+    """
+
+    def _run_against(self, messages):
+        from unittest import mock
+
+        from src.management.commands.preflight import Command
+
+        command = Command()
+        command.stdout = mock.MagicMock()
+        with mock.patch('django.core.checks.run_checks', return_value=messages):
+            command.check_system_checks()
+        return command
+
+    def test_a_stale_ledger_fails_preflight_rather_than_warning_it(self):
+        from django.core.checks import Warning as DjangoWarning
+
+        command = self._run_against([DjangoWarning('ledger disagrees with git', id='src.W003')])
+
+        self.assertTrue(any('src.W003' in e for e in command.errors))
+        self.assertEqual(command.warnings, [])
+
+    def test_an_unmigrated_kai_schema_fails_preflight_too(self):
+        from django.core.checks import Warning as DjangoWarning
+
+        command = self._run_against([DjangoWarning('Kai tables not queryable', id='src.W002')])
+
+        self.assertTrue(any('src.W002' in e for e in command.errors))
+
+    def test_an_ordinary_warning_stays_a_warning(self):
+        """
+        The negative control, and the one that keeps this usable. Promoting
+        every warning would turn the deploy gate into something people pass with
+        `--force`, which is the same as not having it.
+        """
+        from django.core.checks import Warning as DjangoWarning
+
+        command = self._run_against([DjangoWarning('some style advice', id='models.W042')])
+
+        self.assertEqual(command.errors, [])
+        self.assertTrue(any('models.W042' in w for w in command.warnings))
+
+    def test_a_real_error_still_fails(self):
+        from django.core.checks import Error as DjangoError
+
+        command = self._run_against([DjangoError('something is broken', id='admin.E002')])
+
+        self.assertTrue(any('admin.E002' in e for e in command.errors))
+
+    def test_a_clean_run_reports_a_pass(self):
+        """
+        Silence must be recorded as a pass, not as an absent check — an
+        omitted line reads identically to a check that did not run.
+        """
+        command = self._run_against([])
+
+        self.assertEqual(command.errors, [])
+        self.assertEqual(command.warnings, [])
+        self.assertTrue(any('System checks' in p for p in command.passed))

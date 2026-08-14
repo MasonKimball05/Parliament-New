@@ -574,6 +574,30 @@ if 'test' in _sys.argv or os.getenv('PYTEST_CURRENT_TEST'):
     CELERY_TASK_ALWAYS_EAGER = True
     CELERY_TASK_EAGER_PROPAGATES = True
 
+    # ⚠️ v3.19.8 — A TEST RUN MUST NEVER TOUCH THE REAL CACHE, AND UNTIL NOW
+    # NOTHING SAID SO. This block set Celery to eager and said nothing about
+    # CACHES, so the backend was still chosen ~90 lines above from `REDIS_URL`
+    # and `DEBUG`. v3.19.7's TEST_RUNNER then cleared every alias before every
+    # one of 1,277 tests — and when Redis is the cache it is ALSO the session
+    # store (`SESSION_ENGINE` switches to the cache backend in that same
+    # branch). So `manage.py test` on the production host, with the production
+    # `.env` loaded, would sign out every member of the chapter.
+    #
+    # Forcing LocMem here is the stronger half of the fix: it also stops a test
+    # run READING production cache state, which is a correctness problem before
+    # it is a safety one. `src/cache_isolated_runner.py` refuses to start
+    # against a non-LocMem alias, which is the half that verifies this one —
+    # note `PYTEST_CURRENT_TEST` above is set during test EXECUTION, after
+    # settings import, so under pytest this branch does not fire and only the
+    # runner's check protects the cache.
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+            'LOCATION': 'parliament-test-cache',
+        }
+    }
+    SESSION_ENGINE = 'django.contrib.sessions.backends.db'
+
 # v3.19.7 — Django's runner plus a cache reset before every test.
 #
 # The database is rolled back between tests; the cache never was, and since
@@ -581,13 +605,15 @@ if 'test' in _sys.argv or os.getenv('PYTEST_CURRENT_TEST'):
 # state — all read by middleware on every authenticated request. The visible
 # symptom was that the suite's failure count depended on how it was PARTITIONED:
 # 12 failures in one grouping, 8 in another, same commit. See
-# `src/test_runner.py` for the full account.
+# `src/cache_isolated_runner.py` for the full account.
 # ⚠️ NOT named `src/test_runner.py`, which is what it was called for about an
 # hour. `test*.py` is Django's discovery pattern, so the runner listed itself
 # among the test modules — and the first thing it did was make a partition
 # comparison come out 24 tests short, because the module list it polluted was
 # the one being partitioned. A file that changes how tests are found should not
-# look like a test.
+# look like a test. (v3.19.8: the line above used to point at `src/test_runner.py`
+# for "the full account" — a dangling reference to the deleted file, three lines
+# above the warning explaining that it was deleted.)
 TEST_RUNNER = 'src.cache_isolated_runner.CacheIsolatedTestRunner'
 
 # Password Reset Settings
