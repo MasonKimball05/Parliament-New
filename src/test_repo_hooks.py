@@ -159,6 +159,37 @@ class TheHookGatesWhatItClaimsToGateTests(SimpleTestCase):
             script = fh.read()
         self.assertIn('manage.py test src', script)
 
+    def test_it_does_not_invoke_manage_py_with_a_bare_interpreter(self):
+        """
+        ⚠️ THIS IS A REGRESSION TEST FOR THE FIRST PUSH THIS HOOK EVER BLOCKED.
+
+        The original script ran `python3 manage.py test`. A git hook runs in a
+        non-interactive, non-login shell **with no virtualenv activated**, so
+        `python3` is the system interpreter — which on macOS has no Django in
+        it. The hook died on `ImportError` and printed "tests failed", so a
+        broken environment was reported in the same words as a broken tree.
+
+        **A check that cannot run must not report like a check that failed.**
+        The script now resolves an interpreter that can import Django, and
+        treats "found none" as a loud skip rather than a block — because a hook
+        that blocks every push for an environment reason is a hook that gets
+        deleted, which is exactly how this repo went a month without one.
+        """
+        with open(_SOURCE) as fh:
+            script = fh.read()
+
+        self.assertNotIn(
+            'python3 manage.py', script,
+            'the hook invokes manage.py with a bare `python3`, which in a git '
+            "hook's environment is the system interpreter and has no Django",
+        )
+        self.assertIn('.venv/bin/python', script)
+        self.assertIn('VIRTUAL_ENV', script)
+        self.assertIn(
+            'PARLIAMENT_PYTHON', script,
+            'there must be an escape hatch for a non-standard interpreter path',
+        )
+
     def test_it_gates_on_the_release_ledger_checks(self):
         """
         v3.19.9 added this half. `src.W003` fires on a line that can only be
