@@ -33,6 +33,21 @@ from django.conf import settings
 
 from src.management.commands.check_env import Command as CheckEnvCommand
 
+#: Django system checks that are release-integrity FACTS rather than style
+#: advice, and must therefore stop something rather than print something.
+#:
+#: `src.W002` — the Kai schema looks unmigrated.
+#: `src.W003` — the release ledger disagrees with git.
+#:
+#: ⚠️ v3.19.9 — MODULE-LEVEL SO THERE IS EXACTLY ONE DEFINITION, because there
+#: are now two gates that need it and they run at opposite ends of the release.
+#: `preflight` runs on the server at deploy time, which is the last chance;
+#: `scripts/pre-push.sh` runs on the developer's machine before the commit
+#: leaves it, which is the only moment at which fixing a stale ledger line is
+#: still a one-line amend rather than a follow-up commit. Two copies of this set
+#: would drift, and the one that drifted would be the one nobody reads.
+RELEASE_GATING_CHECK_IDS = frozenset({'src.W002', 'src.W003'})
+
 
 class Command(CheckEnvCommand):
     help = (
@@ -342,7 +357,7 @@ class Command(CheckEnvCommand):
         """
         from django.core import checks as dj_checks
 
-        GATING = {'src.W002', 'src.W003'}
+        GATING = RELEASE_GATING_CHECK_IDS
 
         try:
             messages = dj_checks.run_checks()
@@ -350,9 +365,27 @@ class Command(CheckEnvCommand):
             self.fail('System checks', f'could not run: {exc}')
             return
 
-        blocking = [m for m in messages
-                    if m.is_serious(dj_checks.ERROR) or m.id in GATING]
-        advisory = [m for m in messages if m not in blocking]
+        # v3.19.9 — ONE PASS, PARTITIONED BY THE PREDICATE RATHER THAN BY
+        # MEMBERSHIP. The previous form computed `advisory` as
+        # `[m for m in messages if m not in blocking]`.
+        #
+        # ⚠️ AND THAT FORM WAS NOT A BUG, WHICH IS WHY THIS COMMENT SAYS SO. It
+        # was flagged on the assumption that `CheckMessage.__eq__` comparing
+        # every attribute would let a non-gating message be swallowed by an
+        # equal gating one — and building the reproduction showed it cannot:
+        # `__eq__` includes `id` and `level`, so two messages that compare equal
+        # are gating or advisory *together*. Verified 08-15-26.
+        #
+        # What is left is real but smaller: the classification was stated twice,
+        # once as a predicate and once as its complement over a list, and the
+        # second statement's correctness depended on an equality method neither
+        # this file nor this project owns. One pass states it once. (It is also
+        # O(n) rather than O(n²), which at ten messages is worth nothing and is
+        # not the reason.)
+        blocking, advisory = [], []
+        for m in messages:
+            is_blocking = m.is_serious(dj_checks.ERROR) or m.id in GATING
+            (blocking if is_blocking else advisory).append(m)
 
         for m in blocking:
             self.fail(f'System check {m.id or ""}'.strip(), str(m.msg).splitlines()[0])

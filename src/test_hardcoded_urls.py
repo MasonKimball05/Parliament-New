@@ -129,15 +129,39 @@ _NOT_SITE_PATHS = {
     #     in the nginx config — and `test_upload_serving_disposition` asserts
     #     the exact `X-Accel-Redirect` header value, so the string has to be
     #     written out rather than reversed.
-    #   * `/main.xml` is a **zip entry name** inside a synthesised OOXML package
-    #     in `test_upload_type_fixtures`, matched by the scanner because a
-    #     part name inside a document happens to look like a path.
     # Same reasoning as `/slow/` and `/test_` above, and the same caveat: these
     # are here because they are not site paths, not because they are site paths
     # that fail to resolve.
+    #
+    # ⚠️ v3.19.9 — `/main.xml` WAS ALSO EXEMPTED HERE AND IS NOT ANY MORE. It
+    # was an OOXML **part name** in a synthesised document fixture, and by
+    # 08-15-26 a second one had arrived (`/word/document.xml`). Two instances of
+    # one mechanism is where a literal stops being honest: every test that
+    # builds an Office document by hand writes part names, a part name is a
+    # rooted path *by specification*, and the list would have grown one entry
+    # per fixture forever. See `_is_ooxml_part_name` below — the rule is that a
+    # path introduced by `PartName=` is a package part, not a URL, and it costs
+    # nothing to state exactly.
     '/protected-media', '/protected-media/legislation_docs/notice.html',
-    '/main.xml',
 }
+
+#: `<Override PartName="/word/document.xml" ContentType="…"/>` — the part name
+#: is rooted at the package, not at the site.
+#:
+#: ⚠️ THIS IS DELIBERATELY THE NARROWEST RULE THAT COVERS THE MECHANISM. The
+#: tempting version is "ignore anything ending `.xml`", which would also ignore
+#: a genuinely broken link to an `.xml` route, and "ignore paths in test files",
+#: which would blind the scanner to exactly the fixtures that caught real bugs
+#: in v3.19.7. `PartName=` appears nowhere in this codebase except inside an
+#: OOXML content-type manifest, so the exemption cannot reach a real link — and
+#: if that ever stops being true, `test_a_path_not_introduced_by_partname_is_
+#: still_scanned` is the control that says so.
+_PART_NAME_INTRODUCER_RE = re.compile(r'PartName\s*=\s*$')
+
+
+def _is_ooxml_part_name(line, match):
+    """True if this literal is introduced by an OOXML `PartName=` attribute."""
+    return bool(_PART_NAME_INTRODUCER_RE.search(line[:match.start()]))
 
 _SCANNED_SUFFIXES = ('.py', '.html', '.js')
 
@@ -189,6 +213,7 @@ class HardcodedUrlPathsResolveTests(SimpleTestCase):
                         if (url in _NOT_SITE_PATHS
                                 or url.startswith(_SKIP_PREFIXES)
                                 or len(url) < 3
+                                or _is_ooxml_part_name(line, match)
                                 or _looks_like_a_template_expression(url)):
                             continue
                         yield path.relative_to(ROOT), line_no, url
@@ -227,3 +252,87 @@ class HardcodedUrlPathsResolveTests(SimpleTestCase):
 
         stale = sorted(_NOT_SITE_PATHS - seen)
         self.assertEqual(stale, [], 'allowlisted paths that appear nowhere')
+
+    def test_a_path_not_introduced_by_partname_is_still_scanned(self):
+        """
+        THE CONTROL FOR `_is_ooxml_part_name`, and it is the whole reason that
+        rule is safe to prefer over two literals.
+
+        An exemption expressed as a rule is a claim about a mechanism, and a
+        rule that turned out to match more than the mechanism would silence real
+        broken links without ever appearing in `_NOT_SITE_PATHS` for someone to
+        read. So: the identical path is exempt with the introducer and scanned
+        without it.
+        """
+        # ⚠️ ASSEMBLED, NOT WRITTEN. A rooted path literal in this file is a
+        # rooted path literal in the tree this file scans, and the first draft
+        # duly reported its own fixture as an unresolvable link. Splitting after
+        # the leading slash defeats `_PATH_RE` (the `'/'` half is under the
+        # three-character floor and the other half is not rooted) without
+        # defeating the thing under test, which reads a whole line.
+        path = '/' + 'word/document.xml'
+        with_introducer = f'    manifest = \'<Override PartName="{path}"/>\''
+        without_introducer = f'    link = "{path}"'
+
+        exempted = [
+            m for m in _PATH_RE.finditer(with_introducer)
+            if not _is_ooxml_part_name(with_introducer, m)
+        ]
+        self.assertEqual(exempted, [], 'a PartName= part should be exempt')
+
+        scanned = [
+            m.group(1) for m in _PATH_RE.finditer(without_introducer)
+            if not _is_ooxml_part_name(without_introducer, m)
+        ]
+        self.assertEqual(
+            scanned, [path],
+            'the same string without the PartName= introducer must still be '
+            'scanned — otherwise the rule is exempting by shape, not by '
+            'mechanism',
+        )
+
+    def test_every_path_this_rule_exempts_is_in_an_ooxml_manifest(self):
+        """
+        The rule's safety rests on `PartName=` being unambiguous in this
+        codebase. That is a fact about the tree, not about the format, so it is
+        asserted rather than assumed.
+
+        ⚠️ TWO DRAFTS OF THIS TEST FLAGGED THIS MODULE'S OWN PROSE. The first
+        grepped for the substring `PartName` and reported ten lines of comment
+        and docstring here that quote it while explaining the rule. The second
+        narrowed to paths actually exempted — and still reported one, because
+        the doc comment above `_PART_NAME_INTRODUCER_RE` shows a worked
+        *example* of the attribute, which is indistinguishable from the real
+        thing by construction.
+
+        So it skips comment lines, exactly as `_scan` does, for exactly the
+        reason `_strip_comments` exists: **writing about a thing is not doing
+        it**, and a scanner run over the file that documents it will always find
+        the documentation first.
+        """
+        offenders = []
+        for directory in ('src', 'templates', 'Parliament'):
+            for file_path in sorted((ROOT / directory).rglob('*')):
+                if not file_path.is_file() or file_path.suffix not in _SCANNED_SUFFIXES:
+                    continue
+                text = _strip_comments(
+                    file_path.read_text(encoding='utf-8', errors='ignore'),
+                    file_path.suffix)
+                for line_no, line in enumerate(text.splitlines(), 1):
+                    if line.strip().startswith(('#', '//', '*')):
+                        continue
+                    for match in _PATH_RE.finditer(line):
+                        if not _is_ooxml_part_name(line, match):
+                            continue
+                        if 'openxmlformats' not in line:
+                            offenders.append(
+                                f'{file_path.relative_to(ROOT)}:{line_no}  '
+                                f'{match.group(1)}')
+
+        self.assertEqual(
+            offenders, [],
+            'a path exempted as an OOXML part name, on a line that names no '
+            'OOXML namespace. `_is_ooxml_part_name` silences whatever it '
+            'matches, so this is the boundary of that exemption and it has '
+            'moved.',
+        )

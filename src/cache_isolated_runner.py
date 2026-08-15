@@ -81,7 +81,7 @@ look like a test.**
 """
 from django.core.cache import caches
 from django.core.exceptions import ImproperlyConfigured
-from django.test.runner import DiscoverRunner
+from django.test.runner import DiscoverRunner, ParallelTestSuite, _run_subsuite
 from django.test.testcases import SimpleTestCase
 
 #: Set once, checked so that a nested runner (or a second call to
@@ -168,6 +168,80 @@ def _clear_all_caches():
             pass
 
 
+def install_cache_isolation():
+    """
+    Check the cache is disposable, then install the per-test reset. Idempotent.
+
+    Extracted from `setup_test_environment` in v3.19.9 so that it can also be
+    called from inside a parallel worker — see `_run_subsuite_isolated`.
+    """
+    if getattr(SimpleTestCase, _PATCHED_ATTR, False):
+        return
+
+    # Before anything is cleared, check what would be cleared.
+    _assert_caches_are_disposable()
+
+    original_run = SimpleTestCase.run
+
+    def run(self, result=None):
+        # BEFORE the test runs, and before its `setUp`. A test that primes
+        # the cache in `setUp` still gets what it primed; a test that
+        # inherited someone else's cached `SiteSetting` does not.
+        _clear_all_caches()
+        return original_run(self, result)
+
+    SimpleTestCase.run = run
+    setattr(SimpleTestCase, _PATCHED_ATTR, True)
+
+
+def _run_subsuite_isolated(args):
+    """
+    Django's `_run_subsuite`, preceded by installing the cache isolation in
+    whatever process is about to run these tests.
+
+    ⚠️ v3.19.9 — WITHOUT THIS, THE WHOLE FIX WAS ABSENT ON THE DEVELOPER'S OWN
+    MACHINE AND SAID NOTHING ABOUT IT.
+
+    v3.19.7 installs the `SimpleTestCase.run` patch from
+    `CacheIsolatedTestRunner.setup_test_environment`, i.e. in the process that
+    ran `manage.py test`. Whether a worker inherits that depends entirely on the
+    multiprocessing start method:
+
+      * **fork** (Linux default) — the worker is a memory copy of the parent, so
+        the patch comes along. This is CI, and it is the sandbox the 08-13
+        review measured "two partitionings agree" in.
+      * **spawn** (macOS default since Python 3.8, and Windows) — the worker is
+        a fresh interpreter. Django's `_init_worker` re-bootstraps it by calling
+        `django.setup()` and the **module-level**
+        `django.test.utils.setup_test_environment()` — *not* the runner's
+        override, which it has no reference to. So nothing patches anything.
+
+    Measured 08-15-26: `_parliament_cache_isolation_installed` is `True` in a
+    forked child and **absent** in a spawned one. Parliament is developed on
+    macOS. So `manage.py test --parallel` there ran with no cache isolation at
+    all — the exact partitioning-dependent failure count v3.19.7 was written to
+    abolish — while the file explaining the fix sat in the repo looking applied.
+
+    `run_subsuite` is the seam Django documents for this (*"In case someone
+    wants to modify these in a subclass"*), and it is the right one of the two
+    available: `process_setup` fires **before** `django.setup()` in the worker,
+    where importing test machinery is not safe, whereas this runs after the
+    worker is fully bootstrapped and immediately before any test executes. It is
+    a module-level function because `multiprocessing` pickles it by reference.
+
+    Harmless under fork, where `install_cache_isolation` finds the patch already
+    present and returns.
+    """
+    install_cache_isolation()
+    return _run_subsuite(args)
+
+
+class CacheIsolatedParallelSuite(ParallelTestSuite):
+    """`ParallelTestSuite` that installs the cache isolation inside each worker."""
+
+    run_subsuite = _run_subsuite_isolated
+
+
 class CacheIsolatedTestRunner(DiscoverRunner):
     """
     The project test runner. Identical to Django's, plus a cache reset before
@@ -177,23 +251,11 @@ class CacheIsolatedTestRunner(DiscoverRunner):
     picks it up with no extra flags and CI needs no change.
     """
 
+    #: v3.19.9 — so the isolation reaches spawned workers too. See
+    #: `_run_subsuite_isolated`; without this the fix is fork-only, which means
+    #: Linux-only, which means not the machine it is developed on.
+    parallel_test_suite = CacheIsolatedParallelSuite
+
     def setup_test_environment(self, **kwargs):
         super().setup_test_environment(**kwargs)
-
-        # v3.19.8 — before anything is cleared, check what would be cleared.
-        _assert_caches_are_disposable()
-
-        if getattr(SimpleTestCase, _PATCHED_ATTR, False):
-            return
-
-        original_run = SimpleTestCase.run
-
-        def run(self, result=None):
-            # BEFORE the test runs, and before its `setUp`. A test that primes
-            # the cache in `setUp` still gets what it primed; a test that
-            # inherited someone else's cached `SiteSetting` does not.
-            _clear_all_caches()
-            return original_run(self, result)
-
-        SimpleTestCase.run = run
-        setattr(SimpleTestCase, _PATCHED_ATTR, True)
+        install_cache_isolation()

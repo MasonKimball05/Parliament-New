@@ -63,3 +63,32 @@ daphne==4.2.2
 
 # Passkeys / WebAuthn (3.0.0 — optional fast-path login bypassing password + 2FA)
 webauthn==2.7.1
+
+# ⚠️ v3.19.9 — REQUIRED FOR `manage.py test --parallel` TO REPORT A FAILURE AT ALL.
+#
+# Django's parallel runner moves results between processes by pickling them, and
+# a failure's `sys.exc_info()` tuple contains a traceback object, which is not
+# picklable. `django.test.runner` handles this by calling
+# `tblib.pickling_support.install()` — IF tblib is importable. It was not, so
+# `django.test.runner.tblib` was `None` and EVERY failure under `--parallel`
+# died in the parent as:
+#
+#     TypeError: cannot pickle 'traceback' object
+#
+# with no `FAIL:` line, no module and no test name — and, worse, it ABORTS the
+# run, so the other 1,312 results are never reported either. Django does print
+# an explanatory block naming the test, but the child prints it after the parent
+# has already raised, so across eight workers it is easy to miss entirely. That
+# is exactly what happened on 08-13-26 (v3.19.8 §5, recorded there as
+# unresolved and unreproducible).
+#
+# Reproduced and fixed-verified 08-15-26 in a minimal two-module project:
+# without tblib, one failing assertion under `--parallel=2` produced the
+# TypeError and no results; with tblib, the same tree reported
+# `FAILED (failures=1)` and a complete traceback.
+#
+# Pinned as a hard dependency rather than a dev extra because `requirements.txt`
+# is the only dependency file this project has, and a test tool that is only
+# installed on the machines that remembered to install it is the failure mode
+# `src/test_parallel_reporting.py` exists to prevent.
+tblib==3.2.2

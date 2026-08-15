@@ -219,6 +219,94 @@ ODF_MIMETYPES = {
 #: 4 GB cannot be read into memory by the validator that exists to reject it.
 _MANIFEST_READ_CAP = 1024 * 1024
 
+#: The entry each zip-backed family declares its type in. `None` = plain `.zip`,
+#: where opening the archive was the whole check.
+_DECLARATION_ENTRY = {
+    **{ext: 'mimetype' for ext in ODF_MIMETYPES},
+    **{ext: '[Content_Types].xml' for ext in OOXML_MARKERS},
+}
+
+
+class _ContainerUnreadable(Exception):
+    """
+    Detection failed: this file could not be read as a zip archive at all.
+
+    Deliberately NOT a `ValidationError`. It carries no verdict — it is the
+    signal that `_read_container_declaration` could not answer the question, and
+    the caller decides what that means.
+    """
+
+
+def _read_container_declaration(uploaded_file, ext):
+    """
+    DETECTION ONLY. Return the type string this archive declares about itself,
+    or `None` for a plain `.zip`.
+
+    ⚠️ THIS CATCHES `Exception`, AND THAT IS THE v3.19.7 RULE APPLIED RATHER
+    THAN BROKEN. v3.19.7's finding was that `validate_mime_type`'s `try`
+    contained both the detection AND the verdict, so failing open on a missing
+    libmagic also failed open on a real mismatch — *a `try` that contains both
+    cannot fail open on one without failing open on the other*. The remedy is to
+    separate them, which is what this function is: it contains no `raise
+    ValidationError` anywhere, so a broad catch here cannot swallow a verdict,
+    because there is no verdict here to swallow.
+
+    ⚠️ AND BROAD IS THE ONLY CORRECT WIDTH, because the alternative is a
+    blocklist of a stdlib parser's failure modes. v3.19.8 caught
+    `(BadZipFile, OSError, EOFError)` around the `ZipFile()` constructor and left
+    the member reads that follow outside it. Measured against the real
+    `validate_uploaded_file` on 08-15-26, four ordinary malformations escaped as
+    uncaught exceptions — i.e. **HTTP 500 on all 17 upload call sites**, from a
+    doctor's note to a Kai attachment:
+
+        unsupported compression method   NotImplementedError
+        encrypted zip entry              RuntimeError
+        corrupt member (bad CRC)         zipfile.BadZipFile  ← the SAME type the
+                                                              constructor's
+                                                              handler names,
+                                                              four lines later
+        encrypted ODF `mimetype`         RuntimeError
+
+    Note the third: enumerating exception types got the type right and the
+    *place* wrong, which is the eighth instance of CLAUDE.md's
+    "something-left-outside-the-helper" shape and the first where the thing left
+    outside was the second half of the same operation.
+
+    The catch logs rather than staying silent, so that a systematic
+    misdiagnosis — a Python upgrade changing what `zipfile` raises, or a bug in
+    the four lines below — shows up as a run of rejections in the log instead of
+    looking like a run of malicious uploads.
+    """
+    import zipfile
+
+    entry = _DECLARATION_ENTRY.get(ext)
+    try:
+        archive = zipfile.ZipFile(uploaded_file)
+        if entry is None:
+            return None
+        if entry not in set(archive.namelist()):
+            raise _ContainerUnreadable(f'no "{entry}" entry')
+        with archive.open(entry) as fh:
+            raw = fh.read(_MANIFEST_READ_CAP)
+    except _ContainerUnreadable:
+        raise
+    except Exception as exc:
+        import logging
+        logging.getLogger('function_calls').warning(
+            'Zip-container validation could not read %s (%s): %s: %s',
+            uploaded_file.name, ext, type(exc).__name__, exc,
+        )
+        # `from None` drops the implicit `__context__` chain, and it is not
+        # cosmetic: Django's parallel test runner pickles failures across
+        # process boundaries, and a chained exception drags a traceback object
+        # along. Without `tblib` installed that is unpicklable, and the symptom
+        # is `TypeError: cannot pickle 'traceback' object` **instead of** the
+        # test failure. (v3.19.9 also adds `tblib` to requirements.txt, which
+        # fixes the general case; this stays because it is free.)
+        raise _ContainerUnreadable(f'{type(exc).__name__}: {exc}') from None
+
+    return raw.decode('utf-8', 'replace').strip()
+
 
 def _validate_zip_container(uploaded_file, ext):
     """
@@ -228,21 +316,14 @@ def _validate_zip_container(uploaded_file, ext):
     only has to be a readable zip). Raises `ValidationError` on a mismatch;
     returns normally on success.
 
-    ⚠️ THIS RAISES ITS OWN VERDICT AND CATCHES NOTHING BROAD, deliberately. The
-    v3.19.7 lesson that `validate_mime_type` had never rejected anything for
-    seven months is that *a `try` containing both the detection and the verdict
-    cannot fail open on one without failing open on the other*. Here the
-    detection cannot fail in a way that should be tolerated: `zipfile` is in the
-    standard library, so unlike libmagic there is no missing-system-package case
-    to stay open for. A file that will not open as a zip while claiming a
-    zip-backed extension IS the finding.
+    Detection lives in `_read_container_declaration`; every `raise
+    ValidationError` lives here. Keeping the verdict out of the function that
+    catches is the whole design — see that function's docstring.
     """
-    import zipfile
-
     # ⚠️ THE REWIND WRAPS THE WHOLE FUNCTION, NOT JUST THE OPEN, AND A TEST HAD
     # TO SAY SO. The first draft of this put `finally: seek(0)` on the `try`
     # around `ZipFile()` only — correct for the pointer as of that line, and
-    # wrong by the time the function returned, because `archive.open(...)` below
+    # wrong by the time the function returned, because `archive.open(...)`
     # reads the manifest and moves it again. `.docx` came back at offset 413 and
     # `.odt` at 77, so the caller's `save()` would have stored a truncated
     # document. `test_validation_leaves_the_file_pointer_at_the_start` caught it
@@ -254,31 +335,15 @@ def _validate_zip_container(uploaded_file, ext):
     uploaded_file.seek(0)
     try:
         try:
-            archive = zipfile.ZipFile(uploaded_file)
-            names = set(archive.namelist())
-        except (zipfile.BadZipFile, OSError, EOFError):
-            # `from None` drops the implicit `__context__` chain, and it is not
-            # cosmetic: Django's parallel test runner pickles failures across
-            # process boundaries, and a chained exception drags a traceback
-            # object along, which cannot be pickled. The symptom is
-            # `TypeError: cannot pickle 'traceback' object` **instead of** the
-            # test failure — so the real result is replaced by a report about
-            # the transport. A validator whose rejections cannot cross a process
-            # boundary makes every failure it causes invisible.
+            declared = _read_container_declaration(uploaded_file, ext)
+        except _ContainerUnreadable:
             raise ValidationError(
                 f'File content does not match extension. A "{ext}" file must be a '
-                f'valid document archive and this one could not be opened. '
+                f'valid document archive and this one could not be read. '
                 f'This could be a malicious file.'
             ) from None
 
         if ext in ODF_MIMETYPES:
-            if 'mimetype' not in names:
-                raise ValidationError(
-                    f'File content does not match extension. A "{ext}" file must '
-                    f'declare its type and this one does not.'
-                )
-            with archive.open('mimetype') as fh:
-                declared = fh.read(_MANIFEST_READ_CAP).decode('ascii', 'replace').strip()
             if declared != ODF_MIMETYPES[ext]:
                 raise ValidationError(
                     f'File content does not match extension. File declares itself '
@@ -288,14 +353,7 @@ def _validate_zip_container(uploaded_file, ext):
             return
 
         if ext in OOXML_MARKERS:
-            if '[Content_Types].xml' not in names:
-                raise ValidationError(
-                    f'File content does not match extension. A "{ext}" file must '
-                    f'contain a content-type manifest and this one does not.'
-                )
-            with archive.open('[Content_Types].xml') as fh:
-                manifest = fh.read(_MANIFEST_READ_CAP).decode('utf-8', 'replace')
-            if OOXML_MARKERS[ext] not in manifest:
+            if OOXML_MARKERS[ext] not in declared:
                 raise ValidationError(
                     f'File content does not match extension. The document inside '
                     f'does not match extension "{ext}". '
