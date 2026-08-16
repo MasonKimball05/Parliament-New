@@ -128,11 +128,15 @@ class TracebacksMustSurviveTheProcessBoundaryTests(SimpleTestCase):
 
         self.assertIsNotNone(
             django_runner.tblib,
-            'django.test.runner.tblib is None, so `manage.py test --parallel` '
-            'cannot pickle a failure across the process boundary. The whole run '
-            'will abort with "TypeError: cannot pickle \'traceback\' object" and '
-            'report no results at all — including for the tests that passed. '
-            'Install it: it is pinned in requirements.txt.',
+            '\n\n'
+            '    tblib is not installed in this environment.\n\n'
+            '    Run:  pip install -r requirements.txt\n\n'
+            'It was added in v3.19.9, so this is expected on the first run '
+            'after pulling that release and it is the only thing to do about '
+            'it. Without tblib, `manage.py test --parallel` cannot pickle a '
+            'failure across the process boundary: the whole run aborts with '
+            '"TypeError: cannot pickle \'traceback\' object" and reports no '
+            'results at all, including for the tests that passed.',
         )
 
     def test_tblib_is_pinned_in_requirements(self):
@@ -149,10 +153,21 @@ class TracebacksMustSurviveTheProcessBoundaryTests(SimpleTestCase):
         The mechanism, not the import. `tblib` being importable is necessary;
         `pickling_support.install()` having been called is what makes the
         round-trip work, and Django does that in `RemoteTestResult.__init__`.
+
+        ⚠️ SKIPPED RATHER THAN FAILED WHEN tblib IS ABSENT, deliberately. The
+        requirement is stated once, by `test_django_can_pickle_tracebacks`, with
+        one remedy. A second test failing for the same missing package gives the
+        reader two problems and one cause — and in a push gate that is the
+        difference between a message someone acts on and a message someone
+        bypasses.
         """
         import pickle
 
+        from django.test import runner as django_runner
         from django.test.runner import RemoteTestResult
+
+        if django_runner.tblib is None:
+            self.skipTest('tblib absent — reported by test_django_can_pickle_tracebacks')
 
         RemoteTestResult()  # installs tblib's pickling support as a side effect
         try:

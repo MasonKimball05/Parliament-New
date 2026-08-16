@@ -79,12 +79,31 @@ fi
 
 echo "[pre-push] using $PY"
 echo "[pre-push] running sqlite test suite (git push --no-verify to skip)…"
-if ! DB_BACKEND=sqlite "$PY" manage.py test src -v 0; then
+
+# ⚠️ v3.19.9 — THE OUTPUT IS TEED AND RE-SUMMARISED, and that is not polish.
+# Several tests in this suite print progress to stdout, so a `FAIL:` line lands
+# hundreds of lines above the hook's own message and the last thing on screen is
+# some unrelated test's debug output. The first failure this hook reported was
+# read as "the vote-summary test broke" for exactly that reason. **A gate that
+# says "something failed" without saying what gets bypassed rather than acted
+# on.** So on failure the hook replays just the verdict lines.
+# Portable form: macOS `mktemp -t X` and GNU `mktemp -t` disagree about what
+# the argument means, and the hook has to run on both.
+_log="$(mktemp "${TMPDIR:-/tmp}/parliament-prepush.XXXXXX")"
+if ! DB_BACKEND=sqlite "$PY" manage.py test src -v 0 2>&1 | tee "$_log"; then
   echo ""
-  echo "[pre-push] ✗ tests failed — push aborted."
-  echo "[pre-push]   fix the failures, or 'git push --no-verify' if you must."
+  echo "[pre-push] ─────────────────────────────────────────────────────────"
+  echo "[pre-push] ✗ tests failed — push aborted. What failed:"
+  echo ""
+  grep -E '^(FAIL|ERROR):|^Ran [0-9]+ test|^(FAILED|OK)\b' "$_log" | sed 's/^/    /'
+  echo ""
+  echo "[pre-push]   Full output: $_log"
+  echo "[pre-push]   Re-run:      DB_BACKEND=sqlite $PY manage.py test src"
+  echo "[pre-push]   Or bypass:   git push --no-verify"
+  echo "[pre-push] ─────────────────────────────────────────────────────────"
   exit 1
 fi
+rm -f "$_log"
 echo "[pre-push] ✓ tests green."
 
 # v3.19.9 — the release-integrity system checks, at the only moment they can be
