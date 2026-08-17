@@ -355,3 +355,129 @@ class TheLedgerCheckActuallyGatesTheDeployTests(SimpleTestCase):
         self.assertEqual(command.errors, [])
         self.assertEqual(command.warnings, [])
         self.assertTrue(any('System checks' in p for p in command.passed))
+
+
+class TheDeployedColumnIsGatedWhereItsEvidenceLivesTests(SimpleTestCase):
+    """
+    v3.19.10 — `preflight.check_deploy_ledger_is_stamped`.
+
+    ⚠️ WHY THERE ARE TWO LEDGER GUARDS AND NOT ONE. `src.W003` (above) gates the
+    **Commit** column: a sha is a fact about the repository, so a check running
+    inside the repository can verify it. The **Deployed** column is a fact about
+    a server, and no amount of care inside `manage.py check` can reach it — the
+    check's own hint says so: *"git cannot know that, only you can."*
+
+    That asymmetry had a cost. On 08-17-26 the rows for v3.19.4 → v3.19.9 all
+    still read *not deployed* while every one of those releases had been live
+    for days, and the nightly review read the column, believed it, and opened
+    its report with a nine-day 🔴 backlog that did not exist. It is the
+    07-23→07-31 eight-report error from the opposite side, and it happened
+    *because* the other column was being maintained: the file looked cared for.
+
+    **The half of the ledger that got a guard was the half that needed one
+    least.** So this one runs from `preflight`, on the production host, after
+    the restart — the only place and moment that knows what is live.
+    """
+
+    def _run_check(self):
+        from src.management.commands.preflight import Command
+
+        command = Command()
+        command.passed, command.warnings, command.errors = [], [], []
+        command.check_deploy_ledger_is_stamped()
+        return command
+
+    def test_a_live_release_whose_row_says_not_deployed_is_a_failure(self):
+        """The drift itself, reproduced against this repository's real HEAD."""
+        from unittest import mock
+
+        head = subprocess.run(
+            ['git', 'rev-parse', '--short', 'HEAD'],
+            capture_output=True, text=True, check=False,
+            cwd=os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        ).stdout.strip()
+        if not head:
+            self.skipTest('not a git checkout')
+
+        with mock.patch.object(
+            checks_ledger, '_git_added_changelogs',
+            return_value={'changelogs/v9.9.9.md': head},
+        ), mock.patch.object(
+            checks_ledger, '_deployed_rows',
+            return_value={'v9.9.9': ('*not deployed*', f'`{head}`')},
+        ):
+            command = self._run_check()
+
+        self.assertEqual(command.errors, ['Deploy ledger stamped'])
+        self.assertEqual(command.passed, [])
+
+    def test_a_stamped_row_passes(self):
+        """
+        The control. Without it, a check that failed unconditionally would pass
+        the test above — and this module already carries that lesson one class
+        up.
+        """
+        from unittest import mock
+
+        with mock.patch.object(
+            checks_ledger, '_git_added_changelogs',
+            return_value={'changelogs/v9.9.9.md': 'deadbee'},
+        ), mock.patch.object(
+            checks_ledger, '_deployed_rows',
+            return_value={'v9.9.9': ('08-17-26', '`deadbee`')},
+        ):
+            command = self._run_check()
+
+        self.assertEqual(command.errors, [])
+        self.assertEqual(command.passed, ['Deploy ledger stamped'])
+
+    def test_it_warns_rather_than_fails_when_git_cannot_be_consulted(self):
+        """
+        The rule `scripts/pre-push.sh` states and this file keeps re-learning:
+        **a check that cannot run must not report like a check that failed.**
+        A deployment checkout with no git binary is not a stale ledger.
+        """
+        from unittest import mock
+
+        with mock.patch.object(
+            checks_ledger, '_git_added_changelogs', return_value=None,
+        ):
+            command = self._run_check()
+
+        self.assertEqual(command.errors, [])
+        self.assertEqual(command.warnings, ['Deploy ledger stamped'])
+
+    def test_it_is_deliberately_not_a_django_system_check(self):
+        """
+        ⚠️ THE DESIGN DECISION, PINNED — because the obvious refactor is to move
+        it next to `src.W002`/`src.W003`, and that would be wrong.
+
+        Those two are registered system checks, which means the pre-push hook
+        runs them. Correct: both are answerable at push time. This one is not —
+        at push time **nothing has been deployed**, so as a system check it
+        would fail every push and every developer's `manage.py check` for a
+        question the developer's machine cannot answer, and a gate that is red
+        for everyone all the time is a gate that gets removed.
+
+        **A check belongs where its evidence is.**
+        """
+        from django.core import checks
+
+        from src.management.commands.preflight import RELEASE_GATING_CHECK_IDS
+
+        registered = {
+            getattr(fn, '__name__', '')
+            for fn in checks.registry.registry.get_checks()
+        }
+        self.assertNotIn('check_deploy_ledger_is_stamped', registered)
+        self.assertNotIn(
+            'deploy_ledger_is_stamped', registered,
+            'the deployed-column check was registered as a system check; it '
+            'cannot answer its question at push time',
+        )
+        self.assertEqual(
+            RELEASE_GATING_CHECK_IDS, frozenset({'src.W002', 'src.W003'}),
+            'the pre-push gating set grew — if a deployment-state check was '
+            'added to it, the hook now blocks pushes on a fact the pushing '
+            'machine does not have.',
+        )
