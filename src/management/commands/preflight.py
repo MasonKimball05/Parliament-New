@@ -27,11 +27,25 @@ New checks beyond check_env:
   2. Media access gate — an anonymous request to MEDIA_URL must NOT return 200
      (Django-side via test Client; nginx/Cloudflare-side via --live-url).
 """
+import datetime
+import os
+import re
 import sys
 
 from django.conf import settings
 
 from src.management.commands.check_env import Command as CheckEnvCommand
+
+#: Phrases a Deployed cell uses to mean "not live". Separate from
+#: `checks_ledger._NOT_YET`, which is about the COMMIT column ("not yet",
+#: "uncommitted"), because the two columns fail in different words and sharing
+#: one tuple would make each one's list quietly wrong for the other.
+_NOT_DEPLOYED = ('not deployed', 'not yet', 'pending deploy', 'undeployed')
+
+
+def _says_not_deployed(cell):
+    lowered = cell.lower()
+    return any(phrase in lowered for phrase in _NOT_DEPLOYED)
 
 #: Django system checks that are release-integrity FACTS rather than style
 #: advice, and must therefore stop something rather than print something.
@@ -326,6 +340,117 @@ class Command(CheckEnvCommand):
                       'Confirm the firewall, or set CLOUDFLARE_VERIFY_ORIGIN=True and '
                       'watch for FORGED_CF_HEADER in the security log.')
 
+    def check_deploy_ledger_is_stamped(self):
+        """
+        v3.19.10 — the half of the ledger no check inside the repo can verify.
+
+        ⚠️ WHY THIS EXISTS, AND IT IS THE MIRROR OF THE EIGHT-REPORT ERROR.
+        `src.W003` gates the **Commit** column of `DEPLOYED.md`: it resolves the
+        commit that added each changelog and fails when the recorded sha is
+        missing or wrong. That works because a sha is a fact about the
+        repository, and the repository is right there.
+
+        **The Deployed column is a fact about a server**, and for nine days in
+        August 2026 it was wrong in the other direction: v3.19.4 through v3.19.9
+        were live and every row said *not deployed*. The 08-17-26 auto-run read
+        those six cells, reasonably concluded there was a nine-day backlog
+        containing an unshipped 🔴, and opened its report with it. That is the
+        07-23→07-31 eight-report error exactly, from the opposite side — a
+        confident wrong answer read out of a document that was visibly being
+        maintained, because **what was being maintained was the half that had a
+        guard.**
+
+        So: run where the answer exists. `preflight` runs on the production host
+        after `git pull` and the restart, which makes `HEAD` the deployed code —
+        the only place and moment in this whole system that knows.
+
+        A release is reported when its introducing commit is an **ancestor of
+        HEAD** (its code is in the deployed tree) and its `DEPLOYED.md` row
+        still says *not deployed*.
+
+        ⚠️ **THIS FAILS RATHER THAN WARNS, AND IT BLOCKS NOTHING.** `preflight`
+        is the LAST step of the deploy protocol, run after the restart — so by
+        the time this fires, the deploy has already succeeded. A red preflight
+        here is a to-do, not a rollback, and the message hands over the exact
+        lines to paste in a follow-up commit. A warning would be the failure
+        mode this codebase has recorded four times: *a guard that swallows
+        exceptions reports the absence of a signal as the absence of a problem*,
+        and a preflight nobody reads is what `src.W002`/`W003` were promoted out
+        of.
+
+        ⚠️ **AND IT IS DELIBERATELY NOT A DJANGO SYSTEM CHECK.** `src.W002` and
+        `src.W003` are, which means the pre-push hook runs them — correct, since
+        both are answerable at push time. This one is not: at push time nothing
+        has been deployed, so as a system check it would fail every push and
+        every developer `manage.py check`, for a question the developer's
+        machine cannot answer. **A check belongs where its evidence is.**
+        """
+        import subprocess
+
+        from src.checks_ledger import (
+            _deployed_rows, _git_added_changelogs, _says_not_yet,
+            _version_tuple,
+        )
+
+        repo_root = str(settings.BASE_DIR)
+        added = _git_added_changelogs(repo_root)
+        if not added:
+            # No git, no checkout, nothing committed. `_git_added_changelogs`
+            # returns None for "could not consult git" — which is a check that
+            # could not run, and this file's rule is that such a check does not
+            # get to look like a failure.
+            self.warn('Deploy ledger stamped',
+                      'git could not be consulted — nothing was checked')
+            return
+
+        rows = _deployed_rows(os.path.join(repo_root, 'changelogs', 'DEPLOYED.md'))
+        if rows is None:
+            self.fail('Deploy ledger stamped', 'changelogs/DEPLOYED.md is unreadable')
+            return
+
+        unstamped = []
+        for filename, sha in added.items():
+            version = os.path.basename(filename)[:-3]
+            if not re.match(r'^v\d+\.\d+\.\d+$', version):
+                continue
+            row = rows.get(version)
+            if row is None or not _says_not_deployed(row[0]):
+                continue
+            try:
+                in_tree = subprocess.run(
+                    ['git', '-C', repo_root, 'merge-base', '--is-ancestor', sha, 'HEAD'],
+                    capture_output=True, timeout=10, check=False,
+                    env={**os.environ, 'GIT_OPTIONAL_LOCKS': '0'},
+                ).returncode == 0
+            except (OSError, subprocess.SubprocessError):
+                self.warn('Deploy ledger stamped',
+                          'git could not resolve ancestry — nothing was checked')
+                return
+            if in_tree:
+                unstamped.append((version, sha))
+
+        if not unstamped:
+            self.ok('Deploy ledger stamped',
+                    'every release in the deployed tree has a date')
+            return
+
+        unstamped.sort(key=lambda pair: _version_tuple(pair[0]))
+        today = datetime.date.today().strftime('%m-%d-%y')
+        self.fail(
+            'Deploy ledger stamped',
+            f'{len(unstamped)} release(s) are LIVE in this tree and still say '
+            f'"not deployed" in changelogs/DEPLOYED.md: '
+            f'{", ".join(v for v, _ in unstamped)}',
+        )
+        self.stdout.write(self.style.WARNING(
+            '\n    Paste into changelogs/DEPLOYED.md (and the matching\n'
+            '    "**Deployed:**" line in each changelog), in a FOLLOW-UP\n'
+            '    commit — amending changes the sha src.W003 checks:\n'
+        ))
+        for version, sha in unstamped:
+            self.stdout.write(f'      | {version} | {today} | `{sha}` | … |')
+        self.stdout.write('')
+
     def check_system_checks(self):
         """
         v3.19.8 — run Django's own system checks and make them GATE the deploy.
@@ -421,6 +546,7 @@ class Command(CheckEnvCommand):
         self.check_media_gate()
         self.check_cloudflare_origin()   # v3.19.3
         self.check_system_checks()       # v3.19.8 — src.W002/W003 gate the deploy
+        self.check_deploy_ledger_is_stamped()   # v3.19.10 — the half git cannot know
 
         # Summary + exit semantics (this is the part check_env doesn't have).
         self.stdout.write(f"\n{'─' * 64}")
