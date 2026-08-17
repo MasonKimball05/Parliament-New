@@ -140,6 +140,68 @@ def duplicate_shapes(captured):
     )
 
 
+def warm_singleton_rows():
+    """
+    Create the get-or-create singletons before measuring, so that the first
+    measurement in a test is not charged for their creation.
+
+    ⚠️ v3.19.10 — WITHOUT THIS, EVERY BUDGET IN THIS MODULE WAS EXACTLY 3
+    QUERIES TOO HIGH, AND THE SUITE COULD NOT SEE IT.
+
+    `SystemLockdown.get_instance()` is `get_or_create(pk=1)` and
+    `EmergencyLockdownMiddleware` calls it on every request. In production the
+    row has existed since the table was created, so it costs one cached read.
+    Under `TestCase` every method runs in a transaction that is rolled back, so
+    the row is absent again at the start of each test and the FIRST request a
+    test makes pays `SAVEPOINT` + `INSERT INTO src_systemlockdown` + `RELEASE
+    SAVEPOINT` — three queries that production will never spend.
+
+    Measured 08-17-26, four consecutive cold-cache requests per page:
+
+        view_kai_reports          45, 42, 42, 42      (BUDGET was 45)
+        activity_logs             41, 38, 38, 38      (BUDGET was 41)
+        home                      44, 41, 41, 41      (BUDGET was 44)
+        admin_v2_security_alerts  35, 32, 32, 32      (BUDGET was 35)
+        admin_v2_two_factor       32, 29, 29, 29      (never measured)
+        service_dashboard         43, 40, 40, 40      (never measured)
+
+    Every declared budget was the first number. **The ratchet was pinned to a
+    fixture artefact rather than to the page**, which means each of these four
+    pages could have grown by 3 queries without anything failing.
+
+    ⚠️ AND IT SAT JUST UNDER THE SUITE'S OWN DETECTOR. `assert_within_budget`
+    fails when a page comes in more than `STALENESS_SLACK` (= 4) under its
+    ceiling, precisely so that accumulated slack gets noticed. The slack here
+    was 3. A one-query-wider artefact would have been caught on the day it
+    landed; this one was invisible for fifteen days.
+
+    **The general form, and it is the one worth keeping: a ceiling measured
+    from inside a fixture measures the fixture too.** The remedy is not a
+    bigger tolerance — it is to make the measured request look like the
+    thousandth request rather than the first, which is what production's
+    always does.
+
+    (`cache.clear()` in `measure()` deliberately does NOT cover this: the
+    lockdown singleton is cached, but the row it caches has to exist first, and
+    that is a database fact rather than a cache one.)
+
+    ⚠️ v3.19.10 ALSO FIXED THE OTHER HALF — `get_instance()` no longer creates
+    the row at all, because a write on a read path is a bug independent of what
+    it does to a test's arithmetic. **This function is still required and its
+    job has changed**: it no longer works around a side effect, it makes the
+    fixture resemble production, where the row *does* exist. Without it the
+    pages measure the same number by a different route (one lookup that misses
+    instead of one that hits), which is the wrong path to pin a ceiling to.
+
+    So it now creates the row explicitly rather than leaning on someone else's
+    side effect — which is also why it survives that fix instead of silently
+    becoming a no-op.
+    """
+    from src.models.security import SystemLockdown
+
+    SystemLockdown.objects.get_or_create(pk=1)
+
+
 class QueryBudgetMixin:
     """Measure the queries one authenticated GET costs."""
 
@@ -161,6 +223,7 @@ class QueryBudgetMixin:
         # direction for a ceiling to be wrong in.
         from django.core.cache import cache
         cache.clear()
+        warm_singleton_rows()
 
         client = Client()
         client.force_login(user)
@@ -228,7 +291,11 @@ class KaiListQueryBudgetTests(QueryBudgetMixin, TestCase):
     #: Measured 08-02-26 against v3.18.2 on sqlite, cold cache, twice, same
     #: number both times. See the module docstring — this is a ratchet, not an
     #: ideal, and not an opinion about what the number ought to be.
-    BUDGET = 45
+    #:
+    #: v3.19.10: 45 → 42. Not a code change — see `warm_singleton_rows`. The
+    #: page never cost 45; the first request in each test was paying to create
+    #: the `SystemLockdown` singleton.
+    BUDGET = 42
 
     def setUp(self):
         self.committee = Committee.objects.create(
@@ -318,7 +385,8 @@ class ActivityLogQueryBudgetTests(QueryBudgetMixin, TestCase):
 
     #: Measured 08-02-26, cold cache. Includes v3.18.2's `redact_kai_logs`
     #: pass, which resolves every referenced case in one query.
-    BUDGET = 41
+    #: v3.19.10: 41 → 38, see `warm_singleton_rows`.
+    BUDGET = 38
 
     def setUp(self):
         from src.models import ActivityLog
@@ -390,7 +458,8 @@ class HomePageQueryBudgetTests(QueryBudgetMixin, TestCase):
 
     #: Measured 08-02-26, cold cache. Every authenticated request lands here,
     #: so this is the budget where one query costs the most in aggregate.
-    BUDGET = 44
+    #: v3.19.10: 44 → 41, see `warm_singleton_rows`.
+    BUDGET = 41
 
     def setUp(self):
         self.member = make_user('qb-home', 'Home Member', member_type='Member')
@@ -434,7 +503,8 @@ class SecurityAlertsQueryBudgetTests(QueryBudgetMixin, TestCase):
     #: admin-v2 chrome), so the absolute number is not small — but it is now
     #: FLAT, which is what `test_it_does_not_scale_with_alert_count` pins and
     #: what the 51-query incident violated.
-    BUDGET = 35
+    #: v3.19.10: 35 → 32, see `warm_singleton_rows`.
+    BUDGET = 32
 
     #: admin-v2 has its own session gate on top of login (`require_admin_v2_auth`
     #: — an allowlisted user id plus two session keys), so `force_login` alone
@@ -465,6 +535,7 @@ class SecurityAlertsQueryBudgetTests(QueryBudgetMixin, TestCase):
         from django.test.utils import CaptureQueriesContext
 
         cache.clear()
+        warm_singleton_rows()
         client = self._admin_v2_client(user)
         with CaptureQueriesContext(connection) as captured:
             response = client.get(reverse(url_name, args=args), params)
@@ -538,7 +609,8 @@ class BudgetHygieneTests(TestCase):
         """
         from src.test_query_budgets import (
             ActivityLogQueryBudgetTests, HomePageQueryBudgetTests,
-            KaiListQueryBudgetTests,
+            KaiListQueryBudgetTests, SecurityAlertsQueryBudgetTests,
+            ServiceDashboardQueryBudgetTests, TwoFactorDashboardQueryBudgetTests,
         )
 
         # Declared budgets, checked for obvious nonsense rather than re-measured
@@ -548,6 +620,9 @@ class BudgetHygieneTests(TestCase):
             'view_kai_reports': KaiListQueryBudgetTests.BUDGET,
             'activity_logs': ActivityLogQueryBudgetTests.BUDGET,
             'home': HomePageQueryBudgetTests.BUDGET,
+            'admin_v2_security_alerts': SecurityAlertsQueryBudgetTests.BUDGET,
+            'admin_v2_two_factor': TwoFactorDashboardQueryBudgetTests.BUDGET,
+            'service_dashboard': ServiceDashboardQueryBudgetTests.BUDGET,
         }
         for name, ceiling in declared.items():
             self.assertGreater(
@@ -571,9 +646,12 @@ class BudgetHygieneTests(TestCase):
     #: removes 2–4 queries from every page in this suite, so every existing
     #: BUDGET will also need re-measuring — one pass, not two, or the suite is
     #: red in between for a reason nobody will remember.
+    #: v3.19.10 — the two dashboards came OFF this list when they were
+    #: measured (08-17-26). `MiddlewareChainQueryBudgetTests` stays: that class
+    #: deliberately asserts relative properties (cold vs warm, anonymous vs
+    #: authenticated, steady state) rather than a single page's ceiling, so a
+    #: `BUDGET` there would be a number with nothing to compare against.
     AWAITING_MEASUREMENT = (
-        'TwoFactorDashboardQueryBudgetTests',
-        'ServiceDashboardQueryBudgetTests',
         'MiddlewareChainQueryBudgetTests',
     )
 
@@ -636,11 +714,17 @@ class BudgetHygieneTests(TestCase):
 # in it. That is the honest limitation of an absolute-ceiling suite: it only
 # constrains the pages someone remembered to add.
 #
-# ⚠️ NEITHER CLASS SETS A `BUDGET`, AND THAT IS DELIBERATE. The module docstring
-# is explicit that a ceiling is a *measured* number, taken twice, cold — and
-# these fixes were written in an environment with no working Django, so any
-# constant here would be invented. An invented ceiling is worse than none: it
-# reads exactly like a measured one. **Run these, note the counts, and add
+# ⚠️ v3.19.10 — BOTH CLASSES NOW HAVE A MEASURED `BUDGET`. The original note is
+# kept below because the reason they went thirteen days without one is the
+# useful part: a ceiling is a *measured* number, these fixes were written in an
+# environment with no working Django, and an invented ceiling is worse than
+# none because it reads exactly like a measured one. The 08-17-26 auto-run got
+# Django running in the sandbox (`pip install -r requirements.txt` succeeds
+# there now) and measured them — four consecutive cold runs each, and the same
+# pass found that every OTHER budget in this module was three queries too high.
+# See `warm_singleton_rows`.
+#
+# (Historic note, v3.18.6:) **Run these, note the counts, and add
 # `BUDGET = <n>` plus a `test_..._stays_within_budget` in the same commit.**
 #
 # What they DO assert is the property that actually catches an N+1 and needs no
@@ -660,6 +744,14 @@ class TwoFactorDashboardQueryBudgetTests(QueryBudgetMixin, TestCase):
     panel showed two different counts (47 and 36) for one line of code, and why
     the batch below iterates `device_classes()` rather than naming TOTPDevice.
     """
+
+    #: Measured 08-17-26 (v3.19.10) on sqlite, cold cache, four consecutive
+    #: runs: 32, 29, 29, 29. 29 is the steady-state number; 32 was the
+    #: singleton-creation artefact — see `warm_singleton_rows`.
+    BUDGET = 29
+
+    def test_the_dashboard_stays_within_budget(self):
+        self.assert_within_budget(self.admin, 'admin_v2_two_factor', self.BUDGET)
 
     def _admin_v2_client(self, user):
         from unittest import mock
@@ -684,6 +776,7 @@ class TwoFactorDashboardQueryBudgetTests(QueryBudgetMixin, TestCase):
         from django.test.utils import CaptureQueriesContext
 
         cache.clear()
+        warm_singleton_rows()
         client = self._admin_v2_client(user)
         with CaptureQueriesContext(connection) as captured:
             response = client.get(reverse(url_name, args=args), params)
@@ -750,6 +843,13 @@ class ServiceDashboardQueryBudgetTests(QueryBudgetMixin, TestCase):
     All four are the same aggregate the loop wanted, grouped by member instead
     of filtered to one.
     """
+
+    #: Measured 08-17-26 (v3.19.10) on sqlite, cold cache, four consecutive
+    #: runs: 43, 40, 40, 40. See `warm_singleton_rows` for the 3.
+    BUDGET = 40
+
+    def test_the_dashboard_stays_within_budget(self):
+        self.assert_within_budget(self.admin, 'service_dashboard', self.BUDGET)
 
     def setUp(self):
         from datetime import timedelta as _td

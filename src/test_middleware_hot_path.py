@@ -112,6 +112,118 @@ class SystemLockdownCacheTests(TestCase):
             f'{len(captured.captured_queries)}×; the cache is not being read.',
         )
 
+    def test_reading_the_lockdown_state_never_writes(self):
+        """
+        ⚠️ v3.19.10 — THE READ PATH USED TO BE A WRITE PATH.
+
+        `get_instance()` was `get_or_create(pk=1)`, and this method is called by
+        `EmergencyLockdownMiddleware` on essentially every request. So the first
+        request after a fresh install, a database restore, or an admin deleting
+        the row issued an INSERT *while serving a GET*, and concurrent first
+        requests raced for it. v3.18.7 narrowed that race by caching; narrowing
+        a race is not the same as not having one.
+
+        It also showed up somewhere nobody was looking: every ceiling in
+        `test_query_budgets.py` was exactly three queries too high (SAVEPOINT +
+        INSERT + RELEASE), because each `TestCase` rolls back and the first
+        request in every test paid to create the row again.
+
+        Asserted as **no write of any kind**, not "no INSERT", because the
+        interesting property is that answering the question does not change the
+        answer.
+        """
+        SystemLockdown.objects.all().delete()
+        cache.clear()
+
+        with CaptureQueriesContext(connection) as captured:
+            instance = SystemLockdown.get_instance()
+
+        writes = [
+            q['sql'] for q in captured.captured_queries
+            if q['sql'].lstrip()[:6].upper() in ('INSERT', 'UPDATE', 'DELETE')
+        ]
+        self.assertEqual(
+            writes, [],
+            f'Reading the lockdown state wrote to the database: {writes}',
+        )
+        self.assertFalse(
+            SystemLockdown.objects.exists(),
+            'get_instance() created the singleton row as a side effect of a read',
+        )
+        self.assertFalse(
+            instance.is_active,
+            'With no row configured the system must not be in lockdown — the '
+            'placeholder has to fail OPEN here, which is what get_or_create '
+            'also did.',
+        )
+
+    def test_a_missing_row_is_cached_so_it_is_not_re_queried(self):
+        """
+        ⚠️ THE HALF THAT IS EASY TO DROP, and dropping it would have been a
+        performance regression on the widest hot path in the app.
+
+        Removing the write without caching the miss trades one INSERT-once for
+        **one uncached SELECT on every request, forever**, on any install where
+        nobody has opened the lockdown page — undoing v3.18.7 on exactly the
+        path v3.18.7 existed for. `cache.get` returns `None` for a miss, so the
+        absence has to be stored as a sentinel rather than as `None`.
+        """
+        SystemLockdown.objects.all().delete()
+        cache.clear()
+
+        SystemLockdown.get_instance()  # prime
+        with CaptureQueriesContext(connection) as captured:
+            SystemLockdown.get_instance()
+            SystemLockdown.get_instance()
+
+        self.assertEqual(
+            len(captured.captured_queries), 0,
+            'Two warm reads with no row present cost '
+            f'{len(captured.captured_queries)} queries; the absence is not '
+            'being cached, so every request re-asks.',
+        )
+
+    def test_creating_the_row_invalidates_the_cached_absence(self):
+        """
+        The sentinel is only safe because the `post_save` receiver fires when
+        the row is **created** — the exact moment "there is no row" stops being
+        true. If that ever stops holding, a lockdown activated on a fresh
+        install would not engage, which is the same failure this class's main
+        test guards from the other direction.
+        """
+        SystemLockdown.objects.all().delete()
+        cache.clear()
+
+        self.assertFalse(SystemLockdown.get_instance().is_active)  # caches the miss
+
+        admin = make_user('lockdown-fresh-admin', is_admin=True)
+        SystemLockdown.get_instance().activate(admin, reason='fresh install drill')
+
+        self.assertEqual(
+            SystemLockdown.objects.count(), 1,
+            'Activating from a placeholder must write the singleton, not a '
+            'second row — hence pk=1 on the placeholder.',
+        )
+        self.assertTrue(
+            SystemLockdown.get_instance().is_active,
+            'The cached absence outlived the row being created, so an '
+            'emergency control did not take effect.',
+        )
+
+    def test_the_control_an_existing_row_is_still_returned(self):
+        """
+        Without this, a `get_instance()` that always returned a blank
+        placeholder would pass every test above — and would mean lockdown could
+        never be in effect at all.
+        """
+        SystemLockdown.objects.all().delete()
+        cache.clear()
+        SystemLockdown.objects.create(pk=1, reason='pre-existing')
+
+        instance = SystemLockdown.get_instance()
+        self.assertEqual(instance.pk, 1)
+        self.assertEqual(instance.reason, 'pre-existing')
+
     def test_activating_lockdown_takes_effect_on_the_very_next_read(self):
         """
         THE test in this class. A TTL alone would make this pass only after

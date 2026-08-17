@@ -573,6 +573,12 @@ class SystemLockdown(models.Model):
     CACHE_KEY = 'system_lockdown_instance'
     CACHE_TTL = 300  # backstop only; correctness comes from invalidation
 
+    #: Marker meaning "the singleton row does not exist yet" (v3.19.10).
+    #: A plain `None` cannot be used: `cache.get` returns `None` for a miss, so
+    #: caching `None` is indistinguishable from caching nothing and the query
+    #: would run on every request anyway — which is the whole thing this avoids.
+    CACHE_MISSING = '__system_lockdown_row_absent__'
+
     @classmethod
     def invalidate_cache(cls):
         from django.core.cache import cache
@@ -602,14 +608,52 @@ class SystemLockdown(models.Model):
         Caching also removes a second, quieter problem: `get_or_create` in a
         request path means that if the row is ever missing, every concurrent
         request races to create it.
+
+        ⚠️ v3.19.10 — AND v3.19.10 REMOVED THE `get_or_create` ENTIRELY, because
+        narrowing that race is not the same as not having it. This method is
+        called by `EmergencyLockdownMiddleware` on essentially every request, so
+        it was **a write on the read path**: the first request after a database
+        restore, a fresh install, or an admin deleting the row issued an INSERT,
+        and concurrent first requests raced for it. It also meant the request
+        path could not run against a read-only connection at all.
+
+        The row's absence is not an error and does not need repairing here —
+        `cls(pk=1)` has `is_active=False`, which is exactly what "no lockdown
+        has ever been configured" means, and it is the same answer
+        `get_or_create` produced. The difference is that answering the question
+        no longer changes the answer.
+
+        ⚠️ **THE ABSENCE IS CACHED TOO, AND IT HAS TO BE.** Dropping the write
+        without caching the miss would trade one INSERT-once for **one uncached
+        SELECT on every request, forever**, on a fresh install where nobody has
+        ever opened the lockdown page — i.e. it would undo v3.18.7 on exactly
+        the widest hot path in the application, which is the thing v3.18.7 was
+        for. So a miss stores a sentinel, using the same `found`/`value` shape
+        `SiteSetting.get_setting` already uses for the same reason.
+
+        The sentinel is safe for a stated reason rather than a lucky one: the
+        `post_save` receiver at the bottom of this module fires when the row is
+        **created**, which is the exact moment "there is no row" stops being
+        true. Caching the placeholder *object* would not be safe — it would
+        store something that looks persisted and is not — so the cache holds a
+        marker and each caller gets a fresh unsaved instance.
+
+        `pk=1` is set on that instance so a caller who goes on to `activate()`
+        it writes the singleton rather than a second row. That is `admin_v2`'s
+        path, and `SystemLockdownAdmin.has_add_permission` already gates on
+        `objects.exists()` for the same reason.
         """
         from django.core.cache import cache
 
-        instance = cache.get(cls.CACHE_KEY)
-        if instance is not None:
-            return instance
+        cached = cache.get(cls.CACHE_KEY)
+        if cached is not None:
+            return cls(pk=1) if cached == cls.CACHE_MISSING else cached
 
-        instance, _ = cls.objects.get_or_create(pk=1)
+        instance = cls.objects.filter(pk=1).first()
+        if instance is None:
+            cache.set(cls.CACHE_KEY, cls.CACHE_MISSING, cls.CACHE_TTL)
+            return cls(pk=1)
+
         cache.set(cls.CACHE_KEY, instance, cls.CACHE_TTL)
         return instance
 

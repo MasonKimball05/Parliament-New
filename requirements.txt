@@ -6,7 +6,16 @@ python-dotenv==1.2.2
 python-magic==0.4.27
 pytz==2025.2
 requests==2.33.1
-sqlparse==0.5.5
+
+# ⚠️ v3.19.10 — 0.5.5 → 0.6.0 CLOSES FOUR CVEs (CVE-2026-54284, -59893,
+# -59894, -71491): three parser DoS/ReDoS paths and a quote-escaping bug in the
+# Python/PHP output filters. sqlparse is a *transitive* dependency (Django
+# requires >=0.3.1) and nothing in this codebase imports it — verified by grep
+# across `src/` and `Parliament/` on 08-17-26 — so none of the four is reachable
+# from a request. It is pinned here anyway because CI's pip-audit step has no
+# `continue-on-error`, so a known CVE in a pinned version fails the build
+# whether or not it is exploitable.
+sqlparse==0.6.0
 user-agents==2.2.0
 
 # App server: Daphne (ASGI — HTTP + WebSockets). See daphne pin below with channels.
@@ -23,7 +32,32 @@ django-celery-beat==2.9.0
 pywebpush==2.3.0
 
 # Field-level encryption for sensitive data (AES encryption via Fernet)
-cryptography==48.0.1
+#
+# ⚠️ v3.19.10 — 48.0.1 → 50.0.0 CLOSES THREE ADVISORIES, AND ONE OF THEM IS
+# REACHABLE FROM AN UNAUTHENTICATED-ADJACENT ENDPOINT.
+#
+#   PYSEC-2026-3553  exponential blowup resolving an invalid certificate chain
+#                    that repeats a self-signed cert. **This is the one that
+#                    matters here**: `verify_registration_response` in
+#                    `src/view/webauthn.py` parses an attestation statement the
+#                    *client* supplies, and an attestation statement carries an
+#                    x5c certificate chain. A crafted chain is CPU on the
+#                    passkey-registration path. Fixed in 49.0.0.
+#   PYSEC-2026-3554  a name-constrained sub-CA can be escaped by a wildcard SAN
+#                    on the leaf. Not reachable — Parliament verifies no server
+#                    certificates itself. Fixed in 49.0.0.
+#   PYSEC-2026-3552  Bleichenbacher oracle in `pkcs7_decrypt_*`. Not reachable —
+#                    this codebase uses Fernet, never PKCS7. Fixed in 50.0.0.
+#
+# ⚠️ THE BUMP IS NOT SELF-CONTAINED: `pyOpenSSL` 26.2.0 pins
+# `cryptography<49`, so pip will also pull pyOpenSSL forward (26.4.0 resolves
+# cleanly). pyOpenSSL is a transitive dep of daphne/twisted and is deliberately
+# left unpinned; if it is ever pinned, pin the pair together.
+#
+# Verified 08-17-26: full suite green (1,340 tests, 0 failures) on
+# cryptography 50.0.0 + sqlparse 0.6.0 + pyOpenSSL 26.4.0, and pip-audit reports
+# the requirements file clean.
+cryptography==50.0.0
 
 # Markdown rendering for changelog display
 markdown==3.8.1

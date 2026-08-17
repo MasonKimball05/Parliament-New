@@ -151,4 +151,177 @@ then
   echo "[pre-push]   sha MATCHES, so an amend trades one red check for another."
   exit 1
 fi
-echo "[pre-push] ✓ release ledger current — pushing."
+echo "[pre-push] ✓ release ledger current."
+
+# ---------------------------------------------------------------------------
+# The two security scans CI runs — v3.19.10
+# ---------------------------------------------------------------------------
+# ⚠️ WHY THESE ARE HERE. CI's `security` job runs bandit and pip-audit on every
+# push to main, neither step carrying `continue-on-error`. **The bandit step
+# exited 1 continuously from 07-29-26 to 08-17-26** — nineteen days, roughly a
+# dozen pushes, six of them releases whose whole subject was code quality.
+# Nothing swallowed the signal: GitHub rendered a red ❌ every single time. The
+# entire failure was in the reading.
+#
+# That is the cheapest of this repo's four recorded "red gate nobody read"
+# incidents to have caught, and the one that lasted longest — which is the
+# argument for moving the signal to where someone is already looking. The whole
+# reason this hook exists is that a check whose trigger is "somebody remembers"
+# is not triggered.
+#
+# ⚠️ AND NOTE WHAT DID NOT CATCH IT: this hook, built in v3.19.9 for exactly
+# that pattern, ran the suite and the ledger checks and not these. **A trigger
+# built in response to a pattern still has to be pointed at every instance of
+# it.**
+#
+# Both follow the rule established at the top of this file — **a check that
+# cannot run must not report like a check that failed.** A missing binary or a
+# network the laptop does not have is a LOUD SKIP that allows the push, never an
+# abort. Verified by running both branches.
+#
+# ⚠️ AND THE SUMMARY LINE HAS TO SAY WHICH. The first draft of this block ended
+# with "✓ all gates green" after skipping both scans, which is the same defect
+# in its mirror image: a check that cannot run must not report like a check that
+# *passed* either. `_skipped` exists so the last line on screen — the only line
+# most pushes will be read for — distinguishes "checked and clean" from "not
+# checked". Caught by running the missing-tool branch rather than reasoning
+# about it.
+_skipped=0
+
+_scan_tool() {
+  # Echo a runnable command for $1, preferring the resolved interpreter's module
+  # form so the tool matches the environment being pushed. Silent on failure —
+  # the caller decides what "not found" means.
+  if "$PY" -m "$2" --version >/dev/null 2>&1; then
+    echo "$PY -m $2"
+  elif command -v "$1" >/dev/null 2>&1; then
+    command -v "$1"
+  fi
+}
+
+echo "[pre-push] running the security scans CI runs…"
+
+# ── bandit ────────────────────────────────────────────────────────────────
+# Flags match .github/workflows/ci.yml exactly. If they ever diverge, this hook
+# starts passing pushes CI rejects, which is worse than not running it.
+_bandit="$(_scan_tool bandit bandit)"
+if [ -z "$_bandit" ]; then
+  echo "[pre-push] ⚠️  bandit not installed — SKIPPED, push allowed."
+  echo "[pre-push]     Install with: $PY -m pip install bandit"
+  echo "[pre-push]     CI still runs it, and CI is the gate that matters."
+  _skipped=1
+else
+  _bout="$(mktemp "${TMPDIR:-/tmp}/parliament-bandit.XXXXXX")"
+  # bandit exits 1 for findings and non-1 for its own errors, so the exit code
+  # alone cannot tell "12 MEDIUM findings" from "bandit crashed". The JSON
+  # either parses or it does not, and that distinction is the one that matters.
+  $_bandit -r src/ -ll --exclude src/migrations -f json -q >"$_bout" 2>/dev/null
+  _verdict="$("$PY" - "$_bout" <<'PY' 2>/dev/null
+import json, sys
+try:
+    results = json.load(open(sys.argv[1]))['results']
+except Exception:
+    sys.exit(0)                      # unparseable -> could not run
+hits = [r for r in results if r['issue_severity'] in ('MEDIUM', 'HIGH')]
+print('CLEAN' if not hits else 'FINDINGS')
+for r in hits[:15]:
+    print("    {issue_severity:6} {test_id} {filename}:{line_number}  {issue_text}".format(**r)[:150])
+PY
+)"
+  case "$_verdict" in
+    CLEAN*)
+      echo "[pre-push] ✓ bandit clean."
+      ;;
+    FINDINGS*)
+      echo ""
+      echo "[pre-push] ─────────────────────────────────────────────────────────"
+      echo "[pre-push] ✗ bandit found MEDIUM+ issues — push aborted. CI will fail."
+      echo ""
+      printf '%s\n' "$_verdict" | tail -n +2
+      echo ""
+      echo "[pre-push]   Re-run:  $_bandit -r src/ -ll --exclude src/migrations"
+      echo "[pre-push]   If a finding is traced-safe, add an inline justified"
+      echo "[pre-push]   '# nosec BXXX - why' — do NOT downgrade the gate."
+      echo "[pre-push]   Or bypass: git push --no-verify"
+      echo "[pre-push] ─────────────────────────────────────────────────────────"
+      rm -f "$_bout"
+      exit 1
+      ;;
+    *)
+      echo "[pre-push] ⚠️  bandit produced no parseable output — SKIPPED, push allowed."
+      echo "[pre-push]     Nothing was checked. Output kept at: $_bout"
+      _skipped=1
+      ;;
+  esac
+  rm -f "$_bout" 2>/dev/null || true
+fi
+
+# ── pip-audit ─────────────────────────────────────────────────────────────
+# ⚠️ THIS AUDITS `requirements.txt`, WHILE CI AUDITS THE INSTALLED ENVIRONMENT,
+# and the difference is deliberate. A developer's venv accumulates tools the
+# server never sees, so auditing it here would block pushes on CVEs that CI
+# cannot see — and a gate that blocks for reasons the build does not share is a
+# gate people learn to bypass. The residual gap is a CVE in bandit or pip-audit
+# themselves, which CI would catch and this will not. That is the right way
+# round: **prefer the false negative in the local gate and the false positive in
+# the remote one.**
+#
+# `--ignore-vuln PYSEC-2025-49` mirrors CI (setuptools PackageIndex path
+# traversal — easy_install-era build tooling, never imported at runtime).
+_audit="$(_scan_tool pip-audit pip_audit)"
+if [ -z "$_audit" ]; then
+  echo "[pre-push] ⚠️  pip-audit not installed — SKIPPED, push allowed."
+  echo "[pre-push]     Install with: $PY -m pip install pip-audit"
+  _skipped=1
+else
+  _aout="$(mktemp "${TMPDIR:-/tmp}/parliament-audit.XXXXXX")"
+  $_audit -r requirements.txt --ignore-vuln PYSEC-2025-49 \
+          --format json --progress-spinner off >"$_aout" 2>/dev/null
+  _verdict="$("$PY" - "$_aout" <<'PY' 2>/dev/null
+import json, sys
+try:
+    deps = json.load(open(sys.argv[1]))['dependencies']
+except Exception:
+    sys.exit(0)                      # no network, or pip-audit errored out
+hits = [(d['name'], d['version'], v['id'], ','.join(v.get('fix_versions') or ['-']))
+        for d in deps for v in d.get('vulns', [])]
+print('CLEAN' if not hits else 'FINDINGS')
+for name, version, vid, fix in hits[:15]:
+    print(f'    {name} {version}  {vid}  -> fix {fix}')
+PY
+)"
+  case "$_verdict" in
+    CLEAN*)
+      echo "[pre-push] ✓ pip-audit clean."
+      ;;
+    FINDINGS*)
+      echo ""
+      echo "[pre-push] ─────────────────────────────────────────────────────────"
+      echo "[pre-push] ✗ known CVEs in pinned dependencies — push aborted. CI will fail."
+      echo ""
+      printf '%s\n' "$_verdict" | tail -n +2
+      echo ""
+      echo "[pre-push]   Bump the pin and re-run the suite BEFORE pushing — a"
+      echo "[pre-push]   dependency bump is a code change with no diff."
+      echo "[pre-push]   Check what it drags with it: pyOpenSSL pins cryptography."
+      echo "[pre-push]   Or bypass: git push --no-verify"
+      echo "[pre-push] ─────────────────────────────────────────────────────────"
+      rm -f "$_aout"
+      exit 1
+      ;;
+    *)
+      echo "[pre-push] ⚠️  pip-audit could not report — SKIPPED, push allowed."
+      echo "[pre-push]     Usually no network. Nothing was checked; CI will run it."
+      _skipped=1
+      ;;
+  esac
+  rm -f "$_aout" 2>/dev/null || true
+fi
+
+if [ "$_skipped" -eq 0 ]; then
+  echo "[pre-push] ✓ all gates green — pushing."
+else
+  echo "[pre-push] ⚠️  pushing with one or more scans SKIPPED (see above)."
+  echo "[pre-push]     The suite and the ledger WERE checked; the security scans"
+  echo "[pre-push]     were not. CI is the only thing standing behind them now."
+fi

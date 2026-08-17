@@ -200,6 +200,84 @@ class TheHookGatesWhatItClaimsToGateTests(SimpleTestCase):
             script = fh.read()
         self.assertIn('RELEASE_GATING_CHECK_IDS', script)
 
+    def test_it_runs_the_two_security_scans_ci_runs(self):
+        """
+        v3.19.10 added this half, and the reason is the sharpest instance of
+        this module's own subject in the repo's history.
+
+        CI's `security` job runs bandit and pip-audit on every push, neither
+        step carrying `continue-on-error`. **The bandit step exited 1
+        continuously from 07-29-26 to 08-17-26** — nineteen days, roughly a
+        dozen pushes. Nothing swallowed the signal; GitHub rendered a red ❌
+        every time and nobody downstream read it.
+
+        ⚠️ And this hook — built one release earlier for precisely the pattern
+        "a check whose trigger is somebody remembering is not triggered" — ran
+        the suite and the ledger checks and **not these**. A trigger built in
+        response to a pattern still has to be pointed at every instance of it.
+        """
+        with open(_SOURCE) as fh:
+            script = fh.read()
+
+        self.assertIn('bandit', script, 'the hook does not run bandit')
+        self.assertIn('pip_audit', script, 'the hook does not run pip-audit')
+
+    def test_its_bandit_flags_match_the_ones_ci_uses(self):
+        """
+        ⚠️ THE FAILURE MODE THIS PINS IS WORSE THAN NOT RUNNING BANDIT AT ALL.
+
+        If the hook scans with a laxer threshold or a wider exclude than CI, it
+        reports green on pushes CI then rejects — and a local gate that
+        disagrees with the remote one is a local gate people stop believing,
+        which is how a gate becomes decoration.
+
+        `-ll` is the load-bearing flag: it is what makes MEDIUM a failure rather
+        than a note, and it is the flag the CI file's own comment says was
+        deliberately flipped on 07-08-26.
+        """
+        with open(_SOURCE) as fh:
+            script = fh.read()
+        with open(os.path.join(_REPO_ROOT, '.github', 'workflows', 'ci.yml')) as fh:
+            ci = fh.read()
+
+        for flag in ('-r src/', '-ll', '--exclude src/migrations'):
+            with self.subTest(flag=flag):
+                self.assertIn(
+                    flag, ci,
+                    f'CI no longer passes {flag!r} to bandit — this test is '
+                    f'pinning the hook to a command CI has moved off.',
+                )
+                self.assertIn(
+                    flag, script,
+                    f'the hook scans without {flag!r} while CI scans with it, '
+                    f'so the hook can pass a push CI will fail.',
+                )
+
+    def test_a_scan_that_cannot_run_does_not_abort_the_push(self):
+        """
+        The rule stated at the top of `pre-push.sh`, asserted rather than
+        trusted: **a check that cannot run must not report like a check that
+        failed.** A missing binary or an offline laptop is a loud skip; only a
+        real finding is an `exit 1`.
+
+        ⚠️ Its mirror is asserted too, and the first draft got it wrong: the
+        block ended with "all gates green" after skipping both scans. A check
+        that cannot run must not report like a check that **passed** either, and
+        the summary line is the only line most pushes are read for.
+        """
+        with open(_SOURCE) as fh:
+            script = fh.read()
+
+        self.assertIn('_skipped=1', script, 'skips are not tracked')
+        self.assertIn(
+            'SKIPPED (see above)', script,
+            'the summary line cannot distinguish "checked and clean" from '
+            '"not checked"',
+        )
+        for phrase in ('bandit not installed', 'pip-audit could not report'):
+            with self.subTest(phrase=phrase):
+                self.assertIn(phrase, script)
+
     def test_the_gating_set_it_imports_actually_exists(self):
         """
         The hook reaches into `preflight` for the set, so a rename there breaks

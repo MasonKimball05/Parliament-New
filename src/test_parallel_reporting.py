@@ -175,7 +175,7 @@ class TracebacksMustSurviveTheProcessBoundaryTests(SimpleTestCase):
         except ValueError:
             err = sys.exc_info()
 
-        restored = pickle.loads(pickle.dumps(err))
+        restored = pickle.loads(pickle.dumps(err))  # nosec B301 - round-trips a value created on the same line; nothing untrusted is deserialized.
         self.assertIs(restored[0], ValueError)
         self.assertEqual(str(restored[1]), 'a failure that has to cross a process boundary')
         self.assertIsNotNone(restored[2], 'the traceback did not survive pickling')
@@ -256,7 +256,7 @@ class CacheIsolationMustReachSpawnedWorkersTests(SimpleTestCase):
 
         from src.cache_isolated_runner import CacheIsolatedParallelSuite
 
-        restored = pickle.loads(pickle.dumps(CacheIsolatedParallelSuite.run_subsuite))
+        restored = pickle.loads(pickle.dumps(CacheIsolatedParallelSuite.run_subsuite))  # nosec B301 - round-trips a value created on the same line; nothing untrusted is deserialized.
         from src.cache_isolated_runner import _run_subsuite_isolated
         self.assertIs(restored, _run_subsuite_isolated)
 

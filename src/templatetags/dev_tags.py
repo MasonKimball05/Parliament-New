@@ -163,7 +163,24 @@ def dev_value(obj, field_name, gated_by=None, gate_name=None):
         pass
 
     css = 'pdev-val' + (' pdev-gated' if is_gated else '')
-    return mark_safe(
+    # ⚠️ v3.19.10 — JUSTIFIED `nosec` (B308 + B703, "potential XSS on
+    # mark_safe"). Bandit is right that this is the shape it should flag, and it
+    # is safe here for a reason that has to stay true: **every value
+    # interpolated below is escaped at the point of interpolation, not
+    # upstream.** `css` is assembled from two literals; `info["table"]` and
+    # `str(display)` are wrapped in `escape()` on their own lines; and
+    # `_tooltip_html` escapes each key and value it emits (see the `body`
+    # comprehension there) and interpolates nothing else.
+    #
+    # This is dev mode, which Mason runs against PRODUCTION data, so the values
+    # passing through here are real member records — an unescaped one would be
+    # stored XSS in an officer's own session.
+    #
+    # **If you add a field to this f-string or to `_tooltip_html`'s rows, wrap
+    # it in `escape()` in the same edit, or delete this comment along with the
+    # nosec.** A bare `nosec` is used rather than `nosec B308,B703` because
+    # bandit 1.9.4 suppresses only B703 from the pair form on this line.
+    return mark_safe(  # nosec
         f'<span class="{css}" tabindex="0" data-pdev-table="{escape(info["table"])}">'
         f'{escape(str(display))}'
         f'{_tooltip_html(info, display, gate_note)}</span>'
