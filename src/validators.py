@@ -78,7 +78,7 @@ class PwnedPasswordValidator:
                 f'https://api.pwnedpasswords.com/range/{prefix}',
                 headers={'User-Agent': 'Parliament-App-PasswordCheck'},
             )
-            with urlopen(req, timeout=3) as resp:  # nosec B310 - fixed literal https:// URL, no user-controlled scheme
+            with urlopen(req, timeout=3) as resp:  # nosec B310  # fixed literal https:// URL, no user-controlled scheme
                 body = resp.read().decode('utf-8')
             for line in body.splitlines():
                 parts = line.split(':')

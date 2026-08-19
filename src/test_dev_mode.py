@@ -56,18 +56,18 @@ class SqlNormalisationTests(SimpleTestCase):
         self.assertNotEqual(a, b)
 
     def test_three_repeats_is_not_flagged_but_four_is(self):
-        three = [{'sql': 'SELECT a FROM t WHERE id = %d' % i, 'ms': 1.0} for i in range(3)]  # nosec B608 - literal SQL built from a loop counter / a fixed tuple of table names; no user input reaches this string.
+        three = [{'sql': 'SELECT a FROM t WHERE id = %d' % i, 'ms': 1.0} for i in range(3)]  # nosec B608  # literal SQL built from a loop counter; no user input reaches this string
         self.assertEqual(find_duplicate_queries(three), [])
 
-        four = [{'sql': 'SELECT a FROM t WHERE id = %d' % i, 'ms': 1.0} for i in range(4)]  # nosec B608 - literal SQL built from a loop counter / a fixed tuple of table names; no user input reaches this string.
+        four = [{'sql': 'SELECT a FROM t WHERE id = %d' % i, 'ms': 1.0} for i in range(4)]  # nosec B608  # literal SQL built from a loop counter; no user input reaches this string
         flagged = find_duplicate_queries(four)
         self.assertEqual(len(flagged), 1)
         self.assertEqual(flagged[0][1], 4)
 
     def test_duplicates_are_sorted_worst_first(self):
         queries = (
-            [{'sql': 'SELECT a FROM t WHERE id = %d' % i, 'ms': 1.0} for i in range(4)]  # nosec B608 - literal SQL built from a loop counter / a fixed tuple of table names; no user input reaches this string.
-            + [{'sql': 'SELECT b FROM u WHERE id = %d' % i, 'ms': 1.0} for i in range(9)]  # nosec B608 - literal SQL built from a loop counter / a fixed tuple of table names; no user input reaches this string.
+            [{'sql': 'SELECT a FROM t WHERE id = %d' % i, 'ms': 1.0} for i in range(4)]  # nosec B608  # literal SQL built from a loop counter; no user input reaches this string
+            + [{'sql': 'SELECT b FROM u WHERE id = %d' % i, 'ms': 1.0} for i in range(9)]  # nosec B608  # literal SQL built from a loop counter; no user input reaches this string
         )
         flagged = find_duplicate_queries(queries)
         self.assertEqual([row[1] for row in flagged], [9, 4])
@@ -520,7 +520,7 @@ class FeatureFlagInstrumentationTests(CacheIsolatedTestCase):
         """The context processor caches this dict for 60s; tracking must survive."""
         import pickle
         from src.context_processors import _TrackedToggleDict
-        restored = pickle.loads(pickle.dumps(_TrackedToggleDict({'chats': True})))  # nosec B301 - round-trips a value created on the same line; nothing untrusted is deserialized.
+        restored = pickle.loads(pickle.dumps(_TrackedToggleDict({'chats': True})))  # nosec B301  # round-trips a value created on the same line; nothing untrusted is deserialized
         self.assertIsInstance(restored, _TrackedToggleDict)
 
         recorder = dev_mode.start_recording()
@@ -603,7 +603,7 @@ class QueryCaptureTests(CacheIsolatedTestCase):
         """This is what makes two identical-looking N+1 blocks distinguishable."""
         from src.dev_mode import find_duplicate_queries
         queries = [
-            {'sql': 'SELECT a FROM t WHERE id = %d' % i, 'ms': 1.0,  # nosec B608 - literal SQL built from a loop counter / a fixed tuple of table names; no user input reaches this string.
+            {'sql': 'SELECT a FROM t WHERE id = %d' % i, 'ms': 1.0,  # nosec B608  # literal SQL built from a loop counter; no user input reaches this string
              'stack': [{'where': 'src/view/a.py:%d' % (10 + i % 2), 'func': 'f', 'code': ''}]}
             for i in range(6)
         ]

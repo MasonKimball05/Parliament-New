@@ -45,7 +45,7 @@ class RedactionPolicyTests(TestCase):
         """
         for table in ('src_vote', 'src_committeevote', 'src_slatingvote',
                       'src_slatingballot'):
-            columns, rows, reason = fetch_rows(f'SELECT * FROM "{table}"', ())  # nosec B608 - literal SQL built from a loop counter / a fixed tuple of table names; no user input reaches this string.
+            columns, rows, reason = fetch_rows(f'SELECT * FROM "{table}"', ())  # nosec B608  # literal SQL from a fixed tuple of table names; no user input reaches this string
             with self.subTest(table=table):
                 self.assertIsNone(columns, table)
                 self.assertIsNone(rows, table)
@@ -83,7 +83,7 @@ class RedactionPolicyTests(TestCase):
                       'src_pushsubscription', 'src_calendarsubscription',
                       'django_session'):
             with self.subTest(table=table):
-                columns, _rows, _reason = fetch_rows(f'SELECT * FROM "{table}"', ())  # nosec B608 - literal SQL built from a loop counter / a fixed tuple of table names; no user input reaches this string.
+                columns, _rows, _reason = fetch_rows(f'SELECT * FROM "{table}"', ())  # nosec B608  # literal SQL from a fixed tuple of table names; no user input reaches this string
                 self.assertIsNone(columns, table)
 
     def test_writes_are_never_re_run(self):

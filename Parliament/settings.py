@@ -424,6 +424,7 @@ ANYMAIL = {
 #   source .venv/bin/activate
 #   python3 -c "
 #   from py_vapid import Vapid
+
 #   from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat, PrivateFormat, NoEncryption
 #   import base64
 #   v = Vapid(); v.generate_keys()

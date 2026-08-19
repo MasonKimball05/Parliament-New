@@ -1,4 +1,5 @@
 from django.db import models
+from src.models.singleton import SingletonRow
 from src.storage import DualLocationStorage
 
 
@@ -144,10 +145,23 @@ class ResolutionSectionImpact(models.Model):
         return None
 
 
-class LandingPageContent(models.Model):
+class LandingPageContent(SingletonRow, models.Model):
     """
     Singleton model for officer-editable landing page content.
     Always access via LandingPageContent.get_instance().
+
+    ⚠️ v3.19.11 — THIS WAS A WRITE ON THE PUBLIC, UNAUTHENTICATED READ PATH.
+    `get_instance()` was `get_or_create(pk=1)` and `landing_page` is the
+    anonymous front door of the application, so the first `GET /` on a fresh
+    install or a restored database issued an `INSERT` while serving a page to a
+    visitor, and concurrent first requests raced for it. Measured 08-19-26: one
+    INSERT on the first anonymous request, then one uncached SELECT on every
+    request after it.
+
+    Now inherited from `SingletonRow` — a read, cached with its absence, and
+    invalidated by the receiver at the bottom of this module. See
+    `src/models/singleton.py` for why the sentinel exists and why the absent
+    row is cached rather than merely not-written.
     """
     tagline = models.CharField(
         max_length=300,
@@ -221,10 +235,12 @@ class LandingPageContent(models.Model):
         related_name='landing_page_edits'
     )
 
-    @classmethod
-    def get_instance(cls):
-        obj, _ = cls.objects.get_or_create(pk=1)
-        return obj
+    #: v3.19.11 — cached, with invalidation by the receiver at the bottom of
+    #: this module. This row is read once on every anonymous `GET /`, which is
+    #: the most-requested URL this application serves, and it changes a few
+    #: times a semester when an officer edits it.
+    CACHE_KEY = 'landing_page_content'
+    CACHE_TTL = 300  # backstop only; correctness comes from invalidation
 
     class Meta:
         verbose_name = 'Landing Page Content'
@@ -334,3 +350,31 @@ class LandingPageFormLink(models.Model):
 
     def __str__(self):
         return self.title
+
+
+# ---------------------------------------------------------------------------
+# Cache invalidation
+# ---------------------------------------------------------------------------
+#
+# v3.19.11. `LandingPageContent.get_instance()` is cached (see `SingletonRow`),
+# and as with every other cached row in this project the correctness comes from
+# invalidating on write, not from the TTL.
+#
+# A receiver rather than a `cache.delete` in `edit_landing_page`, for the reason
+# already recorded for `SystemLockdown`: **the officer editor is not the only
+# writer.** `LandingPageContentAdmin` (admin_extra.py) edits the same row from
+# `/admin/`, and a `manage.py shell` fix during a handoff writes it too. The
+# signal covers all three; a delete in the view would have covered one and
+# looked complete.
+#
+# post_delete matters as much as post_save here: deleting the row is exactly
+# what makes the cached instance a lie, and it is also what makes the *absence*
+# sentinel correct — see `SingletonRow.get_instance`.
+from django.db.models.signals import post_delete, post_save
+from django.dispatch import receiver
+
+
+@receiver(post_save, sender=LandingPageContent)
+@receiver(post_delete, sender=LandingPageContent)
+def _invalidate_landing_page_content_cache(sender, instance, **kwargs):
+    LandingPageContent.invalidate_cache()

@@ -2965,7 +2965,7 @@ def quarantine_management(request):
             from src.models import ParliamentUser
             user_id = request.POST.get('user_id')
             reason = request.POST.get('reason', 'Manual quarantine by admin')
-            ip_address = request.POST.get('ip_address', '0.0.0.0')  # nosec B104 - placeholder default IP for the quarantine record, not a socket bind
+            ip_address = request.POST.get('ip_address', '0.0.0.0')  # nosec B104  # placeholder default IP for the quarantine record, not a socket bind
             expires_at_str = request.POST.get('expires_at', '').strip()
 
             # Parse optional expiry datetime

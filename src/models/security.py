@@ -3,6 +3,7 @@ from django.db import models
 from django.conf import settings
 from django.utils import timezone
 from src.encrypted_fields import EncryptedCharField, EncryptedEmailField
+from src.models.singleton import SingletonRow
 
 
 class LoginHistory(models.Model):
@@ -529,10 +530,18 @@ class HoneypotAccess(models.Model):
         return f"{self.ip_address} -> {self.endpoint} ({self.accessed_at.strftime('%Y-%m-%d %H:%M')})"
 
 
-class SystemLockdown(models.Model):
+class SystemLockdown(SingletonRow, models.Model):
     """
     Emergency lockdown mode - blocks all logins except whitelisted IPs.
     Only one lockdown record should exist (singleton pattern).
+
+    v3.19.11: the read/cache/sentinel machinery moved to `SingletonRow`
+    (`src/models/singleton.py`) unchanged — v3.19.10 built it here and the
+    landing page needed the identical thing, which is the signal that it was
+    never really about lockdown. The reasoning that produced it is preserved in
+    that module; the `⚠️` notes below are the parts specific to *this* model,
+    which is a security control and therefore has a stricter invalidation
+    requirement than a content row.
     """
     is_active = models.BooleanField(default=False)
     reason = models.TextField(help_text='Why lockdown was activated')
@@ -573,89 +582,39 @@ class SystemLockdown(models.Model):
     CACHE_KEY = 'system_lockdown_instance'
     CACHE_TTL = 300  # backstop only; correctness comes from invalidation
 
-    #: Marker meaning "the singleton row does not exist yet" (v3.19.10).
-    #: A plain `None` cannot be used: `cache.get` returns `None` for a miss, so
-    #: caching `None` is indistinguishable from caching nothing and the query
-    #: would run on every request anyway — which is the whole thing this avoids.
-    CACHE_MISSING = '__system_lockdown_row_absent__'
-
-    @classmethod
-    def invalidate_cache(cls):
-        from django.core.cache import cache
-        cache.delete(cls.CACHE_KEY)
-
-    @classmethod
-    def get_instance(cls):
-        """
-        Get or create the singleton lockdown instance.
-
-        v3.18.7: cached. `EmergencyLockdownMiddleware` calls this on EVERY
-        request — authenticated or not, exempting only /static/, /media/,
-        /health/ and /favicon.ico — so this was the widest per-request DB read
-        in the application, wider than the 2FA middleware's (which at least only
-        charges authenticated users). It reads a singleton row whose `is_active`
-        is False essentially permanently.
-
-        ⚠️ THIS CACHES A SECURITY CONTROL, so the invalidation is the load-
-        bearing half and the TTL is not a substitute for it. A stale
-        `is_active=False` means an activated lockdown does not take effect —
-        a control failing open — and a five-minute delay defeats the word
-        "emergency". Invalidation is a post_save/post_delete receiver at the
-        bottom of this module rather than a `cache.delete` inside
-        activate()/deactivate(), so the admin's own edit of `is_active` is
-        covered too; those two methods are not the only writers.
-
-        Caching also removes a second, quieter problem: `get_or_create` in a
-        request path means that if the row is ever missing, every concurrent
-        request races to create it.
-
-        ⚠️ v3.19.10 — AND v3.19.10 REMOVED THE `get_or_create` ENTIRELY, because
-        narrowing that race is not the same as not having it. This method is
-        called by `EmergencyLockdownMiddleware` on essentially every request, so
-        it was **a write on the read path**: the first request after a database
-        restore, a fresh install, or an admin deleting the row issued an INSERT,
-        and concurrent first requests raced for it. It also meant the request
-        path could not run against a read-only connection at all.
-
-        The row's absence is not an error and does not need repairing here —
-        `cls(pk=1)` has `is_active=False`, which is exactly what "no lockdown
-        has ever been configured" means, and it is the same answer
-        `get_or_create` produced. The difference is that answering the question
-        no longer changes the answer.
-
-        ⚠️ **THE ABSENCE IS CACHED TOO, AND IT HAS TO BE.** Dropping the write
-        without caching the miss would trade one INSERT-once for **one uncached
-        SELECT on every request, forever**, on a fresh install where nobody has
-        ever opened the lockdown page — i.e. it would undo v3.18.7 on exactly
-        the widest hot path in the application, which is the thing v3.18.7 was
-        for. So a miss stores a sentinel, using the same `found`/`value` shape
-        `SiteSetting.get_setting` already uses for the same reason.
-
-        The sentinel is safe for a stated reason rather than a lucky one: the
-        `post_save` receiver at the bottom of this module fires when the row is
-        **created**, which is the exact moment "there is no row" stops being
-        true. Caching the placeholder *object* would not be safe — it would
-        store something that looks persisted and is not — so the cache holds a
-        marker and each caller gets a fresh unsaved instance.
-
-        `pk=1` is set on that instance so a caller who goes on to `activate()`
-        it writes the singleton rather than a second row. That is `admin_v2`'s
-        path, and `SystemLockdownAdmin.has_add_permission` already gates on
-        `objects.exists()` for the same reason.
-        """
-        from django.core.cache import cache
-
-        cached = cache.get(cls.CACHE_KEY)
-        if cached is not None:
-            return cls(pk=1) if cached == cls.CACHE_MISSING else cached
-
-        instance = cls.objects.filter(pk=1).first()
-        if instance is None:
-            cache.set(cls.CACHE_KEY, cls.CACHE_MISSING, cls.CACHE_TTL)
-            return cls(pk=1)
-
-        cache.set(cls.CACHE_KEY, instance, cls.CACHE_TTL)
-        return instance
+    # ⚠️ `get_instance()`, `invalidate_cache()` and the `save()` guard are
+    # inherited from `SingletonRow` as of v3.19.11. The history that produced
+    # them is kept below because it is the reasoning, not the code, that a
+    # future reader needs — and because the requirement it states is stricter
+    # here than for any other singleton: THIS ONE IS A SECURITY CONTROL.
+    #
+    #     v3.18.7: cached. `EmergencyLockdownMiddleware` calls get_instance()
+    #     on EVERY request — authenticated or not, exempting only /static/,
+    #     /media/, /health/ and /favicon.ico — so this was the widest
+    #     per-request DB read in the application, wider than the 2FA
+    #     middleware's (which at least only charges authenticated users). It
+    #     reads a singleton row whose `is_active` is False essentially
+    #     permanently.
+    #
+    #     ⚠️ CACHING A SECURITY CONTROL MEANS THE INVALIDATION IS THE
+    #     LOAD-BEARING HALF AND THE TTL IS NOT A SUBSTITUTE FOR IT. A stale
+    #     `is_active=False` means an activated lockdown does not take effect —
+    #     a control failing open — and a five-minute delay defeats the word
+    #     "emergency". Invalidation is the post_save/post_delete receiver at
+    #     the bottom of this module rather than a `cache.delete` inside
+    #     activate()/deactivate(), because those two are not the only writers:
+    #     the admin changeform edits `is_active` directly.
+    #
+    #     v3.19.10 removed the `get_or_create`, because narrowing a race is not
+    #     the same as not having it: this was a write on the read path, so the
+    #     first request after a restore, a fresh install, or an admin deleting
+    #     the row issued an INSERT while serving a GET, and the request path
+    #     could not run against a read-only connection at all.
+    #
+    #     v3.19.11 moved all of it to `SingletonRow` after finding the same
+    #     three lines on `LandingPageContent`, and added the half v3.19.10
+    #     missed — see that module's `save()`, which is a fix for a live 500 on
+    #     `manage_lockdown`'s whitelist and message actions.
 
     def activate(self, admin, reason, whitelisted_ips=None):
         """Activate emergency lockdown"""

@@ -58,7 +58,7 @@ def render_description(value):
     result = result.replace('&lt;/strong&gt;', '</strong>')
     # Convert newlines to <br>
     result = result.replace('\n', '<br>')
-    return mark_safe(result)  # nosec B308 B703 - input escaped on line 27 before transformations
+    return mark_safe(result)  # nosec  # B308,B703: input escaped on line 27, before these transformations
 
 @register.filter
 def split(value, arg):
@@ -161,7 +161,7 @@ def linkify(value, autoescape=True):
 
     if not urls:
         # No URLs found, just escape and return
-        return mark_safe(escape(text) if autoescape else text)  # nosec B308 B703 - text is escaped
+        return mark_safe(escape(text) if autoescape else text)  # nosec  # B308,B703: text is escaped on this line
 
     # Build the result by escaping non-URL parts and wrapping URLs in links
     result = []
@@ -199,7 +199,7 @@ def linkify(value, autoescape=True):
     result.append(remaining_text)
 
     # Bandit only honors nosec on the flagged line itself — keep it inline below.
-    return mark_safe(''.join(result))  # nosec B308 B703 - all text segments are escaped, URLs are escaped in href and display
+    return mark_safe(''.join(result))  # nosec  # B308,B703: every text segment escaped; URLs escaped in href and display
 
 
 @register.filter

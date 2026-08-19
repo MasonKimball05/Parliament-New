@@ -1,5 +1,5 @@
 asgiref==3.9.2  # channels 4.3.2 needs >=3.9,<4
-Django==5.2.16
+Django==5.2.17  # v3.19.11: PYSEC-2026-3717 / CVE-2026-15830 (GeoDjango WKT/WKB DoS — not reachable here, but it reddens CI and blocks every push)
 icalendar==6.1.0
 psycopg2-binary==2.9.10
 python-dotenv==1.2.2

@@ -437,7 +437,7 @@ def initiate_pledges(request):
                         f"""UPDATE {table_name}
                             SET username = '_migrating_' || username,
                                 email = '_migrating_' || email
-                            WHERE user_id = %s""",  # nosec B608
+                            WHERE user_id = %s""",  # nosec B608  # table name from a hard-coded map, never from the request
                         [old_user_id]
                     )
 
@@ -457,13 +457,13 @@ def initiate_pledges(request):
                                    REPLACE(username, '_migrating_', ''),
                                    REPLACE(email, '_migrating_', ''),
                                    {columns_str}
-                            FROM {table_name} WHERE user_id = %s""",  # nosec B608
+                            FROM {table_name} WHERE user_id = %s""",  # nosec B608  # table name from a hard-coded map, never from the request
                         [assigned_role_number, old_user_id]
                     )
 
                     # Step 3: Update member_type and role_number on the new record
                     cursor.execute(
-                        f"UPDATE {table_name} SET member_type = %s, role_number = %s WHERE user_id = %s",  # nosec B608
+                        f"UPDATE {table_name} SET member_type = %s, role_number = %s WHERE user_id = %s",  # nosec B608  # table name from a hard-coded map, never from the request
                         ['Member', assigned_role_number, assigned_role_number]
                     )
 
@@ -508,7 +508,7 @@ def initiate_pledges(request):
                     for rel_table, rel_column in extra_tables:
                         try:
                             cursor.execute(
-                                f"UPDATE {rel_table} SET {rel_column} = %s WHERE {rel_column} = %s",  # nosec B608
+                                f"UPDATE {rel_table} SET {rel_column} = %s WHERE {rel_column} = %s",  # nosec B608  # table/column names from a hard-coded map, never from the request
                                 [assigned_role_number, old_user_id]
                             )
                             if cursor.rowcount > 0:
@@ -533,7 +533,7 @@ def initiate_pledges(request):
                     for check_table, check_col in cascade_tables:
                         try:
                             cursor.execute(
-                                f"SELECT COUNT(*) FROM {check_table} WHERE {check_col} = %s",  # nosec B608
+                                f"SELECT COUNT(*) FROM {check_table} WHERE {check_col} = %s",  # nosec B608  # table/column names from a hard-coded map, never from the request
                                 [old_user_id]
                             )
                             count = cursor.fetchone()[0]
@@ -548,7 +548,7 @@ def initiate_pledges(request):
 
                     # Step 6: Delete the old pledge record (now has no FK references)
                     cursor.execute(
-                        f"DELETE FROM {table_name} WHERE user_id = %s",  # nosec B608
+                        f"DELETE FROM {table_name} WHERE user_id = %s",  # nosec B608  # table name from a hard-coded map, never from the request
                         [old_user_id]
                     )
                     rows_updated = cursor.rowcount

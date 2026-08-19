@@ -178,9 +178,26 @@ def dev_value(obj, field_name, gated_by=None, gate_name=None):
     #
     # **If you add a field to this f-string or to `_tooltip_html`'s rows, wrap
     # it in `escape()` in the same edit, or delete this comment along with the
-    # nosec.** A bare `nosec` is used rather than `nosec B308,B703` because
-    # bandit 1.9.4 suppresses only B703 from the pair form on this line.
-    return mark_safe(  # nosec
+    # suppression below.** A bare `nosec` is used rather than the explicit
+    # `B308,B703` pair because bandit 1.9.4 leaves B308 REPORTED when the ids
+    # are named on a `mark_safe` line — re-verified 08-19-26 against a minimal
+    # probe, and the same is now true of the four other `mark_safe` sites in
+    # this project. Naming the ids here would redden CI.
+    #
+    # ⚠️ v3.19.11 — THE COMMENT ABOVE USED TO WRAP SO THAT A LINE BEGAN WITH
+    # THE DIRECTIVE SPELLING ITSELF, AND BANDIT READ IT AS A DIRECTIVE. The
+    # pattern it looks for matches inside a comment as readily as after code,
+    # so the sentence written to *explain* this suppression became a second,
+    # blanket suppression sitting on a comment line — silently covering
+    # whatever code a later edit might move onto it, and emitting ~18 "not a
+    # test name" warnings from its own prose.
+    #
+    # The first draft of THIS note reintroduced it, by quoting the spelling in
+    # backticks. Never write the directive in prose; say "the directive" and
+    # let the line below be the only one. Pinned by
+    # `src/test_nosec_hygiene.py`, which fails on a comment-only line carrying
+    # one.
+    return mark_safe(  # nosec  # B308,B703: every interpolated value is escaped at the point of interpolation
         f'<span class="{css}" tabindex="0" data-pdev-table="{escape(info["table"])}">'
         f'{escape(str(display))}'
         f'{_tooltip_html(info, display, gate_note)}</span>'
