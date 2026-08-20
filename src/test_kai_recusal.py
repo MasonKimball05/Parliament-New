@@ -469,7 +469,6 @@ class MasonsThreeReports(TestCase):
         cl = Client(); cl.force_login(self.me)
         r = cl.get(reverse('view_kai_reports'))
         n, total = len(r.context['reports']), r.context['counts']['all']
-        print(f'\n  list={n}  total-card={total}   (both must be 3)')
         self.assertEqual(n, 3)
         self.assertEqual(total, 3)
 
@@ -490,20 +489,17 @@ class MasonsThreeReports(TestCase):
         row = body[start:start + 2500]                      # just this card
         self.assertNotIn('Other Person', row)               # submitter withheld
         self.assertNotIn(BODY, row)                         # allegation withheld
-        print('  row visible, submitter + body withheld  OK')
 
     def test_i_still_cannot_open_the_case_naming_me(self):
         cl = Client(); cl.force_login(self.me)
         self.assertEqual(
             cl.get(reverse('manage_kai_report', args=[self.b.id])).status_code, 302)
-        print('  detail page still refuses  OK')
 
     def test_i_can_open_the_two_that_do_not_name_me(self):
         cl = Client(); cl.force_login(self.me)
         for rep in (self.a, self.c):
             self.assertEqual(
                 cl.get(reverse('manage_kai_report', args=[rep.id])).status_code, 200)
-        print('  other two open fine  OK')
 
     def test_i_cannot_archive_the_case_naming_me(self):
         cl = Client(); cl.force_login(self.me)
@@ -511,7 +507,6 @@ class MasonsThreeReports(TestCase):
                 {'report_ids': [str(self.b.id)], 'bulk_action': 'archive'})
         self.b.refresh_from_db()
         self.assertNotEqual(self.b.status, 'archived')
-        print('  cannot archive the case naming me  OK')
 
 
 # ═══════════════════════════════════════════════════════════════════════════

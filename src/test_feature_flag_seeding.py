@@ -104,9 +104,6 @@ class FeatureFlagSeedingTests(unittest.TestCase):
 if __name__ == '__main__':
     refs = template_flag_refs()
     seeded = seeded_flag_names()
-    print(f"seed_feature_flags.py defines {len(seeded)} flags")
-    print(f"templates reference {len(refs)} flag(s): {', '.join(sorted(refs))}")
     for name in sorted(refs):
         mark = 'OK     ' if name in seeded else 'MISSING'
-        print(f"  {mark} {name}")
     unittest.main(verbosity=2)

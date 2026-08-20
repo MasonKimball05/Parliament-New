@@ -380,9 +380,19 @@ class TheDeployedColumnIsGatedWhereItsEvidenceLivesTests(SimpleTestCase):
     """
 
     def _run_check(self):
+        from unittest import mock
+
         from src.management.commands.preflight import Command
 
         command = Command()
+        # ⚠️ The command writes its verdict — including the paste-ready ledger
+        # lines and a fixture version number — to stdout. A bare `Command()`
+        # points that at the real `sys.stdout`, so running the suite printed
+        # `v9.9.9` and "Deploy ledger stamped" into every `git push` log, where
+        # it reads like a real finding about a real release. Captured here for
+        # the same reason `_run_against` above does it: **test output that looks
+        # like a production warning trains people to skim the push log.**
+        command.stdout = mock.MagicMock()
         command.passed, command.warnings, command.errors = [], [], []
         command.check_deploy_ledger_is_stamped()
         return command

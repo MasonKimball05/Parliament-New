@@ -78,7 +78,7 @@ if [ -z "$PY" ]; then
 fi
 
 echo "[pre-push] using $PY"
-echo "[pre-push] running sqlite test suite (git push --no-verify to skip)…"
+echo "[pre-push] running sqlite test suite in parallel (git push --no-verify to skip)…"
 
 # ⚠️ v3.19.9 — THE OUTPUT IS TEED AND RE-SUMMARISED, and that is not polish.
 # Several tests in this suite print progress to stdout, so a `FAIL:` line lands
@@ -90,7 +90,16 @@ echo "[pre-push] running sqlite test suite (git push --no-verify to skip)…"
 # Portable form: macOS `mktemp -t X` and GNU `mktemp -t` disagree about what
 # the argument means, and the hook has to run on both.
 _log="$(mktemp "${TMPDIR:-/tmp}/parliament-prepush.XXXXXX")"
-if ! DB_BACKEND=sqlite "$PY" manage.py test src -v 0 2>&1 | tee "$_log"; then
+# ⚠️ v3.21.4 — `--parallel`, because a gate people wait several minutes for is
+# a gate people learn to `--no-verify` past. Measured on this suite: ~291 s
+# serial, ~130 s across 8 workers. `tblib` has been a dependency since v3.19.9
+# precisely so that a parallel failure still reports which test failed — without
+# it the run aborts with `TypeError: cannot pickle 'traceback' object` and no
+# results at all, which is worse than slow.
+#
+# `--parallel` with no value uses one worker per core. It is deliberately not
+# pinned: this runs on whatever laptop is pushing.
+if ! DB_BACKEND=sqlite "$PY" manage.py test src -v 0 --parallel 2>&1 | tee "$_log"; then
   echo ""
   echo "[pre-push] ─────────────────────────────────────────────────────────"
   echo "[pre-push] ✗ tests failed — push aborted. What failed:"
@@ -98,7 +107,9 @@ if ! DB_BACKEND=sqlite "$PY" manage.py test src -v 0 2>&1 | tee "$_log"; then
   grep -E '^(FAIL|ERROR):|^Ran [0-9]+ test|^(FAILED|OK)\b' "$_log" | sed 's/^/    /'
   echo ""
   echo "[pre-push]   Full output: $_log"
-  echo "[pre-push]   Re-run:      DB_BACKEND=sqlite $PY manage.py test src"
+  echo "[pre-push]   Re-run:      DB_BACKEND=sqlite $PY manage.py test src --parallel"
+  echo "[pre-push]   If a failure is unclear, re-run SERIALLY — parallel workers"
+  echo "[pre-push]   interleave output:  DB_BACKEND=sqlite $PY manage.py test src"
   echo "[pre-push]   Or bypass:   git push --no-verify"
   echo "[pre-push] ─────────────────────────────────────────────────────────"
   exit 1

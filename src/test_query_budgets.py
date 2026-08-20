@@ -1157,10 +1157,6 @@ class MiddlewareChainQueryBudgetTests(QueryBudgetMixin, TestCase):
         cold = len(self._measure_path(home_url, authenticated=True, warm=False))
         warm = len(self._measure_path(home_url, authenticated=True, warm=True))
 
-        print(
-            f'\n[middleware chain] authenticated GET {home_url} — '
-            f'cold: {cold} queries, warm: {warm} queries'
-        )
 
         self.assertLess(
             warm, 200,

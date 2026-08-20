@@ -39,7 +39,6 @@ class EndVoteTestCase(TestCase):
 
 class VoteTallyTestCase(TestCase):
     def setUp(self):
-        print("\n=== Setting up VoteTallyTestCase ===")
 
         # Create uploader
         self.uploader = ParliamentUser.objects.create_user(
@@ -48,11 +47,9 @@ class VoteTallyTestCase(TestCase):
             username="uploader",
             member_type="Chair"
         )
-        print("Created uploader:", self.uploader.username)
 
         # Randomly decide if abstain is allowed
         self.allow_abstain = random.choice([True, False])
-        print("Allow abstain:", self.allow_abstain)
 
         # Create legislation
         self.legislation = Legislation.objects.create(
@@ -64,14 +61,12 @@ class VoteTallyTestCase(TestCase):
             allow_abstain=self.allow_abstain,
             document="dummy.docx"
         )
-        print("Created legislation:", self.legislation.title)
 
         # Create up to 15 voters and assign random votes
         self.votes_cast = {"yes": 0, "no": 0, "abstain": 0}
         choices = ["yes", "no", "abstain"] if self.allow_abstain else ["yes", "no"]
 
         self.total_voters = random.randint(5, 15)
-        print(f"Creating {self.total_voters} voters with votes from {choices}")
 
         for i in range(self.total_voters):
             user = ParliamentUser.objects.create_user(
@@ -85,28 +80,21 @@ class VoteTallyTestCase(TestCase):
             choice = random.choice(choices)
             self.votes_cast[choice] += 1
             Vote.objects.create(user=user, legislation=self.legislation, vote_choice=choice)
-            print(f"User {user.username} voted: {choice}")
 
     def test_vote_summary_counts(self):
-        print("\n=== Running test_vote_summary_counts ===")
         self.client.force_login(self.uploader)
-        print("Logged in as uploader.")
 
         response = self.client.post(reverse('end_vote', args=[self.legislation.id]))
-        print("POSTed to end_vote")
 
         self.assertEqual(response.status_code, 200)
-        print("Received 200 OK response")
 
         # Extract vote summary from context
         context = response.context
         summary = {item['vote_choice']: item['count'] for item in context['summary']}
-        print("Vote summary from context:", summary)
 
         for choice in ["yes", "no", "abstain"]:
             expected = self.votes_cast[choice]
             actual = summary.get(choice, 0)
-            print(f"Checking {choice}: expected={expected}, actual={actual}")
             self.assertEqual(actual, expected, f"Mismatch for {choice} votes: expected {expected}, got {actual}")
 
 
@@ -126,8 +114,6 @@ class AnonymousVoteBehaviorTestCase(TestCase):
         # Random flags
         self.is_anonymous = random.choice([True, False])
         self.allow_abstain = random.choice([True, False])
-        print("=== Running test_anonymous_vote_behavior ===")
-        print(f"Anonymous: {self.is_anonymous}, Allow Abstain: {self.allow_abstain}")
 
         # Create legislation
         self.legislation = Legislation.objects.create(
@@ -157,31 +143,25 @@ class AnonymousVoteBehaviorTestCase(TestCase):
             Attendance.objects.create(user=voter, present=True)
 
             vote_choice = random.choice(self.choices)
-            print(f"Voter {voter.username} voting {vote_choice}")
             Vote.objects.get_or_create(user=voter, legislation=self.legislation, vote_choice=vote_choice)
 
     def test_vote_display_behavior(self):
         response = self.client.post(reverse('end_vote', args=[self.legislation.id]))
         self.assertEqual(response.status_code, 200)
-        print("Response OK")
 
         context = response.context
         anonymous = context.get('anonymous')
-        print(f"Anonymous in context: {anonymous}")
 
         if not anonymous:
             self.assertIn('in_favor', context)
             self.assertIn('against', context)
             if self.allow_abstain:
                 self.assertIn('abstain', context)
-            print("Vote lists present in context")
         else:
             self.assertNotIn('in_favor', context)
             self.assertNotIn('against', context)
             self.assertNotIn('abstain', context)
-            print("No voter lists shown (anonymous)")
 
-        print("Test passed.")
 
 
 class ComprehensiveVoteTestCase(TestCase):
@@ -222,9 +202,6 @@ class ComprehensiveVoteTestCase(TestCase):
             self.voters.append(user)
 
     def test_vote_result_threshold_and_display(self):
-        print(f"\n=== Running test_vote_result_threshold_and_display ===")
-        print(f"Required threshold: {self.required_percent}%")
-        print(f"Anonymous: {self.anonymous}, Allow Abstain: {self.allow_abstain}")
 
         choices = ['yes', 'no']
         if self.allow_abstain:
@@ -237,19 +214,16 @@ class ComprehensiveVoteTestCase(TestCase):
                 yes_count += 1
 
             Vote.objects.create(user=voter, legislation=self.legislation, vote_choice=choice)
-            print(f"Voter {i} voted {choice}")
 
         response = self.client.post(reverse('end_vote', args=[self.legislation.id]))
         self.assertEqual(response.status_code, 200)
 
         context = response.context
         summary = {entry['vote_choice']: entry['count'] for entry in context['summary']}
-        print("Vote summary:", summary)
 
         total_votes = sum(summary.get(k, 0) for k in ['yes', 'no', 'abstain'] if k in summary)
         required_ratio = int(self.required_percent) / 100
         passed = summary.get('yes', 0) / total_votes >= required_ratio if total_votes else False
-        print("Vote passed:", passed)
 
         self.assertEqual(context['anonymous'], self.anonymous)
         if not self.anonymous:
@@ -258,7 +232,6 @@ class ComprehensiveVoteTestCase(TestCase):
             if self.allow_abstain:
                 self.assertIn('abstain', context)
 
-        print("=== Test completed ===")
 
 
 class PiecewiseVotingTestCase(TestCase):
@@ -287,13 +260,10 @@ class PiecewiseVotingTestCase(TestCase):
             )
             Attendance.objects.create(user=voter, present=True)
             Vote.objects.create(user=voter, legislation=legislation, vote_choice='yes')
-            print(f"Voter {voter.username} voted yes")
 
         response = self.client.post(reverse('end_vote', args=[legislation.id]))
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.context['passed'], True)
-        print("=== Test completed ===")
-        print("✅ test_passes_with_enough_yes_votes: Passed")
 
     def test_fails_with_insufficient_yes_votes(self):
         legislation = self.create_legislation(required_number=3)
@@ -303,13 +273,10 @@ class PiecewiseVotingTestCase(TestCase):
             )
             Attendance.objects.create(user=voter, present=True)
             Vote.objects.create(user=voter, legislation=legislation, vote_choice='yes')
-            print(f"Voter {voter.username} voted yes")
 
         response = self.client.post(reverse('end_vote', args=[legislation.id]))
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.context['passed'], False)
-        print("Vote failed as expected")
-        print("✅ test_fails_with_insufficient_yes_votes: Passed")
 
 class PluralityTestVoting(TestCase):
     def setUp(self):
@@ -337,4 +304,3 @@ class PluralityTestVoting(TestCase):
         response = self.client.post(reverse('end_vote', args=[legislation.id]))
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.context['passed'], True)
-        print("✅ test_passes_with_highest_votes: Passed")
