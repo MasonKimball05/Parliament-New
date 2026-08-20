@@ -1,0 +1,40 @@
+{% comment %}
+The top half of a modal — v3.21.0.
+
+Pair with `components/modal_close.html`:
+
+    {% include "components/modal_open.html" with modal_id="add-task-modal" title="Add Pledge Task" %}
+      …body…
+    {% include "components/modal_close.html" with modal_id="add-task-modal" submit_label="Add Task" %}
+
+⚠️ WHY A PAIR RATHER THAN ONE INCLUDE. A Django `{% include %}` cannot wrap
+arbitrary markup — only template inheritance can, and inheritance is
+one-per-page, so it cannot serve three modals on one dashboard. An open/close
+pair is the honest way to share the shell. `src/test_modal_component.py`
+asserts every page has as many opens as closes, because an unbalanced pair is
+the one failure mode this shape adds.
+
+⚠️ AND WHY IT EXISTS AT ALL: the overflow bug in v3.20.0 was present in all
+three modals on `education.html` because the shell had been hand-copied three
+times. The scroll behaviour lives here now, so the next modal cannot be born
+with it missing.
+
+`items-start` + `py-8` + `overflow-y-auto`, not `items-center`: a centred panel
+taller than the viewport clips at BOTH ends, hiding the title as well as the
+submit button.
+
+Params: `modal_id` (required), `title` (required), `subtitle` (optional).
+{% endcomment %}
+<div id="{{ modal_id }}" class="hidden fixed inset-0 z-50 flex items-start justify-center bg-black/50 overflow-y-auto py-8">
+  <div class="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-lg mx-4 p-6 my-auto max-h-[85vh] overflow-y-auto">
+    <div class="flex items-start justify-between mb-5 gap-4">
+      <div>
+        <h2 class="text-lg font-bold text-gray-900 dark:text-white">{{ title }}</h2>
+        {% if subtitle %}
+        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{{ subtitle }}</p>
+        {% endif %}
+      </div>
+      <button type="button" onclick="document.getElementById('{{ modal_id }}').classList.add('hidden')"
+              class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-xl leading-none shrink-0"
+              aria-label="Close">&#10005;</button>
+    </div>

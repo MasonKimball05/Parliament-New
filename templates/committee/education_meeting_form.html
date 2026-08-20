@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+
+{% block title %}Edit meeting — {{ meeting.event.title }}{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gray-50 dark:bg-gray-900">
+
+  <div class="bg-gradient-to-r from-primary-600 via-primary-700 to-primary-800 text-white py-8 shadow-lg">
+    <div class="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8">
+      <a href="{% url 'education_home' committee.code %}"
+         class="text-primary-200 hover:text-white text-sm mb-2 inline-block">← Education</a>
+      <h1 class="text-3xl font-bold">Edit meeting</h1>
+      <p class="text-primary-100 text-sm mt-1">
+        Changing the time or place keeps the attendance already recorded.
+      </p>
+    </div>
+  </div>
+
+  <div class="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
+      <form method="post">
+        {% csrf_token %}
+        {% include "committee/_education_meeting_fields.html" %}
+
+        <div class="flex items-center justify-between gap-2 mt-6 pt-6 border-t border-gray-100 dark:border-gray-700">
+          {% if is_chair %}
+          <!-- Delete lives here, next to the thing it deletes, and says what
+               goes with it. v3.20.0 made delete the ONLY way to correct a
+               meeting, which meant a mistyped time cost the attendance — the
+               warning matters more now that there is a safe alternative right
+               above it. -->
+          <button type="button"
+            onclick="document.getElementById('delete-meeting-form').requestSubmit()"
+            class="text-sm text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 font-medium">
+            Delete meeting
+          </button>
+          {% else %}
+          <span></span>
+          {% endif %}
+
+          <div class="flex items-center gap-2">
+            <a href="{% url 'education_home' committee.code %}"
+               class="px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white">Cancel</a>
+            <button type="submit"
+              class="px-4 py-2 text-sm font-semibold bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition">
+              Save changes
+            </button>
+          </div>
+        </div>
+      </form>
+
+      {% if is_chair %}
+      <form method="post" id="delete-meeting-form"
+            action="{% url 'education_delete_meeting' committee.code meeting.pk %}"
+            onsubmit="return confirm('Delete this meeting? Its calendar entry and every attendance record for it go with it. To change the time or place, use Save changes instead — that keeps the attendance.');">
+        {% csrf_token %}
+      </form>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -21,6 +21,150 @@
 
     <!-- Dark Mode Initialization - MUST run BEFORE styles apply -->
     <script nonce="{{ request.csp_nonce }}">
+    /*
+     * Parliament.post — the one way to send a state-changing request (v3.20.1).
+     *
+     * ⚠️ WHY THIS EXISTS. v3.20.0 found that every interactive control on the
+     * education dashboard had been answering 403 since the page was written,
+     * and nobody could tell, because every handler caught the rejection and
+     * only logged it to the console. The page just did nothing. The same shape
+     * sat on the CSP-violations page. A silent failure is worse than a crash:
+     * a crash gets reported on day one.
+     *
+     * (This comment describes that pattern rather than quoting it. The first
+     * draft spelled it out and `src/test_fetch_error_visibility.py` counted the
+     * comment as an instance — the third time in one day that writing a rule
+     * down created one.)
+     *
+     * Two jobs, and they are the two halves of that bug:
+     *
+     *   1. ONE PLACE KNOWS WHERE THE CSRF TOKEN COMES FROM. Three templates had
+     *      each written their own token read, two of them against a cookie that
+     *      `CSRF_COOKIE_HTTPONLY = True` makes unreadable. A helper cannot be
+     *      copied wrong.
+     *   2. A FAILED REQUEST IS VISIBLE. Non-2xx raises, and the rejection is
+     *      shown to the user as a toast unless the caller opts out.
+     *
+     * Defined in <head>, deliberately: page scripts live inside the content
+     * block, which base.html renders BEFORE its own later script blocks — a
+     * helper defined further down would not exist yet. Nothing here touches
+     * the DOM at parse time; the toast container is created on first use.
+     *
+     * ⚠️ And do not name that block literally in a comment here. Django's
+     * template engine parses tags inside JS comments perfectly happily, so the
+     * first draft of this note created a SECOND content block and took the
+     * whole site down with `'block' tag with name 'content' appears more than
+     * once`. Fifth time in one day that writing a rule down produced an
+     * instance of it — and the first that broke something.
+     */
+    window.Parliament = window.Parliament || {};
+
+    (function(P) {
+        function csrfToken() {
+            var meta = document.querySelector('meta[name="csrf-token"]');
+            return meta ? meta.getAttribute('content') : '';
+        }
+        P.csrfToken = csrfToken;
+
+        function toastHost() {
+            var host = document.getElementById('parliament-toasts');
+            if (!host) {
+                host = document.createElement('div');
+                host.id = 'parliament-toasts';
+                host.setAttribute('role', 'status');
+                host.setAttribute('aria-live', 'polite');
+                host.className = 'fixed bottom-4 right-4 z-[100] flex flex-col gap-2 max-w-sm';
+                document.body.appendChild(host);
+            }
+            return host;
+        }
+
+        /* `kind` is 'error' | 'success'. Errors persist longer because the
+         * whole point is that somebody reads them. */
+        P.toast = function(message, kind) {
+            var host = toastHost();
+            var el = document.createElement('div');
+            el.className =
+                'rounded-lg px-4 py-3 text-sm shadow-lg transition-opacity duration-300 ' +
+                (kind === 'success'
+                    ? 'bg-green-600 text-white'
+                    : 'bg-red-600 text-white');
+            el.textContent = message;
+            host.appendChild(el);
+            setTimeout(function() {
+                el.style.opacity = '0';
+                setTimeout(function() { el.remove(); }, 300);
+            }, kind === 'success' ? 3000 : 8000);
+            return el;
+        };
+
+        /*
+         * POST `body` (FormData, URLSearchParams, a plain object, or nothing)
+         * to `url`. Resolves with the parsed JSON body, or with `{}` when the
+         * response has none.
+         *
+         * REJECTS on any non-2xx, and shows the reason. Options:
+         *   quiet: true   — do not toast (the caller is rendering its own error)
+         *
+         * The error message prefers the server's own `error` field, because
+         * these endpoints already return `{'error': '...'}` on a 400 and that
+         * text is written for a human.
+         */
+        P.post = function(url, body, options) {
+            options = options || {};
+            var payload = body;
+            if (body && !(body instanceof FormData) && !(body instanceof URLSearchParams)) {
+                payload = new FormData();
+                Object.keys(body).forEach(function(key) {
+                    var value = body[key];
+                    if (Array.isArray(value)) {
+                        value.forEach(function(v) { payload.append(key, v); });
+                    } else {
+                        payload.append(key, value);
+                    }
+                });
+            }
+
+            return fetch(url, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': csrfToken(),
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+                body: payload,
+            }).then(function(response) {
+                return response.text().then(function(text) {
+                    var data = {};
+                    try { data = text ? JSON.parse(text) : {}; } catch (e) { /* not JSON */ }
+
+                    if (response.ok) { return data; }
+
+                    /* ⚠️ 403 is called out by name. It is what a missing or
+                     * wrong CSRF token produces, it is the failure that hid for
+                     * months, and "Forbidden" alone sends the reader looking
+                     * for a permissions problem that is not there. */
+                    var message = data.error
+                        || (response.status === 403
+                            ? 'Refused by the server (403). If this keeps happening, reload the page — your session may have expired.'
+                            : 'Something went wrong (' + response.status + '). Nothing was saved.');
+                    var error = new Error(message);
+                    error.status = response.status;
+                    error.data = data;
+                    throw error;
+                });
+            }).catch(function(error) {
+                /* A network failure has no response, so give it words too. */
+                if (!error.status) {
+                    error.message = error.message || 'Could not reach the server. Nothing was saved.';
+                }
+                if (!options.quiet) { P.toast(error.message, 'error'); }
+                throw error;
+            });
+        };
+    })(window.Parliament);
+    </script>
+
+    <script nonce="{{ request.csp_nonce }}">
         (function() {
             const theme = '{{ user_prefs.theme|default:"light" }}';
             if (theme === 'dark' || (theme === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
@@ -1955,9 +2099,15 @@
     {% if user.is_authenticated %}
     <script nonce="{{ request.csp_nonce }}">
     window.addEventListener('load', function() {
-        var csrf = (document.querySelector('meta[name="csrf-token"]') || {}).getAttribute
-            ? document.querySelector('meta[name="csrf-token"]').getAttribute('content')
-            : (document.cookie.match(/csrftoken=([^;]+)/) || [])[1] || '';
+        // ⚠️ v3.20.0 — the cookie fallback that used to be the `:` branch here
+        // was DEAD CODE: `CSRF_COOKIE_HTTPONLY = True`, so JavaScript can never
+        // read that cookie. Removed rather than left in place, because a dead
+        // fallback reads as an endorsement — three other templates were written
+        // against the cookie, two of them with no fallback at all, and every one
+        // of their requests was a 403. `src/test_csrf_token_source.py` now
+        // enforces the meta tag as the single source.
+        var meta = document.querySelector('meta[name="csrf-token"]');
+        var csrf = meta ? meta.getAttribute('content') : '';
         var fd = new FormData();
         fd.append('path', window.location.pathname);
         fd.append('csrfmiddlewaretoken', csrf);

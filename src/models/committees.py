@@ -91,10 +91,49 @@ class Committee(models.Model):
     chair_list.short_description = "Chairs"
 
     def is_chair(self, user):
+        """
+        Chair-level permission for `user` on this committee.
+
+        ⚠️ v3.20.0 — MEMOISED PER REQUEST, because this is asked several times
+        per page. `recruitment.py` alone calls it four times in a row while
+        building one view's context, and each call is a
+        `SELECT … FROM src_parliamentuser INNER JOIN src_committee_chairs …
+        LIMIT 1`. Reported from production dev mode as *4× the same query
+        shape*.
+
+        ⚠️ THE MEMO LIVES ON THE **USER**, NOT ON THE COMMITTEE, AND THAT IS THE
+        WHOLE SAFETY ARGUMENT. `request.user` is constructed fresh per request
+        by the auth middleware, so a memo hung on it cannot outlive the request.
+        A `Committee` instance can be cached — this project caches model
+        instances in several places — and a stale memo inside a cached committee
+        would be a **permissions** bug, which is the one kind this codebase is
+        least willing to trade for a query.
+
+        Keyed by committee pk so one user object can answer for many committees,
+        which is what the committee index page does.
+        """
+        memo = getattr(user, '_committee_chair_memo', None)
+        if memo is None:
+            memo = {}
+            try:
+                user._committee_chair_memo = memo
+            except AttributeError:
+                # Some user-like object that refuses attributes. Fall through
+                # and just answer the question — correctness over the cache.
+                memo = None
+
+        if memo is not None and self.pk in memo:
+            return memo[self.pk]
+
         # Exec board members all carry chair-level permissions
         if self.is_exec_board and self.members.filter(pk=user.pk).exists():
-            return True
-        return self.chairs.filter(pk=user.pk).exists()
+            result = True
+        else:
+            result = self.chairs.filter(pk=user.pk).exists()
+
+        if memo is not None:
+            memo[self.pk] = result
+        return result
 
     def is_member(self, user):
         return self.members.filter(pk=user.pk).exists()

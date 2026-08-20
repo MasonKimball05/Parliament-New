@@ -80,6 +80,10 @@ from src.view.committee.education import (
     education_delete_task, education_toggle_task_published,
     education_update_page_restriction, education_delete_page_restriction,
     education_add_quiz_question, education_delete_quiz_question, education_quiz_submissions,
+    education_pledge_detail, education_duplicate_task,
+    education_quiz_analysis, education_mark_answer, education_review_absence,
+    education_add_meeting, education_edit_meeting, education_delete_meeting,
+    education_meeting_attendance,
 )
 from src.view.chat import (
     chat_index, channel_chat, get_channel_messages, send_channel_message,
@@ -164,7 +168,9 @@ from src.view.officer.manage_roles import manage_roles, role_detail, add_role, d
 from src.view.officer.transitions import role_transitions, transfer_role, transition_checklist, toggle_checklist_item
 from src.view.officer.set_member_house import set_member_house
 from src.view.officer.chapter_stats import chapter_stats
-from src.view.pledge_tasks import my_pledge_tasks, pledge_take_quiz
+from src.view.pledge_tasks import (
+    my_pledge_tasks, pledge_take_quiz, pledge_request_absence, pledge_quiz_analysis,
+)
 from src.view.home import home
 from src.view.landing import landing_page, contact_submit
 from src.view.serve_media import serve_media
@@ -467,6 +473,8 @@ urlpatterns = [
     path('officers/chapter-stats/', chapter_stats, name='chapter_stats'),
     path('my-tasks/', my_pledge_tasks, name='my_pledge_tasks'),
     path('my-tasks/quiz/<int:task_pk>/', pledge_take_quiz, name='pledge_take_quiz'),
+    path('my-tasks/quiz/<int:task_pk>/results/', pledge_quiz_analysis, name='pledge_quiz_analysis'),
+    path('my-tasks/meetings/<int:meeting_pk>/absence/', pledge_request_absence, name='pledge_request_absence'),
     path('officers/edit-landing-page/', edit_landing_page, name='edit_landing_page'),
     path('officers/contact-messages/', contact_submissions_view, name='contact_submissions'),
     path('officers/contact-messages/<int:pk>/read/', mark_contact_read, name='mark_contact_read'),
@@ -734,7 +742,7 @@ urlpatterns = [
     # Service Hours Adjustment URLs (VPP only)
     path('api/service-hours/adjustment/add/', add_service_adjustment, name='add_service_adjustment'),
     path('api/service-hours/adjustment/<int:adjustment_id>/delete/', delete_service_adjustment, name='delete_service_adjustment'),
-    path('api/service-hours/adjustments/<int:period_id>/<int:member_id>/', get_member_adjustments, name='get_member_adjustments'),
+    path('api/service-hours/adjustments/<int:period_id>/<str:member_id>/', get_member_adjustments, name='get_member_adjustments'),
 
     # Service Events (VPP only)
     path('service-hours/events/', service_events_list, name='service_events_list'),
@@ -782,7 +790,7 @@ urlpatterns = [
     # Education dashboard (pledge tracker + page access controls)
     path('committee/<str:code>/education/', education_home, name='education_home'),
     path('committee/<str:code>/education/tasks/add/', education_add_task, name='education_add_task'),
-    path('committee/<str:code>/education/tasks/<int:task_pk>/toggle/<int:pledge_pk>/', education_toggle_completion, name='education_toggle_completion'),
+    path('committee/<str:code>/education/tasks/<int:task_pk>/toggle/<str:pledge_pk>/', education_toggle_completion, name='education_toggle_completion'),
     path('committee/<str:code>/education/tasks/<int:task_pk>/delete/', education_delete_task, name='education_delete_task'),
     path('committee/<str:code>/education/tasks/<int:task_pk>/publish/', education_toggle_task_published, name='education_toggle_task_published'),
     path('committee/<str:code>/education/restrictions/update/', education_update_page_restriction, name='education_update_page_restriction'),
@@ -791,6 +799,17 @@ urlpatterns = [
     path('committee/<str:code>/education/tasks/<int:task_pk>/questions/add/', education_add_quiz_question, name='education_add_quiz_question'),
     path('committee/<str:code>/education/tasks/<int:task_pk>/questions/<int:question_pk>/delete/', education_delete_quiz_question, name='education_delete_quiz_question'),
     path('committee/<str:code>/education/tasks/<int:task_pk>/submissions/', education_quiz_submissions, name='education_quiz_submissions'),
+
+    # Education meetings (v3.20.0)
+    path('committee/<str:code>/education/pledge/<str:pledge_pk>/', education_pledge_detail, name='education_pledge_detail'),
+    path('committee/<str:code>/education/tasks/<int:task_pk>/duplicate/', education_duplicate_task, name='education_duplicate_task'),
+    path('committee/<str:code>/education/tasks/<int:task_pk>/analysis/', education_quiz_analysis, name='education_quiz_analysis'),
+    path('committee/<str:code>/education/tasks/<int:task_pk>/answers/<int:answer_pk>/mark/', education_mark_answer, name='education_mark_answer'),
+    path('committee/<str:code>/education/absences/<int:request_pk>/review/', education_review_absence, name='education_review_absence'),
+    path('committee/<str:code>/education/meetings/add/', education_add_meeting, name='education_add_meeting'),
+    path('committee/<str:code>/education/meetings/<int:meeting_pk>/edit/', education_edit_meeting, name='education_edit_meeting'),
+    path('committee/<str:code>/education/meetings/<int:meeting_pk>/delete/', education_delete_meeting, name='education_delete_meeting'),
+    path('committee/<str:code>/education/meetings/<int:meeting_pk>/attendance/', education_meeting_attendance, name='education_meeting_attendance'),
 
     # Recruitment candidates
     path('committee/<str:code>/candidates/', candidate_list, name='candidate_list'),

@@ -1,0 +1,35 @@
+{% comment %}
+One status vocabulary — v3.21.0.
+
+⚠️ WHY. The same four completion states were rendered three different ways: SVG
+icons on the pledge page, emoji in the chair's grid, ad-hoc coloured pills
+elsewhere. Same information, three visual languages, so a chair and a pledge
+looking at the same fact saw different things.
+
+Params:
+  `status` — a PledgeTaskCompletion status, an EducationMeetingAttendance
+             status, or empty/None for "not started".
+  `label`  — optional override; defaults to a sensible word per status.
+
+Colours are shared with the meeting-attendance chips deliberately: green means
+done/present everywhere in this app, amber means waiting, red means a problem.
+{% endcomment %}
+<span class="text-xs font-semibold px-2.5 py-1 rounded-full whitespace-nowrap
+  {% if status == 'completed' or status == 'present' %}bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400
+  {% elif status == 'pending' %}bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400
+  {% elif status == 'late' %}bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400
+  {% elif status == 'incomplete' or status == 'absent' %}bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400
+  {% elif status == 'excused' %}bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400
+  {% elif status == 'waived' %}bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300
+  {% else %}bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400{% endif %}">
+  {% if label %}{{ label }}
+  {% elif status == 'completed' %}Completed
+  {% elif status == 'incomplete' %}Incomplete
+  {% elif status == 'pending' %}Awaiting review
+  {% elif status == 'waived' %}Waived
+  {% elif status == 'present' %}Present
+  {% elif status == 'late' %}Late
+  {% elif status == 'excused' %}Excused
+  {% elif status == 'absent' %}Absent
+  {% else %}Not started{% endif %}
+</span>

@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+
+{% block title %}{{ pledge.name }} — Pledge Progress{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gray-50 dark:bg-gray-900">
+
+  <div class="bg-gradient-to-r from-primary-600 via-primary-700 to-primary-800 text-white py-8 shadow-lg">
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+      <a href="{% url 'education_home' committee.code %}"
+         class="text-primary-200 hover:text-white text-sm mb-2 inline-block">← Education</a>
+      <h1 class="text-3xl font-bold">{{ pledge.name }}</h1>
+
+      <div class="mt-5">
+        <div class="flex items-center justify-between text-sm text-primary-100 mb-1.5">
+          <span>Required tasks completed</span>
+          <span class="font-semibold">{{ required_done }}/{{ required_total }}</span>
+        </div>
+        <div class="h-2.5 bg-white/20 rounded-full overflow-hidden">
+          <div class="h-2.5 rounded-full transition-all
+            {% if required_percent == 100 %}bg-green-400{% elif required_percent >= 60 %}bg-amber-300{% else %}bg-white{% endif %}"
+            style="width: {{ required_percent }}%"></div>
+        </div>
+      </div>
+
+      {% if overdue_rows %}
+      <div class="mt-4 rounded-lg bg-red-500/20 border border-red-300/40 px-4 py-2.5">
+        <p class="text-sm font-semibold text-white">
+          {{ overdue_rows|length }} task{{ overdue_rows|pluralize }} past due
+        </p>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+
+    <!-- Summary numbers -->
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm px-4 py-3">
+        <p class="text-xs uppercase tracking-wide text-gray-400 dark:text-gray-500">Total points</p>
+        <p class="text-2xl font-bold text-gray-900 dark:text-white leading-tight">{{ total_points }}</p>
+      </div>
+      <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm px-4 py-3">
+        <p class="text-xs uppercase tracking-wide text-gray-400 dark:text-gray-500">From tasks</p>
+        <p class="text-2xl font-bold text-gray-900 dark:text-white leading-tight">{{ task_points }}</p>
+      </div>
+      <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm px-4 py-3">
+        <p class="text-xs uppercase tracking-wide text-gray-400 dark:text-gray-500">Meetings attended</p>
+        <p class="text-2xl font-bold text-gray-900 dark:text-white leading-tight">{{ attended_count }}</p>
+      </div>
+      <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm px-4 py-3">
+        <p class="text-xs uppercase tracking-wide text-gray-400 dark:text-gray-500">Missed</p>
+        <p class="text-2xl font-bold leading-tight {% if missed_count %}text-red-600 dark:text-red-400{% else %}text-gray-900 dark:text-white{% endif %}">{{ missed_count }}</p>
+      </div>
+    </div>
+
+    <!-- Tasks -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+      <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
+        <h2 class="text-base font-bold text-gray-900 dark:text-white">Tasks</h2>
+        <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+          Only tasks that apply to {{ pledge.name }}. Marking happens on the dashboard grid.
+        </p>
+      </div>
+
+      {% if task_rows %}
+      <div class="divide-y divide-gray-100 dark:divide-gray-700">
+        {% for row in task_rows %}
+        <div class="px-6 py-3 flex items-start justify-between gap-4 flex-wrap{% if row.overdue %} bg-red-50/60 dark:bg-red-900/10{% endif %}">
+          <div class="min-w-0">
+            <div class="flex items-center gap-2 flex-wrap">
+              <span class="text-sm font-medium text-gray-900 dark:text-white">{{ row.task.title }}</span>
+              <span class="text-xs px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400">
+                {{ row.task.get_task_type_display }}
+              </span>
+              {% if row.task.is_required %}
+              <span class="text-xs font-semibold text-red-500">Required</span>
+              {% endif %}
+            </div>
+            <div class="flex items-center gap-3 mt-1 flex-wrap text-xs">
+              {% if row.overdue %}
+              <span class="font-semibold px-2 py-0.5 rounded-full bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">
+                Past due — was {{ row.task.due_date|date:"M j" }}
+              </span>
+              {% elif row.task.due_date %}
+              <span class="text-gray-400 dark:text-gray-500">Due {{ row.task.due_date|date:"M j" }}</span>
+              {% endif %}
+              {% if row.completion.has_score %}
+              <span class="font-semibold text-primary-600 dark:text-primary-400">
+                {{ row.completion.score_display }} ({{ row.completion.score_percent }}%)
+              </span>
+              {% endif %}
+              {% if row.completion.notes %}
+              <span class="text-gray-500 dark:text-gray-400 italic">{{ row.completion.notes }}</span>
+              {% endif %}
+            </div>
+          </div>
+
+          <span class="text-xs font-semibold px-2.5 py-1 rounded-full shrink-0
+            {% if row.completion.status == 'completed' %}bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400
+            {% elif row.completion.status == 'incomplete' %}bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400
+            {% elif row.completion.status == 'pending' %}bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400
+            {% elif row.completion.status == 'waived' %}bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300
+            {% else %}bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400{% endif %}">
+            {% if row.completion %}{{ row.completion.get_status_display }}{% else %}Not started{% endif %}
+          </span>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="p-8 text-center">
+        <p class="text-sm text-gray-500 dark:text-gray-400">No tasks apply to {{ pledge.name }} yet.</p>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Attendance -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+      <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
+        <h2 class="text-base font-bold text-gray-900 dark:text-white">Meeting attendance</h2>
+        <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+          {{ attendance_points }} point{{ attendance_points|pluralize }} earned. Marking happens on each meeting's attendance page.
+        </p>
+      </div>
+
+      {% if attendance %}
+      <div class="divide-y divide-gray-100 dark:divide-gray-700">
+        {% for record in attendance %}
+        <div class="px-6 py-3 flex items-center justify-between gap-4 flex-wrap">
+          <div class="min-w-0">
+            <span class="text-sm text-gray-900 dark:text-white">{{ record.meeting.event.title }}</span>
+            <span class="block text-xs text-gray-400 dark:text-gray-500">
+              {{ record.meeting.event.date_time|date:"D, M j, Y" }}
+              {% if record.meeting.points %}· worth {{ record.meeting.points }} pt{{ record.meeting.points|pluralize }}{% endif %}
+            </span>
+          </div>
+          <span class="text-xs font-semibold px-2.5 py-1 rounded-full shrink-0
+            {% if record.status == 'present' %}bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400
+            {% elif record.status == 'late' %}bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400
+            {% elif record.status == 'excused' %}bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400
+            {% elif record.status == 'absent' %}bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400
+            {% else %}bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400{% endif %}">
+            {{ record.get_status_display }}
+          </span>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="p-8 text-center">
+        <p class="text-sm text-gray-500 dark:text-gray-400">No attendance recorded yet.</p>
+        <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">
+          Attendance appears here once it has been taken for a meeting.
+        </p>
+      </div>
+      {% endif %}
+    </div>
+
+  </div>
+</div>
+{% endblock %}

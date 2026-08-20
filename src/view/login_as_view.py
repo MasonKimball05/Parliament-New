@@ -9,8 +9,10 @@ from src.auth_backends import AUTH_BACKEND_PATH
 security_logger = logging.getLogger('security')
 logger = logging.getLogger('function_calls')
 
-SESSION_ORIGINAL_ID   = '_impersonating_original_user_id'
-SESSION_ORIGINAL_NAME = '_impersonating_original_user_name'
+# ⚠️ v3.21.3 — these names live in `src/impersonation.py`, which is also where
+# the list of what impersonation bypasses is written down. Re-exported here so
+# existing imports of this module keep working.
+from src.impersonation import SESSION_ORIGINAL_ID, SESSION_ORIGINAL_NAME  # noqa: F401
 
 
 @staff_member_required

@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+
+{% block title %}Attendance — {{ meeting.event.title }}{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gray-50 dark:bg-gray-900">
+
+  <!-- Header -->
+  <div class="bg-gradient-to-r from-primary-600 via-primary-700 to-primary-800 text-white py-8 shadow-lg">
+    <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+      <a href="{% url 'education_home' committee.code %}"
+         class="text-primary-200 hover:text-white text-sm mb-2 inline-block">← Education</a>
+      <h1 class="text-3xl font-bold">{{ meeting.event.title }}</h1>
+      <p class="text-primary-100 text-sm mt-1">
+        {{ meeting.event.date_time|date:"l, M j, Y" }} at {{ meeting.event.date_time|time:"g:i A" }}
+        {% if meeting.event.location %}· {{ meeting.event.location }}{% endif %}
+      </p>
+      {% if meeting.points %}
+      <p class="text-primary-100 text-sm mt-1">
+        {{ meeting.points }} point{{ meeting.points|pluralize }} for attending — earned by
+        <span class="font-semibold">present</span> and <span class="font-semibold">late</span>.
+      </p>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+      <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
+        <h2 class="text-base font-bold text-gray-900 dark:text-white">Pledge attendance</h2>
+        <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+          Only pledges appear here — education attendance is never recorded for brothers.
+        </p>
+      </div>
+
+      {% if rows %}
+      <form method="post">
+        {% csrf_token %}
+
+        {% comment %}
+        v3.20.2 — bulk actions. Real attendance is "everyone came except two",
+        so making a chair choose individually for a fifteen-pledge class is
+        fifteen decisions to record one fact. Set them all, then flip the
+        exceptions.
+
+        Client-side only, deliberately: nothing is saved until Save attendance,
+        so a misclick costs nothing and there is no endpoint that can bulk-write
+        a roster.
+        {% endcomment %}
+        <div class="px-6 py-3 bg-gray-50 dark:bg-gray-900/40 border-b border-gray-100 dark:border-gray-700 flex items-center gap-2 flex-wrap">
+          <span class="text-xs text-gray-500 dark:text-gray-400 mr-1">Set everyone to:</span>
+          <button type="button" data-bulk="present"
+            class="js-bulk text-xs px-2.5 py-1 rounded-full bg-green-100 hover:bg-green-200 text-green-700 dark:bg-green-900/30 dark:hover:bg-green-800/40 dark:text-green-400 font-semibold transition-colors">
+            Present
+          </button>
+          <button type="button" data-bulk="absent"
+            class="js-bulk text-xs px-2.5 py-1 rounded-full bg-red-100 hover:bg-red-200 text-red-700 dark:bg-red-900/30 dark:hover:bg-red-800/40 dark:text-red-400 font-semibold transition-colors">
+            Absent
+          </button>
+          <button type="button" data-bulk="pending"
+            class="js-bulk text-xs px-2.5 py-1 rounded-full bg-gray-200 hover:bg-gray-300 text-gray-700 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-200 font-medium transition-colors">
+            Clear
+          </button>
+          <span class="text-xs text-gray-400 dark:text-gray-500">then change the exceptions below</span>
+        </div>
+
+        <div class="divide-y divide-gray-100 dark:divide-gray-700">
+          {% for row in rows %}
+          <div class="px-6 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4">
+            <div class="min-w-0">
+              <span class="text-sm font-medium text-gray-900 dark:text-white">{{ row.pledge.name }}</span>
+              {% if row.record.marked_at %}
+              <span class="block text-xs text-gray-400 dark:text-gray-500">
+                Marked {{ row.record.marked_at|date:"M j, g:i A" }}
+                {% if row.record.marked_by %}by {{ row.record.marked_by.name }}{% endif %}
+              </span>
+              {% endif %}
+            </div>
+
+            <div class="flex items-center gap-1 flex-wrap">
+              {% for value, label in STATUS_CHOICES %}
+              <label class="cursor-pointer">
+                <input type="radio" name="status_{{ row.pledge.pk }}" value="{{ value }}" class="sr-only peer"
+                  {% if row.record.status == value %}checked{% elif not row.record and value == 'pending' %}checked{% endif %}>
+                <span class="inline-block text-xs px-2.5 py-1 rounded-full border transition-colors
+                  border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400
+                  peer-checked:border-transparent peer-checked:font-semibold
+                  {% if value == 'present' %}peer-checked:bg-green-100 peer-checked:text-green-700 dark:peer-checked:bg-green-900/30 dark:peer-checked:text-green-400
+                  {% elif value == 'late' %}peer-checked:bg-amber-100 peer-checked:text-amber-700 dark:peer-checked:bg-amber-900/30 dark:peer-checked:text-amber-400
+                  {% elif value == 'excused' %}peer-checked:bg-blue-100 peer-checked:text-blue-700 dark:peer-checked:bg-blue-900/30 dark:peer-checked:text-blue-400
+                  {% elif value == 'absent' %}peer-checked:bg-red-100 peer-checked:text-red-700 dark:peer-checked:bg-red-900/30 dark:peer-checked:text-red-400
+                  {% else %}peer-checked:bg-gray-200 peer-checked:text-gray-700 dark:peer-checked:bg-gray-600 dark:peer-checked:text-gray-200{% endif %}">
+                  {{ label }}
+                </span>
+              </label>
+              {% endfor %}
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+
+        <div class="px-6 py-4 border-t border-gray-100 dark:border-gray-700 flex justify-end">
+          <button type="submit"
+            class="px-4 py-2 text-sm font-semibold bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition">
+            Save attendance
+          </button>
+        </div>
+      </form>
+
+      <script nonce="{{ request.csp_nonce }}">
+      document.querySelectorAll('.js-bulk').forEach(function (button) {
+          button.addEventListener('click', function () {
+              var value = button.dataset.bulk;
+              document.querySelectorAll('input[type=radio][value="' + value + '"]').forEach(function (radio) {
+                  radio.checked = true;
+              });
+          });
+      });
+      </script>
+      {% else %}
+      <div class="p-12 text-center">
+        <p class="text-gray-500 dark:text-gray-400 text-sm">There are no active pledges to take attendance for.</p>
+      </div>
+      {% endif %}
+    </div>
+
+  </div>
+</div>
+{% endblock %}

@@ -222,6 +222,9 @@ from src.models.education import (
     PledgePageRestriction,
     PledgeTaskQuestion,
     PledgeQuizAnswer,
+    EducationMeeting,
+    EducationMeetingAttendance,
+    EducationAbsenceRequest,
 )
 
 # Feature Flags (defined in separate module)

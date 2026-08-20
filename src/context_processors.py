@@ -131,15 +131,13 @@ def impersonation(request):
     When an admin is logged in as another user, is_impersonating is True
     and impersonation_original_name is the admin's display name.
     """
-    if request.user.is_authenticated:
-        original_id = request.session.get('_impersonating_original_user_id')
-        if original_id:
-            return {
-                'is_impersonating': True,
-                'impersonation_original_name': request.session.get(
-                    '_impersonating_original_user_name', 'Admin'
-                ),
-            }
+    from src.impersonation import is_impersonating, original_user_name
+
+    if request.user.is_authenticated and is_impersonating(request):
+        return {
+            'is_impersonating': True,
+            'impersonation_original_name': original_user_name(request),
+        }
     return {'is_impersonating': False, 'impersonation_original_name': None}
 
 

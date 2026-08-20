@@ -1203,11 +1203,20 @@ if (_installBtn) { _installBtn.addEventListener('click', handlePrefsInstall); }
         errBanner.textContent = '';
     }
 
-    // Read CSRF from cookie so the token stays fresh even if the page is
-    // served from bfcache (mobile browsers cache more aggressively).
+    // ⚠️ v3.20.0 — THE COMMENT HERE WAS FALSE AND THE COOKIE BRANCH WAS DEAD.
+    // It read "prefer the cookie so the token stays fresh even if the page is
+    // served from bfcache", but `CSRF_COOKIE_HTTPONLY = True`
+    // (settings.py:285) means JavaScript can never see that cookie — so the
+    // match always failed and the rendered-token fallback did all the work.
+    // This page worked; it worked for a reason its own comment denied, which
+    // is the failure mode CLAUDE.md records as "a statement that was true of a
+    // simpler deployment and was never revisited".
+    //
+    // The meta tag is re-rendered with the page, so it is exactly as fresh as
+    // the fallback was — see `base.html`, which has done this for a while.
     function getCsrfToken() {
-        var match = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/);
-        return match ? match[1] : '{{ csrf_token }}';
+        var meta = document.querySelector('meta[name="csrf-token"]');
+        return meta ? meta.getAttribute('content') : '{{ csrf_token }}';
     }
 
     form.addEventListener('submit', function(e) {

@@ -11,6 +11,7 @@ import logging
 import re
 import html
 import secrets
+from src.impersonation import is_impersonating
 
 logger = logging.getLogger('admin_actions')
 
@@ -76,6 +77,22 @@ class ForcePasswordChangeMiddleware:
         ]
 
     def __call__(self, request):
+        # ⚠️ v3.21.3 — AN IMPERSONATING ADMIN IS EXEMPT, and this was the gap.
+        # 2FA already skipped impersonation sessions; this middleware did not,
+        # so "log in as" a user with `force_password_change` set landed the
+        # admin on a change-password screen for an account whose password he
+        # does not know. He could not proceed, and could not help.
+        #
+        # Setting a password on the user's behalf would be worse than the
+        # screen: it locks the user out of his own account and hands the admin
+        # a working credential for it.
+        #
+        # `src/impersonation.py` holds the single check and the reasoning,
+        # including what impersonation deliberately does NOT bypass
+        # (quarantine, lockdown, maintenance).
+        if is_impersonating(request):
+            return self.get_response(request)
+
         # Check if user is authenticated and needs to change password
         if hasattr(request, 'user') and request.user.is_authenticated and hasattr(request.user, 'force_password_change'):
             if request.user.force_password_change:

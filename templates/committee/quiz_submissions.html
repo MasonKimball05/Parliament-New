@@ -6,11 +6,15 @@
 
   <div class="bg-gradient-to-r from-primary-600 via-primary-700 to-primary-800 text-white py-8 shadow-lg">
     <div class="max-w-5xl mx-auto px-4 sm:px-6">
-      <a href="{% url 'education_home' committee.committee_code %}" class="text-primary-200 hover:text-white text-sm mb-2 inline-block">← Education</a>
+      <a href="{% url 'education_home' committee.code %}" class="text-primary-200 hover:text-white text-sm mb-2 inline-block">← Education</a>
       <h1 class="text-2xl font-bold">{{ task.title }} — Submissions</h1>
       <p class="text-primary-100 text-sm mt-1">
         {{ pledge_rows|length }} pledge{{ pledge_rows|length|pluralize }}
       </p>
+      <a href="{% url 'education_quiz_analysis' committee.code task.pk %}"
+         class="inline-block mt-3 text-xs px-3 py-1.5 rounded bg-white/20 hover:bg-white/30 text-white font-semibold transition">
+        Question breakdown →
+      </a>
     </div>
   </div>
 
@@ -43,8 +47,8 @@
     <!-- Pledge submissions -->
     {% for row in pledge_rows %}
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
-      <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
-        <div class="flex items-center gap-3">
+      <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div class="flex items-center gap-3 flex-wrap">
           <span class="font-semibold text-gray-900 dark:text-white">{{ row.pledge.name }}</span>
           {% if row.submitted %}
           <span class="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">Submitted</span>
@@ -59,17 +63,43 @@
             {% elif row.completion.status == 'pending' %}
             <span class="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">Pending review</span>
             {% endif %}
+            {% if row.completion.has_score %}
+            <span class="text-xs px-2 py-0.5 rounded-full bg-primary-100 text-primary-700 dark:bg-primary-900/30 dark:text-primary-400 font-semibold">
+              {{ row.completion.score_display }} ({{ row.completion.score_percent }}%)
+            </span>
+            {% endif %}
           {% endif %}
         </div>
-        <!-- Quick-grade buttons -->
+        <!-- Quick-grade buttons.
+             ⚠️ v3.20.0 — these posted `set_status` and the view IGNORED it,
+             cycling instead: from "pending", BOTH buttons marked the pledge
+             passed. The view now honours `set_status`; do not remove those
+             hidden inputs. -->
         {% if row.submitted and is_chair %}
-        <div class="flex gap-2">
-          <form method="post" action="{% url 'education_toggle_completion' committee.committee_code task.pk row.pledge.pk %}">
+        <div class="flex items-center gap-2 flex-wrap justify-end">
+          {% if task.is_scored %}
+          <!-- Score entry. Posted alongside the status so one click records
+               both; the view leaves an existing score alone when the field is
+               absent, and clears it when submitted empty. -->
+          <form method="post" action="{% url 'education_toggle_completion' committee.code task.pk row.pledge.pk %}"
+                class="flex items-center gap-1">
+            {% csrf_token %}
+            <input type="hidden" name="set_status" value="completed">
+            <label class="sr-only" for="score-{{ row.pledge.pk }}">Score for {{ row.pledge.name }}</label>
+            <input type="number" name="score" id="score-{{ row.pledge.pk }}"
+                   min="0" max="{{ task.max_score }}"
+                   value="{{ row.completion.score|default_if_none:'' }}"
+                   class="w-16 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-2 py-1 text-xs focus:ring-2 focus:ring-primary-500">
+            <span class="text-xs text-gray-500 dark:text-gray-400">/ {{ task.max_score }}</span>
+            <button type="submit" class="text-xs px-2 py-1 rounded bg-primary-100 hover:bg-primary-200 text-primary-700 dark:bg-primary-900/30 dark:hover:bg-primary-800/40 dark:text-primary-400 transition-colors">Save score + pass</button>
+          </form>
+          {% endif %}
+          <form method="post" action="{% url 'education_toggle_completion' committee.code task.pk row.pledge.pk %}">
             {% csrf_token %}
             <input type="hidden" name="set_status" value="completed">
             <button type="submit" class="text-xs px-3 py-1 rounded bg-green-100 hover:bg-green-200 text-green-700 dark:bg-green-900/30 dark:hover:bg-green-800/40 dark:text-green-400 transition-colors">Mark Passed</button>
           </form>
-          <form method="post" action="{% url 'education_toggle_completion' committee.committee_code task.pk row.pledge.pk %}">
+          <form method="post" action="{% url 'education_toggle_completion' committee.code task.pk row.pledge.pk %}">
             {% csrf_token %}
             <input type="hidden" name="set_status" value="incomplete">
             <button type="submit" class="text-xs px-3 py-1 rounded bg-red-100 hover:bg-red-200 text-red-700 dark:bg-red-900/30 dark:hover:bg-red-800/40 dark:text-red-400 transition-colors">Mark Incomplete</button>
@@ -80,10 +110,46 @@
 
       {% if row.submitted %}
       <ol class="divide-y divide-gray-50 dark:divide-gray-700/60">
-        {% for q, answer in row.qa_pairs %}
+        {% for pair in row.qa_pairs %}
         <li class="px-6 py-4">
-          <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Q{{ forloop.counter }}. {{ q.question_text }}</p>
-          <p class="text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap">{% if answer %}{{ answer }}{% else %}<em class="text-gray-400">No answer</em>{% endif %}</p>
+          <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Q{{ forloop.counter }}. {{ pair.question.question_text }}</p>
+          <p class="text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap">{% if pair.text %}{{ pair.text }}{% else %}<em class="text-gray-400">No answer</em>{% endif %}</p>
+
+          {% comment %}
+          v3.21.0 — per-question marking. Without it there is no item analysis:
+          answers were free text and nothing recorded whether any was right, so
+          "which question did everyone miss" was not a question the data could
+          answer. Marking is optional — a chair who only wants a whole-quiz
+          verdict can ignore these and nothing breaks; the breakdown just says
+          how many are unmarked.
+          {% endcomment %}
+          {% if pair.answer_pk and is_chair %}
+          {% comment %}
+          The endpoint is rendered per row by `{% url %}` rather than built in
+          JavaScript. The first draft reversed one URL and string-replaced the
+          id into it, which hardcoded the literal "/mark/" — and
+          `test_hardcoded_urls` failed it, correctly: renaming the route would
+          have updated every `{% url %}` in the project and left that fragment
+          behind, silently, as a 404.
+          {% endcomment %}
+          <div class="mt-2 flex items-center gap-1.5 flex-wrap"
+               data-mark-url="{% url 'education_mark_answer' committee.code task.pk pair.answer_pk %}">
+            <button type="button" data-verdict="correct"
+              class="js-mark text-xs px-2.5 py-1 rounded-full font-semibold transition-colors
+                {% if pair.is_correct is True %}bg-green-600 text-white{% else %}bg-green-100 hover:bg-green-200 text-green-700 dark:bg-green-900/30 dark:hover:bg-green-800/40 dark:text-green-400{% endif %}">
+              Right
+            </button>
+            <button type="button" data-verdict="wrong"
+              class="js-mark text-xs px-2.5 py-1 rounded-full font-semibold transition-colors
+                {% if pair.is_correct is False %}bg-red-600 text-white{% else %}bg-red-100 hover:bg-red-200 text-red-700 dark:bg-red-900/30 dark:hover:bg-red-800/40 dark:text-red-400{% endif %}">
+              Wrong
+            </button>
+            <button type="button" data-verdict="clear"
+              class="js-mark text-xs px-2 py-1 rounded-full text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors">
+              Clear
+            </button>
+          </div>
+          {% endif %}
         </li>
         {% endfor %}
       </ol>
@@ -96,4 +162,16 @@
     {% endif %}
   </div>
 </div>
+
+<script nonce="{{ request.csp_nonce }}">
+document.querySelectorAll('.js-mark').forEach(function (button) {
+    button.addEventListener('click', async function () {
+        const wrap = button.closest('[data-mark-url]');
+        try {
+            await Parliament.post(wrap.dataset.markUrl, { verdict: button.dataset.verdict });
+            window.location.reload();
+        } catch (e) { /* reported by the helper */ }
+    });
+});
+</script>
 {% endblock %}

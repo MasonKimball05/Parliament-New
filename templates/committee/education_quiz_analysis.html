@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}{{ task.title }} — Question breakdown{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gray-50 dark:bg-gray-900">
+  <div class="bg-gradient-to-r from-primary-600 via-primary-700 to-primary-800 text-white py-8 shadow-lg">
+    <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+      <a href="{% url 'education_quiz_submissions' committee.code task.pk %}"
+         class="text-primary-200 hover:text-white text-sm mb-2 inline-block">← Submissions</a>
+      <h1 class="text-2xl sm:text-3xl font-bold">{{ task.title }}</h1>
+      <p class="text-primary-100 text-sm mt-1">Question breakdown</p>
+
+      <p class="text-primary-100 text-xs mt-3">
+        {% if task.show_analysis_to_pledges %}
+        Pledges can see this breakdown for this quiz.
+        {% else %}
+        Educators only. Turn on <span class="font-semibold">Show breakdown to pledges</span>
+        on the task to share it.
+        {% endif %}
+      </p>
+    </div>
+  </div>
+
+  <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    {% include "committee/_quiz_analysis_body.html" %}
+  </div>
+</div>
+{% endblock %}

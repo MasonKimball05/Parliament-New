@@ -9,6 +9,7 @@ from django_otp import user_has_device, login as otp_login
 from django_otp.plugins.otp_totp.models import TOTPDevice
 from datetime import timedelta
 import logging
+from src.impersonation import is_impersonating
 
 logger = logging.getLogger(__name__)
 
@@ -90,8 +91,11 @@ class Enforce2FAMiddleware:
         except Exception:
             pass
 
-        # Skip 2FA enforcement for active admin impersonation sessions
-        if getattr(request, 'session', {}).get('_impersonating_original_user_id'):
+        # Skip 2FA enforcement for active admin impersonation sessions —
+        # the admin does not have the user's authenticator. See
+        # `src/impersonation.py` for the full list of what impersonation
+        # bypasses and, more importantly, what it does not.
+        if is_impersonating(request):
             return self.get_response(request)
 
         # Check if user requires 2FA

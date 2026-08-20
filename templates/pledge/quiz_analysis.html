@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}{{ task.title }} — Results{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gray-50 dark:bg-gray-900">
+  <div class="bg-gradient-to-r from-primary-600 via-primary-700 to-primary-800 text-white py-8 shadow-lg">
+    <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+      <a href="{% url 'my_pledge_tasks' %}"
+         class="text-primary-200 hover:text-white text-sm mb-2 inline-block">← My Tasks</a>
+      <h1 class="text-2xl sm:text-3xl font-bold">{{ task.title }}</h1>
+      <p class="text-primary-100 text-sm mt-1">How the class did, question by question</p>
+      <p class="text-primary-100 text-xs mt-3">
+        These are class totals. Nobody's individual answers are shown here.
+      </p>
+    </div>
+  </div>
+
+  <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    {% include "committee/_quiz_analysis_body.html" %}
+  </div>
+</div>
+{% endblock %}

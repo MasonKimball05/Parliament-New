@@ -14,9 +14,15 @@ from django.http import JsonResponse, Http404
 from django.shortcuts import get_object_or_404, render, redirect
 from django.views.decorators.http import require_POST
 from django.utils import timezone
+from django.utils.http import url_has_allowed_host_and_scheme
+from django.db.models import Count, Q
 
 from src.feature_flag_decorators import require_page_enabled
-from src.models import Committee, ParliamentUser, PledgeTask, PledgeTaskCompletion, PledgePageRestriction, PledgeTaskQuestion, PledgeQuizAnswer  # noqa: F401 PledgeQuizAnswer used in quiz submissions view
+from src.models import (  # noqa: F401 PledgeQuizAnswer used in the quiz submissions view
+    Committee, ParliamentUser, PledgeTask, PledgeTaskCompletion,
+    PledgePageRestriction, PledgeTaskQuestion, PledgeQuizAnswer,
+    Event, EducationMeeting, EducationMeetingAttendance, EducationAbsenceRequest,
+)
 from src.models.users import member_defer, member_prefetch
 
 
@@ -26,6 +32,25 @@ def _parse_non_negative_int(value, default=0):
         return max(0, int(value or default))
     except (ValueError, TypeError):
         return default
+
+
+def _parse_optional_positive_int(value):
+    """
+    Parse an optional positive integer field, returning None for blank/invalid.
+
+    ⚠️ Distinct from `_parse_non_negative_int` on purpose. That helper folds a
+    blank field to 0, which is right for `points` (a task worth nothing) and
+    wrong for `max_score`, where 0 would mean "scored out of zero" — a task
+    that reports 0/0 on every pledge's page — instead of "not scored".
+    """
+    raw = (value or '').strip()
+    if not raw:
+        return None
+    try:
+        parsed = int(raw)
+    except (TypeError, ValueError):
+        return None
+    return parsed if parsed > 0 else None
 
 
 def _education_committee_or_404(code, user):
@@ -103,10 +128,50 @@ def education_home(request, code):
         for q in PledgeTaskQuestion.objects.filter(task_id__in=quiz_task_pks).order_by('display_order'):
             quiz_questions_map.setdefault(q.task_id, []).append(q)
 
+    # Meetings (v3.20.0). Upcoming first, then the most recent past ones —
+    # a chair opening this page is either planning the next meeting or taking
+    # attendance for the one that just happened.
+    now = timezone.now()
+    meetings_qs = (
+        EducationMeeting.objects
+        .filter(committee=committee)
+        .select_related('event')
+        .prefetch_related('homework')
+        # One grouped count instead of a query per meeting for the roll-up.
+        #
+        # ⚠️ `pending` IS EXCLUDED, AND WITHOUT THAT THE NUMBER IS A LIE. The
+        # attendance form pre-selects `pending` for every unmarked pledge, so
+        # saving it once writes a row for the WHOLE roster — a plain
+        # `Count('attendance_records')` would then report "12 pledges marked"
+        # for a meeting where a chair opened the form, saved, and marked nobody.
+        # A roll-up that cannot distinguish "everyone recorded" from "form
+        # touched once" is worse than no roll-up.
+        .annotate(marked_count=Count(
+            'attendance_records',
+            filter=~Q(attendance_records__status='pending'),
+        ))
+    )
+    upcoming_meetings = [m for m in meetings_qs if m.event.date_time >= now]
+    upcoming_meetings.sort(key=lambda m: m.event.date_time)
+    past_meetings = [m for m in meetings_qs if m.event.date_time < now][:10]
+
+    # Absence requests awaiting a decision (v3.21.0). Pending only: a decided
+    # one is history and belongs on the meeting, not in the chair's queue.
+    pending_absences = list(
+        EducationAbsenceRequest.objects
+        .filter(meeting__committee=committee, status='pending')
+        .select_related('pledge', 'meeting', 'meeting__event')
+        .order_by('meeting__event__date_time')
+    )
+
     context = {
         'committee': committee,
         'tasks': tasks,
         'task_rows': task_rows,
+        'pending_absences': pending_absences,
+        'upcoming_meetings': upcoming_meetings,
+        'past_meetings': past_meetings,
+        'MEETING_TYPES': EducationMeeting.MEETING_TYPES,
         'pledges': pledges,
         'pledge_summaries': pledge_summaries,
         'phases': phases,
@@ -167,6 +232,10 @@ def education_add_task(request, code):
         phase=phase,
         is_required=request.POST.get('is_required') == 'on',
         points=_parse_non_negative_int(request.POST.get('points'), 0),
+        # Blank = not scored. `_parse_non_negative_int` would turn '' into 0,
+        # and a task scored out of 0 is not the same thing as an unscored one.
+        max_score=_parse_optional_positive_int(request.POST.get('max_score')),
+        show_analysis_to_pledges=request.POST.get('show_analysis_to_pledges') == 'on',
         display_order=_parse_non_negative_int(request.POST.get('display_order'), 0),
         activation_mode=activation_mode,
         activates_at=activates_at,
@@ -186,7 +255,28 @@ def education_add_task(request, code):
 @require_page_enabled('committee_home')
 @require_POST
 def education_toggle_completion(request, code, task_pk, pledge_pk):
-    """Toggle a pledge's completion status for a task (cycle: pending → completed → incomplete)."""
+    """
+    Record a pledge's completion of a task.
+
+    Two modes, and the distinction matters:
+
+    * **No `set_status` in the POST** — cycle
+      `pending → completed → incomplete → pending`. This is the grid on the
+      education dashboard, where one click per cell is the whole point.
+    * **`set_status=<status>`** — set that status explicitly.
+
+    ⚠️ v3.20.0 — THE SECOND MODE IS NEW AND IT WAS A LIVE BUG.
+    `quiz_submissions.html` has posted `<input type="hidden" name="set_status">`
+    since it was written, with buttons labelled *Mark completed* and *Mark
+    incomplete*. This view never read the field. So on the grading page both
+    buttons did the same thing — from `pending`, *Mark incomplete* marked the
+    pledge **completed** — and the only way to reach the status you wanted was
+    to click until it came round. A grader marking a failed quiz would have
+    passed him.
+
+    `score` is optional and independent of status: scoring is informational and
+    a chair still decides pass/fail. See `PledgeTaskCompletion.score_display`.
+    """
     committee, _ = _education_committee_or_404(code, request.user)
 
     task = get_object_or_404(PledgeTask, pk=task_pk, is_active=True)
@@ -198,15 +288,76 @@ def education_toggle_completion(request, code, task_pk, pledge_pk):
         defaults={'status': 'pending'},
     )
 
-    # Cycle: pending → completed → incomplete → pending
-    cycle = {'pending': 'completed', 'completed': 'incomplete', 'incomplete': 'pending', 'waived': 'pending'}
-    new_status = cycle.get(comp.status, 'completed')
+    _valid_statuses = {c[0] for c in PledgeTaskCompletion.STATUS_CHOICES}
+    requested = (request.POST.get('set_status') or '').strip()
+    if requested:
+        if requested not in _valid_statuses:
+            return JsonResponse({'error': 'Unknown status'}, status=400)
+        new_status = requested
+    else:
+        # Cycle: pending → completed → incomplete → pending
+        cycle = {'pending': 'completed', 'completed': 'incomplete', 'incomplete': 'pending', 'waived': 'pending'}
+        new_status = cycle.get(comp.status, 'completed')
+
+    updated = ['status', 'reviewed_by', 'completed_at', 'updated_at']
+
+    # ── Score ────────────────────────────────────────────────────────────
+    # Absent key = leave the existing score alone (the dashboard grid posts no
+    # score at all, and a click there must not silently wipe a mark). Present
+    # but empty = clear it, which is how a grader undoes a typo.
+    if 'score' in request.POST:
+        raw = (request.POST.get('score') or '').strip()
+        if raw == '':
+            comp.score = None
+        else:
+            try:
+                value = int(raw)
+            except (TypeError, ValueError):
+                return JsonResponse({'error': 'Score must be a whole number'}, status=400)
+            if value < 0:
+                return JsonResponse({'error': 'Score cannot be negative'}, status=400)
+            if not task.max_score:
+                return JsonResponse(
+                    {'error': 'This task has no maximum score. Set one on the task first.'},
+                    status=400,
+                )
+            if value > task.max_score:
+                # Rejected rather than clamped or allowed as extra credit: with
+                # scoring informational, a wrong number is cheap to correct and
+                # a silent typo is not. If extra credit is ever wanted, raise
+                # the task's max_score — that is the honest way to say it.
+                return JsonResponse(
+                    {'error': f'Score cannot exceed the maximum of {task.max_score}'},
+                    status=400,
+                )
+            comp.score = value
+        updated.append('score')
+
     comp.status = new_status
     comp.reviewed_by = request.user
     comp.completed_at = timezone.now() if new_status == 'completed' else None
-    comp.save(update_fields=['status', 'reviewed_by', 'completed_at', 'updated_at'])
+    comp.save(update_fields=updated)
 
-    return JsonResponse({'status': new_status, 'task_pk': task_pk, 'pledge_pk': pledge_pk})
+    if request.headers.get('X-Requested-With') != 'XMLHttpRequest' and requested:
+        # The grading page posts a normal form, so send it back where it was.
+        #
+        # ⚠️ The Referer is attacker-influenced, so it is validated against this
+        # host before being used as a redirect target — an unchecked
+        # `redirect(request.META['HTTP_REFERER'])` is an open redirect.
+        referer = request.META.get('HTTP_REFERER') or ''
+        if referer and url_has_allowed_host_and_scheme(
+            referer, allowed_hosts={request.get_host()}, require_https=request.is_secure()
+        ):
+            return redirect(referer)
+        return redirect('education_quiz_submissions', code=code, task_pk=task.pk)
+
+    return JsonResponse({
+        'status': new_status,
+        'task_pk': task_pk,
+        'pledge_pk': pledge_pk,
+        'score': comp.score,
+        'score_display': comp.score_display,
+    })
 
 
 @login_required
@@ -339,17 +490,38 @@ def education_quiz_submissions(request, code, task_pk):
     answers = PledgeQuizAnswer.objects.filter(
         question__task=task,
     ).select_related('pledge').defer(*member_defer('pledge'))
-    answer_map = {(a.pledge_id, a.question_id): a.answer_text for a in answers}
+    # v3.21.0 — the whole answer, not just its text: the grading page now marks
+    # each one right or wrong, which needs its pk and current verdict.
+    answer_map = {(a.pledge_id, a.question_id): a for a in answers}
 
-    # Fetch completions
-    completions = PledgeTaskCompletion.objects.filter(task=task, pledge__in=pledges)
+    # Fetch completions.
+    #
+    # ⚠️ `select_related('task')` is load-bearing as of v3.20.0, not tidiness.
+    # The template renders `row.completion.score_display`, and that property
+    # reads `self.task.max_score` — so without the join it is one query per
+    # graded pledge. Measured on a 12-pledge fixture: **13 × src_pledgetask**,
+    # i.e. an N+1 introduced by the scoring feature itself, on the page scoring
+    # exists for.
+    completions = (PledgeTaskCompletion.objects
+                   .filter(task=task, pledge__in=pledges)
+                   .select_related('task'))
     completion_map = {c.pledge_id: c for c in completions}
 
     pledge_rows = []
     for pledge in pledges:
         submitted = any((pledge.pk, q.pk) in answer_map for q in questions)
+        # Pre-zip (question, answer) pairs — Django templates cannot zip or
+        # do dict lookups by a computed key.
         # Pre-zip (q, answer) pairs — Django templates can't zip/dict-lookup
-        qa_pairs = [(q, answer_map.get((pledge.pk, q.pk), '')) for q in questions]
+        qa_pairs = []
+        for q in questions:
+            answer = answer_map.get((pledge.pk, q.pk))
+            qa_pairs.append({
+                'question': q,
+                'text': answer.answer_text if answer else '',
+                'answer_pk': answer.pk if answer else None,
+                'is_correct': answer.is_correct if answer else None,
+            })
         pledge_rows.append({
             'pledge': pledge,
             'submitted': submitted,
@@ -364,3 +536,512 @@ def education_quiz_submissions(request, code, task_pk):
         'pledge_rows': pledge_rows,
         'is_chair': is_chair,
     })
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Education meetings (v3.20.0)
+#
+# A meeting is an `Event` (the calendar entry, visible to the whole chapter)
+# plus an `EducationMeeting` sidecar holding the pledge-education specifics —
+# the same shape `RecruitmentEvent` uses. Attendance lives in
+# `EducationMeetingAttendance`, which only ever contains pledges; see the note
+# on the model for why it is not the chapter-wide `Attendance` table.
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _pledge_roster():
+    """The only population that can have education attendance."""
+    return ParliamentUser.objects.filter(
+        member_type='Pledge', is_active=True
+    ).order_by('name')
+
+
+@login_required
+@require_page_enabled('committee_home')
+@require_POST
+def education_add_meeting(request, code):
+    """Create an education meeting and its calendar event."""
+    committee, _ = _education_committee_or_404(code, request.user)
+
+    # ⚠️ `visible_to=None` means "everyone", which is what Mason asked for:
+    # brothers should see when the pledge class meets. Only ATTENDANCE is
+    # pledge-only, and that is enforced by the attendance table, not by
+    # hiding the event.
+    event = Event(created_by=request.user, visible_to=None)
+    meeting = EducationMeeting(committee=committee, created_by=request.user)
+
+    # Shared with the edit view — see `_apply_meeting_fields`.
+    error = _apply_meeting_fields(request, meeting, event)
+    if error:
+        return JsonResponse({'error': error}, status=400)
+
+    event.save()
+    meeting.event = event
+    meeting.save()
+
+    homework_pks = request.POST.getlist('homework')
+    if homework_pks:
+        meeting.homework.set(PledgeTask.objects.filter(pk__in=homework_pks, is_active=True))
+
+    return redirect('education_home', code=code)
+
+
+def _apply_meeting_fields(request, meeting, event):
+    """
+    Read the meeting form into `event` and `meeting`. Neither is saved here.
+
+    ⚠️ SHARED BY CREATE AND EDIT ON PURPOSE (v3.20.1). Two copies of this
+    parsing would drift the first time a field was added to one form, and the
+    symptom would be a field that silently does nothing on the other — which is
+    the failure mode this codebase has recorded nine times under a different
+    name. Returns an error string, or None.
+    """
+    from django.utils.dateparse import parse_datetime
+
+    title = (request.POST.get('title') or '').strip()
+    if not title:
+        return 'Title is required'
+
+    raw_when = (request.POST.get('date_time') or '').strip()
+    when = parse_datetime(raw_when) if raw_when else None
+    if when is None:
+        return 'A valid date and time is required'
+    if timezone.is_naive(when):
+        when = timezone.make_aware(when)
+
+    _valid_types = {c[0] for c in EducationMeeting.MEETING_TYPES}
+    meeting_type = request.POST.get('meeting_type', 'meeting')
+    if meeting_type not in _valid_types:
+        meeting_type = 'meeting'
+
+    event.title = title
+    event.description = (request.POST.get('description') or '').strip()
+    event.date_time = when
+    event.location = (request.POST.get('location') or '').strip()
+
+    meeting.meeting_type = meeting_type
+    meeting.attendance_required = request.POST.get('attendance_required') == 'on'
+    meeting.points = _parse_non_negative_int(request.POST.get('points'), 0)
+    meeting.notes = (request.POST.get('notes') or '').strip()
+    return None
+
+
+@login_required
+@require_page_enabled('committee_home')
+def education_edit_meeting(request, code, meeting_pk):
+    """
+    Edit a meeting.
+
+    ⚠️ WHY THIS EXISTS. v3.20.0 shipped create and delete and no edit, which
+    meant the only way to correct a mistyped time was to delete the meeting and
+    make a new one — **and deleting a meeting cascades to its attendance**. A
+    typo therefore destroyed the record of who turned up. That is a data-loss
+    trap behind the most ordinary mistake a chair can make.
+
+    Editing deliberately does NOT touch attendance: the meeting keeps its pk, so
+    every `EducationMeetingAttendance` row survives a change of time, place or
+    points. `test_attendance_survives_an_edit` is the point of the whole change.
+    """
+    committee, is_chair = _education_committee_or_404(code, request.user)
+    meeting = get_object_or_404(
+        EducationMeeting.objects.select_related('event'),
+        pk=meeting_pk, committee=committee,
+    )
+
+    if request.method == 'POST':
+        error = _apply_meeting_fields(request, meeting, meeting.event)
+        if error:
+            return JsonResponse({'error': error}, status=400)
+
+        meeting.event.save()
+        meeting.save()
+        # `set()` handles all three cases — added, removed, cleared — so an
+        # unticked box actually unassigns rather than silently persisting.
+        meeting.homework.set(
+            PledgeTask.objects.filter(pk__in=request.POST.getlist('homework'), is_active=True)
+        )
+        return redirect('education_home', code=code)
+
+    return render(request, 'committee/education_meeting_form.html', {
+        'committee': committee,
+        'meeting': meeting,
+        'is_chair': is_chair,
+        'tasks': PledgeTask.objects.filter(is_active=True).order_by('display_order', 'title'),
+        'assigned_homework_pks': set(meeting.homework.values_list('pk', flat=True)),
+        'MEETING_TYPES': EducationMeeting.MEETING_TYPES,
+    })
+
+
+@login_required
+@require_page_enabled('committee_home')
+@require_POST
+def education_delete_meeting(request, code, meeting_pk):
+    """Delete a meeting and its calendar entry. Chair only."""
+    committee, is_chair = _education_committee_or_404(code, request.user)
+    if not is_chair:
+        return JsonResponse({'error': 'Chair access required'}, status=403)
+
+    meeting = get_object_or_404(EducationMeeting, pk=meeting_pk, committee=committee)
+    # The Event owns the calendar entry and the meeting is a OneToOne on it, so
+    # deleting the event cascades to the meeting and its attendance. Deleting
+    # the meeting alone would strand a pledge-education event on the calendar
+    # with nothing behind it.
+    meeting.event.delete()
+    return redirect('education_home', code=code)
+
+
+@login_required
+@require_page_enabled('committee_home')
+def education_meeting_attendance(request, code, meeting_pk):
+    """Take attendance for a meeting. Pledges only, by construction."""
+    committee, is_chair = _education_committee_or_404(code, request.user)
+    meeting = get_object_or_404(
+        EducationMeeting.objects.select_related('event'),
+        pk=meeting_pk, committee=committee,
+    )
+
+    pledges = list(_pledge_roster())
+
+    if request.method == 'POST':
+        _valid = {c[0] for c in EducationMeetingAttendance.STATUS_CHOICES}
+        # ⚠️ Keyed by STRING pk. `ParliamentUser.user_id` is a CharField primary
+        # key (`models/users.py:139`), so coercing the form key with `int()`
+        # both throws away non-numeric ids and silently drops every row — the
+        # first draft of this view did exactly that and recorded nothing.
+        pledge_by_pk = {str(p.pk): p for p in pledges}
+        now = timezone.now()
+        for key, value in request.POST.items():
+            if not key.startswith('status_') or value not in _valid:
+                continue
+            pledge_pk = key[len('status_'):]
+            # ⚠️ Only pks from the pledge roster are accepted. Without this a
+            # crafted POST could write an attendance row for a brother, which
+            # is exactly the property this table exists to guarantee.
+            if pledge_pk not in pledge_by_pk:
+                continue
+            EducationMeetingAttendance.objects.update_or_create(
+                meeting=meeting,
+                pledge=pledge_by_pk[pledge_pk],
+                defaults={
+                    'status': value,
+                    'marked_by': request.user,
+                    'marked_at': now,
+                },
+            )
+        return redirect('education_meeting_attendance', code=code, meeting_pk=meeting.pk)
+
+    existing = {
+        record.pledge_id: record
+        for record in EducationMeetingAttendance.objects.filter(meeting=meeting)
+    }
+    rows = [{'pledge': pledge, 'record': existing.get(pledge.pk)} for pledge in pledges]
+
+    return render(request, 'committee/education_meeting_attendance.html', {
+        'committee': committee,
+        'meeting': meeting,
+        'rows': rows,
+        'is_chair': is_chair,
+        'STATUS_CHOICES': EducationMeetingAttendance.STATUS_CHOICES,
+    })
+
+
+@login_required
+@require_page_enabled('committee_home')
+def education_pledge_detail(request, code, pledge_pk):
+    """
+    Everything about one pledge, on one page (v3.20.2).
+
+    ⚠️ WHY THIS EXISTS. The dashboard is a task × pledge grid: excellent for
+    "who has not done task 4", useless for "how is Jack doing". Before a
+    progress conversation — or an initiation vote — a VPE wants one page: his
+    tasks and marks, what is overdue, which meetings he came to and which he
+    missed, and the points that follow from both. Answering that meant reading
+    across a grid and doing arithmetic in your head.
+
+    Read-only on purpose. Marking still happens on the grid and the attendance
+    page, so there is one place to change each thing and this page cannot
+    disagree with them.
+    """
+    committee, is_chair = _education_committee_or_404(code, request.user)
+    pledge = get_object_or_404(ParliamentUser, pk=pledge_pk, member_type='Pledge')
+
+    tasks = list(
+        PledgeTask.objects.filter(is_active=True)
+        .prefetch_related(member_prefetch('assigned_to'))
+        .order_by('display_order', 'due_date', 'title')
+    )
+    completions = {
+        c.task_id: c
+        for c in PledgeTaskCompletion.objects
+        .filter(task__in=tasks, pledge=pledge)
+        # `score_display` reads `completion.task` — see the v3.20.0 N+1.
+        .select_related('task')
+    }
+
+    task_rows = []
+    for task in tasks:
+        assigned_pks = {u.pk for u in task.assigned_to.all()}
+        # An empty assignment means "all pledges"; otherwise this task simply
+        # does not apply to him and showing it would misreport his progress.
+        if assigned_pks and pledge.pk not in assigned_pks:
+            continue
+        completion = completions.get(task.pk)
+        task_rows.append({
+            'task': task,
+            'completion': completion,
+            'overdue': task.is_overdue_for(completion),
+        })
+
+    required = [row for row in task_rows if row['task'].is_required]
+    required_done = [
+        row for row in required
+        if row['completion'] and row['completion'].status == 'completed'
+    ]
+    overdue_rows = [row for row in task_rows if row['overdue']]
+
+    # Attendance, most recent first — "which did he miss" is the question, and
+    # the answer is usually about the last few weeks.
+    attendance = list(
+        EducationMeetingAttendance.objects
+        .filter(pledge=pledge, meeting__committee=committee)
+        .select_related('meeting', 'meeting__event')
+        .order_by('-meeting__event__date_time')
+    )
+    attendance_points = sum(record.points_earned for record in attendance)
+    attended = [
+        r for r in attendance
+        if r.status in EducationMeetingAttendance.EARNS_POINTS
+    ]
+    missed = [r for r in attendance if r.status == 'absent']
+
+    task_points = sum(
+        row['task'].points for row in task_rows
+        if row['completion'] and row['completion'].status == 'completed'
+    )
+
+    return render(request, 'committee/education_pledge_detail.html', {
+        'committee': committee,
+        'is_chair': is_chair,
+        'pledge': pledge,
+        'task_rows': task_rows,
+        'required_total': len(required),
+        'required_done': len(required_done),
+        'required_percent': (
+            round(len(required_done) / len(required) * 100) if required else 0
+        ),
+        'overdue_rows': overdue_rows,
+        'attendance': attendance,
+        'attended_count': len(attended),
+        'missed_count': len(missed),
+        'attendance_points': attendance_points,
+        'task_points': task_points,
+        'total_points': task_points + attendance_points,
+    })
+
+
+@login_required
+@require_page_enabled('committee_home')
+@require_POST
+def education_duplicate_task(request, code, task_pk):
+    """
+    Clone a task (v3.21.0 — ideas list #8).
+
+    Every pledge class needs roughly the same twenty tasks and they were typed in
+    by hand each semester. Cloning is the honest primitive: tasks are not
+    semester-scoped, so "copy last term" is really "make me another one of
+    these", and building a set out of clones is a few clicks rather than an hour.
+
+    ⚠️ THE CLONE IS ALWAYS A DRAFT, whatever the original was. A duplicate that
+    went live the instant it was made would publish a half-edited task —
+    probably still called "… (copy)" and still carrying last term's due date —
+    to every pledge's page. `manual` + `is_published=False` means it appears on
+    the chair's grid marked *Draft* and nowhere else until he says so.
+
+    Deliberately NOT copied: `due_date` (last term's date is wrong by
+    definition and a silently stale one is worse than none), completions,
+    and quiz questions — see below.
+    """
+    committee, _ = _education_committee_or_404(code, request.user)
+    original = get_object_or_404(PledgeTask, pk=task_pk, is_active=True)
+
+    clone = PledgeTask.objects.create(
+        title=f'{original.title} (copy)',
+        description=original.description,
+        task_type=original.task_type,
+        phase=original.phase,
+        is_required=original.is_required,
+        points=original.points,
+        max_score=original.max_score,
+        show_analysis_to_pledges=original.show_analysis_to_pledges,
+        display_order=original.display_order,
+        due_date=None,
+        activation_mode='manual',
+        is_published=False,
+        created_by=request.user,
+    )
+    clone.assigned_to.set(original.assigned_to.all())
+
+    # Quiz questions come with it — a quiz without its questions is not a copy
+    # of that quiz, and `pledge_take_quiz` refuses to render one with none.
+    # Answers do not: they belong to the sitting, not to the paper.
+    for question in original.questions.all():
+        PledgeTaskQuestion.objects.create(
+            task=clone,
+            question_text=question.question_text,
+            answer_hint=question.answer_hint,
+            display_order=question.display_order,
+        )
+
+    return JsonResponse({
+        'duplicated': True,
+        'task_pk': clone.pk,
+        'title': clone.title,
+    })
+
+
+@login_required
+@require_page_enabled('committee_home')
+def education_quiz_analysis(request, code, task_pk):
+    """
+    Which questions did the class get wrong (v3.21.0 — ideas list #9).
+
+    ⚠️ THIS FEATURE DID NOT EXIST AS DESCRIBED AND COULD NOT. When it was
+    proposed, `PledgeQuizAnswer` stored free text and nothing else — there was
+    no record of whether any answer was right, so "which question did everyone
+    miss" was not a question the data could answer. v3.21.0 adds
+    `PledgeQuizAnswer.is_correct` and per-question marking on the grading page;
+    this view is only as good as the marking a chair has actually done, which is
+    why every row reports how many answers are still unmarked.
+
+    Audience: educators. A pledge may see it only when the chair has ticked
+    `show_analysis_to_pledges` on that quiz — see `pledge_quiz_analysis`.
+    """
+    committee, is_chair = _education_committee_or_404(code, request.user)
+    task = get_object_or_404(PledgeTask, pk=task_pk, is_active=True, task_type='quiz')
+    return render(request, 'committee/education_quiz_analysis.html',
+                  quiz_analysis_context(task, committee=committee, is_chair=is_chair))
+
+
+def quiz_analysis_context(task, committee=None, is_chair=False, viewer_is_pledge=False):
+    """
+    Shared by the educator view and the pledge-facing one.
+
+    ⚠️ ONE BUILDER, TWO AUDIENCES. The numbers must agree — a pledge told "8 of
+    12 got this right" and a chair told something else is worse than showing him
+    nothing. The *only* difference the audience makes is handled here, in one
+    place: pledges never see who answered what.
+    """
+    from django.db.models import Count, Q as _Q
+
+    questions = list(
+        task.questions
+        .annotate(
+            answered=Count('answers'),
+            correct=Count('answers', filter=_Q(answers__is_correct=True)),
+            wrong=Count('answers', filter=_Q(answers__is_correct=False)),
+        )
+        .order_by('display_order')
+    )
+
+    rows = []
+    for question in questions:
+        marked = question.correct + question.wrong
+        rows.append({
+            'question': question,
+            'answered': question.answered,
+            'correct': question.correct,
+            'wrong': question.wrong,
+            'unmarked': question.answered - marked,
+            # None, not 0, when nothing is marked — "0% correct" and "nobody has
+            # marked this yet" are opposite messages and must not share a
+            # rendering.
+            'percent': round(question.correct / marked * 100) if marked else None,
+        })
+
+    # Weakest first: the page exists to answer "what do I re-teach", so the
+    # thing to re-teach should not be at the bottom. Unmarked rows sort last —
+    # they are not weak, they are unknown.
+    rows.sort(key=lambda r: (r['percent'] is None, r['percent'] if r['percent'] is not None else 0))
+
+    completions = PledgeTaskCompletion.objects.filter(task=task).select_related('task')
+    scored = [c for c in completions if c.has_score]
+    scores = sorted(c.score for c in scored)
+
+    return {
+        'committee': committee,
+        'is_chair': is_chair,
+        'viewer_is_pledge': viewer_is_pledge,
+        'task': task,
+        'rows': rows,
+        'submissions': completions.count(),
+        'score_count': len(scores),
+        'score_average': round(sum(scores) / len(scores), 1) if scores else None,
+        'score_low': scores[0] if scores else None,
+        'score_high': scores[-1] if scores else None,
+    }
+
+
+@login_required
+@require_page_enabled('committee_home')
+@require_POST
+def education_mark_answer(request, code, task_pk, answer_pk):
+    """
+    Mark one answer right or wrong (v3.21.0). `verdict` is `correct`,
+    `wrong`, or `clear`.
+    """
+    committee, _ = _education_committee_or_404(code, request.user)
+    task = get_object_or_404(PledgeTask, pk=task_pk, is_active=True, task_type='quiz')
+    answer = get_object_or_404(PledgeQuizAnswer, pk=answer_pk, question__task=task)
+
+    verdict = (request.POST.get('verdict') or '').strip()
+    # `clear` maps to None, which means "not marked" — distinct from wrong.
+    mapping = {'correct': True, 'wrong': False, 'clear': None}
+    if verdict not in mapping:
+        return JsonResponse({'error': 'Unknown verdict'}, status=400)
+
+    answer.is_correct = mapping[verdict]
+    answer.save(update_fields=['is_correct'])
+    return JsonResponse({'is_correct': answer.is_correct, 'answer_pk': answer.pk})
+
+
+@login_required
+@require_page_enabled('committee_home')
+@require_POST
+def education_review_absence(request, code, request_pk):
+    """
+    Approve or deny a pledge's absence request (v3.21.0 — ideas list #7).
+
+    ⚠️ APPROVING WRITES THE ATTENDANCE. An approval that left the roster
+    untouched would mean a chair approves an absence and the pledge is still
+    marked `absent` (or unmarked) at the next review — which is exactly the
+    "I told him and he forgot" failure the request flow exists to remove.
+    Denying deliberately writes nothing: the meeting has not happened yet, and
+    the pledge may still turn up.
+    """
+    committee, _ = _education_committee_or_404(code, request.user)
+    absence = get_object_or_404(
+        EducationAbsenceRequest.objects.select_related('meeting', 'pledge'),
+        pk=request_pk, meeting__committee=committee,
+    )
+
+    decision = (request.POST.get('decision') or '').strip()
+    if decision not in ('approved', 'denied'):
+        return JsonResponse({'error': 'Unknown decision'}, status=400)
+
+    absence.status = decision
+    absence.reviewed_by = request.user
+    absence.reviewed_at = timezone.now()
+    absence.review_note = (request.POST.get('review_note') or '').strip()
+    absence.save(update_fields=['status', 'reviewed_by', 'reviewed_at', 'review_note'])
+
+    if decision == 'approved':
+        EducationMeetingAttendance.objects.update_or_create(
+            meeting=absence.meeting,
+            pledge=absence.pledge,
+            defaults={
+                'status': 'excused',
+                'marked_by': request.user,
+                'marked_at': timezone.now(),
+            },
+        )
+
+    return redirect('education_home', code=code)

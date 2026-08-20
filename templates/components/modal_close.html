@@ -1,0 +1,32 @@
+{% comment %}
+The bottom half of a modal — see `components/modal_open.html`.
+
+Params:
+  `modal_id`     (required)
+  `submit_label` (optional — omit for a modal with no form; no footer renders)
+  `form_id`      (required whenever `submit_label` is given)
+
+⚠️ WHY `form_id` EXISTS, AND IT IS A BUG THIS COMPONENT CAUSED. v3.21.0 moved
+the footer out of the page and into this include — which renders it AFTER the
+caller's `</form>`. A `<button type="submit">` outside its form submits
+**nothing**, so Add Task, Add Meeting and Restrict a Page all silently stopped
+working the moment they were converted.
+
+The HTML `form` attribute is the fix: it lets a submit button live anywhere in
+the document and still belong to a form by id. So the caller gives its form an
+`id` and passes the same value here.
+
+`src/test_modal_component.py` renders the page and asserts every submit button
+resolves to a form that exists — a structural check on the OUTPUT, because this
+is precisely the kind of breakage that looks perfect in the source.
+{% endcomment %}
+    {% if submit_label %}
+    <div class="flex justify-end gap-2 mt-6">
+      <button type="button" onclick="document.getElementById('{{ modal_id }}').classList.add('hidden')"
+        class="px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white">Cancel</button>
+      <button type="submit" {% if form_id %}form="{{ form_id }}"{% endif %}
+        class="px-4 py-2 text-sm font-semibold bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition">{{ submit_label }}</button>
+    </div>
+    {% endif %}
+  </div>
+</div>

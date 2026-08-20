@@ -1,0 +1,120 @@
+{% comment %}
+The meeting form fields — v3.20.1.
+
+⚠️ SHARED BY THE "ADD MEETING" MODAL AND THE EDIT PAGE, deliberately. Two copies
+would drift the first time a field was added to one of them, and the symptom
+would be a field that silently does nothing on the other form — the same shape
+this codebase has recorded nine times as "the rule was stated correctly and one
+call site was left outside it". The server side is shared too, by
+`_apply_meeting_fields`.
+
+Expects: `tasks`, `MEETING_TYPES`, and optionally `meeting` (edit) and
+`assigned_homework_pks` (a set of task pks already assigned).
+{% endcomment %}
+<div class="space-y-4">
+  <div>
+    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Title *</label>
+    <input type="text" name="title" required value="{{ meeting.event.title|default:'' }}"
+      class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
+  </div>
+
+  <div class="grid grid-cols-2 gap-4">
+    <div>
+      <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Date &amp; time *</label>
+      {# `Y-m-d\TH:i` is the only format <input type="datetime-local"> accepts as a value. #}
+      <input type="datetime-local" name="date_time" required
+        value="{{ meeting.event.date_time|date:'Y-m-d\TH:i' }}"
+        class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500">
+    </div>
+    <div>
+      <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Type</label>
+      <select name="meeting_type"
+        class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500">
+        {% for val, label in MEETING_TYPES %}
+        <option value="{{ val }}" {% if meeting.meeting_type == val %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+  </div>
+
+  <div>
+    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Location</label>
+    <input type="text" name="location" placeholder="e.g. Chapter room" value="{{ meeting.event.location|default:'' }}"
+      class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500">
+  </div>
+
+  <div>
+    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Description</label>
+    <textarea name="description" rows="2"
+      class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500">{{ meeting.event.description|default:'' }}</textarea>
+  </div>
+
+  <div>
+    <span class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+      Homework for this meeting <span class="font-normal text-gray-400">(optional)</span>
+    </span>
+    <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5 mb-2">
+      Tick any <span class="font-medium">tasks you have already created</span> that you are
+      assigning at this meeting. Each one appears under the meeting on every pledge&#39;s
+      My&nbsp;Tasks page and keeps its own due date, points and score — this just links
+      them to the meeting, it does not create or change anything.
+    </p>
+
+    {% if tasks %}
+    <div class="max-h-48 overflow-y-auto rounded-lg border border-gray-300 dark:border-gray-600 divide-y divide-gray-100 dark:divide-gray-700">
+      {% for task in tasks %}
+      <label for="homework-{{ task.pk }}"
+             class="flex items-start gap-2.5 px-3 py-2 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors">
+        <input type="checkbox" name="homework" id="homework-{{ task.pk }}" value="{{ task.pk }}"
+          {% if task.pk in assigned_homework_pks %}checked{% endif %}
+          class="mt-0.5 h-4 w-4 shrink-0 text-primary-600 focus:ring-primary-500 border-gray-300 rounded">
+        <span class="min-w-0">
+          <span class="block text-sm text-gray-800 dark:text-gray-200">{{ task.title }}</span>
+          <span class="block text-xs text-gray-400 dark:text-gray-500">
+            {{ task.get_task_type_display }}
+            {% if task.due_date %}· due {{ task.due_date|date:"M j" }}{% else %}· no due date{% endif %}
+            {% if task.is_required %}· required{% endif %}
+            {% if task.max_score %}· scored out of {{ task.max_score }}{% endif %}
+          </span>
+        </span>
+      </label>
+      {% endfor %}
+    </div>
+    <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">
+      Nothing to assign? Leave them all unticked.
+    </p>
+    {% else %}
+    <div class="rounded-lg border border-dashed border-gray-300 dark:border-gray-600 px-3 py-4 text-center">
+      <p class="text-sm text-gray-500 dark:text-gray-400">No tasks exist yet.</p>
+      <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">
+        Homework links to tasks you have already created — add one with
+        <span class="font-medium">+ Add Task</span> first, then it will appear here.
+      </p>
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="grid grid-cols-2 gap-4">
+    <div>
+      <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Attendance points</label>
+      <input type="number" name="points" min="0" value="{{ meeting.points|default:0 }}"
+        class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500">
+      <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Earned for being present or late. Excused earns none.</p>
+    </div>
+    <div class="flex items-start pt-7">
+      {# `meeting` is undefined when creating, so the default is checked. #}
+      <input type="checkbox" name="attendance_required" id="meeting_attendance_required"
+        {% if not meeting or meeting.attendance_required %}checked{% endif %}
+        class="h-4 w-4 mt-0.5 text-primary-600 focus:ring-primary-500 border-gray-300 rounded">
+      <label for="meeting_attendance_required" class="ml-2 text-sm text-gray-700 dark:text-gray-300">Attendance required</label>
+    </div>
+  </div>
+
+  <div>
+    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+      Chair notes <span class="font-normal text-gray-400">(not shown to pledges)</span>
+    </label>
+    <textarea name="notes" rows="2"
+      class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500">{{ meeting.notes|default:'' }}</textarea>
+  </div>
+</div>

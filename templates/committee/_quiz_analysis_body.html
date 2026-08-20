@@ -1,0 +1,89 @@
+{% comment %}
+The analysis table — shared by the educator page and the pledge-facing one so
+the two audiences cannot be shown different numbers (v3.21.0).
+
+`viewer_is_pledge` controls only the framing. No per-pledge identity appears
+here at all, for either audience — the page is about questions, not people.
+{% endcomment %}
+
+<div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+  <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm px-4 py-3">
+    <p class="text-xs uppercase tracking-wide text-gray-400 dark:text-gray-500">Submissions</p>
+    <p class="text-2xl font-bold text-gray-900 dark:text-white leading-tight">{{ submissions }}</p>
+  </div>
+  <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm px-4 py-3">
+    <p class="text-xs uppercase tracking-wide text-gray-400 dark:text-gray-500">Average score</p>
+    <p class="text-2xl font-bold text-gray-900 dark:text-white leading-tight">
+      {% if score_average is not None %}{{ score_average }}{% else %}—{% endif %}
+    </p>
+  </div>
+  <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm px-4 py-3">
+    <p class="text-xs uppercase tracking-wide text-gray-400 dark:text-gray-500">Lowest</p>
+    <p class="text-2xl font-bold text-gray-900 dark:text-white leading-tight">
+      {% if score_low is not None %}{{ score_low }}{% else %}—{% endif %}
+    </p>
+  </div>
+  <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm px-4 py-3">
+    <p class="text-xs uppercase tracking-wide text-gray-400 dark:text-gray-500">Highest</p>
+    <p class="text-2xl font-bold text-gray-900 dark:text-white leading-tight">
+      {% if score_high is not None %}{{ score_high }}{% else %}—{% endif %}
+    </p>
+  </div>
+</div>
+
+<div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+  <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
+    <h2 class="text-base font-bold text-gray-900 dark:text-white">Question by question</h2>
+    <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+      Weakest first{% if not viewer_is_pledge %} — this is what to re-teach{% endif %}.
+    </p>
+  </div>
+
+  {% if rows %}
+  <div class="divide-y divide-gray-100 dark:divide-gray-700">
+    {% for row in rows %}
+    <div class="px-6 py-4">
+      <div class="flex items-start justify-between gap-4 flex-wrap">
+        <p class="text-sm text-gray-800 dark:text-gray-200 min-w-0 flex-1">{{ row.question.question_text }}</p>
+
+        {% if row.percent is not None %}
+        <span class="text-xs font-semibold px-2.5 py-1 rounded-full shrink-0
+          {% if row.percent >= 80 %}bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400
+          {% elif row.percent >= 50 %}bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400
+          {% else %}bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400{% endif %}">
+          {{ row.percent }}% correct
+        </span>
+        {% else %}
+        {% comment %}
+        ⚠️ Not "0% correct". Nothing marked and everyone wrong are opposite
+        messages and must not share a rendering.
+        {% endcomment %}
+        <span class="text-xs font-semibold px-2.5 py-1 rounded-full bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400 shrink-0">
+          Not marked yet
+        </span>
+        {% endif %}
+      </div>
+
+      <p class="text-xs text-gray-400 dark:text-gray-500 mt-1.5">
+        {{ row.answered }} answer{{ row.answered|pluralize }}
+        {% if row.correct or row.wrong %}
+        · {{ row.correct }} right · {{ row.wrong }} wrong
+        {% endif %}
+        {% if row.unmarked %}
+        · <span class="text-amber-600 dark:text-amber-400">{{ row.unmarked }} still unmarked</span>
+        {% endif %}
+      </p>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="p-8 text-center">
+    <p class="text-sm text-gray-500 dark:text-gray-400">This quiz has no questions.</p>
+    {% if not viewer_is_pledge %}
+    <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">
+      Add questions from the education dashboard, then the breakdown appears here.
+    </p>
+    {% endif %}
+  </div>
+  {% endif %}
+</div>

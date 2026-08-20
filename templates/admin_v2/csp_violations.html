@@ -87,8 +87,14 @@
 <script nonce="{{ request.csp_nonce }}">
 document.addEventListener('DOMContentLoaded', function () {
     var dismissUrl = '{% url "admin_v2_csp_violation_dismiss" %}';
-    var csrfToken = document.cookie.match(/csrftoken=([^;]+)/);
-    csrfToken = csrfToken ? csrfToken[1] : '';
+    // ⚠️ v3.20.0 / v3.20.1 — THE DISMISS BUTTONS HAD NEVER WORKED. This read
+    // the CSRF token from `document.cookie`, and `CSRF_COOKIE_HTTPONLY = True`
+    // (settings.py:285) means JavaScript can never see it — so the token was
+    // always '' and every dismiss POST was a 403, with a `.catch` that only
+    // reset the button label. It looked like the click did nothing.
+    //
+    // Now `Parliament.post()` (base.html): one place knows the token, and a
+    // failure is shown to the user instead of being swallowed.
 
     document.querySelectorAll('.js-dismiss-btn').forEach(function (btn) {
         btn.addEventListener('click', function () {
@@ -99,28 +105,27 @@ document.addEventListener('DOMContentLoaded', function () {
             btn.disabled = true;
             btn.textContent = 'Dismissing…';
 
-            fetch(dismissUrl, {
-                method: 'POST',
-                headers: {
-                    'X-CSRFToken': csrfToken,
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                },
-                body: 'violated_directive=' + encodeURIComponent(directive)
-                    + '&blocked_uri=' + encodeURIComponent(blocked),
+            Parliament.post(dismissUrl, {
+                violated_directive: directive,
+                blocked_uri: blocked,
             })
-            .then(function (r) { return r.json(); })
             .then(function (data) {
                 if (data.ok) {
                     row.style.transition = 'opacity 0.3s';
                     row.style.opacity = '0';
                     setTimeout(function () { row.remove(); }, 300);
                 } else {
+                    // A 200 that reports failure in its body — rare, but the
+                    // endpoint can do it, so say so rather than silently
+                    // restoring the button.
                     btn.disabled = false;
                     btn.textContent = 'Dismiss';
-                    alert('Error: ' + (data.error || 'Unknown error'));
+                    Parliament.toast(data.error || 'Could not dismiss that violation.', 'error');
                 }
             })
             .catch(function () {
+                // Already reported by the helper; just make the button usable
+                // again so the failure is recoverable.
                 btn.disabled = false;
                 btn.textContent = 'Dismiss';
             });
