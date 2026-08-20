@@ -6,8 +6,11 @@
 #   make check       Django system check + migration drift check
 #   make hooks       install the pre-push hook (runs test-fast before a push;
 #                    bypass a single push with: git push --no-verify)
+#   make stamp-ledger  fill in the two release-ledger lines that cannot be
+#                    written until the commit exists (see scripts/stamp_ledger.py).
+#                    CHECK=1 reports without changing anything.
 
-.PHONY: test-fast test check hooks
+.PHONY: test-fast test check hooks stamp-ledger
 
 test-fast:
 	DB_BACKEND=sqlite python3 manage.py test src -v 1
@@ -21,3 +24,6 @@ check:
 hooks:
 	install -m 755 scripts/pre-push.sh .git/hooks/pre-push
 	@echo "pre-push hook installed — 'git push --no-verify' bypasses it"
+
+stamp-ledger:
+	@python3 scripts/stamp_ledger.py
