@@ -738,13 +738,31 @@ class TwoFactorProfileIntegrationTestCase(TestCase):
 
 
 class TwoFactorAdminDashboardTestCase(TestCase):
-    """Test admin 2FA dashboard views"""
+    """
+    Test admin 2FA dashboard views.
+
+    ⚠️ v3.21.5 — THE ALLOWLIST IS PATCHED NOW, AND IT USED TO BE INHERITED.
+    The comment that used to sit below read *"must use user_id='73' for admin_v2
+    access"*, which was true when `admin_v2.ALLOWED_USER_IDS` was a constant in
+    that module. Since v3.17.0 (`619eaae`) it is parsed from the
+    `ADMIN_V2_USER_IDS` environment variable — so these thirteen tests passed on
+    a machine whose untracked `.env` happened to list 73, and **failed
+    everywhere else, including CI**, which sets no such variable.
+
+    Eight other modules already patch this. Now so does this one, and
+    `src/cache_isolated_runner.py` empties the ambient value for the whole run
+    so that no test can pass again because of what is in somebody's `.env`.
+    """
 
     def setUp(self):
         """Set up admin user and client"""
         self.client = Client()
 
-        # Create admin user - must use user_id='73' for admin_v2 access
+        allowlist = patch('src.view.admin_v2.ALLOWED_USER_IDS', {'73'})
+        allowlist.start()
+        self.addCleanup(allowlist.stop)
+
+        # The id has to match the allowlist patched above, and nothing else.
         self.admin = ParliamentUser.objects.create_user(
             user_id='73',
             name='Dashboard Admin',

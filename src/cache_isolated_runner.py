@@ -168,13 +168,81 @@ def _clear_all_caches():
             pass
 
 
+#: Module-level constants in `src/` that are parsed from the environment at
+#: import time, and the value the SUITE must see regardless of what is in the
+#: developer's `.env`.
+#:
+#: ⚠️ v3.21.5 — WHY THIS IS HERE, IN THE RUNNER, NEXT TO THE CACHE RESET.
+#:
+#: The Django CI workflow had **never once passed** — 0 successes in the 400
+#: runs GitHub still retains — and the largest single cause was that fifteen
+#: tests read `ADMIN_V2_USER_IDS` out of the ambient environment. `.env` is
+#: gitignored; Mason's lists `73`; CI's sets nothing. So `manage.py test` was
+#: green on the machine that runs the pre-push hook and red on the machine that
+#: gates the merge, and the difference was a file that is not in the repository.
+#:
+#: That is the same defect as the cache one this module already fixes, one
+#: layer out: **shared mutable state that the test run inherits rather than
+#: establishes.** The cache leaked between tests; this leaks in from the host.
+#: Both make the verdict a property of the environment instead of the code.
+#:
+#: Emptying the value here does not make the affected tests pass — it makes them
+#: fail *everywhere*, deterministically, which is what forces them to patch the
+#: allowlist explicitly the way eight other modules already do. A test that
+#: needs an allowlist must say so.
+#:
+#: `src/test_environment_independence.py` walks `src/` for module-level env
+#: reads and fails the build when a new one appears that is not listed here, so
+#: the next one cannot be added silently.
+_ENV_DERIVED_TEST_DEFAULTS = (
+    # (module path, attribute, value the suite must see)
+    #
+    # Two halves of one allowlist: `dev_mode` re-parses the same variable rather
+    # than importing `admin_v2` (import cycle), and `test_dev_mode` asserts the
+    # two sets are equal — which they still are, both empty.
+    ('src.view.admin_v2', 'ALLOWED_USER_IDS', set()),
+    ('src.dev_mode', 'DEV_USER_IDS', set()),
+    # Decides whether `serve_media` shoves bytes itself or hands nginx an
+    # X-Accel-Redirect. Every test that cares patches this attribute; the ones
+    # that do not care must not silently exercise the other branch because a
+    # developer has the variable set.
+    ('src.view.serve_media', 'MEDIA_ACCEL_PREFIX', ''),
+)
+
+
+def neutralise_ambient_env_config():
+    """
+    Force the env-derived module constants to their documented test values.
+
+    Idempotent and import-tolerant: a module that cannot be imported in this
+    process is skipped rather than turned into 1,500 errors — the enumeration
+    test is what notices a missing entry, not this.
+    """
+    import importlib
+
+    for module_path, attribute, value in _ENV_DERIVED_TEST_DEFAULTS:
+        try:
+            module = importlib.import_module(module_path)
+        except Exception:  # pragma: no cover - see docstring
+            continue
+        if hasattr(module, attribute):
+            setattr(module, attribute, value)
+
+
 def install_cache_isolation():
     """
     Check the cache is disposable, then install the per-test reset. Idempotent.
 
     Extracted from `setup_test_environment` in v3.19.9 so that it can also be
     called from inside a parallel worker — see `_run_subsuite_isolated`.
+
+    v3.21.5 — also neutralises the ambient environment config. It rides on this
+    function deliberately: this is the one call site that both the parent
+    process and every spawned worker already reach, and the failure being fixed
+    (a worker that did not get the isolation) has happened here before.
     """
+    neutralise_ambient_env_config()
+
     if getattr(SimpleTestCase, _PATCHED_ATTR, False):
         return
 

@@ -1112,6 +1112,74 @@ class EditingAMeetingTests(EducationFixtureMixin, TestCase):
         self.assertEqual(self.client.get(url).status_code, 404)
 
 
+class AMeetingIsWrittenAllAtOnceTests(EducationFixtureMixin, TestCase):
+    """
+    v3.21.5 — a meeting is two rows, and half of one is worse than none.
+
+    ⚠️ `EducationMeeting.event` is a `OneToOneField`, so the `Event` must be
+    saved first. Without a transaction, a failure on the second save left the
+    Event behind as **a pledge-education entry on the chapter calendar with
+    nothing behind it**: no attendance page, no row on the education dashboard,
+    and `education_delete_meeting` deletes *through* the meeting, so nothing in
+    the interface could remove it. An orphan you cannot delete from the UI is a
+    database job for whoever inherits this app.
+
+    The failure is simulated rather than waited for, because the realistic
+    trigger — a constraint violation, a dropped connection mid-request — is not
+    something a test can arrange honestly.
+    """
+
+    def setUp(self):
+        self.build()
+        self.url = reverse('education_add_meeting', args=[self.committee.code])
+
+    def _payload(self, **overrides):
+        payload = {
+            'title': 'Founders Night',
+            'date_time': '2026-09-01T19:00',
+            'location': 'Chapter Room',
+            'description': '',
+            'meeting_type': 'meeting',
+            'points': '2',
+            'notes': '',
+        }
+        payload.update(overrides)
+        return payload
+
+    def test_a_failure_on_the_second_save_leaves_no_orphan_event(self):
+        from unittest import mock
+
+        before = Event.objects.count()
+
+        with mock.patch.object(
+            EducationMeeting, 'save', side_effect=RuntimeError('simulated failure')
+        ):
+            with self.assertRaises(RuntimeError):
+                self.client.post(self.url, self._payload())
+
+        self.assertEqual(
+            Event.objects.count(), before,
+            'The Event survived a failed meeting creation. It is now on the '
+            'calendar with no EducationMeeting behind it, and nothing in the '
+            'interface can delete it.',
+        )
+        self.assertEqual(EducationMeeting.objects.count(), 0)
+
+    def test_the_control_a_successful_create_writes_both_rows(self):
+        """
+        CONTROL. A view that wrote nothing at all would pass the assertion
+        above trivially — this is the assertion that says the fixture and the
+        form actually work.
+        """
+        response = self.client.post(self.url, self._payload())
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(EducationMeeting.objects.count(), 1)
+        meeting = EducationMeeting.objects.get()
+        self.assertEqual(meeting.event.title, 'Founders Night')
+        self.assertEqual(meeting.points, 2)
+
+
 class CreateAndEditShareOneFormTests(EducationFixtureMixin, TestCase):
     """
     ⚠️ Two copies of a form drift, and the symptom is a field that silently does
@@ -1725,6 +1793,17 @@ class QuizAnalysisVisibilityTests(EducationFixtureMixin, TestCase):
         """
         ⚠️ One builder, two pages. A pledge told "8 of 12 got this right" while
         a chair is told something else is worse than showing him nothing.
+
+        ⚠️ v3.21.5 — THE FIXTURE NOW CROSSES THE MINIMUM-SUBMISSIONS THRESHOLD,
+        and it did not before. This test used to build two submissions, which is
+        below `PLEDGE_ANALYSIS_MIN_SUBMISSIONS`, so on the fixed tree the pledge
+        page has no rows at all and the comparison raised `IndexError`.
+
+        The claim being tested is *when both audiences are shown numbers, the
+        numbers agree* — it was never a claim that a pledge is always shown
+        them. Raising the fixture keeps that claim intact; the case where they
+        deliberately differ has its own module,
+        `src/test_quiz_analysis_threshold.py`.
         """
         self.task.show_analysis_to_pledges = True
         self.task.save()
@@ -1735,6 +1814,16 @@ class QuizAnalysisVisibilityTests(EducationFixtureMixin, TestCase):
         PledgeQuizAnswer.objects.create(
             question=question, pledge=self.other_pledge, answer_text='b', is_correct=False,
         )
+        third = make_user('P-3RDSUB', 'Pledge Three', member_type='Pledge')
+        PledgeQuizAnswer.objects.create(
+            question=question, pledge=third, answer_text='c', is_correct=True,
+        )
+        # ⚠️ The threshold counts SUBMISSIONS (completion rows), not answers.
+        # This fixture used to create answers and no completions at all, so
+        # `submissions` was 0 — worth noticing, because it means a quiz can have
+        # answers on record and still report nothing taken.
+        for pledge in (self.pledge, self.other_pledge, third):
+            PledgeTaskCompletion.objects.create(task=self.task, pledge=pledge)
 
         educator = self.client.get(
             reverse('education_quiz_analysis', args=[self.committee.code, self.task.pk])

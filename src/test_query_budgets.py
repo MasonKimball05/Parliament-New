@@ -608,7 +608,8 @@ class BudgetHygieneTests(TestCase):
         through every assertion above.
         """
         from src.test_query_budgets import (
-            ActivityLogQueryBudgetTests, HomePageQueryBudgetTests,
+            ActivityLogQueryBudgetTests, EducationDashboardQueryBudgetTests,
+            EducationPledgeDetailQueryBudgetTests, HomePageQueryBudgetTests,
             KaiListQueryBudgetTests, SecurityAlertsQueryBudgetTests,
             ServiceDashboardQueryBudgetTests, TwoFactorDashboardQueryBudgetTests,
         )
@@ -623,6 +624,8 @@ class BudgetHygieneTests(TestCase):
             'admin_v2_security_alerts': SecurityAlertsQueryBudgetTests.BUDGET,
             'admin_v2_two_factor': TwoFactorDashboardQueryBudgetTests.BUDGET,
             'service_dashboard': ServiceDashboardQueryBudgetTests.BUDGET,
+            'education_home': EducationDashboardQueryBudgetTests.BUDGET,
+            'education_pledge_detail': EducationPledgeDetailQueryBudgetTests.BUDGET,
         }
         for name, ceiling in declared.items():
             self.assertGreater(
@@ -1169,4 +1172,210 @@ class MiddlewareChainQueryBudgetTests(QueryBudgetMixin, TestCase):
             f'which should be impossible — a warm cache cannot add queries. '
             f'Suspect a cache write that itself reads, or invalidation firing '
             f'on read.',
+        )
+
+
+# ---------------------------------------------------------------------------
+# v3.21.5 — the education dashboard
+# ---------------------------------------------------------------------------
+#
+# ⚠️ ADDED BECAUSE THIS MODULE'S HONEST LIMITATION IS ITS COVERAGE, NOT ITS
+# METHOD. v3.18.6 found two N+1 dashboards in production dev mode rather than
+# here, and recorded why: this suite constrains only the pages somebody
+# remembered to add. v3.20.0–v3.21.4 added eleven education routes and ~7,000
+# lines in a day, and the 08-20 review measured three of the new pages by hand,
+# found them flat, and wrote the numbers into a report.
+#
+# **A measurement in a report is not a ratchet.** These pages are the ones that
+# loop over the pledge roster, which is the population that grows every autumn,
+# so they are exactly where the next N+1 will appear.
+
+class EducationDashboardQueryBudgetTests(QueryBudgetMixin, TestCase):
+    """
+    `/committee/<code>/education/` — the task × pledge grid.
+
+    Every cell is a (task, pledge) pair, so a naive render is O(tasks × pledges)
+    queries. It is not: v3.20.0 built the completion map in one query. This
+    pins that.
+    """
+
+    #: Measured 08-20-26 on sqlite, cold cache, on the fixture below
+    #: (12 pledges × 8 tasks, 40 completions, 3 meetings): 37.
+    #:
+    #: Not a small number, and it is chrome rather than the grid — the only
+    #: repeated shapes are the two django-otp device lookups every
+    #: authenticated page in this suite pays on a cold cache. Compare
+    #: `home` at 41 and `activity_logs` at 38. What matters is that it is
+    #: FLAT, which `test_it_does_not_scale_with_the_pledge_roster` pins.
+    BUDGET = 37
+
+    def setUp(self):
+        from django.utils import timezone as tz
+
+        from src.models import (
+            Event, EducationMeeting, PledgeTask, PledgeTaskCompletion,
+        )
+
+        self.chair = make_user('qb-edu-chair', 'Education Chair')
+        self.committee = Committee.objects.create(
+            name='Education', code='QBEDU', is_active=True,
+            is_education_committee=True,
+        )
+        self.committee.chairs.add(self.chair)
+
+        # ⚠️ Pledge ids are NOT numeric — `P-C7JKZY`, not `101`. v3.21.1 shipped
+        # a 500 past 119 passing tests because a fixture used numeric ones.
+        self.pledges = [
+            make_user(f'P-QB{index:04d}', f'Pledge {index}', member_type='Pledge')
+            for index in range(12)
+        ]
+        self.tasks = [
+            PledgeTask.objects.create(
+                title=f'Task {index}', is_active=True, max_score=10,
+                display_order=index,
+            )
+            for index in range(8)
+        ]
+        for pledge in self.pledges[:10]:
+            for task in self.tasks[:4]:
+                PledgeTaskCompletion.objects.create(
+                    task=task, pledge=pledge, status='completed', score=8,
+                )
+        for index in range(3):
+            event = Event.objects.create(
+                title=f'Meeting {index}', description='', date_time=tz.now(),
+                created_by=self.chair,
+            )
+            EducationMeeting.objects.create(
+                event=event, committee=self.committee, created_by=self.chair,
+            )
+
+    def test_the_dashboard_stays_within_budget(self):
+        self.assert_within_budget(
+            self.chair, 'education_home', self.BUDGET, self.committee.code,
+        )
+
+    def test_it_does_not_scale_with_the_pledge_roster(self):
+        """
+        The property that outlives the number.
+
+        A ceiling catches a regression only if somebody re-measures after the
+        roster grows; this catches it on a fixture. Doubling the roster must
+        cost nothing, because every pledge-shaped query on this page is either
+        grouped or prefetched.
+        """
+        before = len(self.measure(self.chair, 'education_home', self.committee.code))
+
+        for index in range(12, 24):
+            make_user(f'P-QB{index:04d}', f'Pledge {index}', member_type='Pledge')
+
+        after = len(self.measure(self.chair, 'education_home', self.committee.code))
+
+        self.assertEqual(
+            before, after,
+            f'Doubling the pledge roster took the education dashboard from '
+            f'{before} queries to {after}. That is a per-pledge query, i.e. an '
+            f'N+1 on the page whose entire subject is the roster.',
+        )
+
+
+class EducationPledgeDetailQueryBudgetTests(QueryBudgetMixin, TestCase):
+    """
+    `/committee/<code>/education/pledge/<pk>/` — one pledge, every task and
+    every meeting he has attended.
+
+    The inverse shape of the dashboard: one pledge, many tasks. Both loops are
+    somewhere a per-row query could be reintroduced without anybody noticing on
+    a fixture of three.
+    """
+
+    #: Measured 08-20-26 on sqlite, cold cache, on the fixture below
+    #: (10 tasks, 5 completions, 6 meetings attended): 34.
+    BUDGET = 34
+
+    def setUp(self):
+        from django.utils import timezone as tz
+
+        from src.models import (
+            Event, EducationMeeting, EducationMeetingAttendance,
+            PledgeTask, PledgeTaskCompletion,
+        )
+
+        self.chair = make_user('qb-det-chair', 'Education Chair')
+        self.committee = Committee.objects.create(
+            name='Education', code='QBDET', is_active=True,
+            is_education_committee=True,
+        )
+        self.committee.chairs.add(self.chair)
+        self.pledge = make_user('P-QBDET1', 'Detail Pledge', member_type='Pledge')
+
+        for index in range(10):
+            task = PledgeTask.objects.create(
+                title=f'Task {index}', is_active=True, max_score=10,
+                display_order=index,
+            )
+            if index % 2 == 0:
+                PledgeTaskCompletion.objects.create(
+                    task=task, pledge=self.pledge, status='completed', score=9,
+                )
+
+        for index in range(6):
+            event = Event.objects.create(
+                title=f'Meeting {index}', description='', date_time=tz.now(),
+                created_by=self.chair,
+            )
+            meeting = EducationMeeting.objects.create(
+                event=event, committee=self.committee, created_by=self.chair,
+                points=2,
+            )
+            EducationMeetingAttendance.objects.create(
+                meeting=meeting, pledge=self.pledge, status='present',
+                marked_by=self.chair,
+            )
+
+    def test_the_detail_page_stays_within_budget(self):
+        self.assert_within_budget(
+            self.chair, 'education_pledge_detail', self.BUDGET,
+            self.committee.code, self.pledge.pk,
+        )
+
+    def test_it_does_not_scale_with_attendance_history(self):
+        """
+        Attendance is the unbounded one here — a pledge accumulates a row per
+        meeting for as long as he is a pledge, and the page renders each
+        meeting's title and date, which live on the joined `Event`.
+        """
+        from django.utils import timezone as tz
+
+        from src.models import Event, EducationMeeting, EducationMeetingAttendance
+
+        before = len(self.measure(
+            self.chair, 'education_pledge_detail',
+            self.committee.code, self.pledge.pk,
+        ))
+
+        for index in range(6, 18):
+            event = Event.objects.create(
+                title=f'Meeting {index}', description='', date_time=tz.now(),
+                created_by=self.chair,
+            )
+            meeting = EducationMeeting.objects.create(
+                event=event, committee=self.committee, created_by=self.chair,
+            )
+            EducationMeetingAttendance.objects.create(
+                meeting=meeting, pledge=self.pledge, status='present',
+                marked_by=self.chair,
+            )
+
+        after = len(self.measure(
+            self.chair, 'education_pledge_detail',
+            self.committee.code, self.pledge.pk,
+        ))
+
+        self.assertEqual(
+            before, after,
+            f'Tripling this pledge\'s attendance history took the page from '
+            f'{before} queries to {after} — a per-meeting query, which is what '
+            f'the `select_related("meeting", "meeting__event")` on that '
+            f'queryset exists to prevent.',
         )

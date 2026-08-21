@@ -640,9 +640,11 @@ def send_daily_digest():
 
 
 def _digest_heartbeat_path():
-    from django.conf import settings
-    log_dir = os.path.join(settings.BASE_DIR, os.getenv('LOG_DIR', 'logs'))
-    return os.path.join(log_dir, 'last_digest_sent')
+    # v3.21.5 — the path is defined once, in `src/digest_heartbeat.py`, so the
+    # writer and the watchdog that reads it cannot drift apart. Kept as a thin
+    # wrapper because this name is what the rest of this module calls.
+    from src.digest_heartbeat import digest_heartbeat_path
+    return digest_heartbeat_path()
 
 
 def _write_digest_heartbeat():

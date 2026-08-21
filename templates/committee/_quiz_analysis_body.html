@@ -4,7 +4,29 @@ the two audiences cannot be shown different numbers (v3.21.0).
 
 `viewer_is_pledge` controls only the framing. No per-pledge identity appears
 here at all, for either audience — the page is about questions, not people.
+
+v3.21.5 — `withheld` is set by the context builder, never decided here. With
+one submission "class totals" WERE that one pledge's result; the suppression
+lives in the view so a second template cannot render what this one hides.
 {% endcomment %}
+
+{% if withheld %}
+<div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-8 text-center">
+  <p class="text-sm text-gray-600 dark:text-gray-300">
+    {% if submissions == 0 %}
+    Nobody has taken this quiz yet.
+    {% else %}
+    Results appear once at least {{ min_submissions }} people have taken this quiz.
+    {% endif %}
+  </p>
+  <p class="text-xs text-gray-400 dark:text-gray-500 mt-2">
+    {% if submissions %}
+    {{ submissions }} so far. With fewer than {{ min_submissions }}, the "class"
+    totals would just be one person's answers.
+    {% endif %}
+  </p>
+</div>
+{% else %}
 
 <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
   <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm px-4 py-3">
@@ -87,3 +109,4 @@ here at all, for either audience — the page is about questions, not people.
   </div>
   {% endif %}
 </div>
+{% endif %}

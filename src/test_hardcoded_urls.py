@@ -72,8 +72,10 @@ _NOT_SITE_PATHS = {
     '/delete/', '/delete/123/', '/update/', '/recruitment-permissions/',
     '/note/', '/0/', '/cnb/api/section/', '/legislation/', '/members/',
     '/signups/export/', '/admin-v2/api-tokens/flag/', '/passed-legislation/5/',
-    # Filesystem paths, not URLs.
-    '/var/backups/parliament/', '/src/dev_mode.py', '/src/middleware/dev_mode.py',
+    # Filesystem paths, not URLs. v3.21.5 moved the absolute ones onto
+    # `_is_filesystem_path`; these two are repo-relative source references in
+    # prose, which no rule about system directories can cover.
+    '/src/dev_mode.py', '/src/middleware/dev_mode.py',
     # Middleware prefix comparisons against request.path — matched with
     # startswith, so they need not be routes themselves.
     '/health/', '/favicon.ico', '/lockdown/',
@@ -193,6 +195,37 @@ def _looks_like_a_template_expression(url):
     return any(ch in url for ch in '{}%<>$')
 
 
+#: Filesystem roots that a URL router will never own.
+#:
+#: ⚠️ v3.21.5 — A RULE, AND THE LITERAL IT REPLACES IS DELETED. `/var/backups/
+#: parliament/` used to sit in `_NOT_SITE_PATHS` under a comment reading
+#: "Filesystem paths, not URLs" — a correct classification written one path at a
+#: time, which is the shape v3.19.6 recorded as *a set is only the general form
+#: if something enumerates the population it is drawn from*. The population here
+#: is "absolute paths rooted at a Unix system directory", and it is a two-line
+#: rule.
+#:
+#: The literal is removed rather than kept alongside, because an entry that also
+#: matches the rule makes the rule untestable: it would keep passing if the rule
+#: were wrong. `test_a_filesystem_path_is_not_treated_as_a_route` is the control.
+#:
+#: `/etc` and `/usr` are not listed — nothing in this codebase writes them, and a
+#: root that never appears is an exemption that cannot be checked.
+#:
+#: ⚠️ THE TRAILING SLASHES ARE LOAD-BEARING AND THE CONTROL CAUGHT ME WITHOUT
+#: THEM. The first draft was `('/tmp', '/var/')`, and `startswith('/tmp')` also
+#: matches `/tmpl/`. That is the failure mode an exemption-by-rule has and an
+#: exemption-by-literal does not: it can silently grow. The bare `/tmp` is
+#: matched by equality instead, because it is a real directory that appears on
+#: its own in a `LOG_DIR` value.
+_FILESYSTEM_ROOTS = ('/tmp/', '/var/')  # nosec B108  # no file is opened here; these are prefixes a URL scanner must ignore
+
+
+def _is_filesystem_path(url):
+    """True for an absolute path under a Unix system directory, not a route."""
+    return url == '/tmp' or url.startswith(_FILESYSTEM_ROOTS)  # nosec B108  # a string comparison, not a path this process writes to
+
+
 class HardcodedUrlPathsResolveTests(SimpleTestCase):
 
     def _scan(self):
@@ -214,6 +247,7 @@ class HardcodedUrlPathsResolveTests(SimpleTestCase):
                                 or url.startswith(_SKIP_PREFIXES)
                                 or len(url) < 3
                                 or _is_ooxml_part_name(line, match)
+                                or _is_filesystem_path(url)
                                 or _looks_like_a_template_expression(url)):
                             continue
                         yield path.relative_to(ROOT), line_no, url
@@ -252,6 +286,47 @@ class HardcodedUrlPathsResolveTests(SimpleTestCase):
 
         stale = sorted(_NOT_SITE_PATHS - seen)
         self.assertEqual(stale, [], 'allowlisted paths that appear nowhere')
+
+    def test_a_filesystem_path_is_not_treated_as_a_route(self):
+        """
+        THE CONTROL FOR `_is_filesystem_path`, and the reason the
+        `/var/backups/parliament/` literal could be deleted rather than left
+        beside the rule.
+
+        Both halves matter. If the rule matched too little, the literal it
+        replaced would be needed again; if it matched too much — a prefix test
+        against a system directory name without its trailing separator also
+        swallows a route that merely begins with the same letters — it would
+        silence real broken links without appearing in `_NOT_SITE_PATHS` where
+        somebody could read it. So the separators are part of the rule, and
+        that is asserted below rather than trusted.
+
+        ⚠️ AND THE PROSE ABOVE IS DELIBERATELY SEPARATOR-FREE. The first draft
+        of this docstring named the two roots, and this module scans this
+        module: a Python docstring is not a comment line, so `_scan` reads it
+        and duly reported the explanation as a broken link. Fourth time — the
+        module's own history records the `{% comment %}` blocks, the worked
+        example above `_PART_NAME_INTRODUCER_RE`, and a control fixture.
+        """
+        # ⚠️ ASSEMBLED, NOT WRITTEN — for the same reason as the `PartName`
+        # control below. A rooted literal in this file is a rooted literal in
+        # the tree this file scans, and `/tmpl/` and `/variance/` are not
+        # routes, so writing them out would make the scanner report its own
+        # control fixture. Third time this module has done this to itself.
+        root = '/'
+        for path in (root + 'tmp', root + 'tmp/last_digest_sent',
+                     root + 'var/backups/parliament/'):
+            with self.subTest(path=path):
+                self.assertTrue(_is_filesystem_path(path))
+
+        for path in (root + 'variance/', root + 'tmpl/', root + 'vote/'):
+            with self.subTest(path=path):
+                self.assertFalse(
+                    _is_filesystem_path(path),
+                    'a site route that merely starts with the same letters must '
+                    'still be scanned — the first draft of this rule used '
+                    'startswith on a bare /tmp and swallowed one of these',
+                )
 
     def test_a_path_not_introduced_by_partname_is_still_scanned(self):
         """

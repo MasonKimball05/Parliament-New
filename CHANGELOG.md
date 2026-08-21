@@ -5,6 +5,470 @@ This project is licensed under the MIT License. Copyright (c) 2025-2026 Mason Ki
 
 ---
 
+### v3.21.4 — A quiet, parallel push gate (2026-08-19)
+
+**Type:** Developer Experience
+
+The pre-push hook took 291 s and buried its own verdict. The suite contained 43 `print()` calls (34 in `src/tests.py`) and `test_ledger_check` ran the `preflight` command without capturing stdout, so every push printed a paste-ready ledger line for `v9.9.9` — a fixture — that read like a real finding. All removed by AST walk, stdout captured, and `src/test_suite_is_quiet.py` fails on a 44th. The hook now runs `--parallel` (291 s → ~54 s), safe because `tblib` has been pinned since v3.19.9 so a parallel failure still names the failing test. Also adds **`make stamp-ledger`** after the tenth push blocked by `src.W003` — it fills both release-ledger lines from `git log --diff-filter=A` and deliberately never touches the "Deployed" column, because git cannot know that. See `changelogs/v3.21.4.md`.
+
+---
+
+### v3.21.3 — "Log in as" now bypasses the forced password change (2026-08-19)
+
+**Type:** Bug Fix / Security Policy
+
+`Enforce2FAMiddleware` exempted impersonation sessions; `ForcePasswordChangeMiddleware` did not, so logging in as a user with `force_password_change` set stranded the admin on a change-password screen for an account whose password he does not know. The bypass walks past the requirement without resolving it — the user's flag survives. New `src/impersonation.py` holds one `is_impersonating()` plus the written policy, and a test fails the build on any further raw read of the session key. Quarantine, emergency lockdown and maintenance mode are deliberately **not** bypassed. See `changelogs/v3.21.3.md`.
+
+---
+
+### v3.21.2 — The modal component broke every submit button in it (2026-08-19)
+
+**Type:** Bug Fix (regression from v3.21.0)
+
+Extracting the modal footer into `modal_close.html` rendered it after the caller's `</form>`, and a `<button type="submit">` outside its form submits nothing — Add Task, Add Meeting and Restrict a Page all silently stopped working. Fixed with the HTML `form` attribute. The defect existed in no file, only in the relationship between two elements of the rendered page, so the new guard parses the rendered dashboard and requires every submit button to resolve to a form. See `changelogs/v3.21.2.md`.
+
+---
+
+### v3.21.1 — Pledge ids are not numbers (2026-08-19)
+
+**Type:** Bug Fix
+
+`ParliamentUser.user_id` is a CharField and pledges carry `P-C7JKZY` until initiation, but three routes declared `<int:…>` for a member id: `education_pledge_detail` (a hard 500), `education_toggle_completion` (a silent 404 that had probably never worked for a real pledge), and `get_member_adjustments` in service hours. The tests were green throughout because the fixture used numeric pledge ids. New `src/test_user_pk_routes.py` derives the population — every kwarg used as a `ParliamentUser` pk, then any URL capturing one as an int. See `changelogs/v3.21.1.md`.
+
+---
+
+### v3.21.0 — Pledge education: absences, duplication, item analysis, UI components (2026-08-19)
+
+**Type:** Feature / UI
+
+Ideas #6–#13 from the 08-19 list. Per-question quiz marking (`PledgeQuizAnswer.is_correct`) plus a question-by-question breakdown — the feature could not be built as proposed because nothing recorded whether an answer was right, so the marking came first; visibility is educator-only by default via a model field that fails closed. Adds pledge-visible attendance history, `EducationAbsenceRequest` (approving writes `excused`), task duplication (always as a draft, due date dropped), a shared modal component, one status vocabulary, empty states, and a mobile pass with a sticky task column. Migration `0019`, additive. See `changelogs/v3.21.0.md`.
+
+---
+
+### v3.20.2 — Overdue surfaced, attendance made fast, one page per pledge (2026-08-19)
+
+**Type:** UI / UX
+
+`PledgeTask.due_date` had been stored since the model was written and shown nowhere; new `is_overdue_for(completion)` treats overdue as a property of a (task, pledge) pair, with `waived` counting as done. Bulk Present/Absent/Clear buttons on the attendance roster (client-side only — no endpoint can bulk-write a roster). New per-pledge detail page for the educator, read-only, excluding tasks assigned to other pledges. See `changelogs/v3.20.2.md`.
+
+---
+
+### v3.20.1 — Failures you can see, and a meeting you can edit (2026-08-19)
+
+**Type:** UX / Bug Fix
+
+`Parliament.post()` in `base.html`: one place knows the CSRF token, and a non-2xx raises and shows a toast instead of being logged to a console nobody reads. Meeting editing added — v3.20.0 shipped create and delete only, so correcting a mistyped time meant deleting the meeting, and deletion cascades to attendance. Form fields and parsing are shared by the Add modal and the edit page so they cannot drift. See `changelogs/v3.20.1.md`.
+
+---
+
+### v3.20.0 — Scored pledge tasks and education meetings (2026-08-19)
+
+**Type:** Feature / Bug Fix
+
+Optional `max_score` on a task plus a per-pledge `score`, informational and never deciding pass/fail. `EducationMeeting` as an `Event` sidecar (like `RecruitmentEvent`) with chapter-visible calendar entries, homework linked to real tasks, and attendance points — attendance lives in its own table so "pledges only" is true by construction. Two live bugs found on the way: **the quiz grading page had never rendered** (`committee.committee_code` does not exist, so four `{% url %}` tags raised `NoReverseMatch`), and **both grading buttons did the same thing** because the view ignored the `set_status` the page posts. Migration `0018`, additive. See `changelogs/v3.20.0.md`.
+
+---
+
+### v3.19.11 — A fix applied to one model instead of to a population (2026-08-19)
+
+**Type:** Correctness / Dependency
+
+`LandingPageContent.get_instance()` was the same `get_or_create` v3.19.10 had just fixed on `SystemLockdown` — on the public anonymous landing page, so a visitor's `GET /` wrote to the database. New `SingletonRow` mixin plus `test_singleton_rows.py`, which walks `apps.get_models()` so the next singleton is covered by a test written today. Also fixes a 500 v3.19.10 created on the emergency-lockdown console (`save(update_fields=…)` on an unsaved placeholder), and bumps Django 5.2.16 → 5.2.17 for PYSEC-2026-3717 (not reachable; `contrib.gis` is not installed). See `changelogs/v3.19.11.md`.
+
+---
+
+### v3.19.10 — Two red gates nobody was reading (2026-08-17)
+
+**Type:** Supply Chain / CI / Measurement
+
+CI's Security Check job had been failing since 07-29-26 — nineteen days, ~12 pushes — on 12 benign bandit MEDIUM findings, all now carrying justified inline `# nosec`. Seven CVEs in two pinned dependencies triaged individually (`sqlparse` → 0.6.0, `cryptography` → 50.0.0; one, PYSEC-2026-3553, genuinely reachable from the passkey-registration endpoint). Every query budget was exactly three too high — the ratchet was measuring a test-fixture artefact — and `SystemLockdown.get_instance()` stopped writing on the read path. See `changelogs/v3.19.10.md`.
+
+---
+
+### v3.19.9 — The harness, checked in the process that runs the tests (2026-08-15)
+
+**Type:** Upload Robustness / Test Harness
+
+Four ordinary malformed Office files returned HTTP 500 rather than "rejected": v3.19.8's structural zip check wrapped only the `ZipFile()` constructor and left the reads outside it. `tblib` added as a dependency — without it `--parallel` aborts with `cannot pickle 'traceback' object` and reports nothing at all. The v3.19.7 cache isolation was absent in spawned workers (i.e. on macOS), and the pre-push hook had never actually been installed. See `changelogs/v3.19.9.md`.
+
+---
+
+### v3.19.8 — What the validator started rejecting (2026-08-13)
+
+**Type:** Regression / Security Symmetry
+
+`validate_mime_type` began rejecting every Word and Excel document in the chapter. v3.19.7 correctly fixed a `raise` trapped in its own `except`, and nothing asked what a check that had never rejected anything would start saying no to: the MIME map had been dead code since 2025. Fixed by writing the enumeration first and validating zip-backed formats structurally. Also: v3.19.7's test runner cleared every cache alias, which in production is the session store. See `changelogs/v3.19.8.md`.
+
+---
+
+### v3.19.7 — What a private upload is allowed to become (2026-08-11)
+
+**Type:** Security / Test Integrity
+
+Every private upload was served `inline` with a content type guessed from its filename, so a `.html` stored in a slating GPA directory came back as `text/html` on this origin — and four of the eight writers validated nothing. Fixed in three layers: an inline allowlist (deliberately excluding `image/svg+xml`), a storage-level refusal no writer can bypass, and validation at the four sites. Found on the way: `validate_mime_type` had never rejected anything. See `changelogs/v3.19.7.md`.
+
+---
+
+### v3.19.6 — The other eight directories (2026-08-10)
+
+**Type:** Security
+
+`/media/` served eight more upload directories under a narrower promise than its own — Kai attachments, slating GPA screenshots and application files, doctors' notes, service-hours proof, bug screenshots — all readable by any authenticated member at a `slugify()` name. Fixed with eight ownership-aware views and uuid storage names for the four confidential directories. v3.19.5 had built the right mechanism and put one entry in it; `test_media_classification.py` now walks `apps.get_models()` and fails the build on an unclassified `upload_to`. Migration `0017` (AlterField only). See `changelogs/v3.19.6.md`.
+
+---
+
+### v3.19.5 — The route the fix left open (2026-08-09)
+
+**Type:** Security / Correctness
+
+`/media/legislation_drafts/<name>` was still served to any authenticated member: v3.19.3 built the replacement route and repointed both templates but never closed the old path, and two reports recorded the finding as complete. Fixed with `PRIVATE_MEDIA_PREFIXES`, checked on the resolved path so `../` cannot walk into it. Also: draft attachments now have exactly one lifetime across replace and clear, and the performance buffer's measurement was found to be ~2x too small because the fixture reused identical objects, which `pickle` memoises. See `changelogs/v3.19.5.md`.
+
+---
+
+### v3.19.4 — What the number means, what the alarm costs, who owns the file (2026-08-08)
+
+**Type:** Correctness / Hardening
+
+Five findings, four of them in `src/middleware/performance.py`, all accounting errors rather than defects. `perf_sampled_count` was written on every sample and read by nothing while `stored_samples` used a saturating `len()` — the exact defect v3.19.3 had just fixed, reintroduced sixty lines below the fix. `memory_report`'s "buffer near capacity" check could never be false. Three wrong accuracy claims corrected, `FORGED_CF_HEADER` throttled per socket peer, and draft attachments given exactly one lifetime. See `changelogs/v3.19.4.md`.
+
+---
+
+### v3.19.3 — What guards the file, what guards the header, what the chain costs (2026-08-07)
+
+**Type:** Security / Performance
+
+Draft attachments were readable by any authenticated member: v3.19.0 scoped the draft *row* and left the *file* to `/media/`, which is `@login_required` and cannot know who owns anything — and the v3.14.2 slugifier made the path derive from the author's title, so it was guessable. New `CLOUDFLARE_VERIFY_ORIGIN` setting (defaults off) because `CF-Connecting-IP` is an ordinary header, and v3.18.8 had put both rate limiters, the honeypot ban, the geo gate and every audit row behind it. `PerformanceMiddleware` now samples rather than re-serialising a 500-entry buffer on every request. Migration `0016`. See `changelogs/v3.19.3.md`.
+
+---
+
+### v3.19.2 — Release a member's login lockout from their own page (2026-08-06)
+
+**Type:** Admin QOL / Bug Fix
+
+Parliament locks logins out through two systems with nine cache keys, and the admin's Clear button listed six — missing the entire `account_*` family, i.e. the username lockout an ordinary member actually hits. It reported success and left him locked out. New `clear_lockouts_for()`; clearing a lockout key without its attempt counter re-locks on the next failure while reporting success. See `changelogs/v3.19.2.md`.
+
+---
+
+### v3.19.1 — Foreword document, per-document feature flags, document ordering (2026-08-06)
+
+**Type:** Feature (C&B)
+
+The Foreword staged ahead of the chapter vote, four per-document C&B flags, and a `display_order` — `GoverningDocument` had no `Meta.ordering` at all. `cnb_foreword` is in `FeatureFlag.DISABLED_BY_DEFAULT`, and that one line is the only thing making it fail closed, because Python flags fail open and an unseeded install would otherwise publish unpassed governance. The Foreword has no `Section` rows and therefore cannot be amended through the resolution flow — intended. Migration `0015` (column + data step). See `changelogs/v3.19.1.md`.
+
+---
+
+### v3.19.0 — Private legislation drafts on My Work (2026-08-06)
+
+**Type:** Feature
+
+A separate `LegislationDraft` table, deliberately not a `Legislation.is_draft` boolean: that model is queried from 35+ places and a filtered default manager breaks reverse related managers during user-merge. `_get_own_draft()` is the single read path (`author=request.user`, 404 not 403); drafting is `@login_required` and publishing is `@officer_required`. Also moves chapter notification from save-time to `available_at`-time, idempotent via `availability_notified_at`. Migration `0014` backfills, or the first beat tick announces the whole historical table. See `changelogs/v3.19.0.md`.
+
+---
+
+### v3.18.8 — Every audit trail was recording Cloudflare, not the visitor (2026-08-06)
+
+**Type:** Security / Forensics
+
+Found from a prod log export. Five surfaces parsed `X-Forwarded-For` inline and took the rightmost entry — a rule that **inverts** behind Cloudflare, because nginx's socket peer *is* the edge. Every one consolidated onto `get_client_ip`, with a test that fails if a sixth copy appears. Also removes the duplicate logout `ActivityLog` write. See `changelogs/v3.18.8.md`.
+
+---
+
+### v3.18.7 — Middleware hot-path security and performance (2026-08-06)
+
+**Type:** Security / Performance
+
+All nine actionable 08-06 findings: `SystemLockdown.get_instance()` cached and invalidated by a signal receiver rather than by the activate/deactivate methods (the admin edits `is_active` without touching either); the `IPBlacklist` gate moved above the pattern-scan early return so it covers `/admin/` and the contact form; session-fingerprint detection collapsed to one throttle; performance monitoring un-zeroed via `connection.execute_wrapper`, which works under `DEBUG=False` unlike `len(connection.queries)`; `SiteSetting.get_setting` cached with a found/value payload. See `changelogs/v3.18.7.md`.
+
+---
+
+### v3.18.6 — Two N+1 dashboards found in prod dev mode (2026-08-04)
+
+**Type:** Performance
+
+`/admin-v2/two-factor/` went 130 → 3 queries: `user_has_device()` walks every installed django-otp device class and stops at the first hit, so 47 members cost 47 TOTP lookups plus 36 static ones. `/service-hours/dashboard/` went 88 → 4 by collapsing four per-member queries into grouped aggregates. The trap in that fix: `.order_by()` on a `values().annotate()` is required, not tidiness — a `Meta.ordering` column joins the `GROUP BY` and returns one row per submission, which a query-count test cannot see. See `changelogs/v3.18.6.md`.
+
+---
+
+### v3.18.5 — The column the redaction did not cover (2026-08-04)
+
+**Type:** Confidentiality Fix
+
+`redact_kai_logs` redacted three fields and the template rendered four: `ActivityLog.ip_address` was printed on Kai rows beside an actor reading *Anonymous*, on the stated grounds that an IP "carries no name." Wrong test — an IP does not have to name anyone, it only has to be a join key, and the per-member drill on the same page supplies the other half. Also fixes a negated JSON key lookup that silently dropped rows (SQL `NOT NULL` is NULL). Both Kai audit suites executed for the first time: 72 green. See `changelogs/v3.18.5.md`.
+
+---
+
+### v3.18.4 — The predicate decides, not the page (2026-08-03)
+
+**Type:** Confidentiality Fix
+
+The `/activity-logs/?user=<member>` dropdown was a Kai disclosure the redaction could not cover — two clicks by any officer returned `Anonymous submitted Kai case KAI-2026-012`, and redaction bought nothing because the viewer supplied the name. Also: v3.18.3's second axis only fired when both identity flags were held, so a partially permissioned reviewer read their own reporter's name on a case they were the accused on. Plus a shared `rows_for_cases_q`, an export limit, memoised Kai flags and a bounded upcoming-events window. See `changelogs/v3.18.4.md`.
+
+---
+
+### v3.18.3 — The guards, and what they found (2026-08-02)
+
+**Type:** Test Infrastructure / Confidentiality / Performance
+
+Four carried backlog items built, and every fix in the release was found by something built in it: a new party-safe-surfaces suite caught the v3.18.1 oracle reproduced inside `kai_audit.py` hours after that oracle was fixed; a full-suite re-baseline found `test_url_smoke` red since 07-30; prod dev mode found 51 queries on the security-alerts page. New `src/test_query_budgets.py` — absolute per-view ceilings that ratchet both directions. See `changelogs/v3.18.3.md`.
+
+---
+
+### v3.18.2 — Prose is storage (2026-08-02)
+
+**Type:** Confidentiality Fix / Authorization
+
+`ActivityLog` was the eleventh Kai surface: `"<Name> submitted Kai case #12"` was written with the reporter as author and readable by every officer behind a *Kai Committee* filter chip, plus a CSV, an admin search box and a per-member drill. Fixed by new `src/kai_audit.py` — redact where the row should stay visible, exclude where a hit is itself the disclosure — with legacy rows scrubbed at render, which is the actual fix. Also removes `is_admin` as a Kai grant in favour of a time-boxed, audited `KaiBreakGlassGrant`. Migration `0013`. See `changelogs/v3.18.2.md`.
+
+---
+
+### v3.18.1 — Redaction is not exclusion (2026-08-01)
+
+**Type:** Confidentiality Fix / CI Repair
+
+The Kai search predicate was an oracle: v3.16.2 redacted the output and left the filter unredacted, so a searcher could confirm a name he could not read. Fixed by passing `redacted_case_ids` into `_kai_search_q`. Also: identity redaction across four activity-feed renderers plus the print view's own ungated header, the red `makemigrations --check` gate, `_is_kai_chair` (Kai ignores `is_exec_board`), and a case-number unique constraint. Migration `0012`. See `changelogs/v3.18.1.md`.
+
+---
+
+### v3.18.0 — The bylaws the app never implemented (2026-07-31)
+
+**Type:** Feature (Governance) / Authorization Fix
+
+Governance features the written bylaws require and the app had never had, plus a 🔴 authorization fix found while building them. Migration `0011` includes a data backfill. See `changelogs/v3.18.0.md`.
+
+---
+
+### v3.17.7 — The second copy (2026-07-31)
+
+**Type:** Security / Correctness
+
+A fix batch about duplicated logic: the same rule implemented twice, diverging, with only one copy maintained. No migration, no new dependencies, no new endpoints. See `changelogs/v3.17.7.md`.
+
+---
+
+### v3.17.6 — Following the URL rename everywhere it did not follow itself (2026-07-30)
+
+**Type:** Fix Batch
+
+A URL rename that had been applied in some places and not others, chased to completion. **`nginx.conf` changed** — the deploy is not code-only. See `changelogs/v3.17.6.md`.
+
+---
+
+### v3.17.5 — Cache-key bounding, geo-restricted exports, two ceilings (2026-07-30)
+
+**Type:** Security / Hardening
+
+The 07-30 auto-run fix batch. Also the release that measured, with `CaptureQueriesContext`, that `.count()` and `.exists()` on a *prefetched* relation cost zero queries — correcting a rule this project had been carrying backwards. See `changelogs/v3.17.5.md`.
+
+---
+
+### v3.17.4 — A shared page cache, a nightly date bug, and six N+1s (2026-07-29)
+
+**Type:** Performance / Bug Fix
+
+Fourth of the five dev-mode performance releases shipped that day. See `changelogs/v3.17.4.md`.
+
+---
+
+### v3.17.3 — Paginate before you work, and narrow every member join (2026-07-29)
+
+**Type:** Performance
+
+Work done before pagination is work done on rows nobody will see; every member join narrowed to the columns the page reads. See `changelogs/v3.17.3.md`.
+
+---
+
+### v3.17.2 — Stop reading columns the page doesn't use (2026-07-29)
+
+**Type:** Performance
+
+`defer()`/`only()` applied where the row is wide and the page renders three fields of it. See `changelogs/v3.17.2.md`.
+
+---
+
+### v3.17.1 — Dev-mode query attribution, and the N+1s it found (2026-07-29)
+
+**Type:** Performance / Tooling
+
+Developer mode learned to say *which line* fired a repeated query, which immediately paid for itself. See `changelogs/v3.17.1.md`.
+
+---
+
+### v3.17.0 — Developer mode (2026-07-29)
+
+**Type:** Tooling
+
+An in-app performance overlay usable against production data — query counts, repeats and timings on the page you are looking at. Nearly every performance finding since has come from it rather than from reading code. See `changelogs/v3.17.0.md`.
+
+---
+
+### v3.16.3 — Kai confidentiality closeout, dead URL names, perf fixes (2026-07-28)
+
+**Type:** Confidentiality / Bug Fix / Performance
+
+The Kai search predicate gated through one shared `_kai_search_q` — v3.16.2 had redacted the CSV columns while both the list view and the export still *filtered* on submitter name, and a filter predicate is a join key. New `TemplateUrlNameTests` scans every template for literal `{% url %}` names and immediately found four nonexistent routes, three of them live 500s. Also: eight blank `{{ results.X.count }}` → `|length`, and an anonymous-poll CSV shuffle moved to `SystemRandom`. See `changelogs/v3.16.3.md`.
+
+---
+
+### v3.16.2 — Admin confidentiality pass (2026-07-25)
+
+**Type:** Security / Policy
+
+Being a Django admin is an operational role, not a grant of judicial, deliberative or ballot-level access. All seven Kai models unregistered from `/admin/`; anonymity enforced in the admin queryset rather than only in the app; slating interview notes and confidential responses excluded; `export_as_csv` taught to honour each ModelAdmin's `exclude`, which retroactively closed real secret leaks (`APIToken.key`, WebAuthn material, push keys). Extended the same day past `/admin/` to global search, the Kai CSV and anonymous polls — where joining two surfaces on a timestamp re-identified every respondent. See `changelogs/v3.16.2.md`.
+
+---
+
+### v3.16.1 — Django admin feature-area sections (2026-07-24)
+
+**Type:** UX
+
+`src/admin_sections.py` — a 22-section map plus a `get_app_list()` override, so 125 models group by feature area instead of by app label. Unmapped models fall into "Other / Unsorted", so registering a new model without mapping it is visible rather than silent. Also registers `LogEntry` read-only; it had been dead code inside a docstring. See `changelogs/v3.16.1.md`.
+
+---
+
+### v3.16.0 — Django admin full-coverage pass (2026-07-24)
+
+**Type:** Maintenance
+
+New `src/admin_extra.py` registers all 82 previously-missing models — read-only for logs, ballots and responses; secrets excluded; WebAuthn delete kept as the passkey escape hatch. All 725 field references AST-validated. See `changelogs/v3.16.0.md`.
+
+---
+
+### v3.15.10 — Supply-chain check fixes and a CSP template test (2026-07-24)
+
+**Type:** Security
+
+The integrity manifest was a hardcoded three-file list that missed `chart.min.js` and cropper; it now auto-discovers `static/vendor/**`. `cdnjs.cloudflare.com` and `cdn.jsdelivr.net` added to the CDN drift hard-fail patterns, and new `src/test_csp_templates.py` fails the build on a nonce-less inline script or a CDN reference. See `changelogs/v3.15.10.md`.
+
+---
+
+### v3.15.9 — CSP nonce fix, plurality bars, failed-login signal (2026-07-24)
+
+**Type:** Bug Fix / Feature
+
+Six templates and seven inline scripts were dead in production and fine in development, because dev sends no CSP header — the chapter-stats charts and the candidate status popover had been implemented all along and silently blocked. Chart.js moved from cdnjs to the vendored copy. Plus plurality per-option bars on both result pages and a 30-day failed-login signal on the profile. See `changelogs/v3.15.9.md`.
+
+---
+
+### v3.15.8 — `manage.py preflight` (2026-07-24)
+
+**Type:** Infrastructure
+
+A production self-check that gates deploys and cron: subclasses `check_env` and adds Celery schedule presence, heartbeat and orphan checks, plus Django-side and `--live-url` edge-side media-gate probes. Exits 1 on failure; `--strict` and `--email-on-fail` available. See `changelogs/v3.15.8.md`.
+
+---
+
+### v3.15.7 — Admin-v2 security mobile pass (2026-07-23)
+
+**Type:** UI
+
+Stacked headers and wrapping button rows across 12 security templates — the tables already had horizontal scroll, so the page-level overflow was coming from non-stacking headers. Also adds the missing member-status filter options to three pickers that had been Active-only, and makes login-history pagination preserve filters. See `changelogs/v3.15.7.md`.
+
+---
+
+### v3.15.6 — Page-visits member filter, and three 500s it exposed (2026-07-23)
+
+**Type:** Feature / Bug Fix
+
+Three admin-v2 search boxes filtered on `user__first_name`/`last_name`, fields `ParliamentUser` does not have — page-visits drill, legislation management search and login-history user search were all 500-on-use. Also removes the kai_reports schema probe fallbacks and a double query, and makes `view_logs` read a 256 KB tail instead of `readlines()` on the whole file. See `changelogs/v3.15.6.md`.
+
+---
+
+### v3.15.5 — Code-quality cleanup (2026-07-22)
+
+**Type:** Maintenance
+
+Follow-up to the 07-22 sweep: the non-security half of what that review turned up. See `changelogs/v3.15.5.md`.
+
+---
+
+### v3.15.4 — Auth/authz hardening from the 07-22 sweep (2026-07-22)
+
+**Type:** Security
+
+`Enforce2FAMiddleware`'s `/api/` exemption narrowed to `/api/v1/` plus the health check, so session-authenticated `/api/…` endpoints are actually 2FA-enforced; `manage_chapter_document` guards delete and edit by committee ownership; the `vpp_required` DEBUG bypass removed. Code-only, no migration. See `changelogs/v3.15.4.md`.
+
+---
+
+### v3.15.3 — Login-flood 502 fix and an uptime watchdog (2026-07-20)
+
+**Type:** Reliability
+
+See `changelogs/v3.15.3.md`.
+
+---
+
+### v3.15.2 — Celery schedule orphan reconciliation (2026-07-19)
+
+**Type:** Infrastructure
+
+A `PeriodicTask` row whose task no longer exists in code fails quietly forever. Reconciliation makes the orphan visible. See `changelogs/v3.15.2.md`.
+
+---
+
+### v3.15.1 — Pledge-class registry: colors, dropdown, canonicalization (2026-07-19)
+
+**Type:** Feature
+
+Pledge class had been free text; it now has a registry, a dropdown and a canonicalization pass over existing values. See `changelogs/v3.15.1.md`.
+
+---
+
+### v3.15.0 — QOL/UX batch (2026-07-19)
+
+**Type:** UX
+
+A batch of quality-of-life improvements, including the recent-logins card on the profile and horizontal scroll on the admin-v2 security tables. See `changelogs/v3.15.0.md`.
+
+---
+
+### v3.14.2 — File-serving hardening and filename sanitization (2026-07-19)
+
+**Type:** Security
+
+Uploaded filenames sanitized on the way in and the file-serving path hardened; the legacy vote dispatcher removed. ⚠️ The slugifier introduced here is what later made private draft attachment paths *guessable* (fixed in v3.19.3) — a sanitizer that makes names deterministic also makes them predictable. See `changelogs/v3.14.2.md`.
+
+---
+
+### v3.14.1 — `vote_view` split, open-for-voting centralized, handoff tooling (2026-07-18)
+
+**Type:** Refactor / Infrastructure
+
+`vote_view`'s POST split into `cast_vote` / `mark_attendance_quick` / `upload_chapter_legislation` behind a legacy dispatcher, and the open-for-voting rule centralized in `LegislationQuerySet.open_for_voting()`. Also `docs/RESTORE.md`, a `Makefile` and a pre-push hook, plus turnout and tally query fixes. **Contains the 🔴 public `/media/` fix** — nginx had been serving every uploaded legislation document anonymously, confirmed live; `serve_media.py` adds `@login_required`, a traversal guard and optional X-Accel. See `changelogs/v3.14.1.md`.
+
+---
+
+### v3.14.0 — Voting: live push, receipts, turnout, auto-close parity (2026-07-15)
+
+**Type:** Feature
+
+Auto-close parity for plurality results, ties and notifications; WebSocket live push on `/ws/votes/`; tamper-evident vote receipts with a verification page and a 3-month expiry notice; an officer turnout panel; a rebuilt results page; and server-resolved "Now" buttons, which fixes results skewed by device clock drift. Migration `0007` adds `Vote.cast_at`. Deploy needs `setup_celery_schedules` plus a worker/beat restart. See `changelogs/v3.14.0.md`.
+
+---
+
+### v3.13.3 — Passkey vote confirmation and vote-page reliability (2026-07-15)
+
+**Type:** Feature / Bug Fix
+
+All four vote flows now take a passkey **or** password re-auth via a one-shot two-minute session grant. Fixes silent vote drops (stale attendance, no selection), double-submit duplicates, committee 'late'-member exclusion, an `update_fields` staleness bug on `Attendance.present`, and vote password rate-limiting. See `changelogs/v3.13.3.md`.
+
+---
+
+### v3.13.2 — Credential re-auth (recovered), backend-agnostic schema, snapshot hardening (2026-07-14)
+
+**Type:** Security / Fix
+
+The v3.5.1-specced credential hardening turned out never to have been committed; re-implemented here for 2FA disable, passkey delete and passkey register. All four `git_snapshot.sh` findings fixed (`.env*` excludes, HMAC on encrypted archives, an off-server DB dump copy, a logrotate stanza). `plurality_options` moved ArrayField → JSONField so sqlite dev and test work again. See `changelogs/v3.13.2.md`.
+
+---
+
+### v3.13.1 — Login-pipeline regression tests (2026-07-13)
+
+**Type:** Testing
+
+`src/test_login_pipeline.py` — the login path had accumulated 2FA, passkeys, lockouts, onboarding and forced password change with no test pinning the order they run in. See `changelogs/v3.13.1.md`.
+
+---
+
 ### v3.13.0 — Officer Transition Checklist & Role-Transfer History (2026-07-08)
 
 **Type:** Feature / Fix

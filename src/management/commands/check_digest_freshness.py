@@ -37,8 +37,11 @@ class Command(BaseCommand):
                  '(default 26h — one day plus slack).')
 
     def _heartbeat_path(self):
-        log_dir = os.path.join(settings.BASE_DIR, os.getenv('LOG_DIR', 'logs'))
-        return os.path.join(log_dir, 'last_digest_sent')
+        # v3.21.5 — shared with the writer in `src/tasks/notifications.py`. A
+        # watchdog that computes the path independently of the thing it watches
+        # can be permanently, quietly wrong; see `src/digest_heartbeat.py`.
+        from src.digest_heartbeat import digest_heartbeat_path
+        return digest_heartbeat_path()
 
     def handle(self, *args, **options):
         max_age = options['max_age_hours']

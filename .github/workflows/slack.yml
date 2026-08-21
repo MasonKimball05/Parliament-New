@@ -1,6 +1,77 @@
-- name: Slack notification on failure
-  if: failure()
-  uses: rtCamp/action-slack-notify@v2
-  with:
-    slack_webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
-    status: failure
+# Notify Slack when the Django CI workflow fails.
+#
+# ⚠️ v3.21.5 — THIS FILE WAS NOT A WORKFLOW. From 02-08-26 (`dfa42a9`) until
+# now it contained five lines:
+#
+#     - name: Slack notification on failure
+#       if: failure()
+#       uses: rtCamp/action-slack-notify@v2
+#       with:
+#         slack_webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
+#         status: failure
+#
+# That is a job *step*, pasted at the top level of a workflow file. There is no
+# `on:` and no `jobs:`, so GitHub cannot parse it — every push produced an
+# instant red run. **312 runs, 312 failures, zero notifications sent.**
+#
+# It matters more than an unused file, because of what it was for. The Django CI
+# workflow has failed on all 400 runs GitHub retains and nobody noticed for
+# months; this is the alarm that existed to make sure somebody did. The alarm
+# and the thing it watches were broken at the same time, visible on the same
+# page, and the permanent red beside this file's name is part of why a red run
+# there stopped meaning anything.
+#
+# > **A notifier that has never fired and a notifier that has nothing to report
+# > look identical from the outside.** The only difference is whether anyone has
+# > checked, and for this one nobody had.
+#
+# Two other things were wrong in those five lines and are fixed here: the action
+# reads the webhook from the `SLACK_WEBHOOK` **environment variable**, not from a
+# `slack_webhook_url` input; and `failure()` refers to the current workflow, so
+# even inside a valid workflow it would only ever have described itself.
+name: CI failure notification
+
+on:
+  workflow_run:
+    # Must match the `name:` in ci.yml exactly.
+    workflows: ["Django CI/CD"]
+    types: [completed]
+
+permissions:
+  contents: read
+
+jobs:
+  notify:
+    # Only when the run it is reporting on actually failed. `workflow_run` fires
+    # on success too, and a notifier that pings on green gets muted.
+    if: ${{ github.event.workflow_run.conclusion == 'failure' }}
+    runs-on: ubuntu-latest
+    steps:
+      # ⚠️ The secret is checked in a step, not in the job's `if:`. The
+      # `secrets` context is not available in a job-level condition, and — more
+      # importantly — a missing secret must be a SKIP, not a failure. This repo
+      # has just spent three weeks learning what a permanently-red workflow does
+      # to the value of a red workflow.
+      - name: Is a webhook configured
+        id: cfg
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          if [ -z "${SLACK_WEBHOOK_URL}" ]; then
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::SLACK_WEBHOOK_URL is not set on this repository — no notification sent."
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Slack notification
+        if: steps.cfg.outputs.configured == 'true'
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_COLOR: failure
+          SLACK_TITLE: "Django CI failed on ${{ github.event.workflow_run.head_branch }}"
+          SLACK_MESSAGE: >-
+            ${{ github.event.workflow_run.head_commit.message }}
+            — ${{ github.event.workflow_run.html_url }}
+          SLACK_FOOTER: "MasonKimball05/Parliament-New"

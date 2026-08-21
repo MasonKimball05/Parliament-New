@@ -784,7 +784,17 @@ class AdminV2DashboardContextTests(TestCase):
 
     def setUp(self):
         self.client = Client()
-        # user_id must match ALLOWED_USER_ID ('73') in admin_v2.py
+        # ⚠️ v3.21.5 — PATCH THE ALLOWLIST, DO NOT INHERIT IT. This line used to
+        # say the id "must match ALLOWED_USER_ID ('73') in admin_v2.py", which
+        # stopped being true in v3.17.0: the allowlist is parsed from the
+        # `ADMIN_V2_USER_IDS` environment variable, so these two tests passed
+        # only on a machine whose `.env` listed 73 and were red in CI. See
+        # `src/test_environment_independence.py`.
+        from unittest.mock import patch as _patch
+        allowlist = _patch('src.view.admin_v2.ALLOWED_USER_IDS', {'73'})
+        allowlist.start()
+        self.addCleanup(allowlist.stop)
+
         self.admin = make_user('73', 'Officer')
         self.admin.is_admin = True
         self.admin.save(update_fields=['is_admin'])

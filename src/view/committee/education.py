@@ -13,6 +13,7 @@ from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse, Http404
 from django.shortcuts import get_object_or_404, render, redirect
 from django.views.decorators.http import require_POST
+from django.db import transaction
 from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.db.models import Count, Q
@@ -574,13 +575,22 @@ def education_add_meeting(request, code):
     if error:
         return JsonResponse({'error': error}, status=400)
 
-    event.save()
-    meeting.event = event
-    meeting.save()
+    # ⚠️ v3.21.5 — ATOMIC, because a meeting is two rows and a half-written one
+    # is worse than none. `EducationMeeting.event` is a OneToOne, so the Event
+    # has to be saved first; if the second save raised, the Event survived as a
+    # **pledge-education entry on the chapter calendar with nothing behind it** —
+    # no attendance page, no delete button on the education dashboard, and
+    # `education_delete_meeting` deletes through the meeting, so nothing in the
+    # UI could remove it. That is the same reasoning v3.19.3 used to make
+    # `publish_legislation_draft` atomic.
+    with transaction.atomic():
+        event.save()
+        meeting.event = event
+        meeting.save()
 
-    homework_pks = request.POST.getlist('homework')
-    if homework_pks:
-        meeting.homework.set(PledgeTask.objects.filter(pk__in=homework_pks, is_active=True))
+        homework_pks = request.POST.getlist('homework')
+        if homework_pks:
+            meeting.homework.set(PledgeTask.objects.filter(pk__in=homework_pks, is_active=True))
 
     return redirect('education_home', code=code)
 
@@ -652,13 +662,17 @@ def education_edit_meeting(request, code, meeting_pk):
         if error:
             return JsonResponse({'error': error}, status=400)
 
-        meeting.event.save()
-        meeting.save()
-        # `set()` handles all three cases — added, removed, cleared — so an
-        # unticked box actually unassigns rather than silently persisting.
-        meeting.homework.set(
-            PledgeTask.objects.filter(pk__in=request.POST.getlist('homework'), is_active=True)
-        )
+        # Atomic for the same reason as the create path, one degree milder: a
+        # failure between these two saves leaves the calendar entry showing a
+        # new time and the education dashboard showing the old one.
+        with transaction.atomic():
+            meeting.event.save()
+            meeting.save()
+            # `set()` handles all three cases — added, removed, cleared — so an
+            # unticked box actually unassigns rather than silently persisting.
+            meeting.homework.set(
+                PledgeTask.objects.filter(pk__in=request.POST.getlist('homework'), is_active=True)
+            )
         return redirect('education_home', code=code)
 
     return render(request, 'committee/education_meeting_form.html', {
@@ -921,14 +935,56 @@ def education_quiz_analysis(request, code, task_pk):
                   quiz_analysis_context(task, committee=committee, is_chair=is_chair))
 
 
+#: A pledge sees class totals only once this many pledges have submitted.
+#:
+#: ⚠️ v3.21.5 — WITHOUT THIS, "CLASS TOTALS" WERE ONE PERSON'S RESULT.
+#: v3.21.0 shipped the pledge-facing breakdown under a header reading *"These
+#: are class totals. Nobody's individual answers are shown here."* With a single
+#: submission the page showed Submissions 1, Lowest 4, Highest 4, Average 4 and
+#: "1 answer · 0 right · 1 wrong" per question — i.e. that pledge's exact score
+#: and his exact right/wrong pattern, to every other pledge, including ones who
+#: had submitted nothing. Reproduced 08-20-26.
+#:
+#: The first person to submit is the one exposed, and early in a quiz's life
+#: that is the normal state rather than an edge case.
+#:
+#: The number matches `announcement_polls`' `respondent_count > 2`, which was
+#: added for the identical reason ("prevents identifying early respondents by
+#: elimination") — a pledge class is small and everyone in it knows who else is
+#: in it, so aggregate-of-one and aggregate-of-two are not aggregates.
+#: **Educators are unaffected**: they are entitled to individual results and
+#: reach them through the grading page anyway, so suppressing the summary for
+#: them would remove information without protecting anybody.
+#:
+#: ⚠️ RESIDUAL, KNOWN AND ACCEPTED. The gate counts SUBMISSIONS — people who
+#: took the quiz — not answers to each question, and a question that only one of
+#: three submitters answered still renders "1 answer · 0 right · 1 wrong". That
+#: narrows the field to one of three rather than naming anybody, which is the
+#: ordinary weakness of a small-N aggregate and not the defect being fixed here;
+#: the defect was a page presenting ONE person's complete result as "the class".
+#: Per-question suppression would blank most of the page and remove the thing it
+#: exists to show. If this is ever revisited, revisit it as a decision about
+#: what a class total means, not as a bug.
+PLEDGE_ANALYSIS_MIN_SUBMISSIONS = 3
+
+
 def quiz_analysis_context(task, committee=None, is_chair=False, viewer_is_pledge=False):
     """
     Shared by the educator view and the pledge-facing one.
 
     ⚠️ ONE BUILDER, TWO AUDIENCES. The numbers must agree — a pledge told "8 of
     12 got this right" and a chair told something else is worse than showing him
-    nothing. The *only* difference the audience makes is handled here, in one
-    place: pledges never see who answered what.
+    nothing. The audience makes exactly two differences, and both are made here
+    rather than in a template: a pledge never sees who answered what, and a
+    pledge sees nothing at all until the class is large enough that "the class"
+    is not one identifiable person (`PLEDGE_ANALYSIS_MIN_SUBMISSIONS`).
+
+    ⚠️ THE SUPPRESSION IS IN THE CONTEXT, NOT THE TEMPLATE, ON PURPOSE. A
+    template `{% if %}` protects the page it is written on; the value has to be
+    absent from the context so that a second template, or a future JSON
+    endpoint, cannot render what this one hides. CLAUDE.md records that exact
+    correction under the admin-confidentiality boundary: redact in the queryset,
+    not only in the view.
     """
     from django.db.models import Count, Q as _Q
 
@@ -965,6 +1021,16 @@ def quiz_analysis_context(task, committee=None, is_chair=False, viewer_is_pledge
     completions = PledgeTaskCompletion.objects.filter(task=task).select_related('task')
     scored = [c for c in completions if c.has_score]
     scores = sorted(c.score for c in scored)
+    submissions = completions.count()
+
+    # See PLEDGE_ANALYSIS_MIN_SUBMISSIONS. `withheld` is True rather than the
+    # rows simply being empty, because "nobody has taken this yet" and "not
+    # enough people have taken this yet" are different messages and the page has
+    # to be able to tell the pledge which one he is looking at.
+    withheld = viewer_is_pledge and submissions < PLEDGE_ANALYSIS_MIN_SUBMISSIONS
+    if withheld:
+        rows = []
+        scores = []
 
     return {
         'committee': committee,
@@ -972,7 +1038,13 @@ def quiz_analysis_context(task, committee=None, is_chair=False, viewer_is_pledge
         'viewer_is_pledge': viewer_is_pledge,
         'task': task,
         'rows': rows,
-        'submissions': completions.count(),
+        'withheld': withheld,
+        'min_submissions': PLEDGE_ANALYSIS_MIN_SUBMISSIONS,
+        # The count itself is safe to show and is the thing a pledge needs in
+        # order to understand why the page is empty — but it is deliberately
+        # the ONLY number that survives, because a total with no breakdown
+        # identifies nobody.
+        'submissions': submissions,
         'score_count': len(scores),
         'score_average': round(sum(scores) / len(scores), 1) if scores else None,
         'score_low': scores[0] if scores else None,

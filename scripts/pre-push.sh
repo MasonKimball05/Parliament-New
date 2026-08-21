@@ -100,6 +100,32 @@ _log="$(mktemp "${TMPDIR:-/tmp}/parliament-prepush.XXXXXX")"
 # `--parallel` with no value uses one worker per core. It is deliberately not
 # pinned: this runs on whatever laptop is pushing.
 if ! DB_BACKEND=sqlite "$PY" manage.py test src -v 0 --parallel 2>&1 | tee "$_log"; then
+  # ⚠️ v3.21.5 — A PARALLEL RUN CAN FAIL WITHOUT REPORTING ANY TEST.
+  # Django's parallel runner ships each failure to the parent by pickling it.
+  # `tblib` (a dependency since v3.19.9) makes tracebacks picklable, and that
+  # is genuinely necessary — but it is not sufficient: on a badly-red tree the
+  # payload can still contain something the pool cannot pickle, and the run
+  # then dies with `multiprocessing.pool.MaybeEncodingError` having reported
+  # **zero** results. Reproduced deterministically on 08-20-26.
+  #
+  # v3.21.4's note says tblib exists "precisely so that a parallel failure
+  # still reports which test failed". Usually it does. When it does not, the
+  # summary line is absent — which is a signal, so use it rather than printing
+  # an empty "What failed:" list and leaving the reader with a stack trace from
+  # inside `multiprocessing`.
+  #
+  # **A gate that cannot say what failed is, at that moment, a gate that did
+  # not run** — the same rule as the missing-interpreter branch above. So the
+  # answer is to go and get the answer, not to report a blank one.
+  if ! grep -qE '^Ran [0-9]+ test' "$_log"; then
+    echo ""
+    echo "[pre-push] ⚠️  the parallel run aborted without reporting any test."
+    echo "[pre-push]     Re-running SERIALLY to find out what actually failed."
+    echo "[pre-push]     (This is slower. It only happens on a red tree.)"
+    echo ""
+    DB_BACKEND=sqlite "$PY" manage.py test src -v 0 2>&1 | tee "$_log" || true
+  fi
+
   echo ""
   echo "[pre-push] ─────────────────────────────────────────────────────────"
   echo "[pre-push] ✗ tests failed — push aborted. What failed:"

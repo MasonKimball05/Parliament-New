@@ -9,11 +9,55 @@ from django.contrib.auth.decorators import login_required
 from django.http import Http404
 from django.shortcuts import render, redirect, get_object_or_404
 from django.utils import timezone
+from django.views.decorators.http import require_POST
 
 from src.models import (
     PledgeTask, PledgeTaskCompletion, PledgeTaskQuestion, PledgeQuizAnswer,
     EducationMeeting, EducationMeetingAttendance, EducationAbsenceRequest,
 )
+
+
+def pledge_may_see_task(user, task):
+    """
+    Whether this pledge is entitled to see this task at all.
+
+    ⚠️ v3.21.5 — TWO PREDICATES, AND ONE VIEW WAS APPLYING NEITHER.
+    `pledge_take_quiz` has always checked both — the task must be **live**
+    (`activation_mode` satisfied) and, if it has an explicit `assigned_to` list,
+    this pledge must be on it. `pledge_quiz_analysis`, added in v3.21.0, checked
+    `show_analysis_to_pledges` and nothing else, so a pledge could open the
+    breakdown for
+
+      * a quiz assigned to somebody else specifically, and
+      * an **unpublished draft** — which matters because `education_duplicate_task`
+        copies `show_analysis_to_pledges` onto a clone whose entire purpose is to
+        be invisible until the chair publishes it, and the analysis page renders
+        every question's text.
+
+    ⚠️ THIS WAS A REAL DISCLOSURE ON THE SHIPPED TREE, AND MY FIRST DRAFT OF
+    THIS NOTE SAID IT WAS NOT. I wrote that nothing was exposed in practice
+    because the minimum-submissions threshold would empty the rows — then ran
+    the new tests against `f241f45` and `test_the_question_text_does_not_reach_
+    the_page` **failed**, because that tree has no threshold either. The
+    threshold is v3.21.5's own work; reasoning about the shipped code using a
+    protection added in the same release is exactly the error this repo has
+    recorded before, when a uuid filename described four times as "not the
+    access control" was the access control for two days.
+
+    **A threshold about anonymity is not an entitlement check.** Even where it
+    happens to cover the same case, it is answering a different question and can
+    be tuned or removed by someone thinking only about that question.
+
+    Tenth instance of the shape CLAUDE.md tracks: a rule stated correctly in one
+    view and left out of a second view added later. So it is a function, and
+    `src/test_pledge_task_entitlement.py` fails the build if either view stops
+    calling it.
+    """
+    if not task.is_live:
+        return False
+    # An empty assignment means "all pledges"; a non-empty one is a list.
+    assigned_pks = set(task.assigned_to.values_list('pk', flat=True))
+    return not assigned_pks or user.pk in assigned_pks
 
 
 @login_required
@@ -190,13 +234,10 @@ def pledge_take_quiz(request, task_pk):
         task_type='quiz',
     )
 
-    # Check task is live
-    if not task.is_live:
-        return render(request, 'pledge/quiz_not_available.html', {'task': task})
-
-    # Check pledge is assigned (or task applies to all) — single DB query
-    assigned_pks = set(task.assigned_to.values_list('pk', flat=True))
-    if assigned_pks and request.user.pk not in assigned_pks:
+    # Live, and assigned to this pledge (or to everybody). v3.21.5 moved these
+    # two checks into `pledge_may_see_task` so the analysis view cannot drift
+    # from them — see that function for what happened when it did.
+    if not pledge_may_see_task(request.user, task):
         return render(request, 'pledge/quiz_not_available.html', {'task': task})
 
     questions = list(task.questions.all())
@@ -275,6 +316,7 @@ def pledge_take_quiz(request, task_pk):
 
 
 @login_required
+@require_POST
 def pledge_request_absence(request, meeting_pk):
     """
     A pledge asking to be excused from a meeting (v3.21.0 — ideas list #7).
@@ -292,6 +334,12 @@ def pledge_request_absence(request, meeting_pk):
     if not request.user.is_pledge:
         return redirect('home')
 
+    # ⚠️ DELIBERATELY NOT NARROWED TO "his" MEETINGS, and that is not an
+    # oversight (v3.21.5 looked and left it). `my_pledge_tasks` lists every
+    # future `EducationMeeting` regardless of committee, so every meeting a
+    # pledge can request an absence from is one his own page already shows him.
+    # Narrowing here without narrowing there would only make the two disagree.
+    # If the roster ever becomes per-committee, both queries change together.
     meeting = get_object_or_404(
         EducationMeeting.objects.select_related('event'), pk=meeting_pk
     )
@@ -344,6 +392,14 @@ def pledge_quiz_analysis(request, task_pk):
         return redirect('home')
 
     task = get_object_or_404(PledgeTask, pk=task_pk, is_active=True, task_type='quiz')
+
+    # ⚠️ v3.21.5 — ENTITLEMENT FIRST, THEN THE SHARING FLAG. They answer
+    # different questions: `pledge_may_see_task` asks whether this quiz is any
+    # of his business, `show_analysis_to_pledges` asks whether the chair has
+    # shared the breakdown for a quiz that is. v3.21.0 asked only the second,
+    # so a draft or somebody else's quiz was readable.
+    if not pledge_may_see_task(request.user, task):
+        raise Http404
     if not task.show_analysis_to_pledges:
         raise Http404
 
