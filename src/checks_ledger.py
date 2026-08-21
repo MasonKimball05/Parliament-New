@@ -76,6 +76,26 @@ _NOT_YET = ('not yet', 'not committed', 'uncommitted', 'pending commit')
 _GIT_TIMEOUT_SECONDS = 10
 
 
+def _repo_is_shallow(repo_root):
+    """
+    True when this checkout has truncated history, so `--diff-filter=A` lies.
+
+    Returns True on any error as well — if git cannot be asked whether the
+    history is complete, the safe reading is that it might not be. Silence is
+    the correct output of a check that cannot see its subject; a verdict is not.
+    """
+    try:
+        result = subprocess.run(
+            ['git', '-C', repo_root, 'rev-parse', '--is-shallow-repository'],
+            capture_output=True, text=True, timeout=10, check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return True
+    if result.returncode != 0:
+        return True
+    return result.stdout.strip() != 'false'
+
+
 def _git_added_changelogs(repo_root):
     """
     Map `changelogs/<file>.md` → short sha of the commit that ADDED it.
@@ -202,6 +222,27 @@ def release_ledger_matches_git(app_configs, **kwargs):
     repo_root = str(settings.BASE_DIR)
     changelog_dir = os.path.join(repo_root, 'changelogs')
     if not os.path.isdir(changelog_dir):
+        return []
+
+    # ⚠️ v3.21.6 — A SHALLOW CLONE CANNOT ANSWER THIS QUESTION, AND USED TO
+    # ANSWER IT CONFIDENTLY ANYWAY.
+    #
+    # `actions/checkout@v4` fetches depth 1 by default, so `git log
+    # --diff-filter=A` sees exactly one commit and attributes the creation of
+    # every file in the tree to it. In CI run #401 this check therefore reported
+    # that **all twenty-five** changelogs recorded the wrong sha — "v3.18.5 says
+    # `d804b6d`, git says `566aae6`", and so on down the list — which is not a
+    # finding about the ledger, it is the absence of history being read as
+    # disagreement.
+    #
+    # It printed as a warning inside the `makemigrations --check` step, so it
+    # never failed the build; it simply put twenty-five confident false claims
+    # into a log somebody would eventually read while diagnosing something else.
+    #
+    # This is the rule `scripts/pre-push.sh` states twice about its own
+    # interpreter and its own scanners: **a check that cannot run must not
+    # report like a check that failed.** The same sentence, one repository over.
+    if _repo_is_shallow(repo_root):
         return []
 
     added = _git_added_changelogs(repo_root)

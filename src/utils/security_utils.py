@@ -438,6 +438,54 @@ def get_client_ip(request):
     return ip
 
 
+#: What the code substitutes when `get_client_ip` cannot determine an address.
+#:
+#: ⚠️ v3.21.6 — THIS VALUE IS VALID IN EXACTLY ONE MODEL, AND IT WAS BEING
+#: WRITTEN TO ANOTHER.
+#:
+#: `LoginHistory.ip_address` is an `EncryptedCharField` with `null=False`, so a
+#: missing address needs *some* string and `'unknown'` is the right one; the
+#: convention is deliberate and `analyze_login_risk` tests for it by name.
+#:
+#: **Ten other models store an IP in a `GenericIPAddressField`, which is
+#: `inet` on PostgreSQL.** `'unknown'` is not an address, and Postgres says so:
+#:
+#:     psycopg2.errors.InvalidTextRepresentation:
+#:         invalid input syntax for type inet: "unknown"
+#:
+#: SQLite has no `inet` type and stores the string without complaint, so the
+#: defect was invisible to every local run and to the pre-push hook, and fatal
+#: on CI and in production. It accounted for **all 50 errors** in CI run #401 —
+#: every test that logs a pledge in, because `signals.log_successful_login`
+#: passes this sentinel straight into `ActivityLog.log_activity`.
+MISSING_IP_SENTINEL = 'unknown'
+
+
+def ip_or_none(value):
+    """
+    Return `value` if it is a real IP address, otherwise `None`.
+
+    For `GenericIPAddressField` columns, which accept NULL and nothing else
+    that isn't an address. Use it at the point of storage rather than at each
+    call site — the call site is what gets forgotten, nine times in this
+    codebase's recorded history.
+
+    Accepts what Django accepts, by asking Django: `validate_ipv46_address` is
+    the same validator the field itself runs, so this cannot drift from what the
+    column will take.
+    """
+    from django.core.exceptions import ValidationError
+    from django.core.validators import validate_ipv46_address
+
+    if not value:
+        return None
+    try:
+        validate_ipv46_address(str(value).strip())
+    except ValidationError:
+        return None
+    return str(value).strip()
+
+
 def get_geolocation_from_ip(ip_address):
     """
     Get geolocation data from an IP address using a free IP geolocation service

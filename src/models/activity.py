@@ -226,6 +226,26 @@ class ActivityLog(models.Model):
             if not user_agent:
                 user_agent = request.META.get('HTTP_USER_AGENT', '')[:500]
 
+        # ⚠️ v3.21.6 — NORMALISE BEFORE STORING, AND DO IT HERE.
+        #
+        # `ip_address` is a `GenericIPAddressField` — `inet` on PostgreSQL,
+        # which accepts an address or NULL and nothing else. Callers hand this
+        # method whatever `get_client_ip` gave them, and `signals.py` coerces a
+        # missing address to the string `'unknown'` because `LoginHistory`
+        # (an `EncryptedCharField`, NOT NULL) requires one. That sentinel is
+        # right for that model and invalid for this one.
+        #
+        # The result was `InvalidTextRepresentation: invalid input syntax for
+        # type inet: "unknown"` on every pledge login — **all 50 errors in CI
+        # run #401** — while SQLite stored the string happily and the local
+        # suite and the pre-push hook both stayed green. Live since 05-28-26.
+        #
+        # It is fixed here rather than at the one call site that hit it, because
+        # this is the only method that writes this column and a call site is
+        # exactly what gets left out. See `src/test_ip_sentinel.py`.
+        from src.utils.security_utils import ip_or_none
+        ip_address = ip_or_none(ip_address)
+
         return cls.objects.create(
             user=user,
             action_category=action_category,

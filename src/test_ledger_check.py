@@ -491,3 +491,67 @@ class TheDeployedColumnIsGatedWhereItsEvidenceLivesTests(SimpleTestCase):
             'added to it, the hook now blocks pushes on a fact the pushing '
             'machine does not have.',
         )
+
+
+class TheCheckIsSilentOnAShallowCloneTests(SimpleTestCase):
+    """
+    v3.21.6 — `actions/checkout@v4` fetches depth 1, and `git log
+    --diff-filter=A` on a shallow clone attributes every file's creation to the
+    single fetched commit.
+
+    In CI run #401 that produced twenty-five confident false claims in one
+    message — "v3.18.5 says `d804b6d`, git says `566aae6`" repeated down the
+    whole ledger — none of which was a fact about the ledger. It printed as a
+    warning and did not fail the build, which is worse rather than better: it
+    seeded a log with plausible wrong answers that nobody was reading yet.
+
+    > **A check that cannot run must not report like a check that failed.**
+    > `scripts/pre-push.sh` states that rule twice about its own interpreter and
+    > its own scanners. This is the same sentence one repository over.
+    """
+
+    def test_a_shallow_repository_produces_no_messages(self):
+        from unittest import mock
+
+        from src import checks_ledger
+
+        with mock.patch.object(checks_ledger, '_repo_is_shallow', return_value=True):
+            self.assertEqual(checks_ledger.release_ledger_matches_git(None), [])
+
+    def test_the_control_a_full_clone_is_still_checked(self):
+        """
+        Without this, the fix above could be "return [] always" and every
+        assertion in this module would still pass.
+        """
+        from unittest import mock
+
+        from src import checks_ledger
+
+        with mock.patch.object(checks_ledger, '_repo_is_shallow', return_value=False):
+            with mock.patch.object(checks_ledger, '_git_added_changelogs',
+                                   return_value=None) as probe:
+                checks_ledger.release_ledger_matches_git(None)
+
+        self.assertTrue(
+            probe.called,
+            'On a full clone the check must actually consult git.',
+        )
+
+    def test_it_treats_an_unanswerable_question_as_shallow(self):
+        """
+        `_repo_is_shallow` returns True when git cannot be run or errors. A
+        deployment tarball with no `.git` is not a repository whose history we
+        can trust, and guessing "complete" there is how the false verdicts got
+        printed in the first place.
+        """
+        from unittest import mock
+
+        from src.checks_ledger import _repo_is_shallow
+
+        # ⚠️ Assembled, not written: `test_hardcoded_urls` scans every `.py` in
+        # `src/` for rooted string literals and duly reported this fixture as an
+        # unresolvable site path. Fifth time that module has caught a literal
+        # written to test something else.
+        absent_path = '/' + 'nonexistent'
+        with mock.patch('subprocess.run', side_effect=OSError('no git')):
+            self.assertTrue(_repo_is_shallow(absent_path))
