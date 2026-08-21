@@ -340,6 +340,76 @@ class Command(CheckEnvCommand):
                       'Confirm the firewall, or set CLOUDFLARE_VERIFY_ORIGIN=True and '
                       'watch for FORGED_CF_HEADER in the security log.')
 
+    def check_blacklist_rows_are_addresses(self):
+        """
+        Count `IPBlacklist` rows whose value is not an IP address (v3.21.7).
+
+        ⚠️ THIS CHECK EXISTS TO UNBLOCK A DECISION, NOT TO POLICE A RULE.
+
+        `IPBlacklist.ip_address` is a `CharField` while the other ten IP columns
+        in this schema are `GenericIPAddressField`. That is why a forged
+        `CF-Connecting-IP` could be written here on every backend without
+        complaint, producing a ban keyed on a string no real client can ever
+        send — an entry that exists, reads as coverage, and protects nobody.
+
+        Converting the column to `inet` is the real fix and is deliberately NOT
+        in migration `0020`, because that conversion is
+        `ALTER COLUMN ... TYPE inet USING ip_address::inet` and **hard-fails
+        mid-deploy** on any row PostgreSQL cannot cast. Nobody knows how many
+        such rows production holds. This counts them.
+
+        Reported as a WARNING, not a failure: a junk row is a ban that does
+        nothing, which is a cleanup task and not a reason to refuse a deploy.
+        The two things it can say are "convert the column now" and "clean these
+        up first", and both are actionable in a way "0 problems" is not.
+
+        Also flags CIDR entries specifically, because the old `help_text`
+        invited them for months and every one of them has been a no-op.
+        """
+        from django.core.exceptions import ValidationError
+        from django.core.validators import validate_ipv46_address
+
+        try:
+            from src.models import IPBlacklist
+            values = list(
+                IPBlacklist.objects.values_list('ip_address', flat=True)
+            )
+        except Exception as e:
+            self.warn('IPBlacklist values', f'could not be read: {str(e)[:70]}')
+            return
+
+        if not values:
+            self.ok('IPBlacklist values', 'table is empty')
+            return
+
+        cidr, junk = [], []
+        for value in values:
+            try:
+                validate_ipv46_address((value or '').strip())
+            except ValidationError:
+                (cidr if '/' in (value or '') else junk).append(value)
+
+        if not cidr and not junk:
+            self.ok(
+                'IPBlacklist values',
+                f'all {len(values)} rows are addresses — '
+                f'safe to convert the column to inet',
+            )
+            return
+
+        if cidr:
+            self.warn(
+                'IPBlacklist CIDR rows',
+                f'{len(cidr)} row(s) look like ranges (e.g. {cidr[0]!r}). '
+                f'Matching is exact, so these block nothing.',
+            )
+        if junk:
+            self.warn(
+                'IPBlacklist junk rows',
+                f'{len(junk)} row(s) are not addresses (e.g. {junk[0]!r}). '
+                f'These are bans that cannot match any client.',
+            )
+
     def check_deploy_ledger_is_stamped(self):
         """
         v3.19.10 — the half of the ledger no check inside the repo can verify.
@@ -547,6 +617,7 @@ class Command(CheckEnvCommand):
         self.check_cloudflare_origin()   # v3.19.3
         self.check_system_checks()       # v3.19.8 — src.W002/W003 gate the deploy
         self.check_deploy_ledger_is_stamped()   # v3.19.10 — the half git cannot know
+        self.check_blacklist_rows_are_addresses()   # v3.21.7
 
         # Summary + exit semantics (this is the part check_env doesn't have).
         self.stdout.write(f"\n{'─' * 64}")

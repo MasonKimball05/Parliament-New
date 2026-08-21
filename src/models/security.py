@@ -1,4 +1,5 @@
 import uuid
+from django.core.validators import validate_ipv46_address
 from django.db import models
 from django.conf import settings
 from django.utils import timezone
@@ -270,10 +271,44 @@ class IPBlacklist(models.Model):
     """
     IP addresses that are explicitly blocked from accessing the system
     """
+    # ⚠️ v3.21.7 — TWO THINGS ABOUT THIS COLUMN, AND THE HELP TEXT USED TO BE
+    # WRONG ABOUT BOTH.
+    #
+    # 1. It said "IP address or **CIDR range** to block". **No CIDR range has
+    #    ever blocked anything.** Every consumer matches with
+    #    `filter(ip_address=<the client's address>)` — exact string equality —
+    #    so `10.0.0.0/8` is an entry that can never equal any client address.
+    #    An admin who entered one got a ban that silently protected nobody,
+    #    which is worse than no ban, because the list then reads as coverage.
+    #    Fifth instance of the false-comment category CLAUDE.md tracks, and the
+    #    first where the false statement was in a `help_text` a human reads
+    #    while typing into the field it describes.
+    #
+    # 2. It is a `CharField` while the other ten IP columns in this schema are
+    #    `GenericIPAddressField`. That asymmetry is exactly why the v3.21.7
+    #    finding was invisible here: a forged `CF-Connecting-IP` was written
+    #    into this column on **every** backend without complaint, creating a
+    #    ban keyed on a string no real client can send. PostgreSQL would have
+    #    refused it in an `inet` column, as it refused it in `HoneypotAccess`.
+    #
+    # `validators` makes the admin form and any `full_clean()` reject a
+    # non-address — note it does NOT run on `objects.create()`, so it is a
+    # guard on the human path, not on the code path. The code path is covered
+    # by `get_client_ip` now returning an address or `None`.
+    #
+    # ⚠️ **The column is deliberately NOT converted to `GenericIPAddressField`
+    # in this release**, and that is a decision rather than an omission. The
+    # conversion is `ALTER COLUMN ... TYPE inet USING ip_address::inet`, which
+    # **hard-fails mid-deploy** if any existing production row holds a value
+    # Postgres cannot cast — and the whole point of this note is that we know
+    # such rows can have been created. `manage.py preflight` now counts them;
+    # convert once it reports zero.
     ip_address = models.CharField(
         max_length=45,
         unique=True,
-        help_text='IP address or CIDR range to block'
+        validators=[validate_ipv46_address],
+        help_text='Single IP address to block. CIDR ranges are NOT supported — '
+                  'matching is exact, so a range would block nothing.',
     )
     reason = models.CharField(
         max_length=200,
@@ -512,7 +547,14 @@ class HoneypotAccess(models.Model):
     ]
 
     endpoint = models.CharField(max_length=200, help_text='Honeypot URL accessed')
-    ip_address = models.GenericIPAddressField()
+    # ⚠️ v3.21.7 — NULLABLE, and the alternative was worse. See the note on
+    # `LoginLockout.ip_address` below, which is the same decision made once for
+    # all three of these columns.
+    ip_address = models.GenericIPAddressField(
+        null=True, blank=True,
+        help_text='Client address, or empty when none could be resolved. '
+                  'A hit with no address is still evidence that the hit happened.',
+    )
     user_agent = models.TextField(blank=True)
     referer = models.TextField(blank=True, help_text='Referring page if any')
     request_method = models.CharField(max_length=10, default='GET')
@@ -722,7 +764,42 @@ class LoginLockout(models.Model):
         ('middleware_user', 'Username-Based (middleware)'),
     ]
 
-    ip_address = models.GenericIPAddressField(help_text='IP address that was locked out')
+    # ⚠️ v3.21.7 — NULLABLE. THIS IS THE NOTE FOR ALL THREE OF THESE COLUMNS
+    # (`HoneypotAccess`, `LoginLockout`, `QuarantinedAccount`).
+    #
+    # Every one of them was `NOT NULL` `inet` and every one of them was written
+    # `get_client_ip(request) or 'unknown'`. `'unknown'` is not an address:
+    # PostgreSQL refuses it outright (`InvalidTextRepresentation`) and SQLite
+    # stores it, which is why nothing noticed for months — see v3.21.6, which
+    # found the same crossing in `ActivityLog` via 50 identical CI errors.
+    #
+    # v3.21.7 stopped `get_client_ip` from ever returning a non-address, which
+    # closed the attacker-triggerable route. It could not close this one,
+    # because `None` into a NOT NULL column is an `IntegrityError` — the same
+    # failure with a different exception class. **Moving a failure is not
+    # fixing it.** The column had to be able to say "no address".
+    #
+    # Nullable rather than a second reserved sentinel (e.g. RFC 5737
+    # `192.0.2.0`) because a reader who does not know the convention reads a
+    # sentinel as a real address, and these three tables are read during
+    # incidents by people who will not have read this comment. NULL is the one
+    # value every reader already has to think about.
+    #
+    # ⚠️ The rows are still worth writing without one. A lockout with no
+    # address is a *username* lockout — `source='middleware_user'`, where the
+    # address was always incidental — and before this change the write was
+    # inside `except Exception: pass`, so it was silently dropped entirely.
+    # A row with a NULL address is strictly more than no row at all.
+    #
+    # ⚠️ Readers must handle `None`. Three did not and were fixed in the same
+    # release: the honeypot bulk-blacklist action and both lockout→blacklist /
+    # →whitelist actions took the value straight into another NOT NULL column.
+    # `src/test_null_ip_readers.py` covers them.
+    ip_address = models.GenericIPAddressField(
+        null=True, blank=True,
+        help_text='IP address that was locked out, or empty for a '
+                  'username-only lockout with no resolvable address.',
+    )
     username = models.CharField(max_length=150, blank=True, help_text='Username locked out (if applicable)')
     source = models.CharField(max_length=30, choices=SOURCE_CHOICES, default='ip')
     locked_at = models.DateTimeField(auto_now_add=True)
@@ -760,7 +837,14 @@ class QuarantinedAccount(models.Model):
         on_delete=models.CASCADE,
         related_name='quarantine_records'
     )
-    ip_address = models.GenericIPAddressField(help_text='IP address that triggered quarantine')
+    # ⚠️ v3.21.7 — NULLABLE. Same decision as `LoginLockout.ip_address` above;
+    # the reasoning is written out there. A quarantine whose triggering address
+    # could not be resolved is still a quarantine.
+    ip_address = models.GenericIPAddressField(
+        null=True, blank=True,
+        help_text='IP address that triggered quarantine, or empty if none '
+                  'could be resolved.',
+    )
     reason = models.TextField(help_text='Why this account was quarantined')
     quarantined_at = models.DateTimeField(auto_now_add=True)
     quarantined_by = models.ForeignKey(
@@ -817,9 +901,17 @@ class QuarantinedAccount(models.Model):
         user.is_quarantined = True
         user.save(update_fields=['is_quarantined'])
 
+        # ⚠️ v3.21.7 — normalised HERE, because this classmethod is the single
+        # entry point for creating a quarantine and a call site is exactly what
+        # gets left out. Both callers (the attack middleware and the admin-v2
+        # console) hand over whatever `get_client_ip(...) or 'unknown'` gave
+        # them, and `'unknown'` is not an address. Same fix as `log_activity`'s
+        # in v3.21.6, in the place this model actually has one.
+        from src.utils.security_utils import ip_or_none
+
         return cls.objects.create(
             user=user,
-            ip_address=ip_address,
+            ip_address=ip_or_none(ip_address),
             reason=reason,
             quarantined_by=admin,
             is_auto=(admin is None),

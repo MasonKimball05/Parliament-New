@@ -410,6 +410,34 @@ def get_client_ip(request):
     is the unforgeable one — leading entries are attacker-supplied. **Note that
     this inverts behind Cloudflare**, where nginx's socket peer is the edge; that
     inversion is what v3.18.8 fixed and is why this function exists at all.
+
+    ⚠️ v3.21.7 — **THIS FUNCTION RETURNS AN ADDRESS OR `None`, NEVER ANYTHING
+    ELSE.** It used to return whatever string arrived in the header, verbatim.
+
+    `CF-Connecting-IP` is honoured whenever `BEHIND_CLOUDFLARE=True` and
+    `CLOUDFLARE_VERIFY_ORIGIN=False` — the shipped default — so on a request
+    that reaches the origin directly, the value below was chosen by the caller
+    and was not required to look like an address. Measured: a request carrying
+    `CF-Connecting-IP: '; DROP--` made this function return `"'; DROP--"`, and
+    that string was then written into `HoneypotAccess.ip_address` and
+    `IPBlacklist.ip_address` and used to build four cache keys.
+
+    Ten models store this answer in a `GenericIPAddressField` — `inet` on
+    PostgreSQL, which takes an address or NULL and nothing else. v3.21.6 fixed
+    that for `ActivityLog` at the point of storage, correctly, and the other
+    nine writers were never enumerated: its "enumeration" test walks the
+    *columns* and asserts they reject the sentinel, which is a property of
+    Django's own validator and true in every Django project ever written. **The
+    population that mattered was the writers, not the columns.**
+
+    Validating here fixes all ten at once, plus the cache keys, because
+    v3.18.8 already consolidated every consumer onto this one function. A junk
+    header now falls through to the socket peer rather than winning.
+
+    ⚠️ **What this does NOT fix, deliberately:** a forged header that *is* a
+    well-formed address still wins, and still lets a direct-to-origin client
+    choose its own rate-limit bucket. That is the firewall problem v3.19.3
+    documented; narrowing it is not closing it.
     """
     if getattr(settings, 'BEHIND_CLOUDFLARE', False):
         cf_ip = request.META.get('HTTP_CF_CONNECTING_IP')
@@ -417,8 +445,21 @@ def get_client_ip(request):
             not getattr(settings, 'CLOUDFLARE_VERIFY_ORIGIN', False)
             or _peer_is_cloudflare(request)
         ):
-            return cf_ip.strip()
-        if cf_ip:
+            trusted = ip_or_none(cf_ip)
+            if trusted:
+                return trusted
+            # Header trusted by configuration and unusable in fact. Fall through
+            # to the peer, which at least came from a socket.
+            #
+            # No log line here on purpose: this is attacker-triggerable at zero
+            # cost, and v3.19.4 already had to retrofit a per-peer throttle onto
+            # `_log_forged_cf_header` because an unthrottled one could roll a
+            # file shared with every other security event. When verification is
+            # ON, the branch below already reports the condition that matters
+            # (the origin being directly reachable); when it is OFF, the
+            # deployment has declared it trusts this header and the documented
+            # fix is a firewall rule, not a warning.
+        elif cf_ip:
             # Verification is on and the peer is not Cloudflare: someone reached
             # the origin directly and sent this header. Log it — this is the
             # signal that the origin is exposed, and it is worth a WARNING even
@@ -435,7 +476,13 @@ def get_client_ip(request):
         ip = x_forwarded_for.split(',')[-1].strip()
     else:
         ip = request.META.get('REMOTE_ADDR')
-    return ip
+
+    # v3.21.7 — the same gate on the non-Cloudflare path. Behind a single nginx
+    # the rightmost XFF entry is `$proxy_add_x_forwarded_for`'s own append and
+    # is trustworthy; reaching Django any other way, it is not, and `REMOTE_ADDR`
+    # is absent entirely under `Client.force_login`, which is the condition that
+    # produced all 50 errors in CI run #401.
+    return ip_or_none(ip)
 
 
 #: What the code substitutes when `get_client_ip` cannot determine an address.

@@ -3223,8 +3223,16 @@ def blacklist_all_honeypot_ips(request):
     already_blocked = set(
         IPBlacklist.objects.filter(is_active=True).values_list('ip_address', flat=True)
     )
+    # ⚠️ v3.21.7 — `.exclude(ip_address=None)` is load-bearing, not tidiness.
+    # `HoneypotAccess.ip_address` became nullable in this release (see the note
+    # on `LoginLockout.ip_address`), so a hit from a client whose address could
+    # not be resolved yields `None` here — and `IPBlacklist.ip_address` is
+    # still NOT NULL, so this loop would have raised on it, after having
+    # already created some of the entries. There is nothing to ban: the whole
+    # mechanism is exact-match on an address we do not have.
     all_honeypot_ips = set(
-        HoneypotAccess.objects.values_list('ip_address', flat=True).distinct()
+        HoneypotAccess.objects.exclude(ip_address=None)
+        .values_list('ip_address', flat=True).distinct()
     )
     to_block = all_honeypot_ips - already_blocked
 
@@ -3309,6 +3317,20 @@ def manage_lockouts(request):
                 lockout = LoginLockout.objects.get(pk=lockout_id)
                 ip = lockout.ip_address
 
+                # ⚠️ v3.21.7 — a lockout row may now carry no address (see the
+                # note on `LoginLockout.ip_address`). Both blacklist and
+                # whitelist are exact-match on an address, so there is nothing
+                # to add; say so rather than writing `None` into another NOT
+                # NULL column. The lockout itself is still clearable — that
+                # action is keyed on the row, not on the address.
+                if not ip:
+                    messages.error(
+                        request,
+                        'That lockout has no recorded IP address, so there is '
+                        'nothing to blacklist. Clear it instead.',
+                    )
+                    return redirect('admin_v2_lockouts')
+
                 # Add to blacklist
                 existing = IPBlacklist.objects.filter(ip_address=ip).first()
                 if existing:
@@ -3338,6 +3360,20 @@ def manage_lockouts(request):
             try:
                 lockout = LoginLockout.objects.get(pk=lockout_id)
                 ip = lockout.ip_address
+
+                # ⚠️ v3.21.7 — same guard as the blacklist branch above, and it
+                # matters more here: this action is what an admin reaches for
+                # when a member is locked out and needs to get back in. Writing
+                # `None` into `IPWhitelist.ip_address` would have raised BEFORE
+                # `clear_lockouts_for` ran, so the member would have stayed
+                # locked out and the admin would have seen a 500.
+                if not ip:
+                    messages.error(
+                        request,
+                        'That lockout has no recorded IP address, so there is '
+                        'nothing to whitelist. Clear it instead.',
+                    )
+                    return redirect('admin_v2_lockouts')
 
                 # Add to whitelist
                 existing = IPWhitelist.objects.filter(ip_address=ip).first()

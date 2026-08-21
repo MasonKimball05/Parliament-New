@@ -78,8 +78,12 @@ def record_failed_attempt(ip_address):
         cache.delete(attempts_key)
         # Persist lockout to DB for admin visibility
         try:
+            # v3.21.7 — `record_failed_attempt` is called with whatever the
+            # caller resolved, which may be the missing-IP sentinel or None.
+            # The column is `inet` and now nullable; see its model note.
+            from src.utils.security_utils import ip_or_none
             LoginLockout.objects.create(
-                ip_address=ip_address,
+                ip_address=ip_or_none(ip_address),
                 source='ip',
                 expires_at=lockout_until,
             )

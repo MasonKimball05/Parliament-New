@@ -68,7 +68,17 @@ lives in the view so a second template cannot render what this one hides.
       <div class="flex items-start justify-between gap-4 flex-wrap">
         <p class="text-sm text-gray-800 dark:text-gray-200 min-w-0 flex-1">{{ row.question.question_text }}</p>
 
-        {% if row.percent is not None %}
+        {% if row.suppressed %}
+        {% comment %}
+        v3.21.7 — this question's own answer count is under the minimum, so it
+        gets its own message. Reusing "Not marked yet" would be a third meaning
+        on one badge, and the wrong one: the answers may well be marked.
+        The decision is made in the context builder, never here.
+        {% endcomment %}
+        <span class="text-xs font-semibold px-2.5 py-1 rounded-full bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400 shrink-0">
+          Too few answers to show
+        </span>
+        {% elif row.percent is not None %}
         <span class="text-xs font-semibold px-2.5 py-1 rounded-full shrink-0
           {% if row.percent >= 80 %}bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400
           {% elif row.percent >= 50 %}bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400

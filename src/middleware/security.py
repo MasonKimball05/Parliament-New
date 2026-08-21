@@ -268,8 +268,13 @@ class LoginRateLimitMiddleware:
                     from django.utils import timezone as tz
                     from datetime import timedelta as td
                     expires = tz.now() + td(minutes=self.lockout_minutes)
+                    # v3.21.7 — `ip_address` here may be the MISSING_IP_SENTINEL
+                    # ('unknown'), which is a valid CACHE KEY and not a valid
+                    # address. The column is `inet`. See the note on
+                    # `LoginLockout.ip_address`.
+                    from src.utils.security_utils import ip_or_none
                     LoginLockout.objects.create(
-                        ip_address=ip_address,
+                        ip_address=ip_or_none(ip_address),
                         source='middleware_ip',
                         expires_at=expires,
                     )
@@ -303,8 +308,12 @@ class LoginRateLimitMiddleware:
                         from django.utils import timezone as tz
                         from datetime import timedelta as td
                         expires = tz.now() + td(minutes=self.lockout_minutes)
+                        # v3.21.7 — see the sibling write above. This is the
+                        # username lockout, where the address was always
+                        # incidental and a NULL is the honest value.
+                        from src.utils.security_utils import ip_or_none
                         LoginLockout.objects.create(
-                            ip_address=ip_address,
+                            ip_address=ip_or_none(ip_address),
                             username=username,
                             source='middleware_user',
                             expires_at=expires,
@@ -469,8 +478,25 @@ class InputSanitizationMiddleware:
             is_blacklisted = cache.get(blacklist_cache_key)
             if is_blacklisted is None:
                 try:
+                    # ⚠️ v3.21.7 — `ip_address` here is a CACHE KEY and may be
+                    # the missing-IP sentinel, which is not an address. The
+                    # blacklist matches by exact equality, so querying for it
+                    # can only ever return nothing.
+                    #
+                    # It is skipped rather than merely wasted because it is also
+                    # the one thing standing between this codebase and
+                    # converting `IPBlacklist.ip_address` to `inet` (see the
+                    # note on that field): the same query against an `inet`
+                    # column raises `InvalidTextRepresentation` instead of
+                    # returning empty, on the hot path of every request.
+                    # **A read is as much a writer of the type contract as a
+                    # write is.**
                     from src.models import IPBlacklist
-                    is_blacklisted = IPBlacklist.objects.filter(ip_address=ip_address, is_active=True).exists()
+                    from src.utils.security_utils import ip_or_none
+                    is_blacklisted = bool(ip_or_none(ip_address)) and (
+                        IPBlacklist.objects
+                        .filter(ip_address=ip_address, is_active=True).exists()
+                    )
                 except Exception:
                     is_blacklisted = False
                 cache.set(blacklist_cache_key, is_blacklisted, 300)

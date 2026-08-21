@@ -1011,6 +1011,11 @@ def quiz_analysis_context(task, committee=None, is_chair=False, viewer_is_pledge
             # marked this yet" are opposite messages and must not share a
             # rendering.
             'percent': round(question.correct / marked * 100) if marked else None,
+            # v3.21.7 — set True below when this question's own answer count is
+            # under the anonymity minimum. Defaulted here so no template has to
+            # cope with the key being absent, and so an educator's rows say
+            # "nothing is hidden" explicitly rather than by omission.
+            'suppressed': False,
         })
 
     # Weakest first: the page exists to answer "what do I re-teach", so the
@@ -1021,7 +1026,35 @@ def quiz_analysis_context(task, committee=None, is_chair=False, viewer_is_pledge
     completions = PledgeTaskCompletion.objects.filter(task=task).select_related('task')
     scored = [c for c in completions if c.has_score]
     scores = sorted(c.score for c in scored)
-    submissions = completions.count()
+
+    # ⚠️ v3.21.7 — COUNT THE PEOPLE WHO ANSWERED, NOT THE ROWS THAT EXIST.
+    #
+    # This was `completions.count()`, and a `PledgeTaskCompletion` is not a
+    # submission: `education_toggle_completion` does `get_or_create`, so a chair
+    # marking somebody waived or incomplete on the grid mints a row with no
+    # answers behind it. Measured on the shipped tree — one pledge sits the
+    # quiz, the chair marks two others, and the page reports
+    #
+    #     submissions = 3 | withheld = False
+    #     Q1  answered=1  correct=1  wrong=0  100%
+    #     Q2  answered=1  correct=0  wrong=1    0%
+    #     score_count = 1   low/high/avg = 4 4 4.0
+    #
+    # which is the exact disclosure v3.21.5 added the threshold to prevent, one
+    # day later, reached by an ordinary chair action rather than an attack.
+    #
+    # > **A threshold protects the population it counts.** The number gating the
+    # > page came from `PledgeTaskCompletion`; every number ON the page is drawn
+    # > from `PledgeQuizAnswer` or from `score`. Three populations, and the gate
+    # > was on the one that is easiest to inflate and hardest to look at.
+    #
+    # So each statistic is now gated by its own population — see below — and
+    # this one is the population the page is actually about.
+    submissions = (
+        PledgeQuizAnswer.objects
+        .filter(question__task=task)
+        .values('pledge').distinct().count()
+    )
 
     # See PLEDGE_ANALYSIS_MIN_SUBMISSIONS. `withheld` is True rather than the
     # rows simply being empty, because "nobody has taken this yet" and "not
@@ -1031,6 +1064,22 @@ def quiz_analysis_context(task, committee=None, is_chair=False, viewer_is_pledge
     if withheld:
         rows = []
         scores = []
+    elif viewer_is_pledge:
+        # v3.21.7 — per question, and per the score set, for the same reason.
+        # Questions are NOT all answered the same number of times: v3.20.0
+        # records that a chair may add a question to a quiz people have already
+        # sat, and that question then carries only the answers given since. A
+        # page-level count of 12 tells you nothing about the question three
+        # people have seen.
+        for row in rows:
+            if row['answered'] < PLEDGE_ANALYSIS_MIN_SUBMISSIONS:
+                row['suppressed'] = True
+                row['correct'] = row['wrong'] = row['unmarked'] = None
+                row['percent'] = None
+        # Likewise the score band: `score_low`/`score_high` with one scored
+        # completion are one pledge's mark printed twice under two labels.
+        if len(scores) < PLEDGE_ANALYSIS_MIN_SUBMISSIONS:
+            scores = []
 
     return {
         'committee': committee,

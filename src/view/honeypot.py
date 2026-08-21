@@ -10,6 +10,7 @@ from django.conf import settings
 from src.models import HoneypotAccess
 from src.security_notifications import alert_honeypot_triggered
 from src.geo_utils import get_ip_geo
+from src.utils.security_utils import MISSING_IP_SENTINEL
 from src.utils.security_utils import get_client_ip as _get_client_ip
 import logging
 import json
@@ -37,8 +38,25 @@ HONEYPOT_BAN_DURATION = 24 * 60 * 60  # 24 hours
 
 
 def get_client_ip(request):
-    """Get the client's IP address, respecting BEHIND_CLOUDFLARE setting."""
-    return _get_client_ip(request) or 'unknown'
+    """
+    The client's address, or `None` when none could be resolved.
+
+    ⚠️ v3.21.7 — THIS USED TO END `or 'unknown'`, AND THAT IS THE WHOLE BUG.
+
+    One variable was doing two jobs. `'unknown'` is a perfectly good **label**
+    for a cache key or a log line — it is short, it is greppable, and every
+    address-less client sharing one bucket is the behaviour you want. It is not
+    an **address**, and this function's answer was also being written into
+    `HoneypotAccess.ip_address` (`inet`) and `IPBlacklist.ip_address`.
+
+    So the two jobs are now two variables at the call site: `ip_address` for
+    storage (an address or `None`) and `ip_key` for keys and labels (never
+    `None`, so no cache key ever contains the string "None").
+
+    > **A sentinel is a label. The moment it is stored in a typed column it has
+    > stopped being a sentinel and started being wrong data.**
+    """
+    return _get_client_ip(request)
 
 
 def log_and_block_honeypot_access(request, endpoint):
@@ -46,20 +64,31 @@ def log_and_block_honeypot_access(request, endpoint):
     Log honeypot access and block the IP.
     Returns an HttpResponse.
     """
+    # ⚠️ v3.21.7 — TWO VARIABLES, ON PURPOSE. See `get_client_ip` above.
+    #   `ip_address` — an address or None. Goes into typed columns.
+    #   `ip_key`     — never None. Goes into cache keys and log lines.
+    # The keys keep the exact behaviour they had (every address-less client in
+    # one bucket, named 'unknown'); what changes is that the same string no
+    # longer reaches a column that has a type.
     ip_address = get_client_ip(request)
+    ip_key = ip_address or MISSING_IP_SENTINEL
 
     # Fast path: honeypot-ban cache key set on first hit (24h TTL).
-    ban_key = f'honeypot_ban_{ip_address}'
+    ban_key = f'honeypot_ban_{ip_key}'
     if cache.get(ban_key):
         return get_fake_response(endpoint)
 
     # Slower path: cache expired but IP may still be in the DB blacklist.
     # InputSanitizationMiddleware maintains ip_blacklisted_{ip}; check it
     # before creating a new log record to avoid log spam on repeat hits.
-    db_ban_key = f'ip_blacklisted_{ip_address}'
+    db_ban_key = f'ip_blacklisted_{ip_key}'
     db_ban_cached = cache.get(db_ban_key)
-    if db_ban_cached is None:
-        # Cache miss — do a DB lookup (cheap indexed query)
+    if db_ban_cached is None and ip_address:
+        # Cache miss — do a DB lookup (cheap indexed query).
+        #
+        # ⚠️ Skipped entirely when there is no address: the blacklist matches by
+        # exact equality, so `filter(ip_address=None)` is `IS NULL` against a
+        # NOT NULL column — a guaranteed-empty query run on every such request.
         try:
             from src.models import IPBlacklist
             if IPBlacklist.objects.filter(ip_address=ip_address, is_active=True).exists():
@@ -90,56 +119,96 @@ def log_and_block_honeypot_access(request, endpoint):
             request_body = "Unable to parse body"
 
     # Log to database
-    honeypot_record = HoneypotAccess.objects.create(
-        endpoint=endpoint,
-        ip_address=ip_address,
-        user_agent=user_agent,
-        referer=referer,
-        request_method=request.method,
-        request_body=request_body,
-        action_taken='blocked',
-        additional_data={
-            'headers': {
-                k: v for k, v in request.META.items()
-                if k.startswith('HTTP_') and k not in ['HTTP_COOKIE', 'HTTP_AUTHORIZATION']
+    #
+    # ⚠️ v3.21.7 — THE BAN MUST NOT DEPEND ON THE LOG ROW.
+    #
+    # This was the only unwrapped database call in a function that
+    # unauthenticated scanners reach *by design*. Every other DB access here is
+    # already wrapped — the blacklist check above, the `IPBlacklist` write
+    # below, the geo save in `lookup_geo` — and this one was not, so anything
+    # that made the INSERT fail took the whole function with it, before the
+    # three lines below that actually perform the ban.
+    #
+    # That is the wrong way round twice over. A honeypot that raises returns a
+    # 500 where it promised a plausible fake, which is a *distinguishing*
+    # response: it tells the scanner this path is real. And it does so while
+    # skipping the ban, so the same client may keep going. **Recording the hit
+    # is the optional half; banning is the point.**
+    #
+    # Not hypothetical: until the `get_client_ip` change in this release, a
+    # request carrying `CF-Connecting-IP: <not an address>` put a non-address
+    # into this `inet` NOT NULL column, which PostgreSQL refuses
+    # (`InvalidTextRepresentation`) and SQLite stores without complaint — the
+    # exact backend asymmetry v3.21.6 wrote 152 lines about, in the next model
+    # over. That route is closed at the source now; this is the second layer,
+    # and it is the one that does not depend on having enumerated the callers.
+    try:
+        honeypot_record = HoneypotAccess.objects.create(
+            endpoint=endpoint,
+            ip_address=ip_address,
+            user_agent=user_agent,
+            referer=referer,
+            request_method=request.method,
+            request_body=request_body,
+            action_taken='blocked',
+            additional_data={
+                'headers': {
+                    k: v for k, v in request.META.items()
+                    if k.startswith('HTTP_') and k not in ['HTTP_COOKIE', 'HTTP_AUTHORIZATION']
+                }
             }
-        }
-    )
+        )
+    except Exception as e:
+        honeypot_record = None
+        logger.error(
+            f"Failed to record honeypot hit on {endpoint} from {ip_address!r}: {e}. "
+            f"The ban below still applies."
+        )
 
-    # Kick off geolocation lookup in background (non-blocking)
-    threading.Thread(
-        target=lookup_geo,
-        args=(ip_address, honeypot_record.id),
-        daemon=True,
-    ).start()
+    # Kick off geolocation lookup in background (non-blocking).
+    # Skipped when the row could not be written (`lookup_geo` opens it by id)
+    # and when there is no address to look up — `get_ip_geo` would return `{}`
+    # immediately, so the thread would exist only to write "lookup failed".
+    if honeypot_record is not None and ip_address:
+        threading.Thread(
+            target=lookup_geo,
+            args=(ip_address, honeypot_record.id),
+            daemon=True,
+        ).start()
 
     # Ban the IP in cache (fast path for repeat honeypot requests)
-    ban_key = f'honeypot_ban_{ip_address}'
+    ban_key = f'honeypot_ban_{ip_key}'
     cache.set(ban_key, True, HONEYPOT_BAN_DURATION)
 
     # Also persist to IPBlacklist DB so InputSanitizationMiddleware blocks this IP
     # on ALL endpoints, not just honeypot URLs, and so the ban survives cache flushes.
-    try:
-        from src.models import IPBlacklist
-        if not IPBlacklist.objects.filter(ip_address=ip_address, is_active=True).exists():
-            IPBlacklist.objects.create(
-                ip_address=ip_address,
-                reason=f'Honeypot trigger: {endpoint}',
-                added_by=None,  # auto-added, no admin user
-            )
-        # Invalidate the middleware's cached blacklist result so it re-checks immediately
-        cache.delete(f'ip_blacklisted_{ip_address}')
-    except Exception as e:
-        logger.error(f"Failed to add {ip_address} to IPBlacklist: {e}")
+    #
+    # ⚠️ v3.21.7 — only when there IS an address. `IPBlacklist` matches by exact
+    # equality and its column is NOT NULL, so with no address there is nothing
+    # to write and nothing a written row could ever match. The cache ban above
+    # still applies to this bucket, which is the part that does any work here.
+    if ip_address:
+        try:
+            from src.models import IPBlacklist
+            if not IPBlacklist.objects.filter(ip_address=ip_address, is_active=True).exists():
+                IPBlacklist.objects.create(
+                    ip_address=ip_address,
+                    reason=f'Honeypot trigger: {endpoint}',
+                    added_by=None,  # auto-added, no admin user
+                )
+            # Invalidate the middleware's cached blacklist result so it re-checks immediately
+            cache.delete(f'ip_blacklisted_{ip_key}')
+        except Exception as e:
+            logger.error(f"Failed to add {ip_address} to IPBlacklist: {e}")
 
     # Also add to attack attempts counter
-    attack_key = f'attack_attempts_{ip_address}'
+    attack_key = f'attack_attempts_{ip_key}'
     attack_count = cache.get(attack_key, 0) + 10  # Honeypot access = instant high count
     cache.set(attack_key, attack_count, 3600)
 
     # Log the event
     logger.critical(
-        f"HONEYPOT TRIGGERED: {endpoint} from IP {ip_address}. "
+        f"HONEYPOT TRIGGERED: {endpoint} from IP {ip_key}. "
         f"UA: {user_agent[:100]}. Referer: {referer[:100]}. "
         f"IP banned for {HONEYPOT_BAN_DURATION // 3600} hours."
     )
