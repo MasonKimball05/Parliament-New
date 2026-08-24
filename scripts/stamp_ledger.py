@@ -135,21 +135,56 @@ def stamp_changelog(version: str, sha: str, date: str, dry_run: bool) -> str | N
     return f'{version}.md  →  {date}, {sha}'
 
 
+def version_tuple(version: str) -> tuple[int, int, int]:
+    """`'v3.21.4'` → `(3, 21, 4)`. Mirrors `src/checks_ledger.py::_version_tuple`."""
+    match = re.match(r'^v(\d+)\.(\d+)\.(\d+)$', version)
+    return tuple(int(part) for part in match.groups()) if match else (0, 0, 0)
+
+
 def stamp_ledger_rows(pending: dict[str, tuple[str, str]], dry_run: bool) -> list[str]:
-    """Rewrite the Commit column for each pending version. Columns: Release | Deployed | Commit | Notes."""
+    """
+    Bring `DEPLOYED.md` into line with git. Columns: Release | Deployed | Commit | Notes.
+
+    Two jobs, and the second one was missing until 08-23-26.
+
+    ⚠️ **THE ONE COMMAND THE GATE RECOMMENDS DID NOT CLEAR THE GATE.**
+    `src.W003` reports two different problems — a Commit cell that still says
+    "not yet", and *no row at all* — and this function only ever rewrote cells
+    in rows that already existed. So for a brand-new release it fixed the
+    changelog line, printed "now commit them", and the next `git push` was
+    refused again for the half it had not touched. That happened on the v3.25.0
+    push, which is the eleventh blocked push this script exists to prevent.
+
+    **A tool that resolves one of the two things a check reports has moved the
+    failure, not fixed it** — the same shape as v3.21.7's `IntegrityError`
+    replacing a `ValidationError`, and worse here because the hook's own message
+    promises *"Fix it with one command"*.
+
+    ⚠️ **A NEW ROW IS WRITTEN WITH `*not deployed*`, WHICH IS NOT A GUESS.**
+    That is the honest default and the one a person writes by hand: it claims
+    nothing, and it is what the Deployed column means before somebody has
+    shipped the release. The rule this script opened with is unchanged — no
+    inference about deployment, ever — and `*not deployed*` is the absence of a
+    claim rather than a claim.
+    """
     if not LEDGER.exists():
         return []
     text = LEDGER.read_text(encoding='utf-8')
     changed = []
 
     lines = text.split('\n')
+    present: set[str] = set()
+    last_row = None
+
     for i, line in enumerate(lines):
         if not line.startswith('|'):
             continue
         cells = [c.strip() for c in line.strip().strip('|').split('|')]
-        if len(cells) < 3 or cells[0] not in pending:
+        if len(cells) < 3 or not re.match(r'^v\d+\.\d+\.\d+$', cells[0]):
             continue
-        if not needs_stamping(cells[2]):
+        present.add(cells[0])
+        last_row = i
+        if cells[0] not in pending or not needs_stamping(cells[2]):
             continue
         sha, _date = pending[cells[0]]
         # Rebuild only the third cell; the notes column is prose and must not be
@@ -158,6 +193,28 @@ def stamp_ledger_rows(pending: dict[str, tuple[str, str]], dry_run: bool) -> lis
         raw[2] = f' `{sha}` '
         lines[i] = '|' + '|'.join(raw) + '|'
         changed.append(f'DEPLOYED.md row {cells[0]}  →  {sha}')
+
+    # ⚠️ SCOPED TO WHAT THE LEDGER ALREADY COVERS, for the reason
+    # `src/checks_ledger.py::_ledger_begins_at` gives at length: the file was
+    # reconstructed on 07-31-26 and starts at v3.13.0, and there are 70-odd
+    # older changelogs legitimately absent from it. A tool that backfilled those
+    # would write seventy rows nobody asked for, which is the tool-shaped
+    # version of a guard that cries wolf on its first run.
+    if last_row is not None and present:
+        begins_at = min(version_tuple(version) for version in present)
+        missing = sorted(
+            (version for version in pending
+             if version not in present and version_tuple(version) >= begins_at),
+            key=version_tuple,
+        )
+        for offset, version in enumerate(missing, start=1):
+            sha, _date = pending[version]
+            lines.insert(
+                last_row + offset,
+                f'| {version} | *not deployed* | `{sha}` | '
+                f'See `changelogs/{version}.md`. |',
+            )
+            changed.append(f'DEPLOYED.md row {version}  →  NEW, `{sha}`, *not deployed*')
 
     if changed and not dry_run:
         LEDGER.write_text('\n'.join(lines), encoding='utf-8')
