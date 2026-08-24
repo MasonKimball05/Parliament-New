@@ -1135,13 +1135,23 @@ class AddMemberForm(forms.Form):
             'placeholder': 'Full name (e.g., John Smith)'
         })
     )
+    # ⚠️ v3.23.0 — OPTIONAL. Leave it blank and `generate_member_uid()` assigns
+    # one. It used to be required free text, which is how `P-C7JKZY` came to be
+    # a convention somebody typed rather than a mechanism.
+    #
+    # The old help text said *"cannot be changed later"*. That was false for
+    # pledges — initiation changed it, at the cost of 180 lines of raw SQL — and
+    # true for everyone else. It is now true for everyone, which is what makes
+    # this field safe to use as a primary key. See `ParliamentUser.user_id`.
     user_id = forms.CharField(
         max_length=30,
+        required=False,
         widget=forms.TextInput(attrs={
             'class': 'w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent',
-            'placeholder': 'Unique member ID'
+            'placeholder': 'Leave blank to generate one'
         }),
-        help_text='Unique identifier for the member (cannot be changed later)'
+        help_text='Permanent internal ID. Leave blank and one will be generated. '
+                  'This is NOT the roll number — set that at initiation.'
     )
     email = forms.EmailField(
         required=False,
@@ -1173,7 +1183,18 @@ class AddMemberForm(forms.Form):
     )
 
     def clean_user_id(self):
-        user_id = self.cleaned_data.get('user_id')
+        """
+        Generate one when the officer leaves it blank (v3.23.0).
+
+        ⚠️ Generated HERE rather than in the view, so that every caller of this
+        form gets the same behaviour — including any future one. The view used
+        to be the only writer and that is exactly the assumption this codebase
+        keeps being wrong about.
+        """
+        user_id = (self.cleaned_data.get('user_id') or '').strip()
+        if not user_id:
+            from src.models.users import generate_member_uid
+            return generate_member_uid()
         if ParliamentUser.objects.filter(user_id=user_id).exists():
             raise forms.ValidationError('A member with this ID already exists.')
         return user_id

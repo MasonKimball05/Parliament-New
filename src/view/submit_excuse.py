@@ -5,7 +5,7 @@ from django.contrib.auth.decorators import login_required
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.utils import timezone
-from django.db.models import Q
+from django.db.models import Count, Q
 from django.core.files.storage import default_storage
 from django.core.exceptions import ValidationError
 from datetime import timedelta
@@ -202,20 +202,37 @@ def my_attendance(request):
     all_events = events_query.order_by('-date_time')
     events = [e for e in all_events if e.is_visible_to_user(request.user)]
 
-    # Get user's attendance records
-    my_attendance_records = Attendance.objects.filter(
-        user=request.user,
-        event__in=events,
-        attendance_type='event'
-    ).select_related('event')
+    # ⚠️ v3.24.0 — READ ONCE, COUNT IN PYTHON. This block used to be five
+    # separate `COUNT(*)` queries (total, present, late, absent, excused) over a
+    # queryset whose `event__in=events` clause inlines one bind parameter per
+    # event, and then the history loop below re-queried the same rows one event
+    # at a time. Measured on the pre-fix code: 40 events → **116 queries**;
+    # 120 events with the "All time" filter (`?range=0`, one click) → **349**.
+    #
+    # Nobody had noticed because until v3.22.0 this page was linked from
+    # nowhere and the only way to reach it was to type the URL. v3.22.0 put it
+    # on the home page of every member and on the My Excuses header — which is
+    # the right call, and it is what turned an unreachable page's cost into the
+    # chapter's cost. **A page's query count only starts mattering on the day
+    # somebody can click it**, so promoting a page is a performance change.
+    #
+    # The rows are all needed by the history loop anyway, so evaluating the
+    # queryset once and counting in Python is strictly less work than asking the
+    # database the same question five times.
+    event_ids = [e.pk for e in events]
+    my_records = list(
+        Attendance.objects
+        .filter(user=request.user, event_id__in=event_ids, attendance_type='event')
+        .select_related('event')
+    )
+    record_by_event = {r.event_id: r for r in my_records}
 
-    # Calculate personal stats
-    total = my_attendance_records.count()
+    total = len(my_records)
     if total > 0:
-        present = my_attendance_records.filter(status='present').count()
-        late = my_attendance_records.filter(status='late').count()
-        absent = my_attendance_records.filter(status='absent').count()
-        excused = my_attendance_records.filter(status='excused').count()
+        present = sum(1 for r in my_records if r.status == 'present')
+        late = sum(1 for r in my_records if r.status == 'late')
+        absent = sum(1 for r in my_records if r.status == 'absent')
+        excused = sum(1 for r in my_records if r.status == 'excused')
         attendance_rate = round(((present + late) / total) * 100, 1)
     else:
         present = late = absent = excused = 0
@@ -230,15 +247,18 @@ def my_attendance(request):
         'attendance_rate': attendance_rate,
     }
 
-    # Get chapter average for comparison
-    chapter_attendance = Attendance.objects.filter(
-        event__in=events,
-        attendance_type='event'
+    # One aggregate rather than two counts. `filter=` on a `Count` is the
+    # conditional-aggregate form, so both numbers come back in one row.
+    chapter_totals = Attendance.objects.filter(
+        event_id__in=event_ids,
+        attendance_type='event',
+    ).aggregate(
+        total=Count('id'),
+        attended=Count('id', filter=Q(status__in=['present', 'late'])),
     )
-    chapter_total = chapter_attendance.count()
+    chapter_total = chapter_totals['total'] or 0
     if chapter_total > 0:
-        chapter_present = chapter_attendance.filter(status__in=['present', 'late']).count()
-        chapter_average = round((chapter_present / chapter_total) * 100, 1)
+        chapter_average = round((chapter_totals['attended'] / chapter_total) * 100, 1)
     else:
         chapter_average = 0
 
@@ -248,19 +268,24 @@ def my_attendance(request):
     else:
         rate_difference = 0
 
-    # Build attendance history
+    # ⚠️ v3.24.0 — TWO QUERIES, NOT TWO PER EVENT. Both lookups in this loop
+    # were `.filter(...).first()` inside the loop body, so the page cost 2N
+    # queries for N events — and the attendance half was querying rows the view
+    # had already fetched three lines above.
+    excuse_by_event = {
+        ex.event_id: ex
+        for ex in AttendanceExcuse.objects.filter(
+            user=request.user, event_id__in=event_ids,
+        )
+    }
+
     attendance_history = []
     for event in events:
-        record = my_attendance_records.filter(event=event).first()
-        excuse = AttendanceExcuse.objects.filter(
-            event=event,
-            user=request.user
-        ).first()
-
+        record = record_by_event.get(event.pk)
         attendance_history.append({
             'event': event,
             'status': record.status if record else 'not_marked',
-            'excuse': excuse,
+            'excuse': excuse_by_event.get(event.pk),
         })
 
     # Get stats by event series (recurring events)
@@ -275,36 +300,62 @@ def my_attendance(request):
     if start_date:
         parent_events = parent_events.filter(date_time__gte=start_date)
 
-    for parent in parent_events:
-        # Check if user can see this event
-        if not parent.is_visible_to_user(request.user):
-            continue
+    # ⚠️ v3.24.0 — TWO QUERIES FOR EVERY SERIES, not three per series. The loop
+    # below used to run `series_events` + two `COUNT(*)`s + `series_events
+    # .count()` once per recurring parent. The set of series is small, so this
+    # was never the dominant cost — but it grows with the chapter's calendar and
+    # it is the same defect as the history loop one screen up.
+    #
+    # ⚠️ THE FILTERS HERE ARE DELIBERATELY NOT THE ONES USED FOR `events` ABOVE.
+    # A series instance is counted whether or not it is `is_active` and whether
+    # or not it individually sets `requires_attendance`; only the PARENT is
+    # tested for those. That is what the old code did, and changing it would
+    # silently restate every member's per-series percentage — a different change
+    # from making the page fast, and not one to make in the same diff.
+    visible_parents = [
+        p for p in parent_events if p.is_visible_to_user(request.user)
+    ]
+    parent_ids = [p.pk for p in visible_parents]
 
-        # Get all instances including parent
-        series_events = Event.objects.filter(
-            Q(pk=parent.pk) | Q(parent_event=parent),
-            date_time__lt=now
+    if parent_ids:
+        series_rows = Event.objects.filter(
+            Q(pk__in=parent_ids) | Q(parent_event_id__in=parent_ids),
+            date_time__lt=now,
         )
         if start_date:
-            series_events = series_events.filter(date_time__gte=start_date)
+            series_rows = series_rows.filter(date_time__gte=start_date)
 
-        series_attendance = Attendance.objects.filter(
-            user=request.user,
-            event__in=series_events,
-            attendance_type='event'
+        # A parent has `parent_event__isnull=True` by the filter above, so a row
+        # is keyed by its parent when it has one and by itself when it is one.
+        event_ids_by_parent = {}
+        for pk, parent_pk in series_rows.values_list('pk', 'parent_event_id'):
+            event_ids_by_parent.setdefault(parent_pk or pk, []).append(pk)
+
+        all_series_ids = [
+            pk for ids in event_ids_by_parent.values() for pk in ids
+        ]
+        status_by_event = dict(
+            Attendance.objects
+            .filter(user=request.user, event_id__in=all_series_ids,
+                    attendance_type='event')
+            .values_list('event_id', 'status')
         )
 
-        series_total = series_attendance.count()
-        if series_total > 0:
-            series_present = series_attendance.filter(status__in=['present', 'late']).count()
-            series_rate = round((series_present / series_total) * 100, 1)
-
-            series_stats.append({
-                'title': parent.title,
-                'event_count': series_events.count(),
-                'attended_count': series_present,
-                'attendance_rate': series_rate,
-            })
+        for parent in visible_parents:
+            ids = event_ids_by_parent.get(parent.pk, [])
+            marks = [status_by_event[pk] for pk in ids if pk in status_by_event]
+            series_total = len(marks)
+            if series_total > 0:
+                series_present = sum(
+                    1 for status in marks if status in ('present', 'late')
+                )
+                series_stats.append({
+                    'title': parent.title,
+                    'event_count': len(ids),
+                    'attended_count': series_present,
+                    'attendance_rate': round(
+                        (series_present / series_total) * 100, 1),
+                })
 
     # Sort by rate
     series_stats.sort(key=lambda x: x['attendance_rate'], reverse=True)

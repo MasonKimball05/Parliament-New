@@ -39,6 +39,71 @@ def validate_profile_picture(file):
         raise ValidationError(f'Invalid file extension. Only .jpg, .jpeg, .png, and .webp are allowed.')
 
 
+#: Alphabet for generated member ids (v3.23.0).
+#:
+#: ⚠️ ONE OF EACH CONFUSABLE PAIR IS GONE, not just the famous ones. `O/0`,
+#: `I/1`, `L/1`, `S/5`, `Z/2` and `B/8` are all pairs a person transcribes
+#: wrongly, so the digit is kept and the letter dropped in every case. My first
+#: draft removed the letters and kept `5` while the test asserted `S/5` were
+#: both handled — the test caught it, which is the argument for having written
+#: the rule down as an assertion rather than a comment.
+#:
+#: These ids get read aloud across a room, written on a whiteboard, and typed
+#: off a phone screen by somebody who has had the account for four minutes. An
+#: alphabet that cannot be transcribed wrongly is worth far more than the two
+#: bits of entropy it costs: 28^6 is still ~481 million combinations, against a
+#: chapter of a few hundred.
+MEMBER_UID_ALPHABET = '23456789ACDEFGHJKMNPQRTUVWXY'
+MEMBER_UID_LENGTH = 6
+MEMBER_UID_PREFIX = 'P-'
+
+
+def generate_member_uid(prefix=MEMBER_UID_PREFIX, length=MEMBER_UID_LENGTH):
+    """
+    A fresh, unused member id. `P-` + 6 unambiguous alphanumerics.
+
+    ⚠️ v3.23.0 — BEFORE THIS, NOTHING GENERATED THESE. The Add Member form had
+    a free-text box labelled *"Unique member ID"* whose help text read *"cannot
+    be changed later"* — which was false for pledges (initiation changed it) and
+    true for everybody else. `P-C7JKZY` was a convention somebody typed, not a
+    mechanism, so it held only as long as whoever was typing remembered it.
+
+    ⚠️ **THE PREFIX IS LOAD-BEARING, NOT DECORATION.** v3.21.1 shipped a 500 on
+    the education dashboard and a silent 404 on the completion grid because
+    three routes declared `<int:…>` for a member id. What made those diagnosable
+    was that `P-C7JKZY` is visibly not a number, in the URL, in the log line and
+    in the traceback. A bare token would have made the same bug look like a
+    missing record.
+
+    Uses `secrets`, not `random`: these end up in URLs, and a member id
+    predictable from another member id is an enumeration aid for no benefit.
+
+    Collisions are checked against the database rather than assumed away. At
+    ~1e9 combinations and a few hundred members the loop will not run twice in
+    the lifetime of the chapter, which is exactly why it must be *correct*
+    rather than *tested in practice* — so it raises rather than looping forever.
+    """
+    import secrets
+
+    for _ in range(20):
+        candidate = prefix + ''.join(
+            secrets.choice(MEMBER_UID_ALPHABET) for _ in range(length)
+        )
+        if not ParliamentUser.objects.filter(user_id=candidate).exists():
+            return candidate
+
+    # Twenty collisions in a row against a space this large means something is
+    # wrong with the assumption, not with the luck — a truncated alphabet, a
+    # length of zero, a mocked `secrets`. Failing loudly is the only useful
+    # response; a longer loop would hide it.
+    raise RuntimeError(
+        f'Could not generate an unused member id after 20 attempts '
+        f'(prefix={prefix!r}, length={length}). This should be impossible with '
+        f'{len(MEMBER_UID_ALPHABET)}^{length} combinations — check that the '
+        f'alphabet and length constants are intact.'
+    )
+
+
 class ParliamentUserManager(BaseUserManager):
     def create_user(self, user_id, name, username, member_type, password=None,
                     **extra_fields):
@@ -136,7 +201,44 @@ class ParliamentUser(AbstractBaseUser):
     # ------------------------------------------------------------------
     # ParliamentUser is a WIDE table — see MEMBER_DISPLAY_FIELDS below.
     # ------------------------------------------------------------------
-    user_id = models.CharField(max_length=30, unique=True, primary_key=True)
+    # ⚠️ v3.23.0 — `user_id` IS A SURROGATE KEY. IT NEVER CHANGES AFTER
+    # CREATION. READ THIS BEFORE WRITING ANYTHING THAT ASSIGNS TO IT.
+    #
+    # It is the primary key, so 150 foreign-key columns across this schema hold
+    # a *copy of this string*. `src_vote.user_id` literally contains
+    # `'P-C7JKZY'`. Changing it therefore does not update one row — it
+    # invalidates 150 tables' worth of pointers at once.
+    #
+    # For years initiation did exactly that, because `user_id` was treated as a
+    # NATURAL key: it was simultaneously the database's handle for the row and
+    # the member's roll number, and a roll number changes at initiation. The
+    # cost was ~180 lines of raw SQL that renamed unique columns behind a
+    # `_migrating_` prefix, copied the row by introspecting `information_schema`
+    # (PostgreSQL-only, so the test suite could never reach it), walked every
+    # relation, consulted two hand-maintained table lists, and deleted the
+    # original — with a window in which a failure left the chapter with **two
+    # user rows for one person**.
+    #
+    # None of that was necessary, because the roll number already had its own
+    # column: see `role_number` below, whose help text has always described it
+    # as *"assigned at initiation (unique identifier visible to members)"* and
+    # which 32 templates already render. Initiation was changing the primary key
+    # to a value it was also, separately, storing correctly.
+    #
+    # > **A primary key must be something that can never need to change. The
+    # > moment a value is both an identifier and information, you have bet that
+    # > the information is permanent** — and this one demonstrably was not,
+    # > because initiation changed it on purpose.
+    #
+    # So: `user_id` is now opaque and permanent. New members get one from
+    # `generate_member_uid()`. `role_number` carries the meaning and is freely
+    # editable. `src/test_user_id_is_permanent.py` fails the build if any code
+    # outside creation assigns to this field.
+    user_id = models.CharField(
+        max_length=30, unique=True, primary_key=True,
+        help_text='Permanent internal identifier. Never changes, never reused, '
+                  'and NOT the roll number — see role_number for that.',
+    )
     name = models.CharField(max_length=100)
     preferred_name = models.CharField(max_length=50, blank=True, help_text='Optional: Preferred first name (will display as "Preferred LastName")')
     member_type = models.CharField(max_length=20, choices=MEMBER_TYPES)

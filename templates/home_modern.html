@@ -14,7 +14,11 @@
         <div class="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-yellow-400/60 to-transparent pointer-events-none"></div>
         <div>
             <h1 class="text-xl sm:text-2xl font-bold leading-tight">Welcome, {{ user.get_display_name }}</h1>
-            <p class="text-sm opacity-85 mt-0.5">{{ user.member_type }}{% if not user.is_pledge %} · {{ user.user_id }}{% endif %}</p>
+            {% comment %}
+            v3.24.0 — `role_number`, not `user_id`. See profile.html; v3.23.0
+            corrected the badge there and this header is the same construct.
+            {% endcomment %}
+            <p class="text-sm opacity-85 mt-0.5">{{ user.member_type }}{% if not user.is_pledge and user.role_number %} · #{{ user.role_number }}{% endif %}</p>
         </div>
         <button id="coat-modal-open" class="flex-shrink-0 focus:outline-none group flex flex-col items-center gap-1">
             <img src="{% static 'images/am-coat-of-arms.png' %}" alt="Alpha Mu Coat of Arms" class="w-12 h-12 sm:w-14 sm:h-14 rounded-full object-contain bg-white p-0.5 shadow-lg transition-transform duration-200 group-hover:scale-110 cursor-pointer">
@@ -358,8 +362,22 @@
 
     </div>
 
-    <!-- ── FEATURED CARDS (Kai / Service / Songbook) ─────────────── -->
-    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+    {% comment %}
+    FEATURED CARDS. v3.22.0 added My Attendance as a fourth, so the grid is
+    2-up on small screens and 4-up on large rather than 3-up. See the card
+    itself for why it is here at all.
+    {% endcomment %}
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+
+        <a href="{% url 'my_attendance' %}" class="flex items-center gap-4 rounded-xl shadow-sm p-4 group transition-shadow hover:shadow-md" style="background: linear-gradient(135deg, #F59E0B 0%, #B45309 100%);">
+            <div class="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center flex-shrink-0">
+                <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"/></svg>
+            </div>
+            <div>
+                <p class="text-base font-bold text-white leading-tight">My Attendance</p>
+                <p class="text-xs text-amber-100 mt-0.5">Your record and the chapter average</p>
+            </div>
+        </a>
 
         <a href="{% url 'user_kai_dashboard' %}" class="flex items-center gap-4 rounded-xl shadow-sm p-4 group transition-shadow hover:shadow-md" style="background: linear-gradient(135deg, #10B981 0%, #059669 100%);">
             <img src="{% static 'images/beta-dragon.jpeg' %}" alt="Beta Dragon" class="w-12 h-12 rounded-xl object-cover border-2 border-white/30 shadow flex-shrink-0">

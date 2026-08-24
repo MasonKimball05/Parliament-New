@@ -14,6 +14,16 @@
                 <h1 class="text-2xl sm:text-3xl font-bold">Excuse Requests</h1>
                 <p class="text-sm text-white/75 mt-0.5">Request excused absences for events you cannot attend</p>
             </div>
+            {% comment %}
+            v3.22.0 — the closest thing this page has to a natural next click,
+            and it went nowhere for as long as both pages have existed. An
+            excuse is a request about one absence; My Attendance is the record
+            those requests add up to.
+            {% endcomment %}
+            <a href="{% url 'my_attendance' %}" class="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-white/15 hover:bg-white/25 text-white transition whitespace-nowrap">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                My attendance record
+            </a>
         </div>
     </div>
 

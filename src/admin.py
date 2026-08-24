@@ -311,153 +311,42 @@ class ParliamentUserAdmin(admin.ModelAdmin):
 
     actions = [export_as_csv, remove_profile_pictures]
 
+    # ⚠️ v3.24.0 — THE "MIGRATE USER ID" ROUTE AND BUTTON WERE DELETED HERE, AND
+    # THIS COMMENT IS THE REASON THEY MUST NOT COME BACK.
+    #
+    # `migrate_user_id_view` copied a member's row to a new primary key,
+    # repointed what relations it could find, and deleted the original — a red
+    # button on every row of the member list, doing the exact operation v3.23.0
+    # removed from initiation. Reproduced through the real endpoint: the pk
+    # moved, the old row went, and the member's `TwoFactorRequirement` row was
+    # **silently destroyed** on the way, because `getattr(user, accessor)` on a
+    # reverse OneToOne returns the object rather than a manager, so
+    # `.all().update(…)` raised `AttributeError` into a bare `except: pass` and
+    # then `delete()` CASCADEd the orphan. `watch_flag` and
+    # `calendar_subscription` went the same way, and 21 of 45 concrete fields
+    # were silently reset because the new row was built from a hand-written
+    # kwarg list.
+    #
+    # There is nothing left for it to do. `user_id` is an opaque surrogate key
+    # that no human reads, and `role_number` — freely editable, unique, rendered
+    # by 32 templates — carries everything a member is actually called. **If
+    # somebody wants to change what a member is called, that is a `role_number`
+    # edit, and the change form already offers it.**
+    #
+    # See `src/test_user_id_is_permanent.py`, which now fails the build if this
+    # comes back in any spelling, and `changelogs/v3.24.0.md`.
     def get_urls(self):
         urls = super().get_urls()
         custom_urls = [
             path('login-as-<str:user_id>/', self.admin_site.admin_view(self.login_as_user), name='login_as_user'),
-            path('migrate-user-id/<str:user_id>/', self.admin_site.admin_view(self.migrate_user_id_view), name='migrate_user_id'),
         ]
         return custom_urls + urls
 
     def login_as_link(self, obj):
         login_url = reverse('admin:login_as_user', args=[obj.pk])
-        migrate_url = reverse('admin:migrate_user_id', args=[obj.pk])
-        return format_html(
-            '<a class="button" href="{}">Login As User</a>&nbsp;&nbsp;'
-            '<a class="button" href="{}" style="background:#ba2121;">Migrate User ID</a>',
-            login_url, migrate_url,
-        )
+        return format_html('<a class="button" href="{}">Login As User</a>', login_url)
     login_as_link.short_description = 'Actions'
     login_as_link.allow_tags = True
-
-    def migrate_user_id_view(self, request, user_id):
-        from django.db import transaction
-        from src.models import UserPreferences
-
-        if not request.user.is_admin:
-            messages.error(request, 'Admin access required.')
-            return redirect('/admin/')
-
-        old_user = ParliamentUser.objects.filter(pk=user_id).first()
-        if not old_user:
-            messages.error(request, f'User with ID "{user_id}" not found.')
-            return redirect('/admin/src/parliamentuser/')
-
-        error = None
-        if request.method == 'POST':
-            new_user_id = request.POST.get('new_user_id', '').strip()
-            if not new_user_id:
-                error = 'New user ID cannot be empty.'
-            elif new_user_id == user_id:
-                error = 'New user ID must be different from the current one.'
-            elif ParliamentUser.objects.filter(pk=new_user_id).exists():
-                error = f'A user with ID "{new_user_id}" already exists.'
-            else:
-                try:
-                    with transaction.atomic():
-                        # Save everything we need before creating the new user
-                        old_roles = list(old_user.roles.all())
-                        old_prefs = getattr(old_user, 'preferences', None)
-
-                        # Snapshot all preference field values before the new user
-                        # is saved (which triggers a signal that auto-creates preferences)
-                        pref_fields = {}
-                        if old_prefs:
-                            skip_pref = {'user', 'user_id', 'created_at', 'updated_at'}
-                            for f in old_prefs._meta.get_fields():
-                                if hasattr(f, 'attname') and f.attname not in skip_pref and f.name not in skip_pref:
-                                    pref_fields[f.attname] = getattr(old_prefs, f.attname)
-
-                        # Stash the real credentials before temporarily clearing them
-                        real_username = old_user.username
-                        real_email = old_user.email
-                        real_role_number = old_user.role_number
-
-                        # Temporarily clear all unique fields on the old user so the
-                        # new user record can be inserted with the real values while
-                        # both rows coexist within the same transaction.
-                        ParliamentUser.objects.filter(pk=user_id).update(
-                            username=f'__migrating__{user_id}',
-                            email=None,
-                            role_number=None,
-                        )
-
-                        # Create new user, copying every non-pk field
-                        new_user = ParliamentUser(
-                            user_id=new_user_id,
-                            name=old_user.name,
-                            preferred_name=old_user.preferred_name,
-                            member_type=old_user.member_type,
-                            is_active=old_user.is_active,
-                            is_admin=old_user.is_admin,
-                            username=real_username,
-                            email=real_email,
-                            phone_number=old_user.phone_number,
-                            profile_picture=old_user.profile_picture,
-                            profile_picture_removed_by_admin=old_user.profile_picture_removed_by_admin,
-                            anonymous_vote=old_user.anonymous_vote,
-                            allow_abstain=old_user.allow_abstain,
-                            member_status=old_user.member_status,
-                            force_password_change=old_user.force_password_change,
-                            has_default_password=old_user.has_default_password,
-                            is_quarantined=old_user.is_quarantined,
-                            email_flagged=old_user.email_flagged,
-                            email_flagged_reason=old_user.email_flagged_reason,
-                            email_flagged_at=old_user.email_flagged_at,
-                            role_number=real_role_number,
-                            last_login=old_user.last_login,
-                            password=old_user.password,  # raw hashed password — no re-hashing
-                        )
-                        new_user.save()
-
-                        # Copy preferences from old to the auto-created new preferences
-                        if pref_fields:
-                            UserPreferences.objects.filter(user=new_user).update(**pref_fields)
-
-                        # Restore roles
-                        new_user.roles.set(old_roles)
-
-                        # Reassign all reverse FK / OneToOne relations to new_user
-                        # Skip: 'preferences' (handled above), 'roles' (handled above),
-                        # 'co_authored_legislation' (handled below as M2M)
-                        skip_accessors = {'preferences', 'roles', 'co_authored_legislation'}
-                        for rel in old_user._meta.get_fields():
-                            if not hasattr(rel, 'get_accessor_name'):
-                                continue
-                            accessor = rel.get_accessor_name()
-                            if not accessor or accessor in skip_accessors:
-                                continue
-
-                            if rel.one_to_many or rel.one_to_one:
-                                # Standard FK / OneToOne — bulk update FK column
-                                try:
-                                    related_manager = getattr(old_user, accessor)
-                                    related_manager.all().update(**{rel.field.name: new_user})
-                                except Exception:
-                                    pass
-
-                        # Reassign co-authored legislation M2M
-                        for leg in list(old_user.co_authored_legislation.all()):
-                            leg.co_authors.remove(old_user)
-                            leg.co_authors.add(new_user)
-
-                        # Delete old user; CASCADE removes its now-empty FK rows
-                        old_user.delete()
-
-                    logger.info(f"Admin {request.user} migrated user_id '{user_id}' → '{new_user_id}'")
-                    messages.success(request, f"Successfully migrated user ID '{user_id}' → '{new_user_id}'. All related data transferred.")
-                    return redirect(f'/admin/src/parliamentuser/{new_user_id}/change/')
-
-                except Exception as e:
-                    error = f'Migration failed: {e}'
-
-        return render(request, 'admin/migrate_user_id.html', {
-            'user': old_user,
-            'error': error,
-            'title': f'Migrate User ID — {old_user.name}',
-            'opts': self.model._meta,
-            'has_permission': True,
-        })
 
     def login_as_user(self, request, user_id):
         from src.view.login_as_view import SESSION_ORIGINAL_ID, SESSION_ORIGINAL_NAME

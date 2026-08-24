@@ -58,8 +58,12 @@ def applications_list(request, period_id):
         applications = applications.filter(gpa_level=int(gpa_level_filter))
 
     if search:
+        # v3.25.0 — `role_number` added: see `global_search`. Slating is the
+        # surface where an officer is most likely to be working from a written
+        # list of roll numbers rather than names.
         applications = applications.filter(
             Q(applicant__name__icontains=search) |
+            Q(applicant__role_number__icontains=search) |
             Q(applicant__user_id__icontains=search)
         )
 

@@ -1,8 +1,9 @@
 from .officer_home import *
 from .attendance import *
 from .user_list import *
-from .make_event import *
-from .manage_event import *
+# (`make_event` and `manage_event` — singular — were deleted in v3.25.0. Both
+# rendered a template with no context and were superseded by `create_event` /
+# `manage_events` in `.manage_events` below.)
 from .manage_announcements import *
 from .view_logs import *
 from .upload_report import *

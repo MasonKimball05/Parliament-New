@@ -47,11 +47,29 @@ def _parse_remember_cookie(cookie_value):
     """
     Validate and decode a remember cookie.
     Returns (user_pk, device_pk) on success, raises signing.BadSignature on failure.
+
+    ⚠️ v3.24.0 — `user_pk` COMES BACK AS A STRING. It used to be `int(user_pk)`,
+    and `ParliamentUser.user_id` is a CharField primary key: a brother's roll
+    number looks numeric, but a generated id is `P-C7JKZY`, and `int()` on that
+    raises `ValueError`.
+
+    v3.23.0 found exactly this and fixed the *inline copy* of the parse in
+    `Enforce2FAMiddleware._check_remember_cookie` — and this function, the named
+    helper the same cookie has, was left as it was. Tenth instance of the shape
+    CLAUDE.md records: **a rule stated correctly, and one reader left outside
+    it.** Its one caller (`profile_view`) catches `ValueError` and reports the
+    device as not remembered, so the two halves of the app now disagree about
+    the same cookie: the middleware honours it and the profile page says it does
+    not exist.
+
+    `device_pk` stays an `int` — `TOTPDevice.pk` is a real AutoField, and the
+    reason this bug existed is that somebody assumed a pk is a number. Being
+    explicit about which one is which is the point.
     """
     signer = signing.TimestampSigner(salt=_REMEMBER_COOKIE_SALT)
     value = signer.unsign(cookie_value, max_age=_REMEMBER_DAYS * 86400)
     user_pk, device_pk = value.split(':', 1)
-    return int(user_pk), int(device_pk)
+    return str(user_pk), int(device_pk)
 
 
 def set_remember_cookie(response, user, device):

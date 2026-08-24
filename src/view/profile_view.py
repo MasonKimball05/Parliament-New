@@ -448,7 +448,9 @@ def profile_view(request):
         if cookie:
             try:
                 u_pk, _ = _parse_remember_cookie(cookie)
-                two_factor_device_remembered = (u_pk == user.pk)
+                # Compared as strings for the same reason the middleware does:
+                # this pk is a CharField and a generated id is not numeric.
+                two_factor_device_remembered = (str(u_pk) == str(user.pk))
             except (signing.BadSignature, signing.SignatureExpired, ValueError):
                 pass
 

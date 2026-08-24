@@ -7,8 +7,6 @@ from django.contrib.auth import views as auth_views
 from src.view.officer.officer_home import officer_home
 from src.view.officer.attendance import attendance
 from src.view.officer.user_list import user_list, export_user_list
-from src.view.officer.make_event import make_event
-from src.view.officer.manage_event import manage_event
 from src.view.officer.view_logs import view_logs
 from src.view.officer.upload_report import upload_report
 from src.view.officer.view_all_events import view_all_events
@@ -508,8 +506,19 @@ urlpatterns = [
     path('officers/minutes/<int:minutes_id>/download-pdf/', download_minutes_pdf, name='download_minutes_pdf'),
     path('officers/minutes/<int:minutes_id>/delete/', delete_chapter_minutes, name='delete_chapter_minutes'),
 
-    path('make-event/', make_event, name='make_event'),
-    path('manage-event/', manage_event, name='manage_event'),
+    # v3.25.0 — `make-event/` and `manage-event/` (singular) are GONE, along
+    # with their legacy underscore redirects below. Both views were
+    # `render(request, '<name>.html', {})` — no context at all — superseded by
+    # `create_event` / `manage_events` (plural), which is what all six linking
+    # templates have used for a long time. Nothing in `templates/` or `src/`
+    # referenced either name; they were in `test_reachable_pages.KNOWN_ORPHANS`.
+    #
+    # ⚠️ `manage_event.html` was the reason to delete rather than leave alone:
+    # 229 lines of a real-looking announcements page whose view passed `{}`, so
+    # every `{% if %}` in it was false and it rendered as an empty shell. A
+    # future officer would have edited that file and watched nothing change
+    # anywhere on the site. Same shape as v3.24.0's admin button — a landmine,
+    # not a bug.
     path('user-list/', user_list, name='user_list'),
     path('user-list/export/', export_user_list, name='export_user_list'),
 
@@ -1150,12 +1159,9 @@ urlpatterns += [
     path('change_password/',
          RedirectView.as_view(pattern_name='change_password',
                               permanent=False, query_string=True)),
-    path('make_event/',
-         RedirectView.as_view(pattern_name='make_event',
-                              permanent=False, query_string=True)),
-    path('manage_event/',
-         RedirectView.as_view(pattern_name='manage_event',
-                              permanent=False, query_string=True)),
+    # (`make_event/` and `manage_event/` used to redirect here — removed in
+    # v3.25.0 along with the routes they pointed at. A redirect to a deleted
+    # route is a `NoReverseMatch` at request time, not a 404.)
     path('user_list/',
          RedirectView.as_view(pattern_name='user_list',
                               permanent=False, query_string=True)),

@@ -50,8 +50,17 @@
                 <div>
                     <h1 class="text-2xl sm:text-3xl font-bold">{{ user.get_display_name }}</h1>
                     <div class="flex flex-wrap items-center gap-1.5 mt-1.5">
-                        {% if not user.is_pledge %}
-                        <span class="text-xs bg-white/20 px-2 py-0.5 rounded-full font-mono">{{ user.user_id }}</span>
+                        {% comment %}
+                        v3.23.0 — `role_number`, not `user_id`. They were the
+                        same string for anyone initiated before today, which is
+                        why this read the pk and looked right. From now on
+                        `user_id` is a permanent internal handle and the roll
+                        number is what a member is actually called, so showing
+                        the pk here would print `P-C7JKZY` on the badge of
+                        everybody initiated from this release onward.
+                        {% endcomment %}
+                        {% if not user.is_pledge and user.role_number %}
+                        <span class="text-xs bg-white/20 px-2 py-0.5 rounded-full font-mono">#{{ user.role_number }}</span>
                         {% endif %}
                         <span class="text-xs bg-white/20 px-2 py-0.5 rounded-full
                             {% if user.member_type == 'Officer' %}bg-purple-500/40

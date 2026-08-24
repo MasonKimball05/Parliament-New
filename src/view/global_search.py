@@ -264,9 +264,18 @@ def global_search(request):
 
     # Search Users (name, username) - only for officers
     if request.user.is_officer:
+        # ⚠️ v3.25.0 — `role_number` IS WHAT A MEMBER IS CALLED. Searching
+        # `user_id` alone found everyone only because, until v3.23.0, initiation
+        # copied the roll number INTO the primary key. It no longer does: a
+        # member initiated from now on keeps an opaque `P-XXXXXX` forever and
+        # his roll number lives in `role_number`. Typing "173" into the search
+        # box found nobody, and would have gone on finding the whole existing
+        # roster (whose legacy keys are still roll numbers) while silently
+        # failing for every new member — the worst shape of bug to notice.
         users = list(ParliamentUser.objects.exclude(member_status='Removed').filter(
             Q(name__icontains=query) |
             Q(user_id__icontains=query) |
+            Q(role_number__icontains=query) |
             Q(preferred_name__icontains=query)
         ).order_by('name')[:10])
         if users:

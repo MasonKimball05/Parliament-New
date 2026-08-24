@@ -30,6 +30,19 @@ def event_attendance_list(request):
     upcoming_events = events.filter(date_time__gte=now, attendance_finalized=False)
     past_events = events.filter(Q(date_time__lt=now) | Q(attendance_finalized=True))[:20]  # Last 20
 
+    # ⚠️ v3.25.0 — `event_attendance_list.html` calls `event.get_attendance_stats`
+    # inside BOTH the desktop table and the mobile card list, so twenty past
+    # events meant forty calls at six queries each. Measured through the real
+    # endpoint: 271 queries, 240 of them this. Priming the cache here makes it
+    # two, and the memoisation in the method itself collapses the duplicate
+    # layout.
+    #
+    # ⚠️ `prime_attendance_stats` RETURNS A LIST and this must keep the list.
+    # The cache lives on each instance; re-evaluating the queryset afterwards
+    # would give the template different objects with an empty cache and restore
+    # the N+1 in a way no assertion here would notice.
+    past_events = Event.prime_attendance_stats(past_events)
+
     # Get counts of pending excuses
     pending_excuses_count = AttendanceExcuse.objects.filter(status='pending').count()
 

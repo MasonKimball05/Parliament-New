@@ -156,7 +156,18 @@ class Enforce2FAMiddleware:
             signer = signing.TimestampSigner(salt=_REMEMBER_COOKIE_SALT)
             value = signer.unsign(cookie, max_age=_REMEMBER_DAYS * 86400)
             user_pk, device_pk = value.split(':', 1)
-            if int(user_pk) != request.user.pk:
+            # ⚠️ v3.23.0 — COMPARE AS STRINGS. This was `int(user_pk)`, and
+            # `ParliamentUser.user_id` is a CharField pk: a brother's looks
+            # numeric, but **a pledge's is `P-C7JKZY`**. `int('P-C7JKZY')`
+            # raises `ValueError`, which the `except` at the bottom of this
+            # method catches and turns into `return False`.
+            #
+            # So "remember this device" has never worked for a pledge. It fails
+            # closed, so it was never a hole — it just silently asked the newest
+            # members of the chapter for a code on every single login, with
+            # nothing anywhere saying why. Same numeric assumption as v3.21.1's
+            # three `<int:…>` routes, and the same silence.
+            if str(user_pk) != str(request.user.pk):
                 return False
             device = TOTPDevice.objects.filter(pk=int(device_pk), user=request.user, confirmed=True).first()
             if not device:

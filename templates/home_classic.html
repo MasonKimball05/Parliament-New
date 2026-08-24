@@ -13,7 +13,11 @@
         <div class="flex items-center justify-between">
             <div>
                 <h1 class="text-2xl sm:text-3xl font-bold mb-2">Welcome, {{ user.get_display_name }}</h1>
-                <p class="text-sm sm:text-base opacity-90">{{ user.member_type }}{% if not user.is_pledge %} • {{ user.user_id }}{% endif %}</p>
+                {% comment %}
+                v3.24.0 — `role_number`, not `user_id`. See profile.html;
+                v3.23.0 corrected the badge there and this is the same construct.
+                {% endcomment %}
+                <p class="text-sm sm:text-base opacity-90">{{ user.member_type }}{% if not user.is_pledge and user.role_number %} • #{{ user.role_number }}{% endif %}</p>
             </div>
             <button id="js-open-coat-modal" class="flex-shrink-0 focus:outline-none group flex flex-col items-center gap-1">
                 <img src="{% static 'images/am-coat-of-arms.png' %}" alt="Alpha Mu Coat of Arms" class="w-16 h-16 sm:w-20 sm:h-20 rounded-full object-contain bg-white p-1 shadow-lg transition-transform duration-200 group-hover:scale-110 cursor-pointer">
@@ -294,6 +298,22 @@
                 </svg>
             </div>
             <p class="text-gray-600 dark:text-gray-400 text-sm">View member contact information</p>
+        </a>
+
+        {% comment %}
+        My Attendance — added v3.22.0. The page has existed since long before
+        that and was linked from nowhere; see `src/test_reachable_pages.py`.
+        It sits beside Excuses deliberately: an excuse is a request about one
+        absence, this is the record the requests add up to.
+        {% endcomment %}
+        <a href="{% url 'my_attendance' %}" class="block bg-white dark:bg-gray-800 rounded-xl shadow-sm hover:shadow-md transition-shadow p-6 group">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 group-hover:text-primary-600 dark:text-primary-400 transition-colors">My Attendance</h2>
+                <svg class="w-8 h-8 text-primary-600 dark:text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+            </div>
+            <p class="text-gray-600 dark:text-gray-400 text-sm">Your attendance record and how it compares</p>
         </a>
 
         <!-- Excuses Card -->

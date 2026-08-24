@@ -281,6 +281,41 @@ class QueryBudgetMixin:
         return count
 
 
+def _budget_classes(directory=None, package='src'):
+    """
+    Every class in `directory` that uses this module's budget machinery.
+
+    ⚠️ THE KEY IS THE MIXIN, NOT THE NAME OR THE FILE, and both of those were
+    tried first. See `test_the_unmeasured_list_is_accurate_in_both_directions`
+    for what each of them missed.
+
+    Takes a directory so the control below can point it at a temporary one. A
+    walk that can only ever be run over the tree it lives in cannot be shown to
+    work — which is the same objection v3.21.7 raised about an enumeration that
+    asserted a property of Django.
+    """
+    import importlib
+    import inspect
+    import os
+
+    directory = directory or os.path.dirname(__file__)
+    found = {}
+    for filename in sorted(os.listdir(directory)):
+        if not filename.startswith('test_') or not filename.endswith('.py'):
+            continue
+        stem = filename[:-3]
+        module = importlib.import_module(f'{package}.{stem}' if package else stem)
+        for name, obj in inspect.getmembers(module, inspect.isclass):
+            # Defined here, not imported into here — otherwise a module that
+            # imports a budget class reports it a second time under its own
+            # name and the two disagree about nothing.
+            if obj.__module__ != module.__name__:
+                continue
+            if issubclass(obj, QueryBudgetMixin) and obj is not QueryBudgetMixin:
+                found[f'{module.__name__}.{name}'] = obj
+    return found
+
+
 class KaiListQueryBudgetTests(QueryBudgetMixin, TestCase):
     """
     The Kai reviewer list — the page both 08-02 perf findings landed on, and
@@ -609,9 +644,11 @@ class BudgetHygieneTests(TestCase):
         """
         from src.test_query_budgets import (
             ActivityLogQueryBudgetTests, EducationDashboardQueryBudgetTests,
-            EducationPledgeDetailQueryBudgetTests, HomePageQueryBudgetTests,
-            KaiListQueryBudgetTests, SecurityAlertsQueryBudgetTests,
-            ServiceDashboardQueryBudgetTests, TwoFactorDashboardQueryBudgetTests,
+            EducationPledgeDetailQueryBudgetTests,
+            EventAttendanceListQueryBudgetTests, HomePageQueryBudgetTests,
+            KaiListQueryBudgetTests, MyAttendanceQueryBudgetTests,
+            SecurityAlertsQueryBudgetTests, ServiceDashboardQueryBudgetTests,
+            TwoFactorDashboardQueryBudgetTests,
         )
 
         # Declared budgets, checked for obvious nonsense rather than re-measured
@@ -626,6 +663,8 @@ class BudgetHygieneTests(TestCase):
             'service_dashboard': ServiceDashboardQueryBudgetTests.BUDGET,
             'education_home': EducationDashboardQueryBudgetTests.BUDGET,
             'education_pledge_detail': EducationPledgeDetailQueryBudgetTests.BUDGET,
+            'event_attendance_list': EventAttendanceListQueryBudgetTests.BUDGET,
+            'my_attendance': MyAttendanceQueryBudgetTests.BUDGET,
         }
         for name, ceiling in declared.items():
             self.assertGreater(
@@ -670,19 +709,41 @@ class BudgetHygieneTests(TestCase):
         This deliberately does not fail merely because the list is non-empty.
         The classes are exempt for a stated and correct reason; what must not
         happen is the exemption becoming invisible.
+
+        ⚠️ v3.25.0 — THE ENUMERATION USED TO BE KEYED ON TWO THINGS THAT ARE
+        BOTH WRONG: a name ending `QueryBudgetTests`, **in this module only**.
+
+        v3.24.0's `/my-attendance/` budget class failed both halves — it lives
+        in a sibling file and is called `MyAttendanceScalesFlatTests` — so it
+        declared no `BUDGET` and appeared on no list, and the mechanism whose
+        entire job is to make an exemption visible could not see it. Its
+        docstring said so, which made it visible to a human reading that one
+        file. **A ratchet that only enumerates the module it lives in is a
+        ratchet against moving code into a new file.**
+
+        The population is now derived from `QueryBudgetMixin`: a class that uses
+        this module's measuring machinery is a class this module is responsible
+        for, wherever it lives and whatever it is called. That is also why the
+        key is not the name — `src/test_query_narrowing.py` has a class called
+        `QueryBudgetTests` which is a *scaling* test, does not use the mixin,
+        and correctly is not in scope. The module docstring already warns that
+        those two names collide; keying on the mixin means the warning no longer
+        has to be remembered.
         """
-        import inspect
+        budget_classes = _budget_classes()
 
-        from src import test_query_budgets as module
+        self.assertTrue(budget_classes, 'No budget classes found — the mixin moved.')
+        self.assertGreater(
+            len(budget_classes), 5,
+            f'Only {len(budget_classes)} budget classes found. This walk has '
+            f'gone blind before by keying on the wrong thing; if the count '
+            f'collapses, the enumeration is broken rather than the suite empty.',
+        )
 
-        budget_classes = {
-            name: obj for name, obj in inspect.getmembers(module, inspect.isclass)
-            if name.endswith('QueryBudgetTests') and obj.__module__ == module.__name__
-        }
-        self.assertTrue(budget_classes, 'No budget classes found — the naming convention moved.')
-
+        # Compared on the bare class name so `AWAITING_MEASUREMENT` stays
+        # readable; the qualified names above are only for the failure message.
         unmeasured = {
-            name for name, obj in budget_classes.items()
+            obj.__name__ for obj in budget_classes.values()
             if getattr(obj, 'BUDGET', None) is None
         }
         listed = set(self.AWAITING_MEASUREMENT)
@@ -697,6 +758,45 @@ class BudgetHygieneTests(TestCase):
             f'{sorted(listed - unmeasured)} now have a measured BUDGET — remove '
             f'them from AWAITING_MEASUREMENT so the list stays worth reading.',
         )
+
+    def test_the_walk_reaches_a_class_in_another_module(self):
+        """
+        ⚠️ THE CONTROL FOR THE WIDENING, and the reason `_budget_classes` takes
+        a directory at all.
+
+        The walk was widened because a budget class in a sibling file escaped
+        it. Every budget class in the tree is now back in this module, so the
+        widening is unfalsifiable against the real tree — *green here would mean
+        nothing.* This builds a module somewhere else, containing a class named
+        nothing like the convention, and requires the walk to find it.
+        """
+        import os
+        import sys
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tmp:
+            with open(os.path.join(tmp, 'test_elsewhere.py'), 'w') as fh:
+                fh.write(
+                    'from src.test_query_budgets import QueryBudgetMixin\n'
+                    'class SomePageScalesFlatTests(QueryBudgetMixin):\n'
+                    '    pass\n'
+                )
+            # A file that is not a test module, to prove the filter still bites.
+            with open(os.path.join(tmp, 'helpers.py'), 'w') as fh:
+                fh.write(
+                    'from src.test_query_budgets import QueryBudgetMixin\n'
+                    'class HiddenTests(QueryBudgetMixin):\n'
+                    '    pass\n'
+                )
+            sys.path.insert(0, tmp)
+            try:
+                found = _budget_classes(tmp, package='')
+            finally:
+                sys.path.remove(tmp)
+                sys.modules.pop('test_elsewhere', None)
+
+        self.assertIn('test_elsewhere.SomePageScalesFlatTests', found)
+        self.assertNotIn('helpers.HiddenTests', found)
 
     def test_normalize_sql_collapses_parameter_differences(self):
         """
@@ -1378,4 +1478,355 @@ class EducationPledgeDetailQueryBudgetTests(QueryBudgetMixin, TestCase):
             f'{before} queries to {after} — a per-meeting query, which is what '
             f'the `select_related("meeting", "meeting__event")` on that '
             f'queryset exists to prevent.',
+        )
+
+
+# ---------------------------------------------------------------------------
+# The page the 08-23-26 sweep caught  (v3.25.0)
+# ---------------------------------------------------------------------------
+#
+# ⚠️ THIS ONE WAS NOT MISSED BECAUSE NOBODY ADDED IT TO THIS FILE. It was in
+# `src/test_url_smoke.py`'s N+1 sweep the whole time, on every CI run, and the
+# sweep reported it clean at 271 queries.
+#
+# The sweep's fixture creates six events, all at `now + timedelta(days=i + 1)`.
+# Every attendance page filters `date_time__lt=now`. So the page rendered an
+# empty list, and a per-row query fired zero times repeats zero times.
+#
+# **The honest limitation of an absolute-ceiling suite is that it constrains
+# only the pages someone remembered to add. The honest limitation of a
+# fixture-driven sweep is that it constrains only the pages its fixture reaches
+# — and that is much harder to notice, because the page IS in the list and the
+# result IS green.** The fixture is fixed in `_seed_past_attendance`; this class
+# is the second lock on the same door.
+
+
+class EventAttendanceListQueryBudgetTests(QueryBudgetMixin, TestCase):
+    """
+    `/officers/attendance/` — the officer list of events with attendance.
+
+    The template renders `past_events` **twice**, as a desktop table and as
+    mobile cards, and each row of each layout called
+    `Event.get_attendance_stats()`, which is six queries. Twenty past events
+    (the view's own cap) therefore cost forty calls: 240 queries of the 271 the
+    page measured.
+    """
+
+    #: Measured 08-23-26 on sqlite, cold cache, on the fixture below
+    #: (24 past events so the view's `[:20]` slice is actually exercised, plus
+    #: 4 upcoming), twice, same number both times.
+    #:
+    #: Pre-fix on the same fixture: **271**.
+    BUDGET = 33
+
+    PASSWORD = 'attendance-budget-pass-12345!'
+
+    def setUp(self):
+        from datetime import timedelta
+
+        from django.utils import timezone as tz
+
+        from src.models import Attendance, Event, ParliamentUser
+
+        self.officer = ParliamentUser.objects.create_user(
+            user_id='EAL-OFFICER', password=self.PASSWORD, name='Officer',
+            username='eal_officer', member_type='Officer', is_admin=True,
+        )
+        self.members = [
+            ParliamentUser.objects.create_user(
+                user_id=f'EAL-{i}', password=self.PASSWORD, name=f'Member {i}',
+                username=f'eal_member{i}', member_type='Member',
+            )
+            for i in range(8)
+        ]
+
+        now = tz.now()
+        statuses = ['present', 'absent', 'excused', 'pending', 'late']
+        # ⚠️ 24, not 20. The view slices `[:20]`, so a fixture of exactly the
+        # cap cannot tell a page that respects the cap from one that does not.
+        for i in range(24):
+            event = Event.objects.create(
+                title=f'Past {i}', description='d',
+                date_time=now - timedelta(days=i + 1), created_by=self.officer,
+                is_active=True, requires_attendance=True,
+            )
+            for j, member in enumerate(self.members):
+                Attendance.objects.create(
+                    user=member, event=event, attendance_type='event',
+                    status=statuses[(i + j) % len(statuses)],
+                )
+        for i in range(4):
+            Event.objects.create(
+                title=f'Upcoming {i}', description='d',
+                date_time=now + timedelta(days=i + 1), created_by=self.officer,
+                is_active=True, requires_attendance=True,
+            )
+
+    def test_the_attendance_list_stays_within_budget(self):
+        self.assert_within_budget(self.officer, 'event_attendance_list', self.BUDGET)
+
+    def test_it_does_not_scale_with_the_calendar(self):
+        """
+        ⚠️ THE ASSERTION THE OLD CODE FAILED, and the one that needs no ceiling.
+
+        The view caps `past_events` at 20, so the absolute count above is
+        bounded even when the page is at its worst — which is precisely why the
+        271 was survivable and therefore invisible. This asserts the property
+        instead: the number must not move when the calendar grows.
+        """
+        from datetime import timedelta
+
+        from django.utils import timezone as tz
+
+        from src.models import Attendance, Event
+
+        before = len(self.measure(self.officer, 'event_attendance_list'))
+
+        now = tz.now()
+        for i in range(24, 60):
+            event = Event.objects.create(
+                title=f'Past {i}', description='d',
+                date_time=now - timedelta(days=i + 1), created_by=self.officer,
+                is_active=True, requires_attendance=True,
+            )
+            for member in self.members:
+                Attendance.objects.create(
+                    user=member, event=event, attendance_type='event',
+                    status='present',
+                )
+
+        after = len(self.measure(self.officer, 'event_attendance_list'))
+
+        self.assertEqual(
+            before, after,
+            f'Going from 24 to 60 past events took the page from {before} '
+            f'queries to {after}. `Event.prime_attendance_stats()` exists to '
+            f'keep this flat — check that the view still passes its LIST to '
+            f'the template rather than re-evaluating the queryset, because the '
+            f'primed cache lives on the instances.',
+        )
+
+    def test_the_primed_numbers_match_the_per_event_ones(self):
+        """
+        ⚠️ A QUERY-COUNT TEST CANNOT SEE A FAST PAGE WITH WRONG NUMBERS, and
+        that is the failure mode a batched aggregate actually has. v3.18.6's
+        service-hours fix needed `.order_by()` to clear `Meta.ordering` out of
+        the `GROUP BY`; without it the aggregate returns one row per record and
+        every figure on the page is wrong while the query count looks perfect.
+
+        `Attendance.Meta.ordering` is `['-created_at', 'user__name']`, so this
+        page has exactly that hazard.
+        """
+        from src.models import Event
+
+        events = list(Event.objects.filter(requires_attendance=True))
+        slow = {
+            event.pk: Event.objects.get(pk=event.pk).get_attendance_stats()
+            for event in events
+        }
+        fast = {
+            event.pk: event.get_attendance_stats()
+            for event in Event.prime_attendance_stats(events)
+        }
+
+        self.assertEqual(slow, fast)
+        # A control: the fixture must actually contain marked attendance, or
+        # the comparison above is two empty dictionaries agreeing.
+        self.assertTrue(
+            any(stats['present'] for stats in fast.values()),
+            'The fixture has no present marks, so this test compares nothing.',
+        )
+
+    def test_late_marks_count_as_marked_but_in_no_bucket(self):
+        """
+        `unmarked` is `total_members - <every attendance row>`, not
+        `total_members - (present + absent + excused + pending)`. `'late'` is a
+        fifth status that no bucket counts. The bulk path has to reproduce that
+        arithmetic exactly, and the fixture above includes `late` marks so this
+        is not vacuous.
+        """
+        from src.models import Attendance, Event
+
+        event = Event.objects.filter(requires_attendance=True,
+                                     attendance_records__status='late').first()
+        self.assertIsNotNone(event, 'fixture has no late marks')
+
+        stats = Event.prime_attendance_stats([event])[0].get_attendance_stats()
+        buckets = sum(stats[k] for k in ('present', 'absent', 'excused', 'pending'))
+        rows = Attendance.objects.filter(event=event).count()
+
+        self.assertLess(buckets, rows, 'no late marks on this event — vacuous')
+        self.assertEqual(stats['unmarked'], stats['total_members'] - rows)
+
+
+# ---------------------------------------------------------------------------
+# Moved here from `src/test_my_attendance_budget.py`  (v3.25.0)
+# ---------------------------------------------------------------------------
+#
+# v3.24.0 measured `/my-attendance/` at 25 queries and then shipped its budget
+# class in a sibling module with **no `BUDGET` constant**, citing v3.18.6.
+#
+# ⚠️ v3.18.6's REASON WAS "THERE IS NO WORKING DJANGO TO MEASURE WITH", and an
+# invented ceiling reads exactly like a measured one. v3.24.0 had a working
+# Django and had already measured the page. **An exemption inherited without
+# its reasoning is a ritual** — the same failure `DEPLOYED.md` records about
+# `--diff-filter=A`, one level in.
+#
+# It also sat outside every mechanism that exists to keep such an exemption
+# visible: `BudgetHygieneTests` enumerated only its own module, so the class
+# was in neither `AWAITING_MEASUREMENT` nor the budget list. Its docstring said
+# so plainly, which made it visible to a human reading that file and invisible
+# to the ratchet. That enumeration is now keyed on `QueryBudgetMixin` across
+# every test module — see `test_the_unmeasured_list_is_accurate_in_both_
+# directions`.
+#
+# The page's *correctness* tests stayed behind, in `src/test_my_attendance.py`.
+# They are not budget tests and they do not belong here.
+
+
+class MyAttendanceQueryBudgetTests(QueryBudgetMixin, TestCase):
+    """
+    `/my-attendance/` — the personal attendance dashboard.
+
+    ⚠️ WHY THIS PAGE HAS A BUDGET AT ALL. It was linked from nowhere until
+    v3.22.0 — the only way in was to type the URL — and it cost 116 queries at
+    40 events and **349** at 120 with the one-click "All time" filter. v3.22.0
+    put it on every member's home page, which was the right call and is also
+    what turned an unreachable page's cost into the chapter's cost.
+
+    > **A page's query count starts mattering on the day somebody can click
+    > it.** Promoting an unreachable page is a performance change.
+    """
+
+    #: Measured 08-23-26 on sqlite, cold cache, through `QueryBudgetMixin`
+    #: (which clears the cache and warms the singleton rows, so this is the
+    #: pessimistic first-request number and is comparable with every other
+    #: ceiling in this module — it is NOT the 25 v3.24.0 measured with a bare
+    #: `CaptureQueriesContext`). Fixture below: 20 past events, an excuse, and
+    #: a four-instance recurring series. Twice, same number both times.
+    BUDGET = 34
+
+    PASSWORD = 'my-attendance-budget-pass-12345!'
+
+    def setUp(self):
+        from datetime import timedelta
+
+        from django.utils import timezone as tz
+
+        from src.models import (Attendance, AttendanceExcuse, Event,
+                                ParliamentUser)
+
+        self.officer = ParliamentUser.objects.create_user(
+            user_id='MAB-OFFICER', password=self.PASSWORD, name='Officer',
+            username='mab_officer', member_type='Officer', is_admin=True,
+        )
+        # ⚠️ A NON-NUMERIC id on purpose. v3.21.1 shipped three `<int:>` routes
+        # past a green suite because the fixture used numeric pledge ids, and
+        # the rule from it is that a fixture easier than production tests
+        # something else.
+        self.member = ParliamentUser.objects.create_user(
+            user_id='P-C7JKZY', password=self.PASSWORD, name='Member',
+            username='mab_member', member_type='Member',
+        )
+        self._build_calendar(20)
+
+        # A recurring series, because the per-series block is a SEPARATE loop
+        # from the history loop and used to cost three queries per series.
+        parent = Event.objects.create(
+            title='Weekly Chapter', description='x',
+            date_time=tz.now() - timedelta(days=40), created_by=self.officer,
+            requires_attendance=True, is_active=True, is_recurring=True,
+        )
+        for i in range(4):
+            child = Event.objects.create(
+                title='Weekly Chapter', description='x',
+                date_time=tz.now() - timedelta(days=35 - i * 7),
+                created_by=self.officer, requires_attendance=True,
+                is_active=True, parent_event=parent,
+            )
+            Attendance.objects.create(user=self.member, event=child,
+                                      status='present', attendance_type='event')
+        AttendanceExcuse.objects.create(
+            user=self.member, event=parent, reason='budget fixture')
+
+    def _build_calendar(self, n_events):
+        from datetime import timedelta
+
+        from django.utils import timezone as tz
+
+        from src.models import Attendance, Event
+
+        now = tz.now()
+        events = []
+        for i in range(n_events):
+            event = Event.objects.create(
+                title=f'Chapter Meeting {i}', description='x',
+                date_time=now - timedelta(days=i + 1), created_by=self.officer,
+                requires_attendance=True, is_active=True,
+            )
+            Attendance.objects.create(
+                user=self.member, event=event, attendance_type='event',
+                status='present' if i % 3 else 'absent',
+            )
+            events.append(event)
+        return events
+
+    def test_my_attendance_stays_within_budget(self):
+        self.assert_within_budget(self.member, 'my_attendance', self.BUDGET)
+
+    def test_adding_events_does_not_add_queries(self):
+        """
+        ⚠️ THE ASSERTION THE OLD CODE FAILED. Both lookups in the history loop
+        were `.filter(...).first()` inside the loop body — two queries per event
+        — and the attendance half re-read rows the view had already fetched.
+        """
+        before = len(self.measure(self.member, 'my_attendance'))
+        self._build_calendar(40)
+        after = len(self.measure(self.member, 'my_attendance'))
+
+        self.assertEqual(
+            before, after,
+            f'Tripling the calendar took the page from {before} queries to '
+            f'{after}. Check the history loop and the per-series loop — those '
+            f'are the two that have done this.',
+        )
+
+    def test_the_all_time_filter_does_not_change_the_shape(self):
+        """
+        `?range=0` is one click in the page's own filter and removes the date
+        bound entirely, so it is the worst case a member can reach without
+        trying. It must cost what the default costs.
+        """
+        default_range = len(self.measure(self.member, 'my_attendance', range='90'))
+        all_time = len(self.measure(self.member, 'my_attendance', range='0'))
+
+        self.assertEqual(
+            default_range, all_time,
+            f'"All time" costs {all_time} queries against {default_range} for '
+            f'the default range, so the page gets slower the longer the '
+            f'chapter has existed.',
+        )
+
+    def test_the_fixture_actually_reaches_the_loops(self):
+        """
+        ⚠️ CONTROL, and it is this release's own lesson pointed at itself: an
+        assertion that adding rows does not add queries passes trivially if the
+        page is rendering an empty list. `src/test_url_smoke.py` reported clean
+        for years for exactly that reason.
+        """
+        from src.models import Event
+
+        self.client.force_login(self.member)
+        context = self.client.get(reverse('my_attendance')).context
+
+        # 20 standalone meetings + the recurring parent + its 4 instances. The
+        # parent is itself a past event that requires attendance, so it appears
+        # in the history list as well as in the series block.
+        self.assertEqual(Event.objects.count(), 25)
+        self.assertEqual(len(context['attendance_history']), 25)
+        self.assertEqual(len(context['series_stats']), 1)
+        self.assertTrue(
+            any(row['excuse'] for row in context['attendance_history']),
+            'The excuse map is never exercised, so the history loop is only '
+            'half measured.',
         )

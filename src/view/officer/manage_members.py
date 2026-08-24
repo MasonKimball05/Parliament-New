@@ -10,7 +10,7 @@ from django.shortcuts import get_object_or_404
 from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_POST, require_http_methods
-from django.db import connection
+from django.db import connection, transaction
 
 from src.models import ParliamentUser, Role, ActivityLog
 from src.forms import AddMemberForm, EditMemberForm
@@ -384,197 +384,81 @@ def initiate_pledges(request):
             'error': f'Role number(s) already in use: {", ".join(existing_role_numbers)}'
         }, status=400)
 
-    # Check for existing user_ids that would conflict with the new role numbers
-    # (since we're changing user_id to match role_number)
-    existing_user_ids = ParliamentUser.objects.filter(
-        user_id__in=role_number_values
-    ).exclude(
-        user_id__in=pledge_ids  # Exclude the pledges being initiated
-    ).values_list('user_id', flat=True)
-
-    if existing_user_ids:
-        return JsonResponse({
-            'success': False,
-            'error': f'Member ID(s) already in use: {", ".join(existing_user_ids)}'
-        }, status=400)
-
-    # Get pledges that are actually pledges
+    # ⚠️ v3.23.0 — THIS USED TO BE ~180 LINES OF RAW SQL. IT IS NOW ONE UPDATE.
+    #
+    # Initiation changed the member's PRIMARY KEY from `P-C7JKZY` to the roll
+    # number. Because `user_id` is the pk, 150 foreign-key columns across this
+    # schema hold a copy of that string, so the change could not be an update —
+    # it had to be: rename the unique columns behind a `_migrating_` prefix,
+    # copy the row by introspecting `information_schema`, walk `_meta` to
+    # repoint every relation, consult a hand-maintained list of non-ORM tables,
+    # consult a second hand-maintained list of CASCADE tables to check nothing
+    # was left behind, then delete the original.
+    #
+    # Four things were wrong with that, and they are worth recording because
+    # each is a shape this codebase has hit elsewhere:
+    #
+    #   1. **`information_schema` is PostgreSQL-only**, so the entire path was
+    #      unreachable from the test suite. The most dangerous operation in the
+    #      app was the one operation no test could execute. (v3.21.6: *a
+    #      backend difference is a type check you only run in one place*.)
+    #   2. **Both table lists were hand-maintained.** A new non-ORM table meant
+    #      silent orphaned rows; a new CASCADE relation meant the safety check
+    #      quietly stopped covering it. Ninth instance of "a rule stated
+    #      correctly and something left outside the helper".
+    #   3. **Two `except Exception` blocks swallowed** — co-authored
+    #      legislation, and the per-relation update loop, which logged a warning
+    #      and carried on to the DELETE.
+    #   4. **There was a window with two user rows for one person**, between the
+    #      INSERT and the DELETE.
+    #
+    # None of it was ever necessary. The roll number has had its own column the
+    # whole time — `role_number`, whose help text reads *"assigned at initiation
+    # (unique identifier visible to members)"* and which 32 templates already
+    # render. Initiation was changing the primary key to a value it was
+    # *separately storing correctly one field over*.
+    #
+    # So the pk stays put, and every vote, attendance row, Kai case and service
+    # submission keeps pointing at exactly the record it always pointed at.
+    # There is nothing to migrate because nothing moved.
     pledges = ParliamentUser.objects.filter(
         user_id__in=pledge_ids,
-        member_type='Pledge'
+        member_type='Pledge',
     )
 
     if not pledges.exists():
         return JsonResponse({'success': False, 'error': 'No valid pledges found in selection.'}, status=400)
 
-    # Initiate each pledge with their role number
     initiated_names = []
     initiated_users = []
     role_number_assignments = []
 
-    # Get the actual database table name
-    table_name = ParliamentUser._meta.db_table
+    try:
+        # ⚠️ ONE transaction for the whole batch, not one per pledge. The old
+        # code committed each pledge separately and returned a 500 on the first
+        # failure, so a batch of ten that failed on the seventh left six
+        # initiated and four not — with no record of which. Initiating a pledge
+        # class is a single chapter decision and it either happened or it did
+        # not.
+        with transaction.atomic():
+            for pledge in pledges:
+                pledge.member_type = 'Member'
+                pledge.role_number = role_numbers.get(pledge.user_id)
+                pledge.save(update_fields=['member_type', 'role_number'])
 
-    # Non-Django-ORM tables: FK relations not discoverable via _meta.get_fields().
-    # Django model relations are handled automatically below via ORM.
-    extra_tables = [
-        ('calendar_subscriptions', 'user_id'),
-    ]
+                initiated_names.append(pledge.name)
+                initiated_users.append(pledge)
+                role_number_assignments.append(f'{pledge.name} (#{pledge.role_number})')
+    except Exception as e:
+        logger.error(f'Error initiating pledges: {e}', exc_info=True)
+        logging.getLogger('admin_actions').error(
+            f'INITIATE FAILED for {len(pledge_ids)} pledge(s): {e}', exc_info=True,
+        )
+        return JsonResponse({
+            'success': False,
+            'error': f'Error initiating pledges: {e}. No pledges were initiated.',
+        }, status=500)
 
-    for pledge in pledges:
-        old_user_id = pledge.user_id
-        assigned_role_number = role_numbers.get(old_user_id)
-        pledge_name = pledge.name
-
-        try:
-            from django.db import transaction
-            with transaction.atomic():
-                # Steps 1–3: Raw SQL to copy the user record with the new PK.
-                # Django ORM cannot update primary keys, so this must stay as raw SQL.
-                with connection.cursor() as cursor:
-                    # Step 1: Temporarily rename unique fields on old record to avoid conflicts
-                    cursor.execute(
-                        f"""UPDATE {table_name}
-                            SET username = '_migrating_' || username,
-                                email = '_migrating_' || email
-                            WHERE user_id = %s""",  # nosec B608  # table name from a hard-coded map, never from the request
-                        [old_user_id]
-                    )
-
-                    # Step 2: Create a copy of the pledge with the new user_id
-                    cursor.execute(
-                        """SELECT column_name FROM information_schema.columns
-                           WHERE table_name = %s AND column_name NOT IN ('user_id', 'username', 'email')
-                           ORDER BY ordinal_position""",
-                        [table_name]
-                    )
-                    columns = [row[0] for row in cursor.fetchall()]
-                    columns_str = ', '.join(columns)
-
-                    cursor.execute(
-                        f"""INSERT INTO {table_name} (user_id, username, email, {columns_str})
-                            SELECT %s,
-                                   REPLACE(username, '_migrating_', ''),
-                                   REPLACE(email, '_migrating_', ''),
-                                   {columns_str}
-                            FROM {table_name} WHERE user_id = %s""",  # nosec B608  # table name from a hard-coded map, never from the request
-                        [assigned_role_number, old_user_id]
-                    )
-
-                    # Step 3: Update member_type and role_number on the new record
-                    cursor.execute(
-                        f"UPDATE {table_name} SET member_type = %s, role_number = %s WHERE user_id = %s",  # nosec B608  # table name from a hard-coded map, never from the request
-                        ['Member', assigned_role_number, assigned_role_number]
-                    )
-
-                # Step 4: Reassign all FK / OneToOne / M2M relations using Django ORM.
-                # _meta.get_fields() auto-discovers every relation, so new models are
-                # covered automatically without any changes here.
-                old_pledge_obj = ParliamentUser.objects.get(user_id=old_user_id)
-                new_pledge_obj = ParliamentUser.objects.get(user_id=assigned_role_number)
-
-                # M2M: roles (through table, must be moved before ORM scan)
-                new_pledge_obj.roles.set(list(old_pledge_obj.roles.all()))
-                old_pledge_obj.roles.clear()
-
-                # M2M: co-authored legislation
-                try:
-                    for leg in list(old_pledge_obj.co_authored_legislation.all()):
-                        leg.co_authors.remove(old_pledge_obj)
-                        leg.co_authors.add(new_pledge_obj)
-                except Exception:
-                    pass
-
-                # Reverse FK / OneToOne — auto-discovered
-                skip_accessors = {'roles', 'co_authored_legislation'}
-                fk_update_summary = []
-                for rel in old_pledge_obj._meta.get_fields():
-                    if not hasattr(rel, 'get_accessor_name'):
-                        continue
-                    accessor = rel.get_accessor_name()
-                    if not accessor or accessor in skip_accessors:
-                        continue
-                    if rel.one_to_many or rel.one_to_one:
-                        try:
-                            related_manager = getattr(old_pledge_obj, accessor)
-                            count = related_manager.all().update(**{rel.field.name: new_pledge_obj})
-                            if count > 0:
-                                fk_update_summary.append(f"{accessor}: {count}")
-                        except Exception as e:
-                            logger.warning(f"Could not update FK {accessor} for {pledge_name}: {e}")
-
-                # Non-ORM tables (not discoverable via _meta)
-                with connection.cursor() as cursor:
-                    for rel_table, rel_column in extra_tables:
-                        try:
-                            cursor.execute(
-                                f"UPDATE {rel_table} SET {rel_column} = %s WHERE {rel_column} = %s",  # nosec B608  # table/column names from a hard-coded map, never from the request
-                                [assigned_role_number, old_user_id]
-                            )
-                            if cursor.rowcount > 0:
-                                fk_update_summary.append(f"{rel_table}.{rel_column}: {cursor.rowcount}")
-                        except Exception as e:
-                            if 'does not exist' not in str(e).lower() and 'undefined' not in str(e).lower():
-                                logger.error(f"Error updating extra table {rel_table}.{rel_column}: {e}")
-
-                if fk_update_summary:
-                    logger.info(f"FK updates for {pledge_name}: {', '.join(fk_update_summary)}")
-
-                # Step 5: Verify no CASCADE-delete FKs still reference the old user
-                cascade_tables = [
-                    ('src_servicehourssubmission', 'submitted_by_id'),
-                    ('src_servicehoursadjustment', 'member_id'),
-                    ('src_servicememberexpectation', 'member_id'),
-                    ('src_attendance', 'user_id'),
-                    ('src_vote', 'user_id'),
-                    ('src_committeevote', 'user_id'),
-                ]
-                with connection.cursor() as cursor:
-                    for check_table, check_col in cascade_tables:
-                        try:
-                            cursor.execute(
-                                f"SELECT COUNT(*) FROM {check_table} WHERE {check_col} = %s",  # nosec B608  # table/column names from a hard-coded map, never from the request
-                                [old_user_id]
-                            )
-                            count = cursor.fetchone()[0]
-                            if count > 0:
-                                logger.error(f"CRITICAL: {count} rows in {check_table}.{check_col} still reference {old_user_id}")
-                                raise ValueError(f"Cannot delete old user - {count} records in {check_table} still reference it")
-                        except Exception as e:
-                            if 'does not exist' not in str(e).lower() and 'undefined' not in str(e).lower():
-                                if 'Cannot delete' in str(e):
-                                    raise
-                                logger.debug(f"Check skipped for {check_table}: {e}")
-
-                    # Step 6: Delete the old pledge record (now has no FK references)
-                    cursor.execute(
-                        f"DELETE FROM {table_name} WHERE user_id = %s",  # nosec B608  # table name from a hard-coded map, never from the request
-                        [old_user_id]
-                    )
-                    rows_updated = cursor.rowcount
-
-            if rows_updated == 0:
-                logger.warning(f"Failed to delete old pledge record for {old_user_id}")
-                continue
-
-            # Refresh the pledge object with the new user_id
-            pledge = ParliamentUser.objects.get(user_id=assigned_role_number)
-
-            initiated_names.append(pledge_name)
-            initiated_users.append(pledge)
-            role_number_assignments.append(f"{pledge_name} (#{assigned_role_number})")
-
-        except Exception as e:
-            logger.error(f"Error initiating pledge {old_user_id}: {e}", exc_info=True)
-            # Also log to admin_actions so it appears in the main log file
-            import traceback
-            logging.getLogger('admin_actions').error(
-                f"INITIATE FAILED: pledge {old_user_id} ({pledge_name}): {e}\n{traceback.format_exc()}"
-            )
-            return JsonResponse({
-                'success': False,
-                'error': f'Error initiating {pledge_name}: {str(e)}'
-            }, status=500)
 
     # Send notifications to initiated members
     try:

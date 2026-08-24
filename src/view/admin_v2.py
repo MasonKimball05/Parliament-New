@@ -1358,9 +1358,14 @@ def manage_users(request):
         users_list = users_list.filter(Q(profile_picture='') | Q(profile_picture__isnull=True))
 
     if search_query:
+        # v3.25.0 — `role_number` added: since v3.23.0 the roll number lives in
+        # its own column and the primary key is opaque, so a search on
+        # `user_id` alone cannot find anyone initiated from now on by the
+        # number they are actually called. See `global_search`.
         users_list = users_list.filter(
             Q(name__icontains=search_query) |
             Q(username__icontains=search_query) |
+            Q(role_number__icontains=search_query) |
             Q(user_id__icontains=search_query)
         )
 

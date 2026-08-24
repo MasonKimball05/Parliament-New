@@ -238,11 +238,33 @@ class Event(models.Model):
         return timezone.now() < self.date_time
 
     def get_attendance_stats(self):
-        """Get attendance statistics for this event"""
-        from django.db.models import Count, Q
+        """
+        Get attendance statistics for this event.
 
+        ⚠️ v3.25.0 — THIS COSTS SIX QUERIES AND `event_attendance_list.html`
+        CALLED IT FORTY TIMES. The page renders `past_events` (capped at 20)
+        twice — once as a desktop table, once as mobile cards — and each row of
+        each layout calls this method, so the two layouts were computing the
+        same twenty answers twice over. Measured through the real endpoint:
+        **271 queries**, of which 240 were this.
+
+        Two changes, deliberately separate:
+
+        * The result is **memoised on the instance**, which fixes the duplicate
+          layout for every caller without any of them knowing. That alone is
+          271 → 151.
+        * `prime_attendance_stats()` below computes a whole page's worth in two
+          queries and fills that cache. 271 → 33.
+
+        The method still works standalone — the admin detail page calls it on
+        one object and gets its six queries, which is correct for one object.
+        """
         if not self.requires_attendance:
             return None
+
+        cached = getattr(self, '_attendance_stats_cache', None)
+        if cached is not None:
+            return cached
 
         total_members = ParliamentUser.objects.filter(member_status='Active').count()
 
@@ -252,15 +274,99 @@ class Event(models.Model):
         excused_count = attendance_records.filter(status='excused').count()
         pending_count = attendance_records.filter(status='pending').count()
 
+        stats = self._build_attendance_stats(
+            total_members=total_members,
+            marked=attendance_records.count(),
+            present=present_count,
+            absent=absent_count,
+            excused=excused_count,
+            pending=pending_count,
+        )
+        self._attendance_stats_cache = stats
+        return stats
+
+    @staticmethod
+    def _build_attendance_stats(*, total_members, marked, present, absent,
+                                excused, pending):
+        """
+        The shape of the dict, in one place.
+
+        ⚠️ `unmarked` is `total_members - marked`, where `marked` is EVERY
+        attendance row on the event and not the sum of the four buckets above
+        it. `'late'` is a fifth status that no bucket counts, so the two are not
+        the same number, and the bulk path below has to reproduce that or the
+        fast page would quietly print different figures from the slow one.
+        """
         return {
             'total_members': total_members,
-            'present': present_count,
-            'absent': absent_count,
-            'excused': excused_count,
-            'pending': pending_count,
-            'unmarked': total_members - attendance_records.count(),
-            'attendance_rate': (present_count / total_members * 100) if total_members > 0 else 0
+            'present': present,
+            'absent': absent,
+            'excused': excused,
+            'pending': pending,
+            'unmarked': total_members - marked,
+            'attendance_rate': (present / total_members * 100) if total_members > 0 else 0
         }
+
+    @classmethod
+    def prime_attendance_stats(cls, events):
+        """
+        Fill `get_attendance_stats()`'s cache for a whole page in two queries.
+
+        Returns the events as a list, because the caller must render *these*
+        instances — the cache lives on the object, so a queryset re-evaluated
+        after this call would hand the template fresh instances with an empty
+        cache and silently restore the N+1.
+
+        ⚠️ `.order_by()` ON THE AGGREGATE IS LOAD-BEARING, NOT TIDINESS.
+        `Attendance.Meta.ordering` is `['-created_at', 'user__name']`, and
+        Django adds every ordering column to the `GROUP BY` — so without the
+        clearing call this groups by event *and created_at* and returns one row
+        per attendance record. That is a fast page with wrong numbers, which is
+        worse than a slow one with right ones, and a query-count test cannot
+        see it. Same trap as v3.18.6's service-hours aggregates.
+
+        ⚠️ The filter is `event_id__in=…` and NOTHING ELSE, matching
+        `self.attendance_records.all()` exactly. It is tempting to add
+        `attendance_type='event'` here — committee rows have a null event so it
+        would change nothing today — but making the fast path mean something
+        slightly different from the slow one is how the two drift apart.
+        """
+        from django.db.models import Count, Q
+
+        events = list(events)
+        tracked = [e for e in events if e.requires_attendance]
+        if not tracked:
+            return events
+
+        total_members = ParliamentUser.objects.filter(member_status='Active').count()
+
+        rows = (
+            Attendance.objects
+            .filter(event_id__in=[e.pk for e in tracked])
+            .values('event_id')
+            .order_by()                      # see the warning above
+            .annotate(
+                marked=Count('id'),
+                present=Count('id', filter=Q(status='present')),
+                absent=Count('id', filter=Q(status='absent')),
+                excused=Count('id', filter=Q(status='excused')),
+                pending=Count('id', filter=Q(status='pending')),
+            )
+        )
+        by_event = {row['event_id']: row for row in rows}
+
+        empty = {'marked': 0, 'present': 0, 'absent': 0, 'excused': 0, 'pending': 0}
+        for event in tracked:
+            counts = by_event.get(event.pk, empty)
+            event._attendance_stats_cache = cls._build_attendance_stats(
+                total_members=total_members,
+                marked=counts['marked'],
+                present=counts['present'],
+                absent=counts['absent'],
+                excused=counts['excused'],
+                pending=counts['pending'],
+            )
+        return events
 
 
 class Attendance(models.Model):

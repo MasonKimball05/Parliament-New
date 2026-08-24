@@ -281,6 +281,88 @@ class NoNPlusOneOnZeroArgumentPagesTests(TestCase):
             committee.voting_members.add(members[2])
 
         cls._seed_v3_17_5_families(members)
+        cls._seed_past_attendance(members)
+
+    # ------------------------------------------------------------------
+    @classmethod
+    def _seed_past_attendance(cls, members):
+        """
+        Events that have already HAPPENED, with attendance marked on them.
+
+        ⚠️ THE FOURTH VARIANT OF THIS FILE'S ONE LESSON, AND THE MOST DECEPTIVE
+        SO FAR. The three already recorded above are: a fixture that does not
+        *vary* the data (`member_type`), a fixture that skips an optional FK
+        (`role=role`), and a fixture that omits a model *entirely*
+        (`_seed_v3_17_5_families`). This is none of those — `Event` has been in
+        the fixture since the file was written, six rows of it.
+
+        Every one of those six is created at `now + timedelta(days=i + 1)`.
+
+        **Every attendance page in this app filters `date_time__lt=now`.** So
+        the rows existed, a reader checking "does the fixture have events?" got
+        yes, and `/officers/attendance/`, `/my-attendance/` and every other
+        past-event page rendered an empty list against this sweep for as long as
+        it has existed. A loop over an empty list repeats nothing.
+
+        What it cost, measured on 08-23-26 through the real endpoint:
+        `/officers/attendance/` was **271 queries** — the page renders its
+        twenty past events twice (desktop table, mobile cards) and each row
+        called `Event.get_attendance_stats()`, which is six queries. This sweep
+        ran that URL on every CI run and reported it clean.
+
+        > **A fixture can satisfy "the model is represented" and still be on the
+        > wrong side of the one filter the pages apply.** When adding rows here,
+        > ask what the page's WHERE clause is, not just what its table is.
+
+        `Attendance` and `AttendanceExcuse` were the omission case as well —
+        neither had a single row before this. Counts are >REPEAT_THRESHOLD on
+        purpose.
+        """
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        from src.models import Attendance, AttendanceExcuse, Event
+
+        now = timezone.now()
+        for i in range(6):
+            event = Event.objects.create(
+                title=f'Past E{i}', description='d',
+                date_time=now - timedelta(days=i + 1),
+                created_by=members[i % len(members)],
+                is_active=True, requires_attendance=True,
+            )
+            # Vary the status: `get_attendance_stats` buckets four of the five
+            # and counts `late` only in the total, so a single-status fixture
+            # would not exercise the arithmetic.
+            statuses = ['present', 'absent', 'excused', 'pending', 'late']
+            for j, member in enumerate(members):
+                Attendance.objects.create(
+                    user=member, event=event, attendance_type='event',
+                    status=statuses[(i + j) % len(statuses)],
+                )
+            AttendanceExcuse.objects.create(
+                user=members[i % len(members)], event=event,
+                reason='Fixture excuse.',
+            )
+
+        # A recurring series, because `/my-attendance/` has a per-series block
+        # that is a separate loop from its history loop.
+        parent = Event.objects.create(
+            title='Past Series', description='d',
+            date_time=now - timedelta(days=30), created_by=members[0],
+            is_active=True, requires_attendance=True, is_recurring=True,
+        )
+        Attendance.objects.create(user=members[0], event=parent,
+                                  attendance_type='event', status='present')
+        for i in range(4):
+            child = Event.objects.create(
+                title=f'Past Series {i}', description='d',
+                date_time=now - timedelta(days=25 - i), created_by=members[0],
+                is_active=True, requires_attendance=True, parent_event=parent,
+            )
+            Attendance.objects.create(user=members[0], event=child,
+                                      attendance_type='event', status='present')
 
     # ------------------------------------------------------------------
     @classmethod
