@@ -111,6 +111,8 @@ which predate this file and are more specific than their commit dates.
 | v3.25.3 | *not deployed* | `17b3d64` | See `changelogs/v3.25.3.md`. |
 | v3.26.0 | *not deployed* | `17b3d64` | See `changelogs/v3.26.0.md`. |
 | v3.26.1 | *not deployed* | `17b3d64` | See `changelogs/v3.26.1.md`. |
+| v3.26.2 | *not deployed* | `fcdceb9` | See `changelogs/v3.26.2.md`. |
+| v3.26.3 | *not deployed* | `fcdceb9` | See `changelogs/v3.26.3.md`. |
 
 > **⚠️ Why v3.18.8 and v3.19.2 were missing (added 08-07-26).** Both were
 > committed and pushed on 08-06, both changelogs still said
