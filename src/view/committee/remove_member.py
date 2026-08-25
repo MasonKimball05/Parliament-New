@@ -10,8 +10,10 @@ def committee_remove_member(request, code):
     """Remove a member from a committee role"""
     committee = get_object_or_404(Committee, code=code)
 
-    # Check permissions
-    if not (committee.is_vp(request.user) or request.user.is_admin):
+    # Check permissions. v3.26.6 — see add_member.py's comment; same widening
+    # (VP/admin/site-admin -> also chairs, including role_type='chair'),
+    # `committee.is_chair()` for the same consistency reason.
+    if not (committee.is_chair(request.user) or committee.is_vp(request.user) or request.user.is_admin):
         messages.error(request, 'You do not have permission to manage this committee.')
         return redirect('committee_home', code=code)
 
