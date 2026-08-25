@@ -174,7 +174,10 @@ Please log in to the Kai Committee page to review this report.
                         kai_logger.info(f"[KAI EMAIL] Sending notification to {len(recipient_emails)} recipients: {recipient_emails}")
 
                         send_email.delay(subject, message, settings.DEFAULT_FROM_EMAIL, recipient_emails)
-                        kai_logger.info(f"[KAI EMAIL] Email queued for report: {report.title}")
+                        # v3.25.2 — the id, not the title. `django_actions.log` is rendered
+                        # to every officer by /officers/system-logs/, and a Kai
+                        # report title is case content.
+                        kai_logger.info("[KAI EMAIL] Email queued for Kai report %s", report.pk)
                     else:
                         import logging
                         kai_logger = logging.getLogger('src')

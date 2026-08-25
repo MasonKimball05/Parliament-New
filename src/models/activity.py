@@ -260,6 +260,33 @@ class ActivityLog(models.Model):
         )
 
 
+
+def _model_is_confidential(sender):
+    """
+    Models whose `title`/`name` must never reach `django_actions.log`.
+
+    ⚠️ v3.25.2 — THE FOURTH WRITER OF KAI CONTENT INTO THAT FILE, and the
+    broadest: the two receivers below are registered on `post_save`/`post_delete`
+    with **no sender**, so they fire for every non-Django model in the project
+    and helpfully attach `instance.title` when one exists. `KaiReport` has one,
+    so **every save of a Kai case wrote its title to a file that
+    `/officers/system-logs/` renders**:
+
+        [SUCCESS] | User: System (unknown) | Action: CREATE | Resource: KaiReport
+        | ID: 1 | Details: {"model": "KaiReport", "instance_id": "1",
+        "title": "Case with a recused seat"}
+
+    Found 08-24-26 by reading the log files before scrubbing them, which is the
+    lesson: three of the four writers were found by reading *code*, and this one
+    only by reading the *output*. **Read the artefact, not just the producers.**
+
+    ⚠️ DERIVED FROM THE MODULE, not typed out, so a Kai model added later is
+    covered by whoever adds it (v3.19.6's rule). The model name and the id are
+    still logged — an id names nobody and the audit trail keeps its shape.
+    """
+    return (getattr(sender, '__module__', '') or '').endswith('models.kai')
+
+
 @receiver(post_save)
 def log_model_save(sender, instance, created, **kwargs):
     """Enhanced logging for model save events"""
@@ -275,8 +302,10 @@ def log_model_save(sender, instance, created, **kwargs):
         'instance_id': str(instance.pk),
     }
 
-    # Add model-specific details
-    if hasattr(instance, 'title'):
+    # Add model-specific details — but never for a confidential model.
+    if _model_is_confidential(sender):
+        pass
+    elif hasattr(instance, 'title'):
         details['title'] = instance.title
     elif hasattr(instance, 'name'):
         details['name'] = instance.name
@@ -315,7 +344,9 @@ def log_model_delete(sender, instance, **kwargs):
         'instance_id': str(instance.pk),
     }
 
-    if hasattr(instance, 'title'):
+    if _model_is_confidential(sender):
+        pass
+    elif hasattr(instance, 'title'):
         details['title'] = instance.title
     elif hasattr(instance, 'name'):
         details['name'] = instance.name

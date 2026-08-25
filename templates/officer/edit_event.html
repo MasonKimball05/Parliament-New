@@ -126,11 +126,17 @@ Two things worth keeping:
                 {% endif %}
             </div>
 
-            <!-- Attendance Tracking Section -->
-            <div class="bg-primary-50 dark:bg-primary-900/30 border border-primary-200 dark:border-primary-700 rounded-lg p-4">
-                <h3 class="text-sm font-semibold text-primary-900 dark:text-primary-200 mb-3">Attendance Tracking</h3>
-
-                <div class="space-y-3">
+            <!-- Attendance Tracking (optional) -->
+            <div class="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+                <button type="button" id="attendance-toggle-btn"
+                        class="w-full flex items-center justify-between px-4 py-3 bg-gray-50 dark:bg-gray-700/50 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                    <span>Attendance Tracking <span class="font-normal text-gray-400 dark:text-gray-500">(optional)</span></span>
+                    <span id="attendance-badge" class="{% if not form.requires_attendance.value %}hidden{% endif %} px-1.5 py-0.5 text-xs bg-primary-100 dark:bg-primary-900/50 text-primary-700 dark:text-primary-400 rounded-full">On</span>
+                    <svg id="attendance-chevron" class="w-4 h-4 text-gray-500 transition-transform duration-200{% if form.requires_attendance.value or event.attendance_finalized %} rotate-180{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                    </svg>
+                </button>
+                <div id="attendance-panel" class="{% if not form.requires_attendance.value and not event.attendance_finalized %}hidden{% endif %} border-t border-gray-200 dark:border-gray-700 bg-primary-50 dark:bg-primary-900/10 px-4 py-4 space-y-3">
                     <div class="flex items-start">
                         {{ form.requires_attendance }}
                         <label for="{{ form.requires_attendance.id_for_label }}" class="ml-2 text-sm text-gray-700 dark:text-gray-300">
@@ -163,24 +169,31 @@ Two things worth keeping:
                             <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ form.excuse_deadline.errors.0 }}</p>
                         {% endif %}
                     </div>
-                </div>
 
-                {% if event.attendance_finalized %}
-                <div class="mt-3 bg-green-100 dark:bg-green-900/30 border border-green-300 dark:border-green-700 rounded-md p-3">
-                    <p class="text-sm text-green-800 dark:text-green-200 font-medium">
-                        ✓ Attendance has been finalized by {{ event.finalized_by.get_display_name }} on {{ event.finalized_at|date:"M j, Y g:i A" }}
-                    </p>
-                    <p class="text-xs text-green-700 dark:text-green-300 mt-1">Attendance records are locked and cannot be changed.</p>
+                    {% if event.attendance_finalized %}
+                    <div class="bg-green-100 dark:bg-green-900/30 border border-green-300 dark:border-green-700 rounded-md p-3">
+                        <p class="text-sm text-green-800 dark:text-green-200 font-medium">
+                            ✓ Attendance has been finalized by {{ event.finalized_by.get_display_name }} on {{ event.finalized_at|date:"M j, Y g:i A" }}
+                        </p>
+                        <p class="text-xs text-green-700 dark:text-green-300 mt-1">Attendance records are locked and cannot be changed.</p>
+                    </div>
+                    {% endif %}
                 </div>
-                {% endif %}
             </div>
 
-            <!-- Sign-Up Section -->
-            <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-4">
-                <h3 class="text-sm font-semibold text-blue-900 dark:text-blue-200 mb-1">Sign-Up Event</h3>
-                <p class="text-xs text-blue-700 dark:text-blue-300 mb-3">For events where members need to opt in — e.g. limited spots, volunteer opportunities, or optional socials.</p>
+            <!-- Sign-Up Event (optional) -->
+            <div class="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+                <button type="button" id="signup-toggle-btn"
+                        class="w-full flex items-center justify-between px-4 py-3 bg-gray-50 dark:bg-gray-700/50 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                    <span>Sign-Up Event <span class="font-normal text-gray-400 dark:text-gray-500">(optional)</span></span>
+                    <span id="signup-badge" class="{% if not form.requires_signup.value %}hidden{% endif %} px-1.5 py-0.5 text-xs bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-400 rounded-full">On</span>
+                    <svg id="signup-chevron" class="w-4 h-4 text-gray-500 transition-transform duration-200{% if form.requires_signup.value %} rotate-180{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                    </svg>
+                </button>
+                <div id="signup-panel" class="{% if not form.requires_signup.value %}hidden{% endif %} border-t border-gray-200 dark:border-gray-700 bg-blue-50 dark:bg-blue-900/10 px-4 py-4 space-y-3">
+                    <p class="text-xs text-blue-700 dark:text-blue-300">For events where members need to opt in — e.g. limited spots, volunteer opportunities, or optional socials.</p>
 
-                <div class="space-y-3">
                     <div class="flex items-start">
                         {{ form.requires_signup }}
                         <label for="{{ form.requires_signup.id_for_label }}" class="ml-2 text-sm text-gray-700 dark:text-gray-300">
@@ -232,19 +245,25 @@ Two things worth keeping:
                 </div>
             </div>
 
-            <!-- Recurring Event Section -->
-            <div class="bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-700 rounded-lg p-4">
-                <h3 class="text-sm font-semibold text-green-900 dark:text-green-200 mb-3">Recurring Event</h3>
+            <!-- Recurring Event (optional) -->
+            <div class="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+                <button type="button" id="recurring-toggle-btn"
+                        class="w-full flex items-center justify-between px-4 py-3 bg-gray-50 dark:bg-gray-700/50 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                    <span>Recurring Event <span class="font-normal text-gray-400 dark:text-gray-500">(optional)</span></span>
+                    <span id="recurring-badge" class="{% if not form.is_recurring.value %}hidden{% endif %} px-1.5 py-0.5 text-xs bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-400 rounded-full">Recurring</span>
+                    <svg id="recurring-chevron" class="w-4 h-4 text-gray-500 transition-transform duration-200{% if form.is_recurring.value or event.parent_event %} rotate-180{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                    </svg>
+                </button>
+                <div id="recurring-panel" class="{% if not form.is_recurring.value and not event.parent_event %}hidden{% endif %} border-t border-gray-200 dark:border-gray-700 bg-green-50 dark:bg-green-900/10 px-4 py-4 space-y-4">
+                    {% if event.parent_event %}
+                    <div class="bg-yellow-100 dark:bg-yellow-900/30 border border-yellow-300 dark:border-yellow-700 rounded-md p-3">
+                        <p class="text-sm text-yellow-800 dark:text-yellow-200">
+                            This is part of a recurring event series. Changes here only affect this instance.
+                        </p>
+                    </div>
+                    {% endif %}
 
-                {% if event.parent_event %}
-                <div class="bg-yellow-100 dark:bg-yellow-900/30 border border-yellow-300 dark:border-yellow-700 rounded-md p-3 mb-4">
-                    <p class="text-sm text-yellow-800 dark:text-yellow-200">
-                        This is part of a recurring event series. Changes here only affect this instance.
-                    </p>
-                </div>
-                {% endif %}
-
-                <div class="space-y-4">
                     <div class="flex items-start">
                         {{ form.is_recurring }}
                         <label for="{{ form.is_recurring.id_for_label }}" class="ml-2 text-sm text-gray-700 dark:text-gray-300">
@@ -315,10 +334,17 @@ Two things worth keeping:
                 </div>
             </div>
 
-            <!-- Push Reminder Section -->
-            <div class="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-lg p-4">
-                <h3 class="text-sm font-semibold text-yellow-900 dark:text-yellow-200 mb-3">Push Notification Reminders</h3>
-                <div class="space-y-4">
+            <!-- Push Notification Reminders (optional) -->
+            <div class="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+                <button type="button" id="reminders-toggle-btn"
+                        class="w-full flex items-center justify-between px-4 py-3 bg-gray-50 dark:bg-gray-700/50 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                    <span>Push Notification Reminders <span class="font-normal text-gray-400 dark:text-gray-500">(optional)</span></span>
+                    <span id="reminders-badge" class="{% if not form.reminder_1_enabled.value and not form.reminder_2_enabled.value %}hidden{% endif %} px-1.5 py-0.5 text-xs bg-yellow-100 dark:bg-yellow-900/50 text-yellow-700 dark:text-yellow-400 rounded-full"></span>
+                    <svg id="reminders-chevron" class="w-4 h-4 text-gray-500 transition-transform duration-200{% if form.reminder_1_enabled.value or form.reminder_2_enabled.value %} rotate-180{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                    </svg>
+                </button>
+                <div id="reminders-panel" class="{% if not form.reminder_1_enabled.value and not form.reminder_2_enabled.value %}hidden{% endif %} border-t border-gray-200 dark:border-gray-700 bg-yellow-50 dark:bg-yellow-900/10 px-4 py-4 space-y-4">
                     <!-- Reminder 1 -->
                     <div>
                         <div class="flex items-start">
@@ -449,7 +475,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const cb = document.getElementById(checkboxId);
         const panel = document.getElementById(hoursId);
         if (!cb || !panel) return;
-        cb.addEventListener('change', function() { panel.classList.toggle('hidden', !cb.checked); });
+        cb.addEventListener('change', function() { panel.classList.toggle('hidden', !cb.checked); updateRemindersBadge(); });
     }
     bindReminderToggle('{{ form.reminder_1_enabled.id_for_label }}', 'reminder-1-hours');
     bindReminderToggle('{{ form.reminder_2_enabled.id_for_label }}', 'reminder-2-hours');
@@ -460,7 +486,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Event listeners
     if (isRecurringCheckbox) {
-        isRecurringCheckbox.addEventListener('change', updateRecurringVisibility);
+        isRecurringCheckbox.addEventListener('change', function() {
+            updateRecurringVisibility();
+            updateRecurringBadge();
+        });
     }
 
     if (recurrenceTypeSelect) {
@@ -470,6 +499,68 @@ document.addEventListener('DOMContentLoaded', function() {
     if (recurrenceUnitSelect) {
         recurrenceUnitSelect.addEventListener('change', updateRecurrenceTypeVisibility);
     }
+
+    // ── Collapsible optional sections ──────────────────────────────────────
+    function toggleSection(panelId, chevronId) {
+        const panel = document.getElementById(panelId);
+        const chevron = document.getElementById(chevronId);
+        panel.classList.toggle('hidden');
+        chevron.style.transform = panel.classList.contains('hidden') ? '' : 'rotate(180deg)';
+    }
+
+    const attendanceToggleBtn = document.getElementById('attendance-toggle-btn');
+    if (attendanceToggleBtn) attendanceToggleBtn.addEventListener('click', function() { toggleSection('attendance-panel', 'attendance-chevron'); });
+
+    const signupToggleBtn = document.getElementById('signup-toggle-btn');
+    if (signupToggleBtn) signupToggleBtn.addEventListener('click', function() { toggleSection('signup-panel', 'signup-chevron'); });
+
+    const recurringToggleBtn = document.getElementById('recurring-toggle-btn');
+    if (recurringToggleBtn) recurringToggleBtn.addEventListener('click', function() { toggleSection('recurring-panel', 'recurring-chevron'); });
+
+    const remindersToggleBtn = document.getElementById('reminders-toggle-btn');
+    if (remindersToggleBtn) remindersToggleBtn.addEventListener('click', function() { toggleSection('reminders-panel', 'reminders-chevron'); });
+
+    // Badges
+    const requiresAttendanceCb = document.getElementById('{{ form.requires_attendance.id_for_label }}');
+    if (requiresAttendanceCb) requiresAttendanceCb.addEventListener('change', updateAttendanceBadge);
+
+    const requiresSignupCb = document.getElementById('{{ form.requires_signup.id_for_label }}');
+    if (requiresSignupCb) requiresSignupCb.addEventListener('change', updateSignupBadge);
 });
+
+function updateAttendanceBadge() {
+    const cb = document.getElementById('{{ form.requires_attendance.id_for_label }}');
+    const badge = document.getElementById('attendance-badge');
+    if (!cb || !badge) return;
+    badge.classList.toggle('hidden', !cb.checked);
+}
+
+function updateSignupBadge() {
+    const cb = document.getElementById('{{ form.requires_signup.id_for_label }}');
+    const badge = document.getElementById('signup-badge');
+    if (!cb || !badge) return;
+    badge.classList.toggle('hidden', !cb.checked);
+}
+
+function updateRecurringBadge() {
+    const cb = document.getElementById('{{ form.is_recurring.id_for_label }}');
+    const badge = document.getElementById('recurring-badge');
+    if (!cb || !badge) return;
+    badge.classList.toggle('hidden', !cb.checked);
+}
+
+function updateRemindersBadge() {
+    const r1 = document.getElementById('{{ form.reminder_1_enabled.id_for_label }}');
+    const r2 = document.getElementById('{{ form.reminder_2_enabled.id_for_label }}');
+    const badge = document.getElementById('reminders-badge');
+    if (!badge) return;
+    const count = (r1 && r1.checked ? 1 : 0) + (r2 && r2.checked ? 1 : 0);
+    if (count > 0) {
+        badge.textContent = count + ' set';
+        badge.classList.remove('hidden');
+    } else {
+        badge.classList.add('hidden');
+    }
+}
 </script>
 {% endblock %}

@@ -85,6 +85,8 @@ fix; the writer changes just stop the problem growing. Same reasoning as
 `_redact_activity_log`'s legacy handling in v3.18.1.
 """
 
+import re
+
 from django.db.models import Q
 
 
@@ -615,3 +617,227 @@ def audit_search_q(search_query, viewer):
     )
 
     return open_columns | (identity_columns & ~party_rows)
+
+
+# ---------------------------------------------------------------------------
+# v3.25.2 — the TWELFTH Kai surface, and the first that is not a database row.
+# ---------------------------------------------------------------------------
+
+#: Views whose *name in a log line* is itself a Kai disclosure.
+#:
+#: Derived from the module rather than typed out, for the reason v3.19.6
+#: records: a set is only the general form if something enumerates the
+#: population it is drawn from. Every public view in `src/view/kai_reports.py`
+#: is in scope automatically, so a Kai view added next year is covered by the
+#: person who adds it without knowing this file exists.
+_EXTRA_KAI_LOG_VIEWS = frozenset({
+    # Kai attachments are served from a different module, and the two Kai
+    # entries there are the only ones that name a case.
+    'serve_kai_report_attachment',
+    'serve_kai_response_file',
+})
+
+
+def kai_log_view_names():
+    """Every function name that identifies a Kai action when it appears in a log line."""
+    import inspect
+
+    from src.view import kai_reports
+
+    names = {
+        name for name, obj in vars(kai_reports).items()
+        if not name.startswith('_')
+        and (inspect.isfunction(obj) or inspect.ismethod(obj))
+        and getattr(obj, '__module__', '') == kai_reports.__name__
+    }
+    # `@log_function_call` and the auth decorators use `functools.wraps`, so a
+    # decorated view still reports `__module__` as the module it was defined in
+    # — but a view re-exported from elsewhere does not, which is the point.
+    return frozenset(names | _EXTRA_KAI_LOG_VIEWS)
+
+
+#: `User <username> called <view> with arguments: …` — the line
+#: `src/decorators.py::log_function_call` writes for every decorated view.
+_LOG_ACTOR = re.compile(r'(?P<lead>\bUser )(?P<who>\S+)(?P<tail> called (?P<view>\w+)\b)')
+
+#: Any word STARTING with "kai" — `Kai`, `KaiReport`, `kai_reports`,
+#: `kai/submit-report/`. Deliberately broad: on the system-log page a line about
+#: Kai has no business carrying a member's name whatever its wording, and the
+#: alternative is a pattern per phrasing, which is how a redaction becomes a
+#: guard written against the instance.
+#:
+#: ⚠️ IT WAS `\bkai\b` UNTIL THE LOG FILES WERE ACTUALLY READ. A trailing word
+#: boundary excludes `KaiReport`, which is the exact token the `post_save`
+#: receiver in `src/models/activity.py` writes — so the fourth and broadest
+#: writer of Kai content produced lines this function ignored. Anchored at the
+#: start only. It will over-match a member whose username begins "kai", which
+#: fails safe.
+_KAI_MENTION = re.compile(r'\bkai', re.IGNORECASE)
+
+#: A single-quoted run, which on a Kai line is case content — historically the
+#: report title, from `%r` formatting or an f-string. Non-greedy, no newlines.
+_QUOTED = re.compile(r"'[^'\n]{1,300}'")
+
+#: The value of a confidential key inside a JSON `Details:` blob.
+#:
+#: ⚠️ TARGETED RATHER THAN "REDACT EVERY DOUBLE-QUOTED RUN", which would turn
+#: `{"model": "KaiReport", "instance_id": "1"}` into a row of ellipses and take
+#: the operational content with it. The model name and the id are exactly what
+#: an officer diagnosing a problem needs and neither names anybody.
+_JSON_CONFIDENTIAL = re.compile(
+    r'"(title|name|description)"(\s*:\s*)"[^"\n]{0,500}"')
+
+#: Shorter than this and a username is more likely to collide with an ordinary
+#: word than to identify anybody.
+_MIN_USERNAME = 3
+
+#: Returned by `_username_pattern` when the member list could not be read at all,
+#: which is different from "there are no members".
+#:
+#: ⚠️ THIS PATH EXISTS BECAUSE THE SYSTEM-LOG PAGE IS WHAT YOU OPEN WHEN THINGS
+#: ARE BROKEN. Scrubbing usernames needs a query, and if that query fails the
+#: honest options are to render the line unscrubbed or not at all. It fails
+#: **closed**: a Kai line whose names cannot be checked is withheld. The
+#: decorator shape is handled before this and needs no database, so the common
+#: case still renders during an outage.
+UNKNOWN_MEMBERS = object()
+
+#: What a withheld line reads as.
+WITHHELD = '[Kai log line withheld — the member list could not be read]'
+
+
+def member_usernames():
+    """
+    Every member username, for the scan below. One query.
+
+    ⚠️ Usernames and not display names. Nothing in the tree logs a display name
+    any more (the three sites that did are fixed at source in v3.25.2), so this
+    covers the historical lines that exist; a name would need a different scan
+    and there is nothing for it to find.
+    """
+    import logging
+
+    from src.models import ParliamentUser
+
+    try:
+        return [
+            username for username in
+            ParliamentUser.objects.values_list('username', flat=True)
+            if username and len(username) >= _MIN_USERNAME
+        ]
+    except Exception:
+        # Deliberately broad, and deliberately not re-raised: the caller is a
+        # diagnostic page, and `None` here means "unknown", which the redactor
+        # turns into a withheld line rather than an unscrubbed one.
+        logging.getLogger(__name__).warning(
+            'kai_audit: member list unavailable; Kai log lines will be withheld',
+            exc_info=True)
+        return None
+
+
+def _username_pattern(usernames):
+    if usernames is None:
+        return UNKNOWN_MEMBERS
+    if not usernames:
+        return None
+    longest_first = sorted(set(usernames), key=len, reverse=True)
+    return re.compile(r'\b(?:%s)\b' % '|'.join(re.escape(u) for u in longest_first))
+
+
+def redact_kai_log_message(message, view_names=None, username_pattern=None):
+    """
+    Remove member identities and case content from a Kai-related log line.
+    Everything else is left exactly as written.
+
+    ⚠️ **A LOG FILE IS STORAGE, AND `/officers/system-logs/` IS A RENDERER.**
+    v3.18.2's rule was *"when you enumerate the surfaces that render a
+    confidential field, enumerate the MODELS that can store it first"* — and a
+    log file is not a model, so the enumeration that closed the eleventh
+    surface was structurally unable to see the twelfth.
+
+    ⚠️ **AND THE FIRST VERSION OF THIS FUNCTION WAS A GUARD WRITTEN AGAINST THE
+    INSTANCE**, which is the pattern this repo has recorded seven times. It
+    handled exactly the shape `log_function_call` emits and nothing else,
+    because that was the line I happened to be looking at. Enumerating the
+    *writers* into `django_actions.log` — the question that should have come
+    first — found two more, both worse:
+
+        <username> requested closure for Kai report '<title>' (ID: 12)
+        <username> requested to drop Kai report '<title>' (ID: 12)
+
+    written by `kai_user_dashboard.request_closure` / `request_drop_case`,
+    which are `@login_required` **party-facing** views. So the username there is
+    the submitter or the accused, and the line carries the case title beside it.
+
+    ⚠️ **AND A FOURTH, FOUND ONLY BY READING THE LOG FILES THEMSELVES:**
+
+        [SUCCESS] | User: System (unknown) | Action: CREATE | Resource: KaiReport
+        | ID: 1 | Details: {"model": "KaiReport", "title": "<case title>"}
+
+    from the sender-less `post_save`/`post_delete` receivers in
+    `src/models/activity.py`, which fire for **every** model in the project and
+    attach `instance.title` when one exists. Fixed at source there too. Three of
+    the four writers were found by reading code; this one only by reading the
+    output. **Read the artefact, not just the producers.**
+
+    Three things are removed, on any line that mentions Kai:
+
+    * the actor of a `User X called <kai view>` line;
+    * any token equal to a member's username;
+    * any single-quoted run, which on a Kai line is case content.
+
+    ⚠️ **The view name, the case id and the arguments are deliberately KEPT.**
+    A case id names nobody, the reader cannot open the case, and an operations
+    page emptied of operational content is indistinguishable from a deleted
+    one. What is removed is the join key.
+
+    ⚠️ **NOT PER-VIEWER, DELIBERATELY.** A Kai member has proper Kai surfaces;
+    this is a system-log page. Making the redaction conditional would
+    reintroduce the shape of the v3.18.4 bug, where a partially-permissioned
+    reviewer read an identity on a case they were a party to.
+
+    ⚠️ **NAMED LIMIT.** A display name, or a legacy numeric `user_id` (which for
+    members initiated before v3.23.0 *is* the roll number), is not removable by
+    rule from arbitrary prose. Nothing writes either any more — the three source
+    sites are fixed — so this is a statement about history, and rotating
+    `logs/django_actions.log*` is the complete answer for that.
+    """
+    if view_names is None:
+        view_names = kai_log_view_names()
+
+    # ⚠️ TWO SHAPES, TWO RULES, AND THE TRIGGERS HAVE TO BE SEPARATE.
+    # The decorator's `User X called submit_kai_report` contains no standalone
+    # word "Kai" — the underscores swallow the word boundaries — and the
+    # dashboard's prose line contains no view name. Either test alone misses
+    # half the population.
+    #
+    # `search`, not `match`: the caller may hand us the parsed message or the
+    # whole raw line (the log viewer's fallback branch does the latter), and an
+    # anchored pattern would silently never fire on one of the two.
+    actor = _LOG_ACTOR.search(message)
+    if actor and actor.group('view') in view_names:
+        # ⚠️ THE DECORATOR SHAPE IS MACHINE-GENERATED AND STOPS HERE.
+        # `log_function_call` writes the actor and then `repr()` of the view's
+        # args and kwargs, which for every Kai view are ids — and `repr()` of a
+        # dict single-quotes its keys, so running the prose rules below over
+        # this line would redact `'report_id'` itself. The actor is the only
+        # identity in it. (Caught by
+        # `test_it_keeps_the_view_and_the_arguments`, which is why that test
+        # asserts on the key and not just the number.)
+        return (message[:actor.start()]
+                + f"{actor.group('lead')}{REDACTED}{actor.group('tail')}"
+                + message[actor.end():])
+
+    if not _KAI_MENTION.search(message):
+        return message
+
+    # A prose line that mentions Kai. Written by hand, so the identity can be
+    # anywhere in it and the case content is whatever is quoted.
+    if username_pattern is None:
+        username_pattern = _username_pattern(member_usernames())
+    if username_pattern is UNKNOWN_MEMBERS:
+        return WITHHELD
+    if username_pattern is not None:
+        message = username_pattern.sub(REDACTED, message)
+    message = _JSON_CONFIDENTIAL.sub(rf'"\1"\2"{REDACTED}"', message)
+    return _QUOTED.sub(f"'{REDACTED}'", message)

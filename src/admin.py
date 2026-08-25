@@ -1,6 +1,5 @@
 from django.contrib import admin, messages
 from django.contrib.auth import get_user_model
-from .decorators import log_function_call
 from .models import (
     Committee, ParliamentUser, Legislation, Vote, Attendance, AttendanceExcuse,
     CommitteeDocument, Role, Announcement, ChatChannel, ChatChannelPermission,
@@ -239,7 +238,15 @@ class TransitionChecklistStatusAdmin(admin.ModelAdmin):
     list_per_page = 50
 
 
-@log_function_call
+# ⚠️ v3.25.2 — `@log_function_call` WAS HERE AND IT TURNED THIS CLASS INTO A
+# FUNCTION. The decorator's wrapper is `def wrapper(request, *args, **kwargs)`
+# and it logs `request.user.username`, so applying it to a class rebinds the
+# module-level name to a function that raises `AttributeError: type object
+# 'ParliamentUser' has no attribute 'user'` the moment anything constructs it.
+# `/admin/` itself was unaffected — `admin.register` runs first and registers
+# the real class — which is exactly why it sat here unnoticed. Same category as
+# the three orphaned decorators removed from `_get_kai_access` in v3.16.2: a
+# request-shaped decorator on something that is not a view.
 @admin.register(ParliamentUser, site=admin_site)
 class ParliamentUserAdmin(admin.ModelAdmin):
     list_display = ('name', 'user_id', 'role_number', 'email', 'member_type', 'is_admin', 'member_status', 'role_list', 'last_login_display', 'login_as_link')

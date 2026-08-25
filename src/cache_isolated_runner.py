@@ -81,7 +81,8 @@ look like a test.**
 """
 from django.core.cache import caches
 from django.core.exceptions import ImproperlyConfigured
-from django.test.runner import DiscoverRunner, ParallelTestSuite, _run_subsuite
+from django.test.runner import (DiscoverRunner, ParallelTestSuite, RemoteTestResult,
+                                RemoteTestRunner, _run_subsuite)
 from django.test.testcases import SimpleTestCase
 
 #: Set once, checked so that a nested runner (or a second call to
@@ -304,10 +305,106 @@ def _run_subsuite_isolated(args):
     return _run_subsuite(args)
 
 
+class _SubTestDescription:
+    """
+    A picklable stand-in for `unittest.case._SubTest`, carrying only the text
+    the parent process actually uses.
+
+    ⚠️ A FAILING `subTest` ABORTED THE ENTIRE `--parallel` RUN AND REPORTED
+    NOTHING — WITH `tblib` INSTALLED AND ITS GUARD GREEN.
+
+        multiprocessing.pool.MaybeEncodingError: Error sending result: ...
+        Reason: AttributeError("Can't pickle local object
+                'convert_exception_to_response.<locals>.inner'")
+
+    No `Ran N tests`, no `FAIL:` line, and no results for the tests that
+    passed either.
+
+    THE MECHANISM, measured 08-24-26
+    --------------------------------
+    `RemoteTestResult.addSubTest` puts the live `_SubTest` into the events
+    list, and `_SubTest.test_case` is the running `TestCase`. Django knows
+    this: `SimpleTestCase.__getstate__` exists, and its docstring says it is
+    there *"to make SimpleTestCase picklable for parallel tests using
+    subtests"*. It reads:
+
+        state = super().__dict__
+        if state["_outcome"]:
+            ... return only the values that pass is_pickable() ...
+        return state                      # ← unfiltered
+
+    **The filtering is conditional on `_outcome`, and `_outcome` is cleared
+    when the test finishes.** So:
+
+      * at *event* time, inside the running test, `_outcome` is truthy, the
+        filter drops `self.client`, and Django's own
+        `check_subtest_picklable` passes — silently, printing nothing;
+      * at *send* time, after the whole subsuite has finished and the pool
+        pickles `result.events`, `_outcome` is `None`, `__getstate__` returns
+        the raw `__dict__`, and `self.client.handler._middleware_chain` —
+        `convert_exception_to_response.<locals>.inner`, a closure local to a
+        function — cannot be pickled.
+
+    Confirmed directly: the same `_SubTest` object pickles during the test and
+    raises that exact `AttributeError` once `_outcome` has been cleared.
+
+    > **A picklability check on a live object is a statement about that
+    > instant, not about the object** — and here the object's own
+    > `__getstate__` changes behaviour between the two instants, so the check
+    > is asked in the one window where the answer is favourable.
+
+    ⚠️ WHY EVERY EARLIER MINIMAL REPRODUCTION "DID NOT REPRODUCE", including
+    v3.19.8's. `DiscoverRunner.build_suite` does
+    `processes = min(self.parallel, len(subsuites))` and then
+    `if processes > 1:` — and subsuites are partitioned **per TestCase
+    class**. So `--parallel=8` over a single test class runs **serially**,
+    with no warning. A reproduction of a parallel-only bug needs at least two
+    `TestCase` classes. It is not batch-dependence and it is not flakiness;
+    the earlier probes were never running in parallel at all.
+
+    THE FIX
+    -------
+    Ship a description instead of the object. Only `__str__` and
+    `shortDescription()` are needed: the parent replays the event into
+    `TextTestResult`, which reaches the subtest solely through
+    `getDescription()`.
+    """
+
+    def __init__(self, subtest):
+        self._description = str(subtest)
+        try:
+            self._short = subtest.shortDescription()
+        except Exception:                                   # pragma: no cover
+            self._short = None
+
+    def __str__(self):
+        return self._description
+
+    def shortDescription(self):
+        return self._short
+
+
+class PicklableSubTestResult(RemoteTestResult):
+    """`RemoteTestResult` that ships a description of a failed subtest, not the subtest."""
+
+    def addSubTest(self, test, subtest, err):
+        if err is not None:
+            subtest = _SubTestDescription(subtest)
+        super().addSubTest(test, subtest, err)
+
+
+class PicklableSubTestRunner(RemoteTestRunner):
+    resultclass = PicklableSubTestResult
+
+
 class CacheIsolatedParallelSuite(ParallelTestSuite):
     """`ParallelTestSuite` that installs the cache isolation inside each worker."""
 
     run_subsuite = _run_subsuite_isolated
+
+    #: v3.25.2 — so a failing `subTest` can cross the process boundary.
+    #: See `_SubTestDescription`.
+    runner_class = PicklableSubTestRunner
 
 
 class CacheIsolatedTestRunner(DiscoverRunner):

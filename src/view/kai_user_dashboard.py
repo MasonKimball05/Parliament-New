@@ -271,7 +271,11 @@ Please review this request in the Kai management system.
             except Exception as e:
                 logger.error(f"Failed to queue closure request notification: {e}")
 
-            logger.info(f"{user.username} requested closure for Kai report '{report.title}' (ID: {report.id})")
+            # v3.25.2 — NEITHER the username NOR the title. This view is
+            # @login_required and party-facing, so `user` here is the
+            # submitter or the accused, and the line landed verbatim on
+            # /officers/system-logs/. The case id names nobody.
+            logger.info("Closure requested for Kai report %s", report.pk)
             messages.success(request, 'Your closure request has been submitted and is pending review.')
             return redirect('user_view_kai_report', report_id=report_id)
 
@@ -374,7 +378,9 @@ Please review this request in the Kai management system.
             except Exception as e:
                 logger.error(f"Failed to queue drop case request notification: {e}")
 
-            logger.info(f"{user.username} requested to drop Kai report '{report.title}' (ID: {report.id})")
+            # v3.25.2 — see request_closure above: party-facing view, so the
+            # username is a party to the case.
+            logger.info("Drop requested for Kai report %s", report.pk)
             messages.success(request, 'Your request to drop this case has been submitted and is pending review.')
             return redirect('user_view_kai_report', report_id=report_id)
 

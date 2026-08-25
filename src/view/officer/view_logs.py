@@ -1,4 +1,4 @@
-from src.decorators import officer_or_advisor_required
+from src.decorators import officer_required
 from django.shortcuts import render
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib import messages
@@ -35,9 +35,55 @@ def _tail_lines(path, max_lines=LOG_DISPLAY_LINES, tail_bytes=LOG_TAIL_BYTES):
     return chunk.decode('utf-8', errors='replace').splitlines()[-max_lines:]
 
 
+# ⚠️ v3.25.2 — NARROWED FROM `officer_or_advisor_required` TO `officer_required`.
+#
+# This page had a WIDER audience than every page whose actions it records.
+# `officer_or_advisor_required` admits advisors; `review_excuses`, which is what
+# `serve_excuse_document` serves, is `@officer_required` and deliberately does
+# not. So an advisor could not open a member's excuse document but could read
+# `User <member> called serve_excuse_document {'excuse_id': 7}` in the log tail
+# — learning that a named member has a medical excuse on file, which is exactly
+# the fact the excuse system withholds from them.
+#
+# **A raw application log inherits the audience of its narrowest line, not its
+# widest reader.** Rather than add a redaction rule per subject area, the page
+# now matches the gate of the pages it reports on. Advisors are read-only
+# outsiders and a Django log tail is an operations tool; if you want them back
+# in, this is a one-word change.
 @login_required
-@officer_or_advisor_required
+@officer_required
 def view_logs(request):
+    """
+    ⚠️ v3.25.2 — THIS PAGE RENDERS A FILE, AND THAT FILE NAMES KAI REPORTERS.
+
+    `@log_function_call` writes `User <username> called <view>` for every view
+    it decorates, and thirteen of those views are in `src/view/kai_reports.py`.
+    On `submit_kai_report` the caller **is** the reporter, so the last 200 lines
+    of `django_actions.log` were handing every officer, chair and advisor the
+    one fact `can_view_submitter_identity` exists to withhold. Reproduced
+    end-to-end 08-24-26.
+
+    And that was only the shape I happened to be looking at. Enumerating the
+    *writers* into this file found two more, both worse:
+    `kai_user_dashboard.request_closure` and `request_drop_case` are
+    `@login_required` **party-facing** views, and each logged
+    `<username> requested … Kai report '<title>' (ID: N)` — a party's identity
+    and the case content on one line. Those three sites no longer write it.
+    This redaction is for the lines already on disk.
+
+    `redact_kai_log_message` removes the actor of a `User X called <kai view>`
+    line, any token equal to a member's username, and any single-quoted run
+    (which on a Kai line is case content). Both the view-name set and the
+    username pattern are computed **once per request**, not per line — the
+    first walks a module, the second is a query.
+    """
+    from src.kai_audit import (_username_pattern, kai_log_view_names,
+                               member_usernames, redact_kai_log_message)
+
+    # Both computed ONCE per request, not per line: the view-name set walks
+    # a module and the username pattern is a query.
+    kai_views = kai_log_view_names()
+    usernames = _username_pattern(member_usernames())
     logs = []
 
     try:
@@ -55,6 +101,7 @@ def view_logs(request):
                 match = LOG_PATTERN.match(line)
                 if match:
                     timestamp, level, logger_name, message = match.groups()
+                    message = redact_kai_log_message(message, kai_views, usernames)
                     logs.append({
                         'timestamp': timestamp,
                         'logger': logger_name,
@@ -62,12 +109,16 @@ def view_logs(request):
                         'message': f"[{level}] {message}",
                     })
                 else:
-                    # Fallback for lines that don't match the pattern
+                    # Fallback for lines the timestamp pattern did not parse —
+                    # a wrapped traceback, say. Redacted too, and with the whole
+                    # raw line rather than a message: the redactor searches
+                    # rather than anchors precisely so it works on both, and a
+                    # line matching neither trigger comes back unchanged.
                     logs.append({
                         'timestamp': '',
                         'logger': '',
                         'level': '',
-                        'message': line
+                        'message': redact_kai_log_message(line, kai_views, usernames)
                     })
 
             logger.debug("view_logs: parsed %d log entries", len(logs))
