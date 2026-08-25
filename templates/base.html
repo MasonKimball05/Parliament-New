@@ -161,6 +161,63 @@
                 throw error;
             });
         };
+
+        /*
+         * v3.26.5 — reload a page restored from the back/forward cache.
+         *
+         * WHY: reported 08-25-26 as CSRF 403s hitting mobile members
+         * disproportionately, on login and on other actions. `Cache-Control:
+         * no-store` (v3.26.2) does not reliably prevent this — Safari has
+         * always bfcached `no-store` pages, and Chrome stopped excluding
+         * them in March 2025 — so a page can come back from a swipe-back or
+         * an app-switch-and-return holding a CSRF token that was baked in
+         * when the page was frozen, no longer matching a since-rotated
+         * cookie (login rotates it). This is disproportionately a mobile
+         * bug because swipe-back / backgrounding-and-returning is the
+         * normal way a phone is used, not an edge case.
+         *
+         * Fixed client-side, because bfcache eligibility is the browser's
+         * call regardless of server headers. `pageshow`'s `persisted` flag
+         * is true exactly when the browser restored a frozen page instead of
+         * loading fresh — reloading then re-renders from the server, which
+         * is the only fix that reaches every place this app embeds a token:
+         * the meta tag, every `{% csrf_token %}` hidden field, AND the ~40
+         * templates (chat, Kai, slating, admin-v2, profile, calendar…) that
+         * bake the token into a JS constant at render time and don't read
+         * this meta tag at all — without touching each one individually.
+         *
+         * GUARDED against wiping unsaved typing. bfcache's other job is
+         * preserving exactly that — a half-written chat message or Kai
+         * report draft — across a back-navigation, and silently discarding
+         * it to fix a *different* staleness bug would be a worse bug than
+         * the one being fixed. If a text field, textarea, or contenteditable
+         * element holds content that differs from what the server rendered,
+         * skip the reload; the page behaves exactly as it did before this
+         * change (no regression — submitting could still 403 in the rare
+         * case the token actually rotated, same as today).
+         */
+        function hasUnsavedInput() {
+            var fields = document.querySelectorAll(
+                'input[type="text"], input[type="search"], input[type="email"], ' +
+                'input[type="tel"], input[type="url"], input[type="number"], ' +
+                'input:not([type]), textarea'
+            );
+            for (var i = 0; i < fields.length; i++) {
+                if (fields[i].value !== fields[i].defaultValue) return true;
+            }
+            var editable = document.querySelectorAll('[contenteditable="true"]');
+            for (var j = 0; j < editable.length; j++) {
+                if (editable[j].textContent.trim() !== '') return true;
+            }
+            return false;
+        }
+        P._hasUnsavedInput = hasUnsavedInput; // exposed for tests only
+
+        window.addEventListener('pageshow', function(event) {
+            if (!event.persisted) return;
+            if (hasUnsavedInput()) { return; }
+            window.location.reload();
+        });
     })(window.Parliament);
     </script>
 

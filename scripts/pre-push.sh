@@ -78,6 +78,45 @@ if [ -z "$PY" ]; then
 fi
 
 echo "[pre-push] using $PY"
+
+# ---------------------------------------------------------------------------
+# Stamp the release ledger FIRST, unconditionally, before anything else runs.
+# ---------------------------------------------------------------------------
+# ⚠️ v3.26.4 — MOVED HERE FROM THE _gate_check STEP BELOW, AFTER IT MISSED ITS
+# OWN TARGET. The auto-heal added in v3.25.3 only runs from `_gate_check`,
+# which is a standalone `checks.run_checks()` call near the end of this
+# script. But `src.tests.infra.test_stamp_ledger::test_the_tool_has_nothing_
+# left_to_do` checks the identical thing FROM INSIDE THE MAIN TEST SUITE,
+# which runs and can fail BEFORE this script ever reaches `_gate_check`. So
+# on 08-25-26, the very release that added the auto-heal was blocked by the
+# gap in where it was placed — a stale ledger failed the test suite, the
+# push aborted right there, and the healing code three hundred lines down
+# never got a chance to run.
+#
+# `stamp_ledger.py` is idempotent and safe to run unconditionally (its own
+# docstring: "every committed release is already stamped. Nothing to do." on
+# a clean tree) — so rather than reasoning about which of two checks might
+# catch a stale ledger, just fix it before either one looks. Nothing to do
+# is the common case and costs one fast git-log call.
+echo "[pre-push] checking the release ledger before running anything else…"
+_stamp_out="$("$PY" scripts/stamp_ledger.py 2>&1)"
+if printf '%s\n' "$_stamp_out" | grep -qE '^stamp-ledger: (updated|would update)'; then
+  echo "[pre-push] ⚠️  release ledger was stale — stamped automatically:"
+  printf '%s\n' "$_stamp_out" | sed -n '2,$p' | grep -E '^\s' | sed 's/^/[pre-push] /'
+  if git add changelogs/ && git commit -q -m "Stamp release ledger"; then
+    echo "[pre-push] ✓ ledger stamped and committed ($(git rev-parse --short HEAD))."
+  else
+    echo "[pre-push] ✗ could not commit the stamp automatically — commit"
+    echo "[pre-push]   changelogs/ by hand before pushing:"
+    echo "[pre-push]     git add changelogs/ && git commit -m 'Stamp release ledger'"
+    exit 1
+  fi
+elif printf '%s\n' "$_stamp_out" | grep -q '^stamp-ledger: could not consult git'; then
+  echo "[pre-push] ⚠️  stamp-ledger couldn't consult git — skipping, nothing changed."
+else
+  echo "[pre-push] ✓ release ledger already current."
+fi
+
 echo "[pre-push] running sqlite test suite in parallel (git push --no-verify to skip)…"
 
 # ⚠️ v3.19.9 — THE OUTPUT IS TEED AND RE-SUMMARISED, and that is not polish.
@@ -207,18 +246,14 @@ PY
 _gate_out="$(_gate_check 2>&1)"
 _gate_status=$?
 
-# ⚠️ v3.25.3 — AUTO-HEAL A STALE LEDGER INSTEAD OF STOPPING FOR IT.
-#
-# `src.W003` (only) is mechanically fixable — `stamp_ledger.py` exists
-# specifically to fix it, from the same git history this check reads, and
-# every push that hits it needed the identical two commands run by hand.
-# "Fix it with one command" printed below `make stamp-ledger` on a line by
-# itself was still two manual steps (run it, then commit it) on every push
-# that touched a changelog — annoying enough to be worth automating, and
-# mechanical enough to be safe to. So: if W003 is the ONLY thing blocking,
-# run the fix and commit it here rather than making that Mason's problem.
-# Anything else blocking (src.W002, a real system-check ERROR) still stops
-# the push — those need a human, not a script.
+# ⚠️ v3.25.3, demoted to a backstop by v3.26.4 — see the ledger stamp near
+# the top of this script, which now runs unconditionally before the test
+# suite and covers the common case. This copy stays as a safety net for a
+# W003 that appears here despite that (e.g. a changelog added or edited
+# between the top-of-script stamp and this check) rather than being deleted
+# — same "if W003 is the ONLY thing blocking, fix it and commit it here"
+# logic as before. Anything else blocking (src.W002, a real system-check
+# ERROR) still stops the push — those need a human, not a script.
 if [ "$_gate_status" -ne 0 ] \
    && printf '%s\n' "$_gate_out" | grep -qE '^src\.W003:' \
    && ! printf '%s\n' "$_gate_out" | grep -qvE '^src\.W003:'; then
