@@ -285,7 +285,12 @@ CSRF_COOKIE_SECURE = USE_HTTPS  # Only send CSRF cookie over HTTPS when SSL is e
 CSRF_COOKIE_HTTPONLY = True  # Prevent JavaScript access
 CSRF_COOKIE_SAMESITE = 'Lax'
 CSRF_USE_SESSIONS = False
-CSRF_FAILURE_VIEW = 'django.views.csrf.csrf_failure'
+# v3.26.3: custom view that logs a diagnostic line (reason, cookie presence,
+# Referer/Origin, CF-Ray, User-Agent — never the token/cookie VALUE) before
+# rendering the same styled 403 page the rest of the app uses. Django's
+# default view logs nothing beyond the bare reason string. See
+# src/view/csrf_failure.py for what each field is for.
+CSRF_FAILURE_VIEW = 'src.view.csrf_failure.csrf_failure'
 
 # Trusted origins for CSRF. Always include the site's own origin so that
 # Cloudflare (or any proxy) stripping the Referer header doesn't cause CSRF

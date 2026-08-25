@@ -1,4 +1,5 @@
 {% extends "admin_base.html" %}
+{% load form_tags %}
 
 {% block title %}Edit Announcement - Parliament{% endblock %}
 
@@ -34,57 +35,15 @@ Two things worth keeping:
         <form method="post" class="space-y-6">
             {% csrf_token %}
 
-            <!-- Title -->
-            <div>
-                <label for="{{ form.title.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    {{ form.title.label }}
-                    <span class="text-red-500 dark:text-red-400">*</span>
-                </label>
-                {{ form.title }}
-                {% if form.title.errors %}
-                    <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ form.title.errors.0 }}</p>
-                {% endif %}
-            </div>
-
-            <!-- Content -->
-            <div>
-                <label for="{{ form.content.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    {{ form.content.label }}
-                    <span class="text-red-500 dark:text-red-400">*</span>
-                </label>
-                {{ form.content }}
-                {% if form.content.errors %}
-                    <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ form.content.errors.0 }}</p>
-                {% endif %}
-            </div>
+            {% render_field form.title %}
+            {% render_field form.content %}
 
             <!-- Publish Date -->
             <div class="bg-primary-50 dark:bg-primary-900/30 border border-primary-200 dark:border-primary-800 rounded-lg p-4">
-                <label for="{{ form.publish_at.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    {{ form.publish_at.label }}
-                </label>
-                {{ form.publish_at }}
-                {% if form.publish_at.help_text %}
-                    <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">{{ form.publish_at.help_text }}</p>
-                {% endif %}
-                {% if form.publish_at.errors %}
-                    <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ form.publish_at.errors.0 }}</p>
-                {% endif %}
+                {% render_field form.publish_at %}
             </div>
 
-            <!-- Event Date -->
-            <div>
-                <label for="{{ form.event_date.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    {{ form.event_date.label }}
-                </label>
-                {{ form.event_date }}
-                {% if form.event_date.help_text %}
-                    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ form.event_date.help_text }}</p>
-                {% endif %}
-                {% if form.event_date.errors %}
-                    <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ form.event_date.errors.0 }}</p>
-                {% endif %}
-            </div>
+            {% render_field form.event_date %}
 
             <!-- Visibility Controls -->
             <div class="bg-purple-50 dark:bg-purple-900/30 border border-purple-200 dark:border-purple-800 rounded-lg p-4">

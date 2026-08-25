@@ -680,6 +680,47 @@ class InputSanitizationMiddleware:
                     response['Cache-Control'] = 'no-store, no-cache, must-revalidate, private'
                     response['Pragma'] = 'no-cache'
 
+        # ⚠️ v3.26.2 — EVERY DYNAMIC RESPONSE GETS Cache-Control: no-store BY
+        # DEFAULT, NOT JUST 403s. Reported 08-25-26: members getting CSRF 403s
+        # ("token missing") on /login/ and on other POST actions, seemingly at
+        # random, for multiple different people the same day.
+        #
+        # This codebase has hit this EXACT class of bug twice before, and both
+        # times the mechanism was the same: a response whose body is specific
+        # to the visitor (a session, a CSRF token) gets cached by something
+        # outside Django's control and handed to a DIFFERENT visitor, or handed
+        # back to the SAME visitor after their session/CSRF cookie has moved on
+        # — v3.17.4 (`test_changelog_cache.py`): `@cache_page` on public pages
+        # leaked one visitor's navbar/theme/session to another via Cloudflare,
+        # because `Vary: Cookie` is added too late to affect the cache key.
+        # `_render_403` above (undated, predates this comment): "the #1 cause
+        # of users seeing stale 403s after successful login" is mobile bfcache
+        # — the browser's OWN cache, not even Cloudflare's.
+        #
+        # `{% csrf_token %}` is in the layout nearly every page extends, so a
+        # `csrfmiddlewaretoken` value baked into ANY cached HTML is exactly the
+        # "depends on who asked for it" body v3.17.4's docstring warns about —
+        # and `/login/` is the page most likely to be bfcached (submit, get
+        # redirected, hit Back) and most likely to be an attractive Cloudflare
+        # cache target (same URL, no query string, hit by every visitor before
+        # they have a session). Neither Django nor this middleware set any
+        # Cache-Control on an ordinary 200 before this — nothing told a browser
+        # or an intermediary NOT to keep the page around.
+        #
+        # `no-store` is the one directive that is unambiguous to both: MDN's
+        # bfcache eligibility rules exclude any response carrying it, and no
+        # HTTP cache (Cloudflare included) may store a `no-store` response
+        # regardless of any Cache Rule / Page Rule pointed at the URL.
+        #
+        # Left alone: `/static/` and `/media/` — genuinely cacheable (immutable
+        # filenames / access-gated by `serve_media`'s own `@login_required`,
+        # not by this header), and in production nginx serves `/static/`
+        # directly without ever reaching this middleware anyway.
+        if not (path and (path.startswith('/static/') or path.startswith('/media/'))):
+            if 'Cache-Control' not in response:
+                response['Cache-Control'] = 'no-store, no-cache, must-revalidate, private'
+                response['Pragma'] = 'no-cache'
+
         # Prevent MIME type sniffing
         response['X-Content-Type-Options'] = 'nosniff'
 

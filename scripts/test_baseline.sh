@@ -42,19 +42,34 @@ mkdir -p "$LOGDIR"
 
 # Discover test modules rather than hardcoding a list — a hardcoded list silently
 # stops covering new modules, which is the failure this codebase keeps hitting.
+#
+# v3.2x — tests live under src/tests/<domain>/test_*.py now (not flat in src/).
+# LABELS holds the dotted manage.py label (src.tests.<domain>.test_x); MODULES
+# holds the matching short name (test_x) for the display table and per-module
+# log filenames. Filtering by pattern matches against the label, so a domain
+# name like "kai" or "guards" works as a filter alongside a filename fragment.
+mapfile -t LABELS < <(
+    find src/tests -name 'test_*.py' \
+    | sed -E 's#^src/(.*)\.py$#\1#; s#/#.#g' \
+    | sed 's/^/src./' | sort
+)
 mapfile -t MODULES < <(
-    find src -maxdepth 1 -name 'test_*.py' -printf '%f\n' \
-    | sed 's/\.py$//' | sort
+    printf '%s\n' "${LABELS[@]}" | sed -E 's/.*\.//'
 )
 
 if [ $# -gt 0 ]; then
-    FILTERED=()
-    for m in "${MODULES[@]}"; do
+    FILTERED_LABELS=(); FILTERED_MODULES=()
+    for i in "${!LABELS[@]}"; do
         for pat in "$@"; do
-            if [[ "$m" == *"$pat"* ]]; then FILTERED+=("$m"); break; fi
+            if [[ "${LABELS[$i]}" == *"$pat"* ]]; then
+                FILTERED_LABELS+=("${LABELS[$i]}")
+                FILTERED_MODULES+=("${MODULES[$i]}")
+                break
+            fi
         done
     done
-    MODULES=("${FILTERED[@]}")
+    LABELS=("${FILTERED_LABELS[@]}")
+    MODULES=("${FILTERED_MODULES[@]}")
 fi
 
 if [ ${#MODULES[@]} -eq 0 ]; then
@@ -72,10 +87,12 @@ printf '%.0s─' {1..82}; echo
 total_ran=0; total_fail=0; total_err=0
 declare -a red=() timedout=()
 
-for mod in "${MODULES[@]}"; do
+for i in "${!MODULES[@]}"; do
+    mod="${MODULES[$i]}"
+    label="${LABELS[$i]}"
     log="$LOGDIR/$mod.log"
     start=$(date +%s)
-    timeout "$TIMEOUT" python3 manage.py test "src.$mod" -v 1 > "$log" 2>&1
+    timeout "$TIMEOUT" python3 manage.py test "$label" -v 1 > "$log" 2>&1
     rc=$?
     elapsed=$(( $(date +%s) - start ))
 

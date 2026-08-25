@@ -1,4 +1,5 @@
 {% extends "admin_base.html" %}
+{% load form_tags %}
 
 {% block title %}Edit Event{% endblock %}
 
@@ -32,51 +33,10 @@ Two things worth keeping:
         <form method="post" class="space-y-6">
             {% csrf_token %}
 
-            <div>
-                <label for="{{ form.title.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    {{ form.title.label }}
-                </label>
-                {{ form.title }}
-                {% if form.title.errors %}
-                    <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ form.title.errors.0 }}</p>
-                {% endif %}
-            </div>
-
-            <div>
-                <label for="{{ form.description.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    {{ form.description.label }}
-                </label>
-                {{ form.description }}
-                {% if form.description.errors %}
-                    <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ form.description.errors.0 }}</p>
-                {% endif %}
-            </div>
-
-            <div>
-                <label for="{{ form.date_time.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    {{ form.date_time.label }}
-                </label>
-                {{ form.date_time }}
-                {% if form.date_time.help_text %}
-                    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ form.date_time.help_text }}</p>
-                {% endif %}
-                {% if form.date_time.errors %}
-                    <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ form.date_time.errors.0 }}</p>
-                {% endif %}
-            </div>
-
-            <div>
-                <label for="{{ form.location.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    {{ form.location.label }}
-                </label>
-                {{ form.location }}
-                {% if form.location.help_text %}
-                    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ form.location.help_text }}</p>
-                {% endif %}
-                {% if form.location.errors %}
-                    <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ form.location.errors.0 }}</p>
-                {% endif %}
-            </div>
+            {% render_field form.title %}
+            {% render_field form.description %}
+            {% render_field form.date_time %}
+            {% render_field form.location %}
 
             <!-- Visibility Controls -->
             <div class="bg-purple-50 dark:bg-purple-900/30 border border-purple-200 dark:border-purple-700 rounded-lg p-4">
@@ -157,18 +117,7 @@ Two things worth keeping:
                         </label>
                     </div>
 
-                    <div>
-                        <label for="{{ form.excuse_deadline.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                            {{ form.excuse_deadline.label }}
-                        </label>
-                        {{ form.excuse_deadline }}
-                        {% if form.excuse_deadline.help_text %}
-                            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ form.excuse_deadline.help_text }}</p>
-                        {% endif %}
-                        {% if form.excuse_deadline.errors %}
-                            <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ form.excuse_deadline.errors.0 }}</p>
-                        {% endif %}
-                    </div>
+                    {% render_field form.excuse_deadline %}
 
                     {% if event.attendance_finalized %}
                     <div class="bg-green-100 dark:bg-green-900/30 border border-green-300 dark:border-green-700 rounded-md p-3">
@@ -204,18 +153,7 @@ Two things worth keeping:
                         </label>
                     </div>
 
-                    <div>
-                        <label for="{{ form.max_signups.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                            {{ form.max_signups.label }}
-                        </label>
-                        {{ form.max_signups }}
-                        {% if form.max_signups.help_text %}
-                            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ form.max_signups.help_text }}</p>
-                        {% endif %}
-                        {% if form.max_signups.errors %}
-                            <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ form.max_signups.errors.0 }}</p>
-                        {% endif %}
-                    </div>
+                    {% render_field form.max_signups %}
 
                     <div class="flex items-start">
                         {{ form.signups_open }}
@@ -275,16 +213,7 @@ Two things worth keeping:
                     <!-- Recurring Options (shown when is_recurring is checked) -->
                     <div id="recurring-options" class="space-y-4 pl-6 border-l-2 border-green-300 dark:border-green-600 hidden">
 
-                        <!-- Recurrence Type -->
-                        <div>
-                            <label for="{{ form.recurrence_type.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                Repeat Schedule
-                            </label>
-                            {{ form.recurrence_type }}
-                            {% if form.recurrence_type.errors %}
-                                <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ form.recurrence_type.errors.0 }}</p>
-                            {% endif %}
-                        </div>
+                        {% render_field form.recurrence_type %}
 
                         <!-- Custom Recurrence Options (shown when recurrence_type is 'custom') -->
                         <div id="custom-recurrence-options" class="bg-gray-50 dark:bg-gray-700 rounded-lg p-3 hidden">

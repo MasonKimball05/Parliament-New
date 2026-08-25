@@ -255,6 +255,14 @@ class ParliamentUserAdmin(admin.ModelAdmin):
     list_filter = ('member_type', 'member_status', 'is_admin', 'roles', 'has_default_password', 'email_flagged', 'is_quarantined')
     list_per_page = 50
 
+    def get_queryset(self, request):
+        # role_list() below reads obj.roles.all()[:3] and obj.roles.count()
+        # for every row on the change list — without this, that's up to 3
+        # queries per row, every page load. prefetch_related makes both the
+        # sliced .all() and .count() read the prefetch cache instead (Django
+        # returns len(_result_cache) for .count() when the cache is populated).
+        return super().get_queryset(request).prefetch_related('roles')
+
     # ⚠️ user_id must be readonly on the CHANGE form only, not the ADD form —
     # see get_readonly_fields(). Found 08-25-26: `readonly_fields = ('user_id',)`
     # unconditionally (v3.24.0's admin cleanup) meant the add page never
