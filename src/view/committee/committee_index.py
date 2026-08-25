@@ -10,7 +10,7 @@ from django.views.decorators.http import require_POST, require_http_methods
 from src.models import Committee, Role, ParliamentUser, CommitteeLegislation, CommitteeDocument, CommitteeMinutes, ActivityLog, log_admin_action
 from src.forms import CommitteeCreateForm
 from src.constants import MemberStatus
-from src.feature_flag_decorators import require_page_enabled
+from src.feature_flag_decorators import require_page_enabled, require_feature_flag
 from src.decorators import admin_required, officer_required
 import logging
 
@@ -18,6 +18,7 @@ logger = logging.getLogger('function_calls')
 
 @login_required
 @require_page_enabled('committee_index')
+@require_feature_flag('committee_system')
 def committee_index(request):
     """Display all committees the user is associated with"""
     user = request.user
@@ -140,6 +141,7 @@ def committee_index(request):
 
 @login_required
 @admin_required
+@require_feature_flag('committee_system')
 def create_committee(request):
     """Create a new committee (admin only)"""
     if request.method == 'POST':
@@ -170,6 +172,7 @@ def create_committee(request):
 
 @login_required
 @officer_required
+@require_feature_flag('committee_system')
 def manage_committees(request):
     """Manage all committees - list, add, edit, delete (officers and admins)"""
     # v3.17.4: three COUNTs per committee became one conditional aggregate —
@@ -215,6 +218,7 @@ def manage_committees(request):
 
 @login_required
 @officer_required
+@require_feature_flag('committee_system')
 @require_http_methods(['GET', 'POST'])
 def committee_detail_api(request, committee_id):
     """Get or update a committee's details."""
@@ -357,6 +361,7 @@ def committee_detail_api(request, committee_id):
 
 @login_required
 @officer_required
+@require_feature_flag('committee_system')
 @require_POST
 def delete_committee(request, committee_id):
     """Delete a committee."""

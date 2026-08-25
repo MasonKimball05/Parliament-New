@@ -3,6 +3,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.utils.http import url_has_allowed_host_and_scheme
 from src.models import Committee, CommitteeLegislation, Legislation
+from src.feature_flag_decorators import require_feature_flag, check_feature_enabled
 import logging
 from django.utils import timezone
 
@@ -10,6 +11,7 @@ logger = logging.getLogger('function_calls')
 
 
 @login_required
+@require_feature_flag('committee_voting')
 def committee_push_to_chapter(request, code):
     """Publish committee vote results to chapter documents page (no chapter vote created)"""
     committee = get_object_or_404(Committee, code=code)
@@ -56,6 +58,7 @@ def committee_push_to_chapter(request, code):
 
 
 @login_required
+@require_feature_flag('committee_voting', 'legislation_voting')
 def create_chapter_vote_from_committee(request, code, legislation_id):
     """Create a new chapter-wide vote based on a committee vote - with configuration options"""
     committee = get_object_or_404(Committee, code=code)
@@ -78,8 +81,8 @@ def create_chapter_vote_from_committee(request, code, legislation_id):
         vote_mode = request.POST.get('vote_mode', 'percentage')
         required_percentage = request.POST.get('required_percentage', '51')
         required_number = request.POST.get('required_number')
-        anonymous_vote = request.POST.get('anonymous_vote') == 'on'
-        allow_abstain = not (request.POST.get('remove_abstain') == 'on')
+        anonymous_vote = request.POST.get('anonymous_vote') == 'on' and check_feature_enabled('anonymous_voting')
+        allow_abstain = not (request.POST.get('remove_abstain') == 'on') and check_feature_enabled('abstain_voting')
         show_committee_result = request.POST.get('show_committee_result') == 'on'
 
         # Parse available_at

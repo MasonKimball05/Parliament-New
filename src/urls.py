@@ -46,7 +46,7 @@ from src.view.committee.vote import committee_vote, create_committee_runoff
 from src.view.committee.vote_result import committee_vote_result
 from src.view.committee.delete_vote import delete_committee_vote
 from src.view.committee.manage_members import committee_manage_members
-from src.view.committee.upload_document import committee_upload_document
+from src.view.committee.upload_document import committee_upload_document, committee_replace_document
 from src.view.committee.add_member import committee_add_member
 from src.view.committee.remove_member import committee_remove_member
 from src.view.committee.create_vote import committee_create_vote
@@ -254,6 +254,7 @@ from src.view.view_document import (
     view_committee_document, view_passed_legislation_document,
     view_reference_document,
     download_legislation_document, download_chapter_document, download_committee_document,
+    download_committee_document_version,
 )
 from src.view.bug_report import submit_bug_report, bug_report_success, my_bug_reports, bug_tracker, bug_report_detail, bug_admin, bug_admin_update
 from src.view.debug_panel import (
@@ -694,6 +695,8 @@ urlpatterns = [
 
     path('committee/<str:code>/documents/<int:document_id>/view/', view_committee_document, name='view_committee_document'),
     path('committee/<str:code>/documents/<int:document_id>/download/', download_committee_document, name='download_committee_document'),
+    path('committee/<str:code>/documents/<int:document_id>/replace/', committee_replace_document, name='committee_replace_document'),
+    path('committee/<str:code>/documents/<int:document_id>/versions/<int:version_id>/download/', download_committee_document_version, name='download_committee_document_version'),
     path('committee/<str:code>/documents/<int:document_id>/toggle-publish/', toggle_document_publish, name='toggle_document_publish'),
     path('committee/<str:code>/documents/<int:document_id>/delete/', delete_committee_document, name='delete_committee_document'),
     path('committee/<str:code>/attendance/', committee_attendance, name='committee_attendance'),

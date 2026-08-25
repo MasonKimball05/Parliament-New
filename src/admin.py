@@ -254,7 +254,24 @@ class ParliamentUserAdmin(admin.ModelAdmin):
     filter_horizontal = ('roles',)
     list_filter = ('member_type', 'member_status', 'is_admin', 'roles', 'has_default_password', 'email_flagged', 'is_quarantined')
     list_per_page = 50
+
+    # ⚠️ user_id must be readonly on the CHANGE form only, not the ADD form —
+    # see get_readonly_fields(). Found 08-25-26: `readonly_fields = ('user_id',)`
+    # unconditionally (v3.24.0's admin cleanup) meant the add page never
+    # rendered user_id as an input at all, so a brand-new ParliamentUser saved
+    # with user_id='' (CharField's implicit default) — which is a valid save
+    # (the field has no blank=True at the model level, but a readonly field is
+    # excluded from the ModelForm entirely, so nothing ever validated it) right
+    # up until `response_add()` tried to `reverse()` the change-page URL with
+    # an empty pk and 500'd with NoReverseMatch. No exception during the save
+    # itself, hence "nothing logged" until that redirect. Every /admin/
+    # "Add member" was silently creating an unusable row with pk=''.
     readonly_fields = ('user_id',)
+
+    def get_readonly_fields(self, request, obj=None):
+        if obj is None:
+            return ()
+        return self.readonly_fields
 
     def get_form(self, request, obj=None, **kwargs):
         form_class = super().get_form(request, obj, **kwargs)
@@ -267,7 +284,21 @@ class ParliamentUserAdmin(admin.ModelAdmin):
                     self.instance._state.adding = False
                     super().validate_unique()
             return ParliamentUserChangeForm
+
+        # Add form: user_id is a real input again (not readonly), but optional
+        # — mirroring AddMemberForm.clean_user_id(). Leave it blank and
+        # save_model() below assigns one from generate_member_uid(); type one
+        # and it's used as-is (still checked for uniqueness by the model field).
+        form_class.base_fields['user_id'].required = False
         return form_class
+
+    def save_model(self, request, new_user, form, change):
+        # A creation site — see the allowlist entry in
+        # src/test_user_id_is_permanent.py._CREATION_SITES.
+        if not change and not new_user.user_id:
+            from src.models.users import generate_member_uid
+            new_user.user_id = generate_member_uid()
+        super().save_model(request, new_user, form, change)
 
     fieldsets = (
         ('Personal Information', {

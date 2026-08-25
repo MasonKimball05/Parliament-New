@@ -7,6 +7,7 @@ from django.contrib.auth import authenticate
 from datetime import timedelta
 from src.models import Committee, CommitteeLegislation, CommitteeVote, Attendance, ActivityLog
 from src.view.webauthn import check_vote_reauth
+from src.feature_flag_decorators import require_feature_flag
 import logging
 
 logger = logging.getLogger('function_calls')
@@ -30,6 +31,7 @@ def get_vote_tally(legislation):
 
 @require_http_methods(["GET", "POST"])
 @login_required
+@require_feature_flag('committee_voting')
 def committee_vote(request, code):
     committee = get_object_or_404(Committee, code=code)
     user = request.user
@@ -335,6 +337,7 @@ def committee_vote(request, code):
 
 @require_http_methods(["POST"])
 @login_required
+@require_feature_flag('committee_voting')
 def create_committee_runoff(request, code, legislation_id):
     """Create a runoff vote from a completed committee plurality vote."""
     committee = get_object_or_404(Committee, code=code)

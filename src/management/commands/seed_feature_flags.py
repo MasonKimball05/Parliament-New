@@ -54,16 +54,44 @@ class Command(BaseCommand):
             {
                 'name': 'dark_mode',
                 'display_name': 'Dark Mode',
-                'description': 'Enable dark mode theme support',
+                'description': (
+                    'v3.26.0: now gates real behaviour. On: the theme picker in '
+                    'Preferences and the dark/light/auto toggle work as before. '
+                    'Off: the theme selector is hidden, every session renders '
+                    'light regardless of a member\'s saved preference, and the '
+                    'inline theme-detection script in base.html is skipped.'
+                ),
                 'category': 'ui',
                 'is_enabled': True,
             },
             {
+                # ⚠️ v3.26.0 — WAS SEEDED `is_enabled: False` HERE WHILE GATING
+                # NOTHING, SO IT DID NOTHING. Now that FeatureFlagGatedEmailBackend
+                # reads this flag on every send, `False` would silently stop all
+                # non-critical chapter email (announcements, digests, etc — the
+                # backend's always-send allowlist is security/auth mail only).
+                # Flipped to True here to preserve current behaviour (email has
+                # always gone out). ⚠️ If a row for this flag ALREADY EXISTS on
+                # prod, this seed command will NOT change its is_enabled value —
+                # get_or_create only sets defaults on first creation, and the
+                # loop below deliberately never touches is_enabled on an existing
+                # row (see the comment at that loop). CHECK /admin/ → Feature
+                # Flags → "Email Notifications" is enabled BEFORE relying on
+                # this deploy shipping email unchanged.
                 'name': 'email_notifications',
                 'display_name': 'Email Notifications',
-                'description': 'Enable email notification system',
+                'description': (
+                    'v3.26.0: now gates real behaviour via '
+                    'FeatureFlagGatedEmailBackend (settings.EMAIL_BACKEND). Off: '
+                    'ordinary chapter email (announcements, digests, welcome '
+                    'mail, etc.) is silently dropped. Security-critical mail '
+                    '(2FA codes, password resets, email-change confirmation, '
+                    'security alerts, watch-flag notices, preflight failures) '
+                    'always sends regardless of this flag — see '
+                    'src/email_backend.py\'s always-send allowlist.'
+                ),
                 'category': 'notifications',
-                'is_enabled': False,
+                'is_enabled': True,
             },
             {
                 'name': 'chats',
@@ -172,6 +200,125 @@ class Command(BaseCommand):
                     'reference picker. On by default — this is governance in force.'
                 ),
                 'category': 'documents',
+                'is_enabled': True,
+            },
+
+            # ── The other 8 of the "10 dead feature flags" (v3.26.0) ─────────
+            #
+            # All 10 were seeded rows that gated nothing in code — a handoff
+            # hazard because several have security-sounding names. Every one is
+            # now wired to real behaviour; every one seeds `is_enabled: True` so
+            # a deploy of this release changes nothing observable by default —
+            # each flag is an off switch for something that already works today,
+            # not an on switch for something new.
+            {
+                'name': 'legislation_voting',
+                'display_name': 'Legislation Voting',
+                'description': (
+                    'v3.26.0: gates chapter legislation upload/edit/delete, '
+                    'opening/reopening voting, runoffs, and pushing a committee '
+                    'vote to chapter. Off: those endpoints 403. Does not affect '
+                    'committee-internal voting — see "Committee Voting".'
+                ),
+                'category': 'features',
+                'is_enabled': True,
+            },
+            {
+                'name': 'anonymous_voting',
+                'display_name': 'Anonymous Voting',
+                'description': (
+                    'v3.26.0: gates whether legislation (chapter or committee) '
+                    'may be marked anonymous when created. Off: new legislation '
+                    'is always attributed, regardless of what the uploader '
+                    'requests. Existing anonymous votes are unaffected.'
+                ),
+                'category': 'features',
+                'is_enabled': True,
+            },
+            {
+                'name': 'abstain_voting',
+                'display_name': 'Abstain Voting',
+                'description': (
+                    'v3.26.0: gates whether legislation (chapter or committee) '
+                    'may allow an Abstain option. Off: new legislation never '
+                    'offers Abstain, regardless of what the uploader requests.'
+                ),
+                'category': 'features',
+                'is_enabled': True,
+            },
+            {
+                'name': 'committee_system',
+                'display_name': 'Committee System',
+                'description': (
+                    'v3.26.0: gates the committee index, committee home pages, '
+                    'creating/managing/deleting committees, and the Committees '
+                    'nav item. Off: those routes 403 and the nav item is hidden '
+                    '(still subject to a member\'s own show_committees_menu '
+                    'preference). Named limitation: deep-linked committee '
+                    'sub-pages (chat, documents, attendance, minutes, '
+                    'recruitment, education) are not individually gated by this '
+                    'flag — only the index/home/management surface is.'
+                ),
+                'category': 'features',
+                'is_enabled': True,
+            },
+            {
+                'name': 'committee_voting',
+                'display_name': 'Committee Voting',
+                'description': (
+                    'v3.26.0: gates committee-internal voting — casting a '
+                    'committee vote, viewing committee vote results, runoffs, '
+                    'recalculation, deleting a committee vote, and pushing a '
+                    'committee vote to chapter. Off: those routes 403. Does not '
+                    'affect chapter-level voting — see "Legislation Voting".'
+                ),
+                'category': 'features',
+                'is_enabled': True,
+            },
+            {
+                'name': 'event_attendance',
+                'display_name': 'Event Attendance',
+                'description': (
+                    'v3.26.0: a narrower, additive gate on top of '
+                    '"Attendance Tracking" — specifically the attendance-taking '
+                    'surfaces (event attendance list, marking attendance, the '
+                    'attendance dashboard, member attendance detail, the '
+                    'attendance page, and /my-attendance/). Both flags must be '
+                    'on for these to work; this one lets attendance-TAKING be '
+                    'turned off independently of excuses — see "Excuse System".'
+                ),
+                'category': 'features',
+                'is_enabled': True,
+            },
+            {
+                'name': 'excuse_system',
+                'display_name': 'Excuse System',
+                'description': (
+                    'v3.26.0: a narrower, additive gate on top of '
+                    '"Attendance Tracking" — specifically excuse submission and '
+                    'review (my excuses, submitting/cancelling an excuse, '
+                    'reviewing excuses, serving excuse documents). Both flags '
+                    'must be on for these to work; this one lets excuse-taking '
+                    'be turned off independently of attendance — see '
+                    '"Event Attendance".'
+                ),
+                'category': 'features',
+                'is_enabled': True,
+            },
+            {
+                'name': 'document_versioning',
+                'display_name': 'Document Versioning',
+                'description': (
+                    'v3.26.0: the `DocumentVersion` model existed with zero '
+                    'writers anywhere in the codebase before this release — '
+                    'there was no "replace this file" action to gate, only '
+                    'delete-and-re-upload-as-new. This flag gates the feature\'s '
+                    'own existence: replacing a committee document\'s file '
+                    '(archiving the old one as a version) and downloading a past '
+                    'version. Off: chairs can still delete and re-upload '
+                    'documents as before; they just cannot replace-with-history.'
+                ),
+                'category': 'features',
                 'is_enabled': True,
             },
         ]

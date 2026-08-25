@@ -99,7 +99,25 @@ _log="$(mktemp "${TMPDIR:-/tmp}/parliament-prepush.XXXXXX")"
 #
 # `--parallel` with no value uses one worker per core. It is deliberately not
 # pinned: this runs on whatever laptop is pushing.
-if ! DB_BACKEND=sqlite "$PY" manage.py test src -v 0 --parallel 2>&1 | tee "$_log"; then
+DB_BACKEND=sqlite "$PY" manage.py test src -v 0 --parallel 2>&1 | tee "$_log"
+_test_exit="${PIPESTATUS[0]}"
+
+# ⚠️ v3.25.3 — THE VERDICT COMES FROM THE LOG, NOT FROM THIS EXIT CODE.
+#
+# `manage.py test` can print "OK" — every test ran and passed — and then
+# crash a moment later while DELETING ITS OWN SCRATCH DATABASE FILE.
+# Django's sqlite backend does `os.remove(test_database_name)` with no
+# existence check (django/db/backends/sqlite3/creation.py), and under
+# `--parallel` with no pinned worker count, on this machine (Python 3.14 +
+# macOS), the file for one worker is sometimes already gone by the time
+# `teardown_databases` gets to it: `FileNotFoundError: default_1.sqlite3`.
+# Reproduced 08-25-26 — first push attempt after v3.25.2, tests green,
+# push blocked anyway. Exit code alone cannot tell "the code is broken" from
+# "cleanup of a throwaway file that no longer exists failed", and this hook
+# was treating them the same, which is exactly the false-failure shape that
+# gets a hook `--no-verify`d for good. So: read the printed verdict line
+# first, and only fall back to the exit code as a second-order warning.
+if ! grep -qE '^Ran [0-9]+ test' "$_log"; then
   # ⚠️ v3.21.5 — A PARALLEL RUN CAN FAIL WITHOUT REPORTING ANY TEST.
   # Django's parallel runner ships each failure to the parent by pickling it.
   # `tblib` (a dependency since v3.19.9) makes tracebacks picklable, and that
@@ -117,15 +135,15 @@ if ! DB_BACKEND=sqlite "$PY" manage.py test src -v 0 --parallel 2>&1 | tee "$_lo
   # **A gate that cannot say what failed is, at that moment, a gate that did
   # not run** — the same rule as the missing-interpreter branch above. So the
   # answer is to go and get the answer, not to report a blank one.
-  if ! grep -qE '^Ran [0-9]+ test' "$_log"; then
-    echo ""
-    echo "[pre-push] ⚠️  the parallel run aborted without reporting any test."
-    echo "[pre-push]     Re-running SERIALLY to find out what actually failed."
-    echo "[pre-push]     (This is slower. It only happens on a red tree.)"
-    echo ""
-    DB_BACKEND=sqlite "$PY" manage.py test src -v 0 2>&1 | tee "$_log" || true
-  fi
+  echo ""
+  echo "[pre-push] ⚠️  the parallel run aborted without reporting any test."
+  echo "[pre-push]     Re-running SERIALLY to find out what actually failed."
+  echo "[pre-push]     (This is slower. It only happens on a red tree.)"
+  echo ""
+  DB_BACKEND=sqlite "$PY" manage.py test src -v 0 2>&1 | tee "$_log" || true
+fi
 
+if grep -qE '^FAILED\b' "$_log" || ! grep -qE '^OK\b' "$_log"; then
   echo ""
   echo "[pre-push] ─────────────────────────────────────────────────────────"
   echo "[pre-push] ✗ tests failed — push aborted. What failed:"
@@ -140,7 +158,15 @@ if ! DB_BACKEND=sqlite "$PY" manage.py test src -v 0 --parallel 2>&1 | tee "$_lo
   echo "[pre-push] ─────────────────────────────────────────────────────────"
   exit 1
 fi
-rm -f "$_log"
+
+if [ "$_test_exit" -ne 0 ]; then
+  echo "[pre-push] ⚠️  tests reported OK, but 'manage.py test' exited $_test_exit"
+  echo "[pre-push]     AFTER printing the verdict — almost certainly the sqlite"
+  echo "[pre-push]     teardown crash described above, not a code problem. Not"
+  echo "[pre-push]     blocking the push over it. Full output kept: $_log"
+else
+  rm -f "$_log"
+fi
 echo "[pre-push] ✓ tests green."
 
 # v3.19.9 — the release-integrity system checks, at the only moment they can be
@@ -156,7 +182,9 @@ echo "[pre-push] ✓ tests green."
 # The gating set is imported from preflight rather than repeated: one
 # definition, two triggers.
 echo "[pre-push] checking the release ledger and schema gates…"
-if ! DB_BACKEND=sqlite "$PY" - <<'PY'
+
+_gate_check() {
+  DB_BACKEND=sqlite "$PY" - <<'PY'
 import os, sys
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'Parliament.settings')
@@ -171,25 +199,59 @@ blocking = [
     if m.is_serious(checks.ERROR) or m.id in RELEASE_GATING_CHECK_IDS
 ]
 for m in blocking:
-    print(f'  {m.id or "check"}: {str(m.msg).splitlines()[0]}')
+    print(f'{m.id or "check"}: {str(m.msg).splitlines()[0]}')
 sys.exit(1 if blocking else 0)
 PY
-then
+}
+
+_gate_out="$(_gate_check 2>&1)"
+_gate_status=$?
+
+# ⚠️ v3.25.3 — AUTO-HEAL A STALE LEDGER INSTEAD OF STOPPING FOR IT.
+#
+# `src.W003` (only) is mechanically fixable — `stamp_ledger.py` exists
+# specifically to fix it, from the same git history this check reads, and
+# every push that hits it needed the identical two commands run by hand.
+# "Fix it with one command" printed below `make stamp-ledger` on a line by
+# itself was still two manual steps (run it, then commit it) on every push
+# that touched a changelog — annoying enough to be worth automating, and
+# mechanical enough to be safe to. So: if W003 is the ONLY thing blocking,
+# run the fix and commit it here rather than making that Mason's problem.
+# Anything else blocking (src.W002, a real system-check ERROR) still stops
+# the push — those need a human, not a script.
+if [ "$_gate_status" -ne 0 ] \
+   && printf '%s\n' "$_gate_out" | grep -qE '^src\.W003:' \
+   && ! printf '%s\n' "$_gate_out" | grep -qvE '^src\.W003:'; then
+  echo "[pre-push] ⚠️  release ledger is stale (src.W003) — stamping it automatically…"
+  if "$PY" scripts/stamp_ledger.py && git add changelogs/ \
+     && git commit -q -m "Stamp release ledger"; then
+    echo "[pre-push] ✓ ledger stamped and committed ($(git rev-parse --short HEAD))."
+    _gate_out="$(_gate_check 2>&1)"
+    _gate_status=$?
+  else
+    echo "[pre-push] ✗ auto-stamp did not complete cleanly — see above."
+  fi
+fi
+
+if [ "$_gate_status" -ne 0 ]; then
   echo ""
+  echo "[pre-push] ─────────────────────────────────────────────────────────"
   echo "[pre-push] ✗ release-integrity check failed — push aborted."
-  echo "[pre-push]   Fix it with one command:"
+  echo ""
+  printf '%s\n' "$_gate_out" | sed 's/^/    /'
+  echo ""
+  echo "[pre-push]   If this is src.W003 and the auto-stamp above didn't take,"
+  echo "[pre-push]   run it by hand:"
   echo "[pre-push]"
   echo "[pre-push]     make stamp-ledger"
   echo "[pre-push]     git add changelogs/ && git commit -m 'Stamp release ledger'"
-  echo "[pre-push]"
-  echo "[pre-push]   It fills both lines from git log --diff-filter=A, the same"
-  echo "[pre-push]   source this check reads, and never touches the 'Deployed'"
-  echo "[pre-push]   column — git cannot know that, only you can."
   echo "[pre-push]"
   echo "[pre-push]   ⚠️  Fix with a FOLLOW-UP COMMIT, not 'git commit --amend'."
   echo "[pre-push]   Amending rewrites the commit, which changes the very sha you"
   echo "[pre-push]   just wrote down — and src.W003 also checks that the recorded"
   echo "[pre-push]   sha MATCHES, so an amend trades one red check for another."
+  echo "[pre-push]   Anything else (e.g. src.W002) needs a look, not a script."
+  echo "[pre-push] ─────────────────────────────────────────────────────────"
   exit 1
 fi
 echo "[pre-push] ✓ release ledger current."

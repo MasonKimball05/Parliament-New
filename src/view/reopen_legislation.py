@@ -4,8 +4,10 @@ from ..models import Legislation
 from django.contrib import messages
 from django.http import HttpResponseForbidden
 from django.views.decorators.http import require_POST
+from src.feature_flag_decorators import require_feature_flag
 
 @officer_required
+@require_feature_flag('legislation_voting')
 @require_POST
 @log_function_call
 def reopen_legislation(request, legislation_id):

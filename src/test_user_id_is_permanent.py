@@ -249,6 +249,11 @@ _CREATION_SITES = {
     # the per-row helper, which is what the walk sees.
     ('src/view/officer/manage_members.py', 'bulk_import_members'),
     ('src/view/officer/manage_members.py', '_import_member_row'),
+    # Django admin's raw "Add user" page (found 08-25-26: readonly_fields
+    # covering the add form too meant a new row saved with pk='' and 500'd on
+    # the post-save redirect — nothing upstream generated an id for it). This
+    # is the same generation used by Add Member, just reached from /admin/.
+    ('src/admin.py', 'save_model'),
 }
 
 
@@ -736,3 +741,70 @@ class TheRollNumberIsWhatMembersSeeTests(TestCase):
 
         self.assertEqual(first, '201')
         self.assertEqual(second, first)
+
+
+class TheAdminAddUserPageGetsAKeyTests(TestCase):
+    """
+    Reproduction for the 08-25-26 prod outage: `/admin/src/parliamentuser/add/`
+    was returning a 500 (`NoReverseMatch` on an empty pk) and, more importantly,
+    was still creating the row first — `readonly_fields = ('user_id',)` applied
+    unconditionally meant the field was never part of the add ModelForm at all,
+    so nothing validated it and the save went through with `user_id=''`
+    (CharField's implicit default), and the crash only happened afterwards, on
+    the post-save redirect. No exception during the save itself is why nothing
+    was logged before the 500.
+    """
+
+    def setUp(self):
+        self.officer = ParliamentUser.objects.create_user(
+            user_id='admin-test-1', password='admin-test-pass-12345!',
+            name='Officer Admin', username='officer_admin',
+            member_type='Officer', is_admin=True, is_active=True,
+        )
+        self.client.force_login(self.officer)
+
+    def _post_add(self, **overrides):
+        data = {
+            'name': 'New Member',
+            'username': 'new_member_admin_added',
+            'member_type': 'Member',
+            'member_status': 'Active',
+            'password': 'irrelevant-admin-set-password-1',
+            'anonymous_vote': '',
+            'allow_abstain': 'on',
+            'is_active': 'on',
+            'roles': [],
+            '_save': 'Save',
+        }
+        data.update(overrides)
+        return self.client.post(reverse('admin:src_parliamentuser_add'), data)
+
+    def test_the_new_row_gets_a_real_key_not_an_empty_one(self):
+        resp = self._post_add()
+        # A successful admin add redirects (302) to the changelist/change page,
+        # not the pre-fix 500 on reverse().
+        self.assertEqual(resp.status_code, 302, getattr(resp, 'content', b'')[:2000])
+
+        created = ParliamentUser.objects.exclude(pk=self.officer.pk).get(
+            username='new_member_admin_added')
+        self.assertTrue(created.user_id, 'user_id was left blank.')
+        self.assertNotEqual(created.user_id, '')
+        self.assertTrue(created.user_id.startswith(MEMBER_UID_PREFIX))
+
+    def test_a_hand_typed_id_is_honoured(self):
+        resp = self._post_add(user_id='P-HANDSET', username='hand_set_user')
+        self.assertEqual(resp.status_code, 302, getattr(resp, 'content', b'')[:2000])
+        created = ParliamentUser.objects.get(username='hand_set_user')
+        self.assertEqual(created.user_id, 'P-HANDSET')
+
+    def test_the_key_is_readonly_once_the_row_exists(self):
+        target = ParliamentUser.objects.create_user(
+            user_id=generate_member_uid(), password='existing-pass-12345!',
+            name='Existing Member', username='existing_member', member_type='Member',
+        )
+        resp = self.client.get(
+            reverse('admin:src_parliamentuser_change', args=[target.pk]))
+        self.assertEqual(resp.status_code, 200)
+        # A readonly field renders its value as text, not as a named input —
+        # if it were still editable this would be a `<input ... name="user_id"`.
+        self.assertNotIn(b'name="user_id"', resp.content)

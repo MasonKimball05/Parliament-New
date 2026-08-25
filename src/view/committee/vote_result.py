@@ -2,11 +2,13 @@ from django.shortcuts import get_object_or_404, render
 from django.contrib.auth.decorators import login_required
 from src.models import Committee, CommitteeLegislation, CommitteeVote
 from src.models.users import member_defer
+from src.feature_flag_decorators import require_feature_flag
 
 __all__ = ['committee_vote_result']
 
 
 @login_required
+@require_feature_flag('committee_voting')
 def committee_vote_result(request, code, legislation_id):
     """View detailed vote results for a committee legislation item"""
     committee = get_object_or_404(Committee, code=code)

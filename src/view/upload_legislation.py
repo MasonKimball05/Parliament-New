@@ -8,6 +8,7 @@ from django.utils.dateparse import parse_datetime
 
 from ..decorators import officer_required, log_function_call
 from ..forms import LegislationForm
+from src.feature_flag_decorators import require_feature_flag, check_feature_enabled
 from src.models import Legislation, Role, ParliamentUser
 from src.utils.file_validation import validate_uploaded_file
 from src.notification_service import notify_all_active_members
@@ -16,6 +17,7 @@ logger = logging.getLogger(__name__)
 
 
 @officer_required
+@require_feature_flag('legislation_voting')
 @log_function_call
 def upload_legislation(request):
 
@@ -37,6 +39,13 @@ def upload_legislation(request):
         if form.is_valid():
             legislation = form.save(commit=False)
             legislation.posted_by = request.user
+            # ⚠️ Enforced here, not just hidden in the template — a flag that
+            # only hides a checkbox is not a flag, it's a suggestion. Forced
+            # server-side regardless of what the submitted form contained.
+            if not check_feature_enabled('anonymous_voting'):
+                legislation.anonymous_vote = False
+            if not check_feature_enabled('abstain_voting'):
+                legislation.allow_abstain = False
             legislation.save()
 
             _notify(legislation)
@@ -70,8 +79,8 @@ def _create_appointment(request):
     voting_ends_at_str = request.POST.get('appt_voting_ends_at', '').strip()
     required_percentage = request.POST.get('appt_required_percentage', '51')
     required_number_str = request.POST.get('appt_required_number', '').strip()
-    anonymous = 'appt_anonymous' in request.POST
-    allow_abstain = 'appt_remove_abstain' not in request.POST
+    anonymous = 'appt_anonymous' in request.POST and check_feature_enabled('anonymous_voting')
+    allow_abstain = ('appt_remove_abstain' not in request.POST) and check_feature_enabled('abstain_voting')
 
     # Validate role — may be an existing role ID or the sentinel "__new__"
     if not role_id:

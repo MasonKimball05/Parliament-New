@@ -3,7 +3,9 @@ from django.contrib.auth.decorators import login_required
 from django.urls import reverse
 from django.conf import settings
 from django.http import FileResponse, Http404, HttpResponseForbidden
+from src.feature_flag_decorators import require_feature_flag
 from src.models import Legislation, CommitteeDocument
+from src.models.documents import DocumentVersion
 import os
 import urllib.parse
 import logging
@@ -326,6 +328,30 @@ def download_committee_document(request, code, document_id):
     if not document.can_user_view(request.user):
         return HttpResponseForbidden("You don't have permission to download this document")
     file_path = document.document.path
+    if not os.path.exists(file_path):
+        raise Http404("File not found")
+    filename = os.path.basename(file_path)
+    return FileResponse(open(file_path, 'rb'), as_attachment=True, filename=filename)
+
+
+@login_required
+@require_feature_flag('document_versioning')
+def download_committee_document_version(request, code, document_id, version_id):
+    """
+    Protected download for an archived DocumentVersion — same permission
+    check as the current file (`can_user_view` on the parent document), since
+    an old version of a document a member can see is not more sensitive than
+    the current one.
+    """
+    from src.models import Committee
+    committee = get_object_or_404(Committee, code=code)
+    document = get_object_or_404(CommitteeDocument, id=document_id, committee=committee)
+    version = get_object_or_404(DocumentVersion, id=version_id, document=document)
+    if not document.can_user_view(request.user):
+        return HttpResponseForbidden("You don't have permission to download this document")
+    if not version.file:
+        raise Http404("File not found")
+    file_path = version.file.path
     if not os.path.exists(file_path):
         raise Http404("File not found")
     filename = os.path.basename(file_path)

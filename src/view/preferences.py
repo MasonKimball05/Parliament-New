@@ -9,6 +9,7 @@ from django.urls import reverse
 from django.contrib import messages
 from django.views.decorators.http import require_POST
 from src.dev_mode import dev_mode_enabled_for, set_dev_mode, user_may_use_dev_mode
+from src.feature_flag_decorators import check_feature_enabled
 from src.forms import UserPreferencesForm
 from src.models import UserPreferences, ActivityLog, PushSubscription, WebAuthnCredential
 from src.models.api import APIToken, DEFINED_SCOPES
@@ -27,6 +28,11 @@ def preferences_view(request):
         form = UserPreferencesForm(request.POST, instance=preferences)
         if form.is_valid():
             old_theme = preferences.theme
+            # Enforced here, not just hidden in the template — if the chapter
+            # has turned dark mode off, a directly-posted 'dark' or 'auto'
+            # value must not stick regardless of what the form showed.
+            if not check_feature_enabled('dark_mode'):
+                form.cleaned_data['theme'] = 'light'
             form.save()
 
             # Bust the context-processor cache so the new prefs take effect immediately
@@ -41,7 +47,7 @@ def preferences_view(request):
                 request=request
             )
 
-            new_theme = request.POST.get('theme', 'light')
+            new_theme = preferences.theme
             theme_changed = old_theme != new_theme
 
             if is_ajax:

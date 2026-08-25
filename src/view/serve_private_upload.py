@@ -307,7 +307,7 @@ def serve_slating_response_file(request, response_id):
 
 
 @login_required
-@require_feature_flag('attendance_tracking')
+@require_feature_flag('attendance_tracking', 'excuse_system')
 @log_function_call
 def serve_excuse_document(request, excuse_id):
     """

@@ -204,7 +204,11 @@ class Command(BaseCommand):
     def check_email(self):
         self.section('Email')
 
-        backend = getattr(settings, 'EMAIL_BACKEND', '')
+        # v3.26.0: settings.EMAIL_BACKEND is now always the FeatureFlag-gated
+        # wrapper (src/email_backend.py); the real transport lives in
+        # REAL_EMAIL_BACKEND. Falling back to EMAIL_BACKEND keeps this command
+        # working against an older settings.py that predates the wrapper.
+        backend = getattr(settings, 'REAL_EMAIL_BACKEND', None) or getattr(settings, 'EMAIL_BACKEND', '')
         if 'console' in backend:
             self.warn('EMAIL_BACKEND', 'console — emails print to stdout only')
         elif 'brevo' in backend.lower() or 'anymail' in backend.lower():

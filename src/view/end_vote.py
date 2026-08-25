@@ -7,11 +7,13 @@ from django.contrib import messages
 from django.http import HttpResponseForbidden
 from django.utils import timezone
 from django.views.decorators.http import require_POST
+from src.feature_flag_decorators import require_feature_flag
 from src.notification_service import notify_users
 from src.utils.vote_events import broadcast_vote_event
 from src.models.users import member_defer
 
 @login_required
+@require_feature_flag('legislation_voting')
 @require_POST
 @log_function_call
 def end_vote(request, legislation_id):
@@ -195,6 +197,7 @@ def end_vote(request, legislation_id):
 
 
 @login_required
+@require_feature_flag('legislation_voting')
 @require_POST
 @log_function_call
 def create_runoff(request, legislation_id):

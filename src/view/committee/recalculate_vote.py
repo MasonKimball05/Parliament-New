@@ -3,6 +3,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.utils.http import url_has_allowed_host_and_scheme
 from src.models import CommitteeLegislation, CommitteeVote
+from src.feature_flag_decorators import require_feature_flag
 import logging
 
 __all__ = ['recalculate_committee_vote']
@@ -27,6 +28,7 @@ def get_vote_tally(legislation):
 
 
 @login_required
+@require_feature_flag('committee_voting')
 def recalculate_committee_vote(request, legislation_id):
     """Recalculate the pass/fail status of a committee vote"""
     legislation = get_object_or_404(CommitteeLegislation, id=legislation_id)

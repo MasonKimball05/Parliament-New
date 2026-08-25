@@ -12,7 +12,7 @@ from datetime import timedelta
 from django.db import transaction
 from ..models import Legislation, Vote, Attendance, ParliamentUser, ActivityLog
 from src.utils.file_validation import validate_uploaded_file
-from src.feature_flag_decorators import require_page_enabled
+from src.feature_flag_decorators import require_page_enabled, require_feature_flag
 from src.view.webauthn import check_vote_reauth
 from src.utils.vote_events import broadcast_vote_event
 from src.utils.vote_receipts import make_receipt
@@ -34,6 +34,7 @@ def _attendance_can_vote(user):
 
 @login_required
 @require_page_enabled('vote')
+@require_feature_flag('legislation_voting')
 @require_POST
 def upload_chapter_legislation(request):
     """v3.14.1 split — chapter-legislation upload form.
@@ -593,6 +594,7 @@ def verify_vote_receipt(request):
 
 
 @login_required
+@require_feature_flag('legislation_voting')
 @require_POST
 def open_legislation_now(request, legislation_id):
     """

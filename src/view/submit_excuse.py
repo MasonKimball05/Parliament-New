@@ -17,7 +17,7 @@ from src.models.users import member_defer
 
 
 @login_required
-@require_feature_flag('attendance_tracking')
+@require_feature_flag('attendance_tracking', 'excuse_system')
 def my_excuses(request):
     """
     View member's excuse requests and submit new ones
@@ -62,7 +62,7 @@ def my_excuses(request):
 
 
 @login_required
-@require_feature_flag('attendance_tracking')
+@require_feature_flag('attendance_tracking', 'excuse_system')
 def submit_excuse(request, event_id):
     """
     Submit an excuse request for a specific event
@@ -140,7 +140,7 @@ def submit_excuse(request, event_id):
 
 
 @login_required
-@require_feature_flag('attendance_tracking')
+@require_feature_flag('attendance_tracking', 'excuse_system')
 def cancel_excuse(request, excuse_id):
     """
     Cancel/delete a pending excuse request
@@ -168,7 +168,7 @@ def cancel_excuse(request, excuse_id):
 
 
 @login_required
-@require_feature_flag('attendance_tracking')
+@require_feature_flag('attendance_tracking', 'event_attendance')
 def my_attendance(request):
     """
     Personal attendance dashboard for members

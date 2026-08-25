@@ -166,8 +166,33 @@
 
     <script nonce="{{ request.csp_nonce }}">
         (function() {
+            {% comment %}
+            Read at render time, not just at save time — a member whose stored
+            preference is already 'dark' from before the chapter turned this
+            off must not keep seeing it just because they haven't re-saved
+            their preferences since.
+
+            The `{% if %}` picks the literal value at render time (rather than
+            a JS ternary on a `dark_mode_enabled` boolean) on purpose: keeps
+            `const theme = '<value>';` a plain quoted-string assignment, which
+            is what `test_changelog_cache.py::theme_of()` parses with a regex
+            — a ternary here reads fine but silently breaks that parser.
+
+            `dark_mode_enabled` (not `feature_flags.dark_mode`) deliberately —
+            see the `feature_flags` context processor in
+            src/context_processors.py. The `feature_flags` dict fails CLOSED
+            on a missing row (by design, for UI-visibility checks);
+            `dark_mode_enabled` is resolved the fail-OPEN Python way from the
+            same query, because this determines what every session actually
+            renders, not just whether a UI element is shown — a database with
+            no dark_mode row must not force every member into light mode.
+            {% endcomment %}
+            {% if dark_mode_enabled %}
             const theme = '{{ user_prefs.theme|default:"light" }}';
-            if (theme === 'dark' || (theme === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            {% else %}
+            const theme = 'light';
+            {% endif %}
+            if (theme === 'dark' || (theme === 'auto' && {{ dark_mode_enabled|yesno:"true,false" }} && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
                 document.documentElement.classList.add('dark');
             } else {
                 document.documentElement.classList.remove('dark');
@@ -240,7 +265,7 @@
                                 Vote
                             </a>
                             {% endif %}
-                            {% if user_prefs.show_committees_menu %}
+                            {% if user_prefs.show_committees_menu and feature_flags.committee_system %}
                             <a href="{% url 'committee_index' %}" class="px-2 py-1.5 text-sm rounded-md hover:bg-primary-600 transition-colors whitespace-nowrap">
                                 Committees
                             </a>
@@ -444,7 +469,7 @@
                     🗳️ Vote
                 </a>
                 {% endif %}
-                {% if user_prefs.show_committees_menu %}
+                {% if user_prefs.show_committees_menu and feature_flags.committee_system %}
                 <a href="{% url 'committee_index' %}" class="block px-3 py-2 rounded-md text-base font-medium hover:bg-primary-600 transition-colors">
                     👥 Committees
                 </a>

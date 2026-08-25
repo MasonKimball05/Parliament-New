@@ -10,11 +10,12 @@ from src.models import (
 )
 from src.constants import MemberType, MemberStatus
 from datetime import timedelta
-from src.feature_flag_decorators import require_page_enabled
+from src.feature_flag_decorators import require_page_enabled, require_feature_flag
 from src.models.users import member_defer
 
 @login_required
 @require_page_enabled('committee_home')
+@require_feature_flag('committee_system')
 def committee_home(request, code):
     committee = get_object_or_404(Committee.objects.select_related('role'), code=code)
 

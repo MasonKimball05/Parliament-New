@@ -15,7 +15,7 @@ from src.models.users import member_defer
 
 
 @login_required
-@require_feature_flag('attendance_tracking')
+@require_feature_flag('attendance_tracking', 'event_attendance')
 @officer_required
 def event_attendance_list(request):
     """
@@ -56,7 +56,7 @@ def event_attendance_list(request):
 
 
 @login_required
-@require_feature_flag('attendance_tracking')
+@require_feature_flag('attendance_tracking', 'event_attendance')
 @officer_required
 def mark_event_attendance(request, event_id):
     """
@@ -240,7 +240,7 @@ def mark_event_attendance(request, event_id):
 
 
 @login_required
-@require_feature_flag('attendance_tracking')
+@require_feature_flag('attendance_tracking', 'excuse_system')
 @officer_required
 def review_excuses(request, event_id=None):
     """

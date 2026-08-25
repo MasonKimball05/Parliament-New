@@ -5,6 +5,7 @@ Authors can also delete their own scheduled legislation before it becomes availa
 from django.shortcuts import get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
+from src.feature_flag_decorators import require_feature_flag
 from src.models import Legislation, CommitteeLegislation
 import logging
 
@@ -12,6 +13,7 @@ logger = logging.getLogger('function_calls')
 
 
 @login_required
+@require_feature_flag('legislation_voting')
 def delete_chapter_legislation(request, legislation_id):
     """Allow admins to delete legislation, or authors to delete their scheduled legislation"""
     legislation = get_object_or_404(Legislation, id=legislation_id)

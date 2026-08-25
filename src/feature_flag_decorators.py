@@ -7,22 +7,39 @@ from django.http import HttpResponseForbidden
 from src.models_feature_flags import FeatureFlag, PageToggle
 
 
-def require_feature_flag(feature_name):
+def require_feature_flag(*feature_names):
     """
-    Decorator to require a feature flag to be enabled.
-    If disabled, returns a 403 Forbidden page.
+    Decorator to require one or more feature flags to be enabled.
+    If any is disabled, returns a 403 Forbidden page.
 
     Usage:
         @require_feature_flag('announcements')
         def announcements_view(request):
             ...
+
+        @require_feature_flag('attendance_tracking', 'event_attendance')
+        def event_attendance_list(request):
+            ...
+
+    ⚠️ v3.26.0 — TAKES *MULTIPLE NAMES IN ONE CALL, NOT STACKED DECORATORS.
+    `FeatureFlag.is_feature_enabled` is cached per-name, so two STACKED
+    `@require_feature_flag(...)` decorators on the same view each pay their
+    own cache lookup — on a cold cache that is two separate
+    `src_featureflag` queries where one would do, and `test_url_smoke` /
+    `test_detail_route_smoke` / `test_query_budgets` all fail a page whose
+    query count grew this way (v3.19.7 fixed the same shape once already, for
+    a loop rather than a stack — see `FeatureFlag.resolve_many`). Passing
+    every name to a single decorator call resolves them in one query via
+    `resolve_many` instead.
     """
     def decorator(view_func):
         @wraps(view_func)
         def wrapper(request, *args, **kwargs):
-            if not FeatureFlag.is_feature_enabled(feature_name):
+            results = FeatureFlag.resolve_many(feature_names)
+            disabled = [name for name in feature_names if not results[name]]
+            if disabled:
                 return render(request, 'feature_disabled.html', {
-                    'feature_name': feature_name,
+                    'feature_name': disabled[0],
                 }, status=403)
             return view_func(request, *args, **kwargs)
         return wrapper

@@ -304,7 +304,9 @@ def send_bug_report_notification(bug_report, request):
 
     try:
         # Check if email backend is the console backend (dev mode)
-        email_backend = getattr(settings, 'EMAIL_BACKEND', '')
+        # v3.26.0: settings.EMAIL_BACKEND is now always the FeatureFlag-gated
+        # wrapper; the real transport lives in REAL_EMAIL_BACKEND.
+        email_backend = getattr(settings, 'REAL_EMAIL_BACKEND', None) or getattr(settings, 'EMAIL_BACKEND', '')
         is_console_backend = 'console' in email_backend.lower()
 
         # Check if we have valid email credentials (SMTP or Brevo)

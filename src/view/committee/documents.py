@@ -2,7 +2,7 @@ from django.shortcuts import render, get_object_or_404
 from django.http import HttpResponseForbidden
 from src.models import Committee, CommitteePermissions, CommitteeDocument, ChapterMinutes
 from django.contrib.auth.decorators import login_required
-from src.feature_flag_decorators import require_page_enabled
+from src.feature_flag_decorators import require_page_enabled, check_feature_enabled
 from src.view.committee.committee_minutes_editor import can_edit_committee_minutes
 
 @login_required
@@ -42,11 +42,22 @@ def committee_documents(request, code):  # Changed from id to code
     can_delete = is_vp or is_chair
     can_edit_minutes = can_edit_committee_minutes(user, committee)
 
+    # Version history is a real query per document (`document.versions`
+    # ordered by -version_number per DocumentVersion.Meta), so it's only run
+    # when the feature is actually on — a chapter that never enables
+    # document_versioning pays nothing extra for this page.
+    versioning_enabled = check_feature_enabled('document_versioning')
+    if versioning_enabled:
+        for doc in documents:
+            doc.version_history = list(doc.versions.all())
+
     return render(request, "committee/documents.html", {
         "committee": committee,
         "documents": documents,
         "perm": perm,
         "can_delete": can_delete,
         "is_vp": is_vp,
+        "is_chair": is_chair,
         "can_edit_minutes": can_edit_minutes,
+        "versioning_enabled": versioning_enabled,
     })

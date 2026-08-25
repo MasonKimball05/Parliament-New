@@ -401,7 +401,15 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # Email Configuration
 # For development, emails will be printed to console
 # For production, configure via environment variables (supports SMTP or Brevo API)
-EMAIL_BACKEND = os.getenv('EMAIL_BACKEND', 'django.core.mail.backends.console.EmailBackend')
+#
+# EMAIL_BACKEND is the FeatureFlag-gated wrapper (src/email_backend.py) so the
+# `email_notifications` flag covers every send_mail/EmailMultiAlternatives
+# call site in the app at one chokepoint, rather than each of the ~15 call
+# sites needing to check the flag itself. REAL_EMAIL_BACKEND is what actually
+# talks to the outside world — the env var means what EMAIL_BACKEND always
+# meant before this wrapper existed.
+REAL_EMAIL_BACKEND = os.getenv('EMAIL_BACKEND', 'django.core.mail.backends.console.EmailBackend')
+EMAIL_BACKEND = 'src.email_backend.FeatureFlagGatedEmailBackend'
 EMAIL_HOST = os.getenv('EMAIL_HOST', 'smtp.gmail.com')
 EMAIL_PORT = int(os.getenv('EMAIL_PORT', '587'))
 EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', 'True') == 'True'

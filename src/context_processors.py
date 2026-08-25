@@ -221,19 +221,49 @@ def feature_flags(request):
     if cached_data is not None:
         return cached_data
 
-    # Get all enabled feature flags
+    # Get all flags in ONE query — not just the enabled ones. See
+    # `dark_mode_enabled` below for why: v3.26.0 originally read `dark_mode`
+    # through a second context processor doing its own `is_feature_enabled`
+    # lookup, which is a SEPARATE cache key from this dict's — so on a cold
+    # cache it cost a second `src_featureflag` SELECT on every single page
+    # (this context processor runs on all of them), tipping several pages
+    # from 2x to 3x the same query shape and failing `test_url_smoke` /
+    # `test_detail_route_smoke`. One query, reused for both purposes, fixes
+    # it — and this is the same table read the old code did anyway, just
+    # without the `is_enabled=True` filter.
+    all_flags = list(FeatureFlag.objects.all())
+
+    # Get all enabled feature flags — deliberately fails CLOSED (a name with
+    # no row, or a disabled row, is simply absent). See
+    # FeatureFlag.is_feature_enabled()'s docstring for the intentional
+    # asymmetry with the Python-side default, which is fail-OPEN.
     enabled_features = _TrackedToggleDict()
-    for flag in FeatureFlag.objects.filter(is_enabled=True):
-        enabled_features[flag.name] = True
+    for flag in all_flags:
+        if flag.is_enabled:
+            enabled_features[flag.name] = True
 
     # Get all enabled pages
     enabled_pages = _TrackedPageDict()
     for toggle in PageToggle.objects.filter(is_enabled=True):
         enabled_pages[toggle.url_name] = True
 
+    # dark_mode_enabled: resolved the fail-OPEN, Python way, from the SAME
+    # query above rather than `FeatureFlag.is_feature_enabled('dark_mode')`
+    # (which would be correct but costs a second query the first time it's
+    # asked for). See base.html's inline theme script for why this can't just
+    # be `enabled_features['dark_mode']` — that dict fails CLOSED, and
+    # base.html determines what every session actually renders, not just
+    # whether a UI element is shown.
+    _dark_mode_row = next((f for f in all_flags if f.name == 'dark_mode'), None)
+    if _dark_mode_row is not None:
+        dark_mode_enabled = _dark_mode_row.is_enabled
+    else:
+        dark_mode_enabled = 'dark_mode' not in FeatureFlag.DISABLED_BY_DEFAULT
+
     result = {
         'feature_flags': enabled_features,
         'enabled_pages': enabled_pages,
+        'dark_mode_enabled': dark_mode_enabled,
     }
 
     # Cache for 60 seconds

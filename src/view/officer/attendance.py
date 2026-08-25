@@ -9,7 +9,7 @@ from src.feature_flag_decorators import require_feature_flag
 from src.constants import MemberType
 
 @login_required
-@require_feature_flag('attendance_tracking')
+@require_feature_flag('attendance_tracking', 'event_attendance')
 @officer_required
 @log_function_call
 def attendance(request):

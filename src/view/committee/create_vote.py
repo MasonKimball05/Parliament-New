@@ -8,9 +8,11 @@ from django.views.decorators.http import require_http_methods
 import logging
 from django.core.exceptions import ValidationError
 from src.utils.file_validation import validate_uploaded_file
+from src.feature_flag_decorators import require_feature_flag, check_feature_enabled
 
 @require_http_methods(["GET", "POST"])
 @login_required
+@require_feature_flag('committee_voting')
 def committee_create_vote(request, code):
     committee = get_object_or_404(Committee, code=code)
 
@@ -32,8 +34,8 @@ def committee_create_vote(request, code):
                 messages.error(request, f'File upload error: {str(e)}')
                 return render(request, 'committee/create_vote.html', {'committee': committee})
 
-        anonymous = request.POST.get('anonymous') == 'on'
-        allow_abstain = not (request.POST.get('remove_abstain') == 'on')
+        anonymous = request.POST.get('anonymous') == 'on' and check_feature_enabled('anonymous_voting')
+        allow_abstain = not (request.POST.get('remove_abstain') == 'on') and check_feature_enabled('abstain_voting')
         required_percentage = request.POST.get('required_percentage', '51')
 
         raw_available_at = request.POST.get('available_at')

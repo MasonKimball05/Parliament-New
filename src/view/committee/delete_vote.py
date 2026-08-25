@@ -5,6 +5,7 @@ from django.shortcuts import get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from src.models import Committee, CommitteeLegislation, CommitteeVote
+from src.feature_flag_decorators import require_feature_flag
 import logging
 
 __all__ = ['delete_committee_vote']
@@ -13,6 +14,7 @@ logger = logging.getLogger('function_calls')
 
 
 @login_required
+@require_feature_flag('committee_voting')
 def delete_committee_vote(request, code, legislation_id):
     """Allow chairs or admins to delete a committee vote"""
     committee = get_object_or_404(Committee, code=code)

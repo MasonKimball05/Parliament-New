@@ -12,8 +12,10 @@ from django.core.exceptions import ValidationError
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from src.utils.file_validation import validate_uploaded_file
+from src.feature_flag_decorators import require_feature_flag, check_feature_enabled
 
 @login_required
+@require_feature_flag('legislation_voting')
 @log_function_call
 def edit_legislation(request, legislation_id):
     legislation = get_object_or_404(Legislation, id=legislation_id)
@@ -135,6 +137,10 @@ def edit_legislation(request, legislation_id):
         form = LegislationForm(request.POST, request.FILES, instance=legislation)
         if form.is_valid():
             saved_legislation = form.save(commit=False)
+            if not check_feature_enabled('anonymous_voting'):
+                saved_legislation.anonymous_vote = False
+            if not check_feature_enabled('abstain_voting'):
+                saved_legislation.allow_abstain = False
 
             # Handle status change for tabled/pending legislation
             if legislation.status in ['tabled', 'pending']:
