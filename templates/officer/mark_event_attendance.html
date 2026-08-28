@@ -36,6 +36,26 @@
         </div>
     </div>
 
+    <!-- QR self-check-in (v3.27.0) -->
+    {% if qr_checkin_enabled and not event.attendance_finalized %}
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div>
+            <span class="font-semibold text-gray-900 dark:text-white">QR self-check-in</span>
+            {% if qr_open_window %}
+            <span class="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300">
+                Open — {{ qr_open_window.minutes_remaining }} min left
+            </span>
+            {% else %}
+            <span class="ml-2 text-sm text-gray-500 dark:text-gray-400">Not open</span>
+            {% endif %}
+        </div>
+        <a href="{% url 'manage_qr_checkin' event.id %}"
+           class="inline-flex items-center px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-sm font-medium transition">
+            {% if qr_open_window %}View QR code{% else %}Open QR check-in{% endif %}
+        </a>
+    </div>
+    {% endif %}
+
     <!-- Stats -->
     {% if stats %}
     <div class="grid grid-cols-2 md:grid-cols-6 gap-4 mb-6">

@@ -76,7 +76,17 @@ services:
       - static_volume:/app/staticfiles
       - media_volume:/app/media
     ports:
-      - "8000:8000"
+      # v3.27.0 — was "8000:8000" (bound to every interface). nginx already
+      # reaches this container at `web:8000` over the compose network (see
+      # `upstream parliament_app` in nginx.conf), so publishing it to the host
+      # at all was only ever for convenience, not for nginx→web traffic — and
+      # publishing it unbound meant Daphne was reachable directly on the
+      # host's public IP:8000, with none of nginx's rate limiting, realip
+      # verification, or gzip, and no TLS. Bound to loopback so
+      # `curl localhost:8000` still works FROM the server itself; not
+      # reachable from outside it. Revert to "8000:8000" only if something
+      # outside this compose file genuinely needs to reach Daphne directly.
+      - "127.0.0.1:8000:8000"
     environment:
       - DJANGO_SETTINGS_MODULE=Parliament.settings
       - DEBUG=${DEBUG:-False}
@@ -107,6 +117,10 @@ services:
     container_name: parliament-nginx
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      # v3.27.0 — nginx.conf now `include`s these from /etc/nginx/, same
+      # directory nginx.conf itself lands in, so relative includes resolve.
+      - ./nginx_proxy_common.conf:/etc/nginx/nginx_proxy_common.conf:ro
+      - ./nginx_cloudflare_only.conf:/etc/nginx/nginx_cloudflare_only.conf:ro
       - static_volume:/app/staticfiles:ro
       - media_volume:/app/media:ro
       - ./exportable_media:/app/exportable_media:ro

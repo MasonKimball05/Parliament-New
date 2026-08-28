@@ -51,21 +51,17 @@ def songbook_list(request):
     # Order by title
     songs = songs.order_by('title')
 
-    # Get all categories for filter tabs with song counts
+    # Category tabs + counts for the whole page (independent of the search/
+    # category filter above, which only affects `songs`).
     #
     # v3.17.5: this was a `.count()` inside a Python loop — one query per
     # category on every songbook page load. A filtered conditional aggregate
-    # gets all of them in the same single query that fetches the categories.
-    categories = list(
-        SongCategory.objects
-        .annotate(song_count=Count('songs', filter=Q(songs__is_active=True)))
-        .order_by('display_order', 'name')
-    )
-
-    # Category counts
-    category_counts = {
-        'all': Song.objects.filter(is_active=True).count(),
-    }
+    # got all of them in the same single query that fetches the categories.
+    # v3.27.0: that query still ran on EVERY page load regardless — cached
+    # now via SongCategory.get_tabs_data(), invalidated on any Song/
+    # SongCategory change (src/models/songs.py). It rarely changes and the
+    # page is opened constantly, so this is close to a pure win.
+    categories, category_counts = SongCategory.get_tabs_data()
 
     # Paginate
     paginator = Paginator(songs, 20)

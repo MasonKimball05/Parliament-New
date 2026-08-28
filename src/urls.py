@@ -29,7 +29,12 @@ from src.view.officer.announcement_polls import (
 )
 from src.view.officer.edit_landing_page import edit_landing_page
 from src.view.officer.contact_submissions import contact_submissions_view, mark_contact_read, mark_all_contact_read
-from src.view.officer.event_attendance import event_attendance_list, mark_event_attendance, review_excuses
+from src.view.officer.event_attendance import (
+    event_attendance_list, mark_event_attendance, review_excuses,
+    manage_qr_checkin, open_qr_checkin, close_qr_checkin, qr_checkin_image,
+    generate_qr_embed_link, revoke_qr_embed_link,
+)
+from src.view.event_checkin import event_qr_checkin, event_checkin_embed_image
 from src.view.officer.attendance_dashboard import attendance_dashboard, member_attendance_detail
 from src.view.officer.chapter_minutes import (
     chapter_minutes_list, create_chapter_minutes, edit_chapter_minutes,
@@ -494,6 +499,20 @@ urlpatterns = [
     path('officers/attendance/dashboard/', attendance_dashboard, name='attendance_dashboard'),
     path('officers/attendance/member/<str:user_id>/', member_attendance_detail, name='officer_member_attendance'),
     path('officers/attendance/event/<int:event_id>/', mark_event_attendance, name='mark_event_attendance'),
+
+    # QR self-check-in (v3.27.0) — officer-facing window management, plus the
+    # member-facing scan target. See EventCheckinWindow (src/models/events.py).
+    path('officers/attendance/event/<int:event_id>/qr/', manage_qr_checkin, name='manage_qr_checkin'),
+    path('officers/attendance/event/<int:event_id>/qr/open/', open_qr_checkin, name='open_qr_checkin'),
+    path('officers/attendance/event/<int:event_id>/qr/close/', close_qr_checkin, name='close_qr_checkin'),
+    path('officers/attendance/event/<int:event_id>/qr/image/', qr_checkin_image, name='qr_checkin_image'),
+    path('officers/attendance/event/<int:event_id>/qr/embed/generate/', generate_qr_embed_link, name='generate_qr_embed_link'),
+    path('officers/attendance/event/<int:event_id>/qr/embed/revoke/', revoke_qr_embed_link, name='revoke_qr_embed_link'),
+    path('events/<int:event_id>/checkin/<str:token>/', event_qr_checkin, name='event_qr_checkin'),
+    # Public, unauthenticated — for pasting into a slide deck. See
+    # EventCheckinEmbed's docstring (src/models/events.py).
+    path('events/<int:event_id>/checkin/embed/<str:embed_token>/qr.svg', event_checkin_embed_image, name='event_checkin_embed_image'),
+
     path('officers/excuses/', review_excuses, name='review_excuses'),
     path('officers/excuses/<int:event_id>/', review_excuses, name='review_excuses'),
 

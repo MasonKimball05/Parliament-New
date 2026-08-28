@@ -1,0 +1,109 @@
+{% extends "admin_base.html" %}
+{% load static %}
+
+{% block title %}QR Check-in - {{ event.title }}{% endblock %}
+
+{% block admin_content %}
+<div class="container mx-auto px-4 py-8 max-w-2xl">
+    <div class="flex items-center text-sm text-gray-600 dark:text-gray-400 mb-4">
+        <a href="{% url 'mark_event_attendance' event.id %}" class="hover:text-primary-600 dark:hover:text-primary-400">{{ event.title }}</a>
+        <svg class="w-4 h-4 mx-2" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"/>
+        </svg>
+        <span class="text-gray-900 dark:text-white">QR Check-in</span>
+    </div>
+
+    <h2 class="text-2xl font-bold mb-2 text-gray-900 dark:text-white">QR self-check-in</h2>
+    <p class="text-gray-600 dark:text-gray-400 mb-6">
+        Members scan this code with their own phone to mark themselves present.
+        It only works for {{ window_minutes|default:15 }} minutes after you open it —
+        you'll need to open a new window if attendance runs longer than that.
+        Manual attendance marking on the previous page always still works, whether
+        or not you use this.
+    </p>
+
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
+        {% if window and window.is_open %}
+            <div class="flex flex-col items-center">
+                <div class="bg-white p-4 rounded-lg border-2 border-gray-200">
+                    <img src="{% url 'qr_checkin_image' event.id %}" alt="QR check-in code" class="w-64 h-64">
+                </div>
+                <p class="mt-4 text-lg font-semibold text-gray-900 dark:text-white" id="qr-time-remaining">
+                    {{ window.minutes_remaining }} minute{{ window.minutes_remaining|pluralize }} left
+                </p>
+                <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                    Opened by {{ window.opened_by.name|default:"an officer" }} at {{ window.opened_at|date:"g:i A" }}
+                </p>
+                <form method="post" action="{% url 'close_qr_checkin' event.id %}">
+                    {% csrf_token %}
+                    <button type="submit"
+                            class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium transition">
+                        Close window now
+                    </button>
+                </form>
+            </div>
+        {% else %}
+            <div class="text-center py-6">
+                <p class="text-gray-600 dark:text-gray-400 mb-4">No check-in window is currently open.</p>
+                <form method="post" action="{% url 'open_qr_checkin' event.id %}">
+                    {% csrf_token %}
+                    <button type="submit"
+                            class="px-6 py-3 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-medium transition">
+                        Open a 15-minute check-in window
+                    </button>
+                </form>
+            </div>
+        {% endif %}
+    </div>
+
+    <!-- Embed link, for slides/OBS/etc. -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mt-6">
+        <h3 class="font-semibold text-gray-900 dark:text-white mb-1">Embed link for a slideshow</h3>
+        <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+            A link you can paste into Google Slides ("Insert &rarr; Image &rarr; By URL") or a
+            PowerPoint linked picture. It shows a "not open yet" placeholder until you open a
+            window above, then shows the live code. <strong>Slides caches the image when you
+            insert it</strong> — re-insert (or use "Replace image" with this same URL) right
+            before you present each week so it picks up the current code rather than an old one.
+            It's the same link every week, so you only add it to the deck once.
+        </p>
+
+        {% if embed_url %}
+            <div class="flex flex-col sm:flex-row gap-2 mb-3">
+                <input type="text" readonly value="{{ embed_url }}"
+                       onclick="this.select();"
+                       class="flex-1 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-900 text-gray-700 dark:text-gray-300 font-mono">
+                <button type="button" onclick="navigator.clipboard.writeText('{{ embed_url|escapejs }}')"
+                        class="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-lg text-sm font-medium transition">
+                    Copy
+                </button>
+            </div>
+            <p class="text-xs text-amber-600 dark:text-amber-400 mb-3">
+                Anyone with this link can see the check-in code while a window is open — treat it
+                like a password. Revoke it if it ends up somewhere you didn't intend.
+            </p>
+            <form method="post" action="{% url 'revoke_qr_embed_link' event.id %}">
+                {% csrf_token %}
+                <button type="submit"
+                        class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium transition">
+                    Revoke this link
+                </button>
+            </form>
+        {% else %}
+            <form method="post" action="{% url 'generate_qr_embed_link' event.id %}">
+                {% csrf_token %}
+                <button type="submit"
+                        class="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-sm font-medium transition">
+                    Get embed link
+                </button>
+            </form>
+        {% endif %}
+    </div>
+
+    <div class="mt-6">
+        <a href="{% url 'mark_event_attendance' event.id %}" class="text-sm text-primary-600 dark:text-primary-400 hover:underline">
+            &larr; Back to attendance
+        </a>
+    </div>
+</div>
+{% endblock %}

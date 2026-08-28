@@ -7,7 +7,7 @@ from django.contrib import messages
 from django.contrib.auth import update_session_auth_hash
 from src.forms import ForcedPasswordChangeForm
 from django.core.exceptions import ValidationError
-from src.models import ActivityLog
+from src.models import ActivityLog, UserSession
 
 
 @login_required
@@ -27,6 +27,15 @@ def forced_password_change(request):
                 form.save()
                 # Keep user logged in after password change
                 update_session_auth_hash(request, request.user)
+                # v3.27.0 — see change_password.py's identical call for why:
+                # this closes every other device's session immediately rather
+                # than leaving it to expire on its own, and keeps the Active
+                # Sessions list accurate. Particularly relevant here — a
+                # forced change follows an admin-initiated reset, which is
+                # exactly the "someone else may have had access" case.
+                UserSession.revoke_other_sessions(
+                    request.user, keep_session_key=request.session.session_key
+                )
                 ActivityLog.log_activity(
                     action_type='password_changed',
                     user=request.user,

@@ -291,6 +291,24 @@ class Command(BaseCommand):
                 'is_enabled': True,
             },
             {
+                'name': 'qr_attendance_checkin',
+                'display_name': 'QR Attendance Self Check-In',
+                'description': (
+                    'v3.27.0: lets a member self-check-in to an event by scanning '
+                    'a QR code, during a short window an officer opens by hand '
+                    '(EventCheckinWindow.WINDOW_MINUTES). Additive only — manual '
+                    'attendance marking (mark_event_attendance) works identically '
+                    'whether this is on or off, and always overrides a self '
+                    'check-in. OFF by default and listed in '
+                    'FeatureFlag.DISABLED_BY_DEFAULT: this is about attendance '
+                    'INTEGRITY, not confidentiality, but the same fail-closed '
+                    'reasoning applies — an unseeded install must not let members '
+                    'self-attest attendance with nobody having decided to allow it.'
+                ),
+                'category': 'features',
+                'is_enabled': False,
+            },
+            {
                 'name': 'excuse_system',
                 'display_name': 'Excuse System',
                 'description': (

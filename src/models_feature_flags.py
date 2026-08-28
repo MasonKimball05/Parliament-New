@@ -51,7 +51,14 @@ class FeatureFlag(models.Model):
     # the whole chapter the moment anyone deployed without running
     # `seed_feature_flags`. This one line is what makes `GoverningDocument.enabled()`
     # fail closed. Do not remove it, and see that method for the other half.
-    DISABLED_BY_DEFAULT = ['maintenance_mode', 'cnb_foreword']
+    #: v3.27.0 — 'qr_attendance_checkin' added. Unlike most flags in this list,
+    #: this one isn't about confidentiality — it's about attendance INTEGRITY:
+    #: an unseeded install (or a fresh row nobody has looked at yet) must not
+    #: silently let members self-attest attendance with no officer having
+    #: opened a window for it. Manual attendance marking is NEVER gated by
+    #: this flag — see mark_event_attendance, which has no
+    #: @require_feature_flag('qr_attendance_checkin') anywhere near it.
+    DISABLED_BY_DEFAULT = ['maintenance_mode', 'cnb_foreword', 'qr_attendance_checkin']
 
     @classmethod
     def is_feature_enabled(cls, feature_name):

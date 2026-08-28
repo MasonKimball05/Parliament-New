@@ -1037,3 +1037,45 @@ class UserSession(models.Model):
             deleted_count, _ = cls.objects.filter(last_activity__lt=cutoff).delete()
 
         return deleted_count
+
+    @classmethod
+    def revoke_other_sessions(cls, user, keep_session_key=None):
+        """
+        Log a user out of every session except (optionally) one, deleting both
+        the real Django session row and this table's display row for each.
+
+        v3.27.0 — extracted from `session_viewer.revoke_all_other_sessions` so
+        a password change can call the exact same "actually log the other
+        devices out" path a member gets from the Active Sessions page, instead
+        of leaving those devices in an in-between state.
+
+        WHY THIS MATTERS ON A PASSWORD CHANGE SPECIFICALLY: Django's own
+        `update_session_auth_hash` / session-auth-hash check already means any
+        *other* session becomes unusable the moment it is next used — that
+        part was never broken, and this method changes nothing about it. What
+        it fixes is two things that check did NOT cover: (1) the Active
+        Sessions page kept showing those sessions as if they might still be
+        live, because nothing had told `UserSession` they were gone — a
+        display-truth gap, not a security one; and (2) the actual
+        `django_session` row for another device sat around, unusable but not
+        removed, until it expired or a cleanup task swept it up, rather than
+        being closed at the moment a member has the strongest reason to want
+        every other device logged out *right now* (they just changed a
+        password, often because they suspect someone else has it).
+
+        Returns the number of sessions revoked.
+        """
+        from django.contrib.sessions.models import Session
+
+        other_sessions = cls.objects.filter(user=user)
+        if keep_session_key:
+            other_sessions = other_sessions.exclude(session_key=keep_session_key)
+
+        session_keys = list(other_sessions.values_list('session_key', flat=True))
+        count = len(session_keys)
+        if not count:
+            return 0
+
+        Session.objects.filter(session_key__in=session_keys).delete()
+        other_sessions.delete()
+        return count

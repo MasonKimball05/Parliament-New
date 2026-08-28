@@ -757,3 +757,180 @@ class EventSignup(models.Model):
         if self.waitlist_position is not None:
             return f'{self.user.name} — {self.event.title} (waitlist #{self.waitlist_position})'
         return f'{self.user.name} — {self.event.title} (signed up)'
+
+
+class EventCheckinWindow(models.Model):
+    """
+    A short, officer-opened window during which members can self-check-in to
+    an event's attendance by scanning a QR code, instead of an officer marking
+    every person by hand. v3.27.0 — closes the roadmap's "attendance QR
+    self-check-in" item.
+
+    ⚠️ DELIBERATELY TIME-BOXED, NOT A PERMANENT PER-EVENT CODE. A QR that never
+    expires is just a photograph waiting to be shared into a group chat — it
+    checks in whoever has the picture, not whoever is in the room. Requiring
+    an officer to open a window BY HAND, and having it expire on its own a
+    short time later (`WINDOW_MINUTES`), is the entire security model: the
+    token is worthless outside a ~15-minute stretch that an officer chose to
+    start, in person, at the actual event.
+
+    ⚠️ ADDITIVE, NEVER A REPLACEMENT. `mark_event_attendance`
+    (src/view/officer/event_attendance.py) is untouched by this model or by
+    whether `qr_attendance_checkin` is enabled — an officer can always mark,
+    correct, or override anyone by hand, whether or not a window is open, and
+    a self-check-in through this model is just another way an `Attendance` row
+    gets written, not a separate source of truth. A self-check-in never
+    prevents an officer's own marking from being the one that sticks — an
+    officer can always overwrite it afterward the same way they overwrite any
+    other status, via `mark_event_attendance`.
+    """
+    WINDOW_MINUTES = 15
+
+    event = models.ForeignKey(
+        'Event', on_delete=models.CASCADE, related_name='checkin_windows',
+    )
+    #: `secrets.token_urlsafe` output, not a sequential id — see `open_for`.
+    #: Guessable tokens would make the 15-minute expiry moot; an attacker who
+    #: could enumerate them would not need to be anywhere near the event.
+    token = models.CharField(max_length=43, unique=True, editable=False)
+    opened_by = models.ForeignKey(
+        'ParliamentUser', on_delete=models.SET_NULL, null=True,
+        related_name='opened_checkin_windows',
+    )
+    opened_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField(editable=False)
+    #: Lets an officer end a window early (e.g. attendance is clearly done and
+    #: they don't want to leave a live QR displayed a moment longer than
+    #: needed) without waiting out the rest of `WINDOW_MINUTES`.
+    closed_early_at = models.DateTimeField(null=True, blank=True)
+    closed_early_by = models.ForeignKey(
+        'ParliamentUser', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='closed_checkin_windows',
+    )
+
+    class Meta:
+        ordering = ['-opened_at']
+        indexes = [models.Index(fields=['event', 'expires_at'])]
+        verbose_name = 'Event Check-in Window'
+        verbose_name_plural = 'Event Check-in Windows'
+
+    def __str__(self):
+        return f'{self.event.title} — window opened {self.opened_at:%Y-%m-%d %H:%M}'
+
+    def is_open(self):
+        if self.closed_early_at is not None:
+            return False
+        return dj_timezone.now() < self.expires_at
+
+    def minutes_remaining(self):
+        if not self.is_open():
+            return 0
+        remaining = (self.expires_at - dj_timezone.now()).total_seconds() / 60
+        return max(0, round(remaining))
+
+    @classmethod
+    def open_for(cls, event, opened_by):
+        """Start a new window for `event`. Does not close any existing one —
+        see `get_open_window`, which only ever returns the most recent
+        unexpired window regardless of how many past ones exist."""
+        import secrets
+
+        now = dj_timezone.now()
+        return cls.objects.create(
+            event=event,
+            opened_by=opened_by,
+            token=secrets.token_urlsafe(32),
+            expires_at=now + timedelta(minutes=cls.WINDOW_MINUTES),
+        )
+
+    @classmethod
+    def get_open_window(cls, event):
+        """The currently open window for `event`, or None. `expires_at__gt`
+        rather than filtering in Python — this is checked on every scan, so
+        it needs to be one indexed query, not "fetch the latest row and ask
+        it" (which would still need the same clock comparison anyway, just
+        after a wasted round trip for an event with no window at all)."""
+        return cls.objects.filter(
+            event=event,
+            expires_at__gt=dj_timezone.now(),
+            closed_early_at__isnull=True,
+        ).order_by('-opened_at').first()
+
+
+class EventCheckinEmbed(models.Model):
+    """
+    A stable, UNAUTHENTICATED bearer link for embedding the live QR check-in
+    image into something that fetches it with no session at all — Google
+    Slides' "Insert image by URL", a PowerPoint linked picture, OBS, etc.
+    v3.27.0.
+
+    Same shape of problem as `CalendarSubscription` (src/models_calendar_
+    subscription.py), solved the same way: the officer-facing QR image view
+    (`qr_checkin_image`) requires login, which a slide-deck fetch cannot
+    provide, so there has to be SOME endpoint reachable with no session — and
+    the only thing that can guard it is a long, unguessable token, not a
+    login check. Deliberately NOT registered in `/admin/`, for the identical
+    reason `CalendarSubscription` is not: `token` is a bearer credential, and
+    an editable admin field is a way to leak it to anyone who can view that
+    row.
+
+    ⚠️ WHY THIS IS SAFE TO BE ANONYMOUS: this token does not grant the ability
+    to check anyone in — it only lets the holder FETCH AN IMAGE. The actual
+    security boundary is still `EventCheckinWindow`'s own token and 15-minute
+    expiry, which this does not touch or extend. Someone with only this
+    token, and no open window, gets a placeholder image. Someone with this
+    token WHILE a window is open sees exactly what the projected slide is
+    already showing the whole room — a photo of the screen would tell them
+    the same thing. What this token is NOT is a substitute for the window
+    being open; it is one more way to look at the same QR the window already
+    controls, not a second way in.
+
+    One per event (`OneToOneField`), created on first "Get embed link" click
+    and stable after that so the same URL keeps working the next time the
+    officer opens a window for the same event — the whole point is to paste
+    it into a slide ONCE. `revoke` + a fresh `token` exists for the case where
+    a link needs to stop working (e.g. it leaked somewhere unintended).
+    """
+    event = models.OneToOneField(
+        'Event', on_delete=models.CASCADE, related_name='checkin_embed',
+    )
+    token = models.CharField(max_length=43, unique=True, editable=False)
+    created_by = models.ForeignKey(
+        'ParliamentUser', on_delete=models.SET_NULL, null=True,
+        related_name='created_checkin_embeds',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    revoked_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        verbose_name = 'Event Check-in Embed Link'
+        verbose_name_plural = 'Event Check-in Embed Links'
+
+    def __str__(self):
+        return f'Embed link for {self.event.title}'
+
+    def is_active(self):
+        return self.revoked_at is None
+
+    @classmethod
+    def get_or_create_for(cls, event, created_by):
+        """The stable embed link for `event` — created on first use, reused
+        after that. Regenerates the token if the existing one was revoked,
+        so clicking "Get embed link" again after a revoke issues a working
+        replacement rather than silently handing back a dead one."""
+        import secrets
+
+        embed, created = cls.objects.get_or_create(
+            event=event,
+            defaults={'token': secrets.token_urlsafe(32), 'created_by': created_by},
+        )
+        if not created and embed.revoked_at is not None:
+            embed.token = secrets.token_urlsafe(32)
+            embed.revoked_at = None
+            embed.created_by = created_by
+            embed.save(update_fields=['token', 'revoked_at', 'created_by'])
+        return embed
+
+    def revoke(self):
+        self.revoked_at = dj_timezone.now()
+        self.save(update_fields=['revoked_at'])

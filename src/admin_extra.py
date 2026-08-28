@@ -44,7 +44,7 @@ from .models import (
     PledgeTask, PledgePageRestriction, PledgeTaskCompletion, PledgeTaskQuestion,
     PledgeQuizAnswer,
     # events
-    EventReminderLog, EventReminderRecipient, EventSignup,
+    EventReminderLog, EventReminderRecipient, EventSignup, EventCheckinWindow,
     # guide
     GuideTour, GuideTourStep, UserTourProgress, GuideArticle,
     # landing page
@@ -418,6 +418,25 @@ class EventReminderRecipientAdmin(ReadOnlyAdmin):
     list_display = ('reminder_log', 'user_name', 'user_member_type', 'status')
     list_filter = ('status',)
     search_fields = ('user_name',)
+
+
+@admin.register(EventCheckinWindow, site=admin_site)
+class EventCheckinWindowAdmin(ReadOnlyAdmin):
+    """
+    v3.27.0 — read-only, same as the other event audit trails on this page.
+    Opening/closing a window goes through the app (manage_qr_checkin and
+    friends, src/view/officer/event_attendance.py) so the 15-minute expiry and
+    the ActivityLog entry stay attached to a real request; this exists so an
+    officer or advisor auditing attendance can see when a window was opened,
+    by whom, and whether it was closed early, without needing shell access.
+    `token` is excluded — it is a live credential for as long as the window
+    is open (anyone who has it can self-check-in), not an identifier a
+    reviewer needs to see.
+    """
+    list_display = ('event', 'opened_by', 'opened_at', 'expires_at', 'closed_early_at', 'closed_early_by')
+    list_filter = ('event',)
+    search_fields = ('event__title', 'opened_by__username', 'opened_by__name')
+    exclude = ('token',)
 
 
 # ──────────────────────────────────────────────────────────────── guide
@@ -804,6 +823,16 @@ class TwoFactorRequirementAdmin(admin.ModelAdmin):
 # default — an admin editing someone's draft is not a workflow anybody asked
 # for. Raised by the 08-07-26 auto-run; see CLAUDE.md's admin confidentiality
 # boundary for the general rule.
+#
+# EventCheckinEmbed (src/models/events.py, v3.27.0) is intentionally NOT
+# registered, for the exact same reason as CalendarSubscription just above:
+# `token` is a bearer credential — anyone holding it can fetch the live QR
+# check-in image anonymously at /events/<id>/checkin/embed/<token>/qr.svg
+# (meant for pasting into a slide deck, which has no session to authenticate
+# with). If it is ever registered it MUST exclude `token`. Officers manage
+# their own embed link via generate_qr_embed_link / revoke_qr_embed_link
+# (src/view/officer/event_attendance.py); admin visibility isn't needed and
+# would just be one more place the token sits in plaintext.
 
 
 # ──────────────────────────────────────────────────────────────── webauthn

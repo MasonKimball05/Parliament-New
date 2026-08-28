@@ -100,12 +100,11 @@ def revoke_all_other_sessions(request):
 
     current_session_key = request.session.session_key
 
-    # Get all other sessions
-    other_sessions = UserSession.objects.filter(
-        user=request.user
-    ).exclude(session_key=current_session_key)
-
-    count = other_sessions.count()
+    # v3.27.0 — shared with change_password / forced_password_change, so a
+    # password change gets the exact same "other devices are actually logged
+    # out now" behaviour as clicking this button, rather than a weaker,
+    # separately-maintained copy of it. See UserSession.revoke_other_sessions.
+    count = UserSession.revoke_other_sessions(request.user, keep_session_key=current_session_key)
 
     if count == 0:
         return JsonResponse({
@@ -113,13 +112,6 @@ def revoke_all_other_sessions(request):
             'message': 'No other sessions to revoke.',
             'revoked_count': 0
         })
-
-    # Delete Django sessions
-    session_keys = list(other_sessions.values_list('session_key', flat=True))
-    Session.objects.filter(session_key__in=session_keys).delete()
-
-    # Delete user session records
-    other_sessions.delete()
 
     security_logger.info(
         f"ALL SESSIONS REVOKED: User '{request.user.name}' revoked {count} other sessions"

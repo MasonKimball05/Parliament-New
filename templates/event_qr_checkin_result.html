@@ -1,0 +1,45 @@
+{% extends 'base.html' %}
+
+{% block title %}Check-in{% endblock %}
+
+{% block content %}
+<div class="max-w-md mx-auto px-4 py-16 text-center">
+    {% if result == 'success' %}
+        <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-green-100 dark:bg-green-900/40 flex items-center justify-center">
+            <svg class="w-8 h-8 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+            </svg>
+        </div>
+        <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">
+            {% if already_checked_in %}You're already checked in{% else %}You're checked in{% endif %}
+        </h1>
+        <p class="text-gray-600 dark:text-gray-400">{{ event.title }}</p>
+
+    {% elif result == 'expired' %}
+        <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-yellow-100 dark:bg-yellow-900/40 flex items-center justify-center">
+            <svg class="w-8 h-8 text-yellow-600 dark:text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+        </div>
+        <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">This code has expired</h1>
+        <p class="text-gray-600 dark:text-gray-400">
+            Check-in windows only stay open for a short time. Ask an officer to open a new one, or let them mark you present directly.
+        </p>
+
+    {% elif result == 'finalized' %}
+        <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">Attendance already finalized</h1>
+        <p class="text-gray-600 dark:text-gray-400">
+            Attendance for {{ event.title }} has already been finalized. If this is wrong, talk to an officer.
+        </p>
+
+    {% elif result == 'not_eligible' %}
+        <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">Can't check in</h1>
+        <p class="text-gray-600 dark:text-gray-400">
+            Your account isn't eligible for event attendance tracking. Talk to an officer if you think this is wrong.
+        </p>
+
+    {% else %}
+        <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">Something went wrong</h1>
+    {% endif %}
+</div>
+{% endblock %}

@@ -37,6 +37,7 @@ SECTIONS = {
     ],
     'Events': [
         'Event', 'EventSignup', 'EventReminderLog', 'EventReminderRecipient',
+        'EventCheckinWindow',
     ],
     'Service Hours': [
         'ServicePeriod', 'ServiceMemberExpectation', 'ServiceHoursSubmission',
