@@ -1,4 +1,5 @@
 from django.contrib.auth.decorators import login_required
+from django.http import HttpResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.utils import timezone
 from django.db import models
@@ -7,7 +8,8 @@ from django.core.paginator import Paginator
 from django.contrib import messages
 from datetime import timedelta
 from dateutil.relativedelta import relativedelta
-from src.models import Event
+import base64
+from src.models import Event, EventReminderRecipient
 from src.forms import EventForm
 from src.decorators import officer_required
 from src.notification_service import notify_all_active_members
@@ -223,3 +225,38 @@ def delete_event(request, event_id):
         return redirect('manage_events')
 
     return render(request, 'officer/delete_event.html', {'event': event})
+
+
+# 1x1 transparent GIF — same constant/approach as
+# manage_announcements.track_email_view.
+_PIXEL_GIF = base64.b64decode(
+    'R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'
+)
+
+
+def track_event_reminder_email_view(request, log_id, user_id):
+    """
+    Track when a reminder email is opened. Returns a 1x1 transparent pixel.
+
+    No login required — this is loaded as an <img> src from the recipient's
+    mail client, which has no Parliament session. Same shape as
+    manage_announcements.track_email_view: silently no-op on a bad/stale
+    id rather than 404ing (a broken pixel would just show as a missing
+    image in the email; a 404 has no visible effect either, so there is
+    nothing gained by distinguishing the two failure cases to the client,
+    and every extra thing this view does is one more way to leak whether a
+    given (log, user) pair exists to whoever is poking at the URL).
+    """
+    try:
+        recipient = EventReminderRecipient.objects.get(
+            reminder_log_id=log_id, user__user_id=user_id,
+        )
+        # Keep the FIRST open time — a mail client can refetch the pixel on
+        # every subsequent look at the message.
+        if recipient.viewed_at is None:
+            recipient.viewed_at = timezone.now()
+            recipient.save(update_fields=['viewed_at'])
+    except EventReminderRecipient.DoesNotExist:
+        pass
+
+    return HttpResponse(_PIXEL_GIF, content_type='image/gif')

@@ -737,6 +737,15 @@ class EventReminderRecipient(models.Model):
         help_text="Blank when this reminder slot's email option was off",
     )
 
+    # Same tracking-pixel pattern as AnnouncementEmailRecipient/
+    # UserAnnouncementView: null until the recipient's mail client fetches the
+    # 1x1 image embedded in the HTML email. Only ever meaningful when
+    # email_status == 'dispatched' — there is nothing to view otherwise.
+    viewed_at = models.DateTimeField(
+        null=True, blank=True,
+        help_text='When this recipient opened the reminder email (tracking pixel hit) — null if never opened (or no email was sent to them)',
+    )
+
     class Meta:
         ordering = ['status', 'user_name']
         verbose_name = 'Reminder Recipient'

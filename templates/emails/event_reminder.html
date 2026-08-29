@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Event Reminder</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
+            color: white;
+            padding: 30px 20px;
+            text-align: center;
+            border-radius: 8px 8px 0 0;
+        }
+        .content {
+            background: #f9fafb;
+            padding: 30px 20px;
+            border-left: 1px solid #e5e7eb;
+            border-right: 1px solid #e5e7eb;
+        }
+        .event-title {
+            font-size: 24px;
+            font-weight: bold;
+            color: #1f2937;
+            margin-bottom: 15px;
+        }
+        .event-info {
+            background: #fef3c7;
+            border-left: 4px solid #f59e0b;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 4px;
+        }
+        .event-description {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #e5e7eb;
+            margin: 20px 0;
+        }
+        .footer {
+            background: #f3f4f6;
+            padding: 20px;
+            text-align: center;
+            color: #6b7280;
+            font-size: 14px;
+            border-radius: 0 0 8px 8px;
+            border: 1px solid #e5e7eb;
+        }
+        .btn {
+            display: inline-block;
+            padding: 12px 24px;
+            background: #3b82f6;
+            color: white;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: 600;
+            margin: 15px 0;
+        }
+        .btn:hover {
+            background: #2563eb;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1 style="margin: 0; font-size: 28px;">⏰ Event Reminder</h1>
+        <p style="margin: 10px 0 0 0; opacity: 0.9;">Alpha Mu Parliament</p>
+    </div>
+
+    <div class="content">
+        <div class="event-title">{{ event.title }}</div>
+
+        <div class="event-info">
+            <strong>📅 When:</strong> {{ time_str }}
+            {% if event.location %}<br><strong>📍 Where:</strong> {{ event.location }}{% endif %}
+        </div>
+
+        {% if event.description %}
+        <div class="event-description">
+            {{ event.description|linebreaks }}
+        </div>
+        {% endif %}
+
+        {% if calendar_url %}
+        <div style="text-align: center;">
+            <a href="{{ calendar_url }}" class="btn">
+                View on the Calendar
+            </a>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="footer">
+        <p>This is an automatic reminder because you are a member of the Alpha Mu Parliament system.</p>
+        <p>You can manage which reminders you receive by email under Preferences on the portal.</p>
+    </div>
+
+    <!-- Tracking pixel - invisible 1x1 image to track email opens, same
+         pattern as emails/announcement_notification.html -->
+    {% if tracking_url %}
+    <img src="{{ tracking_url }}" width="1" height="1" style="display:none;width:1px;height:1px;border:0;" alt="">
+    {% endif %}
+</body>
+</html>

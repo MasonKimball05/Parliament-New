@@ -415,7 +415,7 @@ class EventReminderLogAdmin(ViewDeleteAdmin):
 
 @admin.register(EventReminderRecipient, site=admin_site)
 class EventReminderRecipientAdmin(ReadOnlyAdmin):
-    list_display = ('reminder_log', 'user_name', 'user_member_type', 'status', 'email_status')
+    list_display = ('reminder_log', 'user_name', 'user_member_type', 'status', 'email_status', 'viewed_at')
     list_filter = ('status', 'email_status')
     search_fields = ('user_name',)
 

@@ -81,6 +81,58 @@
         {% endif %}
     </div>
 
+    <!-- Email view tracking -->
+    {% if email_enabled and log.emails_dispatched > 0 %}
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+            <div class="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+                <h2 class="font-semibold text-gray-900 dark:text-gray-100">
+                    Viewed Email
+                    <span class="ml-1 text-sm font-normal text-purple-600 dark:text-purple-400">({{ emails_viewed|length }})</span>
+                </h2>
+            </div>
+            {% if emails_viewed %}
+            <ul class="divide-y divide-gray-100 dark:divide-gray-700 max-h-80 overflow-y-auto">
+                {% for r in emails_viewed %}
+                <li class="flex items-center justify-between px-4 py-2.5">
+                    <div>
+                        <span class="font-medium text-gray-900 dark:text-gray-100">{{ r.user_name }}</span>
+                        <span class="ml-2 text-xs text-gray-500 dark:text-gray-400">{{ r.user_member_type }}</span>
+                    </div>
+                    <span class="text-xs text-purple-600 dark:text-purple-400">{{ r.viewed_at|date:"M j, g:i A" }}</span>
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <p class="px-4 py-4 text-sm text-gray-500 dark:text-gray-400">No one has opened this email yet.</p>
+            {% endif %}
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+            <div class="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+                <h2 class="font-semibold text-gray-900 dark:text-gray-100">
+                    Not Yet Viewed
+                    <span class="ml-1 text-sm font-normal text-gray-500 dark:text-gray-400">({{ emails_not_viewed|length }})</span>
+                </h2>
+            </div>
+            {% if emails_not_viewed %}
+            <ul class="divide-y divide-gray-100 dark:divide-gray-700 max-h-80 overflow-y-auto">
+                {% for r in emails_not_viewed %}
+                <li class="flex items-center justify-between px-4 py-2.5">
+                    <div>
+                        <span class="font-medium text-gray-900 dark:text-gray-100">{{ r.user_name }}</span>
+                        <span class="ml-2 text-xs text-gray-500 dark:text-gray-400">{{ r.user_member_type }}</span>
+                    </div>
+                    <span class="text-xs text-gray-400 dark:text-gray-500">Not opened</span>
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <p class="px-4 py-4 text-sm text-gray-500 dark:text-gray-400">Everyone has opened this email.</p>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
     <!-- Dispatched Recipients -->
     {% if dispatched %}
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden mb-6">

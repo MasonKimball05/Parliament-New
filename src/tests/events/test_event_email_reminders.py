@@ -180,21 +180,20 @@ class EventReminderEmailOptionTests(TestCase):
         self._due_event(reminder_1_email_enabled=True)
 
         from unittest.mock import patch
+        from django.core.mail import EmailMultiAlternatives
 
-        real_send_mail = mail.send_mail
+        real_send = EmailMultiAlternatives.send
 
-        def flaky_send_mail(*args, **kwargs):
-            if kwargs.get('recipient_list') == ['fails@example.com']:
+        def flaky_send(self, *args, **kwargs):
+            if self.to == ['fails@example.com']:
                 raise Exception('SMTP boom')
-            return real_send_mail(*args, **kwargs)
+            return real_send(self, *args, **kwargs)
 
-        # send_event_reminder_pushes does `from django.core.mail import
-        # send_mail` INSIDE the function body (matching this module's existing
-        # local-import convention), so patching the name has to happen at its
-        # real home — patching src.tasks.notifications.send_mail wouldn't
-        # exist as an attribute to patch, since it's never bound at module
-        # scope there.
-        with patch('django.core.mail.send_mail', side_effect=flaky_send_mail):
+        # send_event_reminder_pushes sends via EmailMultiAlternatives(...).send()
+        # (not send_mail — that's what carries the HTML body + tracking pixel
+        # alternative), so the failure has to be injected on
+        # EmailMultiAlternatives.send itself.
+        with patch.object(EmailMultiAlternatives, 'send', flaky_send):
             send_event_reminder_pushes()
 
         failed = EventReminderRecipient.objects.get(user_name='Member m11')
@@ -203,6 +202,31 @@ class EventReminderEmailOptionTests(TestCase):
         self.assertEqual(ok.email_status, 'dispatched')
         log = EventReminderLog.objects.get(reminder_slot=1)
         self.assertEqual(log.emails_dispatched, 1)
+
+    def test_email_send_failure_flags_the_user_email(self):
+        """
+        A failed send should flag the recipient's email (same mechanism the
+        announcement system uses via _flag_user_email) so it surfaces to the
+        member on next login, and log at ERROR (not warning) so it isn't
+        easy to miss in the Django logs.
+        """
+        member = make_member('m14', email='fails14@example.com')
+        self._due_event(reminder_1_email_enabled=True)
+
+        from unittest.mock import patch
+        from django.core.mail import EmailMultiAlternatives
+
+        with patch.object(EmailMultiAlternatives, 'send', side_effect=Exception('SMTP boom')):
+            with self.assertLogs('src.tasks.notifications', level='ERROR') as cm:
+                send_event_reminder_pushes()
+
+        member.refresh_from_db()
+        self.assertTrue(member.email_flagged)
+        self.assertIn('SMTP boom', member.email_flagged_reason)
+        self.assertTrue(any('email failed' in msg for msg in cm.output))
+
+        recipient = EventReminderRecipient.objects.get(user=member)
+        self.assertEqual(recipient.email_status, 'failed')
 
     def test_missing_default_from_email_degrades_to_push_only(self):
         make_member('m13', email='m13@example.com')

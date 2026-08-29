@@ -3817,10 +3817,16 @@ def event_reminder_logs(request):
     Shows upcoming events with pending reminders and completed reminder history.
     """
     from django.utils import timezone as tz
-    from django.db.models import Q
+    from django.db.models import Count, Q
     now = tz.now()
 
-    logs = EventReminderLog.objects.select_related('event').order_by('-sent_at')[:100]
+    # emails_viewed is annotated (not a stored EventReminderLog field) because,
+    # unlike the other counts, it keeps changing after the row is created —
+    # someone can open the email days later. A stored count would be stale the
+    # moment it was written.
+    logs = EventReminderLog.objects.select_related('event').annotate(
+        emails_viewed=Count('recipients', filter=Q(recipients__viewed_at__isnull=False)),
+    ).order_by('-sent_at')[:100]
 
     # Events with at least one reminder enabled that hasn't fired yet
     pending_events = Event.objects.filter(
@@ -3846,7 +3852,11 @@ def event_reminder_log_detail(request, log_id):
     ``dispatched``/``skipped`` are the push outcome, unchanged from before email
     reminders existed. ``email_enabled`` tells the template whether this slot had
     the email option on at all (a blank email_status on every row otherwise —
-    not worth a stat card of all zeros).
+    not worth a stat card of all zeros). ``emails_viewed``/``emails_not_viewed``
+    split the actually-dispatched emails by whether the tracking pixel has
+    fired — same "who has and hasn't viewed" question the announcement email
+    stats page answers, via the same mechanism (EventReminderRecipient.viewed_at,
+    set by track_event_reminder_email_view).
     """
     log = get_object_or_404(EventReminderLog, id=log_id)
     recipients = log.recipients.select_related('user').defer(*member_defer('user')).order_by('status', 'user_name')
@@ -3855,11 +3865,17 @@ def event_reminder_log_detail(request, log_id):
     skipped = recipients.exclude(status='dispatched')
     email_enabled = recipients.exclude(email_status='').exists()
 
+    emails_dispatched_qs = recipients.filter(email_status='dispatched')
+    emails_viewed = emails_dispatched_qs.filter(viewed_at__isnull=False).order_by('-viewed_at')
+    emails_not_viewed = emails_dispatched_qs.filter(viewed_at__isnull=True)
+
     return render(request, 'admin_v2/event_reminder_log_detail.html', {
         'log': log,
         'dispatched': dispatched,
         'skipped': skipped,
         'email_enabled': email_enabled,
+        'emails_viewed': emails_viewed,
+        'emails_not_viewed': emails_not_viewed,
     })
 
 

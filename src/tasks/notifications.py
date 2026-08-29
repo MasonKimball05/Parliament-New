@@ -126,18 +126,30 @@ def send_event_reminder_pushes():
     email_events preferences and per-event reminder slot configuration.
     Each of the two reminder slots has its own independent
     reminder_N_email_enabled flag, so an officer can e.g. email+push the
-    first reminder and push-only the second. Email failures for one
-    recipient don't stop the push side or the rest of the batch — this task
-    calls send_mail() synchronously per recipient (same pattern as
+    first reminder and push-only the second.
+
+    The email is HTML (with a plain-text alternative) and carries the same
+    open-tracking pixel as announcement emails — same mechanism, same
+    EventReminderRecipient.viewed_at field, same "who has and hasn't viewed"
+    question, surfaced on the admin-v2 reminder log detail page. A send
+    failure for one recipient logs at ERROR (so it shows up in the Django
+    logs the way any other failure does — this used to be a `warning`,
+    easy to miss) and flags the address via the same `_flag_user_email`
+    helper the announcement system uses, but does not stop the push side or
+    the rest of the batch: this task calls EmailMultiAlternatives.send()
+    synchronously per recipient (same pattern as
     send_recruitment_rsvp_reminders below), not send_push_notification's
-    async .delay(), so a bad address is caught and recorded rather than
-    raised.
+    async .delay(), specifically so a bad address is caught here rather than
+    raised inside a Celery worker with nothing watching it.
     """
     from django.conf import settings as _settings
-    from django.core.mail import send_mail
+    from django.core.mail import EmailMultiAlternatives
+    from django.template.loader import render_to_string
     from django.urls import reverse
+    from django.utils.html import strip_tags
     from src.models import ParliamentUser, PushSubscription, Event, EventReminderLog, EventReminderRecipient
     from src.models_feature_flags import FeatureFlag, SiteSetting
+    from src.notifications import get_site_url, _flag_user_email
     from datetime import timedelta
     from django.db.models import Q
 
@@ -168,10 +180,9 @@ def send_event_reminder_pushes():
     )
 
     from_email = getattr(_settings, 'DEFAULT_FROM_EMAIL', None)
+    site_url = get_site_url()
     try:
-        calendar_path = reverse('calendar')
-        site_url = getattr(_settings, 'SITE_URL', '').rstrip('/')
-        calendar_url = f'{site_url}{calendar_path}' if site_url else calendar_path
+        calendar_url = f'{site_url}{reverse("calendar")}'
     except Exception:
         calendar_url = ''
 
@@ -206,22 +217,9 @@ def send_event_reminder_pushes():
         event_url = f'/officer/manage-events/{event.pk}/attendance/'
         local_dt = timezone.localtime(event.date_time)
         time_str = local_dt.strftime('%a, %b %-d at %-I:%M %p')
+        full_time_str = local_dt.strftime('%A, %B %-d at %-I:%M %p')
         base_body = time_str + (f' — {event.location}' if event.location else '')
-
-        # Email content is built once per event (not per slot) — same reminder
-        # text regardless of which slot triggered it.
         email_subject = f'Reminder: {event.title}'
-        email_lines = [
-            f'{event.title}',
-            f'When: {local_dt.strftime("%A, %B %-d at %-I:%M %p")}',
-        ]
-        if event.location:
-            email_lines.append(f'Where: {event.location}')
-        if event.description:
-            email_lines.append(f'\n{event.description}')
-        if calendar_url:
-            email_lines.append(f'\nView the calendar: {calendar_url}')
-        email_body = '\n'.join(email_lines)
 
         users_with_email_ids = {u.pk for u in eligible_users if u.email}
 
@@ -239,6 +237,20 @@ def send_event_reminder_pushes():
                     f'skipping email for "{event.title}" slot {slot_num}'
                 )
                 slot_email_enabled = False
+
+            # Created BEFORE the send loop (unlike the push-only original)
+            # so its id is available to build each recipient's tracking-pixel
+            # URL. Counts below are placeholders, updated once at the end —
+            # same "create the log row first so a mid-loop crash still leaves
+            # a record" reasoning send_announcement_notification uses for
+            # AnnouncementEmailLog.
+            reminder_log = EventReminderLog.objects.create(
+                event=event,
+                reminder_slot=slot_num,
+                users_eligible=len(eligible_users),
+                users_subscribed=len(subscribed_user_ids),
+                status='dispatched',
+            )
 
             recipient_rows = []
             dispatched = 0
@@ -279,23 +291,40 @@ def send_event_reminder_pushes():
                             users_email_opted_out += 1
                             email_status = 'skipped_opted_out'
                         else:
+                            tracking_url = (
+                                f'{site_url}/track/event-reminder/'
+                                f'{reminder_log.id}/user/{user.user_id}/'
+                            )
                             try:
-                                send_mail(
+                                html_message = render_to_string('emails/event_reminder.html', {
+                                    'event': event,
+                                    'time_str': full_time_str,
+                                    'calendar_url': calendar_url,
+                                    'tracking_url': tracking_url,
+                                })
+                                msg = EmailMultiAlternatives(
                                     subject=email_subject,
-                                    message=email_body,
+                                    body=strip_tags(html_message),
                                     from_email=from_email,
-                                    recipient_list=[user.email],
-                                    fail_silently=False,
+                                    to=[user.email],
                                 )
+                                msg.attach_alternative(html_message, 'text/html')
+                                msg.send()
                                 emails_dispatched += 1
                                 email_status = 'dispatched'
                             except Exception as mail_exc:
-                                logger.warning(
-                                    f'[event_reminders] email failed for {user.email}: {mail_exc}'
+                                # ERROR, not warning — a failed send is a real
+                                # delivery problem for a real member and
+                                # should not be easy to miss in the logs.
+                                logger.error(
+                                    f'[event_reminders] email failed for {user.email} '
+                                    f'(event "{event.title}", slot {slot_num}): {mail_exc}'
                                 )
                                 email_status = 'failed'
+                                _flag_user_email(user, str(mail_exc))
 
                 recipient_rows.append(EventReminderRecipient(
+                    reminder_log=reminder_log,
                     user=user,
                     user_name=user.name or user.username,
                     user_member_type=user.member_type or '',
@@ -303,21 +332,17 @@ def send_event_reminder_pushes():
                     email_status=email_status,
                 ))
 
-            reminder_log = EventReminderLog.objects.create(
-                event=event,
-                reminder_slot=slot_num,
-                users_eligible=len(eligible_users),
-                users_subscribed=len(subscribed_user_ids),
-                users_opted_out=opted_out,
-                notifications_dispatched=dispatched,
-                users_with_email=len(users_with_email_ids) if slot_email_enabled else 0,
-                users_email_opted_out=users_email_opted_out,
-                emails_dispatched=emails_dispatched,
-                status='dispatched',
-            )
-            for row in recipient_rows:
-                row.reminder_log = reminder_log
             EventReminderRecipient.objects.bulk_create(recipient_rows)
+
+            reminder_log.users_opted_out = opted_out
+            reminder_log.notifications_dispatched = dispatched
+            reminder_log.users_with_email = len(users_with_email_ids) if slot_email_enabled else 0
+            reminder_log.users_email_opted_out = users_email_opted_out
+            reminder_log.emails_dispatched = emails_dispatched
+            reminder_log.save(update_fields=[
+                'users_opted_out', 'notifications_dispatched',
+                'users_with_email', 'users_email_opted_out', 'emails_dispatched',
+            ])
 
             Event.objects.filter(pk=event.pk).update(**{sent_at_field: now})
             sent_count += 1
