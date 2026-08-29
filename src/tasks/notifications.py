@@ -119,11 +119,23 @@ def send_push_notification(self, user_id, title, body, url='/home/', tag='parlia
 @shared_task(name='tasks.send_event_reminder_pushes')
 def send_event_reminder_pushes():
     """
-    Send push notification reminders for upcoming events.
+    Send push notification reminders for upcoming events — and, per-slot,
+    an optional email reminder alongside the push.
 
-    Runs every 15 minutes via Celery Beat. Respects per-user push_events preference
-    and per-event reminder slot configuration.
+    Runs every 15 minutes via Celery Beat. Respects per-user push_events /
+    email_events preferences and per-event reminder slot configuration.
+    Each of the two reminder slots has its own independent
+    reminder_N_email_enabled flag, so an officer can e.g. email+push the
+    first reminder and push-only the second. Email failures for one
+    recipient don't stop the push side or the rest of the batch — this task
+    calls send_mail() synchronously per recipient (same pattern as
+    send_recruitment_rsvp_reminders below), not send_push_notification's
+    async .delay(), so a bad address is caught and recorded rather than
+    raised.
     """
+    from django.conf import settings as _settings
+    from django.core.mail import send_mail
+    from django.urls import reverse
     from src.models import ParliamentUser, PushSubscription, Event, EventReminderLog, EventReminderRecipient
     from src.models_feature_flags import FeatureFlag, SiteSetting
     from datetime import timedelta
@@ -155,16 +167,24 @@ def send_event_reminder_pushes():
         Q(reminder_2_enabled=True, reminder_2_sent_at__isnull=True)
     )
 
+    from_email = getattr(_settings, 'DEFAULT_FROM_EMAIL', None)
+    try:
+        calendar_path = reverse('calendar')
+        site_url = getattr(_settings, 'SITE_URL', '').rstrip('/')
+        calendar_url = f'{site_url}{calendar_path}' if site_url else calendar_path
+    except Exception:
+        calendar_url = ''
+
     sent_count = 0
 
     for event in candidates:
         due_slots = []
         if (event.reminder_1_enabled and event.reminder_1_sent_at is None and
                 now >= event.date_time - timedelta(hours=event.reminder_1_hours_before)):
-            due_slots.append((1, 'reminder_1_sent_at'))
+            due_slots.append((1, 'reminder_1_sent_at', event.reminder_1_email_enabled))
         if (event.reminder_2_enabled and event.reminder_2_sent_at is None and
                 now >= event.date_time - timedelta(hours=event.reminder_2_hours_before)):
-            due_slots.append((2, 'reminder_2_sent_at'))
+            due_slots.append((2, 'reminder_2_sent_at', event.reminder_2_email_enabled))
 
         if not due_slots:
             continue
@@ -188,46 +208,99 @@ def send_event_reminder_pushes():
         time_str = local_dt.strftime('%a, %b %-d at %-I:%M %p')
         base_body = time_str + (f' — {event.location}' if event.location else '')
 
-        for slot_num, sent_at_field in due_slots:
+        # Email content is built once per event (not per slot) — same reminder
+        # text regardless of which slot triggered it.
+        email_subject = f'Reminder: {event.title}'
+        email_lines = [
+            f'{event.title}',
+            f'When: {local_dt.strftime("%A, %B %-d at %-I:%M %p")}',
+        ]
+        if event.location:
+            email_lines.append(f'Where: {event.location}')
+        if event.description:
+            email_lines.append(f'\n{event.description}')
+        if calendar_url:
+            email_lines.append(f'\nView the calendar: {calendar_url}')
+        email_body = '\n'.join(email_lines)
+
+        users_with_email_ids = {u.pk for u in eligible_users if u.email}
+
+        for slot_num, sent_at_field, email_enabled in due_slots:
             title = f'Upcoming Event: {event.title}'
             tag = f'event_reminder_{slot_num}'
+
+            # A slot can ask for email without a sender configured — don't let
+            # that silently mislabel every recipient as "no email address";
+            # log once and treat the slot as push-only for this run.
+            slot_email_enabled = email_enabled
+            if slot_email_enabled and not from_email:
+                logger.warning(
+                    f'[event_reminders] DEFAULT_FROM_EMAIL not configured — '
+                    f'skipping email for "{event.title}" slot {slot_num}'
+                )
+                slot_email_enabled = False
 
             recipient_rows = []
             dispatched = 0
             opted_out = 0
+            emails_dispatched = 0
+            users_email_opted_out = 0
 
             for user in eligible_users:
+                # --- Push (unchanged behavior) ---
                 if user.pk not in subscribed_user_ids:
-                    recipient_rows.append(EventReminderRecipient(
-                        user=user,
-                        user_name=user.name or user.username,
-                        user_member_type=user.member_type or '',
-                        status='skipped_no_subscription',
-                    ))
-                    continue
+                    push_status = 'skipped_no_subscription'
+                else:
+                    try:
+                        push_on = user.preferences.push_events
+                    except Exception:
+                        push_on = True
 
-                try:
-                    push_on = user.preferences.push_events
-                except Exception:
-                    push_on = True
+                    if not push_on:
+                        opted_out += 1
+                        push_status = 'skipped_opted_out'
+                    else:
+                        send_push_notification.delay(user.pk, title, base_body, event_url, tag=tag)
+                        dispatched += 1
+                        push_status = 'dispatched'
 
-                if not push_on:
-                    opted_out += 1
-                    recipient_rows.append(EventReminderRecipient(
-                        user=user,
-                        user_name=user.name or user.username,
-                        user_member_type=user.member_type or '',
-                        status='skipped_opted_out',
-                    ))
-                    continue
+                # --- Email (only when this slot's email option is on) ---
+                email_status = ''
+                if slot_email_enabled:
+                    if user.pk not in users_with_email_ids:
+                        email_status = 'skipped_no_email'
+                    else:
+                        try:
+                            email_on = user.preferences.email_events
+                        except Exception:
+                            email_on = True
 
-                send_push_notification.delay(user.pk, title, base_body, event_url, tag=tag)
-                dispatched += 1
+                        if not email_on:
+                            users_email_opted_out += 1
+                            email_status = 'skipped_opted_out'
+                        else:
+                            try:
+                                send_mail(
+                                    subject=email_subject,
+                                    message=email_body,
+                                    from_email=from_email,
+                                    recipient_list=[user.email],
+                                    fail_silently=False,
+                                )
+                                emails_dispatched += 1
+                                email_status = 'dispatched'
+                            except Exception as mail_exc:
+                                logger.warning(
+                                    f'[event_reminders] email failed for {user.email}: {mail_exc}'
+                                )
+                                email_status = 'failed'
+
                 recipient_rows.append(EventReminderRecipient(
                     user=user,
                     user_name=user.name or user.username,
                     user_member_type=user.member_type or '',
-                    status='dispatched',
+                    status=push_status,
+                    email_status=email_status,
                 ))
 
             reminder_log = EventReminderLog.objects.create(
@@ -237,6 +310,9 @@ def send_event_reminder_pushes():
                 users_subscribed=len(subscribed_user_ids),
                 users_opted_out=opted_out,
                 notifications_dispatched=dispatched,
+                users_with_email=len(users_with_email_ids) if slot_email_enabled else 0,
+                users_email_opted_out=users_email_opted_out,
+                emails_dispatched=emails_dispatched,
                 status='dispatched',
             )
             for row in recipient_rows:
@@ -248,6 +324,7 @@ def send_event_reminder_pushes():
             logger.info(
                 f'[event_reminders] Slot {slot_num} reminder sent for "{event.title}" '
                 f'(id={event.pk}) — dispatched={dispatched}, opted_out={opted_out}'
+                + (f', emails_dispatched={emails_dispatched}' if slot_email_enabled else '')
             )
 
     if sent_count:

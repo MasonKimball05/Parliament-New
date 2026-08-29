@@ -1,4 +1,5 @@
 from django.contrib.auth.decorators import login_required
+from django.conf import settings
 from django.shortcuts import render, get_object_or_404
 from django.urls import reverse
 from django.utils import timezone
@@ -60,8 +61,19 @@ def calendar_view(request):
         next_month, next_year = month + 1, year
 
     # Check if prev/next navigation should be disabled
-    # Use timezone-aware datetimes
-    tz = pytz.timezone('UTC')
+    # Use timezone-aware datetimes — in the CHAPTER's timezone, not UTC. Event
+    # rows are stored in UTC, but `events_by_day` below groups them by LOCAL
+    # calendar day (`timezone.localtime(event.date_time).day`). Building the
+    # month's query window in UTC while grouping display in local time meant
+    # an evening event on the last day of a month (any month — this isn't
+    # October-specific) could be stored as just past midnight UTC on the 1st
+    # of the NEXT month: excluded from the current month's query, pulled into
+    # next month's instead, then grouped there under a day-of-month number
+    # (e.g. 31) that a shorter next month doesn't have a calendar cell for —
+    # so the event silently disappeared from both months. Localizing in the
+    # real chapter timezone makes the query boundary match the same calendar
+    # day the event is later grouped and displayed under.
+    tz = pytz.timezone(settings.TIME_ZONE)
     prev_date = tz.localize(datetime(prev_year, prev_month, 1))
     next_date = tz.localize(datetime(next_year, next_month, 1))
     can_go_prev = prev_date >= tz.localize(datetime(min_date.year, min_date.month, 1))
@@ -239,8 +251,13 @@ def calendar_data_api(request):
         next_month, next_year = month + 1, year
 
     # Check if prev/next navigation should be disabled
-    # Use timezone-aware datetimes
-    tz = pytz.timezone('UTC')
+    # Use timezone-aware datetimes — in the CHAPTER's timezone, not UTC. See
+    # the matching comment in calendar_view above: the query window has to be
+    # built in the same timezone events_data is grouped in below
+    # (timezone.localtime(event.date_time).day), or a late-evening event on
+    # the last day of a month gets pulled into the wrong month's query and
+    # grouped under a day-of-month number that month may not have.
+    tz = pytz.timezone(settings.TIME_ZONE)
     prev_date = tz.localize(datetime(prev_year, prev_month, 1))
     next_date = tz.localize(datetime(next_year, next_month, 1))
     can_go_prev = prev_date >= tz.localize(datetime(min_date.year, min_date.month, 1))

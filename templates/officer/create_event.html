@@ -221,11 +221,11 @@
                 </div>
             </div>
 
-            <!-- Push Notification Reminders (optional) -->
+            <!-- Event Reminders (optional) -->
             <div class="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
                 <button type="button" id="reminders-toggle-btn"
                         class="w-full flex items-center justify-between px-4 py-3 bg-gray-50 dark:bg-gray-700/50 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
-                    <span>Push Notification Reminders <span class="font-normal text-gray-400 dark:text-gray-500">(optional)</span></span>
+                    <span>Event Reminders <span class="font-normal text-gray-400 dark:text-gray-500">(optional)</span></span>
                     <span id="reminders-badge" class="hidden px-1.5 py-0.5 text-xs bg-yellow-100 dark:bg-yellow-900/50 text-yellow-700 dark:text-yellow-400 rounded-full"></span>
                     <svg id="reminders-chevron" class="w-4 h-4 text-gray-500 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
@@ -241,7 +241,7 @@
                                 <span class="block text-gray-500 dark:text-gray-400 text-xs mt-1">Send a push notification to members before this event</span>
                             </label>
                         </div>
-                        <div id="reminder-1-hours" class="pl-6 mt-2 hidden">
+                        <div id="reminder-1-hours" class="pl-6 mt-2 hidden space-y-2">
                             <div class="flex items-center gap-2">
                                 {{ form.reminder_1_hours_before }}
                                 <span class="text-sm text-gray-500 dark:text-gray-400">hours before the event</span>
@@ -249,6 +249,12 @@
                             {% if form.reminder_1_hours_before.errors %}
                                 <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ form.reminder_1_hours_before.errors.0 }}</p>
                             {% endif %}
+                            <div class="flex items-center">
+                                {{ form.reminder_1_email_enabled }}
+                                <label for="{{ form.reminder_1_email_enabled.id_for_label }}" class="ml-2 text-sm text-gray-600 dark:text-gray-400">
+                                    {{ form.reminder_1_email_enabled.label }}
+                                </label>
+                            </div>
                         </div>
                     </div>
                     <!-- Reminder 2 -->
@@ -260,7 +266,7 @@
                                 <span class="block text-gray-500 dark:text-gray-400 text-xs mt-1">Send a second reminder closer to the event</span>
                             </label>
                         </div>
-                        <div id="reminder-2-hours" class="pl-6 mt-2 hidden">
+                        <div id="reminder-2-hours" class="pl-6 mt-2 hidden space-y-2">
                             <div class="flex items-center gap-2">
                                 {{ form.reminder_2_hours_before }}
                                 <span class="text-sm text-gray-500 dark:text-gray-400">hours before the event</span>
@@ -268,6 +274,12 @@
                             {% if form.reminder_2_hours_before.errors %}
                                 <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ form.reminder_2_hours_before.errors.0 }}</p>
                             {% endif %}
+                            <div class="flex items-center">
+                                {{ form.reminder_2_email_enabled }}
+                                <label for="{{ form.reminder_2_email_enabled.id_for_label }}" class="ml-2 text-sm text-gray-600 dark:text-gray-400">
+                                    {{ form.reminder_2_email_enabled.label }}
+                                </label>
+                            </div>
                         </div>
                     </div>
                 </div>

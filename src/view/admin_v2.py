@@ -3842,17 +3842,24 @@ def event_reminder_logs(request):
 def event_reminder_log_detail(request, log_id):
     """
     Detail view for a single EventReminderLog — shows per-user recipient breakdown.
+
+    ``dispatched``/``skipped`` are the push outcome, unchanged from before email
+    reminders existed. ``email_enabled`` tells the template whether this slot had
+    the email option on at all (a blank email_status on every row otherwise —
+    not worth a stat card of all zeros).
     """
     log = get_object_or_404(EventReminderLog, id=log_id)
     recipients = log.recipients.select_related('user').defer(*member_defer('user')).order_by('status', 'user_name')
 
     dispatched = recipients.filter(status='dispatched')
     skipped = recipients.exclude(status='dispatched')
+    email_enabled = recipients.exclude(email_status='').exists()
 
     return render(request, 'admin_v2/event_reminder_log_detail.html', {
         'log': log,
         'dispatched': dispatched,
         'skipped': skipped,
+        'email_enabled': email_enabled,
     })
 
 

@@ -408,15 +408,15 @@ class EventSignupAdmin(admin.ModelAdmin):
 @admin.register(EventReminderLog, site=admin_site)
 class EventReminderLogAdmin(ViewDeleteAdmin):
     list_display = ('event', 'reminder_slot', 'status', 'users_eligible',
-                    'notifications_dispatched', 'sent_at')
+                    'notifications_dispatched', 'emails_dispatched', 'sent_at')
     list_filter = ('status',)
     search_fields = ('event__title',)
 
 
 @admin.register(EventReminderRecipient, site=admin_site)
 class EventReminderRecipientAdmin(ReadOnlyAdmin):
-    list_display = ('reminder_log', 'user_name', 'user_member_type', 'status')
-    list_filter = ('status',)
+    list_display = ('reminder_log', 'user_name', 'user_member_type', 'status', 'email_status')
+    list_filter = ('status', 'email_status')
     search_fields = ('user_name',)
 
 

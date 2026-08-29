@@ -151,10 +151,14 @@ class Event(models.Model):
         default=24,
         help_text='How many hours before the event to send the first reminder'
     )
+    reminder_1_email_enabled = models.BooleanField(
+        default=False,
+        help_text='Also send an email reminder (in addition to the push notification) for the first reminder'
+    )
     reminder_1_sent_at = models.DateTimeField(
         null=True,
         blank=True,
-        help_text='When the first push reminder was dispatched (null = not yet sent)'
+        help_text='When the first reminder was dispatched (null = not yet sent)'
     )
     reminder_2_enabled = models.BooleanField(
         default=False,
@@ -164,10 +168,14 @@ class Event(models.Model):
         default=1,
         help_text='How many hours before the event to send the second reminder'
     )
+    reminder_2_email_enabled = models.BooleanField(
+        default=False,
+        help_text='Also send an email reminder (in addition to the push notification) for the second reminder'
+    )
     reminder_2_sent_at = models.DateTimeField(
         null=True,
         blank=True,
-        help_text='When the second push reminder was dispatched (null = not yet sent)'
+        help_text='When the second reminder was dispatched (null = not yet sent)'
     )
 
     class Meta:
@@ -641,7 +649,7 @@ class AttendanceExcuse(models.Model):
 
 class EventReminderLog(models.Model):
     """
-    Log of each push notification reminder dispatch for an event.
+    Log of each reminder dispatch for an event (push, and optionally email).
     One record per reminder slot (1 or 2) per event send attempt.
     """
     event = models.ForeignKey(
@@ -653,11 +661,17 @@ class EventReminderLog(models.Model):
         help_text='Which reminder slot triggered this log (1 or 2)'
     )
 
-    # Counts
+    # Counts — push
     users_eligible = models.IntegerField(default=0, help_text='Active users matched by visibility filter')
     users_subscribed = models.IntegerField(default=0, help_text='Eligible users with at least one push subscription')
     users_opted_out = models.IntegerField(default=0, help_text='Subscribed users who opted out of push_events')
     notifications_dispatched = models.IntegerField(default=0, help_text='Number of send_push_notification tasks queued')
+
+    # Counts — email (only meaningful when this slot had its email option enabled;
+    # all zero, not an error, for a slot that was push-only)
+    users_with_email = models.IntegerField(default=0, help_text='Eligible users with an email address on file')
+    users_email_opted_out = models.IntegerField(default=0, help_text='Users with email who opted out of email_events')
+    emails_dispatched = models.IntegerField(default=0, help_text='Number of reminder emails successfully sent')
 
     # Status
     STATUS_CHOICES = (
@@ -683,6 +697,10 @@ class EventReminderLog(models.Model):
 class EventReminderRecipient(models.Model):
     """
     Per-user record for an EventReminderLog dispatch.
+
+    ``status`` is the push outcome and is always set. ``email_status`` is the
+    email outcome and stays blank ('') for a slot that didn't have the email
+    option enabled — blank means "not applicable", not "unknown" or "failed".
     """
     reminder_log = models.ForeignKey(
         EventReminderLog,
@@ -707,6 +725,17 @@ class EventReminderRecipient(models.Model):
         ('skipped_visibility', 'Skipped — Not in Visibility'),
     )
     status = models.CharField(max_length=30, choices=STATUS_CHOICES)
+
+    EMAIL_STATUS_CHOICES = (
+        ('dispatched', 'Dispatched'),
+        ('skipped_opted_out', 'Skipped — Opted Out'),
+        ('skipped_no_email', 'Skipped — No Email Address'),
+        ('failed', 'Failed to Send'),
+    )
+    email_status = models.CharField(
+        max_length=30, choices=EMAIL_STATUS_CHOICES, blank=True, default='',
+        help_text="Blank when this reminder slot's email option was off",
+    )
 
     class Meta:
         ordering = ['status', 'user_name']

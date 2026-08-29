@@ -43,13 +43,30 @@
         </div>
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 text-center">
             <div class="text-2xl font-bold text-green-600 dark:text-green-400">{{ log.notifications_dispatched }}</div>
-            <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">Dispatched</div>
+            <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">Push Dispatched</div>
         </div>
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 text-center">
             <div class="text-2xl font-bold text-gray-500 dark:text-gray-400">{{ log.users_opted_out }}</div>
-            <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">Opted Out</div>
+            <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">Push Opted Out</div>
         </div>
     </div>
+
+    {% if email_enabled %}
+    <div class="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-6">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 text-center">
+            <div class="text-2xl font-bold text-gray-900 dark:text-gray-100">{{ log.users_with_email }}</div>
+            <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">With Email Address</div>
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 text-center">
+            <div class="text-2xl font-bold text-blue-600 dark:text-blue-400">{{ log.emails_dispatched }}</div>
+            <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">Emails Sent</div>
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 text-center">
+            <div class="text-2xl font-bold text-gray-500 dark:text-gray-400">{{ log.users_email_opted_out }}</div>
+            <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">Email Opted Out</div>
+        </div>
+    </div>
+    {% endif %}
 
     <!-- Status badge -->
     <div class="mb-6 flex items-center gap-2">
@@ -80,9 +97,19 @@
                     <span class="font-medium text-gray-900 dark:text-gray-100">{{ r.user_name }}</span>
                     <span class="ml-2 text-xs text-gray-500 dark:text-gray-400">{{ r.user_member_type }}</span>
                 </div>
-                <span class="text-xs px-2 py-0.5 rounded-full bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 font-medium">
-                    Dispatched
-                </span>
+                <div class="flex items-center gap-1.5">
+                    <span class="text-xs px-2 py-0.5 rounded-full bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 font-medium">
+                        Push Dispatched
+                    </span>
+                    {% if r.email_status %}
+                    <span class="text-xs px-2 py-0.5 rounded-full
+                        {% if r.email_status == 'dispatched' %}bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300
+                        {% elif r.email_status == 'failed' %}bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300
+                        {% else %}bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400{% endif %} font-medium">
+                        Email: {{ r.get_email_status_display }}
+                    </span>
+                    {% endif %}
+                </div>
             </li>
             {% endfor %}
         </ul>
@@ -105,11 +132,21 @@
                     <span class="font-medium text-gray-900 dark:text-gray-100">{{ r.user_name }}</span>
                     <span class="ml-2 text-xs text-gray-500 dark:text-gray-400">{{ r.user_member_type }}</span>
                 </div>
-                <span class="text-xs px-2 py-0.5 rounded-full
-                    {% if r.status == 'skipped_opted_out' %}bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-300
-                    {% else %}bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400{% endif %} font-medium">
-                    {{ r.get_status_display }}
-                </span>
+                <div class="flex items-center gap-1.5">
+                    <span class="text-xs px-2 py-0.5 rounded-full
+                        {% if r.status == 'skipped_opted_out' %}bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-300
+                        {% else %}bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400{% endif %} font-medium">
+                        {{ r.get_status_display }}
+                    </span>
+                    {% if r.email_status %}
+                    <span class="text-xs px-2 py-0.5 rounded-full
+                        {% if r.email_status == 'dispatched' %}bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300
+                        {% elif r.email_status == 'failed' %}bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300
+                        {% else %}bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400{% endif %} font-medium">
+                        Email: {{ r.get_email_status_display }}
+                    </span>
+                    {% endif %}
+                </div>
             </li>
             {% endfor %}
         </ul>

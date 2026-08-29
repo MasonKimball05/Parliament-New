@@ -209,13 +209,19 @@ def create_recruitment_event(request, code):
         if date_time_str:
             try:
                 from django.utils.dateparse import parse_datetime
-                import pytz
                 naive = parse_datetime(date_time_str)
                 if naive is None:
                     errors.append('Invalid date/time format.')
                 else:
-                    tz = pytz.timezone('UTC')
-                    date_time = tz.localize(naive) if timezone.is_naive(naive) else naive
+                    # The <input type="datetime-local"> this comes from has no
+                    # timezone of its own — it's the officer's local wall-clock
+                    # time (America/Chicago for this chapter). This used to
+                    # localize as UTC, which silently stored every recruitment
+                    # event 5-6 hours off from what was actually entered.
+                    # make_aware() uses the active/configured timezone, same as
+                    # every other date_time field in the app (e.g. EventForm,
+                    # which gets this for free via the ModelForm/ORM layer).
+                    date_time = timezone.make_aware(naive) if timezone.is_naive(naive) else naive
             except Exception:
                 errors.append('Invalid date/time format.')
 
@@ -345,13 +351,15 @@ def edit_recruitment_event(request, code, recruitment_event_id):
         if date_time_str:
             try:
                 from django.utils.dateparse import parse_datetime
-                import pytz
                 naive = parse_datetime(date_time_str)
                 if naive is None:
                     errors.append('Invalid date/time format.')
                 else:
-                    tz = pytz.timezone('UTC')
-                    date_time = tz.localize(naive) if timezone.is_naive(naive) else naive
+                    # See the matching comment in create_recruitment_event —
+                    # same bug, same fix: this was localizing the officer's
+                    # local wall-clock input as UTC instead of the chapter's
+                    # actual timezone.
+                    date_time = timezone.make_aware(naive) if timezone.is_naive(naive) else naive
             except Exception:
                 errors.append('Invalid date/time format.')
 
