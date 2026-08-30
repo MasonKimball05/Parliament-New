@@ -60,7 +60,7 @@ pywebpush==2.3.0
 cryptography==50.0.0
 
 # Markdown rendering for changelog display
-markdown==3.8.1
+markdown==3.10.2
 
 # HTML sanitization to prevent stored XSS from rich-text editors
 bleach==6.4.0
