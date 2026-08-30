@@ -85,7 +85,7 @@ openpyxl==3.1.2
 
 # Two-Factor Authentication (TOTP)
 django-otp==1.5.4
-qrcode==7.4.2
+qrcode==8.2
 
 # REST API (3.0.0 foundation)
 djangorestframework==3.16.0
