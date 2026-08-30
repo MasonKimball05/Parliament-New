@@ -61,7 +61,12 @@ def manage_events(request):
     # twice per row and nothing joined it — one member fetch per event. Every
     # branch above builds its own queryset, so the join goes here where they
     # converge.
-    events = events.select_related('created_by').defer(*member_defer('created_by'))
+    #
+    # v3.28.0: same N+1, different FK — `{% if event.parent_event %}` (plus
+    # `.id`/`.title` in the "Instance" badge) fetches the parent Event row
+    # once per event in the list. `parent_event` is self-referential
+    # (Event -> Event), so no member_defer() needed here, just the join.
+    events = events.select_related('created_by', 'parent_event').defer(*member_defer('created_by'))
 
     # For series view, add instance counts
     if show_filter == 'series':
@@ -147,6 +152,22 @@ def generate_recurring_events(parent_event, max_occurrences=52):
             instance_excuse_deadline = parent_event.excuse_deadline + time_offset
 
         # Create a new event instance
+        #
+        # v3.28.2 — reminder configuration (both push and email, both slots)
+        # is now copied from the parent to each generated instance. Before
+        # this, a recurring event's reminders only ever fired once, off the
+        # parent row itself: `send_event_reminder_pushes` reads
+        # `reminder_N_enabled`/`reminder_N_hours_before`/
+        # `reminder_N_email_enabled` per Event row, and every one of those
+        # was left at the model default (all False/unset) on a generated
+        # instance, so an officer who configured reminders on a weekly
+        # meeting got them for the first occurrence and silence after that —
+        # with no error, and nothing on the create/edit form suggesting the
+        # setting wouldn't carry forward. `reminder_N_sent_at` is
+        # deliberately NOT copied — each instance is its own Event row with
+        # its own send state, and copying a sent timestamp from the parent
+        # would make a freshly generated instance look like it had already
+        # sent a reminder that it never actually dispatched.
         instance = Event(
             title=parent_event.title,
             description=parent_event.description,
@@ -160,6 +181,12 @@ def generate_recurring_events(parent_event, max_occurrences=52):
             created_by=parent_event.created_by,
             parent_event=parent_event,
             is_recurring=False,  # Child events are not recurring themselves
+            reminder_1_enabled=parent_event.reminder_1_enabled,
+            reminder_1_hours_before=parent_event.reminder_1_hours_before,
+            reminder_1_email_enabled=parent_event.reminder_1_email_enabled,
+            reminder_2_enabled=parent_event.reminder_2_enabled,
+            reminder_2_hours_before=parent_event.reminder_2_hours_before,
+            reminder_2_email_enabled=parent_event.reminder_2_email_enabled,
         )
         instances.append(instance)
         count += 1

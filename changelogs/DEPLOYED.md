@@ -116,6 +116,9 @@ which predate this file and are more specific than their commit dates.
 | v3.26.4 | *not deployed* | `9b40a83` | See `changelogs/v3.26.4.md`. |
 | v3.26.5 | *not deployed* | `9b40a83` | See `changelogs/v3.26.5.md`. |
 | v3.26.6 | *not deployed* | `c3f31b5` | See `changelogs/v3.26.6.md`. |
+| v3.27.0 | *not deployed* | `b38b159` | See `changelogs/v3.27.0.md`. |
+| v3.28.0 | *not deployed* | `44ac560` | See `changelogs/v3.28.0.md`. |
+| v3.28.1 | *not deployed* | `c6b5d93` | See `changelogs/v3.28.1.md`. |
 
 > **⚠️ Why v3.18.8 and v3.19.2 were missing (added 08-07-26).** Both were
 > committed and pushed on 08-06, both changelogs still said

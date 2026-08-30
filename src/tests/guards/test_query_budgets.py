@@ -656,7 +656,8 @@ class BudgetHygieneTests(TestCase):
             ActivityLogQueryBudgetTests, EducationDashboardQueryBudgetTests,
             EducationPledgeDetailQueryBudgetTests,
             EventAttendanceListQueryBudgetTests, HomePageQueryBudgetTests,
-            KaiListQueryBudgetTests, MyAttendanceQueryBudgetTests,
+            KaiListQueryBudgetTests, ManageEventsListQueryBudgetTests,
+            MyAttendanceQueryBudgetTests,
             SecurityAlertsQueryBudgetTests, ServiceDashboardQueryBudgetTests,
             TwoFactorDashboardQueryBudgetTests,
         )
@@ -675,6 +676,7 @@ class BudgetHygieneTests(TestCase):
             'education_pledge_detail': EducationPledgeDetailQueryBudgetTests.BUDGET,
             'event_attendance_list': EventAttendanceListQueryBudgetTests.BUDGET,
             'my_attendance': MyAttendanceQueryBudgetTests.BUDGET,
+            'manage_events': ManageEventsListQueryBudgetTests.BUDGET,
         }
         for name, ceiling in declared.items():
             self.assertGreater(
@@ -1840,3 +1842,125 @@ class MyAttendanceQueryBudgetTests(QueryBudgetMixin, TestCase):
             'The excuse map is never exercised, so the history loop is only '
             'half measured.',
         )
+
+
+# ---------------------------------------------------------------------------
+# `/officers/events/` — added 08-30-26 after dev mode caught it live: 9
+# identical queries firing from `{% if event.parent_event %}` (plus
+# `.id`/`.title` on the "Instance" badge) in manage_events.html, one per row
+# that happened to be a recurring instance. `select_related('created_by')`
+# already existed for the same reason on a different field (v3.17.4) — this
+# is that exact pattern recurring on a second FK the view never joined.
+# ---------------------------------------------------------------------------
+
+class ManageEventsListQueryBudgetTests(QueryBudgetMixin, TestCase):
+    """
+    The officer event-management list — desktop table + mobile cards, same
+    row rendered twice, same shape of bug `EventAttendanceListQueryBudgetTests`
+    documents for a different page.
+    """
+
+    #: Measured 08-30-26 on sqlite, cold cache, on the fixture below (18
+    #: standalone events + 1 recurring parent + 9 of its instances = 28 rows,
+    #: paginated at 25/page so the cap is actually exercised), twice, same
+    #: number both times.
+    #:
+    #: Pre-fix on the same fixture (parent_event NOT select_related'd): 38 —
+    #: the 9 extra queries are exactly the 9 instance rows on the page.
+    BUDGET = 29
+
+    PASSWORD = 'manage-events-budget-pass-12345!'
+
+    def setUp(self):
+        from datetime import timedelta
+
+        from django.utils import timezone as tz
+
+        from src.models import Event, ParliamentUser
+
+        self.officer = ParliamentUser.objects.create_user(
+            user_id='MEL-OFFICER', password=self.PASSWORD, name='Officer',
+            username='mel_officer', member_type='Officer', is_admin=True,
+        )
+        now = tz.now()
+
+        for i in range(18):
+            Event.objects.create(
+                title=f'Standalone {i}', description='d',
+                date_time=now + timedelta(days=i + 1), created_by=self.officer,
+                is_active=True,
+            )
+
+        parent = Event.objects.create(
+            title='Weekly Chapter', description='recurring parent',
+            date_time=now + timedelta(days=1), created_by=self.officer,
+            is_active=True, is_recurring=True,
+        )
+        # ⚠️ 9, not fewer — the report that caught this live fired the same
+        # query shape 9 times. A fixture smaller than that could pass while
+        # still leaving an N+1 that just hasn't been multiplied up yet.
+        for i in range(9):
+            Event.objects.create(
+                title=f'Child {i}', description='d',
+                date_time=now + timedelta(days=i + 2), created_by=self.officer,
+                is_active=True, parent_event=parent,
+            )
+
+    def test_the_events_list_stays_within_budget(self):
+        self.assert_within_budget(self.officer, 'manage_events', self.BUDGET)
+
+    def test_it_does_not_scale_with_instance_count(self):
+        """
+        ⚠️ THE ASSERTION THE OLD CODE FAILED. `select_related('parent_event')`
+        turns the per-instance fetch into one JOIN already paid for by every
+        row — including the standalone ones with no parent — so the count
+        must not move as more instances are added to the page.
+        """
+        from datetime import timedelta
+
+        from django.utils import timezone as tz
+
+        from src.models import Event
+
+        before = len(self.measure(self.officer, 'manage_events'))
+
+        parent = Event.objects.get(title='Weekly Chapter')
+        now = tz.now()
+        for i in range(9, 20):
+            Event.objects.create(
+                title=f'Child {i}', description='d',
+                date_time=now + timedelta(days=i + 2), created_by=self.officer,
+                is_active=True, parent_event=parent,
+            )
+
+        after = len(self.measure(self.officer, 'manage_events'))
+
+        self.assertEqual(
+            before, after,
+            f'Adding 11 more recurring instances took the page from {before} '
+            f'queries to {after}. Check that `manage_events` still calls '
+            f'`select_related(\'parent_event\')` on the events queryset.',
+        )
+
+    def test_the_fixture_actually_renders_instance_badges(self):
+        """
+        ⚠️ CONTROL. A budget/scaling pair that passes on a page not exercising
+        the `{% if event.parent_event %}` branch at all would be measuring
+        nothing about this bug — `test_url_smoke` reported this page clean for
+        the same reason before dev mode caught it live.
+
+        19, not 9: the template renders every row twice (desktop table +
+        mobile cards, same pattern `EventAttendanceListQueryBudgetTests`
+        documents for `/officers/attendance/`), so each of the 9 instance
+        rows prints the "Instance" badge once per layout (18), plus one
+        "Recurring Instances" filter-dropdown label that's on the page
+        regardless of fixture (19). Fixture event titles deliberately avoid
+        the word "Instance" themselves (they're named "Child N"), so this
+        count is only the badges + the static label, not a title collision
+        inflating it.
+        """
+        self.client.force_login(self.officer)
+        response = self.client.get(reverse('manage_events'))
+        body = response.content.decode()
+
+        self.assertEqual(body.count('Instance'), 19)
