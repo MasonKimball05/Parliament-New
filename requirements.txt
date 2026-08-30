@@ -75,7 +75,7 @@ mammoth==1.11.0
 pillow==12.3.0
 
 # PDF generation for chapter minutes export
-reportlab==4.1.0
+reportlab==5.0.0
 
 # PDF to image conversion for mobile document viewing
 PyMuPDF==1.27.2.3
