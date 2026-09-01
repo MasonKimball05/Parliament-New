@@ -173,11 +173,34 @@ class TheCsrfSubmitSafetyNetExistsTests(SimpleTestCase):
     def test_it_checks_the_token_field_value_before_acting(self):
         self.assertIn('tokenField.value', self.base)
 
+    def test_a_completely_missing_field_is_created_not_skipped(self):
+        """
+        ⚠️ THE GAP FOUND 09-01-26, HOURS AFTER THIS FILE WAS FIRST WRITTEN.
+        `posted_token_present=False` in the security log means the key was
+        absent from the POST body — which a browser produces just as
+        readily by dropping the hidden `<input>` node entirely as by
+        clearing its value. The first version of this guard read `if
+        (!tokenField || tokenField.value) return;`, so a MISSING field took
+        the exact same early-return as a FILLED-IN one — the guard did
+        nothing in precisely the case its own reproduction described. Must
+        create the field (`document.createElement('input')`, `type =
+        'hidden'`, `name = 'csrfmiddlewaretoken'`) rather than bail out.
+        """
+        self.assertIn("document.createElement('input')", self.base)
+        self.assertIn("tokenField.name = 'csrfmiddlewaretoken'", self.base)
+        stripped = re.sub(r'/\*.*?\*/', '', self.base, flags=re.DOTALL)
+        listener_at = stripped.index("addEventListener('submit'")
+        tail = stripped[listener_at:]
+        # The early-return must require BOTH a present field AND a value —
+        # `!tokenField` alone must not be enough to skip.
+        self.assertIn('if (tokenField && tokenField.value) return;', tail)
+
     def test_it_prevents_the_original_submit(self):
         stripped = re.sub(r'/\*.*?\*/', '', self.base, flags=re.DOTALL)
         listener_at = stripped.index("addEventListener('submit'")
-        tail = stripped[listener_at:listener_at + 800]
-        self.assertIn('event.preventDefault()', tail)
+        tail = stripped[listener_at:]
+        prevent_at = tail.index('event.preventDefault()')
+        self.assertLess(prevent_at, 2000, 'preventDefault() moved unexpectedly far from the submit listener')
 
     def test_it_resubmits_via_the_form_element_not_requestsubmit(self):
         """

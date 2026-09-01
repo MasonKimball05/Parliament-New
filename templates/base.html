@@ -285,9 +285,29 @@
             var form = event.target;
             if (!(form instanceof HTMLFormElement)) return;
             var tokenField = form.querySelector('input[name="csrfmiddlewaretoken"]');
-            if (!tokenField || tokenField.value) return; // token present — nothing to do
+            // ⚠️ A MISSING FIELD IS NOT "NOTHING TO DO." The first version of
+            // this guard treated "no such input at all" the same as "token
+            // present" (`!tokenField` fell through the same early-return as a
+            // filled-in field), on the assumption that `{% csrf_token %}`
+            // guarantees the element exists. `posted_token_present=False` in
+            // the security log records that the key was ABSENT from the POST
+            // body, not merely empty — which a browser produces just as
+            // readily by dropping the hidden `<input>` node itself as by
+            // clearing its value, and nothing here can tell those apart from
+            // the DOM alone. So: create the field if it's missing, same as
+            // refreshing it if it's empty.
+            if (tokenField && tokenField.value) return; // token present — nothing to do
             event.preventDefault();
-            refreshCsrfToken().then(function() { form.submit(); });
+            refreshCsrfToken().then(function(token) {
+                if (!tokenField) {
+                    tokenField = document.createElement('input');
+                    tokenField.type = 'hidden';
+                    tokenField.name = 'csrfmiddlewaretoken';
+                    form.appendChild(tokenField);
+                    if (token) { tokenField.value = token; } // refreshCsrfToken() already patched it if the field existed; a newly-created one needs it set directly
+                }
+                form.submit();
+            });
         }, true);
     })(window.Parliament);
     </script>
