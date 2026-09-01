@@ -127,7 +127,7 @@ def bug_tracker(request):
     )
 
     # Base queryset with custom ordering
-    bug_reports = BugReport.objects.all().annotate(
+    bug_reports = BugReport.objects.all().select_related('submitted_by').defer(*member_defer('submitted_by')).annotate(
         status_priority=status_order
     ).order_by('status_priority', '-submitted_at')
 

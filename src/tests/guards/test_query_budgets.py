@@ -1964,3 +1964,89 @@ class ManageEventsListQueryBudgetTests(QueryBudgetMixin, TestCase):
         body = response.content.decode()
 
         self.assertEqual(body.count('Instance'), 19)
+
+
+class BugTrackerListQueryBudgetTests(QueryBudgetMixin, TestCase):
+    """
+    The public bug tracker (`/bug-tracker/`) — reported live 09-01-26: 7
+    identical `src_parliamentuser` lookups, one per row, from
+    `report.submitted_by.name` in the template. `bug_admin` (the same
+    queryset, one tier up) already carried `select_related('submitted_by',
+    'resolved_by')` + `member_defer(...)` — this page was the one call site
+    that never got it, presumably because it predates that fix or was
+    written alongside it without the two being reconciled.
+    """
+
+    #: Measured 09-01-26 on sqlite, cold cache, 7 BugReport rows each with a
+    #: distinct `submitted_by`.
+    #:
+    #: Pre-fix on the same fixture (no `select_related('submitted_by')`):
+    #: 38 — the 7 extra queries are exactly the 7 rows on the page, matching
+    #: what was reported live.
+    BUDGET = 31
+
+    PASSWORD = 'bug-tracker-budget-pass-12345!'
+
+    def setUp(self):
+        from src.models.security import BugReport
+
+        self.viewer = ParliamentUser.objects.create_user(
+            user_id='MEL-BUGVIEWER', password=self.PASSWORD, name='Bug Viewer',
+            username='mel_bugviewer', member_type='Officer', is_admin=False,
+        )
+
+        for i in range(7):
+            reporter = ParliamentUser.objects.create_user(
+                user_id=f'MEL-BUGREPORTER-{i}', password=self.PASSWORD,
+                name=f'Reporter {i}', username=f'mel_bugreporter_{i}',
+                member_type='Member', is_admin=False,
+            )
+            BugReport.objects.create(
+                description=f'Bug {i}', submitted_by=reporter, status='new',
+            )
+
+    def test_the_bug_tracker_stays_within_budget(self):
+        self.assert_within_budget(self.viewer, 'bug_tracker', self.BUDGET)
+
+    def test_it_does_not_scale_with_report_count(self):
+        """
+        ⚠️ THE ASSERTION THE OLD CODE FAILED. Without
+        `select_related('submitted_by')`, each additional row on the page
+        costs one more `src_parliamentuser` query — this must stay flat.
+        """
+        from src.models.security import BugReport
+
+        before = len(self.measure(self.viewer, 'bug_tracker'))
+
+        another_reporter = ParliamentUser.objects.create_user(
+            user_id='MEL-BUGREPORTER-EXTRA', password=self.PASSWORD,
+            name='Extra Reporter', username='mel_bugreporter_extra',
+            member_type='Member', is_admin=False,
+        )
+        for i in range(10):
+            BugReport.objects.create(
+                description=f'Extra bug {i}', submitted_by=another_reporter,
+                status='new',
+            )
+
+        after = len(self.measure(self.viewer, 'bug_tracker'))
+
+        self.assertEqual(
+            before, after,
+            f'Adding 10 more bug reports took the page from {before} queries '
+            f'to {after}. Check that `bug_tracker` still calls '
+            f'`select_related(\'submitted_by\')` on the BugReport queryset.',
+        )
+
+    def test_the_fixture_actually_renders_submitted_by(self):
+        """
+        ⚠️ CONTROL. A budget/scaling pair that passes on a page not
+        exercising `report.submitted_by.name` at all would be measuring
+        nothing about this bug.
+        """
+        self.client.force_login(self.viewer)
+        response = self.client.get(reverse('bug_tracker'))
+        body = response.content.decode()
+
+        for i in range(7):
+            self.assertIn(f'Reporter {i}', body)
