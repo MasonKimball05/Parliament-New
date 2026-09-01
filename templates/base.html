@@ -192,9 +192,8 @@
          * it to fix a *different* staleness bug would be a worse bug than
          * the one being fixed. If a text field, textarea, or contenteditable
          * element holds content that differs from what the server rendered,
-         * skip the reload; the page behaves exactly as it did before this
-         * change (no regression — submitting could still 403 in the rare
-         * case the token actually rotated, same as today).
+         * skip the reload — but see v3.28.4 below, because "skip" used to
+         * mean "do nothing," and that was the bug.
          */
         function hasUnsavedInput() {
             var fields = document.querySelectorAll(
@@ -213,11 +212,83 @@
         }
         P._hasUnsavedInput = hasUnsavedInput; // exposed for tests only
 
+        /*
+         * v3.28.4 — silently refresh the token in place, instead of doing
+         * nothing, whenever the reload above is skipped.
+         *
+         * WHY: reported live 09-01-26 — a committee-document upload (a
+         * plain `<form>` with a REQUIRED title field ahead of the file
+         * picker) 403'd with "CSRF token missing" for a mobile member.
+         * That page is exactly the shape `hasUnsavedInput()` was written
+         * to protect: typing the required title *is* normal use of the
+         * form, so the reload-skip guard fires on essentially every real
+         * submission, and the "rare case" the v3.26.5 comment above
+         * accepted as a known residual risk turned out not to be rare at
+         * all on upload-style pages. Confirmed at least 17 templates in
+         * this codebase have a file input; this shape isn't unique to the
+         * committee-document page.
+         *
+         * FIX: fetch a fresh token from `/internal/csrf-token/`
+         * (`src/view/csrf_token.py`) and patch it into every
+         * `csrfmiddlewaretoken` hidden field and the `<meta>` tag on the
+         * CURRENT DOM — no navigation, so nothing typed or selected is
+         * touched. This is strictly better than the reload it replaces for
+         * plain `<form>` submissions. It does NOT reach the ~40 templates
+         * that bake the token into a JS constant at render time rather
+         * than reading `Parliament.csrfToken()`/the meta tag — those still
+         * only get a fresh token when the reload path runs (no unsaved
+         * input), same as before this change. Converting them is the
+         * pre-existing, tracked, too-large-to-do-at-once population
+         * `test_fetch_error_visibility.py`'s ratchet already covers; this
+         * fix doesn't grow or shrink it.
+         *
+         * Also used as a submit-time safety net, below: whatever the exact
+         * browser mechanism that leaves a token empty (bfcache holding a
+         * stale value, or — per the reproduction above, where the CSRF log
+         * recorded the token as literally ABSENT from the POST body rather
+         * than merely wrong — some other iOS Safari form-state-restoration
+         * quirk after the native file-picker sheet), checking the field's
+         * actual value right before submission and fixing it then is the
+         * one guard that's correct regardless of which of those it is.
+         */
+        function refreshCsrfToken() {
+            return fetch('{% url "csrf_token_refresh" %}', { credentials: 'same-origin' })
+                .then(function(response) { return response.ok ? response.json() : null; })
+                .then(function(data) {
+                    if (!data || !data.csrfToken) return null;
+                    document.querySelectorAll('input[name="csrfmiddlewaretoken"]').forEach(function(field) {
+                        field.value = data.csrfToken;
+                    });
+                    var meta = document.querySelector('meta[name="csrf-token"]');
+                    if (meta) { meta.setAttribute('content', data.csrfToken); }
+                    return data.csrfToken;
+                })
+                .catch(function() { return null; }); // best-effort; a failed refresh leaves today's behavior unchanged
+        }
+        P._refreshCsrfToken = refreshCsrfToken; // exposed for tests only
+
         window.addEventListener('pageshow', function(event) {
             if (!event.persisted) return;
-            if (hasUnsavedInput()) { return; }
+            if (hasUnsavedInput()) { refreshCsrfToken(); return; }
             window.location.reload();
         });
+
+        /*
+         * Safety net, independent of the `pageshow` signal above: if a
+         * plain `<form>` submit is about to go out with an EMPTY CSRF
+         * field — whatever the cause — refresh the token first rather than
+         * letting the request 403. Calling `form.submit()` (not
+         * `.requestSubmit()`) does not re-fire the `submit` event per
+         * spec, so this cannot loop.
+         */
+        document.addEventListener('submit', function(event) {
+            var form = event.target;
+            if (!(form instanceof HTMLFormElement)) return;
+            var tokenField = form.querySelector('input[name="csrfmiddlewaretoken"]');
+            if (!tokenField || tokenField.value) return; // token present — nothing to do
+            event.preventDefault();
+            refreshCsrfToken().then(function() { form.submit(); });
+        }, true);
     })(window.Parliament);
     </script>
 

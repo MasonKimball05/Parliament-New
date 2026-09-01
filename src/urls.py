@@ -301,6 +301,7 @@ from src.view.songbook import (
 )
 from src.view.public_songbook import public_songbook_list, public_song_detail
 from src.view.csp_report import csp_report
+from src.view.csrf_token import csrf_token_refresh
 from src.view.honeypot import (
     honeypot_wp_admin, honeypot_wp_login, honeypot_phpmyadmin, honeypot_env,
     honeypot_admin_backup, honeypot_api_export, honeypot_xmlrpc, honeypot_config,
@@ -968,6 +969,7 @@ urlpatterns = [
     path('admin-v2/security/audit-log/', audit_log, name='admin_v2_audit_log'),
 
     path('csp-report/', csp_report, name='csp_report'),
+    path('internal/csrf-token/', csrf_token_refresh, name='csrf_token_refresh'),
 
     path('admin-v2/logout/', admin_v2_logout, name='admin_v2_logout'),
     path('admin-v2/page-visits/', page_visits_dashboard, name='admin_v2_page_visits'),
