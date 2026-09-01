@@ -116,9 +116,9 @@ which predate this file and are more specific than their commit dates.
 | v3.26.4 | *not deployed* | `9b40a83` | See `changelogs/v3.26.4.md`. |
 | v3.26.5 | *not deployed* | `9b40a83` | See `changelogs/v3.26.5.md`. |
 | v3.26.6 | *not deployed* | `c3f31b5` | See `changelogs/v3.26.6.md`. |
-| v3.27.0 | *not deployed* | `b38b159` | See `changelogs/v3.27.0.md`. |
-| v3.28.0 | *not deployed* | `44ac560` | See `changelogs/v3.28.0.md`. |
-| v3.28.1 | *not deployed* | `c6b5d93` | See `changelogs/v3.28.1.md`. |
+| v3.27.0 | *not deployed* | `d4495be` | See `changelogs/v3.27.0.md`. Code landed 08-28-26 in `b38b159`; stamped to `d4495be` (the commit that added this changelog file) 08-31-26 to match `git log --diff-filter=A` and clear `src.W003`. |
+| v3.28.0 | *not deployed* | `d4495be` | See `changelogs/v3.28.0.md`. Code landed 08-29-26 in `44ac560`; stamped to `d4495be` 08-31-26, same reason as v3.27.0 above. |
+| v3.28.1 | *not deployed* | `d4495be` | See `changelogs/v3.28.1.md`. Code landed 08-29-26 in `c6b5d93`; stamped to `d4495be` 08-31-26, same reason as v3.27.0 above. |
 | v3.28.2 | *not deployed* | `d4495be` | See `changelogs/v3.28.2.md`. |
 
 > **⚠️ Why v3.18.8 and v3.19.2 were missing (added 08-07-26).** Both were
