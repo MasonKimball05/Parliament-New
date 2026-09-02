@@ -15,6 +15,77 @@ from src.utils.visibility import visible_to_q
 from src.utils.security_utils import get_client_ip
 from src.context_processors import get_user_prefs
 
+def committee_dashboard_links(user):
+    """v3.29.0 — home-page quick links to committee management dashboards
+    (Kai, Service Hours, Recruitment, Education), shown only when the user
+    actually has access to that specific dashboard — a link to a 403/404
+    is worse than no link at all. Slating already has its own equivalent
+    (`has_slating_access`, computed inline in `home()`, tied to whether
+    there's an active period) and isn't duplicated here.
+
+    Each block below replicates the EXACT gate its own view applies —
+    named in a comment — rather than one shared "is this a committee
+    person" check, because the four dashboards are gated four different
+    ways: a `KaiMemberPermission` grant, a Role, committee membership/
+    chair/advisor/role, and chair-or-officer. Module-level (not inline in
+    `home()`) so it's unit-testable on its own, same reasoning as
+    `transition_checklist_cards` above.
+    """
+    from src.feature_flag_decorators import check_feature_enabled, check_page_enabled
+    from src.models import Committee
+
+    links = []
+
+    # --- Kai committee ---------------------------------------------------
+    # Mirrors view_kai_reports exactly: @require_feature_flag('kai_reports')
+    # + _get_kai_access(user, committee)['can_view_report_list']. Deferred
+    # import — kai_reports.py doesn't import home.py, but keeping this
+    # local matches how the rest of this module pulls in models it only
+    # needs for one card.
+    if check_feature_enabled('kai_reports'):
+        kai_committee = Committee.objects.filter(is_kai_committee=True).first()
+        if kai_committee is not None:
+            from src.view.kai_reports import _get_kai_access
+            if _get_kai_access(user, kai_committee)['can_view_report_list']:
+                links.append({'label': 'Kai Committee', 'url': reverse('view_kai_reports')})
+
+    # --- Service hours -----------------------------------------------
+    # Mirrors @vpp_required exactly: admin or VPP role holder. Not
+    # committee-based — there's no "service committee" model concept, this
+    # dashboard is gated by Role alone.
+    if user.is_admin or user.roles.filter(code__iexact='VPP').exists():
+        links.append({'label': 'Service Hours', 'url': reverse('service_dashboard')})
+
+    # --- Recruitment / Education -------------------------------------
+    # Both dashboards share @require_page_enabled('committee_home') — check
+    # it once rather than per-committee.
+    if check_page_enabled('committee_home'):
+        # Mirrors recruitment_dashboard's _user_access() exactly: chair,
+        # admin, member, advisor, or holder of the committee's linked Role.
+        recruitment_committee = Committee.objects.filter(is_recruitment_committee=True).first()
+        if recruitment_committee is not None:
+            c = recruitment_committee
+            has_access = (
+                c.is_chair(user) or user.is_admin or
+                c.members.filter(pk=user.pk).exists() or
+                c.advisors.filter(pk=user.pk).exists() or
+                (c.role_id and user.roles.filter(id=c.role_id).exists())
+            )
+            if has_access:
+                links.append({'label': 'Recruitment', 'url': reverse('recruitment_dashboard', args=[c.code])})
+
+        # Mirrors _education_committee_or_404() exactly: chair or officer.
+        education_committee = Committee.objects.filter(
+            is_active=True, is_education_committee=True,
+        ).first()
+        if education_committee is not None:
+            c = education_committee
+            if c.chairs.filter(pk=user.pk).exists() or getattr(user, 'is_officer', False):
+                links.append({'label': 'Education', 'url': reverse('education_home', args=[c.code])})
+
+    return links
+
+
 def transition_checklist_cards(user):
     """v3.14.1 — data for the home-page transition-checklist card(s).
 
@@ -319,9 +390,13 @@ def home(request):
     # === TRANSITION CHECKLIST CARD (v3.14.1, specced 07-09) ===
     transition_checklists = transition_checklist_cards(request.user)
 
+    # === COMMITTEE DASHBOARD QUICK LINKS (v3.29.0) ===
+    committee_links = committee_dashboard_links(request.user)
+
     context = {
         'user': request.user,
         'transition_checklists': transition_checklists,
+        'committee_dashboard_links': committee_links,
         # Stats
         'total_active_members': total_active_members,
         'active_legislation': active_legislation,

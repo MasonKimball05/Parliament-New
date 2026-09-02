@@ -41,6 +41,46 @@ def _user_access(committee, user):
     return has_access, is_chair, perm
 
 
+def _group_candidates_by_assignee(candidates):
+    """
+    Group an already-evaluated candidates queryset by `assigned_to`, for
+    the dashboard's "Assignments" tab.
+
+    Requested by Mason: "Currently I only see a way to assign, but not a
+    good way to really view who has who and whatnot." The flat
+    "Candidates" tab already shows an Assigned To column, but answering
+    "how many prospects does each of us actually have" meant scrolling
+    and counting by eye.
+
+    Takes `candidates` rather than re-querying: `recruitment_dashboard`
+    already builds that queryset with `select_related('assigned_to')`, and
+    iterating it here (instead of a second `RecruitmentCandidate.objects
+    .filter(...)`) evaluates and caches it once — the flat tab's own
+    `{% for c in candidates %}` then reads from that same cache instead of
+    re-querying. This function must never itself trigger a query per
+    candidate; it only reads attributes already joined in.
+    """
+    from collections import defaultdict
+
+    groups = defaultdict(list)
+    for candidate in candidates:
+        groups[candidate.assigned_to_id].append(candidate)
+
+    rows = [
+        {
+            'assignee': group_candidates[0].assigned_to,
+            'candidates': group_candidates,
+        }
+        for group_candidates in groups.values()
+    ]
+    # Assigned groups alphabetically by name; "Unassigned" (assignee is
+    # None) always last, regardless of how many candidates are in it —
+    # it's the one group that isn't really "someone's", so it shouldn't
+    # compete for the top of the list just because it's often the biggest.
+    rows.sort(key=lambda row: (row['assignee'] is None, (row['assignee'].name if row['assignee'] else '')))
+    return rows
+
+
 def _can_manage(committee, user, perm=None):
     """Can the user create/edit/delete recruitment events?
 
@@ -118,16 +158,26 @@ def recruitment_dashboard(request, code):
         .filter(committee=committee, event__date_time__lt=now)
         .select_related('event')
         .annotate(signup_count=_signup_annotation)
-        .order_by('-event__date_time')[:20]
+        .order_by('-event__date_time')
     )
 
-    # Filter out committee-only events for non-privileged members
+    # Filter out committee-only events for non-privileged members.
+    # ⚠️ Must happen BEFORE `past` is sliced below — `.filter()` on an
+    # already-sliced queryset raises `TypeError: Cannot filter a query
+    # once a slice has been taken`, unconditionally, the moment this
+    # branch runs. Found while adding the Assignments tab: every
+    # non-privileged member of a recruitment committee got a 500 on this
+    # dashboard, always, regardless of whether there was any private past
+    # event to actually filter out.
     if not can_view_private:
         upcoming = upcoming.filter(visibility='public')
         past = past.filter(visibility='public')
 
+    past = past[:20]
+
     # Candidates (only visible to members with private access)
     candidates = None
+    candidates_by_assignee = None
     if can_view_private:
         candidates = (
             RecruitmentCandidate.objects
@@ -135,6 +185,10 @@ def recruitment_dashboard(request, code):
             .select_related('assigned_to', 'source_event__event').defer(*member_defer('assigned_to'))
             .order_by('status', 'name')
         )
+        # Evaluates `candidates` once (list()), so the flat "Candidates"
+        # tab below reads from the same cached result instead of
+        # re-querying — see _group_candidates_by_assignee's docstring.
+        candidates_by_assignee = _group_candidates_by_assignee(list(candidates))
 
     active_tab = request.GET.get('tab', 'events')
 
@@ -146,6 +200,7 @@ def recruitment_dashboard(request, code):
         'can_view_private': can_view_private,
         'is_chair': is_chair,
         'candidates': candidates,
+        'candidates_by_assignee': candidates_by_assignee,
         'status_choices': RecruitmentCandidate.STATUS_CHOICES,
         'active_tab': active_tab,
     }

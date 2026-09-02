@@ -435,6 +435,28 @@
             </div>
         </div>
 
+        {% comment %}
+        Committee dashboard cards — v3.29.0. Distinct from the personal
+        "Kai Report" / "Service Hours" cards above (which link to
+        user_kai_dashboard / user_service_dashboard, a member's own
+        reports/hours): these link to the COMMITTEE management dashboards
+        (view_kai_reports, service_dashboard, recruitment_dashboard,
+        education_home) and only render for someone who actually has
+        access to that specific dashboard — see
+        `committee_dashboard_links()` in src/view/home.py.
+        {% endcomment %}
+        {% for link in committee_dashboard_links %}
+        <a href="{{ link.url }}" class="block bg-white dark:bg-gray-800 rounded-xl shadow-sm hover:shadow-md transition-shadow p-6 group border-l-4 border-teal-500 dark:border-teal-400">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors">{{ link.label }} Dashboard</h2>
+                <svg class="w-8 h-8 text-teal-500 dark:text-teal-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
+                </svg>
+            </div>
+            <p class="text-gray-600 dark:text-gray-400 text-sm">Manage the {{ link.label }} committee</p>
+        </a>
+        {% endfor %}
+
         <!-- Admin Panel Cards - Only for Admins -->
         {% if user.is_admin %}
         {% if user.user_id == '73' %}

@@ -83,16 +83,26 @@ class Kai0030RenameMigrationTests(TransactionTestCase):
             c.execute("SELECT id FROM src_kaiaccommodationrequest")
             req_id = c.fetchone()[0]
 
-            c.execute(f"""
+            # req_id/field_id are ints just read back via fetchone() above,
+            # in a test module — nothing here reaches a request. `.format()`
+            # on a plain (non-f) string rather than an f-string, so the
+            # suppression directive below lands on a real, single-line
+            # `.format(...)` call — an f-string opened with `f"""` leaves
+            # no line for a trailing comment that isn't swallowed into the
+            # string itself.
+            activity_sql = """
                 INSERT INTO src_kaiaccommodationrequestactivity
                 (action, details, timestamp, request_id, user_id)
                 VALUES ('created', 'Request submitted', datetime('now'), {req_id}, 'P-MIGTEST1')
-            """)
-            c.execute(f"""
+            """.format(req_id=req_id)  # nosec B608  # req_id is an int read back via fetchone() above, test-only, no request reaches it
+            c.execute(activity_sql)
+
+            response_sql = """
                 INSERT INTO src_kaiaccommodationfieldresponse
                 (text_value, created_at, updated_at, field_id, request_id)
                 VALUES ('a response', datetime('now'), datetime('now'), {field_id}, {req_id})
-            """)
+            """.format(field_id=field_id, req_id=req_id)  # nosec B608  # field_id/req_id are ints read back via fetchone() above, test-only, no request reaches them
+            c.execute(response_sql)
 
         self._migrate('0030_rename_kai_accommodation_to_commendation')
 
@@ -130,13 +140,19 @@ class Kai0030RenameMigrationTests(TransactionTestCase):
         with connection.cursor() as c:
             old_statuses = ['pending', 'in_review', 'approved', 'denied', 'closed']
             for i, status in enumerate(old_statuses):
-                c.execute(f"""
+                # i/status come from enumerate() over a literal list two
+                # lines up, in a test module — nothing here reaches a
+                # request. See test_forward_migration_preserves_data_
+                # under_new_names above for why this is `.format()` on a
+                # plain string rather than an f-string.
+                row_sql = """
                     INSERT INTO src_kaiaccommodationrequest
                     (title, description, submitted_at, status, committee_notes,
                      resolved_at, request_number, assigned_to_id, requester_id, resolved_by_id)
                     VALUES ('Row {i}', 'd', datetime('now'), '{status}', '', NULL, '', NULL,
                             'P-MIGTEST2', NULL)
-                """)
+                """.format(i=i, status=status)  # nosec B608  # i/status come from enumerate() over a literal list above, test-only, no request reaches them
+                c.execute(row_sql)
 
         self._migrate('0030_rename_kai_accommodation_to_commendation')
 
@@ -174,7 +190,9 @@ class Kai0030RenameMigrationTests(TransactionTestCase):
         self._migrate('0029_kai_accommodations')
 
         with connection.cursor() as c:
-            c.execute(f"SELECT status, title FROM src_kaiaccommodationrequest WHERE id={req_id}")
+            # req_id is an int just read back via fetchone() above, in a
+            # test module — nothing here reaches a request.
+            c.execute(f"SELECT status, title FROM src_kaiaccommodationrequest WHERE id={req_id}")  # nosec B608  # req_id is an int read back via fetchone() above, test-only, no request reaches it
             status, title = c.fetchone()
         self.assertEqual(status, 'approved')  # round-tripped, not lost
         self.assertEqual(title, 'Round trip')

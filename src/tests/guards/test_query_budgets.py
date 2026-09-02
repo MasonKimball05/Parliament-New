@@ -504,7 +504,13 @@ class HomePageQueryBudgetTests(QueryBudgetMixin, TestCase):
     #: Measured 08-02-26, cold cache. Every authenticated request lands here,
     #: so this is the budget where one query costs the most in aggregate.
     #: v3.19.10: 44 → 41, see `warm_singleton_rows`.
-    BUDGET = 41
+    #: v3.29.0: 41 → 47 — `committee_dashboard_links()` adds the Kai
+    #: feature-flag check + Kai committee lookup, a VPP role check, the
+    #: `committee_home` page-toggle check, and the recruitment/education
+    #: committee lookups: 6 queries, all O(1) — confirmed flat by
+    #: `test_the_home_page_does_not_scale_with_committee_count` below,
+    #: which still passes. Deliberate, not an N+1.
+    BUDGET = 47
 
     def setUp(self):
         self.member = make_user('qb-home', 'Home Member', member_type='Member')

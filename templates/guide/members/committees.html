@@ -251,6 +251,68 @@
             </div>
         </div>
 
+        <!-- Section: Committee Documents -->
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100 flex items-center">
+                    <span class="w-8 h-8 bg-green-100 dark:bg-green-900/50 rounded-full flex items-center justify-center mr-3 text-sm font-bold text-green-600 dark:text-green-400">5</span>
+                    Committee Documents
+                </h2>
+            </div>
+            <div class="px-6 py-5 space-y-4">
+                <p class="text-gray-600 dark:text-gray-400">
+                    Each committee has its own document library — meeting minutes, agendas, reports, and policies — found at <strong class="text-gray-900 dark:text-gray-100">Committee &rarr; Documents</strong>. Whether you can see or upload a given document depends on your committee permissions and the document's own visibility.
+                </p>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div class="flex items-start p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 mr-3 mt-0.5 flex-shrink-0">🔒 Committee Only</span>
+                        <div>
+                            <div class="text-sm font-medium text-gray-900 dark:text-gray-100">Default visibility</div>
+                            <div class="text-xs text-gray-500 dark:text-gray-400">Only committee members can see it</div>
+                        </div>
+                    </div>
+                    <div class="flex items-start p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 mr-3 mt-0.5 flex-shrink-0">✓ Published to Chapter</span>
+                        <div>
+                            <div class="text-sm font-medium text-gray-900 dark:text-gray-100">Published documents</div>
+                            <div class="text-xs text-gray-500 dark:text-gray-400">Visible chapter-wide, not just to the committee</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
+                    <h4 class="font-medium text-gray-900 dark:text-gray-100 mb-3">What you can do, by role</h4>
+                    <ul class="space-y-2 text-sm text-gray-600 dark:text-gray-400">
+                        <li class="flex items-start">
+                            <svg class="w-5 h-5 text-green-500 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                            </svg>
+                            <span>Anyone with document-upload permission can <strong>Publish to Chapter</strong> or <strong>Unpublish</strong> a document</span>
+                        </li>
+                        <li class="flex items-start">
+                            <svg class="w-5 h-5 text-green-500 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                            </svg>
+                            <span>Committee chairs can <strong>Replace File</strong> to upload a new version — the old one is kept in <strong>Version history</strong> with an optional note on what changed, not overwritten</span>
+                        </li>
+                        <li class="flex items-start">
+                            <svg class="w-5 h-5 text-green-500 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                            </svg>
+                            <span>Chairs and the committee's VP can <strong>Delete</strong> a document entirely</span>
+                        </li>
+                    </ul>
+                </div>
+
+                <div class="bg-amber-50 dark:bg-amber-900/20 border-l-4 border-amber-500 p-4 rounded-r-lg">
+                    <p class="text-sm text-amber-800 dark:text-amber-200">
+                        <strong>Note:</strong> Version history and Replace File only appear if your chapter has version tracking turned on. If you don't see them, that's expected — not every chapter uses it.
+                    </p>
+                </div>
+            </div>
+        </div>
+
         <!-- Navigation -->
         <div class="flex justify-between items-center pt-6 border-t border-gray-200 dark:border-gray-700">
             <a href="{% url 'guide_legislation' %}" class="inline-flex items-center text-gray-600 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 transition-colors">

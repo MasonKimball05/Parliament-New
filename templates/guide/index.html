@@ -476,7 +476,7 @@
     </div>
 
     <!-- Member Guides Section -->
-    <div class="mb-10" x-show="any('Profile Management customize username contact info','Calendar Subscription view events sync','Notifications Center chapter activity updates','Submitting Excuses absence request miss','Two-Factor Authentication security account 2fa','Member Directory find connect people','Global Search find quickly','Developer API access data programmatically integrations','Chat Channels communicate members committees groups message','Service Hours log track community','Pledge Task Tracker assigned tasks quizzes')">
+    <div class="mb-10" x-show="any('Profile Management customize username contact info','Calendar Subscription view events sync','Notifications Center chapter activity updates','Submitting Excuses absence request miss','Two-Factor Authentication security account 2fa','Member Directory find connect people','Global Search find quickly','Developer API access data programmatically integrations','Chat Channels communicate members committees groups message','Service Hours log track community','Pledge Task Tracker assigned tasks quizzes','Legislation Voting bills resolutions cast vote view results','Committees join participate dashboard chair documents')">
         <div class="flex items-center mb-6">
             <div class="w-10 h-10 bg-green-100 dark:bg-green-900/50 rounded-lg flex items-center justify-center mr-3">
                 <svg class="w-5 h-5 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -676,11 +676,45 @@
                     </svg>
                 </div>
             </a>
+
+            <!-- Legislation & Voting Guide Card -->
+            <a href="{% url 'guide_legislation' %}" x-show="m('Legislation Voting bills resolutions cast vote view results')" class="group bg-white dark:bg-gray-800 rounded-xl shadow-sm hover:shadow-lg transition-all p-6 border border-transparent hover:border-primary-300 dark:hover:border-primary-600">
+                <div class="w-10 h-10 bg-blue-100 dark:bg-blue-900/50 rounded-lg flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                    <svg class="w-5 h-5 text-primary-600 dark:text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                    </svg>
+                </div>
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">Legislation & Voting</h3>
+                <p class="text-sm text-gray-600 dark:text-gray-400 mb-3">Understand how to participate in chapter governance and cast your vote.</p>
+                <div class="flex items-center text-sm text-primary-600 dark:text-primary-400">
+                    <span>Read guide</span>
+                    <svg class="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                    </svg>
+                </div>
+            </a>
+
+            <!-- Committees Guide Card -->
+            <a href="{% url 'guide_committees' %}" x-show="m('Committees join participate dashboard chair documents')" class="group bg-white dark:bg-gray-800 rounded-xl shadow-sm hover:shadow-lg transition-all p-6 border border-transparent hover:border-primary-300 dark:hover:border-primary-600">
+                <div class="w-10 h-10 bg-green-100 dark:bg-green-900/50 rounded-lg flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                    <svg class="w-5 h-5 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+                    </svg>
+                </div>
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">Committees</h3>
+                <p class="text-sm text-gray-600 dark:text-gray-400 mb-3">Understand chapter committees and how to participate.</p>
+                <div class="flex items-center text-sm text-primary-600 dark:text-primary-400">
+                    <span>Read guide</span>
+                    <svg class="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                    </svg>
+                </div>
+            </a>
         </div>
     </div>
 
     <!-- No results message -->
-    <div x-show="q && !any('Events Management create manage track attendance chapter events schedule','Announcements send notifications email bulletin news','Attendance take roll check in excuse requests present','Chapter Minutes record meeting sections motions votes','Managing Members add edit roles initiations roster','Slating Elections officer applications interviews voting nominate candidate','Kai Reports conduct submit manage case resolutions','Resolution Management decisions chapter track document passed','Activity Logs audit trails system history','Kai Form Customization custom forms submission build','Officer Admin Guide complete reference administrators handoff','Recruitment Committee rush sign-ups events pledge roster candidates','Education Committee pledge tasks quizzes schedules vpe','Developer Handoff Guide server setup deployment codebase architecture gotchas','Profile Management customize username contact info','Calendar Subscription view events sync schedule','Notifications Center chapter activity updates bell','Submitting Excuses absence request miss skip','Two-Factor Authentication security account 2fa totp','Member Directory find connect people roster','Global Search find quickly navigate','Developer API access data programmatically integrations rest','Chat Channels communicate members committees groups message','Service Hours log track community volunteer','Pledge Task Tracker assigned tasks quizzes complete')"
+    <div x-show="q && !any('Events Management create manage track attendance chapter events schedule','Announcements send notifications email bulletin news','Attendance take roll check in excuse requests present','Chapter Minutes record meeting sections motions votes','Managing Members add edit roles initiations roster','Slating Elections officer applications interviews voting nominate candidate','Kai Reports conduct submit manage case resolutions','Resolution Management decisions chapter track document passed','Activity Logs audit trails system history','Kai Form Customization custom forms submission build','Officer Admin Guide complete reference administrators handoff','Recruitment Committee rush sign-ups events pledge roster candidates','Education Committee pledge tasks quizzes schedules vpe','Developer Handoff Guide server setup deployment codebase architecture gotchas','Profile Management customize username contact info','Calendar Subscription view events sync schedule','Notifications Center chapter activity updates bell','Submitting Excuses absence request miss skip','Two-Factor Authentication security account 2fa totp','Member Directory find connect people roster','Global Search find quickly navigate','Developer API access data programmatically integrations rest','Chat Channels communicate members committees groups message','Service Hours log track community volunteer','Pledge Task Tracker assigned tasks quizzes complete','Legislation Voting bills resolutions cast vote view results','Committees join participate dashboard chair documents')"
          class="text-center py-12 text-gray-500 dark:text-gray-400">
         <svg class="w-12 h-12 mx-auto mb-3 text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>

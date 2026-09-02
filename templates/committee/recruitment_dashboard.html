@@ -60,6 +60,11 @@
                     :class="active === 'candidates' ? 'border-purple-600 text-purple-600 dark:text-purple-400 dark:border-purple-400' : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'">
                 Candidates{% if candidates %} <span class="ml-1 text-xs px-1.5 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300">{{ candidates|length }}</span>{% endif %}
             </button>
+            <button data-tab="assignments"
+                    class="tab-btn pb-3 text-sm font-medium border-b-2 transition-colors"
+                    :class="active === 'assignments' ? 'border-purple-600 text-purple-600 dark:text-purple-400 dark:border-purple-400' : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'">
+                Assignments
+            </button>
             {% endif %}
         </nav>
     </div>
@@ -221,6 +226,62 @@
             {% if can_manage %}
             <a href="{% url 'create_candidate' committee.code %}" class="mt-2 inline-block text-sm text-purple-600 dark:text-purple-400 hover:underline">Add the first one →</a>
             {% endif %}
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Assignments tab — "who has who" (Mason: "I only see a way to
+         assign, but not a good way to really view who has who and
+         whatnot.") One card per committee member with at least one
+         candidate, plus an Unassigned card if any candidates have no
+         owner. Grouped server-side in _group_candidates_by_assignee. -->
+    <div id="tab-assignments" class="hidden">
+        <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Who's tracking which prospects this cycle.</p>
+
+        {% if candidates_by_assignee %}
+        <div class="grid gap-4 sm:grid-cols-2">
+            {% for row in candidates_by_assignee %}
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+                <div class="px-4 py-3 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between
+                    {% if not row.assignee %}bg-amber-50 dark:bg-amber-900/20{% endif %}">
+                    <span class="font-semibold text-sm text-gray-900 dark:text-gray-100">
+                        {{ row.assignee.get_display_name|default:"Unassigned" }}
+                    </span>
+                    <span class="text-xs px-1.5 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300">
+                        {{ row.candidates|length }} candidate{{ row.candidates|length|pluralize }}
+                    </span>
+                </div>
+                <ul class="divide-y divide-gray-100 dark:divide-gray-700">
+                    {% for c in row.candidates %}
+                    <li class="px-4 py-2.5 flex items-center justify-between gap-2">
+                        <div class="min-w-0">
+                            <a href="{% url 'edit_candidate' committee.code c.id %}" class="text-sm font-medium text-gray-800 dark:text-gray-100 hover:text-purple-600 dark:hover:text-purple-400 truncate block">
+                                {{ c.name }}
+                            </a>
+                            {% if c.last_contacted %}
+                            <span class="text-xs text-gray-400 dark:text-gray-500">Last contacted {{ c.last_contacted|date:"M j, Y" }}</span>
+                            {% endif %}
+                        </div>
+                        <span class="flex-shrink-0 px-2 py-0.5 rounded-full text-xs font-medium
+                            {% if c.status == 'accepted' %}bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300
+                            {% elif c.status == 'declined' or c.status == 'rejected' %}bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300
+                            {% elif c.status == 'bid' %}bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300
+                            {% elif c.status == 'invited' %}bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300
+                            {% else %}bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300{% endif %}">
+                            {{ c.get_status_display }}
+                        </span>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="text-center py-16 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
+            <svg class="w-10 h-10 mx-auto mb-3 text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
+            </svg>
+            <p class="text-sm text-gray-500 dark:text-gray-400">No candidates yet.</p>
         </div>
         {% endif %}
     </div>
