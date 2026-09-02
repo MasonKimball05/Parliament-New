@@ -485,6 +485,16 @@ class GuideArticleAdmin(admin.ModelAdmin):
 # themselves submitter/accused identity visibility, bypassing the in-app
 # grant flow). Kai visibility is governed exclusively by KaiMemberPermission
 # inside the app; admin/superuser status must not bypass it.
+#
+# v3.28.8: KaiAccommodationRequest, KaiAccommodationRequestActivity and
+# KaiAccommodationFieldResponse are deliberately unregistered too, for the
+# same reason one level over — see src/models/kai_accommodations.py's
+# docstring. Accommodation requests are often medical/religious/disability
+# information about a named member, gated by the SAME KaiMemberPermission
+# grants as disciplinary cases (a deliberate choice, not an oversight — the
+# two populations share one access-control surface on purpose). Registering
+# these here would let any Django admin read them regardless of whether a
+# Kai chair has actually granted that member committee access.
 
 
 # ─────────────────────────────────────────────────────────── landing page
@@ -833,6 +843,13 @@ class TwoFactorRequirementAdmin(admin.ModelAdmin):
 # their own embed link via generate_qr_embed_link / revoke_qr_embed_link
 # (src/view/officer/event_attendance.py); admin visibility isn't needed and
 # would just be one more place the token sits in plaintext.
+#
+# AnnouncementPollEmbed (src/models/announcements.py, v3.28.7) is
+# intentionally NOT registered — same reasoning, same shape, one field over:
+# `token` is a bearer credential that anonymously fetches a poll's QR image
+# at /announcements/<id>/poll/qr/embed/<token>/qr.svg. Officers manage it via
+# generate_poll_qr_embed_link / revoke_poll_qr_embed_link
+# (src/view/officer/announcement_polls.py).
 
 
 # ──────────────────────────────────────────────────────────────── webauthn

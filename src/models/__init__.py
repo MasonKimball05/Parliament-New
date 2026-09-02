@@ -63,6 +63,7 @@ from src.models.announcements import (
     AnnouncementPollOption,
     AnnouncementPollResponse,
     AnnouncementPollAnswer,
+    AnnouncementPollEmbed,
     AnnouncementEmailLog,
     AnnouncementEmailRecipient,
 )
@@ -100,6 +101,11 @@ from src.models.kai import (
     KaiRecusal,
     KaiAppeal,
     KaiBreakGlassGrant,
+)
+from src.models.kai_accommodations import (
+    KaiAccommodationRequest,
+    KaiAccommodationRequestActivity,
+    KaiAccommodationFieldResponse,
 )
 
 # Slating
@@ -271,6 +277,7 @@ __all__ = [
     'AnnouncementPollOption',
     'AnnouncementPollResponse',
     'AnnouncementPollAnswer',
+    'AnnouncementPollEmbed',
     'AnnouncementEmailLog',
     'AnnouncementEmailRecipient',
     # Events
@@ -299,6 +306,9 @@ __all__ = [
     'KaiRecusal',
     'KaiAppeal',
     'KaiBreakGlassGrant',
+    'KaiAccommodationRequest',
+    'KaiAccommodationRequestActivity',
+    'KaiAccommodationFieldResponse',
     # Slating
     'SlatingPeriod',
     'SlatingPosition',

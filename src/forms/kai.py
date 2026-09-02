@@ -1,7 +1,7 @@
 from django import forms
 import magic  # python-magic for MIME type detection
 
-from src.models import KaiReport
+from src.models import KaiReport, KaiAccommodationRequest
 
 
 class KaiReportForm(forms.ModelForm):
@@ -98,3 +98,61 @@ class KaiReportForm(forms.ModelForm):
         if not tags_str:
             return []
         return [t.strip() for t in tags_str.split(',') if t.strip()]
+
+
+class KaiAccommodationRequestForm(forms.ModelForm):
+    """
+    Form for submitting a Kai accommodation request. Deliberately much
+    smaller than KaiReportForm — no category (KaiReport.CATEGORY_CHOICES is
+    a disciplinary vocabulary that doesn't fit here), no targeted_to (an
+    accommodation request has no accused), no tags (that vocabulary exists
+    specifically to keep identity out of disciplinary case tags — not a
+    concern this form has).
+
+    v3.28.8. Attachment validation uses `validate_uploaded_file`
+    (src/utils/file_validation.py) — the project's one general-purpose
+    upload validator — rather than KaiReportForm's own inline `magic`-based
+    check above, matching how `submit_kai_report`'s custom-field files are
+    already validated (see kai_reports.py). Not touching KaiReportForm's
+    existing check here; that's a separate, pre-existing surface.
+    """
+
+    class Meta:
+        model = KaiAccommodationRequest
+        fields = ['title', 'description', 'attachment']
+        widgets = {
+            'title': forms.TextInput(attrs={
+                'class': 'w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 transition-colors duration-200',
+                'placeholder': 'Brief summary of what the accommodation is for'
+            }),
+            'description': forms.Textarea(attrs={
+                'class': 'w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 transition-colors duration-200',
+                'placeholder': 'Describe the accommodation you\'re requesting and any relevant context...',
+                'rows': 6
+            }),
+            'attachment': forms.FileInput(attrs={
+                'class': 'w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 transition-colors duration-200',
+            }),
+        }
+        labels = {
+            'title': 'Summary',
+            'description': 'Details',
+            'attachment': 'Supporting Document (Optional)',
+        }
+        help_texts = {
+            'title': 'A brief, descriptive summary of your request',
+            'description': 'Provide the details the committee needs to evaluate this request',
+            'attachment': 'e.g. a doctor\'s note or other supporting documentation',
+        }
+
+    def clean_attachment(self):
+        file = self.cleaned_data.get('attachment')
+        if file:
+            from src.utils.file_validation import validate_uploaded_file
+            try:
+                validate_uploaded_file(file)
+            except forms.ValidationError:
+                raise
+            except Exception as exc:
+                raise forms.ValidationError(str(exc))
+        return file

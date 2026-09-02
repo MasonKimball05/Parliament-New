@@ -49,6 +49,16 @@ def manage_announcements(request):
     for announcement in page_obj:
         announcement._active_counts_by_type = active_counts
 
+    # v3.28.6: freeze the target-audience snapshot for every row that needs
+    # one BEFORE the template calls get_view_stats() per row — one query for
+    # the roster and one bulk_update for however many rows are unsnapshotted,
+    # rather than one of each per row. See
+    # Announcement.ensure_target_audience_snapshots()'s docstring; skipping
+    # this and relying on get_view_stats()'s own per-object fallback would
+    # reintroduce exactly the N+1 shape active_counts above was built to
+    # avoid, just one field over.
+    Announcement.ensure_target_audience_snapshots(list(page_obj))
+
     return render(request, 'officer/manage_announcements.html', {
         'announcements': page_obj,
         'page_obj': page_obj,
@@ -755,12 +765,16 @@ def track_email_view(request, announcement_id, user_id):
     try:
         announcement = Announcement.objects.get(id=announcement_id)
         user = ParliamentUser.objects.get(user_id=user_id)
+        announcement.ensure_target_audience_snapshot()
 
         # Record or update the view
         view, created = UserAnnouncementView.objects.get_or_create(
             user=user,
             announcement=announcement,
-            defaults={'view_source': 'email'}
+            defaults={
+                'view_source': 'email',
+                'counted_in_target': announcement.is_in_target_audience(user),
+            },
         )
 
         # If already viewed on site, update to show email view happened
@@ -778,19 +792,23 @@ def track_email_view(request, announcement_id, user_id):
 def announcement_stats(request, announcement_id):
     """View detailed statistics for an announcement"""
     announcement = get_object_or_404(Announcement, id=announcement_id)
-    stats = announcement.get_view_stats()
+    stats = announcement.get_view_stats()  # also freezes the snapshot, if not already
     viewers = announcement.get_viewers()
 
-    # Get users who haven't viewed
+    # Get users who haven't viewed. v3.28.6: this used to re-derive the
+    # target population live from the current roster — the same bug as
+    # get_view_stats() had, and on the same page, so a former pledge who'd
+    # since initiated would silently vanish from (or wrongly appear in) this
+    # list depending on their current member_type. Now reads the SAME frozen
+    # population get_view_stats() just used for the denominator above, so the
+    # count on this page and the names in this list can't disagree with each
+    # other.
     viewed_user_ids = viewers.values_list('user_id', flat=True)
-    target_users = ParliamentUser.objects.filter(member_status='Active')
-    if announcement.visible_to:
-        visible_types = list(announcement.visible_to)
-        if 'Member' in visible_types:
-            visible_types.extend(['Chair', 'Officer'])
-        target_users = target_users.filter(member_type__in=visible_types)
-
-    non_viewers = target_users.exclude(user_id__in=viewed_user_ids)
+    non_viewers = (
+        ParliamentUser.objects
+        .filter(user_id__in=announcement.target_audience_snapshot)
+        .exclude(user_id__in=viewed_user_ids)
+    )
 
     context = {
         'announcement': announcement,

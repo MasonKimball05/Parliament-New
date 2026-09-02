@@ -84,9 +84,18 @@ def announcements_view(request):
             .filter(user=request.user, announcement__in=announcements)
             .values_list('announcement_id', flat=True)
         )
+        # Freeze the audience snapshot for whichever of these need one, in
+        # one batched pass — see Announcement.ensure_target_audience_snapshots.
+        # Calling the single-object version inside the loop below would cost
+        # a query (and a write, the first time) PER announcement on this page,
+        # the exact N+1 shape this file's own v3.17.3 comment above already
+        # eliminated once for the view-tracking query itself.
+        Announcement.ensure_target_audience_snapshots(announcements)
         missing = [
             UserAnnouncementView(
-                user=request.user, announcement=a, view_source='site')
+                user=request.user, announcement=a, view_source='site',
+                counted_in_target=a.is_in_target_audience(request.user),
+            )
             for a in announcements if a.pk not in already_seen
         ]
         if missing:

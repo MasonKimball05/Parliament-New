@@ -651,6 +651,19 @@ class KaiFormField(models.Model):
     Dynamic form field definition for Kai report forms.
     Kai chair can create custom fields without code changes.
     Similar to SlatingFormField for slating applications.
+
+    v3.28.8 — shared between TWO forms, discriminated by `form_type`:
+    disciplinary reports (KaiReport) and accommodation requests
+    (KaiAccommodationRequest). Same editor (`kai_form_builder`,
+    src/view/kai_form_builder.py), same underlying mechanism — a request for
+    accommodation has no accused and none of the case-tracking machinery a
+    disciplinary report does (see KaiAccommodationRequest's docstring for why
+    that's a separate model), but "let the chair add custom fields without a
+    code change" is exactly as true of one form as the other, so the field
+    DEFINITION system is the one thing worth sharing rather than duplicating.
+    `field_name` stays globally unique across both forms — simpler than
+    scoping uniqueness per form_type, and two forms wanting a field with the
+    literally same internal name is not a real use case here.
     """
     FIELD_TYPES = [
         ('text', 'Text (Single Line)'),
@@ -665,6 +678,20 @@ class KaiFormField(models.Model):
         ('file', 'File Upload'),
         ('member_select', 'Member Selection'),
     ]
+
+    FORM_TYPES = [
+        ('discipline', 'Discipline Report'),
+        ('accommodation', 'Accommodation Request'),
+    ]
+
+    #: Which form this field belongs to. default='discipline' so every field
+    #: that existed before this column did (the entire pre-v3.28.8 discipline
+    #: form) keeps working unchanged — a migration backfill would be a no-op
+    #: given the same default, so there isn't one.
+    form_type = models.CharField(
+        max_length=20, choices=FORM_TYPES, default='discipline', db_index=True,
+        help_text='Which Kai form this field appears on.',
+    )
 
     # Field Definition
     field_name = models.CharField(
@@ -727,7 +754,7 @@ class KaiFormField(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        ordering = ['section', 'display_order']
+        ordering = ['form_type', 'section', 'display_order']
         verbose_name = 'Kai Form Field'
         verbose_name_plural = 'Kai Form Fields'
 

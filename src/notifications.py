@@ -406,9 +406,16 @@ def mark_announcement_dismissed(user, announcement_id):
         announcement_id: ID of the announcement to dismiss
     """
     try:
+        # v3.28.6: fetch the announcement (rather than passing announcement_id
+        # straight to get_or_create) so a brand-new view row can be told
+        # whether the dismisser was actually part of the target audience —
+        # see Announcement.is_in_target_audience.
+        announcement = Announcement.objects.get(id=announcement_id)
+        announcement.ensure_target_audience_snapshot()
         view, created = UserAnnouncementView.objects.get_or_create(
             user=user,
-            announcement_id=announcement_id
+            announcement=announcement,
+            defaults={'counted_in_target': announcement.is_in_target_audience(user)},
         )
         view.dismissed = True
         view.save()

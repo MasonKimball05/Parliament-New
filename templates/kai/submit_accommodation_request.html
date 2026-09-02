@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Submit Kai Report{% endblock %}
+{% block title %}Request an Accommodation{% endblock %}
 
 {% block content %}
 <div class="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 py-10 transition-colors duration-200">
@@ -14,67 +14,30 @@
           </svg>
         </div>
         <div>
-          <h1 class="text-3xl font-bold text-gray-800 dark:text-gray-100">Submit Kai Report</h1>
-          <p class="text-gray-600 dark:text-gray-400 mt-1">Share important information with the Kai Committee</p>
+          <h1 class="text-3xl font-bold text-gray-800 dark:text-gray-100">Request an Accommodation</h1>
+          <p class="text-gray-600 dark:text-gray-400 mt-1">Ask the Kai Committee for an accommodation — not a disciplinary matter</p>
         </div>
       </div>
     </div>
 
     <!-- v3.28.8: toggle between the disciplinary report form and the
-         accommodation-request form — the two things this dashboard now
-         lets a member submit to the Kai Committee. -->
+         accommodation-request form — same tab pair as submit_report.html,
+         mirrored so it's obvious this is the other half of one dashboard. -->
     <div class="flex gap-2 mb-6" role="tablist">
-      <span class="flex-1 text-center px-4 py-2.5 rounded-lg bg-primary-600 text-white text-sm font-semibold" role="tab" aria-selected="true">
-        Report a Concern
-      </span>
-      <a href="{% url 'submit_kai_accommodation_request' %}"
+      <a href="{% url 'submit_kai_report' %}"
          class="flex-1 text-center px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm font-semibold transition"
          role="tab" aria-selected="false">
-        Request an Accommodation
+        Report a Concern
       </a>
+      <span class="flex-1 text-center px-4 py-2.5 rounded-lg bg-primary-600 text-white text-sm font-semibold" role="tab" aria-selected="true">
+        Request an Accommodation
+      </span>
     </div>
 
     <!-- Form -->
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-8 transition-colors duration-200">
-      <!-- Template Selector -->
-      {% if templates %}
-      <div class="mb-8 pb-6 border-b border-gray-200 dark:border-gray-700">
-        <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-          Use a Template <span class="text-gray-500 dark:text-gray-400 text-xs">(Optional)</span>
-        </label>
-        <select id="templateSelector" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 transition-colors duration-200">
-          <option value="">-- Start from scratch or select a template --</option>
-          {% for template in templates %}
-          <option value="{{ template.id }}"
-                  data-category="{{ template.category }}"
-                  data-title="{{ template.title_template }}"
-                  data-description="{{ template.description_template }}"
-                  data-tags="{{ template.suggested_tags|join:', ' }}">
-            {{ template.name }} ({{ template.get_category_display }})
-          </option>
-          {% endfor %}
-        </select>
-        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Select a template to pre-fill the form with recommended structure and guidelines</p>
-      </div>
-      {% endif %}
-
       <form method="post" enctype="multipart/form-data" class="space-y-6">
         {% csrf_token %}
-
-        <!-- Category Field (added) -->
-        <div>
-          <label for="{{ form.category.id_for_label }}" class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-            {{ form.category.label }}
-            <span class="text-red-500">*</span>
-          </label>
-          {{ form.category }}
-          {% if form.category.help_text %}
-          <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ form.category.help_text }}</p>
-          {% endif %}
-          {% if form.category.errors %}
-          <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ form.category.errors.0 }}</p>
-          {% endif %}
-        </div>
 
         <!-- Title Field -->
         <div>
@@ -106,20 +69,6 @@
           {% endif %}
         </div>
 
-        <!-- Targeted To Field -->
-        <div>
-          <label for="{{ form.targeted_to.id_for_label }}" class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-            {{ form.targeted_to.label }}
-          </label>
-          {{ form.targeted_to }}
-          {% if form.targeted_to.help_text %}
-          <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ form.targeted_to.help_text }}</p>
-          {% endif %}
-          {% if form.targeted_to.errors %}
-          <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ form.targeted_to.errors.0 }}</p>
-          {% endif %}
-        </div>
-
         <!-- Attachment Field -->
         <div>
           <label for="{{ form.attachment.id_for_label }}" class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
@@ -136,35 +85,7 @@
           {% endif %}
         </div>
 
-        <!-- Tags Field -->
-        <div>
-          <label for="{{ form.tags.id_for_label }}" class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-            {{ form.tags.label }}
-          </label>
-          {{ form.tags }}
-          {% if form.tags.help_text %}
-          <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ form.tags.help_text }}</p>
-          {% endif %}
-          <div class="mt-2 flex flex-wrap gap-2">
-            <button type="button" class="js-add-tag px-3 py-1 bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 rounded-full text-xs hover:bg-red-200 dark:hover:bg-red-900 transition" data-tag="urgent">
-              + Urgent
-            </button>
-            <button type="button" class="js-add-tag px-3 py-1 bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 rounded-full text-xs hover:bg-blue-200 dark:hover:bg-blue-900 transition" data-tag="academic">
-              + Academic
-            </button>
-            <button type="button" class="js-add-tag px-3 py-1 bg-yellow-100 dark:bg-yellow-900/50 text-yellow-700 dark:text-yellow-300 rounded-full text-xs hover:bg-yellow-200 dark:hover:bg-yellow-900 transition" data-tag="follow-up">
-              + Follow-up
-            </button>
-            <button type="button" class="js-add-tag px-3 py-1 bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300 rounded-full text-xs hover:bg-green-200 dark:hover:bg-green-900 transition" data-tag="social">
-              + Social
-            </button>
-          </div>
-          {% if form.tags.errors %}
-          <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ form.tags.errors.0 }}</p>
-          {% endif %}
-        </div>
-
-        <!-- Custom Fields (added by Kai chair) -->
+        <!-- Custom Fields (added by Kai chair via the accommodation form builder) -->
         {% if custom_sections %}
         {% for section_name, section_fields in custom_sections.items %}
         {% if section_name and section_name != "Additional Information" and section_name != "Custom Fields" %}
@@ -284,7 +205,7 @@
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
             </svg>
-            <span>Submit Report</span>
+            <span>Submit Request</span>
           </button>
         </div>
       </form>
@@ -299,108 +220,13 @@
           </svg>
         </div>
         <div class="ml-3">
-          <h3 class="text-sm font-medium text-primary-800 dark:text-primary-200">About Kai Reports</h3>
+          <h3 class="text-sm font-medium text-primary-800 dark:text-primary-200">About Accommodation Requests</h3>
           <div class="mt-2 text-sm text-primary-700 dark:text-primary-300">
-            <p>Kai reports are submitted to the Kai Committee chair(s) to notify them of important information, concerns, or updates. The chair will be notified via email when you submit this report.</p>
+            <p>This form is for asking the Kai Committee for an accommodation — it is not a disciplinary report, has no "accused" party, and is never tied to a case number. The chair(s) will be notified via email when you submit a request.</p>
           </div>
         </div>
       </div>
     </div>
   </div>
 </div>
-
-<script nonce="{{ request.csp_nonce }}">
-document.addEventListener('DOMContentLoaded', function() {
-    document.addEventListener('click', function(e) {
-        var tagBtn = e.target.closest('.js-add-tag');
-        if (tagBtn) addTag(tagBtn.dataset.tag);
-    });
-});
-
-function addTag(tag) {
-  const tagsInput = document.getElementById('{{ form.tags.id_for_label }}');
-  const currentTags = tagsInput.value.trim();
-
-  if (currentTags === '') {
-    tagsInput.value = tag;
-  } else {
-    // Split by comma, check if tag already exists
-    const tagsList = currentTags.split(',').map(t => t.trim());
-    if (!tagsList.includes(tag)) {
-      tagsInput.value = currentTags + ', ' + tag;
-    }
-  }
-}
-
-// Template selector functionality
-const templateSelector = document.getElementById('templateSelector');
-if (templateSelector) {
-  templateSelector.addEventListener('change', function() {
-    const selectedOption = this.options[this.selectedIndex];
-
-    if (this.value === '') {
-      // Reset form if no template selected
-      return;
-    }
-
-    // Get template data from data attributes
-    const category = selectedOption.dataset.category;
-    const titleTemplate = selectedOption.dataset.title;
-    const descriptionTemplate = selectedOption.dataset.description;
-    const tags = selectedOption.dataset.tags;
-
-    // Fill in the form fields
-    const categoryField = document.getElementById('{{ form.category.id_for_label }}');
-    const titleField = document.getElementById('{{ form.title.id_for_label }}');
-    const descriptionField = document.getElementById('{{ form.description.id_for_label }}');
-    const tagsField = document.getElementById('{{ form.tags.id_for_label }}');
-
-    if (categoryField && category) {
-      categoryField.value = category;
-    }
-
-    if (titleField && titleTemplate) {
-      titleField.value = titleTemplate;
-    }
-
-    if (descriptionField && descriptionTemplate) {
-      descriptionField.value = descriptionTemplate;
-    }
-
-    if (tagsField && tags) {
-      tagsField.value = tags;
-    }
-
-    // Scroll to form fields
-    titleField.scrollIntoView({ behavior: 'smooth', block: 'center' });
-
-    // Show a success message
-    const message = document.createElement('div');
-    message.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 animate-fade-in';
-    message.innerHTML = '<strong>Template applied!</strong> Feel free to customize the pre-filled content.';
-    document.body.appendChild(message);
-
-    setTimeout(() => {
-      message.remove();
-    }, 3000);
-  });
-}
-</script>
-
-<style>
-@keyframes fade-in {
-  from {
-    opacity: 0;
-    transform: translateY(-10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.animate-fade-in {
-  animation: fade-in 0.3s ease-out;
-}
-</style>
 {% endblock %}

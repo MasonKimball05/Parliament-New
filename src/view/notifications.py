@@ -132,10 +132,15 @@ def _record_announcement_view(notification, user):
         return
     try:
         announcement = Announcement.objects.get(id=notification.source_id)
+        announcement.ensure_target_audience_snapshot()
         UserAnnouncementView.objects.get_or_create(
             user=user,
             announcement=announcement,
-            defaults={'view_source': 'site', 'dismissed': True},
+            defaults={
+                'view_source': 'site',
+                'dismissed': True,
+                'counted_in_target': announcement.is_in_target_audience(user),
+            },
         )
     except Announcement.DoesNotExist:
         pass

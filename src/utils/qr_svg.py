@@ -33,3 +33,16 @@ WAITING_PLACEHOLDER_SVG = b"""<svg xmlns="http://www.w3.org/2000/svg" width="280
   <text x="140" y="154" text-anchor="middle" font-family="sans-serif" font-size="16" fill="#6b7280">not open yet</text>
 </svg>
 """
+
+#: Same idea as WAITING_PLACEHOLDER_SVG, worded for AnnouncementPollEmbed
+#: (src/models/announcements.py) rather than event check-in — shown when the
+#: announcement isn't published yet or the poll isn't currently accepting
+#: responses, so a slide embedding this before/after the poll's open window
+#: shows something explanatory instead of a broken-image icon.
+POLL_WAITING_PLACEHOLDER_SVG = b"""<svg xmlns="http://www.w3.org/2000/svg" width="280" height="280" viewBox="0 0 280 280">
+  <rect width="280" height="280" fill="#f3f4f6"/>
+  <rect x="8" y="8" width="264" height="264" fill="none" stroke="#d1d5db" stroke-width="2" stroke-dasharray="10,6"/>
+  <text x="140" y="130" text-anchor="middle" font-family="sans-serif" font-size="16" fill="#6b7280">Poll</text>
+  <text x="140" y="154" text-anchor="middle" font-family="sans-serif" font-size="16" fill="#6b7280">not open</text>
+</svg>
+"""

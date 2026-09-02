@@ -227,3 +227,31 @@ class TheCsrfSubmitSafetyNetExistsTests(SimpleTestCase):
         prevent_at = tail.index('event.preventDefault()')
         refresh_at = tail.index('refreshCsrfToken()')
         self.assertLess(prevent_at, refresh_at)
+
+    def test_it_ignores_get_forms(self):
+        """
+        ⚠️ FOUND 09-02-26, the day after this file was last touched. A GET
+        form (global_search.html, songbook.html, announcements.html,
+        kai/view_reports.html, directory.html's export form, every
+        `onchange="this.form.submit()"` filter dropdown in admin-v2) never
+        renders `{% csrf_token %}` in the first place — Django only checks
+        CSRF on state-changing methods. Without a method check, this
+        listener reads that absence as "the field went missing," creates
+        one, and resubmits — serializing a live CSRF token into the query
+        string of a GET request. That leaks the token into browser
+        history and server/CDN access logs on every ordinary site search,
+        and adds a spurious async round-trip before the results load.
+        `form.method` is the IDL attribute, so it always reads back 'get'
+        or 'post' regardless of how the HTML was written (including a form
+        with no `method` attribute at all, which defaults to GET).
+        """
+        stripped = re.sub(r'/\*.*?\*/', '', self.base, flags=re.DOTALL)
+        listener_at = stripped.index("addEventListener('submit'")
+        html_check_at = stripped.index('instanceof HTMLFormElement', listener_at)
+        method_check_at = stripped.index("form.method.toLowerCase() !== 'post'", listener_at)
+        token_field_at = stripped.index('form.querySelector(\'input[name="csrfmiddlewaretoken"]\')', listener_at)
+        # Must run after confirming it's a real form (form.method would throw
+        # on anything else) and before touching the token field at all — a
+        # GET form must never reach the create-or-refresh logic.
+        self.assertLess(html_check_at, method_check_at)
+        self.assertLess(method_check_at, token_field_at)

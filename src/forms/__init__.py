@@ -25,7 +25,7 @@ from src.forms.users import (
 from src.forms.landing import PassedResolutionForm, ResolutionSectionImpactForm
 
 # Kai
-from src.forms.kai import KaiReportForm
+from src.forms.kai import KaiReportForm, KaiAccommodationRequestForm
 
 # Service hours
 from src.forms.service import (

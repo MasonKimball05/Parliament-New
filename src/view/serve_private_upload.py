@@ -233,6 +233,70 @@ def serve_kai_response_file(request, response_id):
 
 
 # ---------------------------------------------------------------------------
+# Kai — accommodation requests (v3.28.8)
+# ---------------------------------------------------------------------------
+#
+# See src/models/kai_accommodations.py's module docstring for why this is a
+# separate model from KaiReport. The access rule is deliberately SIMPLER than
+# `_user_may_read_kai_report` above: there is no accused, so there is no
+# `_case_access`/recusal narrowing to reapply — just "the requester, or a
+# committee member the chair granted can_view_report_details to", which is
+# exactly `manage_kai_accommodation_requests`/`_detail`'s own gate.
+
+
+def _user_may_read_kai_accommodation(user, accommodation_request):
+    """
+    True if `user` may read `accommodation_request`'s attachments.
+
+    Mirrors `kai_accommodations.manage_kai_accommodation_request_detail`
+    exactly: the requester, or a committee member with
+    `can_view_report_details` under the shared KaiMemberPermission grants
+    (see that module's docstring for why accommodation requests reuse the
+    Kai committee's permission system rather than inventing a second one).
+    """
+    if accommodation_request.requester_id == user.pk:
+        return True
+
+    from src.models import Committee
+    from src.view.kai_reports import _get_kai_access
+
+    try:
+        kai_committee = Committee.objects.get(is_kai_committee=True)
+    except Committee.DoesNotExist:
+        return False
+
+    access = _get_kai_access(user, kai_committee)
+    return bool(access.get('can_view_report_details'))
+
+
+@login_required
+@require_feature_flag('kai_reports')
+@log_function_call
+def serve_kai_accommodation_attachment(request, request_id):
+    """Stream an accommodation request's attachment to its requester or a permitted reviewer."""
+    from src.models import KaiAccommodationRequest
+
+    accommodation_request = get_object_or_404(KaiAccommodationRequest, id=request_id)
+    if not _user_may_read_kai_accommodation(request.user, accommodation_request):
+        raise Http404('File not found')
+    return _stream_private_file(accommodation_request.attachment)
+
+
+@login_required
+@require_feature_flag('kai_reports')
+@log_function_call
+def serve_kai_accommodation_response_file(request, response_id):
+    """Stream an accommodation request's custom-field file response. Same rule as the parent request."""
+    from src.models import KaiAccommodationFieldResponse
+
+    response = get_object_or_404(
+        KaiAccommodationFieldResponse.objects.select_related('request'), id=response_id)
+    if not _user_may_read_kai_accommodation(request.user, response.request):
+        raise Http404('File not found')
+    return _stream_private_file(response.file_value)
+
+
+# ---------------------------------------------------------------------------
 # Slating — applications, GPA screenshots
 # ---------------------------------------------------------------------------
 #

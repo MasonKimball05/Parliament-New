@@ -280,10 +280,26 @@
          * letting the request 403. Calling `form.submit()` (not
          * `.requestSubmit()`) does not re-fire the `submit` event per
          * spec, so this cannot loop.
+         *
+         * ⚠️ POST-ONLY, FOUND 09-02-26. A `method="get"` form (global_search.html,
+         * songbook.html, announcements.html, kai/view_reports.html,
+         * directory.html's export form, every `onchange="this.form.submit()"`
+         * filter dropdown in admin-v2) never renders `{% csrf_token %}` in the
+         * first place — Django only checks CSRF on state-changing methods.
+         * Without a method check, `tokenField` reads `null` there for a reason
+         * that has nothing to do with what this guard exists to catch, and the
+         * code below still treats "null" as "go fix it": preventDefault() the
+         * real submission, await an async refresh, then resubmit with a
+         * newly-created hidden field — which on a GET form serializes straight
+         * into the query string, leaking a live CSRF token into the URL
+         * (browser history, server/CDN logs, any Referer sent to a
+         * third-party resource on the results page) on every ordinary site
+         * search, plus a needless round-trip before the page loads.
          */
         document.addEventListener('submit', function(event) {
             var form = event.target;
             if (!(form instanceof HTMLFormElement)) return;
+            if (form.method.toLowerCase() !== 'post') return; // GET forms never carry this field — see above
             var tokenField = form.querySelector('input[name="csrfmiddlewaretoken"]');
             // ⚠️ A MISSING FIELD IS NOT "NOTHING TO DO." The first version of
             // this guard treated "no such input at all" the same as "token

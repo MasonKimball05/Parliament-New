@@ -61,7 +61,12 @@ def submit_kai_report(request):
                 report.save()
 
                 # Save custom field responses
-                custom_fields = KaiFormField.objects.filter(is_active=True, is_builtin=False)
+                # v3.28.8: scoped to the discipline form — KaiFormField is now
+                # shared with the accommodation-request form (form_type), and
+                # without this an accommodation-only custom field would be
+                # (a) processed here as if it were part of this report, and
+                # (b) invisible on the accommodation form's own save path.
+                custom_fields = KaiFormField.objects.filter(is_active=True, is_builtin=False, form_type='discipline')
                 for field in custom_fields:
                     field_key = f'custom_field_{field.id}'
                     value = request.POST.get(field_key, '').strip()
@@ -209,8 +214,11 @@ Please log in to the Kai Committee page to review this report.
         # Get active templates
         templates = KaiReportTemplate.objects.filter(is_active=True)
 
-        # Get custom fields (non-builtin)
-        custom_fields = KaiFormField.objects.filter(is_active=True, is_builtin=False).order_by('section', 'display_order')
+        # Get custom fields (non-builtin). form_type='discipline' — see the
+        # save-path comment above; the same scoping applies to what's shown.
+        custom_fields = KaiFormField.objects.filter(
+            is_active=True, is_builtin=False, form_type='discipline',
+        ).order_by('section', 'display_order')
 
         # Group custom fields by section
         custom_sections = {}

@@ -35,6 +35,45 @@ class Announcement(models.Model):
         help_text='Chapter documents linked to this announcement.',
     )
 
+    # ------------------------------------------------------------------
+    # Target audience snapshot — v3.28.6.
+    #
+    # `get_view_stats()` used to compute "target audience" by re-running
+    # `target_member_types()` + an Active-member filter against the CURRENT
+    # roster, every time it was called. That is wrong the moment membership
+    # changes: an announcement posted `visible_to=['Pledge']` shows a
+    # shrinking, eventually-zero denominator as that pledge class initiates,
+    # because there are no longer any *current* Active pledges to count —
+    # even though the announcement was seen by every pledge who mattered at
+    # the time. Reported live 09-02-26 as an announcement reading "5 of 0
+    # members (500%)".
+    #
+    # Fixed by freezing the audience once, the first time anything needs to
+    # know it (a real member viewing it, or an officer opening its stats) —
+    # see `ensure_target_audience_snapshot()`. A list of user pks rather
+    # than just a count, so `announcement_stats`'s "who hasn't viewed" list
+    # can be computed against the same frozen population instead of
+    # separately re-deriving it from the current roster.
+    #
+    # ⚠️ Known, accepted limitation: this cannot recover PAST audiences for
+    # announcements posted before this field existed — there is no
+    # historical record of who held which member_type on a given date. The
+    # backfill migration (0027) does the best available thing (snapshots
+    # against the CURRENT roster at migration time), which fixes the
+    # display for most existing announcements but cannot un-lose data for
+    # one already fully churned over, like the pledge-class example above.
+    # Going forward, every announcement gets an accurate snapshot.
+    # ------------------------------------------------------------------
+    target_audience_snapshot = models.JSONField(
+        default=list,
+        blank=True,
+        help_text=(
+            'User IDs of members eligible to view this announcement, frozen the '
+            'first time it is viewed or its stats are checked after publishing. '
+            'Denominator for view-rate stats — see ensure_target_audience_snapshot().'
+        ),
+    )
+
     class Meta:
         ordering = ['-posted_at']
         indexes = [
@@ -82,13 +121,21 @@ class Announcement(models.Model):
 
         All three counts share one join to `views`, so conditional aggregation
         gets them in one pass and no `distinct` is needed.
+
+        v3.28.6: all three are now also filtered on `counted_in_target=True` —
+        a plain boolean column, so this stays a single-pass conditional
+        aggregate rather than needing a per-row correlated subquery against
+        each announcement's own `target_audience_snapshot`. See
+        `UserAnnouncementView.counted_in_target` for where that boolean is
+        decided.
         """
         from django.db.models import Count, Q
 
+        in_target = Q(views__counted_in_target=True)
         return queryset.annotate(
-            _site_views=Count('views', filter=Q(views__view_source='site')),
-            _email_views=Count('views', filter=Q(views__view_source='email')),
-            _total_views=Count('views'),
+            _site_views=Count('views', filter=in_target & Q(views__view_source='site')),
+            _email_views=Count('views', filter=in_target & Q(views__view_source='email')),
+            _total_views=Count('views', filter=in_target),
         )
 
     @staticmethod
@@ -125,39 +172,137 @@ class Announcement(models.Model):
             types |= {'Chair', 'Officer'}
         return types
 
+    @staticmethod
+    def _active_user_ids_by_type():
+        """``{member_type: [user_id, ...]}`` for every Active member — one query.
+
+        Same shape as `active_counts_by_member_type()` above (built for the
+        same reason — v3.17.4 — one query instead of one per announcement),
+        just holding ids instead of counts, since a snapshot needs to know
+        WHO, not just how many.
+        """
+        result = {}
+        for row in (
+            ParliamentUser.objects.filter(member_status='Active')
+            .values('member_type', 'user_id')
+        ):
+            result.setdefault(row['member_type'], []).append(row['user_id'])
+        return result
+
+    def _snapshot_from_map(self, active_by_type):
+        """The target-audience id list, computed from an already-fetched
+        `_active_user_ids_by_type()` map rather than a query of its own."""
+        visible_types = self.target_member_types()
+        if visible_types is None:
+            ids = {uid for ids in active_by_type.values() for uid in ids}
+        else:
+            ids = {uid for t in visible_types for uid in active_by_type.get(t, [])}
+        return sorted(ids)
+
+    def compute_target_audience_ids(self):
+        """
+        User ids currently eligible to view this announcement: Active status
+        AND a matching member_type (or everyone, if `visible_to` is empty).
+
+        This is the "live" computation — right for deciding who to show the
+        announcement to on the site RIGHT NOW. It is deliberately NOT what
+        `get_view_stats()` uses for its denominator once a snapshot exists —
+        see `target_audience_snapshot` and `ensure_target_audience_snapshot()`.
+        Single-object convenience wrapper around `_snapshot_from_map()`; for
+        more than one announcement, use `ensure_target_audience_snapshots()`
+        (batched) rather than calling this in a loop.
+        """
+        return self._snapshot_from_map(self._active_user_ids_by_type())
+
+    def ensure_target_audience_snapshot(self):
+        """
+        Freeze `target_audience_snapshot` the first time it's needed, if this
+        announcement is actually published yet. A no-op (no query, no write)
+        on every call after the first for a given announcement.
+
+        Not published yet: nothing to freeze — a draft's audience isn't real
+        until it goes out, so this deliberately leaves the snapshot empty
+        rather than freezing a guess that publish_at (or an edit before then)
+        could still change.
+
+        ⚠️ Single-object. Calling this in a loop over several announcements
+        is the N+1 `annotate_view_stats()` was built to avoid one field over
+        — use `Announcement.ensure_target_audience_snapshots(list_of_them)`
+        for a page of more than one, which this delegates to anyway.
+        """
+        type(self).ensure_target_audience_snapshots([self])
+        return self.target_audience_snapshot
+
+    @classmethod
+    def ensure_target_audience_snapshots(cls, announcements):
+        """
+        Batched form of `ensure_target_audience_snapshot()`: freezes every
+        published-but-unsnapshotted announcement in `announcements` in ONE
+        query for the roster plus one `bulk_update`, rather than one of each
+        per announcement — the same shape `annotate_view_stats()` /
+        `active_counts_by_member_type()` already use for this page (v3.17.4).
+
+        `announcements` is a list/queryset the caller already has in hand;
+        this never fetches announcements itself, only the roster needed to
+        compute snapshots for the ones that need one. Safe to call with an
+        empty or all-already-snapshotted list — costs nothing beyond the one
+        `pending` check per object in that case.
+        """
+        pending = [a for a in announcements if not a.target_audience_snapshot and a.is_published()]
+        if not pending:
+            return
+        active_by_type = cls._active_user_ids_by_type()
+        for announcement in pending:
+            announcement.target_audience_snapshot = announcement._snapshot_from_map(active_by_type)
+        cls.objects.bulk_update(pending, ['target_audience_snapshot'])
+
+    def is_in_target_audience(self, user):
+        """
+        Whether `user` was part of the frozen audience this announcement was
+        published to — the single rule for "does this view count toward the
+        stats." Every `UserAnnouncementView` creation site sets
+        `counted_in_target` from this (see `src/tests/announcements/
+        test_view_stats_snapshot.py::EveryCreationSiteSetsCountedInTargetTests`
+        for the enumeration).
+
+        Before a snapshot exists (announcement not yet published), nobody is
+        "in" it — matches `ensure_target_audience_snapshot()` leaving an
+        unpublished announcement's snapshot empty.
+        """
+        user_pk = getattr(user, 'pk', None)
+        return bool(user_pk) and str(user_pk) in self.target_audience_snapshot
+
     def get_view_stats(self):
         """
         Get view statistics for this announcement.
 
-        Uses values annotated by `annotate_view_stats()` and a type-count map
-        attached as `_active_counts_by_type` when they are present, so a list
-        page costs nothing per row. Falls back to querying for a single object
-        (`announcement_stats` still calls it that way).
+        Uses values annotated by `annotate_view_stats()` when present, so a
+        list page costs nothing per row beyond what's already loaded. Falls
+        back to querying for a single object (`announcement_stats` still
+        calls it that way).
+
+        v3.28.6: both the numerator (views) and denominator (target
+        audience) are now read from the frozen `target_audience_snapshot`
+        rather than recomputed against the current roster — see that field's
+        docstring. `ensure_target_audience_snapshot()` is called here too
+        (in addition to the view-creation call sites) so opening the stats
+        page for a just-published, not-yet-viewed announcement still freezes
+        something sensible rather than showing an empty snapshot.
         """
+        self.ensure_target_audience_snapshot()
+
         annotated = hasattr(self, '_total_views')
         if annotated:
             site_views = self._site_views
             email_views = self._email_views
             total_views = self._total_views
         else:
-            views = self.views.all()
+            views = self.views.filter(counted_in_target=True)
             site_views = views.filter(view_source='site').count()
             email_views = views.filter(view_source='email').count()
             total_views = views.count()
 
-        # Get target audience count
-        visible_types = self.target_member_types()
-        type_counts = getattr(self, '_active_counts_by_type', None)
-        if type_counts is not None:
-            target_count = (
-                sum(type_counts.values()) if visible_types is None
-                else sum(n for t, n in type_counts.items() if t in visible_types)
-            )
-        else:
-            target_users = ParliamentUser.objects.filter(member_status='Active')
-            if visible_types is not None:
-                target_users = target_users.filter(member_type__in=visible_types)
-            target_count = target_users.count()
+        target_count = len(self.target_audience_snapshot)
 
         return {
             'site_views': site_views,
@@ -188,6 +333,20 @@ class UserAnnouncementView(models.Model):
         choices=VIEW_SOURCE_CHOICES,
         default='site',
         help_text='Where the user viewed the announcement'
+    )
+    # v3.28.6 — see Announcement.target_audience_snapshot and
+    # Announcement.is_in_target_audience(). Every creation site must set this
+    # explicitly from that method; default=True only covers a row created
+    # some other way (e.g. by hand in the shell), where "count it" is the
+    # safer failure than silently under-counting a real view.
+    counted_in_target = models.BooleanField(
+        default=True,
+        help_text=(
+            "Whether this view counts toward the announcement's view-rate stats — "
+            'false for a member who could technically open the page (e.g. an '
+            "alumnus who still has an account, or a wrong-member-type viewer) "
+            "but wasn't part of who the announcement was actually published to."
+        ),
     )
 
     class Meta:
@@ -332,6 +491,83 @@ class AnnouncementPollAnswer(models.Model):
 
     def __str__(self):
         return f"Answer to '{self.question.text[:40]}'"
+
+
+class AnnouncementPollEmbed(models.Model):
+    """
+    A stable, UNAUTHENTICATED bearer link for embedding a poll's live QR
+    code into something that fetches it with no session — a PowerPoint
+    linked picture, Google Slides "Insert image by URL", OBS, etc. v3.28.7.
+
+    Same shape as `EventCheckinEmbed` (src/models/events.py), and simpler in
+    one respect: an event's QR encodes a rotating, time-boxed
+    `EventCheckinWindow` token that changes every time an officer opens a
+    new window, so that model exists specifically to give a slide a STABLE
+    url pointing at whatever window happens to be open right now. A poll has
+    no equivalent rotation — `take_poll`'s URL is just the announcement's
+    permanent id — so this embed's only job is rendering that same QR as a
+    fetchable image without requiring a login, not tracking anything that
+    changes underneath it.
+
+    ⚠️ WHY THIS IS SAFE TO BE ANONYMOUS: like the event embed, this token
+    only lets the holder FETCH AN IMAGE — an image of a QR code that, when
+    scanned, sends the scanner to `take_poll`'s own login-gated page. It
+    grants no ability to read responses, open or close the poll, or do
+    anything `take_poll` itself doesn't already require a real login for.
+    Deliberately NOT registered in `/admin/`, same reason as
+    `EventCheckinEmbed`/`CalendarSubscription`: `token` is a bearer
+    credential, and an editable admin field is a way to leak it.
+
+    One per poll (`OneToOneField`), created on first "Get embed link" click
+    and stable after that — the whole point is pasting it into a slide
+    once. `revoke` + a fresh token exists for the case where a link needs to
+    stop working (e.g. it leaked somewhere unintended).
+    """
+    poll = models.OneToOneField(
+        AnnouncementPoll, on_delete=models.CASCADE, related_name='qr_embed',
+    )
+    token = models.CharField(max_length=43, unique=True, editable=False)
+    created_by = models.ForeignKey(
+        'ParliamentUser', on_delete=models.SET_NULL, null=True,
+        related_name='created_poll_qr_embeds',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    revoked_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        verbose_name = 'Poll QR Embed Link'
+        verbose_name_plural = 'Poll QR Embed Links'
+
+    def __str__(self):
+        return f'QR embed link for {self.poll.title}'
+
+    def is_active(self):
+        return self.revoked_at is None
+
+    @classmethod
+    def get_or_create_for(cls, poll, created_by):
+        """The stable embed link for `poll` — created on first use, reused
+        after that. Regenerates the token if the existing one was revoked,
+        so clicking "Get embed link" again after a revoke issues a working
+        replacement rather than silently handing back a dead one. Mirrors
+        `EventCheckinEmbed.get_or_create_for`."""
+        import secrets
+
+        embed, created = cls.objects.get_or_create(
+            poll=poll,
+            defaults={'token': secrets.token_urlsafe(32), 'created_by': created_by},
+        )
+        if not created and embed.revoked_at is not None:
+            embed.token = secrets.token_urlsafe(32)
+            embed.revoked_at = None
+            embed.created_by = created_by
+            embed.save(update_fields=['token', 'revoked_at', 'created_by'])
+        return embed
+
+    def revoke(self):
+        from django.utils import timezone
+        self.revoked_at = timezone.now()
+        self.save(update_fields=['revoked_at'])
 
 
 class AnnouncementEmailLog(models.Model):

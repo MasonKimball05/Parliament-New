@@ -275,19 +275,35 @@ class TheActivityFeedRedactsIdentitiesTests(KaiRedactionTestCase):
         self.assertNotIn(SUBMITTER_NAME, html)
         self.assertNotIn(ACCUSED_NAME, html)
 
+    #: v3.28.8 — accommodation_request_detail.html renders
+    #: KaiAccommodationRequestActivity, NOT KaiReportActivity, and that model
+    #: carries no redaction promise: KaiAccommodationRequest has no accused,
+    #: no submitter identity ever withheld from a permitted reviewer (see
+    #: that model's docstring — "the requester's identity is NOT withheld
+    #: from anyone by design"), and the activity rows this test is guarding
+    #: (`display_actor`/`display_details` scrubbing submitted_by/targeted_to
+    #: names) simply do not apply to it. This is a narrow, named exemption —
+    #: not a way to make the check pass — so a future disciplinary-report
+    #: template still trips this the moment it skips redaction.
+    _NOT_A_KAI_REPORT_ACTIVITY_FEED = {'kai/accommodation_request_detail.html'}
+
     def test_no_template_renders_raw_activity_fields(self):
         """
         The enumeration, maintained by grep rather than by memory.
 
         Three templates render the activity feed and all three were wrong. Any
         fourth copy must go through `display_actor` / `display_details` too, and
-        this fails the moment one does not.
+        this fails the moment one does not — UNLESS it's rendering a different,
+        non-confidential activity model; see `_NOT_A_KAI_REPORT_ACTIVITY_FEED`.
         """
         # Scoped to templates/kai/ deliberately. Other modules keep their own
         # activity logs (service hours, for one) and those carry no
         # confidentiality promise — this is a Kai rule, not a global one.
         offenders = []
         for path in (Path(settings.BASE_DIR) / 'templates' / 'kai').rglob('*.html'):
+            rel = str(path.relative_to(settings.BASE_DIR / 'templates'))
+            if rel in self._NOT_A_KAI_REPORT_ACTIVITY_FEED:
+                continue
             text = path.read_text(encoding='utf-8', errors='ignore')
             for raw in ('activity.user.name', 'activity.details',
                         'entry.user.name', 'entry.details'):
@@ -298,6 +314,20 @@ class TheActivityFeedRedactsIdentitiesTests(KaiRedactionTestCase):
             'These Kai templates render un-redacted activity fields. Use '
             'display_actor / display_details — see _redact_activity_log.',
         )
+
+    def test_the_exemption_names_a_real_file_that_is_not_a_report_activity_feed(self):
+        """
+        Negative control for the exemption above: it must name a template
+        that (a) actually exists and (b) does NOT render KaiReportActivity,
+        so the exemption can't quietly widen into a way to hide a real
+        disciplinary-report redaction gap.
+        """
+        for rel in self._NOT_A_KAI_REPORT_ACTIVITY_FEED:
+            path = Path(settings.BASE_DIR) / 'templates' / rel
+            self.assertTrue(path.exists(), f'{rel} does not exist')
+            text = path.read_text(encoding='utf-8', errors='ignore')
+            self.assertNotIn('display_actor', text)
+            self.assertNotIn("{% url 'manage_kai_report'", text)
 
     def test_the_print_view_gates_both_party_names_in_its_header_too(self):
         """

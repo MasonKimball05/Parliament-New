@@ -120,6 +120,8 @@ which predate this file and are more specific than their commit dates.
 | v3.28.0 | *not deployed* | `d4495be` | See `changelogs/v3.28.0.md`. Code landed 08-29-26 in `44ac560`; stamped to `d4495be` 08-31-26, same reason as v3.27.0 above. |
 | v3.28.1 | *not deployed* | `d4495be` | See `changelogs/v3.28.1.md`. Code landed 08-29-26 in `c6b5d93`; stamped to `d4495be` 08-31-26, same reason as v3.27.0 above. |
 | v3.28.2 | *not deployed* | `d4495be` | See `changelogs/v3.28.2.md`. |
+| v3.28.3 | *not deployed* | `d6d4de2` | See `changelogs/v3.28.3.md`. |
+| v3.28.4 | *not deployed* | `34952f0` | See `changelogs/v3.28.4.md`. |
 
 > **⚠️ Why v3.18.8 and v3.19.2 were missing (added 08-07-26).** Both were
 > committed and pushed on 08-06, both changelogs still said
