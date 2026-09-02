@@ -1,6 +1,6 @@
 {% extends "admin_base.html" %}
 
-{% block title %}{{ accommodation_request.title }} - Accommodation Request{% endblock %}
+{% block title %}{{ commendation.title }} - Commendation{% endblock %}
 
 {% block admin_content %}
 <div class="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 min-h-screen transition-colors duration-200">
@@ -9,26 +9,31 @@
     <!-- Header -->
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-6 transition-colors duration-200">
       <div class="flex items-start space-x-4">
-        <a href="{% url 'manage_kai_accommodation_requests' %}" class="mt-1 p-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition">
+        <a href="{% url 'manage_kai_commendations' %}" class="mt-1 p-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
           </svg>
         </a>
         <div>
-          <p class="text-xs font-mono text-gray-400 dark:text-gray-500">{{ accommodation_request.display_number }}</p>
-          <h1 class="text-2xl font-bold text-gray-800 dark:text-gray-100">{{ accommodation_request.title }}</h1>
+          <p class="text-xs font-mono text-gray-400 dark:text-gray-500">{{ commendation.display_number }}</p>
+          <h1 class="text-2xl font-bold text-gray-800 dark:text-gray-100">{{ commendation.title }}</h1>
+          <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Commending <span class="font-semibold text-gray-700 dark:text-gray-300">{{ commendation.commended_member.name|default:"(no member specified — submitted before this field existed)" }}</span></p>
           <div class="flex flex-wrap items-center gap-2 mt-2">
             <span class="px-3 py-1 rounded-full text-xs font-semibold
-              {% if accommodation_request.status == 'pending' %}bg-yellow-100 dark:bg-yellow-900/50 text-yellow-800 dark:text-yellow-200
-              {% elif accommodation_request.status == 'in_review' %}bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-200
-              {% elif accommodation_request.status == 'approved' %}bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-200
-              {% elif accommodation_request.status == 'denied' %}bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-200
+              {% if commendation.status == 'pending' %}bg-yellow-100 dark:bg-yellow-900/50 text-yellow-800 dark:text-yellow-200
+              {% elif commendation.status == 'acknowledged' %}bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-200
               {% else %}bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200{% endif %}">
-              {{ accommodation_request.get_status_display }}
+              {{ commendation.get_status_display }}
             </span>
-            {% if accommodation_request.assigned_to %}
+            {% if commendation.assigned_to %}
             <span class="px-3 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
-              Assigned to {{ accommodation_request.assigned_to.name }}
+              Assigned to {{ commendation.assigned_to.name }}
+            </span>
+            {% endif %}
+            {% if commendation.is_submitter_anonymous %}
+            <span class="px-3 py-1 rounded-full text-xs font-semibold bg-purple-100 dark:bg-purple-900/50 text-purple-800 dark:text-purple-200"
+                  title="The submitter asked not to be named if this is relayed to the commended member.">
+              Submitter wishes to remain anonymous
             </span>
             {% endif %}
           </div>
@@ -38,15 +43,15 @@
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-      <!-- Left: Request content -->
+      <!-- Left: Commendation content -->
       <div class="lg:col-span-2 space-y-6">
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
           <h3 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">Details</h3>
-          <p class="text-gray-800 dark:text-gray-100 whitespace-pre-wrap">{{ accommodation_request.description }}</p>
+          <p class="text-gray-800 dark:text-gray-100 whitespace-pre-wrap">{{ commendation.description }}</p>
 
-          {% if accommodation_request.attachment %}
+          {% if commendation.attachment %}
           <div class="mt-4">
-            <a href="{% url 'kai_accommodation_attachment' accommodation_request.id %}" target="_blank"
+            <a href="{% url 'kai_commendation_attachment' commendation.id %}" target="_blank"
                class="inline-flex items-center px-3 py-1.5 text-sm bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition">
               📎 View Attachment
             </a>
@@ -54,8 +59,10 @@
           {% endif %}
 
           <div class="mt-4 flex flex-wrap gap-4 text-xs text-gray-500 dark:text-gray-400">
-            <span>Requested by {{ accommodation_request.requester.name }}</span>
-            <span>{{ accommodation_request.submitted_at|date:"M d, Y g:i A" }}</span>
+            <span>Submitted by {{ commendation.submitted_by.name }}
+              {% if commendation.is_submitter_anonymous %}<span class="text-purple-600 dark:text-purple-400">(asked to stay anonymous to {{ commendation.commended_member.name|default:"the honoree" }})</span>{% endif %}
+            </span>
+            <span>{{ commendation.submitted_at|date:"M d, Y g:i A" }}</span>
           </div>
         </div>
 
@@ -68,7 +75,7 @@
               <p class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ response.field.label }}</p>
               <p class="mt-1 text-gray-900 dark:text-white">
                 {% if response.field.field_type == 'file' and response.file_value %}
-                <a href="{% url 'kai_accommodation_response_file' response.id %}" target="_blank" class="text-primary-600 dark:text-primary-400 hover:text-primary-700">
+                <a href="{% url 'kai_commendation_response_file' response.id %}" target="_blank" class="text-primary-600 dark:text-primary-400 hover:text-primary-700">
                   View File
                 </a>
                 {% elif response.field.field_type == 'checkbox' or response.field.field_type == 'multiselect' %}
@@ -86,19 +93,19 @@
         <!-- Committee Notes -->
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
           <h3 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">Committee Notes</h3>
-          <p class="text-xs text-gray-400 dark:text-gray-500 mb-3">Internal only — not shown to the requester.</p>
+          <p class="text-xs text-gray-400 dark:text-gray-500 mb-3">Internal only — not shown to anyone outside the committee.</p>
           {% if access.can_add_activity %}
           <form method="post" class="space-y-3">
             {% csrf_token %}
             <input type="hidden" name="action" value="update_notes">
             <textarea name="committee_notes" rows="4"
-                      class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">{{ accommodation_request.committee_notes }}</textarea>
+                      class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">{{ commendation.committee_notes }}</textarea>
             <button type="submit" class="px-4 py-2 text-sm bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition font-medium">
               Save Notes
             </button>
           </form>
           {% else %}
-          <p class="text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{{ accommodation_request.committee_notes|default:"No notes yet." }}</p>
+          <p class="text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{{ commendation.committee_notes|default:"No notes yet." }}</p>
           {% endif %}
         </div>
 
@@ -131,8 +138,8 @@
             {% csrf_token %}
             <input type="hidden" name="action" value="update_status">
             <select name="status" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
-              {% for value, label in accommodation_request.STATUS_CHOICES %}
-              <option value="{{ value }}" {% if accommodation_request.status == value %}selected{% endif %}>{{ label }}</option>
+              {% for value, label in commendation.STATUS_CHOICES %}
+              <option value="{{ value }}" {% if commendation.status == value %}selected{% endif %}>{{ label }}</option>
               {% endfor %}
             </select>
             <button type="submit" class="w-full px-4 py-2 text-sm bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition font-medium">
@@ -149,7 +156,7 @@
             <select name="assigned_to" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
               <option value="">-- Unassigned --</option>
               {% for member in committee_members %}
-              <option value="{{ member.id }}" {% if accommodation_request.assigned_to_id == member.id %}selected{% endif %}>{{ member.name }}</option>
+              <option value="{{ member.id }}" {% if commendation.assigned_to_id == member.id %}selected{% endif %}>{{ member.name }}</option>
               {% endfor %}
             </select>
             <button type="submit" class="w-full px-4 py-2 text-sm bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition font-medium">
@@ -159,12 +166,12 @@
         </div>
         {% endif %}
 
-        {% if accommodation_request.resolved_at %}
+        {% if commendation.reviewed_at %}
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
-          <h3 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">Resolution</h3>
+          <h3 class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">Review</h3>
           <p class="text-sm text-gray-700 dark:text-gray-300">
-            Resolved {{ accommodation_request.resolved_at|date:"M d, Y" }}
-            {% if accommodation_request.resolved_by %}by {{ accommodation_request.resolved_by.name }}{% endif %}
+            Reviewed {{ commendation.reviewed_at|date:"M d, Y" }}
+            {% if commendation.reviewed_by %}by {{ commendation.reviewed_by.name }}{% endif %}
           </p>
         </div>
         {% endif %}

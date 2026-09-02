@@ -100,9 +100,9 @@ from src.view.submit_excuse import my_excuses, submit_excuse, cancel_excuse, my_
 from src.view.kai_reports import submit_kai_report, view_kai_reports, manage_kai_report, export_kai_reports_csv, print_kai_report, kai_dashboard, bulk_actions_kai_reports, manage_kai_templates, create_kai_template, edit_kai_template, delete_kai_template, track_kai_accused_email_view, track_kai_submitter_email_view, appoint_kai_standin, remove_kai_standin, recuse_kai_member, end_kai_recusal
 from src.view.kai_user_dashboard import user_kai_dashboard, user_view_report, request_closure, request_drop_case, file_appeal
 from src.view.kai_form_builder import kai_form_builder, reorder_kai_fields, get_kai_field_details
-from src.view.kai_accommodations import (
-    submit_kai_accommodation_request, manage_kai_accommodation_requests,
-    manage_kai_accommodation_request_detail,
+from src.view.kai_commendations import (
+    submit_kai_commendation, manage_kai_commendations,
+    manage_kai_commendation_detail,
 )
 from src.view.service_user_dashboard import (
     user_service_dashboard, user_view_submission,
@@ -188,7 +188,7 @@ from src.view.serve_media import serve_media
 # link these routes and never `<field>.url`.
 from src.view.serve_private_upload import (
     serve_bug_report_screenshot, serve_excuse_document,
-    serve_kai_accommodation_attachment, serve_kai_accommodation_response_file,
+    serve_kai_commendation_attachment, serve_kai_commendation_response_file,
     serve_kai_report_attachment, serve_kai_response_file,
     serve_service_hours_attachment, serve_service_hours_response_file,
     serve_slating_gpa_screenshot, serve_slating_response_file,
@@ -410,12 +410,12 @@ urlpatterns = [
          serve_kai_report_attachment, name='kai_report_attachment'),
     path('kai/reports/responses/<int:response_id>/file/',
          serve_kai_response_file, name='kai_response_file'),
-    # v3.28.8 — accommodation requests, same private-serving rule as the
+    # v3.28.9 — commendations, same private-serving rule as the
     # disciplinary reports two lines up.
-    path('kai/accommodation-requests/<int:request_id>/attachment/',
-         serve_kai_accommodation_attachment, name='kai_accommodation_attachment'),
-    path('kai/accommodation-requests/responses/<int:response_id>/file/',
-         serve_kai_accommodation_response_file, name='kai_accommodation_response_file'),
+    path('kai/commendations/<int:commendation_id>/attachment/',
+         serve_kai_commendation_attachment, name='kai_commendation_attachment'),
+    path('kai/commendations/responses/<int:response_id>/file/',
+         serve_kai_commendation_response_file, name='kai_commendation_response_file'),
     path('slating/applications/<int:app_id>/gpa-screenshot/',
          serve_slating_gpa_screenshot, name='slating_gpa_screenshot'),
     path('slating/applications/responses/<int:response_id>/file/',
@@ -753,16 +753,16 @@ urlpatterns = [
 
     # Kai Form Builder URLs (chair only)
     path('kai/form-builder/', kai_form_builder, name='kai_form_builder'),
-    # v3.28.8 — same view, form_type='accommodation'. See kai_form_builder's
+    # v3.28.9 — same view, form_type='commendation'. See kai_form_builder's
     # own signature for why one view handles both.
-    path('kai/form-builder/accommodation/', kai_form_builder, {'form_type': 'accommodation'}, name='kai_accommodation_form_builder'),
+    path('kai/form-builder/commendation/', kai_form_builder, {'form_type': 'commendation'}, name='kai_commendation_form_builder'),
     path('kai/form-builder/field/<int:field_id>/', get_kai_field_details, name='kai_get_field_details'),
     path('api/kai/reorder-fields/', reorder_kai_fields, name='kai_api_reorder_fields'),
 
-    # Kai Accommodation Request URLs (v3.28.8)
-    path('kai/submit-accommodation-request/', submit_kai_accommodation_request, name='submit_kai_accommodation_request'),
-    path('kai/accommodation-requests/', manage_kai_accommodation_requests, name='manage_kai_accommodation_requests'),
-    path('kai/accommodation-requests/<int:request_id>/', manage_kai_accommodation_request_detail, name='manage_kai_accommodation_request_detail'),
+    # Kai Commendation URLs (v3.28.9)
+    path('kai/submit-commendation/', submit_kai_commendation, name='submit_kai_commendation'),
+    path('kai/commendations/', manage_kai_commendations, name='manage_kai_commendations'),
+    path('kai/commendations/<int:commendation_id>/', manage_kai_commendation_detail, name='manage_kai_commendation_detail'),
 
     # Kai Report URLs (chair management)
     path('kai/dashboard/', kai_dashboard, name='kai_dashboard'),

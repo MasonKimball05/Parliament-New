@@ -24,13 +24,13 @@ logger = logging.getLogger('function_calls')
 @kai_chair_required
 def kai_form_builder(request, form_type='discipline'):
     """
-    Form builder for Kai committee chair to customize report/accommodation
+    Form builder for Kai committee chair to customize report/commendation
     form fields.
 
-    v3.28.8: `form_type` (from the URL — see urls.py's
-    `kai_accommodation_form_builder` route) scopes EVERY query below to one
+    v3.28.9: `form_type` (from the URL — see urls.py's
+    `kai_commendation_form_builder` route) scopes EVERY query below to one
     form. Two url names route here (`kai_form_builder` defaults to
-    'discipline', `kai_accommodation_form_builder` passes 'accommodation')
+    'discipline', `kai_commendation_form_builder` passes 'commendation')
     rather than duplicating this whole view, because the two forms' field
     editor is identical in every way except which population of
     `KaiFormField` rows it's pointed at — see KaiFormField's own docstring
@@ -83,14 +83,14 @@ def kai_form_builder(request, form_type='discipline'):
         'field_types': KaiFormField.FIELD_TYPES,
         'kai_committee': kai_committee,
         'form_type': form_type,
-        'other_form_type': 'accommodation' if form_type == 'discipline' else 'discipline',
+        'other_form_type': 'commendation' if form_type == 'discipline' else 'discipline',
     }
 
     return render(request, 'kai/form_builder.html', context)
 
 
 def _builder_url_name(form_type):
-    return 'kai_accommodation_form_builder' if form_type == 'accommodation' else 'kai_form_builder'
+    return 'kai_commendation_form_builder' if form_type == 'commendation' else 'kai_form_builder'
 
 
 def _handle_add_field(request, form_type='discipline'):
@@ -120,8 +120,8 @@ def _handle_add_field(request, form_type='discipline'):
         'placeholder': request.POST.get('placeholder', ''),
         'help_text': request.POST.get('help_text', ''),
         'section': request.POST.get('section', ''),
-        # Scoped to THIS form — v3.28.8. Counting every field regardless of
-        # form_type would give a brand-new accommodation field a
+        # Scoped to THIS form — v3.28.9. Counting every field regardless of
+        # form_type would give a brand-new commendation field a
         # display_order picking up wherever the (unrelated) discipline
         # field count happened to leave off.
         'display_order': KaiFormField.objects.filter(form_type=form_type).count(),

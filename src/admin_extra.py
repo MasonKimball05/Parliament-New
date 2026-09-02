@@ -486,11 +486,10 @@ class GuideArticleAdmin(admin.ModelAdmin):
 # grant flow). Kai visibility is governed exclusively by KaiMemberPermission
 # inside the app; admin/superuser status must not bypass it.
 #
-# v3.28.8: KaiAccommodationRequest, KaiAccommodationRequestActivity and
-# KaiAccommodationFieldResponse are deliberately unregistered too, for the
-# same reason one level over — see src/models/kai_accommodations.py's
-# docstring. Accommodation requests are often medical/religious/disability
-# information about a named member, gated by the SAME KaiMemberPermission
+# v3.28.9: KaiCommendation, KaiCommendationActivity and
+# KaiCommendationFieldResponse are deliberately unregistered too, for the
+# same reason one level over — see src/models/kai_commendations.py's
+# docstring. Commendations are gated by the SAME KaiMemberPermission
 # grants as disciplinary cases (a deliberate choice, not an oversight — the
 # two populations share one access-control surface on purpose). Registering
 # these here would let any Django admin read them regardless of whether a

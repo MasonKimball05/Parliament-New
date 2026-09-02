@@ -74,11 +74,11 @@ _CALLABLE_UPLOAD_PREFIXES = {
     ('src', 'kaireportfieldresponse', 'file_value'): 'kai_reports',
     ('src', 'slatingapplication', 'gpa_screenshot'): 'slating',
     ('src', 'slatingapplicationresponse', 'file_value'): 'slating',
-    # v3.28.8 — accommodation requests, uuid names from the start (unlike the
-    # four directories above, which only gained them retroactively in
-    # migration 0017 — there was never a slugify()-named population here).
-    ('src', 'kaiaccommodationrequest', 'attachment'): 'kai_accommodations',
-    ('src', 'kaiaccommodationfieldresponse', 'file_value'): 'kai_accommodations',
+    # v3.28.9 — commendations, uuid names from the start (unlike the four
+    # directories above, which only gained them retroactively in migration
+    # 0017 — there was never a slugify()-named population here).
+    ('src', 'kaicommendation', 'attachment'): 'kai_commendations',
+    ('src', 'kaicommendationfieldresponse', 'file_value'): 'kai_commendations',
 }
 
 
@@ -194,7 +194,7 @@ class ThePrivateDirectoriesMatchTheViewsThatServeThem(TestCase):
     EXPECTED_ROUTES = {
         'legislation_drafts': 'legislation_draft_document',
         'kai_reports': 'kai_report_attachment',
-        'kai_accommodations': 'kai_accommodation_attachment',
+        'kai_commendations': 'kai_commendation_attachment',
         'slating': 'slating_gpa_screenshot',
         'excuse_documents': 'excuse_document',
         'service_hours': 'service_hours_attachment',

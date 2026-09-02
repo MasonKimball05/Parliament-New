@@ -20,17 +20,17 @@
       </div>
     </div>
 
-    <!-- v3.28.8: toggle between the disciplinary report form and the
-         accommodation-request form — the two things this dashboard now
-         lets a member submit to the Kai Committee. -->
+    <!-- v3.28.9: toggle between the disciplinary report form and the
+         commendation form — the two things this dashboard now lets a
+         member submit to the Kai Committee. -->
     <div class="flex gap-2 mb-6" role="tablist">
       <span class="flex-1 text-center px-4 py-2.5 rounded-lg bg-primary-600 text-white text-sm font-semibold" role="tab" aria-selected="true">
         Report a Concern
       </span>
-      <a href="{% url 'submit_kai_accommodation_request' %}"
+      <a href="{% url 'submit_kai_commendation' %}"
          class="flex-1 text-center px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm font-semibold transition"
          role="tab" aria-selected="false">
-        Request an Accommodation
+        Submit a Commendation
       </a>
     </div>
 

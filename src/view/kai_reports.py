@@ -61,11 +61,11 @@ def submit_kai_report(request):
                 report.save()
 
                 # Save custom field responses
-                # v3.28.8: scoped to the discipline form — KaiFormField is now
-                # shared with the accommodation-request form (form_type), and
-                # without this an accommodation-only custom field would be
+                # v3.28.9: scoped to the discipline form — KaiFormField is now
+                # shared with the commendation form (form_type), and without
+                # this a commendation-only custom field would be
                 # (a) processed here as if it were part of this report, and
-                # (b) invisible on the accommodation form's own save path.
+                # (b) invisible on the commendation form's own save path.
                 custom_fields = KaiFormField.objects.filter(is_active=True, is_builtin=False, form_type='discipline')
                 for field in custom_fields:
                     field_key = f'custom_field_{field.id}'

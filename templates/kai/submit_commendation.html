@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Request an Accommodation{% endblock %}
+{% block title %}Submit a Commendation{% endblock %}
 
 {% block content %}
 <div class="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 py-10 transition-colors duration-200">
@@ -14,15 +14,15 @@
           </svg>
         </div>
         <div>
-          <h1 class="text-3xl font-bold text-gray-800 dark:text-gray-100">Request an Accommodation</h1>
-          <p class="text-gray-600 dark:text-gray-400 mt-1">Ask the Kai Committee for an accommodation — not a disciplinary matter</p>
+          <h1 class="text-3xl font-bold text-gray-800 dark:text-gray-100">Submit a Commendation</h1>
+          <p class="text-gray-600 dark:text-gray-400 mt-1">Recognize a member for doing a good job — not a disciplinary matter</p>
         </div>
       </div>
     </div>
 
-    <!-- v3.28.8: toggle between the disciplinary report form and the
-         accommodation-request form — same tab pair as submit_report.html,
-         mirrored so it's obvious this is the other half of one dashboard. -->
+    <!-- v3.28.9: toggle between the disciplinary report form and the
+         commendation form — same tab pair as submit_report.html, mirrored
+         so it's obvious this is the other half of one dashboard. -->
     <div class="flex gap-2 mb-6" role="tablist">
       <a href="{% url 'submit_kai_report' %}"
          class="flex-1 text-center px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm font-semibold transition"
@@ -30,7 +30,7 @@
         Report a Concern
       </a>
       <span class="flex-1 text-center px-4 py-2.5 rounded-lg bg-primary-600 text-white text-sm font-semibold" role="tab" aria-selected="true">
-        Request an Accommodation
+        Submit a Commendation
       </span>
     </div>
 
@@ -38,6 +38,21 @@
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-8 transition-colors duration-200">
       <form method="post" enctype="multipart/form-data" class="space-y-6">
         {% csrf_token %}
+
+        <!-- Commended Member Field -->
+        <div>
+          <label for="{{ form.commended_member.id_for_label }}" class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+            {{ form.commended_member.label }}
+            <span class="text-red-500">*</span>
+          </label>
+          {{ form.commended_member }}
+          {% if form.commended_member.help_text %}
+          <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ form.commended_member.help_text }}</p>
+          {% endif %}
+          {% if form.commended_member.errors %}
+          <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ form.commended_member.errors.0 }}</p>
+          {% endif %}
+        </div>
 
         <!-- Title Field -->
         <div>
@@ -85,7 +100,18 @@
           {% endif %}
         </div>
 
-        <!-- Custom Fields (added by Kai chair via the accommodation form builder) -->
+        <!-- Anonymity Field -->
+        <div class="flex items-start">
+          {{ form.is_submitter_anonymous }}
+          <label for="{{ form.is_submitter_anonymous.id_for_label }}" class="ml-2 block text-sm text-gray-700 dark:text-gray-300">
+            {{ form.is_submitter_anonymous.label }}
+          </label>
+        </div>
+        {% if form.is_submitter_anonymous.help_text %}
+        <p class="-mt-4 text-sm text-gray-500 dark:text-gray-400">{{ form.is_submitter_anonymous.help_text }}</p>
+        {% endif %}
+
+        <!-- Custom Fields (added by Kai chair via the commendation form builder) -->
         {% if custom_sections %}
         {% for section_name, section_fields in custom_sections.items %}
         {% if section_name and section_name != "Additional Information" and section_name != "Custom Fields" %}
@@ -205,7 +231,7 @@
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
             </svg>
-            <span>Submit Request</span>
+            <span>Submit Commendation</span>
           </button>
         </div>
       </form>
@@ -220,9 +246,9 @@
           </svg>
         </div>
         <div class="ml-3">
-          <h3 class="text-sm font-medium text-primary-800 dark:text-primary-200">About Accommodation Requests</h3>
+          <h3 class="text-sm font-medium text-primary-800 dark:text-primary-200">About Commendations</h3>
           <div class="mt-2 text-sm text-primary-700 dark:text-primary-300">
-            <p>This form is for asking the Kai Committee for an accommodation — it is not a disciplinary report, has no "accused" party, and is never tied to a case number. The chair(s) will be notified via email when you submit a request.</p>
+            <p>This form is for recognizing a member who did something well — it is not a disciplinary report, and it's reviewed by the Kai Committee, not posted publicly. The chair(s) will be notified via email when you submit a commendation.</p>
           </div>
         </div>
       </div>

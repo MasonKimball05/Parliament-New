@@ -233,28 +233,30 @@ def serve_kai_response_file(request, response_id):
 
 
 # ---------------------------------------------------------------------------
-# Kai — accommodation requests (v3.28.8)
+# Kai — commendations (v3.28.9)
 # ---------------------------------------------------------------------------
 #
-# See src/models/kai_accommodations.py's module docstring for why this is a
+# See src/models/kai_commendations.py's module docstring for why this is a
 # separate model from KaiReport. The access rule is deliberately SIMPLER than
 # `_user_may_read_kai_report` above: there is no accused, so there is no
-# `_case_access`/recusal narrowing to reapply — just "the requester, or a
+# `_case_access`/recusal narrowing to reapply — just "the submitter, or a
 # committee member the chair granted can_view_report_details to", which is
-# exactly `manage_kai_accommodation_requests`/`_detail`'s own gate.
+# exactly `manage_kai_commendations`/`_detail`'s own gate. Note the commended
+# member does NOT get access here — see the model docstring's visibility
+# note: commendations are Kai-committee-only, not honoree-facing (yet).
 
 
-def _user_may_read_kai_accommodation(user, accommodation_request):
+def _user_may_read_kai_commendation(user, commendation):
     """
-    True if `user` may read `accommodation_request`'s attachments.
+    True if `user` may read `commendation`'s attachments.
 
-    Mirrors `kai_accommodations.manage_kai_accommodation_request_detail`
-    exactly: the requester, or a committee member with
-    `can_view_report_details` under the shared KaiMemberPermission grants
-    (see that module's docstring for why accommodation requests reuse the
-    Kai committee's permission system rather than inventing a second one).
+    Mirrors `kai_commendations.manage_kai_commendation_detail` exactly:
+    the submitter, or a committee member with `can_view_report_details`
+    under the shared KaiMemberPermission grants (see that module's
+    docstring for why commendations reuse the Kai committee's permission
+    system rather than inventing a second one).
     """
-    if accommodation_request.requester_id == user.pk:
+    if commendation.submitted_by_id == user.pk:
         return True
 
     from src.models import Committee
@@ -272,26 +274,26 @@ def _user_may_read_kai_accommodation(user, accommodation_request):
 @login_required
 @require_feature_flag('kai_reports')
 @log_function_call
-def serve_kai_accommodation_attachment(request, request_id):
-    """Stream an accommodation request's attachment to its requester or a permitted reviewer."""
-    from src.models import KaiAccommodationRequest
+def serve_kai_commendation_attachment(request, commendation_id):
+    """Stream a commendation's attachment to its submitter or a permitted reviewer."""
+    from src.models import KaiCommendation
 
-    accommodation_request = get_object_or_404(KaiAccommodationRequest, id=request_id)
-    if not _user_may_read_kai_accommodation(request.user, accommodation_request):
+    commendation = get_object_or_404(KaiCommendation, id=commendation_id)
+    if not _user_may_read_kai_commendation(request.user, commendation):
         raise Http404('File not found')
-    return _stream_private_file(accommodation_request.attachment)
+    return _stream_private_file(commendation.attachment)
 
 
 @login_required
 @require_feature_flag('kai_reports')
 @log_function_call
-def serve_kai_accommodation_response_file(request, response_id):
-    """Stream an accommodation request's custom-field file response. Same rule as the parent request."""
-    from src.models import KaiAccommodationFieldResponse
+def serve_kai_commendation_response_file(request, response_id):
+    """Stream a commendation's custom-field file response. Same rule as the parent commendation."""
+    from src.models import KaiCommendationFieldResponse
 
     response = get_object_or_404(
-        KaiAccommodationFieldResponse.objects.select_related('request'), id=response_id)
-    if not _user_may_read_kai_accommodation(request.user, response.request):
+        KaiCommendationFieldResponse.objects.select_related('commendation'), id=response_id)
+    if not _user_may_read_kai_commendation(request.user, response.commendation):
         raise Http404('File not found')
     return _stream_private_file(response.file_value)
 

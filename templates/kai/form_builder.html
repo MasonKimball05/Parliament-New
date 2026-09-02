@@ -15,10 +15,10 @@
                 <span class="text-gray-700 dark:text-gray-300">Form Builder</span>
             </div>
             <h1 class="text-2xl font-bold text-gray-900 dark:text-white">
-                {% if form_type == 'accommodation' %}Accommodation Request Form Builder{% else %}Kai Report Form Builder{% endif %}
+                {% if form_type == 'commendation' %}Commendation Form Builder{% else %}Kai Report Form Builder{% endif %}
             </h1>
             <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                {% if form_type == 'accommodation' %}Customize the fields on the accommodation request submission form{% else %}Customize the fields on the Kai report submission form{% endif %}
+                {% if form_type == 'commendation' %}Customize the fields on the commendation submission form{% else %}Customize the fields on the Kai report submission form{% endif %}
             </p>
         </div>
         <div class="flex items-center space-x-3">
@@ -50,10 +50,10 @@
            role="tab" aria-selected="{% if form_type == 'discipline' %}true{% else %}false{% endif %}">
             Discipline Report Form
         </a>
-        <a href="{% url 'kai_accommodation_form_builder' %}"
-           class="flex-1 text-center px-4 py-2.5 rounded-lg text-sm font-semibold transition {% if form_type == 'accommodation' %}bg-primary-600 text-white{% else %}border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700{% endif %}"
-           role="tab" aria-selected="{% if form_type == 'accommodation' %}true{% else %}false{% endif %}">
-            Accommodation Request Form
+        <a href="{% url 'kai_commendation_form_builder' %}"
+           class="flex-1 text-center px-4 py-2.5 rounded-lg text-sm font-semibold transition {% if form_type == 'commendation' %}bg-primary-600 text-white{% else %}border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700{% endif %}"
+           role="tab" aria-selected="{% if form_type == 'commendation' %}true{% else %}false{% endif %}">
+            Commendation Form
         </a>
     </div>
 
@@ -329,7 +329,7 @@
                         </svg>
                     </button>
                 </div>
-                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">This is how the form will appear to users {% if form_type == 'accommodation' %}submitting an accommodation request{% else %}submitting a Kai report{% endif %}</p>
+                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">This is how the form will appear to users {% if form_type == 'commendation' %}submitting a commendation{% else %}submitting a Kai report{% endif %}</p>
             </div>
             <div class="px-6 py-4 overflow-y-auto flex-1">
                 <div id="previewContent" class="space-y-6">

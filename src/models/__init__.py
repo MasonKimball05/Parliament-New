@@ -102,10 +102,10 @@ from src.models.kai import (
     KaiAppeal,
     KaiBreakGlassGrant,
 )
-from src.models.kai_accommodations import (
-    KaiAccommodationRequest,
-    KaiAccommodationRequestActivity,
-    KaiAccommodationFieldResponse,
+from src.models.kai_commendations import (
+    KaiCommendation,
+    KaiCommendationActivity,
+    KaiCommendationFieldResponse,
 )
 
 # Slating
@@ -306,9 +306,9 @@ __all__ = [
     'KaiRecusal',
     'KaiAppeal',
     'KaiBreakGlassGrant',
-    'KaiAccommodationRequest',
-    'KaiAccommodationRequestActivity',
-    'KaiAccommodationFieldResponse',
+    'KaiCommendation',
+    'KaiCommendationActivity',
+    'KaiCommendationFieldResponse',
     # Slating
     'SlatingPeriod',
     'SlatingPosition',

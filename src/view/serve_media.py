@@ -80,12 +80,12 @@ PRIVATE_MEDIA_PREFIXES = frozenset({
     #   (`kai_reports/custom_fields/` etc.) are covered by their first segment,
     #   which is what serve_media compares.
     'kai_reports',
-    # v3.28.8 — kai_accommodations/ (attachment + custom_fields/ file
-    # responses), same reasoning as kai_reports/ one line up: an
-    # accommodation request is often medical/religious/disability
-    # information about a named member. See serve_kai_accommodation_attachment
-    # and serve_kai_accommodation_response_file.
-    'kai_accommodations',
+    # v3.28.9 — kai_commendations/ (attachment + custom_fields/ file
+    # responses). Less sensitive than kai_reports/, but still Kai-
+    # committee-only by design (see KaiCommendation's docstring) rather
+    # than served to any logged-in member. See
+    # serve_kai_commendation_attachment and serve_kai_commendation_response_file.
+    'kai_commendations',
     'slating',
     'excuse_documents',
     'service_hours',

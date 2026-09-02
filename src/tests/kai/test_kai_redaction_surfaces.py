@@ -275,17 +275,16 @@ class TheActivityFeedRedactsIdentitiesTests(KaiRedactionTestCase):
         self.assertNotIn(SUBMITTER_NAME, html)
         self.assertNotIn(ACCUSED_NAME, html)
 
-    #: v3.28.8 — accommodation_request_detail.html renders
-    #: KaiAccommodationRequestActivity, NOT KaiReportActivity, and that model
-    #: carries no redaction promise: KaiAccommodationRequest has no accused,
-    #: no submitter identity ever withheld from a permitted reviewer (see
-    #: that model's docstring — "the requester's identity is NOT withheld
-    #: from anyone by design"), and the activity rows this test is guarding
-    #: (`display_actor`/`display_details` scrubbing submitted_by/targeted_to
-    #: names) simply do not apply to it. This is a narrow, named exemption —
-    #: not a way to make the check pass — so a future disciplinary-report
-    #: template still trips this the moment it skips redaction.
-    _NOT_A_KAI_REPORT_ACTIVITY_FEED = {'kai/accommodation_request_detail.html'}
+    #: v3.28.9 — commendation_detail.html renders KaiCommendationActivity,
+    #: NOT KaiReportActivity, and that model carries no redaction promise:
+    #: KaiCommendation has no accused, and nothing hides the submitter FROM
+    #: THE COMMITTEE (see that model's docstring), and the activity rows
+    #: this test is guarding (`display_actor`/`display_details` scrubbing
+    #: submitted_by/targeted_to names) simply do not apply to it. This is a
+    #: narrow, named exemption — not a way to make the check pass — so a
+    #: future disciplinary-report template still trips this the moment it
+    #: skips redaction.
+    _NOT_A_KAI_REPORT_ACTIVITY_FEED = {'kai/commendation_detail.html'}
 
     def test_no_template_renders_raw_activity_fields(self):
         """

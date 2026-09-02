@@ -1,7 +1,7 @@
 from django import forms
 import magic  # python-magic for MIME type detection
 
-from src.models import KaiReport, KaiAccommodationRequest
+from src.models import KaiReport, KaiCommendation, ParliamentUser
 
 
 class KaiReportForm(forms.ModelForm):
@@ -100,16 +100,19 @@ class KaiReportForm(forms.ModelForm):
         return [t.strip() for t in tags_str.split(',') if t.strip()]
 
 
-class KaiAccommodationRequestForm(forms.ModelForm):
+class KaiCommendationForm(forms.ModelForm):
     """
-    Form for submitting a Kai accommodation request. Deliberately much
-    smaller than KaiReportForm — no category (KaiReport.CATEGORY_CHOICES is
-    a disciplinary vocabulary that doesn't fit here), no targeted_to (an
-    accommodation request has no accused), no tags (that vocabulary exists
-    specifically to keep identity out of disciplinary case tags — not a
-    concern this form has).
+    Form for submitting a Kai commendation. Deliberately much smaller than
+    KaiReportForm — no category (KaiReport.CATEGORY_CHOICES is a
+    disciplinary vocabulary that doesn't fit here), no tags (that
+    vocabulary exists specifically to keep identity out of disciplinary
+    case tags — not a concern this form has). Unlike an accommodation
+    request would be, this DOES need a targeted person — `commended_member`
+    is required, because selecting who you're commending is the whole
+    point (Mason, 09-02-26, correcting the original "accommodation"
+    wording mistake — see src/models/kai_commendations.py).
 
-    v3.28.8. Attachment validation uses `validate_uploaded_file`
+    v3.28.9. Attachment validation uses `validate_uploaded_file`
     (src/utils/file_validation.py) — the project's one general-purpose
     upload validator — rather than KaiReportForm's own inline `magic`-based
     check above, matching how `submit_kai_report`'s custom-field files are
@@ -118,32 +121,51 @@ class KaiAccommodationRequestForm(forms.ModelForm):
     """
 
     class Meta:
-        model = KaiAccommodationRequest
-        fields = ['title', 'description', 'attachment']
+        model = KaiCommendation
+        fields = ['commended_member', 'title', 'description', 'attachment', 'is_submitter_anonymous']
         widgets = {
+            'commended_member': forms.Select(attrs={
+                'class': 'w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 transition-colors duration-200',
+            }),
             'title': forms.TextInput(attrs={
                 'class': 'w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 transition-colors duration-200',
-                'placeholder': 'Brief summary of what the accommodation is for'
+                'placeholder': 'Brief summary of what this commendation is for'
             }),
             'description': forms.Textarea(attrs={
                 'class': 'w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 transition-colors duration-200',
-                'placeholder': 'Describe the accommodation you\'re requesting and any relevant context...',
+                'placeholder': 'What did they do? Be specific...',
                 'rows': 6
             }),
             'attachment': forms.FileInput(attrs={
                 'class': 'w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 transition-colors duration-200',
             }),
+            'is_submitter_anonymous': forms.CheckboxInput(attrs={
+                'class': 'h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500',
+            }),
         }
         labels = {
+            'commended_member': 'Who are you commending?',
             'title': 'Summary',
             'description': 'Details',
-            'attachment': 'Supporting Document (Optional)',
+            'attachment': 'Supporting File (Optional)',
+            'is_submitter_anonymous': "Don't tell them it was me",
         }
         help_texts = {
-            'title': 'A brief, descriptive summary of your request',
-            'description': 'Provide the details the committee needs to evaluate this request',
-            'attachment': 'e.g. a doctor\'s note or other supporting documentation',
+            'commended_member': 'Select the member you want to recognize',
+            'title': 'A brief, descriptive summary of what you\'re commending them for',
+            'description': 'Provide the details the committee needs — what did they do?',
+            'attachment': 'e.g. a photo or a screenshot of positive feedback',
+            'is_submitter_anonymous': (
+                'If the committee later shares this with the person you\'re '
+                'commending, they won\'t be told who submitted it.'
+            ),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['commended_member'].queryset = (
+            ParliamentUser.objects.filter(member_status='Active').order_by('name')
+        )
 
     def clean_attachment(self):
         file = self.cleaned_data.get('attachment')

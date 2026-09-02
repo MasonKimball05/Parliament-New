@@ -263,8 +263,8 @@ class PrivateMediaDirectoriesAreNotServedHere(TestCase):
         expected = {
             'legislation_drafts': 'legislation_draft_document',
             'kai_reports': 'kai_report_attachment',
-            # v3.28.8 — accommodation requests, same rule one line up.
-            'kai_accommodations': 'kai_accommodation_attachment',
+            # v3.28.9 — commendations, same rule one line up.
+            'kai_commendations': 'kai_commendation_attachment',
             'slating': 'slating_gpa_screenshot',
             'excuse_documents': 'excuse_document',
             'service_hours': 'service_hours_attachment',

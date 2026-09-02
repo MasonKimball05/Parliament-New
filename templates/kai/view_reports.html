@@ -20,13 +20,13 @@
              class="px-3 py-2 text-sm bg-white/15 hover:bg-white/25 text-white rounded-xl transition font-medium border border-white/20">
             Member Perms
           </a>
-          {% comment %} v3.28.8 — accommodation requests are a separate model/queue
-             from disciplinary reports (see KaiAccommodationRequest's docstring) but
+          {% comment %} v3.28.9 — commendations are a separate model/queue
+             from disciplinary reports (see KaiCommendation's docstring) but
              the same committee reviews both, so this dashboard links to their list
              rather than only living behind a direct URL. {% endcomment %}
-          <a href="{% url 'manage_kai_accommodation_requests' %}"
+          <a href="{% url 'manage_kai_commendations' %}"
              class="px-3 py-2 text-sm bg-white/15 hover:bg-white/25 text-white rounded-xl transition font-medium">
-            Accommodation Requests
+            Commendations
           </a>
           <a href="{% url 'kai_form_builder' %}"
              class="px-3 py-2 text-sm bg-white/15 hover:bg-white/25 text-white rounded-xl transition font-medium">

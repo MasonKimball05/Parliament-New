@@ -122,6 +122,49 @@ which predate this file and are more specific than their commit dates.
 | v3.28.2 | *not deployed* | `d4495be` | See `changelogs/v3.28.2.md`. |
 | v3.28.3 | *not deployed* | `d6d4de2` | See `changelogs/v3.28.3.md`. |
 | v3.28.4 | *not deployed* | `34952f0` | See `changelogs/v3.28.4.md`. |
+| v3.28.5 | *not deployed* | `68f4a5f` | See `changelogs/v3.28.5.md`. |
+| v3.28.6 | *not deployed* | `68f4a5f` | See `changelogs/v3.28.6.md`. |
+| v3.28.7 | *not deployed* | `68f4a5f` | See `changelogs/v3.28.7.md`. |
+| v3.28.8 | *not deployed* | `68f4a5f` | See `changelogs/v3.28.8.md`. **⚠️ Superseded same day by v3.28.9** (uncommitted) — the feature this row's migration built was named under a wording mistake in the original request ("accommodation" instead of "commendation") and was also missing its one required field; v3.28.9 renames `KaiAccommodationRequest` → `KaiCommendation` throughout and adds it. This row still describes what commit `68f4a5f` actually contains — the rename hasn't been committed, so there's no new commit to point this row at yet. |
+
+> **⚠️ 09-02-26 — code for the whole backlog above (v3.25.2 through
+> v3.28.8) was restarted into prod the same day, and Mason confirmed
+> intent to deploy all of it. Left as `*not deployed*` here anyway,
+> because the restart immediately produced a live error —
+> `column src_kaiformfield.form_type does not exist` on `/kai/` — which
+> is v3.28.8's own migration (`0029`), meaning `manage.py migrate` did
+> not complete against this code before or during the restart. Since
+> migrations apply sequentially, that calls the whole backlog's DB state
+> into question, not just v3.28.8's. See `changelogs/v3.28.8.md`'s
+> deploy note. Update these rows to real dates only after Mason confirms
+> `manage.py migrate` has run clean and `/kai/` loads.**
+>
+> **⚠️ 09-02-26, later the same day — v3.28.8's feature was renamed,
+> uncommitted, in v3.28.9.** Mason clarified the request behind v3.28.8
+> was a wording mistake: he meant "commendation," not "accommodation."
+> `v3.28.9.md` documents the full rename and adds the field the original
+> was missing. **v3.28.9 has no row of its own above because it isn't
+> committed yet** — `68f4a5f` (v3.28.8's commit) is still what's live in
+> the working tree's git history, still under the old name, and is not
+> being amended. Don't mark v3.28.8 "Deployed" once migrate is confirmed
+> without checking whether v3.28.9 has been committed and deployed
+> instead by then — deploying `68f4a5f`'s migration as-is ships the
+> feature under the wrong name with no way to select a commendation's
+> subject.
+>
+> **⚠️ 09-02-26, still later the same day — the first cut of that rename
+> was itself unsafe, and the DuplicateColumn error above is why.** It
+> rewrote `0029_kai_accommodations.py` in place under a new name, on the
+> assumption that `0029` had never really applied anywhere — wrong,
+> since Mason's `migrate` run hit `column "form_type" ... already
+> exists`. **Fixed**: `0029_kai_accommodations.py` is restored to its
+> exact original committed content (and will not be touched again); the
+> rename is now a proper forward migration, `0030_rename_kai_
+> accommodation_to_commendation`, tested against both a fresh DB and a
+> DB with data already seeded under the old names (see `v3.28.9.md` →
+> Verification). Whichever database produced the `DuplicateColumn`
+> error should now be re-migrated — `manage.py migrate` again — and
+> should complete cleanly against `0030` this time.
 
 > **⚠️ Why v3.18.8 and v3.19.2 were missing (added 08-07-26).** Both were
 > committed and pushed on 08-06, both changelogs still said
