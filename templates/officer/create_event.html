@@ -78,6 +78,8 @@
                     </svg>
                 </button>
                 <div id="attendance-panel" class="hidden border-t border-gray-200 dark:border-gray-700 bg-primary-50 dark:bg-primary-900/10 px-4 py-4 space-y-3">
+                    {% render_field form.committee %}
+
                     <div class="flex items-start">
                         {{ form.requires_attendance }}
                         <label for="{{ form.requires_attendance.id_for_label }}" class="ml-2 text-sm text-gray-700 dark:text-gray-300">

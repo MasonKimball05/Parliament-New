@@ -327,7 +327,7 @@ def review_excuses(request, event_id=None):
     now = timezone.now()
     events_query = Event.objects.filter(
         excuse_requests__isnull=False
-    ).distinct()
+    ).select_related('committee').distinct()
 
     if not show_archived:
         # Show only upcoming or recent events (within last 30 days)

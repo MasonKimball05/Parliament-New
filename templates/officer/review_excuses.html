@@ -76,6 +76,9 @@
                     <div class="flex-1">
                         <div class="flex items-center gap-3">
                             <h3 class="text-lg font-semibold text-gray-900 dark:text-white">{{ event_data.event.title }}</h3>
+                            {% if event_data.event.committee %}
+                            <span class="px-2 py-0.5 text-xs font-semibold rounded-full bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300">{{ event_data.event.committee.name }}</span>
+                            {% endif %}
                             {% if event_data.is_past %}
                             <span class="px-2 py-0.5 text-xs font-medium rounded-full bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300">Past</span>
                             {% endif %}

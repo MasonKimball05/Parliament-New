@@ -33,7 +33,7 @@ def my_excuses(request):
         allow_excuses=True,
         date_time__gte=now,
         is_active=True
-    ).exclude(
+    ).select_related('committee').exclude(
         # Exclude events user already has an excuse for
         excuse_requests__user=request.user
     ).order_by('date_time')

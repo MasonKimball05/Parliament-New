@@ -925,8 +925,8 @@ class ChatChannelPermissionInline(admin.TabularInline):
 
 @admin.register(Event, site=admin_site)
 class EventAdmin(admin.ModelAdmin):
-    list_display = ('title', 'date_time', 'location', 'created_by', 'requires_attendance', 'attendance_finalized', 'is_active_badge', 'archived_badge')
-    list_filter = ('is_active', 'archived', 'requires_attendance', 'attendance_finalized', 'date_time', 'created_at')
+    list_display = ('title', 'date_time', 'location', 'created_by', 'committee', 'requires_attendance', 'attendance_finalized', 'is_active_badge', 'archived_badge')
+    list_filter = ('is_active', 'archived', 'requires_attendance', 'attendance_finalized', 'committee', 'date_time', 'created_at')
     search_fields = ('title', 'description', 'location', 'created_by__name')
     readonly_fields = ('created_at', 'finalized_by', 'finalized_at', 'attendance_stats_display')
     ordering = ('-date_time',)
@@ -942,8 +942,12 @@ class EventAdmin(admin.ModelAdmin):
             'fields': ('visible_to', 'created_by')
         }),
         ('Attendance Tracking', {
-            'fields': ('requires_attendance', 'allow_excuses', 'excuse_deadline', 'attendance_finalized', 'finalized_by', 'finalized_at', 'attendance_stats_display'),
-            'description': 'Configure attendance tracking and excuse submission for this event'
+            'fields': ('committee', 'requires_attendance', 'allow_excuses', 'excuse_deadline', 'attendance_finalized', 'finalized_by', 'finalized_at', 'attendance_stats_display'),
+            'description': (
+                'Configure attendance tracking and excuse submission for this event. '
+                'Setting "committee" scopes attendance, excuses, and reminders to that '
+                "committee's members/chairs (plus anyone who signs up)."
+            )
         }),
         ('Status', {
             'fields': ('is_active', 'archived', 'created_at'),
