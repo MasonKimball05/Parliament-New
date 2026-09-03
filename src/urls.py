@@ -254,7 +254,7 @@ from src.view.login_as_view import login_as_view, login_as_user, return_to_origi
 from src.view.roberts_rules import roberts_rules
 from src.view.constitution_bylaws import constitution_bylaws
 from src.view.officer.cnb import (
-    cnb_viewer,
+    cnb_viewer, cnb_document_pdf,
     manage_document, edit_section, toggle_section_active, toggle_article_active,
     resolution_detail, create_resolution as cnb_create_resolution,
     edit_resolution as cnb_edit_resolution,
@@ -651,6 +651,10 @@ urlpatterns = [
     path('resolutions/<int:resolution_id>/', resolution_detail, name='cnb_resolution_detail'),
     path('cnb/', RedirectView.as_view(url='/constitution-bylaws/?tab=manage', permanent=False), name='cnb_dashboard'),
     path('cnb/document/<str:doc_type>/', manage_document, name='cnb_manage_document'),
+    # Deliberately NOT `cnb/document/pdf/` — that would collide with the
+    # `<str:doc_type>` route immediately above (Django matches URL patterns
+    # in list order, and 'pdf' would just become doc_type='pdf').
+    path('cnb/document-pdf/', cnb_document_pdf, name='cnb_document_pdf'),
     path('cnb/section/<int:section_id>/edit/', edit_section, name='cnb_edit_section'),
     path('cnb/section/<int:section_id>/toggle/', toggle_section_active, name='cnb_toggle_section'),
     path('cnb/article/<int:article_id>/toggle/', toggle_article_active, name='cnb_toggle_article'),

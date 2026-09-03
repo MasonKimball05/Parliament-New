@@ -7,11 +7,14 @@ Access control:
 """
 
 import datetime
+import io
+import re
+from zoneinfo import ZoneInfo
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
 from django.db.models import Count, Q
-from django.http import JsonResponse
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
@@ -84,6 +87,310 @@ def cnb_viewer(request):
         'protected_sections': protected_sections,
     }
     return render(request, 'cnb/viewer.html', context)
+
+
+def generate_cnb_document_pdf_buffer():
+    """
+    Generate a single PDF of every currently-enabled governing document —
+    Foreword (only if passed and its flag is on), Constitution, Bylaws, and
+    Appendix — in the same order members see them on the Document tab, and
+    return a BytesIO buffer.
+
+    This is generated live from `GoverningDocument.enabled()` on every
+    request rather than a static upload, which is the entire point: it
+    always reflects amendments, suspensions, and protections exactly as
+    they stand right now, unlike a PDF someone uploaded once and forgets to
+    refresh. It is deliberately a different thing from the "Official PDF"
+    link elsewhere on this page, which is the historical, ratified
+    document as originally adopted — this one is a live snapshot of what
+    Parliament currently has on record, and says so on its own cover page.
+
+    Follows the Times New Roman convention fixed in v3.29.8
+    (`generate_minutes_pdf_buffer`, the only other real PDF generator in
+    this codebase) — and applies it from the start rather than discovering
+    the Helvetica-default trap again: `getSampleStyleSheet()`'s base
+    styles default to Helvetica, so the four actually used as a `parent=`
+    below are overridden up front.
+    """
+    from reportlab.lib.pagesizes import letter
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.units import inch
+    from reportlab.lib.colors import HexColor
+    from reportlab.lib.enums import TA_CENTER
+    from reportlab.platypus import (
+        SimpleDocTemplate, Paragraph, Spacer, HRFlowable, PageBreak,
+    )
+
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buf,
+        pagesize=letter,
+        rightMargin=0.85 * inch,
+        leftMargin=0.85 * inch,
+        topMargin=0.85 * inch,
+        bottomMargin=0.85 * inch,
+        title='Constitution & Bylaws',
+    )
+
+    styles = getSampleStyleSheet()
+    # See generate_minutes_pdf_buffer's comment on this same trick — override
+    # the base styles actually used as a `parent=` below so everything built
+    # on top of them renders in Times instead of getSampleStyleSheet()'s
+    # Helvetica defaults.
+    styles['Normal'].fontName = 'Times-Roman'
+    styles['Title'].fontName = 'Times-Bold'
+    styles['Heading2'].fontName = 'Times-Bold'
+
+    style_cover_chapter = ParagraphStyle(
+        'CoverChapter', parent=styles['Title'], fontSize=16, leading=20,
+        spaceAfter=6, textColor=HexColor('#1a1a1a'),
+    )
+    style_cover_title = ParagraphStyle(
+        'CoverTitle', parent=styles['Title'], fontSize=26, leading=32,
+        spaceBefore=18, spaceAfter=10, textColor=HexColor('#1e3a5f'),
+    )
+    style_cover_meta = ParagraphStyle(
+        'CoverMeta', parent=styles['Normal'], fontSize=11, leading=15,
+        alignment=TA_CENTER, textColor=HexColor('#555555'),
+    )
+    style_cover_note = ParagraphStyle(
+        'CoverNote', parent=styles['Normal'], fontSize=9.5, leading=14,
+        alignment=TA_CENTER, textColor=HexColor('#6b7280'), spaceBefore=24,
+    )
+    style_doc_title = ParagraphStyle(
+        'DocTitle', parent=styles['Title'], fontSize=18, leading=22,
+        spaceAfter=4, textColor=HexColor('#1e3a5f'),
+    )
+    style_doc_meta = ParagraphStyle(
+        'DocMeta', parent=styles['Normal'], fontSize=9.5, leading=13,
+        textColor=HexColor('#6b7280'), spaceAfter=12,
+    )
+    style_preamble = ParagraphStyle(
+        'Preamble', parent=styles['Normal'], fontSize=10.5, leading=15,
+        spaceAfter=8, firstLineIndent=18, textColor=HexColor('#374151'),
+    )
+    style_article = ParagraphStyle(
+        'ArticleHeading', parent=styles['Heading2'], fontSize=13, leading=17,
+        spaceBefore=16, spaceAfter=6, textColor=HexColor('#1a1a1a'),
+        borderWidth=0,
+    )
+    # Indentation, top to bottom: Article headings sit flush with the
+    # document title; a Section (§ number + its body text) is indented
+    # under its Article; a note about that section (suspended, partially
+    # suspended, protected) is indented one step further, under the
+    # section. Section body text also gets a first-line indent on each
+    # paragraph — the printed-document convention (like an actual
+    # Constitution) rather than flush block text, which is what read as
+    # having "no tab spaces at all."
+    SECTION_INDENT = 18
+    NOTE_INDENT = 32
+    NESTED_INDENT = 16
+    style_section_num = ParagraphStyle(
+        'SectionNum', parent=styles['Normal'], fontName='Times-Bold',
+        fontSize=10.5, leading=14, spaceBefore=8, spaceAfter=2,
+        leftIndent=SECTION_INDENT, textColor=HexColor('#1a1a1a'),
+    )
+    style_section_body = ParagraphStyle(
+        'SectionBody', parent=styles['Normal'], fontSize=10.5, leading=15,
+        spaceAfter=4, leftIndent=SECTION_INDENT, firstLineIndent=18,
+        textColor=HexColor('#1f2937'),
+    )
+    style_note = ParagraphStyle(
+        'Note', parent=styles['Normal'], fontSize=9, leading=13,
+        spaceAfter=4, leftIndent=NOTE_INDENT, textColor=HexColor('#92400e'),
+    )
+    style_note_deleted = ParagraphStyle(
+        'NoteDeleted', parent=styles['Normal'], fontSize=9, leading=13,
+        spaceAfter=4, leftIndent=NOTE_INDENT, textColor=HexColor('#b91c1c'),
+    )
+    style_footer_note = ParagraphStyle(
+        'FooterNote', parent=styles['Normal'], fontSize=8.5, leading=12,
+        alignment=TA_CENTER, textColor=HexColor('#9ca3af'), spaceBefore=24,
+    )
+
+    def esc(text):
+        return (text or '').replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+
+    def as_paragraphs(text, style):
+        """Split on blank lines into separate Paragraph flowables — mirrors
+        the `|linebreaks` filter cnb/viewer.html uses for preamble/prose
+        text, so this reads the same way the on-screen viewer does."""
+        out = []
+        for block in re.split(r'\n\s*\n', text or ''):
+            block = block.strip()
+            if block:
+                out.append(Paragraph(esc(block).replace('\n', '<br/>'), style))
+        return out
+
+    # Section body content is NOT free prose — it's stored as one clause per
+    # line (e.g. "1. Eligible members...\n2. Members must not..."), and
+    # deeper outline levels ("a.", "i.", "1)") are marked with 3-space
+    # leading indents, confirmed against the real seeded C&B data (Article
+    # VI § 2, the officer-duties list, is the clearest example). The
+    # on-screen viewer renders this as-is via `white-space: pre-wrap`, so
+    # every line already appears on its own line there.
+    #
+    # The old code ran this whole field through `as_paragraphs` — the same
+    # helper used for free prose above — which only splits on BLANK lines
+    # and turns single newlines into `<br/>` inside one Paragraph. ReportLab's
+    # `firstLineIndent` only tabs a Paragraph's true first line, never a line
+    # after a `<br/>`, so on any section with more than one line (the large
+    # majority — 44 of 51 sections with line breaks use single-newline
+    # separation, not blank lines) only that first clause ever got tabbed.
+    # That's exactly what read as "only the first thing under each article
+    # is indented, not everything": true of every real section with more
+    # than one clause, and invisible in synthetic single-clause test
+    # fixtures. Giving every line its own Paragraph gives every line its
+    # own first-line tab; each line's leading-space count then adds
+    # proportional extra indent so lettered/roman sub-items still nest
+    # under their parent numbered item, same as the plain-text convention
+    # nests them on the pre-wrap on-screen viewer. A blank line in the
+    # source (still meaningful — it separates one numbered top-level item
+    # from the next) becomes extra space above the next clause instead of
+    # being silently dropped.
+    _body_depth_styles = {}
+
+    def body_style_for(depth, extra_gap):
+        key = (depth, extra_gap)
+        if key not in _body_depth_styles:
+            _body_depth_styles[key] = ParagraphStyle(
+                f'SectionBodyD{depth}G{int(extra_gap)}',
+                parent=style_section_body,
+                leftIndent=SECTION_INDENT + depth * NESTED_INDENT,
+                spaceBefore=10 if extra_gap else 0,
+            )
+        return _body_depth_styles[key]
+
+    def body_lines_as_paragraphs(text):
+        out = []
+        pending_gap = False
+        for raw_line in (text or '').split('\n'):
+            if not raw_line.strip():
+                pending_gap = True
+                continue
+            line = raw_line.strip()
+            leading = len(raw_line) - len(raw_line.lstrip(' '))
+            depth = leading // 3
+            out.append(Paragraph(esc(line), body_style_for(depth, pending_gap)))
+            pending_gap = False
+        return out
+
+    documents = list(
+        GoverningDocument.enabled()
+        .prefetch_related('articles__sections')
+    )
+
+    elements = []
+
+    # === COVER PAGE ===
+    elements.append(Spacer(1, 1.4 * inch))
+    elements.append(Paragraph(
+        'THE SAMFORD CHAPTER, THE ALPHA MU OF BETA THETA PI', style_cover_chapter,
+    ))
+    elements.append(Paragraph('Constitution &amp; Bylaws', style_cover_title))
+    elements.append(HRFlowable(width='40%', thickness=1, color=HexColor('#1e3a5f'), hAlign='CENTER'))
+    generated = timezone.now().astimezone(ZoneInfo('America/Chicago'))
+    elements.append(Paragraph(
+        f"Compiled from Parliament &mdash; current as of {generated.strftime('%B %d, %Y at %I:%M %p')} CT",
+        style_cover_meta,
+    ))
+    included_titles = ', '.join(d.get_doc_type_display() for d in documents) or 'None'
+    elements.append(Paragraph(f'Includes: {esc(included_titles)}', style_cover_meta))
+    elements.append(Paragraph(
+        'This document is generated directly from Parliament’s records and reflects '
+        'the governing documents exactly as currently in force &mdash; including any '
+        'amendments, suspensions, and amendment protections in effect as of the date '
+        'above. It is not the same document as the "Official PDF" elsewhere on this '
+        'page, which is the historical document as originally ratified and is not '
+        'automatically kept in sync with resolutions passed afterward.',
+        style_cover_note,
+    ))
+    elements.append(PageBreak())
+
+    # === EACH DOCUMENT ===
+    for gdoc in documents:
+        elements.append(Paragraph(esc(gdoc.title), style_doc_title))
+        meta_bits = []
+        if gdoc.last_reviewed:
+            meta_bits.append(f'Last reviewed {gdoc.last_reviewed.strftime("%B %d, %Y")}')
+        if meta_bits:
+            elements.append(Paragraph(esc(' &middot; '.join(meta_bits)), style_doc_meta))
+        elements.append(HRFlowable(width='100%', thickness=1, color=HexColor('#d1d5db')))
+        elements.append(Spacer(1, 8))
+
+        if gdoc.preamble:
+            elements.extend(as_paragraphs(gdoc.preamble, style_preamble))
+
+        for article in gdoc.articles.all():
+            heading = f'ARTICLE {esc(article.number)} &mdash; {esc(article.title)}'
+            elements.append(Paragraph(heading, style_article))
+            if not article.is_active:
+                reason = f' &mdash; {esc(article.deactivation_reason)}' if article.deactivation_reason else ''
+                elements.append(Paragraph(f'<i>SUSPENDED{reason}</i>', style_note_deleted))
+
+            for section in article.sections.all():
+                sec_heading = f'§ {esc(section.number)}'
+                if section.title:
+                    sec_heading += f' &mdash; {esc(section.title)}'
+                elements.append(Paragraph(sec_heading, style_section_num))
+
+                if not section.is_active:
+                    reason = f': {esc(section.deactivation_reason)}' if section.deactivation_reason else ''
+                    elements.append(Paragraph(f'<i>SUSPENDED{reason}</i>', style_note_deleted))
+                if section.content:
+                    elements.extend(body_lines_as_paragraphs(section.content))
+
+                for ps in (section.partial_suspensions or []):
+                    ref = esc(ps.get('ref', ''))
+                    reason = esc(ps.get('reason', ''))
+                    line = f'<i>§ {ref} partially suspended'
+                    if reason:
+                        line += f' &mdash; {reason}'
+                    line += '</i>'
+                    elements.append(Paragraph(line, style_note))
+
+                if section.amendment_protected:
+                    until = section.protected_until.strftime('%B %d, %Y') if section.protected_until else 'further notice'
+                    elements.append(Paragraph(
+                        f'<i>Protected from new amendments until {until}.</i>', style_note,
+                    ))
+
+        elements.append(PageBreak())
+
+    # Drop the trailing page break from the last document
+    if elements and isinstance(elements[-1], PageBreak):
+        elements.pop()
+
+    elements.append(Spacer(1, 16))
+    elements.append(Paragraph(
+        f'Generated {generated.strftime("%B %d, %Y at %I:%M %p")} CT &mdash; Parliament',
+        style_footer_note,
+    ))
+
+    doc.build(elements)
+    buf.seek(0)
+    return buf
+
+
+@login_required
+def cnb_document_pdf(request):
+    """
+    Live-generated PDF of every currently-enabled governing document, for
+    the "View Document PDF" button on /constitution-bylaws/. Any logged-in
+    member can view it — same audience as the Document tab itself.
+    """
+    buf = generate_cnb_document_pdf_buffer()
+    generated = timezone.now().astimezone(ZoneInfo('America/Chicago'))
+    file_name = f"Constitution_and_Bylaws_{generated.strftime('%Y-%m-%d')}.pdf"
+    response = HttpResponse(buf.read(), content_type='application/pdf')
+    response['Content-Disposition'] = f'inline; filename="{file_name}"'
+    # This PDF is regenerated fresh on every request specifically so it's
+    # always current — a browser caching an old copy under this same URL
+    # would silently defeat the entire point of the feature (someone
+    # reopening the tab after a resolution passes should see the amendment
+    # applied, not a stale pre-amendment snapshot).
+    response['Cache-Control'] = 'no-store, must-revalidate'
+    return response
 
 
 # ── CNB management hub ────────────────────────────────────────────────────────

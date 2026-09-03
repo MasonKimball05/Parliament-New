@@ -673,6 +673,20 @@ def generate_minutes_pdf_buffer(minutes):
 
     # Define styles
     styles = getSampleStyleSheet()
+    # getSampleStyleSheet()'s base styles default to Helvetica — override the
+    # four actually used as a `parent=` below so every style built on top of
+    # them (title, body, section/motion headers, and every "Indented" /
+    # nested variant further down that inherits from one of THOSE) renders
+    # in Times to match the formal, Times-New-Roman-styled documents
+    # elsewhere (resolution_print.html, kai/print_report.html). 'Code' is
+    # deliberately left alone — inline code blocks should stay monospace.
+    # ReportLab has no real "Times New Roman"; 'Times-Roman' is one of the
+    # 14 standard PDF base fonts and the closest built-in equivalent (same
+    # family Word/most PDF tools substitute when true TNR isn't embedded).
+    styles['Normal'].fontName = 'Times-Roman'
+    styles['Title'].fontName = 'Times-Bold'
+    styles['Heading2'].fontName = 'Times-Bold'
+    styles['Heading3'].fontName = 'Times-BoldItalic'
     style_title = ParagraphStyle(
         'MinutesTitle',
         parent=styles['Title'],
@@ -743,7 +757,7 @@ def generate_minutes_pdf_buffer(minutes):
     style_md_h1 = ParagraphStyle(
         'MdH1',
         parent=styles['Normal'],
-        fontName='Helvetica-Bold',
+        fontName='Times-Bold',
         fontSize=13,
         leading=17,
         spaceBefore=10,
@@ -753,7 +767,7 @@ def generate_minutes_pdf_buffer(minutes):
     style_md_h2 = ParagraphStyle(
         'MdH2',
         parent=styles['Normal'],
-        fontName='Helvetica-Bold',
+        fontName='Times-Bold',
         fontSize=11,
         leading=15,
         spaceBefore=8,
@@ -763,7 +777,7 @@ def generate_minutes_pdf_buffer(minutes):
     style_md_h3 = ParagraphStyle(
         'MdH3',
         parent=styles['Normal'],
-        fontName='Helvetica-BoldOblique',
+        fontName='Times-BoldItalic',
         fontSize=10,
         leading=14,
         spaceBefore=6,
@@ -1023,6 +1037,13 @@ def generate_minutes_pdf_buffer(minutes):
             att_table.setStyle(TableStyle([
                 ('BACKGROUND', (0, 0), (-1, 0), HexColor('#f3f4f6')),
                 ('TEXTCOLOR', (0, 0), (-1, 0), HexColor('#1a1a1a')),
+                # No FONTNAME command needed here — every cell is a Paragraph
+                # (built with style_attendance_name above), not a raw string,
+                # so it already renders in the cell's own font rather than
+                # whatever a TableStyle FONTNAME command would set (which
+                # ReportLab only applies to un-wrapped string/number cells).
+                # style_attendance_name inherits Times-Roman from
+                # styles['Normal'] above, so this table is already covered.
                 ('FONTSIZE', (0, 0), (-1, -1), 9),
                 ('TOPPADDING', (0, 0), (-1, -1), 3),
                 ('BOTTOMPADDING', (0, 0), (-1, -1), 3),

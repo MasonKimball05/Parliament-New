@@ -97,7 +97,7 @@
                             </p>
 
                             {% if resolution.whereas_clauses %}
-                            <div class="space-y-2 font-serif">
+                            <div class="space-y-2" style="font-family: 'Times New Roman', Times, serif;">
                                 <p class="font-sans text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Whereas Clauses</p>
                                 {% for clause in resolution.whereas_clauses.splitlines %}
                                 {% if clause.strip %}
@@ -108,7 +108,7 @@
                             {% endif %}
 
                             {% if resolution.resolved_text %}
-                            <p class="font-serif"><strong>Therefore, be it resolved,</strong> {{ resolution.resolved_text }}</p>
+                            <p style="font-family: 'Times New Roman', Times, serif;"><strong>Therefore, be it resolved,</strong> {{ resolution.resolved_text }}</p>
                             {% endif %}
 
                             {% if not resolution.whereas_clauses and not resolution.resolved_text %}
@@ -120,7 +120,7 @@
                         {% if resolution.resolution_body %}
                         <div class="space-y-2">
                             <p class="font-semibold text-gray-900 dark:text-gray-100 uppercase tracking-wide text-xs">Section II — Body of the Resolution</p>
-                            <div class="font-serif whitespace-pre-wrap cnb-linkify">{{ resolution.resolution_body }}</div>
+                            <div class="whitespace-pre-wrap cnb-linkify" style="font-family: 'Times New Roman', Times, serif;">{{ resolution.resolution_body }}</div>
                         </div>
                         {% endif %}
 
@@ -128,7 +128,7 @@
                         {% if resolution.additional_notes %}
                         <div class="space-y-2">
                             <p class="font-semibold text-gray-900 dark:text-gray-100 uppercase tracking-wide text-xs">Section III — Conclusion and Certification</p>
-                            <div class="whitespace-pre-wrap font-serif cnb-linkify">{{ resolution.additional_notes }}</div>
+                            <div class="whitespace-pre-wrap cnb-linkify" style="font-family: 'Times New Roman', Times, serif;">{{ resolution.additional_notes }}</div>
                         </div>
                         {% endif %}
 

@@ -269,6 +269,9 @@ class PrivateMediaDirectoriesAreNotServedHere(TestCase):
             'excuse_documents': 'excuse_document',
             'service_hours': 'service_hours_attachment',
             'bug_reports': 'bug_report_screenshot',
+            # v3.29.5 — feedback requests (feature ideas / support tickets),
+            # same rule.
+            'feedback_requests': 'feedback_attachment',
         }
         for prefix in PRIVATE_MEDIA_PREFIXES:
             self.assertIn(
