@@ -4,7 +4,7 @@ from .models import (
     Committee, ParliamentUser, Legislation, Vote, Attendance, AttendanceExcuse,
     CommitteeDocument, Role, Announcement, ChatChannel, ChatChannelPermission,
     ChatMessage, ChatReadReceipt, UserAnnouncementView, DocumentTag, DocumentVersion,
-    Event, ActivityLog, LoginHistory, LoginAlert, BugReport, Notification,
+    Event, ActivityLog, LoginHistory, LoginAlert, BugReport, FeedbackRequest, Notification,
     IPWhitelist, IPBlacklist, QuarantinedAccount, HoneypotAccess, SystemLockdown,
     SecurityNotificationLog, CSPViolation, UserWatchFlag, LoginLockout,
     PassedResolution, UserSession, AnnouncementEmailLog, ChapterMinutes,
@@ -2015,6 +2015,108 @@ class BugReportAdmin(admin.ModelAdmin):
         queryset.update(status='wont_fix')
         self.message_user(request, f"{queryset.count()} bug report(s) marked as won't fix.")
     mark_wont_fix.short_description = "Mark as Won't Fix"
+
+
+@admin.register(FeedbackRequest, site=admin_site)
+class FeedbackRequestAdmin(admin.ModelAdmin):
+    list_display = ('id', 'request_type_badge', 'priority_badge', 'status_badge', 'title', 'submitted_by', 'submitted_at')
+    list_filter = ('request_type', 'status', 'priority', 'page', 'submitted_at')
+    search_fields = ('title', 'description', 'feature', 'page_url', 'submitted_by__name')
+    ordering = ('-submitted_at',)
+    readonly_fields = ('submitted_at', 'updated_at', 'submitted_by')
+    list_per_page = 50
+    date_hierarchy = 'submitted_at'
+    autocomplete_fields = ['resolved_by']
+
+    actions = ['mark_acknowledged', 'mark_in_progress', 'mark_resolved', 'mark_wont_fix']
+
+    fieldsets = (
+        ('Request', {
+            'fields': ('request_type', 'priority', 'status', 'title', 'description')
+        }),
+        ('Location', {
+            'fields': ('page', 'page_url', 'feature')
+        }),
+        ('Attachment', {
+            'fields': ('attachment',),
+            'classes': ('collapse',)
+        }),
+        ('Resolution', {
+            'fields': ('admin_notes', 'resolved_at', 'resolved_by')
+        }),
+        ('Metadata', {
+            'fields': ('submitted_by', 'submitted_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+
+    def request_type_badge(self, obj):
+        colors = {
+            'feature_idea': '#eab308',
+            'support_ticket': '#3b82f6',
+        }
+        color = colors.get(obj.request_type, '#6b7280')
+        return format_html(
+            '<span style="background-color: {}; color: white; padding: 3px 8px; border-radius: 4px; font-size: 11px;">{}</span>',
+            color,
+            obj.get_request_type_display()
+        )
+    request_type_badge.short_description = 'Type'
+    request_type_badge.admin_order_field = 'request_type'
+
+    def priority_badge(self, obj):
+        colors = {
+            'low': '#10b981',
+            'medium': '#f59e0b',
+            'high': '#ef4444',
+            'urgent': '#dc2626'
+        }
+        color = colors.get(obj.priority, '#6b7280')
+        return format_html(
+            '<span style="background-color: {}; color: white; padding: 3px 8px; border-radius: 4px; font-weight: bold;">{}</span>',
+            color,
+            obj.get_priority_display()
+        )
+    priority_badge.short_description = 'Priority'
+    priority_badge.admin_order_field = 'priority'
+
+    def status_badge(self, obj):
+        colors = {
+            'new': '#ef4444',
+            'acknowledged': '#f59e0b',
+            'in_progress': '#3b82f6',
+            'resolved': '#10b981',
+            'wont_fix': '#6b7280',
+            'duplicate': '#8b5cf6'
+        }
+        color = colors.get(obj.status, '#6b7280')
+        return format_html(
+            '<span style="background-color: {}; color: white; padding: 3px 8px; border-radius: 4px; font-weight: 500;">{}</span>',
+            color,
+            obj.get_status_display()
+        )
+    status_badge.short_description = 'Status'
+    status_badge.admin_order_field = 'status'
+
+    def mark_acknowledged(self, request, queryset):
+        queryset.update(status='acknowledged')
+        self.message_user(request, f"{queryset.count()} submission(s) marked as acknowledged.")
+    mark_acknowledged.short_description = "Mark as Acknowledged"
+
+    def mark_in_progress(self, request, queryset):
+        queryset.update(status='in_progress')
+        self.message_user(request, f"{queryset.count()} submission(s) marked as in progress.")
+    mark_in_progress.short_description = "Mark as In Progress"
+
+    def mark_resolved(self, request, queryset):
+        queryset.update(status='resolved', resolved_at=timezone.now(), resolved_by=request.user)
+        self.message_user(request, f"{queryset.count()} submission(s) marked as resolved.")
+    mark_resolved.short_description = "Mark as Resolved"
+
+    def mark_wont_fix(self, request, queryset):
+        queryset.update(status='wont_fix')
+        self.message_user(request, f"{queryset.count()} submission(s) marked as won't do.")
+    mark_wont_fix.short_description = "Mark as Won't Do"
 
     def has_add_permission(self, request):
         return False  # Bug reports are submitted through the form only

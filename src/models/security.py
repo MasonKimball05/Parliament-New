@@ -534,6 +534,158 @@ class BugReport(models.Model):
         self.save()
 
 
+class FeedbackRequest(models.Model):
+    """
+    Two-in-one model for feature ideas and direct support tickets, deliberately
+    built like `BugReport` above (same status/priority/resolution shape) so the
+    two systems stay familiar to maintain side by side.
+
+    `request_type` is what splits it in two at the surface level:
+
+    - `feature_idea` — visible to the whole chapter on the public ideas board
+      (`feedback_tracker`), like a lightweight roadmap. No email is sent on
+      submission (see `send_feedback_notification` — deliberately, so every
+      idea doesn't page the admin the way every bug report does).
+    - `support_ticket` — private. Visible only to its submitter and the
+      feedback admin (never listed on the public board), and DOES email the
+      admin on submission — this is the "contact me directly" path.
+    """
+    REQUEST_TYPES = (
+        ('feature_idea', 'Feature Idea'),
+        ('support_ticket', 'Support Ticket / Contact'),
+    )
+
+    # Reuse BugReport's page taxonomy — same areas of the app, same reasons
+    # to tag "where" a suggestion or question applies.
+    PAGE_CHOICES = BugReport.PAGE_CHOICES
+
+    PRIORITY_CHOICES = (
+        ('low', 'Low - Nice to have / no rush'),
+        ('medium', 'Medium'),
+        ('high', 'High - Would really help / fairly urgent'),
+        ('urgent', 'Urgent'),
+    )
+
+    STATUS_CHOICES = (
+        ('new', 'New'),
+        ('acknowledged', 'Acknowledged'),
+        ('in_progress', 'In Progress'),
+        ('resolved', 'Resolved'),
+        ('wont_fix', "Won't Do"),
+        ('duplicate', 'Duplicate'),
+    )
+
+    request_type = models.CharField(
+        max_length=20,
+        choices=REQUEST_TYPES,
+        default='support_ticket',
+        help_text='Feature idea (public board) or a private support ticket to the admin?'
+    )
+
+    title = models.CharField(
+        max_length=200,
+        help_text='A short summary'
+    )
+
+    description = models.TextField(
+        help_text='Describe the idea, or what you need help with, in detail'
+    )
+
+    page = models.CharField(
+        max_length=50,
+        choices=PAGE_CHOICES,
+        blank=True,
+        help_text='Which page or area is this about?'
+    )
+
+    page_url = models.CharField(
+        max_length=500,
+        blank=True,
+        help_text='The URL this relates to (optional)'
+    )
+
+    feature = models.CharField(
+        max_length=200,
+        blank=True,
+        help_text='Which specific feature or section? (e.g., "Vote button", "Document upload")'
+    )
+
+    priority = models.CharField(
+        max_length=20,
+        choices=PRIORITY_CHOICES,
+        default='medium',
+        blank=True,
+        help_text='How much would this help you, or how urgent is it?'
+    )
+
+    attachment = models.FileField(
+        upload_to='feedback_requests/%Y/%m/',
+        blank=True,
+        null=True,
+        help_text='Screenshot or supporting file (optional)'
+    )
+
+    # Tracking fields — same shape as BugReport
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='new'
+    )
+
+    admin_notes = models.TextField(
+        blank=True,
+        help_text='Internal notes for administrators'
+    )
+
+    submitted_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='feedback_requests',
+        help_text='User who submitted this'
+    )
+
+    submitted_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    resolved_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text='When this was resolved/closed'
+    )
+
+    resolved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='resolved_feedback_requests',
+        help_text='Admin who resolved/closed this'
+    )
+
+    class Meta:
+        ordering = ['-submitted_at']
+        verbose_name = 'Feedback / Support Request'
+        verbose_name_plural = 'Feedback / Support Requests'
+
+    def __str__(self):
+        return f"{self.get_request_type_display()} #{self.id}: {self.title[:50]}"
+
+    def mark_resolved(self, user):
+        """Mark the request as resolved"""
+        from django.utils import timezone
+        self.status = 'resolved'
+        self.resolved_at = timezone.now()
+        self.resolved_by = user
+        self.save()
+
+    @property
+    def is_public(self):
+        """Feature ideas are visible chapter-wide; support tickets never are."""
+        return self.request_type == 'feature_idea'
+
+
 class HoneypotAccess(models.Model):
     """
     Log access attempts to honeypot/poison pill endpoints.

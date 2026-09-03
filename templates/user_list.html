@@ -1861,8 +1861,17 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('js-open-batch-modal').addEventListener('click', openBatchAddModal);
     document.getElementById('js-open-csv-modal').addEventListener('click', openImportCsvModal);
 
-    // Pledge select-all + checkboxes
-    document.getElementById('select-all-pledges').addEventListener('click', toggleAllPledges);
+    // Pledge select-all + checkboxes. The header checkbox only renders when
+    // has_pledges is true in the template (conditional block in the table
+    // head) — when the current filter/search has zero pledges in view, this
+    // element is absent from the DOM. Unguarded, getElementById(...) on it
+    // returned null and `.addEventListener` threw, which silently aborted
+    // the REST of this handler (edit modal, add modal, batch/CSV modals,
+    // etc. are all wired up further down in this same function) — so every
+    // button below this line stopped working whenever the visible page had
+    // no pledges on it. Same null-guard shape as `syncBtn` above.
+    var selectAllPledges = document.getElementById('select-all-pledges');
+    if (selectAllPledges) selectAllPledges.addEventListener('click', toggleAllPledges);
     document.querySelectorAll('.pledge-checkbox').forEach(function(cb) {
         cb.addEventListener('change', updateInitiateButton);
     });

@@ -1680,16 +1680,22 @@ function _pmRenderProfile(d) {
             return _pmEsc(l.name) + rn;
         }).join(', '));
     }
+    // The Alpha Mu default only applies once a member has actually been
+    // initiated — a pledge with no initiation_chapters entries has not been
+    // initiated anywhere yet and must not show "Initiated at: Alpha Mu"
+    // automatically.
     const initChapters = (d.initiation_chapters && d.initiation_chapters.length)
         ? d.initiation_chapters
-        : [{ school: 'Samford University', chapter: 'Alpha Mu' }];
-    const initLabels = initChapters.map(c => {
-        const glyphs = c.chapter.trim().split(/\s+/).map(w => _PM_GREEK[w.toLowerCase()] || '').join('');
-        const chapterDisplay = glyphs ? `${_pmEsc(c.chapter)} (${glyphs})` : _pmEsc(c.chapter);
-        const roleTag = c.role_number ? ` <span class="text-gray-400">#${_pmEsc(c.role_number)}</span>` : '';
-        return `${chapterDisplay} — ${_pmEsc(c.school)}${roleTag}`;
-    });
-    chapterRows += _pmRow('Initiated at', initLabels.join('<br>'));
+        : (d.member_type === 'Pledge' ? [] : [{ school: 'Samford University', chapter: 'Alpha Mu' }]);
+    if (initChapters.length) {
+        const initLabels = initChapters.map(c => {
+            const glyphs = c.chapter.trim().split(/\s+/).map(w => _PM_GREEK[w.toLowerCase()] || '').join('');
+            const chapterDisplay = glyphs ? `${_pmEsc(c.chapter)} (${glyphs})` : _pmEsc(c.chapter);
+            const roleTag = c.role_number ? ` <span class="text-gray-400">#${_pmEsc(c.role_number)}</span>` : '';
+            return `${chapterDisplay} — ${_pmEsc(c.school)}${roleTag}`;
+        });
+        chapterRows += _pmRow('Initiated at', initLabels.join('<br>'));
+    }
     if (chapterRows) {
         document.getElementById('pm-chapter-list').innerHTML = chapterRows;
         _pmShow('pm-chapter-section');

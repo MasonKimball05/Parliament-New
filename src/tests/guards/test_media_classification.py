@@ -199,6 +199,7 @@ class ThePrivateDirectoriesMatchTheViewsThatServeThem(TestCase):
         'excuse_documents': 'excuse_document',
         'service_hours': 'service_hours_attachment',
         'bug_reports': 'bug_report_screenshot',
+        'feedback_requests': 'feedback_attachment',
     }
 
     def test_every_private_prefix_has_a_replacement_route(self):

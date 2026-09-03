@@ -392,15 +392,33 @@
                     <ul class="divide-y divide-gray-100 dark:divide-gray-700">
                         {% for collab in resolution.collaborators.all %}
                         <li class="px-5 py-3 flex items-center justify-between gap-3">
-                            <div>
-                                <p class="text-sm text-gray-900 dark:text-gray-100 font-medium">{{ collab.user.name }}</p>
+                            <div class="min-w-0">
+                                <p class="text-sm text-gray-900 dark:text-gray-100 font-medium truncate">{{ collab.user.name }}</p>
+                                {% if not is_cnb %}
                                 <p class="text-xs text-gray-500 dark:text-gray-400">{{ collab.get_role_display }}</p>
+                                {% endif %}
                             </div>
                             {% if is_cnb %}
-                            <form method="post" action="{% url 'cnb_remove_collaborator' resolution_id=resolution.pk collaborator_id=collab.pk %}">
-                                {% csrf_token %}
-                                <button type="submit" class="text-xs text-red-500 hover:text-red-700 dark:hover:text-red-400">Remove</button>
-                            </form>
+                            <div class="flex items-center gap-2 shrink-0">
+                                <!-- Reuses cnb_add_collaborator directly — it already
+                                     get_or_create()s and updates the role when the
+                                     collaborator already exists, so no new endpoint
+                                     was needed, just a way to reach it in-place
+                                     instead of remove-and-re-add. -->
+                                <form method="post" action="{% url 'cnb_add_collaborator' resolution_id=resolution.pk %}" class="flex items-center gap-1.5">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="user_id" value="{{ collab.user.pk }}">
+                                    <select name="role" class="text-xs px-2 py-1 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                                        <option value="viewer" {% if collab.role == 'viewer' %}selected{% endif %}>Viewer</option>
+                                        <option value="editor" {% if collab.role == 'editor' %}selected{% endif %}>Editor</option>
+                                    </select>
+                                    <button type="submit" class="text-xs text-primary-600 dark:text-primary-400 hover:underline font-medium">Save</button>
+                                </form>
+                                <form method="post" action="{% url 'cnb_remove_collaborator' resolution_id=resolution.pk collaborator_id=collab.pk %}">
+                                    {% csrf_token %}
+                                    <button type="submit" class="text-xs text-red-500 hover:text-red-700 dark:hover:text-red-400">Remove</button>
+                                </form>
+                            </div>
                             {% endif %}
                         </li>
                         {% endfor %}

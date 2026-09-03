@@ -33,6 +33,7 @@ def profile_view(request):
     profile_picture_submitted = 'profile_picture_submit' in request.POST
     extended_profile_submitted = 'extended_profile_submit' in request.POST
     role_history_add = 'role_history_add_submit' in request.POST
+    role_history_edit = 'role_history_edit_submit' in request.POST
     role_history_delete = 'role_history_delete_submit' in request.POST
     custom_social_add = 'custom_social_add_submit' in request.POST
     custom_social_delete = 'custom_social_delete_submit' in request.POST
@@ -253,6 +254,36 @@ def profile_view(request):
                 if is_ajax:
                     return JsonResponse({'success': True, 'id': rh.id, 'role_name': rh.role_name, 'start_semester': rh.start_semester, 'end_semester': rh.end_semester or ''})
                 messages.success(request, 'Role history entry added.')
+            else:
+                if is_ajax:
+                    return JsonResponse({'error': 'Role name and start semester are required.'}, status=400)
+                messages.error(request, 'Role name and start semester are required.')
+            return redirect('profile')
+
+        elif role_history_edit:
+            rh_id = request.POST.get('rh_id', '').strip()
+            role_name = request.POST.get('rh_role_name', '').strip()
+            start_sem = request.POST.get('rh_start_semester', '').strip()
+            end_sem = request.POST.get('rh_end_semester', '').strip()
+            if rh_id and role_name and start_sem:
+                from src.models import RoleHistory
+                # Scoped to `user=user` same as the delete branch below — a
+                # member can only edit their own entries, not anyone else's
+                # by guessing an id.
+                updated = RoleHistory.objects.filter(id=rh_id, user=user).update(
+                    role_name=role_name, start_semester=start_sem, end_semester=end_sem,
+                )
+                if updated:
+                    if is_ajax:
+                        return JsonResponse({
+                            'success': True, 'id': int(rh_id), 'role_name': role_name,
+                            'start_semester': start_sem, 'end_semester': end_sem or '',
+                        })
+                    messages.success(request, 'Role history entry updated.')
+                else:
+                    if is_ajax:
+                        return JsonResponse({'error': 'Role history entry not found.'}, status=404)
+                    messages.error(request, 'Role history entry not found.')
             else:
                 if is_ajax:
                     return JsonResponse({'error': 'Role name and start semester are required.'}, status=400)

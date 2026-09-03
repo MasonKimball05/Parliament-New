@@ -464,3 +464,37 @@ def serve_bug_report_screenshot(request, report_id):
     if not (is_reporter or is_bug_admin):
         raise Http404('File not found')
     return _stream_private_file(report.screenshot)
+
+
+# ---------------------------------------------------------------------------
+# Feedback requests — feature idea / support ticket attachments
+# ---------------------------------------------------------------------------
+#
+# Mirrors the bug-report screenshot view above with one twist: half of this
+# model is public. A feature idea's attachment (e.g. a mockup) is meant to be
+# seen by anyone browsing the public ideas board (`feedback_tracker`) — the
+# SAME predicate that page's detail view uses. A support ticket's attachment
+# is private, same rule as a bug screenshot: submitter or the feedback admin
+# only. `feedback_admin_required` hardcodes `user_id == '73'`, same
+# intentional single-admin design as `bug_admin_required` — see CLAUDE.md.
+
+
+@login_required
+@log_function_call
+def serve_feedback_attachment(request, feedback_id):
+    """Stream a feedback request's attachment, per its own visibility rule."""
+    from src.models import FeedbackRequest
+
+    feedback = get_object_or_404(FeedbackRequest, id=feedback_id)
+    user = request.user
+
+    is_admin = str(user.user_id) == '73'  # see `feedback_admin_required`
+    if feedback.request_type == 'feature_idea':
+        # Public board — any logged-in member may read it, same as the page.
+        allowed = True
+    else:
+        allowed = feedback.submitted_by_id == user.pk or is_admin
+
+    if not allowed:
+        raise Http404('File not found')
+    return _stream_private_file(feedback.attachment)

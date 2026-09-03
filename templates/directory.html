@@ -881,17 +881,24 @@ function _renderProfile(d) {
             return _esc(l.name) + rn;
         }).join(', '));
     }
-    // Initiation chapters
+    // Initiation chapters. The Alpha Mu default only applies once a member
+    // has actually been initiated — a pledge with no initiation_chapters
+    // entries of their own has not been initiated anywhere yet, and must
+    // not show "Initiated at: Alpha Mu" just because that's everyone else's
+    // default. Only auto-fill the default for a non-pledge with an empty
+    // list; a pledge with an empty list gets no "Initiated at" row at all.
     const initChapters = (d.initiation_chapters && d.initiation_chapters.length)
         ? d.initiation_chapters
-        : [{ school: 'Samford University', chapter: 'Alpha Mu' }];
-    const initLabels = initChapters.map(c => {
-        const glyphs = c.chapter.trim().split(/\s+/).map(w => GREEK_GLYPHS[w.toLowerCase()] || '').join('');
-        const chapterDisplay = glyphs ? `${_esc(c.chapter)} (${glyphs})` : _esc(c.chapter);
-        const roleTag = c.role_number ? ` <span class="text-gray-400">#${_esc(c.role_number)}</span>` : '';
-        return `${chapterDisplay} — ${_esc(c.school)}${roleTag}`;
-    });
-    chapterRows += _row('Initiated at', initLabels.join('<br>'));
+        : (d.member_type === 'Pledge' ? [] : [{ school: 'Samford University', chapter: 'Alpha Mu' }]);
+    if (initChapters.length) {
+        const initLabels = initChapters.map(c => {
+            const glyphs = c.chapter.trim().split(/\s+/).map(w => GREEK_GLYPHS[w.toLowerCase()] || '').join('');
+            const chapterDisplay = glyphs ? `${_esc(c.chapter)} (${glyphs})` : _esc(c.chapter);
+            const roleTag = c.role_number ? ` <span class="text-gray-400">#${_esc(c.role_number)}</span>` : '';
+            return `${chapterDisplay} — ${_esc(c.school)}${roleTag}`;
+        });
+        chapterRows += _row('Initiated at', initLabels.join('<br>'));
+    }
     if (chapterRows) {
         document.getElementById('pm-chapter-list').innerHTML = chapterRows;
         _show('pm-chapter-section');

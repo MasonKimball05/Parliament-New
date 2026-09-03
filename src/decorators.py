@@ -197,6 +197,29 @@ def bug_admin_required(view_func):
     return wrapper
 
 
+def feedback_admin_required(view_func):
+    """
+    Restrict access to the designated feedback/support admin (user_id 73).
+
+    Same hardcoded-single-admin design as `bug_admin_required`, intentionally
+    NOT backed by a Role/SiteSetting — see CLAUDE.md's note on that decorator
+    for the reasoning (prevents accidental privilege escalation via a
+    mis-assigned role). Kept as its own decorator, rather than reusing
+    `bug_admin_required` directly, only so a permission failure redirects
+    back into the feedback board instead of the bug tracker.
+    """
+    @wraps(view_func)
+    def wrapper(request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return redirect('login')
+        if not _gate('feedback_admin_required', str(request.user.user_id) == '73',
+                     'hardcoded user_id 73 (intentional)'):
+            messages.error(request, 'You do not have permission to access this page.')
+            return redirect('feedback_tracker')
+        return view_func(request, *args, **kwargs)
+    return wrapper
+
+
 def vpp_required(view_func):
     """
     Restrict access to VPP (Vice President of Programming) role holders and admins.

@@ -131,6 +131,7 @@ which predate this file and are more specific than their commit dates.
 | v3.29.1 | *not deployed* | `c72b273` | See `changelogs/v3.29.1.md`. |
 | v3.29.2 | *not deployed* | `4afc446` | See `changelogs/v3.29.2.md`. |
 | v3.29.3 | *not deployed* | `4afc446` | See `changelogs/v3.29.3.md`. |
+| v3.29.4 | *not deployed* | `ca6ffdb` | See `changelogs/v3.29.4.md`. |
 
 > **⚠️ 09-02-26 — code for the whole backlog above (v3.25.2 through
 > v3.28.8) was restarted into prod the same day, and Mason confirmed

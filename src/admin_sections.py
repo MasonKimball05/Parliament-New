@@ -102,6 +102,7 @@ SECTIONS = {
     ],
     'Site Config': [
         'FeatureFlag', 'PageToggle', 'ScheduledMaintenance', 'BugReport',
+        'FeedbackRequest',
     ],
 }
 

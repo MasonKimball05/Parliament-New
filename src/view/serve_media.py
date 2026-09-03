@@ -90,6 +90,13 @@ PRIVATE_MEDIA_PREFIXES = frozenset({
     'excuse_documents',
     'service_hours',
     'bug_reports',
+    # v3.29.5 — feedback_requests/: same reasoning as bug_reports/ above. Half
+    # of this model (feature ideas) is public in-app, but `/media/`'s ONLY
+    # gate is @login_required and cannot express "public unless it's a
+    # support ticket" — that branch lives in serve_feedback_attachment, not
+    # here. Classifying it private and routing everything through the
+    # ownership-aware view is what makes the branch enforceable at all.
+    'feedback_requests',
 })
 
 #: Directories under MEDIA_ROOT that `/media/`'s promise is CORRECT for.

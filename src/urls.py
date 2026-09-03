@@ -188,6 +188,7 @@ from src.view.serve_media import serve_media
 # link these routes and never `<field>.url`.
 from src.view.serve_private_upload import (
     serve_bug_report_screenshot, serve_excuse_document,
+    serve_feedback_attachment,
     serve_kai_commendation_attachment, serve_kai_commendation_response_file,
     serve_kai_report_attachment, serve_kai_response_file,
     serve_service_hours_attachment, serve_service_hours_response_file,
@@ -269,6 +270,10 @@ from src.view.view_document import (
     download_committee_document_version,
 )
 from src.view.bug_report import submit_bug_report, bug_report_success, my_bug_reports, bug_tracker, bug_report_detail, bug_admin, bug_admin_update
+from src.view.feedback import (
+    submit_feedback, feedback_request_success, my_feedback_requests,
+    feedback_tracker, feedback_request_detail, feedback_admin, feedback_admin_update,
+)
 from src.view.debug_panel import (
     debug_request_info, debug_server_info, debug_database_info,
     debug_cache_info, debug_cache_clear, debug_session_info, debug_session_edit,
@@ -428,6 +433,8 @@ urlpatterns = [
          serve_service_hours_response_file, name='service_hours_response_file'),
     path('bug-report/<int:report_id>/screenshot/',
          serve_bug_report_screenshot, name='bug_report_screenshot'),
+    path('feedback/<int:feedback_id>/attachment/',
+         serve_feedback_attachment, name='feedback_attachment'),
 
     # Bug Reports
     path('bug-report/', submit_bug_report, name='bug_report'),
@@ -437,6 +444,15 @@ urlpatterns = [
     path('bug-tracker/<int:bug_id>/', bug_report_detail, name='bug_report_detail'),
     path('bug-tracker/admin/', bug_admin, name='bug_admin'),
     path('bug-tracker/admin/update/<int:bug_id>/', bug_admin_update, name='bug_admin_update'),
+
+    # Feedback & Support (feature ideas + support tickets)
+    path('feedback/', submit_feedback, name='feedback_request'),
+    path('feedback/success/<int:feedback_id>/', feedback_request_success, name='feedback_request_success'),
+    path('feedback/my-submissions/', my_feedback_requests, name='my_feedback_requests'),
+    path('feedback/ideas/', feedback_tracker, name='feedback_tracker'),
+    path('feedback/ideas/<int:feedback_id>/', feedback_request_detail, name='feedback_request_detail'),
+    path('feedback/admin/', feedback_admin, name='feedback_admin'),
+    path('feedback/admin/update/<int:feedback_id>/', feedback_admin_update, name='feedback_admin_update'),
 
     # Changelog / Version History
     path('changelog/', changelog, name='changelog'),

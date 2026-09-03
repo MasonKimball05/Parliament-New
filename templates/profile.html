@@ -796,7 +796,11 @@
                 </svg>
             </summary>
             <div class="px-4 pb-4 pt-3 border-t border-gray-200 dark:border-gray-600">
+                {% if user.is_pledge %}
+                <p class="text-xs text-gray-500 dark:text-gray-400 mb-4">You haven't been initiated yet, so this section defaults to empty rather than assuming Alpha Mu — Samford University. Add an entry here if you already hold membership in another chapter.</p>
+                {% else %}
                 <p class="text-xs text-gray-500 dark:text-gray-400 mb-4">Where you were initiated. Defaults to Alpha Mu — Samford University. Add more if you hold membership in multiple chapters.</p>
+                {% endif %}
 
                 {% with chapters=user.initiation_chapters %}
                 {% if chapters %}
@@ -821,7 +825,10 @@
                     </li>
                     {% endfor %}
                 </ul>
-                {% else %}
+                {% elif not user.is_pledge %}
+                <!-- A pledge's list defaults to empty with no "Alpha Mu" filler text —
+                     see the note above the list; showing that default before they're
+                     actually initiated would read as a claim they already are. -->
                 <p class="text-sm text-gray-400 italic mb-4">Defaulting to Alpha Mu — Samford University.</p>
                 {% endif %}
                 {% endwith %}
@@ -867,21 +874,28 @@
                 {% if role_histories %}
                 <ul class="space-y-2 mb-5" id="role-history-list">
                     {% for rh in role_histories %}
-                    <li class="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-50 dark:bg-gray-700/50 text-sm" data-rh-id="{{ rh.id }}">
-                        <div>
+                    <li class="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-50 dark:bg-gray-700/50 text-sm js-rh-row" data-rh-id="{{ rh.id }}" data-rh-role-name="{{ rh.role_name }}" data-rh-start-semester="{{ rh.start_semester }}" data-rh-end-semester="{{ rh.end_semester }}">
+                        <div class="js-rh-display">
                             <span class="font-medium text-gray-800 dark:text-gray-200">{{ rh.role_name }}</span>
                             <span class="text-gray-500 dark:text-gray-400 ml-2">{{ rh.start_semester }}{% if rh.end_semester %} – {{ rh.end_semester }}{% else %} – present{% endif %}</span>
                         </div>
-                        <form method="POST" class="flex-shrink-0 ml-2 js-rh-delete-form">
-                            {% csrf_token %}
-                            <input type="hidden" name="role_history_delete_submit" value="1">
-                            <input type="hidden" name="rh_id" value="{{ rh.id }}">
-                            <button type="submit" class="text-red-500 hover:text-red-700 dark:hover:text-red-400 transition" title="Remove">
+                        <div class="flex-shrink-0 ml-2 flex items-center gap-2">
+                            <button type="button" class="js-rh-edit-btn text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 transition" title="Edit">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
                                 </svg>
                             </button>
-                        </form>
+                            <form method="POST" class="js-rh-delete-form">
+                                {% csrf_token %}
+                                <input type="hidden" name="role_history_delete_submit" value="1">
+                                <input type="hidden" name="rh_id" value="{{ rh.id }}">
+                                <button type="submit" class="text-red-500 hover:text-red-700 dark:hover:text-red-400 transition" title="Remove">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                                    </svg>
+                                </button>
+                            </form>
+                        </div>
                     </li>
                     {% endfor %}
                 </ul>
@@ -1698,6 +1712,20 @@ document.querySelectorAll('.js-passkey-delete-form').forEach(function (form) {
     }
 
     // ----- Role history -----
+    var EDIT_SVG = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>';
+
+    function rhActionsHtml(rhId) {
+        return '<div class="flex-shrink-0 ml-2 flex items-center gap-2">' +
+            '<button type="button" class="js-rh-edit-btn text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 transition" title="Edit">' + EDIT_SVG + '</button>' +
+            '<form method="POST" class="js-rh-delete-form"><input type="hidden" name="csrfmiddlewaretoken" value="' + CSRF + '"><input type="hidden" name="role_history_delete_submit" value="1"><input type="hidden" name="rh_id" value="' + rhId + '"><button type="submit" class="text-red-500 hover:text-red-700 dark:hover:text-red-400 transition" title="Remove">' + DEL_SVG + '</button></form>' +
+            '</div>';
+    }
+
+    function rhDisplayHtml(roleName, startSem, endSem) {
+        var semHtml = endSem ? ' \u2013 ' + escHtml(endSem) : ' \u2013 present';
+        return '<div class="js-rh-display"><span class="font-medium text-gray-800 dark:text-gray-200">' + escHtml(roleName) + '</span><span class="text-gray-500 dark:text-gray-400 ml-2">' + escHtml(startSem) + semHtml + '</span></div>';
+    }
+
     function bindRhDelete(form) {
         form.addEventListener('submit', function(e) {
             e.preventDefault();
@@ -1711,7 +1739,63 @@ document.querySelectorAll('.js-passkey-delete-form').forEach(function (form) {
             .catch(function() { alert('Request failed.'); });
         });
     }
+
+    function bindRhEdit(btn) {
+        btn.addEventListener('click', function() {
+            var li = btn.closest('li');
+            var display = li.querySelector('.js-rh-display');
+            var actions = btn.closest('.flex-shrink-0');
+            if (!display || !actions) return;
+
+            var rhId = li.dataset.rhId;
+            var roleName = li.dataset.rhRoleName || '';
+            var startSem = li.dataset.rhStartSemester || '';
+            var endSem = li.dataset.rhEndSemester || '';
+
+            display.outerHTML =
+                '<form class="js-rh-edit-form flex flex-wrap gap-2 items-center flex-1">' +
+                '<input type="text" name="rh_role_name" value="' + escHtml(roleName) + '" required placeholder="Position" class="min-w-0 flex-1 px-2 py-1 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded text-sm">' +
+                '<input type="text" name="rh_start_semester" value="' + escHtml(startSem) + '" required placeholder="Start" class="w-24 px-2 py-1 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded text-sm">' +
+                '<input type="text" name="rh_end_semester" value="' + escHtml(endSem) + '" placeholder="End" class="w-24 px-2 py-1 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded text-sm">' +
+                '<button type="submit" class="text-primary-600 hover:text-primary-700 dark:text-primary-400 text-xs font-medium">Save</button>' +
+                '<button type="button" class="js-rh-cancel-edit text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 text-xs">Cancel</button>' +
+                '</form>';
+            actions.classList.add('hidden');
+
+            var editForm = li.querySelector('.js-rh-edit-form');
+
+            function restoreDisplay(roleName, startSem, endSem) {
+                editForm.outerHTML = rhDisplayHtml(roleName, startSem, endSem);
+                actions.classList.remove('hidden');
+            }
+
+            editForm.querySelector('.js-rh-cancel-edit').addEventListener('click', function() {
+                restoreDisplay(roleName, startSem, endSem);
+            });
+
+            editForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                var data = Object.fromEntries(new FormData(editForm));
+                data.role_history_edit_submit = '1';
+                data.rh_id = rhId;
+                postAjax(data)
+                .then(function(d) {
+                    if (d.success) {
+                        li.dataset.rhRoleName = d.role_name;
+                        li.dataset.rhStartSemester = d.start_semester;
+                        li.dataset.rhEndSemester = d.end_semester;
+                        restoreDisplay(d.role_name, d.start_semester, d.end_semester);
+                    } else {
+                        alert(d.error || 'Failed to update.');
+                    }
+                })
+                .catch(function() { alert('Request failed.'); });
+            });
+        });
+    }
+
     document.querySelectorAll('.js-rh-delete-form').forEach(bindRhDelete);
+    document.querySelectorAll('.js-rh-edit-btn').forEach(bindRhEdit);
 
     var rhAddForm = document.getElementById('role-history-add-form');
     if (rhAddForm) {
@@ -1729,13 +1813,15 @@ document.querySelectorAll('.js-passkey-delete-form').forEach(function (form) {
                         var noMsg = rhAddForm.closest('.px-4').querySelector('p.italic');
                         if (noMsg) noMsg.replaceWith(list); else rhAddForm.before(list);
                     }
-                    var semHtml = d.end_semester ? ' \u2013 ' + escHtml(d.end_semester) : ' \u2013 present';
                     var li = document.createElement('li');
-                    li.className = 'flex items-center justify-between py-2 px-3 rounded-lg bg-gray-50 dark:bg-gray-700/50 text-sm';
+                    li.className = 'flex items-center justify-between py-2 px-3 rounded-lg bg-gray-50 dark:bg-gray-700/50 text-sm js-rh-row';
                     li.dataset.rhId = d.id;
-                    li.innerHTML = '<div><span class="font-medium text-gray-800 dark:text-gray-200">' + escHtml(d.role_name) + '</span><span class="text-gray-500 dark:text-gray-400 ml-2">' + escHtml(d.start_semester) + semHtml + '</span></div>' +
-                        '<form method="POST" class="flex-shrink-0 ml-2 js-rh-delete-form"><input type="hidden" name="csrfmiddlewaretoken" value="' + CSRF + '"><input type="hidden" name="role_history_delete_submit" value="1"><input type="hidden" name="rh_id" value="' + d.id + '"><button type="submit" class="text-red-500 hover:text-red-700 dark:hover:text-red-400 transition" title="Remove">' + DEL_SVG + '</button></form>';
+                    li.dataset.rhRoleName = d.role_name;
+                    li.dataset.rhStartSemester = d.start_semester;
+                    li.dataset.rhEndSemester = d.end_semester;
+                    li.innerHTML = rhDisplayHtml(d.role_name, d.start_semester, d.end_semester) + rhActionsHtml(d.id);
                     bindRhDelete(li.querySelector('.js-rh-delete-form'));
+                    bindRhEdit(li.querySelector('.js-rh-edit-btn'));
                     list.appendChild(li);
                     rhAddForm.reset();
                 } else { alert(d.error || 'Role name and start semester are required.'); }
