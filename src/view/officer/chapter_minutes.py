@@ -26,6 +26,45 @@ from src.decorators import officer_required
 from src.models.users import member_defer
 
 
+def _linkable_events(limit=20, window_days=60):
+    """
+    Events eligible to link chapter minutes to, ordered by closeness to
+    the current moment rather than raw chronological order.
+
+    v3.29.3 — the previous query was `Event.objects.filter(requires_
+    attendance=True).order_by('-date_time')[:20]`: no date window at all,
+    sorted purely descending. `-date_time` puts the FARTHEST-future event
+    first, and `generate_recurring_events` can pre-generate up to 52
+    future instances of a weekly recurring meeting — so a chapter with
+    one recurring meeting already schedules more than 20 events out into
+    the future, and every one of them sorts ahead of an actual near-term
+    event in that ordering. An officer taking minutes for tonight's
+    meeting, an hour before it started, got a dropdown made entirely of
+    instances of the same recurring series months out — the meeting they
+    wanted wasn't in the top 20 at all. Reported by Mason as "I think
+    it's a timezone thing"; it wasn't (TIME_ZONE/USE_TZ are configured
+    correctly and `date_time` is stored/compared consistently) — it was
+    this ordering, which reproduces regardless of timezone.
+
+    Windowing to `window_days` on each side of now and then sorting by
+    absolute distance from now (in Python — the candidate set here is
+    small, same approach the sort-by-last-name helpers below already use)
+    means the event that just happened and the one starting in an hour
+    both surface near the top, and a meeting a year out no longer buries
+    them.
+    """
+    now = timezone.now()
+    window_start = now - timezone.timedelta(days=window_days)
+    window_end = now + timezone.timedelta(days=window_days)
+    candidates = list(Event.objects.filter(
+        requires_attendance=True,
+        date_time__gte=window_start,
+        date_time__lte=window_end,
+    ))
+    candidates.sort(key=lambda e: abs((e.date_time - now).total_seconds()))
+    return candidates[:limit]
+
+
 @login_required
 @officer_required
 def chapter_minutes_list(request):
@@ -34,10 +73,8 @@ def chapter_minutes_list(request):
         committee__isnull=True
     ).order_by('-date', '-start_time')
 
-    # Get recent events for the create modal
-    events = Event.objects.filter(
-        requires_attendance=True,
-    ).order_by('-date_time')[:20]
+    # Get recent/upcoming events for the create modal
+    events = _linkable_events()
 
     context = {
         'minutes_list': minutes_list,
@@ -58,10 +95,7 @@ def create_chapter_minutes(request):
 
         if not title or not minutes_date or not start_time:
             messages.error(request, 'Title, date, and start time are required.')
-            events = Event.objects.filter(
-                requires_attendance=True,
-                date_time__gte=timezone.now() - timezone.timedelta(days=7)
-            ).order_by('-date_time')
+            events = _linkable_events()
             return render(request, 'officer/chapter_minutes_list.html', {
                 'minutes_list': ChapterMinutes.objects.all().order_by('-date', '-start_time'),
                 'events': events,
@@ -178,10 +212,8 @@ def edit_chapter_minutes(request, minutes_id):
             }
         sections_data.append(s)
 
-    # Get events for linking (recent + upcoming)
-    events = Event.objects.filter(
-        requires_attendance=True,
-    ).order_by('-date_time')[:20]
+    # Get events for linking (recent + upcoming, closest to now first)
+    events = _linkable_events()
 
     # Build excuse and event attendance maps when linked to an event
     excuse_map = {}  # user_id -> {status, reason}
@@ -266,6 +298,79 @@ def edit_chapter_minutes(request, minutes_id):
         'caucus_type_choices': MinutesMotion.CAUCUS_TYPE_CHOICES,
     }
     return render(request, 'officer/chapter_minutes_editor.html', context)
+
+
+@login_required
+@officer_required
+@require_POST
+def update_minutes_event(request, minutes_id):
+    """
+    AJAX endpoint to link, re-link, or unlink an existing minutes session
+    to/from an event — v3.29.3, previously this was only settable at
+    creation time via `create_chapter_minutes`, so an officer who forgot
+    to link the event up front (or picked the wrong one) had no way to
+    fix it short of deleting and recreating the whole minutes session.
+    """
+    minutes = get_object_or_404(ChapterMinutes, id=minutes_id, committee__isnull=True)
+
+    try:
+        data = json.loads(request.body)
+    except (json.JSONDecodeError, TypeError):
+        return JsonResponse({'error': 'Invalid data.'}, status=400)
+
+    event_id = data.get('event_id')
+    event = None
+    if event_id:
+        try:
+            event = Event.objects.get(id=event_id)
+        except Event.DoesNotExist:
+            return JsonResponse({'error': 'That event no longer exists.'}, status=400)
+
+    minutes.event = event
+
+    # Same edit-tracking as save_minutes_data/save_minutes_attendance —
+    # changing which event a published minutes record is linked to is a
+    # substantive edit, not a formatting tweak.
+    if minutes.status == 'published':
+        minutes.edited_after_publish = True
+        minutes.last_edit_at = timezone.now()
+        minutes.last_edit_by = request.user
+        minutes.last_edit_reason = data.get(
+            'edit_reason',
+            f'Linked event changed to "{event.title}"' if event else 'Event unlinked'
+        )
+
+    minutes.save()
+
+    ActivityLog.log_activity(
+        action_type='other',
+        user=request.user,
+        description=(
+            f'Linked chapter minutes "{minutes.title}" to event: {event.title}'
+            if event else
+            f'Unlinked chapter minutes "{minutes.title}" from its event'
+        ),
+        request=request,
+        object_type='ChapterMinutes',
+        object_id=minutes.id,
+        object_repr=str(minutes),
+    )
+
+    # If published and has a linked document, regenerate the PDF so the
+    # "Event: ..." line on the document stays in sync.
+    if minutes.status == 'published' and minutes.published_document:
+        pdf_buffer = generate_minutes_pdf_buffer(minutes)
+        ts = timezone.now().strftime('%Y%m%d%H%M%S')
+        file_name = f"Chapter_Minutes_{minutes.date.strftime('%Y-%m-%d')}_{minutes.title.replace(' ', '_')}_{ts}.pdf"
+        if minutes.published_document.document:
+            minutes.published_document.document.delete(save=False)
+        minutes.published_document.document.save(file_name, ContentFile(pdf_buffer.read()), save=True)
+
+    return JsonResponse({
+        'success': True,
+        'message': f'Linked to "{event.title}".' if event else 'Event unlinked.',
+        'event': {'id': event.id, 'title': event.title} if event else None,
+    })
 
 
 @login_required

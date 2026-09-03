@@ -139,20 +139,16 @@ def edit_committee_minutes(request, code, minutes_id):
         messages.error(request, 'You do not have permission to edit this committee\'s minutes.')
         return redirect('committee_minutes_list', code=code)
 
-    # Get committee members for attendance (members + chairs, deduplicated)
-    # Exclude advisors and sort by last name
-    member_ids = set(
-        committee.members.filter(member_status='Active').exclude(member_type='Advisor').values_list('pk', flat=True)
-    ) | set(
-        committee.chairs.filter(member_status='Active').exclude(member_type='Advisor').values_list('pk', flat=True)
-    )
-
+    # Get committee members for attendance (members + chairs, deduplicated,
+    # excluding advisors, sorted by last name) — v3.29.4: now the shared
+    # `Committee.attendance_eligible_members()` helper, also used by
+    # committee-scoped calendar events (`Event.required_members()`).
     def get_last_name(user):
         """Extract last name from full name for sorting"""
         parts = user.name.strip().split()
         return parts[-1].lower() if parts else ''
 
-    all_members = ParliamentUser.objects.filter(pk__in=member_ids)
+    all_members = committee.attendance_eligible_members()
 
     # Sort: non-pledges first (by last name), then pledges (by last name)
     non_pledges = sorted(

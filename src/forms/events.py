@@ -1,9 +1,24 @@
 from django import forms
 
-from src.models import Event
+from src.models import Event, Committee
 
 
 class EventForm(forms.ModelForm):
+    committee = forms.ModelChoiceField(
+        queryset=Committee.objects.filter(is_active=True).order_by('name'),
+        required=False,
+        empty_label='-- Chapter-wide (default) --',
+        widget=forms.Select(attrs={
+            'class': 'w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent',
+        }),
+        help_text=(
+            "Make this a committee meeting: attendance tracking, excuses, and "
+            "push/email reminders will only cover this committee's members and "
+            'chairs — plus anyone who signs up, even if not on the committee. '
+            'Leave as chapter-wide for a normal event.'
+        ),
+    )
+
     visible_to = forms.MultipleChoiceField(
         choices=Event.MEMBER_TYPES,
         required=False,
@@ -33,7 +48,7 @@ class EventForm(forms.ModelForm):
     class Meta:
         model = Event
         fields = ['title', 'description', 'date_time', 'location', 'visible_to', 'is_active',
-                  'requires_attendance', 'allow_excuses', 'excuse_deadline',
+                  'committee', 'requires_attendance', 'allow_excuses', 'excuse_deadline',
                   'requires_signup', 'max_signups', 'signups_open', 'allow_waitlist', 'rsvp_email_enabled',
                   'is_recurring', 'recurrence_type', 'recurrence_interval', 'recurrence_unit',
                   'recurrence_days', 'recurrence_end_date',

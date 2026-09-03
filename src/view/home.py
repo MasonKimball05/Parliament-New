@@ -27,9 +27,16 @@ def committee_dashboard_links(user):
     named in a comment — rather than one shared "is this a committee
     person" check, because the four dashboards are gated four different
     ways: a `KaiMemberPermission` grant, a Role, committee membership/
-    chair/advisor/role, and chair-or-officer. Module-level (not inline in
-    `home()`) so it's unit-testable on its own, same reasoning as
+    chair/advisor/role, and chair. Module-level (not inline in `home()`)
+    so it's unit-testable on its own, same reasoning as
     `transition_checklist_cards` above.
+
+    v3.29.2 — Recruitment and Education now deliberately check ONLY
+    committee-specific signals, not `is_admin`/`is_officer`. See the
+    comment above the Recruitment/Education block for why: those two
+    views allow a chapter-wide admin/officer bypass for management
+    purposes, but this widget shouldn't advertise a dashboard as "yours"
+    just because a chapter-wide role happens to also unlock it.
     """
     from src.feature_flag_decorators import check_feature_enabled, check_page_enabled
     from src.models import Committee
@@ -59,14 +66,27 @@ def committee_dashboard_links(user):
     # --- Recruitment / Education -------------------------------------
     # Both dashboards share @require_page_enabled('committee_home') — check
     # it once rather than per-committee.
+    #
+    # Deliberately NARROWER than the dashboards' own access predicates
+    # (v3.29.2, reported by Mason: prod showed him Recruitment and
+    # Education even though he's not on either committee — he could
+    # reach both only via the chapter-wide `is_admin` / `is_officer`
+    # bypasses those views allow for management purposes). Those
+    # bypasses are fine on the views themselves — an admin/officer
+    # troubleshooting a committee they're not part of is a legitimate
+    # use case reached by navigating there directly — but a HOME-PAGE
+    # SHORTCUT should only appear for someone with a genuine tie to
+    # THAT SPECIFIC committee, not a chapter-wide role that happens to
+    # also unlock it. So this only checks the committee-specific
+    # signals (chair, member, advisor, the committee's linked Role) and
+    # skips `is_admin`/`is_officer` entirely, even though the
+    # underlying views would still let an admin or officer through.
     if check_page_enabled('committee_home'):
-        # Mirrors recruitment_dashboard's _user_access() exactly: chair,
-        # admin, member, advisor, or holder of the committee's linked Role.
         recruitment_committee = Committee.objects.filter(is_recruitment_committee=True).first()
         if recruitment_committee is not None:
             c = recruitment_committee
             has_access = (
-                c.is_chair(user) or user.is_admin or
+                c.is_chair(user) or
                 c.members.filter(pk=user.pk).exists() or
                 c.advisors.filter(pk=user.pk).exists() or
                 (c.role_id and user.roles.filter(id=c.role_id).exists())
@@ -74,13 +94,16 @@ def committee_dashboard_links(user):
             if has_access:
                 links.append({'label': 'Recruitment', 'url': reverse('recruitment_dashboard', args=[c.code])})
 
-        # Mirrors _education_committee_or_404() exactly: chair or officer.
+        # Education has no formal "member" concept beyond chairs (see
+        # _education_committee_or_404) — chair is the only
+        # committee-specific signal available, so that's the only one
+        # checked here.
         education_committee = Committee.objects.filter(
             is_active=True, is_education_committee=True,
         ).first()
         if education_committee is not None:
             c = education_committee
-            if c.chairs.filter(pk=user.pk).exists() or getattr(user, 'is_officer', False):
+            if c.chairs.filter(pk=user.pk).exists():
                 links.append({'label': 'Education', 'url': reverse('education_home', args=[c.code])})
 
     return links

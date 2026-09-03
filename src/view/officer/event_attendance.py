@@ -25,9 +25,10 @@ def event_attendance_list(request):
     """
     List all events that require attendance tracking
     """
-    # Get events that require attendance; prefetch service_event so the template
-    # can detect service events without extra per-row queries.
-    events = Event.objects.filter(requires_attendance=True).select_related('service_event').order_by('-date_time')
+    # Get events that require attendance; prefetch service_event/committee so
+    # the template can detect service events and show a committee badge
+    # without extra per-row queries.
+    events = Event.objects.filter(requires_attendance=True).select_related('service_event', 'committee').order_by('-date_time')
 
     # Separate into upcoming and past
     now = timezone.now()
@@ -67,13 +68,18 @@ def mark_event_attendance(request, event_id):
     Mark attendance for a specific event
     Shows read-only view for finalized events
     """
-    event = get_object_or_404(Event, id=event_id, requires_attendance=True)
+    event = get_object_or_404(
+        Event.objects.select_related('committee'), id=event_id, requires_attendance=True,
+    )
 
     # Check if attendance is finalized - show read-only view
     is_read_only = event.attendance_finalized
 
-    # Get all active members
-    members = ParliamentUser.objects.filter(member_status='Active').order_by('name')
+    # v3.29.4 — was unconditionally every Active member. A committee event's
+    # roster is `required_members()` (that committee's members/chairs plus
+    # anyone who signed up), not the whole chapter — see the model method
+    # for why sign-ups count even for non-committee members.
+    members = event.required_members().order_by('name')
 
     # Get existing attendance records (only event attendance)
     existing_attendance = {
@@ -328,7 +334,11 @@ def review_excuses(request, event_id=None):
         cutoff_date = now - timedelta(days=30)
         events_query = events_query.filter(date_time__gte=cutoff_date)
 
-    events = events_query.order_by('-date_time')
+    # Soonest event first — an officer reviewing excuses wants the event
+    # closest to happening at the top, not the one furthest out (v3.29.3;
+    # reported by Mason as counterintuitive with the previous `-date_time`
+    # descending order, which put the farthest-future event on top).
+    events = events_query.order_by('date_time')
 
     # Build events with their excuses
     events_with_excuses = []

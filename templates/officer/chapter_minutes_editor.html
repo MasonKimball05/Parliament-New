@@ -38,8 +38,12 @@
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                         </button>
                     </span>
-                    {% if minutes.event %}
-                    <span class="text-primary-600 dark:text-primary-400">Linked: {{ minutes.event.title }}</span>
+                    {% if not is_committee_minutes %}
+                    <button type="button" id="js-open-link-event-modal"
+                            class="flex items-center gap-1 {% if minutes.event %}text-primary-600 dark:text-primary-400{% else %}text-gray-500 dark:text-gray-400{% endif %} hover:underline">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
+                        {% if minutes.event %}Linked: {{ minutes.event.title }}{% else %}Link to event{% endif %}
+                    </button>
                     {% endif %}
                     {% if minutes.status == 'draft' %}
                     <span class="px-2 py-0.5 text-xs font-semibold rounded-full bg-yellow-100 dark:bg-yellow-900/50 text-yellow-800 dark:text-yellow-300">Draft</span>
@@ -74,6 +78,44 @@
             </div>
         </div>
     </div>
+
+    {% if not is_committee_minutes %}
+    <!-- Link to Event Modal -->
+    <div id="linkEventModal" class="hidden fixed inset-0 z-50 overflow-y-auto">
+        <div class="flex items-center justify-center min-h-screen px-4">
+            <div class="js-close-link-event-modal fixed inset-0 bg-black/50 transition-opacity"></div>
+            <div class="relative bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-lg w-full p-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-xl font-bold text-gray-900 dark:text-white">Link to Event</h3>
+                    <button type="button" class="js-close-link-event-modal text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                    </button>
+                </div>
+                <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                    Linking these minutes to an event syncs attendance and excuse requests with that event.
+                    {% if minutes.attendance_taken %}Attendance already saved here won't move automatically — re-save attendance after changing the link.{% endif %}
+                </p>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Event</label>
+                <select id="linkEventSelect"
+                        class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                    <option value="">-- No event --</option>
+                    {% for event in events %}
+                    <option value="{{ event.id }}" {% if minutes.event_id == event.id %}selected{% endif %}>{{ event.title }} ({{ event.date_time|date:"M j, Y g:i A" }})</option>
+                    {% endfor %}
+                </select>
+                <div class="mt-6 flex justify-end gap-3">
+                    <button type="button" class="js-close-link-event-modal px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition">
+                        Cancel
+                    </button>
+                    <button type="button" id="js-save-link-event"
+                            class="bg-primary-600 hover:bg-primary-700 text-white font-medium py-2 px-6 rounded-lg transition">
+                        Save
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
 
     {% if minutes.status == 'published' %}
     <!-- Published Warning Banner -->
@@ -540,6 +582,7 @@ const ATTENDANCE_URL = '{% url "save_committee_minutes_attendance" committee.cod
 {% else %}
 const SAVE_URL = '{% url "save_minutes_data" minutes.id %}';
 const ATTENDANCE_URL = '{% url "save_minutes_attendance" minutes.id %}';
+const UPDATE_EVENT_URL = '{% url "update_minutes_event" minutes.id %}';
 {% endif %}
 const IS_PUBLISHED = {{ is_published|yesno:"true,false" }};
 
@@ -1718,6 +1761,49 @@ function getSavePayload() {
     return payload;
 }
 
+// ============================
+// LINK TO EVENT
+// ============================
+async function saveLinkedEvent() {
+    const select = document.getElementById('linkEventSelect');
+    const eventId = select.value;
+
+    let editReason = null;
+    if (IS_PUBLISHED) {
+        editReason = prompt('These minutes are published. Please enter a reason for this edit (will be recorded):');
+        if (editReason === null) return; // User cancelled
+    }
+
+    const btn = document.getElementById('js-save-link-event');
+    const origText = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'Saving...';
+
+    try {
+        const payload = {event_id: eventId || null};
+        if (editReason) payload.edit_reason = editReason;
+        const resp = await fetch(UPDATE_EVENT_URL, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN},
+            body: JSON.stringify(payload),
+        });
+        const data = await resp.json();
+        if (data.success) {
+            // Reload — attendance/excuse sync data for the (possibly new)
+            // linked event is computed server-side on page load.
+            location.reload();
+        } else {
+            alert(data.error || 'Failed to update the linked event.');
+            btn.disabled = false;
+            btn.textContent = origText;
+        }
+    } catch (e) {
+        alert('Error updating the linked event.');
+        btn.disabled = false;
+        btn.textContent = origText;
+    }
+}
+
 // Quiet save (no UI feedback) — used after motion add/edit/delete
 function quietSave() {
     syncTextareasToData();
@@ -1905,6 +1991,15 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('previewPdfBtn')?.addEventListener('click', previewPDF);
     document.getElementById('downloadPdfBtn')?.addEventListener('click', downloadPDF);
     document.getElementById('saveDraftBtn')?.addEventListener('click', saveDraft);
+
+    // Link-to-event modal
+    document.getElementById('js-open-link-event-modal')?.addEventListener('click', function() {
+        document.getElementById('linkEventModal').classList.remove('hidden');
+    });
+    document.querySelectorAll('.js-close-link-event-modal').forEach(function(el) {
+        el.addEventListener('click', function() { document.getElementById('linkEventModal').classList.add('hidden'); });
+    });
+    document.getElementById('js-save-link-event')?.addEventListener('click', saveLinkedEvent);
 
     // Attendance section
     document.getElementById('js-toggle-attendance')?.addEventListener('click', toggleAttendance);

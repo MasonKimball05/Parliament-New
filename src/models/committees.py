@@ -138,6 +138,27 @@ class Committee(models.Model):
     def is_member(self, user):
         return self.members.filter(pk=user.pk).exists()
 
+    def attendance_eligible_members(self):
+        """
+        Active members expected to attend / mark attendance for this
+        committee — its own `members` and `chairs`, excluding Advisors even
+        if one happens to be listed as either.
+
+        v3.29.4 — extracted from `edit_committee_minutes`
+        (`src/view/committee/committee_minutes_editor.py`), which has
+        computed committee-scoped attendance this exact way since it was
+        built. `Event.required_members()` reuses this for committee-scoped
+        calendar events so the two attendance systems can't drift apart on
+        what "a committee's members" means.
+        """
+        from src.models.users import ParliamentUser
+        member_ids = set(
+            self.members.filter(member_status='Active').exclude(member_type='Advisor').values_list('pk', flat=True)
+        ) | set(
+            self.chairs.filter(member_status='Active').exclude(member_type='Advisor').values_list('pk', flat=True)
+        )
+        return ParliamentUser.objects.filter(pk__in=member_ids)
+
     def is_voter(self, user):
         return self.voting_members.filter(pk=user.pk).exists()
 

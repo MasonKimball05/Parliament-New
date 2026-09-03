@@ -200,14 +200,27 @@ def send_event_reminder_pushes():
         if not due_slots:
             continue
 
-        all_active = ParliamentUser.objects.filter(member_status='Active', is_active=True).select_related('preferences')
-        if event.visible_to:
-            visible_types = set(event.visible_to)
-            if 'Member' in visible_types:
-                visible_types.update(['Chair', 'Officer'])
-            eligible_users = all_active.filter(member_type__in=visible_types)
+        # v3.29.4 — a committee event's reminders go only to that
+        # committee's own required members (its members/chairs plus
+        # anyone who signed up, even if they aren't on the committee) —
+        # `visible_to` is not consulted for a committee event, since
+        # `committee` is the intended scoping mechanism for this case and
+        # combining both would mean an outside member who signs up could
+        # still be silently excluded by a `visible_to` type filter meant
+        # for the general chapter-wide calendar.
+        if event.committee_id:
+            eligible_users = event.required_members().filter(
+                is_active=True,
+            ).select_related('preferences')
         else:
-            eligible_users = all_active
+            all_active = ParliamentUser.objects.filter(member_status='Active', is_active=True).select_related('preferences')
+            if event.visible_to:
+                visible_types = set(event.visible_to)
+                if 'Member' in visible_types:
+                    visible_types.update(['Chair', 'Officer'])
+                eligible_users = all_active.filter(member_type__in=visible_types)
+            else:
+                eligible_users = all_active
 
         eligible_users = list(eligible_users)
         subscribed_user_ids = set(

@@ -44,6 +44,12 @@ def my_excuses(request):
     # Filter to only events where deadline hasn't passed
     available_events = [event for event in available_events if event.can_submit_excuse()]
 
+    # v3.29.4 — a committee event only expects its own required members
+    # (committee + sign-ups) to attend, so it doesn't make sense to offer
+    # an excuse to someone outside that set. Chapter-wide events are
+    # unaffected (`user_is_required` is always True for them).
+    available_events = [event for event in available_events if event.user_is_required(request.user)]
+
     # Calculate status counts for summary cards
     excuse_counts = {
         'pending': my_excuse_requests.filter(status='pending').count(),
@@ -72,6 +78,14 @@ def submit_excuse(request, event_id):
     # Check if user can see this event
     if not event.is_visible_to_user(request.user):
         messages.error(request, 'You do not have access to this event.')
+        return redirect('my_excuses')
+
+    # v3.29.4 — a committee event only expects its own required members
+    # (committee + sign-ups) to attend; block direct-URL submission by
+    # someone outside that set the same way the list above already hides
+    # it from them.
+    if not event.user_is_required(request.user):
+        messages.error(request, 'This event is not one you are required to attend.')
         return redirect('my_excuses')
 
     # Check if excuses are allowed

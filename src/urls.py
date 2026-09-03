@@ -41,7 +41,7 @@ from src.view.officer.attendance_dashboard import attendance_dashboard, member_a
 from src.view.officer.chapter_minutes import (
     chapter_minutes_list, create_chapter_minutes, edit_chapter_minutes,
     save_minutes_data, save_minutes_attendance, publish_chapter_minutes,
-    download_minutes_pdf, delete_chapter_minutes
+    download_minutes_pdf, delete_chapter_minutes, update_minutes_event
 )
 from src.view.committee.committee_index import (
     committee_index, create_committee, manage_committees, committee_detail_api, delete_committee
@@ -536,6 +536,7 @@ urlpatterns = [
     path('officers/minutes/<int:minutes_id>/edit/', edit_chapter_minutes, name='edit_chapter_minutes'),
     path('officers/minutes/<int:minutes_id>/save/', save_minutes_data, name='save_minutes_data'),
     path('officers/minutes/<int:minutes_id>/save-attendance/', save_minutes_attendance, name='save_minutes_attendance'),
+    path('officers/minutes/<int:minutes_id>/update-event/', update_minutes_event, name='update_minutes_event'),
     path('officers/minutes/<int:minutes_id>/publish/', publish_chapter_minutes, name='publish_chapter_minutes'),
     path('officers/minutes/<int:minutes_id>/download-pdf/', download_minutes_pdf, name='download_minutes_pdf'),
     path('officers/minutes/<int:minutes_id>/delete/', delete_chapter_minutes, name='delete_chapter_minutes'),

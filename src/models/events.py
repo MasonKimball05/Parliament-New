@@ -32,6 +32,31 @@ class Event(models.Model):
         help_text='Select which member types can see this event. Leave empty for all members.'
     )
 
+    # v3.29.4 — "committee event/meeting". Deliberately independent of
+    # `visible_to`: `visible_to` controls who can SEE the event on the
+    # calendar (unchanged by this field); `committee` controls who is
+    # REQUIRED to have attendance tracked, who counts toward the roster on
+    # `/officers/attendance/<id>/`, who can submit an excuse for it, and who
+    # receives its push/email reminders. See `required_members()` below for
+    # the exact audience — it is the committee's own members/chairs PLUS
+    # anyone (in or out of the committee) who signs up via `EventSignup`,
+    # so an outside member who opts in is still tracked and notified.
+    committee = models.ForeignKey(
+        'Committee',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='committee_events',
+        help_text=(
+            "If set, this is a committee meeting: attendance tracking, the "
+            "excuse system, and push/email reminders are scoped to this "
+            "committee's members and chairs — plus anyone who signs up, "
+            "even if they aren't on the committee — instead of the whole "
+            "chapter. Calendar visibility is still controlled separately "
+            "by \"Visible To\" above."
+        ),
+    )
+
     # Recurring event fields
     RECURRENCE_CHOICES = [
         ('none', 'Does not repeat'),
@@ -228,6 +253,52 @@ class Event(models.Model):
             return True
         return False
 
+    def required_members(self):
+        """
+        Active members expected to have attendance tracked, to be able to
+        submit an excuse, and to receive push/email reminders for this
+        event.
+
+        Ordinary event (no committee): every Active member — the
+        long-standing chapter-wide behavior, unchanged.
+
+        Committee event: `self.committee.attendance_eligible_members()`
+        (that committee's own members and chairs, excluding advisors) UNION
+        anyone — on the committee or not — with a confirmed sign-up
+        (`EventSignup`, not cancelled, not sitting on the waitlist). An
+        outside member who opts in via sign-up is tracked and notified
+        exactly like a committee member would be; someone merely on the
+        waitlist is not, since they aren't confirmed to attend.
+        """
+        base = ParliamentUser.objects.filter(member_status='Active')
+        if not self.committee_id:
+            return base
+
+        from django.db.models import Q
+        committee_ids = list(
+            self.committee.attendance_eligible_members().values_list('pk', flat=True)
+        )
+        signup_ids = list(
+            self.signups.filter(
+                is_cancelled=False, waitlist_position__isnull=True,
+            ).values_list('user_id', flat=True)
+        )
+        return base.filter(Q(pk__in=committee_ids) | Q(pk__in=signup_ids))
+
+    def user_is_required(self, user):
+        """
+        Whether `user` is in `required_members()` for this event — i.e.
+        whether they're expected to have attendance tracked / could
+        reasonably submit an excuse for it. Always True for a non-committee
+        event (chapter-wide, matching `required_members()`'s own
+        chapter-wide default). Separate from `is_visible_to_user`: a member
+        can see a committee event on the calendar without being required
+        to attend it.
+        """
+        if not self.committee_id:
+            return True
+        return self.required_members().filter(pk=user.pk).exists()
+
     def can_submit_excuse(self):
         """Check if excuses can still be submitted for this event"""
         from django.utils import timezone
@@ -274,7 +345,10 @@ class Event(models.Model):
         if cached is not None:
             return cached
 
-        total_members = ParliamentUser.objects.filter(member_status='Active').count()
+        # v3.29.4 — was the full chapter count unconditionally; a committee
+        # event's roster is `required_members()` (that committee plus
+        # anyone who signed up), not the whole chapter.
+        total_members = self.required_members().count()
 
         attendance_records = self.attendance_records.all()
         present_count = attendance_records.filter(status='present').count()
@@ -318,7 +392,13 @@ class Event(models.Model):
     @classmethod
     def prime_attendance_stats(cls, events):
         """
-        Fill `get_attendance_stats()`'s cache for a whole page in two queries.
+        Fill `get_attendance_stats()`'s cache for a whole page.
+
+        Two queries total when every tracked event is chapter-wide (the
+        original, still-common case). A page with committee events pays a
+        bounded number of additional queries — see the v3.29.4 comment
+        below — proportional to the number of DISTINCT committees on the
+        page, not the number of events.
 
         Returns the events as a list, because the caller must render *these*
         instances — the cache lives on the object, so a queryset re-evaluated
@@ -346,7 +426,50 @@ class Event(models.Model):
         if not tracked:
             return events
 
-        total_members = ParliamentUser.objects.filter(member_status='Active').count()
+        # v3.29.4 — a committee event's roster is `required_members()`
+        # (that committee plus anyone who signed up), not the whole
+        # chapter, so `total_members` can no longer be one number shared by
+        # every event on the page.
+        #
+        # Chapter-wide events still share a single count (unchanged). For
+        # committee events: one query per DISTINCT committee represented on
+        # this page (not per event — the page caps at 20 events and a
+        # chapter has on the order of ten committees, so this is small and
+        # bounded, same tolerance `_linkable_events` in chapter_minutes.py
+        # already accepts for a comparably small candidate set) to get each
+        # committee's own eligible-member id set, plus ONE batched query
+        # for every confirmed sign-up across all committee events on the
+        # page. The two are combined as an actual set union in Python
+        # (not summed counts) so a committee member who also happens to
+        # sign up isn't counted twice.
+        chapter_tracked = [e for e in tracked if not e.committee_id]
+        committee_tracked = [e for e in tracked if e.committee_id]
+
+        total_members = (
+            ParliamentUser.objects.filter(member_status='Active').count()
+            if chapter_tracked else 0
+        )
+
+        from src.models.committees import Committee
+        committee_ids = {e.committee_id for e in committee_tracked}
+        committee_member_ids_by_committee = {
+            committee.pk: set(committee.attendance_eligible_members().values_list('pk', flat=True))
+            for committee in Committee.objects.filter(pk__in=committee_ids)
+        }
+
+        signup_ids_by_event = {}
+        if committee_tracked:
+            for event_id, user_id in EventSignup.objects.filter(
+                event_id__in=[e.pk for e in committee_tracked],
+                is_cancelled=False, waitlist_position__isnull=True,
+            ).values_list('event_id', 'user_id'):
+                signup_ids_by_event.setdefault(event_id, set()).add(user_id)
+
+        total_members_by_event = {}
+        for event in committee_tracked:
+            required = committee_member_ids_by_committee.get(event.committee_id, set())
+            required = required | signup_ids_by_event.get(event.pk, set())
+            total_members_by_event[event.pk] = len(required)
 
         rows = (
             Attendance.objects
@@ -366,8 +489,11 @@ class Event(models.Model):
         empty = {'marked': 0, 'present': 0, 'absent': 0, 'excused': 0, 'pending': 0}
         for event in tracked:
             counts = by_event.get(event.pk, empty)
+            event_total_members = (
+                total_members_by_event[event.pk] if event.committee_id else total_members
+            )
             event._attendance_stats_cache = cls._build_attendance_stats(
-                total_members=total_members,
+                total_members=event_total_members,
                 marked=counts['marked'],
                 present=counts['present'],
                 absent=counts['absent'],

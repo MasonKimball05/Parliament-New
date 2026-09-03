@@ -126,6 +126,9 @@ which predate this file and are more specific than their commit dates.
 | v3.28.6 | *not deployed* | `68f4a5f` | See `changelogs/v3.28.6.md`. |
 | v3.28.7 | *not deployed* | `68f4a5f` | See `changelogs/v3.28.7.md`. |
 | v3.28.8 | *not deployed* | `68f4a5f` | See `changelogs/v3.28.8.md`. **⚠️ Superseded same day by v3.28.9** (uncommitted) — the feature this row's migration built was named under a wording mistake in the original request ("accommodation" instead of "commendation") and was also missing its one required field; v3.28.9 renames `KaiAccommodationRequest` → `KaiCommendation` throughout and adds it. This row still describes what commit `68f4a5f` actually contains — the rename hasn't been committed, so there's no new commit to point this row at yet. |
+| v3.28.9 | *not deployed* | `ef21819` | See `changelogs/v3.28.9.md`. |
+| v3.29.0 | *not deployed* | `c72b273` | See `changelogs/v3.29.0.md`. |
+| v3.29.1 | *not deployed* | `c72b273` | See `changelogs/v3.29.1.md`. |
 
 > **⚠️ 09-02-26 — code for the whole backlog above (v3.25.2 through
 > v3.28.8) was restarted into prod the same day, and Mason confirmed
