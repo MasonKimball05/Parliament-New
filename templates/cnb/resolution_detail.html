@@ -145,8 +145,7 @@
                             {% endif %}
                         </h2>
                         {% if can_edit %}
-                        <button class="js-open-amendment-modal"
-                                class="inline-flex items-center gap-1.5 text-sm font-medium text-primary-600 dark:text-primary-400 hover:underline">
+                        <button class="js-open-amendment-modal inline-flex items-center gap-1.5 text-sm font-medium text-primary-600 dark:text-primary-400 hover:underline">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
                             </svg>
@@ -252,8 +251,7 @@
                     <div class="px-6 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
                         {% if can_edit %}
                         No section amendments added yet.
-                        <button class="js-open-amendment-modal"
-                                class="text-primary-600 dark:text-primary-400 underline ml-1">Add one</button>
+                        <button class="js-open-amendment-modal text-primary-600 dark:text-primary-400 underline ml-1">Add one</button>
                         {% else %}
                         No tracked section amendments.
                         {% endif %}
@@ -284,8 +282,8 @@
                         <form method="post" action="{% url 'cnb_set_status' resolution_id=resolution.pk %}">
                             {% csrf_token %}
                             <input type="hidden" name="status" value="withdrawn">
-                            <button type="submit" class="js-confirm-click" data-confirm-msg="Withdraw this resolution?"
-                                    class="w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors">
+                            <button type="submit" data-confirm-msg="Withdraw this resolution?"
+                                    class="js-confirm-click w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors">
                                 Withdraw
                             </button>
                         </form>
@@ -293,16 +291,16 @@
                         <form method="post" action="{% url 'cnb_set_status' resolution_id=resolution.pk %}">
                             {% csrf_token %}
                             <input type="hidden" name="status" value="passed">
-                            <button type="submit" class="js-confirm-click" data-confirm-msg="Mark as PASSED? This will apply all tracked amendments to the live document."
-                                    class="w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-900/40 transition-colors">
+                            <button type="submit" data-confirm-msg="Mark as PASSED? This will apply all tracked amendments to the live document."
+                                    class="js-confirm-click w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-900/40 transition-colors">
                                 Resolution Passed
                             </button>
                         </form>
                         <form method="post" action="{% url 'cnb_set_status' resolution_id=resolution.pk %}">
                             {% csrf_token %}
                             <input type="hidden" name="status" value="failed">
-                            <button type="submit" class="js-confirm-click" data-confirm-msg="Mark as FAILED? Impacted sections will be protected from new amendments."
-                                    class="w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors">
+                            <button type="submit" data-confirm-msg="Mark as FAILED? Impacted sections will be protected from new amendments."
+                                    class="js-confirm-click w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors">
                                 Resolution Failed
                             </button>
                         </form>
@@ -391,34 +389,43 @@
                     {% if resolution.collaborators.all %}
                     <ul class="divide-y divide-gray-100 dark:divide-gray-700">
                         {% for collab in resolution.collaborators.all %}
-                        <li class="px-5 py-3 flex items-center justify-between gap-3">
-                            <div class="min-w-0">
-                                <p class="text-sm text-gray-900 dark:text-gray-100 font-medium truncate">{{ collab.user.name }}</p>
-                                {% if not is_cnb %}
-                                <p class="text-xs text-gray-500 dark:text-gray-400">{{ collab.get_role_display }}</p>
-                                {% endif %}
-                            </div>
-                            {% if is_cnb %}
-                            <div class="flex items-center gap-2 shrink-0">
-                                <!-- Reuses cnb_add_collaborator directly — it already
-                                     get_or_create()s and updates the role when the
-                                     collaborator already exists, so no new endpoint
-                                     was needed, just a way to reach it in-place
-                                     instead of remove-and-re-add. -->
-                                <form method="post" action="{% url 'cnb_add_collaborator' resolution_id=resolution.pk %}" class="flex items-center gap-1.5">
-                                    {% csrf_token %}
-                                    <input type="hidden" name="user_id" value="{{ collab.user.pk }}">
-                                    <select name="role" class="text-xs px-2 py-1 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
-                                        <option value="viewer" {% if collab.role == 'viewer' %}selected{% endif %}>Viewer</option>
-                                        <option value="editor" {% if collab.role == 'editor' %}selected{% endif %}>Editor</option>
-                                    </select>
-                                    <button type="submit" class="text-xs text-primary-600 dark:text-primary-400 hover:underline font-medium">Save</button>
-                                </form>
-                                <form method="post" action="{% url 'cnb_remove_collaborator' resolution_id=resolution.pk collaborator_id=collab.pk %}">
+                        <li class="px-5 py-3 space-y-2">
+                            <div class="flex items-center justify-between gap-3">
+                                <div class="min-w-0">
+                                    <p class="text-sm text-gray-900 dark:text-gray-100 font-medium truncate">{{ collab.user.name }}</p>
+                                    {% if not is_cnb %}
+                                    <p class="text-xs text-gray-500 dark:text-gray-400">{{ collab.get_role_display }}</p>
+                                    {% endif %}
+                                </div>
+                                {% if is_cnb %}
+                                <form method="post" action="{% url 'cnb_remove_collaborator' resolution_id=resolution.pk collaborator_id=collab.pk %}" class="flex-shrink-0">
                                     {% csrf_token %}
                                     <button type="submit" class="text-xs text-red-500 hover:text-red-700 dark:hover:text-red-400">Remove</button>
                                 </form>
+                                {% endif %}
                             </div>
+                            {% if is_cnb %}
+                            <!-- Reuses cnb_add_collaborator directly — it already
+                                 get_or_create()s and updates the role when the
+                                 collaborator already exists, so no new endpoint
+                                 was needed, just a way to reach it in-place
+                                 instead of remove-and-re-add. On its own row
+                                 (rather than crammed alongside the name and
+                                 Remove button) so it has room in the narrow
+                                 sidebar column regardless of viewport width —
+                                 Tailwind's sm:/md: breakpoints key off the
+                                 viewport, not this column, so they can't be
+                                 used to make this responsive to the column
+                                 itself being narrow. -->
+                                <form method="post" action="{% url 'cnb_add_collaborator' resolution_id=resolution.pk %}" class="flex items-center gap-1.5">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="user_id" value="{{ collab.user.pk }}">
+                                    <select name="role" class="flex-1 min-w-0 text-xs px-2 py-1 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                                        <option value="viewer" {% if collab.role == 'viewer' %}selected{% endif %}>Viewer</option>
+                                        <option value="editor" {% if collab.role == 'editor' %}selected{% endif %}>Editor</option>
+                                    </select>
+                                    <button type="submit" class="flex-shrink-0 text-xs text-primary-600 dark:text-primary-400 hover:underline font-medium">Save</button>
+                                </form>
                             {% endif %}
                         </li>
                         {% endfor %}
