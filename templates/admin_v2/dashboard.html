@@ -310,9 +310,19 @@
                 <div class="pt-2">
                     <form method="post" action="{% url 'send_test_announcement_email' %}" id="test-email-form">
                         {% csrf_token %}
+                        <label class="flex items-center gap-2 mb-2 px-1 text-sm text-gray-600 dark:text-gray-300 cursor-pointer">
+                            <input type="checkbox" name="include_test_poll" id="include-test-poll"
+                                   class="rounded text-primary-600 border-gray-300 dark:border-gray-600 focus:ring-primary-500">
+                            Include a test poll (checks the poll section renders correctly)
+                        </label>
                         <button type="submit" class="w-full p-3 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg font-medium transition">
                             Send Test Email
                         </button>
+                        <a href="{% url 'preview_test_email' %}" id="preview-test-email-link"
+                           target="_blank" rel="noopener"
+                           class="mt-2 block w-full p-2.5 text-center text-sm bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg font-medium transition">
+                            Preview in Browser
+                        </a>
                     </form>
                 </div>
             </div>
@@ -900,6 +910,21 @@ document.addEventListener('DOMContentLoaded', function() {
     // Health check button
     var healthBtn = document.getElementById('health-check-btn');
     if (healthBtn) healthBtn.addEventListener('click', runHealthCheck);
+
+    // "Preview in Browser" link — carry the "include a test poll" checkbox
+    // state into the preview URL's query string, since a GET link can't
+    // otherwise see a form checkbox's value.
+    var includePollCheckbox = document.getElementById('include-test-poll');
+    var previewLink = document.getElementById('preview-test-email-link');
+    if (includePollCheckbox && previewLink) {
+        var basePreviewUrl = previewLink.getAttribute('href');
+        previewLink.addEventListener('click', function() {
+            previewLink.setAttribute(
+                'href',
+                includePollCheckbox.checked ? basePreviewUrl + '?include_test_poll=1' : basePreviewUrl
+            );
+        });
+    }
 
     // Confirm-submit forms
     document.querySelectorAll('.js-confirm-submit').forEach(function(form) {

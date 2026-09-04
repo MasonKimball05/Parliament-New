@@ -211,6 +211,23 @@ def send_announcement_notification(announcement, initiated_by=None):
         log(f"Subject: {subject}")
         log(f"From: {settings.DEFAULT_FROM_EMAIL}")
         log(f"Site URL: {site_url}")
+
+        # v3.29.10: fetch the poll (if any) and its questions/options ONCE,
+        # outside the per-user send loop below, rather than letting the
+        # template touch `announcement.poll.questions...` once per recipient
+        # — this list can be dozens to hundreds of users, and `manage_announcements.py`
+        # already documents this exact N+1 shape (`announcement.poll` was a
+        # 5th query per row on the list page before it was fixed there).
+        # `getattr(announcement, 'poll', None)` is this codebase's own
+        # established idiom for a possibly-absent OneToOneField reverse
+        # accessor (see `announcement_polls.py`/`manage_announcements.py`).
+        poll = getattr(announcement, 'poll', None)
+        poll_questions = None
+        poll_url = None
+        if poll is not None:
+            poll_questions = list(poll.questions.prefetch_related('options').all())
+            poll_url = f"{site_url}/announcements/{announcement.id}/poll/"
+            log(f"Poll attached: '{poll.title}' ({len(poll_questions)} question(s)) — {poll_url}")
         log(f"")
 
         for user in users_to_email:
@@ -237,6 +254,9 @@ def send_announcement_notification(announcement, initiated_by=None):
                     'site_url': site_url,
                     'tracking_url': tracking_url,
                     'user': user,
+                    'poll': poll,
+                    'poll_questions': poll_questions,
+                    'poll_url': poll_url,
                 })
 
                 # Create plain text version

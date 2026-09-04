@@ -6,84 +6,165 @@
 {% block content %}
 <div class="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
     <div class="mb-6">
-        <a href="{% url 'announcements' %}" class="text-sm text-primary-600 dark:text-primary-400 hover:underline">← Back to Announcements</a>
+        <a href="{% url 'announcements' %}" class="inline-flex items-center gap-1.5 text-sm font-medium text-primary-600 dark:text-primary-400 hover:underline">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
+            Back to Announcements
+        </a>
     </div>
 
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
-        <div class="border-l-4 border-primary-500 dark:border-primary-400 p-6">
-            <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-1">{{ poll.title }}</h1>
-            <p class="text-sm text-gray-500 dark:text-gray-400 mb-1">Part of: <span class="font-medium text-gray-700 dark:text-gray-300">{{ announcement.title }}</span></p>
+    <div class="rounded-2xl shadow-lg overflow-hidden ring-1 ring-black/5 dark:ring-white/10">
+        <!-- Header banner -->
+        <div class="relative bg-gradient-to-br from-primary-600 to-primary-800 dark:from-primary-700 dark:to-primary-900 px-6 py-7 sm:px-8 sm:py-8">
+            <div class="relative flex items-start justify-between gap-4">
+                <div class="flex items-center gap-3">
+                    <div class="flex-shrink-0 w-11 h-11 rounded-xl bg-white/15 backdrop-blur flex items-center justify-center">
+                        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <p class="text-primary-100 dark:text-primary-200 text-xs font-semibold uppercase tracking-wide mb-0.5">Poll · {{ announcement.title }}</p>
+                        <h1 class="text-xl sm:text-2xl font-bold text-white leading-tight">{{ poll.title }}</h1>
+                    </div>
+                </div>
+                <span class="flex-shrink-0 self-center inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold leading-none
+                             {% if accepting %}bg-green-400/20 text-green-50 dark:text-green-200 ring-1 ring-green-300/40{% else %}bg-white/10 text-gray-100 dark:text-gray-300 ring-1 ring-white/20{% endif %}">
+                    <span class="inline-block flex-shrink-0 w-2 h-2 rounded-full {% if accepting %}bg-green-300 animate-pulse{% else %}bg-gray-300 dark:bg-gray-400{% endif %}"></span>
+                    <span class="leading-none">{% if accepting %}Open{% else %}Closed{% endif %}</span>
+                </span>
+            </div>
+
             {% if poll.is_anonymous %}
-            <span class="inline-block px-2 py-0.5 text-xs rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 font-medium">Anonymous responses</span>
+            <div class="relative mt-4 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/10 ring-1 ring-white/20 text-xs font-medium text-primary-50">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                Anonymous responses
+            </div>
             {% endif %}
+        </div>
+
+        <div class="bg-white dark:bg-gray-800">
             {% if poll.description %}
-            <p class="mt-3 text-sm text-gray-600 dark:text-gray-400">{{ poll.description }}</p>
+            <div class="px-6 sm:px-8 pt-6 pb-2">
+                <p class="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">{{ poll.description }}</p>
+            </div>
+            {% endif %}
+
+            {% if already_responded %}
+            <div class="px-6 sm:px-8 pb-8 pt-4">
+                <div class="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700/60 rounded-xl p-6 text-center">
+                    <div class="w-12 h-12 rounded-full bg-green-100 dark:bg-green-900/40 flex items-center justify-center mx-auto mb-3">
+                        <svg class="w-6 h-6 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    </div>
+                    <p class="text-green-800 dark:text-green-300 font-semibold mb-1">You've already submitted your response</p>
+                    <p class="text-sm text-green-700/80 dark:text-green-400/80 mb-4">Thanks for weighing in — nothing else to do here.</p>
+                    <a href="{% url 'announcements' %}" class="inline-flex items-center gap-1.5 text-sm font-medium text-green-700 dark:text-green-400 hover:underline">
+                        Back to Announcements
+                    </a>
+                </div>
+            </div>
+            {% elif not accepting %}
+            <div class="px-6 sm:px-8 pb-8 pt-4">
+                <div class="bg-gray-50 dark:bg-gray-700/40 border border-gray-200 dark:border-gray-600 rounded-xl p-6 text-center">
+                    <div class="w-12 h-12 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center mx-auto mb-3">
+                        <svg class="w-6 h-6 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+                    </div>
+                    <p class="text-gray-700 dark:text-gray-300 font-semibold mb-1">This poll is no longer accepting responses</p>
+                    <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Check back on the announcement for the results.</p>
+                    <a href="{% url 'announcements' %}" class="inline-flex items-center gap-1.5 text-sm font-medium text-primary-600 dark:text-primary-400 hover:underline">
+                        Back to Announcements
+                    </a>
+                </div>
+            </div>
+            {% else %}
+            <form method="post" class="px-6 sm:px-8 pb-8 pt-4 space-y-5" id="poll-form">
+                {% csrf_token %}
+
+                {% for question in questions %}
+                <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/60 dark:bg-gray-900/30 p-4 sm:p-5">
+                    <div class="flex items-start gap-3 mb-4">
+                        <span class="flex-shrink-0 w-7 h-7 rounded-full bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300 text-xs font-bold flex items-center justify-center mt-0.5">
+                            {{ forloop.counter }}
+                        </span>
+                        <p class="text-sm font-semibold text-gray-800 dark:text-gray-100 leading-snug pt-0.5">
+                            {{ question.text }}
+                            {% if question.is_required %}<span class="text-red-500 ml-1" title="Required">*</span>{% endif %}
+                        </p>
+                    </div>
+
+                    <div class="pl-10">
+                        {% if question.question_type == 'text' %}
+                        <textarea name="q_{{ question.id }}" rows="3" {% if question.is_required %}required{% endif %}
+                                  class="w-full rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm shadow-sm focus:border-primary-500 focus:ring-primary-500 transition"
+                                  placeholder="Your answer…"></textarea>
+
+                        {% elif question.question_type == 'single' %}
+                        <div class="space-y-2">
+                            {% for option in question.options.all %}
+                            <div class="relative">
+                                <input type="radio" name="q_{{ question.id }}" value="{{ option.id }}"
+                                       id="q{{ question.id }}_opt{{ option.id }}"
+                                       class="peer sr-only" {% if question.is_required %}required{% endif %}>
+                                <label for="q{{ question.id }}_opt{{ option.id }}"
+                                       class="flex items-center gap-3 px-4 py-2.5 rounded-lg border-2 border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 cursor-pointer
+                                              hover:border-primary-300 dark:hover:border-primary-600 transition-colors
+                                              peer-checked:border-primary-500 peer-checked:bg-primary-50 dark:peer-checked:border-primary-500 dark:peer-checked:bg-primary-900/20">
+                                    <span class="flex-shrink-0 w-4 h-4 rounded-full border-2 border-gray-300 dark:border-gray-500 peer-checked:border-primary-500 flex items-center justify-center">
+                                        <span class="w-2 h-2 rounded-full bg-primary-500 opacity-0 peer-checked-dot"></span>
+                                    </span>
+                                    <span class="text-sm text-gray-700 dark:text-gray-200">{{ option.text }}</span>
+                                </label>
+                            </div>
+                            {% endfor %}
+                        </div>
+
+                        {% elif question.question_type == 'multiple' %}
+                        <div class="space-y-2">
+                            {% for option in question.options.all %}
+                            <div class="relative">
+                                <input type="checkbox" name="q_{{ question.id }}" value="{{ option.id }}"
+                                       id="q{{ question.id }}_opt{{ option.id }}"
+                                       class="peer sr-only">
+                                <label for="q{{ question.id }}_opt{{ option.id }}"
+                                       class="flex items-center gap-3 px-4 py-2.5 rounded-lg border-2 border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 cursor-pointer
+                                              hover:border-primary-300 dark:hover:border-primary-600 transition-colors
+                                              peer-checked:border-primary-500 peer-checked:bg-primary-50 dark:peer-checked:border-primary-500 dark:peer-checked:bg-primary-900/20">
+                                    <span class="flex-shrink-0 w-4 h-4 rounded border-2 border-gray-300 dark:border-gray-500 peer-checked:border-primary-500 peer-checked:bg-primary-500 flex items-center justify-center">
+                                        <svg class="w-2.5 h-2.5 text-white opacity-0 peer-checked-check" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>
+                                    </span>
+                                    <span class="text-sm text-gray-700 dark:text-gray-200">{{ option.text }}</span>
+                                </label>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+
+                <div class="flex items-center justify-between pt-2">
+                    <p class="text-xs text-gray-400 dark:text-gray-500">
+                        {{ questions|length }} question{{ questions|length|pluralize }}
+                        {% if poll.is_anonymous %}· your response is anonymous{% endif %}
+                    </p>
+                    <button type="submit" class="inline-flex items-center gap-2 px-6 py-2.5 bg-primary-600 hover:bg-primary-700 dark:bg-primary-500 dark:hover:bg-primary-600 text-white rounded-lg font-semibold text-sm shadow-sm transition">
+                        Submit Response
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
+                    </button>
+                </div>
+            </form>
             {% endif %}
         </div>
-
-        {% if already_responded %}
-        <div class="px-6 pb-6">
-            <div class="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg p-4 text-center">
-                <svg class="w-8 h-8 text-green-500 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                <p class="text-green-700 dark:text-green-300 font-medium">You've already submitted your response.</p>
-                <a href="{% url 'announcements' %}" class="mt-3 inline-block text-sm text-green-600 dark:text-green-400 hover:underline">Back to Announcements</a>
-            </div>
-        </div>
-        {% elif not accepting %}
-        <div class="px-6 pb-6">
-            <div class="bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-lg p-4 text-center">
-                <p class="text-gray-600 dark:text-gray-400 font-medium">This poll is no longer accepting responses.</p>
-                <a href="{% url 'announcements' %}" class="mt-3 inline-block text-sm text-primary-600 dark:text-primary-400 hover:underline">Back to Announcements</a>
-            </div>
-        </div>
-        {% else %}
-        <form method="post" class="px-6 pb-6 space-y-6 pt-2">
-            {% csrf_token %}
-
-            {% for question in questions %}
-            <div class="border-t border-gray-100 dark:border-gray-700 pt-5">
-                <p class="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-3">
-                    {{ forloop.counter }}. {{ question.text }}
-                    {% if question.is_required %}<span class="text-red-500 ml-1">*</span>{% endif %}
-                </p>
-
-                {% if question.question_type == 'text' %}
-                <textarea name="q_{{ question.id }}" rows="3" {% if question.is_required %}required{% endif %}
-                          class="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm shadow-sm focus:border-primary-500 focus:ring-primary-500"
-                          placeholder="Your answer…"></textarea>
-
-                {% elif question.question_type == 'single' %}
-                <div class="space-y-2">
-                    {% for option in question.options.all %}
-                    <label class="flex items-center gap-3 cursor-pointer py-1">
-                        <input type="radio" name="q_{{ question.id }}" value="{{ option.id }}" {% if question.is_required %}required{% endif %}
-                               class="text-primary-600 border-gray-300 dark:border-gray-600 focus:ring-primary-500">
-                        <span class="text-sm text-gray-700 dark:text-gray-300">{{ option.text }}</span>
-                    </label>
-                    {% endfor %}
-                </div>
-
-                {% elif question.question_type == 'multiple' %}
-                <div class="space-y-2">
-                    {% for option in question.options.all %}
-                    <label class="flex items-center gap-3 cursor-pointer py-1">
-                        <input type="checkbox" name="q_{{ question.id }}" value="{{ option.id }}"
-                               class="rounded text-primary-600 border-gray-300 dark:border-gray-600 focus:ring-primary-500">
-                        <span class="text-sm text-gray-700 dark:text-gray-300">{{ option.text }}</span>
-                    </label>
-                    {% endfor %}
-                </div>
-                {% endif %}
-            </div>
-            {% endfor %}
-
-            <div class="flex justify-end pt-2">
-                <button type="submit" class="px-6 py-2 bg-primary-600 hover:bg-primary-700 dark:bg-primary-500 dark:hover:bg-primary-600 text-white rounded-md font-medium transition">
-                    Submit Response
-                </button>
-            </div>
-        </form>
-        {% endif %}
     </div>
 </div>
+
+<style>
+    /* Tailwind's `peer-checked` utilities style the label/sibling elements
+       directly (border, background) but there's no built-in variant for
+       toggling an inner child's opacity based on the peer's checked state
+       across two levels of nesting — these two small rules cover that. */
+    input.peer:checked ~ label .peer-checked-dot,
+    input.peer:checked ~ label .peer-checked-check {
+        opacity: 1;
+    }
+</style>
 {% endblock %}

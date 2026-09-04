@@ -598,6 +598,18 @@ def warmup_announcement_email(request, announcement_id):
         subject = f"New Announcement: {announcement.title}"
         rendered_emails = {}
 
+        # Fetch the poll (if any) ONCE, outside the per-user render loop —
+        # same reasoning as `send_announcement_notification` in
+        # `src/notifications.py`: this list can be dozens to hundreds of
+        # users, and `announcement.poll.questions...` shouldn't be a fresh
+        # query per recipient.
+        poll = getattr(announcement, 'poll', None)
+        poll_questions = None
+        poll_url = None
+        if poll is not None:
+            poll_questions = list(poll.questions.prefetch_related('options').all())
+            poll_url = f"{site_url}/announcements/{announcement.id}/poll/"
+
         for user in list(active_to_email) + list(extra_to_email):
             tracking_url = f"{site_url}/track/announcement/{announcement.id}/user/{user.user_id}/"
             html_message = render_to_string('emails/announcement_notification.html', {
@@ -605,6 +617,9 @@ def warmup_announcement_email(request, announcement_id):
                 'site_url': site_url,
                 'tracking_url': tracking_url,
                 'user': user,
+                'poll': poll,
+                'poll_questions': poll_questions,
+                'poll_url': poll_url,
             })
             plain_message = strip_tags(html_message)
             rendered_emails[user.user_id] = {

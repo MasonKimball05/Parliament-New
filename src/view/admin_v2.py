@@ -2364,28 +2364,54 @@ def dismiss_all_alerts(request):
     return JsonResponse({'success': True, 'dismissed': count})
 
 
-@require_admin_v2_auth
-def send_test_announcement_email(request):
+class _MockPollOption:
+    def __init__(self, text):
+        self.text = text
+
+
+class _MockPollOptionManager:
+    """Mimics the `.options.all()` call the template makes on a real
+    `AnnouncementPollQuestion` — `options` is a related manager there, not a
+    plain list, so the mock needs the same `.all()` shape."""
+    def __init__(self, options):
+        self._options = options
+
+    def all(self):
+        return self._options
+
+
+class _MockPollQuestion:
+    def __init__(self, text, question_type, option_texts=None):
+        self.text = text
+        self.question_type = question_type
+        self.options = _MockPollOptionManager(
+            [_MockPollOption(t) for t in (option_texts or [])]
+        )
+
+
+class _MockPoll:
+    def __init__(self):
+        self.title = 'Test Poll — Favorite Meeting Night'
+        self.description = 'This is a TEST poll, included only to check how a poll renders in an announcement email.'
+        self.is_open = True
+
+    def is_accepting_responses(self):
+        return True
+
+
+def _build_test_announcement_context(user, site_url, tracking_url, include_test_poll):
     """
-    Send a test announcement email to the current user.
-    Uses the same template and formatting as real announcement emails.
+    Shared by `send_test_announcement_email` and `preview_test_email` — both
+    render the exact same test/preview email, so the mock announcement (and
+    now optionally a mock poll) live in one place rather than two drifting
+    copies. `MockAnnouncement.id = 0` isn't a real row, so the poll here is
+    a lightweight mock object too (matching that existing convention)
+    instead of a real `AnnouncementPoll` — no test send should write to the
+    database just to check formatting. `poll_url` intentionally points at
+    `/announcements/0/poll/`, which won't resolve to anything real — same
+    "obviously fake, matches the pattern of the other test-only links on
+    this page" contract as `tracking_url` above it.
     """
-    from django.core.mail import EmailMultiAlternatives
-    from django.template.loader import render_to_string
-    from django.utils.html import strip_tags
-
-    if request.method != 'POST':
-        messages.error(request, 'Invalid request method')
-        return redirect('admin_v2_dashboard')
-
-    user = request.user
-
-    # Check if user has an email set
-    if not user.email:
-        messages.error(request, 'You do not have an email address set. Please add one in your profile first.')
-        return redirect('admin_v2_dashboard')
-
-    # Create a mock announcement object for testing
     class MockAnnouncement:
         def __init__(self):
             self.id = 0
@@ -2407,7 +2433,54 @@ Test details:
             self.posted_by = user
             self.event_date = None  # No event date for test
 
-    mock_announcement = MockAnnouncement()
+    context = {
+        'announcement': MockAnnouncement(),
+        'site_url': site_url,
+        'tracking_url': tracking_url,
+        'user': user,
+        'poll': None,
+        'poll_questions': None,
+        'poll_url': None,
+    }
+
+    if include_test_poll:
+        context['poll'] = _MockPoll()
+        context['poll_questions'] = [
+            _MockPollQuestion(
+                'Which night works best for you?', 'single',
+                ['Monday', 'Wednesday', 'Thursday'],
+            ),
+            _MockPollQuestion(
+                'Any scheduling conflicts we should know about?', 'text',
+            ),
+        ]
+        context['poll_url'] = f"{site_url}/announcements/0/poll/"
+
+    return context
+
+
+@require_admin_v2_auth
+def send_test_announcement_email(request):
+    """
+    Send a test announcement email to the current user.
+    Uses the same template and formatting as real announcement emails.
+    """
+    from django.core.mail import EmailMultiAlternatives
+    from django.template.loader import render_to_string
+    from django.utils.html import strip_tags
+
+    if request.method != 'POST':
+        messages.error(request, 'Invalid request method')
+        return redirect('admin_v2_dashboard')
+
+    user = request.user
+
+    # Check if user has an email set
+    if not user.email:
+        messages.error(request, 'You do not have an email address set. Please add one in your profile first.')
+        return redirect('admin_v2_dashboard')
+
+    include_test_poll = request.POST.get('include_test_poll') == 'on'
 
     # Get site URL
     site_url = getattr(settings, 'SITE_URL', 'https://am-parliament.org').rstrip('/')
@@ -2417,19 +2490,20 @@ Test details:
 
     try:
         # Create HTML email with tracking pixel
-        html_message = render_to_string('emails/announcement_notification.html', {
-            'announcement': mock_announcement,
-            'site_url': site_url,
-            'tracking_url': tracking_url,
-            'user': user,
-        })
+        html_message = render_to_string(
+            'emails/announcement_notification.html',
+            _build_test_announcement_context(user, site_url, tracking_url, include_test_poll),
+        )
 
         # Create plain text version
         plain_message = strip_tags(html_message)
 
         # Send the email
+        subject = "[TEST] New Announcement: Test Announcement - Email System Check"
+        if include_test_poll:
+            subject += " (with test poll)"
         msg = EmailMultiAlternatives(
-            subject="[TEST] New Announcement: Test Announcement - Email System Check",
+            subject=subject,
             body=plain_message,
             from_email=settings.DEFAULT_FROM_EMAIL,
             to=[user.email]
@@ -2442,7 +2516,8 @@ Test details:
             user=user,
             action_category='settings',
             action_type='settings_changed',
-            description=f'Sent test announcement email to {user.email}',
+            description=f'Sent test announcement email to {user.email}'
+                        + (' (with test poll)' if include_test_poll else ''),
             ip_address=get_client_ip(request)
         )
 
@@ -2526,35 +2601,15 @@ def preview_test_email(request):
     """
     Render the test announcement email in the browser for preview.
     This allows testing the tracking pixel and viewing the email design.
+
+    Pass `?include_test_poll=1` to preview how an attached poll renders too
+    (same mock poll `send_test_announcement_email` can optionally send).
     """
     from django.template.loader import render_to_string
     from django.http import HttpResponse
 
     user = request.user
-
-    # Create a mock announcement object for testing
-    class MockAnnouncement:
-        def __init__(self):
-            self.id = 0
-            self.title = "Test Announcement - Email System Check"
-            self.content = """This is a TEST email from the Alpha Mu Parliament system.
-
-If you are receiving this email, it means the announcement email system is working correctly!
-
-This email was sent from the Admin-v2 dashboard to verify email delivery and formatting before the demo.
-
-Test details:
-• Email template: announcement_notification.html
-• Tracking pixel: Included (pointing to test endpoint)
-• HTML formatting: Enabled
-• Plain text fallback: Included
-
--- This is an automated test message --"""
-            self.posted_at = timezone.now()
-            self.posted_by = user
-            self.event_date = None  # No event date for test
-
-    mock_announcement = MockAnnouncement()
+    include_test_poll = request.GET.get('include_test_poll') in ('1', 'true', 'on')
 
     # Get site URL
     site_url = getattr(settings, 'SITE_URL', 'https://am-parliament.org').rstrip('/')
@@ -2563,19 +2618,18 @@ Test details:
     tracking_url = f"{site_url}/track/announcement/0/user/{user.user_id}/"
 
     # Render the email HTML
-    html_content = render_to_string('emails/announcement_notification.html', {
-        'announcement': mock_announcement,
-        'site_url': site_url,
-        'tracking_url': tracking_url,
-        'user': user,
-    })
+    html_content = render_to_string(
+        'emails/announcement_notification.html',
+        _build_test_announcement_context(user, site_url, tracking_url, include_test_poll),
+    )
 
     # Log the preview action
     ActivityLog.objects.create(
         user=user,
         action_category='settings',
         action_type='view',
-        description='Previewed test announcement email in browser',
+        description='Previewed test announcement email in browser'
+                    + (' (with test poll)' if include_test_poll else ''),
         ip_address=get_client_ip(request)
     )
 

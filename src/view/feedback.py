@@ -64,10 +64,30 @@ def submit_feedback(request):
         # board instead, which doesn't need a page-the-admin-every-time email.
         send_feedback_notification(feedback, request)
 
+        # v3.29.10: description deliberately carries NO free text — no title,
+        # no page/feature detail. `/officers/activity-logs/` (and its CSV
+        # export) is readable by every officer and chair via @officer_required,
+        # not just the feedback admin (user_id 73). A support ticket's whole
+        # design point is "private: submitter + admin only" (see the module
+        # docstring), and this description used to interpolate `feedback.title`
+        # verbatim — for both types, unconditionally — so a ticket like
+        # "CONFIDENTIAL: my roommate is stealing my meds" was one officer-only
+        # page away from every chair in the chapter, with the privacy-gated
+        # detail page correctly 404ing for them right next to it. Reproduced
+        # end to end before fixing: submit as a member, confirm the ticket
+        # detail page 404s for an unrelated officer (works correctly), then
+        # confirm the same officer reads the title verbatim on
+        # /officers/activity-logs/ (it did). `object_repr` already names the
+        # type + id without the content, matching what `BugReport`'s own
+        # ActivityLog entry does (`send_bug_report_notification` logs
+        # `issue_type`/`priority`, never `bug_report.description`) — this
+        # brings FeedbackRequest in line with the sibling system's own
+        # convention rather than introducing a new one.
         ActivityLog.log_activity(
             action_type='feedback_submitted',
             user=request.user,
-            description=f'{request.user.name} submitted a {feedback.get_request_type_display().lower()}: {feedback.title}',
+            description=f'{request.user.name} submitted a {feedback.get_request_type_display().lower()} '
+                         f'(#{feedback.id}, {feedback.priority} priority)',
             request=request,
             object_type='FeedbackRequest',
             object_id=feedback.id,

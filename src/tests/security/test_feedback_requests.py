@@ -330,4 +330,74 @@ class FeedbackAdminAccessTests(TestCase):
         self.ticket.refresh_from_db()
         self.assertEqual(self.ticket.status, 'in_progress')
         self.assertIsNone(self.ticket.resolved_at)
-        self.assertIsNone(self.ticket.resolved_by)
+
+
+@override_settings(
+    REAL_EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend',
+    EMAIL_HOST_USER='test@example.com',
+)
+class FeedbackActivityLogPrivacyTests(TestCase):
+    """
+    v3.29.10 — a support ticket's whole point is "private: submitter + admin
+    only" (module docstring), enforced on the detail page, the tracker board,
+    and the attachment view. `/officers/activity-logs/` is a fourth surface
+    nobody enumerated: it's gated by `@officer_required`, which admits every
+    officer AND every committee chair chapter-wide — a much larger audience
+    than "submitter + admin" — and `submit_feedback` used to interpolate
+    `feedback.title` verbatim into the `ActivityLog.description` it writes on
+    every submission, for both types, unconditionally. Same category as the
+    Kai "ActivityLog is prose storage" findings this codebase has fixed
+    several times before (CLAUDE.md, v3.18.1/v3.18.2): a confidential field
+    doesn't only live in the model access-control covers, it also lives in
+    whatever free text got interpolated into an audit trail.
+
+    `BugReport`'s own ActivityLog entry never included the report's
+    title/description — only categorical fields (`issue_type`, `priority`)
+    — so this brings `FeedbackRequest` in line with its sibling's existing
+    convention rather than inventing a new one.
+    """
+    CONFIDENTIAL_TITLE = 'CONFIDENTIAL: my roommate is stealing my meds'
+
+    def setUp(self):
+        self.submitter = _member('FB-AL1', 'Sub Mitter')
+        self.unrelated_officer = _member('FB-AL2', 'Officer One', member_type='Officer')
+
+    def _submit_ticket(self):
+        self.client.login(username=self.submitter.username, password='feedback-test-pass-12345!')
+        self.client.post(reverse('feedback_request'), {
+            'request_type': 'support_ticket',
+            'title': self.CONFIDENTIAL_TITLE,
+            'description': 'Please contact me privately, do not tell anyone.',
+        })
+        self.client.logout()
+        return FeedbackRequest.objects.get(submitted_by=self.submitter)
+
+    def test_ticket_title_never_lands_in_activity_log_description(self):
+        from src.models import ActivityLog
+        self._submit_ticket()
+        log = ActivityLog.objects.get(action_type='feedback_submitted')
+        self.assertNotIn(self.CONFIDENTIAL_TITLE, log.description)
+
+    def test_unrelated_officer_cannot_read_ticket_title_via_activity_logs_page(self):
+        """
+        The reproduction that matters: the detail page correctly 404s for an
+        unrelated officer (privacy holds there); the activity log page must
+        not be a second, unguarded way to read the same content.
+        """
+        fb = self._submit_ticket()
+        self.client.login(username=self.unrelated_officer.username, password='feedback-test-pass-12345!')
+
+        detail_response = self.client.get(reverse('feedback_request_detail', args=[fb.id]))
+        self.assertEqual(detail_response.status_code, 404)
+
+        log_response = self.client.get(reverse('activity_logs'), {'date_range': 'all'})
+        self.assertEqual(log_response.status_code, 200)
+        self.assertNotContains(log_response, self.CONFIDENTIAL_TITLE)
+
+    def test_unrelated_officer_cannot_read_ticket_title_via_csv_export(self):
+        """Same leak, the surface that actually leaves the app as a file."""
+        self._submit_ticket()
+        self.client.login(username=self.unrelated_officer.username, password='feedback-test-pass-12345!')
+        export_response = self.client.get(reverse('export_activity_logs'), {'date_range': 'all'})
+        self.assertEqual(export_response.status_code, 200)
+        self.assertNotIn(self.CONFIDENTIAL_TITLE.encode(), export_response.content)

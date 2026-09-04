@@ -48,6 +48,62 @@
             margin: 15px 0;
             border-radius: 4px;
         }
+        .poll-info {
+            background: #eef2ff;
+            border-left: 4px solid #6366f1;
+            padding: 18px 20px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+        .poll-title {
+            font-weight: bold;
+            font-size: 16px;
+            color: #1f2937;
+            margin: 0 0 6px 0;
+        }
+        .poll-description {
+            color: #4b5563;
+            font-size: 14px;
+            margin: 0 0 12px 0;
+        }
+        .poll-question {
+            font-weight: 600;
+            color: #1f2937;
+            font-size: 14px;
+            margin: 12px 0 4px 0;
+        }
+        .poll-options {
+            margin: 0 0 0 4px;
+            padding-left: 18px;
+            color: #4b5563;
+            font-size: 14px;
+        }
+        .poll-options li {
+            margin-bottom: 2px;
+        }
+        .poll-btn {
+            display: inline-block;
+            padding: 10px 20px;
+            background: #4f46e5;
+            color: white;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 14px;
+            margin-top: 12px;
+        }
+        .poll-btn:hover {
+            background: #4338ca;
+        }
+        .poll-status {
+            display: inline-block;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            color: #6366f1;
+            margin-bottom: 8px;
+        }
         .footer {
             background: #f3f4f6;
             padding: 20px;
@@ -97,6 +153,37 @@
         {% if announcement.event_date %}
         <div class="event-info">
             <strong>📅 Event Date:</strong> {{ announcement.event_date|date:"l, F j, Y \a\t g:i A T" }}
+        </div>
+        {% endif %}
+
+        {% if poll %}
+        <div class="poll-info">
+            <div class="poll-status">
+                {% if poll.is_accepting_responses %}📊 Poll — open for responses{% else %}📊 Poll — closed{% endif %}
+            </div>
+            <div class="poll-title">{{ poll.title }}</div>
+            {% if poll.description %}
+            <div class="poll-description">{{ poll.description }}</div>
+            {% endif %}
+
+            {% if poll_questions %}
+            {% for question in poll_questions %}
+            <div class="poll-question">{{ forloop.counter }}. {{ question.text }}</div>
+            {% if question.question_type != 'text' and question.options.all %}
+            <ul class="poll-options">
+                {% for option in question.options.all %}
+                <li>{{ option.text }}</li>
+                {% endfor %}
+            </ul>
+            {% endif %}
+            {% endfor %}
+            {% endif %}
+
+            <div>
+                <a href="{{ poll_url }}" class="poll-btn">
+                    {% if poll.is_accepting_responses %}Take the Poll{% else %}View Poll{% endif %}
+                </a>
+            </div>
         </div>
         {% endif %}
 
