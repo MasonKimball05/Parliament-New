@@ -6,7 +6,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.http import HttpResponse
 from django.utils import timezone
-from django.db.models import Q
+from django.db.models import Q, Count, Prefetch
 from django.urls import reverse
 from datetime import datetime, timedelta
 from src.models import (
@@ -338,31 +338,72 @@ def review_excuses(request, event_id=None):
     # closest to happening at the top, not the one furthest out (v3.29.3;
     # reported by Mason as counterintuitive with the previous `-date_time`
     # descending order, which put the farthest-future event on top).
-    events = events_query.order_by('date_time')
+    #
+    # v3.29.11: this used to run a fresh `AttendanceExcuse.objects.filter(event=event)`
+    # per event in the loop below, PLUS an `.exists()` and three more
+    # `.filter(status=...).count()` calls on top of that — six queries per
+    # event with any excuses, all with the identical `event_id`-varying shape
+    # a query monitor groups together (reported live: 33x the status-count
+    # shape, 11x the exists shape, 11x the full select). Batched into one
+    # prefetch (all excuses for every event on the page, in one query) and
+    # one grouped conditional-aggregate for the pending/approved/denied/total
+    # breakdown, following the same `.values().order_by().annotate(Count(...,
+    # filter=Q(...)))` shape `Event.prime_attendance_stats()` already uses for
+    # the identical class of problem on the attendance page.
+    excuse_prefetch = Prefetch(
+        'excuse_requests',
+        queryset=AttendanceExcuse.objects.select_related('user', 'reviewed_by')
+            .defer(*member_defer('user', 'reviewed_by')).order_by('-submitted_at'),
+        to_attr='prefetched_excuses',
+    )
+    events = list(events_query.order_by('date_time').prefetch_related(excuse_prefetch))
+
+    # One grouped query for the whole page's pending/approved/denied/total
+    # breakdown per event. ⚠️ `.order_by()` clears `AttendanceExcuse.Meta`'s
+    # `ordering = ['-submitted_at']` — Django adds ordering columns to the
+    # GROUP BY, so without this the query groups by (event, submitted_at)
+    # and returns one row per excuse instead of one per event. Same trap
+    # `prime_attendance_stats` already documents for this exact shape.
+    counts_by_event = {
+        row['event_id']: row
+        for row in (
+            AttendanceExcuse.objects
+            .filter(event_id__in=[e.pk for e in events])
+            .values('event_id')
+            .order_by()
+            .annotate(
+                pending=Count('id', filter=Q(status='pending')),
+                approved=Count('id', filter=Q(status='approved')),
+                denied=Count('id', filter=Q(status='denied')),
+                total=Count('id'),
+            )
+        )
+    }
+    _empty_counts = {'pending': 0, 'approved': 0, 'denied': 0, 'total': 0}
 
     # Build events with their excuses
     events_with_excuses = []
     for event in events:
-        # Get excuses for this event
-        event_excuses = AttendanceExcuse.objects.filter(
-            event=event
-        ).select_related('user', 'reviewed_by').defer(*member_defer('user', 'reviewed_by')).order_by('-submitted_at')
+        # Already fetched above — no per-event query here.
+        event_excuses = event.prefetched_excuses
 
-        # Apply status filter
+        # Apply status filter (in Python — the whole event's excuses are
+        # already in memory from the prefetch, and this list is small).
         if status_filter and status_filter != 'all':
-            filtered_excuses = event_excuses.filter(status=status_filter)
+            filtered_excuses = [e for e in event_excuses if e.status == status_filter]
         else:
             filtered_excuses = event_excuses
 
         # Only include events that have excuses matching the filter
-        if filtered_excuses.exists() or status_filter == 'all':
+        if filtered_excuses or status_filter == 'all':
+            counts = counts_by_event.get(event.pk, _empty_counts)
             events_with_excuses.append({
                 'event': event,
-                'excuses': list(filtered_excuses),
-                'pending_count': event_excuses.filter(status='pending').count(),
-                'approved_count': event_excuses.filter(status='approved').count(),
-                'denied_count': event_excuses.filter(status='denied').count(),
-                'total_count': event_excuses.count(),
+                'excuses': filtered_excuses,
+                'pending_count': counts['pending'],
+                'approved_count': counts['approved'],
+                'denied_count': counts['denied'],
+                'total_count': counts['total'],
                 'is_past': event.date_time < now,
             })
 

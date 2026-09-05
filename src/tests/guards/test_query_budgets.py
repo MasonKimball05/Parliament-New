@@ -2056,3 +2056,122 @@ class BugTrackerListQueryBudgetTests(QueryBudgetMixin, TestCase):
 
         for i in range(7):
             self.assertIn(f'Reporter {i}', body)
+
+
+class ReviewExcusesQueryBudgetTests(QueryBudgetMixin, TestCase):
+    """
+    `/officers/excuses/` — the officer excuse-review page, grouped by event.
+
+    Reported live (dev-mode query monitor): 33x the same `SELECT COUNT(*) ...
+    WHERE event_id = %s AND status = %s` shape, 11x an `.exists()`-shaped
+    query, and 11x the full excuse SELECT with `user`/`reviewed_by` joins —
+    one fresh `AttendanceExcuse.objects.filter(event=event)` queryset built
+    per event in the loop, then `.exists()` plus three `.filter(status=...)
+    .count()` calls plus `list(...)` on top of it. Six queries per event with
+    any excuses; 11 events with excuses on the reporter's chapter accounts for
+    the 33 (11×3 status counts) and both sets of 11 exactly.
+
+    Fixed by prefetching every event's excuses in one query
+    (`Prefetch(..., to_attr='prefetched_excuses')`) and computing the
+    pending/approved/denied/total breakdown for the whole page in one grouped
+    conditional aggregate — the same `.values().order_by().annotate(Count(...,
+    filter=Q(...)))` shape `Event.prime_attendance_stats()` already uses for
+    the identical class of problem on `/officers/attendance/`.
+    """
+
+    #: Measured 09-04-26 on sqlite, cold cache, through `QueryBudgetMixin`
+    #: (clears cache + warms singleton rows, so this is the pessimistic
+    #: first-request number) on the fixture below (11 events each with one
+    #: excuse, matching the reported shape counts). Most of this is ordinary
+    #: officer-page overhead unrelated to this fix — auth, 2FA device
+    #: lookups, feature flags, the nav notification badge — present on any
+    #: officer page and not scaling with event count; see the sibling
+    #: `test_it_does_not_scale_with_the_number_of_events` for the assertion
+    #: that actually pins the fix. Pre-fix on the same fixture, measured directly
+    #: against the reverted view: **88**.
+    BUDGET = 35
+
+    PASSWORD = 'review-excuses-budget-pass-12345!'
+
+    def setUp(self):
+        from datetime import timedelta
+
+        from django.utils import timezone as tz
+
+        from src.models import AttendanceExcuse, Event, ParliamentUser
+
+        self.officer = ParliamentUser.objects.create_user(
+            user_id='REB-OFFICER', password=self.PASSWORD, name='Officer',
+            username='reb_officer', member_type='Officer', is_admin=True,
+        )
+        self.member = ParliamentUser.objects.create_user(
+            user_id='REB-MEMBER', password=self.PASSWORD, name='Member',
+            username='reb_member', member_type='Member',
+        )
+
+        now = tz.now()
+        self.events = []
+        for i in range(11):
+            event = Event.objects.create(
+                title=f'Event {i}', description='d',
+                date_time=now + timedelta(days=i + 1), created_by=self.officer,
+                is_active=True, requires_attendance=True, allow_excuses=True,
+            )
+            AttendanceExcuse.objects.create(
+                event=event, user=self.member, reason='x' * 15,
+                status=['pending', 'approved', 'denied'][i % 3],
+            )
+            self.events.append(event)
+
+    def test_review_excuses_stays_within_budget(self):
+        self.assert_within_budget(self.officer, 'review_excuses', self.BUDGET)
+
+    def test_it_does_not_scale_with_the_number_of_events(self):
+        """
+        ⚠️ THE ASSERTION THE OLD CODE FAILED. The per-event queries made the
+        page's cost proportional to how many events had excuses — invisible
+        on a young chapter with a handful of events, and only getting worse.
+        This asserts the property instead: doubling the events must not
+        double the query count.
+        """
+        from datetime import timedelta
+
+        from django.utils import timezone as tz
+
+        from src.models import AttendanceExcuse, Event
+
+        before = len(self.measure(self.officer, 'review_excuses'))
+
+        now = tz.now()
+        for i in range(11, 22):
+            event = Event.objects.create(
+                title=f'Event {i}', description='d',
+                date_time=now + timedelta(days=i + 1), created_by=self.officer,
+                is_active=True, requires_attendance=True, allow_excuses=True,
+            )
+            AttendanceExcuse.objects.create(
+                event=event, user=self.member, reason='y' * 15,
+                status=['pending', 'approved', 'denied'][i % 3],
+            )
+
+        after = len(self.measure(self.officer, 'review_excuses'))
+
+        self.assertEqual(
+            before, after,
+            f'Doubling the number of events-with-excuses took the page from '
+            f'{before} queries to {after}. Check that the excuse prefetch and '
+            f'the grouped status-count aggregate in review_excuses are still '
+            f'each running once for the whole page, not once per event.',
+        )
+
+    def test_the_fixture_actually_renders_the_status_counts(self):
+        """
+        ⚠️ CONTROL. A budget/scaling pair that passes on a page not actually
+        rendering per-event pending/approved/denied counts would be measuring
+        nothing about this bug — same shape as this module's other controls.
+        """
+        self.client.force_login(self.officer)
+        response = self.client.get(reverse('review_excuses'), {'show_archived': 'true'})
+        body = response.content.decode()
+        for event in self.events:
+            self.assertIn(event.title, body)
