@@ -21,6 +21,16 @@ Also same N+1 avoidance as the poll fetch: `linked_documents` is fetched
 once per announcement (`list(announcement.linked_documents.all())`)
 outside the per-recipient loop in both view functions, not once per
 recipient.
+
+v3.29.13 initially pointed the link at `download_chapter_document` with a
+`Content-Disposition: inline` fix so a PDF would open in the browser's own
+viewer. Mason's follow-up: that's not what he wanted — he wanted the same
+"open it" experience the main Chapter Documents page already gives every
+other document, `view_chapter_document` (the app's own PDF/DOCX/image
+viewer page, with its own "Open in new tab" and "Download" buttons), not
+a raw inline file load. Both templates now point there instead;
+`download_chapter_document` keeps its disposition fix as a general
+improvement but is no longer linked from the announcement flow.
 """
 from django.core import mail
 from django.core.cache import cache
@@ -79,7 +89,7 @@ class SendAnnouncementNotificationDocumentTests(TestCase):
         self.member = make_member()
         mail.outbox = []
 
-    def test_email_with_document_shows_name_and_download_link(self):
+    def test_email_with_document_shows_name_and_open_link(self):
         from src.notifications import send_announcement_notification
         doc = make_document(self.officer)
         announcement = make_announcement_with_document(self.officer, doc)
@@ -90,7 +100,7 @@ class SendAnnouncementNotificationDocumentTests(TestCase):
         html = mail.outbox[0].alternatives[0][0]
 
         self.assertIn('Chapter Handbook', html)
-        self.assertIn(reverse('download_chapter_document', args=[doc.id]), html)
+        self.assertIn(reverse('view_chapter_document', args=[doc.id]), html)
         self.assertIn('Attached Document', html)
 
     def test_multiple_documents_are_all_listed(self):
@@ -104,8 +114,8 @@ class SendAnnouncementNotificationDocumentTests(TestCase):
         html = mail.outbox[0].alternatives[0][0]
         self.assertIn('Handbook', html)
         self.assertIn('Bylaws', html)
-        self.assertIn(reverse('download_chapter_document', args=[doc1.id]), html)
-        self.assertIn(reverse('download_chapter_document', args=[doc2.id]), html)
+        self.assertIn(reverse('view_chapter_document', args=[doc1.id]), html)
+        self.assertIn(reverse('view_chapter_document', args=[doc2.id]), html)
         # Pluralized label with more than one document.
         self.assertIn('Attached Documents', html)
 
@@ -151,4 +161,4 @@ class WarmupAnnouncementEmailDocumentTests(TestCase):
 
         rendered = warmup_data['rendered_emails'][self.member.user_id]['html']
         self.assertIn('Chapter Handbook', rendered)
-        self.assertIn(reverse('download_chapter_document', args=[doc.id]), rendered)
+        self.assertIn(reverse('view_chapter_document', args=[doc.id]), rendered)

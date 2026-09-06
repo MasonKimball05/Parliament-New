@@ -223,7 +223,7 @@
             <div class="documents-label">📎 Attached Document{{ linked_documents|length|pluralize }}</div>
             <ul class="documents-list">
                 {% for doc in linked_documents %}
-                <li><a href="{{ site_url }}{% url 'download_chapter_document' doc.id %}" class="doc-link">{{ doc.title }}</a></li>
+                <li><a href="{{ site_url }}{% url 'view_chapter_document' doc.id %}" class="doc-link">{{ doc.title }}</a></li>
                 {% endfor %}
             </ul>
         </div>
