@@ -9,9 +9,12 @@ from src.models.documents import DocumentVersion
 from src.utils.content_disposition import apply_disposition
 import mimetypes
 import os
+import re
 import urllib.parse
 import logging
 import base64
+
+import bleach
 
 logger = logging.getLogger(__name__)
 
@@ -79,13 +82,61 @@ _DOCX_ALLOWED_ATTRS = {
     'img': ['src', 'alt', 'width', 'height'],
 }
 
+# mammoth embeds every image in the docx directly as `<img src="data:{content
+# type};base64,...">` (its default `convert_image`, `mammoth.images.data_uri`
+# — there is no separate "enable image support" flag to pass). bleach's
+# default `protocols` allowlist is only http/https/mailto, so without this
+# every image silently lost its `src` attribute during sanitization — the
+# `<img>` tag survived (it's in _DOCX_ALLOWED_TAGS), just with nothing to
+# render, which is why images never showed up even though nothing here was
+# ever explicitly blocking them.
+#
+# Widening `protocols` to include `data` is scoped as tightly as bleach's API
+# allows: `_sanitize_docx_html_images` below runs immediately after
+# bleach.clean() and (a) strips `data:` out of any `href` — bleach applies
+# one global protocol allowlist across every URI attribute it checks, so
+# widening it for `img[src]` also widens it for `a[href]`, which would
+# otherwise let a crafted .docx smuggle a `data:text/html;...` link — and
+# (b) only lets an `img[src]` through if it's actually
+# `data:image/<type>;base64,<data>`, so a docx image part with a relabeled
+# content-type can't turn its data URI into something other than an image.
+_DOCX_ALLOWED_PROTOCOLS = list(bleach.sanitizer.ALLOWED_PROTOCOLS) + ['data']
+
+_DOCX_IMAGE_DATA_URI_RE = re.compile(
+    r'^data:image/[a-zA-Z0-9.+-]+;base64,[A-Za-z0-9+/]+=*$'
+)
+
+
+def _sanitize_docx_html_images(html):
+    """
+    Defense-in-depth pass, run after bleach.clean() has already widened
+    `protocols` to allow `data:` (needed for mammoth's embedded images — see
+    the comment on `_DOCX_ALLOWED_PROTOCOLS`). Confines that widening to
+    exactly "an <img> whose src is a base64 image data URI":
+
+    - any `href="data:...` is stripped outright (only `<a>` has `href` in
+      the allowlist, and a link has no legitimate reason to be a data URI —
+      the whole point of the widened protocol list is images, not links).
+    - any `src="data:...` that isn't `data:image/<type>;base64,<data>`
+      (e.g. a docx image part with a relabeled/malformed content-type) is
+      stripped too, leaving the `alt` text as a fallback.
+    """
+    html = re.sub(r'\shref="data:[^"]*"', '', html)
+
+    def _strip_bad_image_src(match):
+        src_value = match.group(1)
+        if _DOCX_IMAGE_DATA_URI_RE.match(src_value):
+            return match.group(0)
+        return ''
+
+    html = re.sub(r'\ssrc="(data:[^"]*)"', _strip_bad_image_src, html)
+    return html
+
 
 def convert_docx_to_html(file_path):
     """Convert a DOCX file to HTML using mammoth and sanitize the output"""
     try:
         import mammoth
-        import re
-        import bleach
 
         with open(file_path, 'rb') as docx_file:
             result = mammoth.convert_to_html(docx_file)
@@ -98,8 +149,10 @@ def convert_docx_to_html(file_path):
                 html,
                 tags=_DOCX_ALLOWED_TAGS,
                 attributes=_DOCX_ALLOWED_ATTRS,
+                protocols=_DOCX_ALLOWED_PROTOCOLS,
                 strip=True,
             )
+            html = _sanitize_docx_html_images(html)
 
             # Preserve tabs by converting them to a span with tab styling
             html = html.replace('\t', '<span class="docx-tab"></span>')
