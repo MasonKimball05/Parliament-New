@@ -239,13 +239,14 @@
         {% if is_pdf %}
         <!-- Desktop: Use iframe for better scrolling -->
         <iframe
+            id="pdf-desktop-iframe"
             src="{{ document_url }}"
             class="w-full h-full border-0 hidden md:block"
             title="{{ document_title }}"
             style="min-height: 100%;">
         </iframe>
         <!-- Mobile: Render PDF as images for native scrolling -->
-        <div class="md:hidden">
+        <div id="pdf-mobile-view" class="md:hidden">
             {% if pdf_images and pdf_images.images %}
             <div class="p-4 space-y-4">
                 <!-- Page indicator -->
@@ -329,6 +330,31 @@
             </script>
             {% endif %}
         </div>
+        <script nonce="{{ request.csp_nonce }}">
+            // iPadOS 13+ requests desktop sites by default, so its Safari UA
+            // string reports as a plain "Macintosh" — the classic
+            // /iPad|iPhone|iPod/.test(navigator.userAgent) check silently
+            // fails on every modern iPad. Combined with most iPads being
+            // >=768px wide (Tailwind's `md` breakpoint, which is what picks
+            // iframe vs. rendered-images above), every iPad was being routed
+            // into the iframe path — WebKit has never reliably supported
+            // scrolling a PDF embedded in an <iframe>, which is exactly why
+            // the image-rendered "mobile" path exists in the first place.
+            // Detect Apple touch devices directly (UA match OR the
+            // maxTouchPoints trick for UAs that report as "MacIntel") and
+            // force the already-rendered image view regardless of viewport
+            // width, rather than trusting screen size to imply "not a touch
+            // device that can't scroll iframed PDFs."
+            (function() {
+                var isAppleTouch = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+                    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+                if (!isAppleTouch) return;
+                var iframe = document.getElementById('pdf-desktop-iframe');
+                var mobileView = document.getElementById('pdf-mobile-view');
+                if (iframe) iframe.remove();
+                if (mobileView) mobileView.classList.remove('md:hidden');
+            })();
+        </script>
         {% elif is_image %}
         <div class="w-full h-full flex items-center justify-center p-4 bg-gray-100 dark:bg-gray-800">
             <img src="{{ document_url }}" alt="{{ document_title }}" class="max-w-full max-h-full object-contain rounded-lg shadow-lg">

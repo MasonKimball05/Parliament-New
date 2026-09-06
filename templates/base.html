@@ -618,7 +618,15 @@
 
         <!-- Mobile Menu (Hidden by default) -->
         {% if user.is_authenticated %}
-        <div id="mobile-menu" class="hidden lg:hidden bg-primary-800 border-t border-primary-600 transition-all duration-300 ease-in-out transform">
+        <!-- Breakpoint MUST match #mobile-menu-button's `xl:hidden` above.
+             This was previously `lg:hidden` (1024px) while the button that
+             toggles it is `xl:hidden` (1280px), so any viewport from
+             1024px-1279px showed a clickable hamburger button whose menu
+             could never actually appear — CSS forced display:none on it
+             from 1024px up regardless of the JS `hidden` class toggle.
+             Most iPads in landscape (1024px-1194px) fall exactly in that
+             dead zone, which is why the menu "doesn't open" on iPad. -->
+        <div id="mobile-menu" class="hidden xl:hidden bg-primary-800 border-t border-primary-600 transition-all duration-300 ease-in-out transform">
             <div class="px-2 pt-2 pb-3 space-y-1 max-h-screen overflow-y-auto">
                 <a href="{% url 'home' %}" class="block px-3 py-2 rounded-md text-base font-medium hover:bg-primary-600 transition-colors">
                     🏠 Home
