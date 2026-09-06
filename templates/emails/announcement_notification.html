@@ -104,6 +104,37 @@
             color: #6366f1;
             margin-bottom: 8px;
         }
+        .documents-info {
+            background: #f0fdf4;
+            border-left: 4px solid #22c55e;
+            padding: 14px 20px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+        .documents-label {
+            font-weight: 600;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            color: #16a34a;
+            margin: 0 0 8px 0;
+        }
+        .documents-list {
+            margin: 0;
+            padding-left: 20px;
+        }
+        .documents-list li {
+            margin-bottom: 4px;
+            font-size: 14px;
+        }
+        .doc-link {
+            color: #15803d;
+            font-weight: 600;
+            text-decoration: none;
+        }
+        .doc-link:hover {
+            text-decoration: underline;
+        }
         .footer {
             background: #f3f4f6;
             padding: 20px;
@@ -184,6 +215,17 @@
                     {% if poll.is_accepting_responses %}Take the Poll{% else %}View Poll{% endif %}
                 </a>
             </div>
+        </div>
+        {% endif %}
+
+        {% if linked_documents %}
+        <div class="documents-info">
+            <div class="documents-label">📎 Attached Document{{ linked_documents|length|pluralize }}</div>
+            <ul class="documents-list">
+                {% for doc in linked_documents %}
+                <li><a href="{{ site_url }}{% url 'download_chapter_document' doc.id %}" class="doc-link">{{ doc.title }}</a></li>
+                {% endfor %}
+            </ul>
         </div>
         {% endif %}
 

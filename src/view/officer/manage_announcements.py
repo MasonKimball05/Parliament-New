@@ -610,6 +610,10 @@ def warmup_announcement_email(request, announcement_id):
             poll_questions = list(poll.questions.prefetch_related('options').all())
             poll_url = f"{site_url}/announcements/{announcement.id}/poll/"
 
+        # Same reasoning as the poll fetch above — one query for the whole
+        # warmup rather than once per recipient in the loop below.
+        linked_documents = list(announcement.linked_documents.all())
+
         for user in list(active_to_email) + list(extra_to_email):
             tracking_url = f"{site_url}/track/announcement/{announcement.id}/user/{user.user_id}/"
             html_message = render_to_string('emails/announcement_notification.html', {
@@ -620,6 +624,7 @@ def warmup_announcement_email(request, announcement_id):
                 'poll': poll,
                 'poll_questions': poll_questions,
                 'poll_url': poll_url,
+                'linked_documents': linked_documents,
             })
             plain_message = strip_tags(html_message)
             rendered_emails[user.user_id] = {

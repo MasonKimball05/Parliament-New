@@ -228,6 +228,14 @@ def send_announcement_notification(announcement, initiated_by=None):
             poll_questions = list(poll.questions.prefetch_related('options').all())
             poll_url = f"{site_url}/announcements/{announcement.id}/poll/"
             log(f"Poll attached: '{poll.title}' ({len(poll_questions)} question(s)) — {poll_url}")
+
+        # Same reasoning as the poll fetch above: `linked_documents` is an
+        # M2M, so `announcement.linked_documents.all()` in the template would
+        # otherwise be a fresh query per recipient in the loop below. One
+        # query for the whole send instead.
+        linked_documents = list(announcement.linked_documents.all())
+        if linked_documents:
+            log(f"Documents attached: {', '.join(d.title for d in linked_documents)}")
         log(f"")
 
         for user in users_to_email:
@@ -257,6 +265,7 @@ def send_announcement_notification(announcement, initiated_by=None):
                     'poll': poll,
                     'poll_questions': poll_questions,
                     'poll_url': poll_url,
+                    'linked_documents': linked_documents,
                 })
 
                 # Create plain text version

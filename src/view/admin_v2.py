@@ -2441,6 +2441,13 @@ Test details:
         'poll': None,
         'poll_questions': None,
         'poll_url': None,
+        # No mock document — `MockAnnouncement.id = 0` isn't a real row, so
+        # there's no real `CommitteeDocument` to link it to without writing
+        # to the database (same reasoning as the poll mock above, but a
+        # believable fake document would need a real uploaded file to point
+        # at). Explicit `None` rather than an omitted key, matching the poll
+        # fields above.
+        'linked_documents': None,
     }
 
     if include_test_poll:
