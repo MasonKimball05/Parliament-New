@@ -6,6 +6,8 @@ from django.http import FileResponse, Http404, HttpResponseForbidden
 from src.feature_flag_decorators import require_feature_flag
 from src.models import Legislation, CommitteeDocument
 from src.models.documents import DocumentVersion
+from src.utils.content_disposition import apply_disposition
+import mimetypes
 import os
 import urllib.parse
 import logging
@@ -308,15 +310,42 @@ def download_legislation_document(request, legislation_id):
 
 @login_required
 def download_chapter_document(request, document_id):
-    """Protected download for chapter documents — enforces authentication and permissions."""
+    """
+    Protected "open" endpoint for chapter documents — enforces authentication
+    and permissions (`can_user_view`), same as before.
+
+    Mason: "currently if you link a document to an announcement it will make
+    you download the document if you click on it, can instead we make it a
+    hyperlink to open the document from where it is saved and they have the
+    option to download it then?" Despite the name (kept as-is — this is the
+    same URL every existing link, including the one on the announcements
+    page and in the announcement email, already points at), this no longer
+    unconditionally forces a download: it now uses the same
+    `content_disposition.py` convention `serve_media`/`legislation_drafts`
+    already use for exactly this decision — `Content-Disposition: inline`
+    for a PDF or image (opens in the browser's own viewer, which has its own
+    download button), `attachment` for anything else (`.docx`/`.xlsx`/etc.,
+    which browsers can't render anyway). Nothing about the access check
+    changed — still `@login_required` + `published_to_chapter=True` +
+    `can_user_view()`, all evaluated exactly as before this only touches
+    what the response headers tell the browser to do with the bytes once
+    that check passes.
+    """
     document = get_object_or_404(CommitteeDocument, id=document_id, published_to_chapter=True)
     if not document.can_user_view(request.user):
-        return HttpResponseForbidden("You don't have permission to download this document")
+        return HttpResponseForbidden("You don't have permission to view this document")
     file_path = document.document.path
     if not os.path.exists(file_path):
         raise Http404("File not found")
     filename = os.path.basename(file_path)
-    return FileResponse(open(file_path, 'rb'), as_attachment=True, filename=filename)
+    content_type, _ = mimetypes.guess_type(file_path)
+    content_type = content_type or 'application/octet-stream'
+    response = FileResponse(open(file_path, 'rb'), content_type=content_type)
+    apply_disposition(response, content_type, filename)
+    # Same reasoning as `serve_media`: this can be a member-only visibility-
+    # restricted document, so it must never land in a shared/CDN cache.
+    response['Cache-Control'] = 'private, max-age=3600'
+    return response
 
 
 @login_required
