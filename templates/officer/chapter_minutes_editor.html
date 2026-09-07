@@ -937,9 +937,22 @@ function renderSections() {
     textarea.value = combinedText;
     textarea.placeholder = 'Start typing your minutes here...';
     textarea.addEventListener('input', function() {
-        // Auto-resize
+        // Auto-resize. Collapsing to 'auto' before re-measuring scrollHeight
+        // is the standard auto-grow trick, but for one frame it snaps this
+        // textarea back down to its `rows`-based height (set once, at
+        // creation, from the line count at that time — never updated as the
+        // user types more). On a long minutes document with the caret well
+        // below the fold, that momentary collapse-then-regrow was enough to
+        // make the browser re-anchor scroll near the top of the (briefly
+        // short) textarea — most noticeable on Enter, since a newline moves
+        // the caret onto a fresh line and makes the collapse's height change
+        // largest. Save/restore the page's own scroll position around the
+        // two assignments so the collapse never becomes visible.
+        const scrollX = window.scrollX;
+        const scrollY = window.scrollY;
         this.style.height = 'auto';
         this.style.height = this.scrollHeight + 'px';
+        window.scrollTo(scrollX, scrollY);
 
         // Protect motion markers from being edited or deleted
         if (motionsData.length > 0) {

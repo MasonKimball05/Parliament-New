@@ -49,6 +49,25 @@
                 </div>
             </div>
 
+            <!-- Additional dates: did the same service (same hours, organization,
+                 description, and attachment) on more than one day? Each date added
+                 here becomes its own submission when the form is saved. -->
+            <div>
+                <div id="extra-dates-container" class="space-y-2"></div>
+                <button type="button" id="add-date-btn"
+                        class="mt-2 inline-flex items-center gap-1 text-sm font-medium text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                    </svg>
+                    Add another date
+                </button>
+                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                    Did this same service on more than one day? Add each additional
+                    date and we'll log the same hours, organization, and description
+                    for each one.
+                </p>
+            </div>
+
             <!-- Organization -->
             <div>
                 <label for="{{ form.organization.id_for_label }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -206,6 +225,58 @@
 </div>
 
 <script nonce="{{ request.csp_nonce }}">
+// v3.29.22: additional dates for the same service (same hours,
+// organization, description, attachment — one row per date on submit,
+// see submit_service_hours in src/view/service_user_dashboard.py). Each
+// added row is a plain `<input type="date" name="extra_dates">` — no
+// hidden field or JSON encoding needed, since request.POST.getlist
+// ('extra_dates') already collects every input sharing that name.
+// MAX_EXTRA_DATES mirrors the server-side cap in the view; enforcing it
+// here too is just a nicer failure mode (a disabled button) than letting
+// someone add 500 rows and having the server silently drop the excess.
+(function() {
+    var MAX_EXTRA_DATES = 59; // + the primary date field = 60 total
+    var container = document.getElementById('extra-dates-container');
+    var addBtn = document.getElementById('add-date-btn');
+
+    function updateAddButtonState() {
+        var atLimit = container.children.length >= MAX_EXTRA_DATES;
+        addBtn.disabled = atLimit;
+        addBtn.classList.toggle('opacity-50', atLimit);
+        addBtn.classList.toggle('cursor-not-allowed', atLimit);
+    }
+
+    function addDateRow() {
+        if (container.children.length >= MAX_EXTRA_DATES) return;
+
+        var row = document.createElement('div');
+        row.className = 'flex items-center gap-2';
+
+        var input = document.createElement('input');
+        input.type = 'date';
+        input.name = 'extra_dates';
+        input.setAttribute('aria-label', 'Additional date of service');
+        input.className = 'w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent';
+
+        var removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.setAttribute('aria-label', 'Remove this date');
+        removeBtn.className = 'flex-shrink-0 p-2 text-gray-400 hover:text-red-500 transition';
+        removeBtn.innerHTML = '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>';
+        removeBtn.addEventListener('click', function() {
+            row.remove();
+            updateAddButtonState();
+        });
+
+        row.appendChild(input);
+        row.appendChild(removeBtn);
+        container.appendChild(row);
+        updateAddButtonState();
+    }
+
+    addBtn.addEventListener('click', addDateRow);
+})();
+
 // Prevent double form submission
 document.getElementById('submit-form').addEventListener('submit', function(e) {
     const submitBtn = document.getElementById('submit-btn');

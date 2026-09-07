@@ -14,6 +14,7 @@ from django.db.models import Sum, Q
 from django.conf import settings
 from src.tasks import send_email
 from decimal import Decimal
+from datetime import datetime
 import logging
 
 from src.models import (
@@ -91,6 +92,66 @@ Hours: {submission.hours}
 Organization: {submission.organization}
 Description: {submission.description}
 Period: {submission.period}
+Submitted: {submitted_at}
+
+Review submissions at {getattr(settings, 'SITE_URL', '').rstrip('/')}/service-hours/dashboard/
+"""
+
+    recipient_emails = [u.email for u in vpp_users]
+    if recipient_emails:
+        send_email.delay(subject, message, settings.DEFAULT_FROM_EMAIL, recipient_emails)
+
+
+def _notify_vpp_new_submissions(submissions, is_resubmission=False):
+    """
+    v3.29.22 — VPP notification for a multi-date submission. A member
+    adding several dates on the "+ Add another date" form creates one
+    `ServiceHoursSubmission` row per date (see `submit_service_hours`),
+    but experienced it as ONE action — sending N separate emails for that
+    would just be spam. Single-date submissions (the common case) still go
+    through the original `_notify_vpp_new_submission` unchanged.
+    """
+    if not submissions:
+        return
+    if len(submissions) == 1:
+        _notify_vpp_new_submission(submissions[0], is_resubmission=is_resubmission)
+        return
+
+    from src.models import ParliamentUser
+    vpp_users = ParliamentUser.objects.filter(
+        roles__code__iexact='VPP',
+        member_status='Active',
+    ).exclude(email='').filter(email__isnull=False)
+
+    if not vpp_users.exists():
+        vpp_users = ParliamentUser.objects.filter(
+            is_admin=True,
+            member_status='Active',
+        ).exclude(email='').filter(email__isnull=False)
+
+    if not vpp_users.exists():
+        return
+
+    first = submissions[0]
+    total_hours = sum((s.hours for s in submissions), Decimal('0'))
+    dates_str = ', '.join(
+        s.service_date.strftime('%b %d, %Y') for s in sorted(submissions, key=lambda s: s.service_date)
+    )
+    submitted_at = localtime(first.submitted_at).strftime('%B %d, %Y at %I:%M %p %Z')
+    action = 'Resubmitted' if is_resubmission else 'New'
+    subject = (
+        f"[Service Hours] {action} Submission: {first.submitted_by.get_display_name()} "
+        f"— {total_hours} hrs across {len(submissions)} dates"
+    )
+
+    message = f"""{action} service hours submission received, for multiple dates.
+
+Member: {first.submitted_by.get_display_name()}
+Total Hours: {total_hours} ({len(submissions)} dates, {first.hours} hrs each)
+Dates: {dates_str}
+Organization: {first.organization}
+Description: {first.description}
+Period: {first.period}
 Submitted: {submitted_at}
 
 Review submissions at {getattr(settings, 'SITE_URL', '').rstrip('/')}/service-hours/dashboard/
@@ -259,11 +320,125 @@ def user_view_submission(request, submission_id):
     return render(request, 'service_hours/user_view_submission.html', context)
 
 
+#: v3.29.22 — ceiling on how many EXTRA dates ("+ Add another date") one
+#: POST can turn into submission rows, matching the client-side cap in
+#: submit_hours.html. Defensive only: nothing about the feature needs a
+#: limit this high, it just keeps a crafted POST from creating thousands
+#: of rows in one request. 59 + the primary date field's own date = 60.
+MAX_EXTRA_SERVICE_DATES = 59
+
+
+def _extra_service_dates_from_post(request, exclude):
+    """
+    Parse `request.POST.getlist('extra_dates')` (one value per dynamically
+    added row in the template) into a deduplicated list of `date` objects,
+    silently dropping blanks, anything that isn't a real `YYYY-MM-DD` date
+    (the native `<input type="date">` should never send anything else,
+    but the value is still attacker-controlled POST data), and anything
+    equal to `exclude` (the primary date) or already seen once. There is
+    no future-date or period-bounds check here because none exists on the
+    primary `service_date` field either (see `ServiceHoursSubmissionForm`)
+    — this doesn't introduce a new restriction, just extends the existing
+    (lack of) one to each additional date.
+    """
+    seen = {exclude}
+    result = []
+    for raw in request.POST.getlist('extra_dates')[:MAX_EXTRA_SERVICE_DATES]:
+        raw = (raw or '').strip()
+        if not raw:
+            continue
+        try:
+            parsed = datetime.strptime(raw, '%Y-%m-%d').date()
+        except ValueError:
+            continue
+        if parsed in seen:
+            continue
+        seen.add(parsed)
+        result.append(parsed)
+    return result
+
+
+def _save_custom_field_responses(request, custom_fields, submission):
+    """
+    Extracted from `submit_service_hours` unchanged (v3.29.22) so it can
+    run once for the primary submission and be reused — via
+    `_clone_custom_field_responses` below, NOT by calling this again — for
+    each additional date's row. Calling this a second time per extra date
+    would re-read `request.FILES`, which is already exhausted after the
+    first read for any custom FILE-type field (Django's uploaded-file
+    objects are single-read), silently losing the file on every date past
+    the first.
+    """
+    saved = []
+    for field in custom_fields:
+        field_name = f'custom_{field.field_name}'
+        value = request.POST.get(field_name) or request.FILES.get(field_name)
+
+        if value:
+            response = ServiceFieldResponse(submission=submission, field=field)
+
+            if field.field_type in ['text', 'textarea', 'date', 'select', 'radio']:
+                response.text_value = value
+            elif field.field_type == 'number':
+                try:
+                    response.number_value = Decimal(value)
+                except Exception:
+                    response.text_value = value
+            elif field.field_type in ['multiselect', 'checkbox']:
+                response.json_value = request.POST.getlist(field_name)
+            elif field.field_type == 'file':
+                # v3.19.7 — was assigned straight from request.FILES.
+                # See `_validated_upload` for why, and for the one
+                # sentence that matters: the submission's own attachment
+                # is validated by `ServiceHoursSubmissionForm`, and this
+                # field writes to the directory next door.
+                response.file_value = _validated_upload(request, field, value)
+
+            response.save()
+            saved.append(response)
+    return saved
+
+
+def _clone_custom_field_responses(responses, submission):
+    """
+    Copy already-saved field VALUES onto a new submission rather than
+    re-parsing `request.POST`/`request.FILES` — see the note on
+    `_save_custom_field_responses` for why re-parsing per extra date would
+    silently drop file uploads. For a file value, pointing the clone's
+    `FieldFile.name` at the already-stored path (rather than assigning the
+    original `UploadedFile` object again) means the same physical file is
+    shared rather than re-uploaded — correct here, since every extra-date
+    row is the same event/attachment, just a different day.
+    """
+    for resp in responses:
+        clone = ServiceFieldResponse(
+            submission=submission,
+            field=resp.field,
+            text_value=resp.text_value,
+            number_value=resp.number_value,
+            json_value=resp.json_value,
+        )
+        if resp.file_value:
+            clone.file_value.name = resp.file_value.name
+        clone.save()
+
+
 @login_required
 def submit_service_hours(request):
     """
     Submit new service hours.
     Handles both built-in fields and custom form fields.
+
+    v3.29.22: the form's "+ Add another date" rows let one submission of
+    hours/organization/description/attachment be logged against SEVERAL
+    dates at once. This creates one `ServiceHoursSubmission` ROW per date
+    rather than one row spanning several dates — deliberately, matching
+    how the model is used everywhere else in this feature: approval is
+    per-row (`status`/`reviewed_by`), editing is per-row
+    (`edit_service_submission`), the CSV export is one line per date of
+    service, and the activity log is per-row. A single row covering N
+    dates would need to redefine all four; N rows sharing everything but
+    `service_date` needs none of them touched.
     """
     user = request.user
 
@@ -280,6 +455,8 @@ def submit_service_hours(request):
         form = ServiceHoursSubmissionForm(request.POST, request.FILES)
 
         if form.is_valid():
+            extra_dates = _extra_service_dates_from_post(request, exclude=form.cleaned_data['service_date'])
+
             submission = form.save(commit=False)
             submission.submitted_by = user
 
@@ -291,50 +468,61 @@ def submit_service_hours(request):
                 submission.reviewed_at = timezone.now()
 
             submission.save()
+            all_submissions = [submission]
 
-            # Save custom field responses
-            for field in custom_fields:
-                field_name = f'custom_{field.field_name}'
-                value = request.POST.get(field_name) or request.FILES.get(field_name)
+            # One clone per additional date, sharing everything except
+            # `service_date` (and, necessarily, `pk`/`submitted_at`).
+            for extra_date in extra_dates:
+                clone = ServiceHoursSubmission(
+                    period=submission.period,
+                    submitted_by=user,
+                    hours=submission.hours,
+                    service_date=extra_date,
+                    organization=submission.organization,
+                    description=submission.description,
+                    status=submission.status,
+                    reviewed_at=submission.reviewed_at,
+                )
+                if submission.attachment:
+                    # Point at the already-uploaded file rather than
+                    # re-assigning it — see _clone_custom_field_responses's
+                    # docstring for why this is the correct choice here,
+                    # not just the cheaper one.
+                    clone.attachment.name = submission.attachment.name
+                clone.save()
+                all_submissions.append(clone)
 
-                if value:
-                    response = ServiceFieldResponse(submission=submission, field=field)
+            # Save custom field responses for the primary submission, then
+            # copy the resulting VALUES onto every clone.
+            primary_responses = _save_custom_field_responses(request, custom_fields, submission)
+            for clone in all_submissions[1:]:
+                _clone_custom_field_responses(primary_responses, clone)
 
-                    if field.field_type in ['text', 'textarea', 'date', 'select', 'radio']:
-                        response.text_value = value
-                    elif field.field_type == 'number':
-                        try:
-                            response.number_value = Decimal(value)
-                        except Exception:
-                            response.text_value = value
-                    elif field.field_type in ['multiselect', 'checkbox']:
-                        response.json_value = request.POST.getlist(field_name)
-                    elif field.field_type == 'file':
-                        # v3.19.7 — was assigned straight from request.FILES.
-                        # See `_validated_upload` for why, and for the one
-                        # sentence that matters: the submission's own attachment
-                        # is validated by `ServiceHoursSubmissionForm`, and this
-                        # field writes to the directory next door.
-                        response.file_value = _validated_upload(request, field, value)
+            # Log activity — once per submission row, so each date's
+            # approval/edit history is independently auditable.
+            multi_date_note = f' (multi-date submission, {len(all_submissions)} dates)' if len(all_submissions) > 1 else ''
+            for target in all_submissions:
+                ServiceActivity.objects.create(
+                    submission=target,
+                    user=user,
+                    action='created',
+                    details=f'Submitted {target.hours} hours for {target.organization}{multi_date_note}'
+                )
 
-                    response.save()
-
-            # Log activity
-            ServiceActivity.objects.create(
-                submission=submission,
-                user=user,
-                action='created',
-                details=f'Submitted {submission.hours} hours for {submission.organization}'
-            )
-
-            # Notify VPP of new submission
+            # Notify VPP once for the whole batch, not once per date.
             if submission.period.requires_approval:
-                _notify_vpp_new_submission(submission)
+                _notify_vpp_new_submissions(all_submissions)
 
-            if submission.status == 'approved':
-                messages.success(request, f'Successfully submitted {submission.hours} service hours! (Auto-approved)')
+            total_hours = sum((s.hours for s in all_submissions), Decimal('0'))
+            auto_approved = ' (Auto-approved)' if submission.status == 'approved' else ' for approval'
+            if len(all_submissions) > 1:
+                messages.success(
+                    request,
+                    f'Successfully submitted {submission.hours} service hours for each of '
+                    f'{len(all_submissions)} dates ({total_hours} hours total){auto_approved}.'
+                )
             else:
-                messages.success(request, f'Successfully submitted {submission.hours} service hours for approval.')
+                messages.success(request, f'Successfully submitted {submission.hours} service hours{auto_approved}.')
 
             return redirect('user_service_dashboard')
     else:

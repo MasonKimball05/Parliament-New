@@ -111,10 +111,23 @@ def generate_cnb_document_pdf_buffer():
     the Helvetica-default trap again: `getSampleStyleSheet()`'s base
     styles default to Helvetica, so the four actually used as a `parent=`
     below are overridden up front.
+
+    v3.29.21 — Times-Roman (like every ReportLab base-14 font) only covers
+    WinAnsi/Latin-1, so any non-Latin-1 text anywhere in a governing
+    document (e.g. the chapter motto quoted in the Foreword's preamble)
+    rendered as missing-glyph boxes. `esc()` below now also wraps any such
+    run in a `<font>` tag naming a bundled Unicode font — see
+    `src/utils/pdf_fonts.py` for why and how. This changes nothing for
+    ordinary Latin-1 text (the entire rest of every document): the wrap
+    only ever fires on characters Times-Roman couldn't have rendered
+    anyway.
     """
     from reportlab.lib.pagesizes import letter
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
     from reportlab.lib.units import inch
+    from src.utils.pdf_fonts import ensure_unicode_fonts_registered, wrap_unicode_runs
+
+    ensure_unicode_fonts_registered()
     from reportlab.lib.colors import HexColor
     from reportlab.lib.enums import TA_CENTER
     from reportlab.platypus import (
@@ -209,7 +222,12 @@ def generate_cnb_document_pdf_buffer():
     )
 
     def esc(text):
-        return (text or '').replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+        escaped = (text or '').replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+        # v3.29.21: every call site below feeds straight into a Paragraph,
+        # so this is the one choke point to wrap non-Latin-1 runs (Greek,
+        # etc.) in the bundled Unicode font instead of leaving them to
+        # Times-Roman, which has no glyphs for them at all.
+        return wrap_unicode_runs(escaped)
 
     def as_paragraphs(text, style):
         """Split on blank lines into separate Paragraph flowables — mirrors
