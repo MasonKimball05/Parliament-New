@@ -49,6 +49,27 @@
         width: 2.5em;
     }
 
+    /* Unsupported embedded image (e.g. EMF/WMF pasted in from an older
+       Office document) — a visible placeholder instead of a silently
+       blank <img> no browser can decode. See _replace_unsupported_image
+       in src/view/view_document.py. */
+    .docx-content .docx-unsupported-image {
+        display: inline-block;
+        padding: 0.5em 0.8em;
+        margin: 0.25em 0;
+        border: 1px dashed #d1d5db;
+        border-radius: 6px;
+        font-style: italic;
+        font-size: 0.9em;
+        color: #6b7280 !important;
+        background: #f9fafb;
+    }
+    html.dark .docx-content .docx-unsupported-image {
+        border-color: #4b5563;
+        background: rgba(55, 65, 81, 0.4);
+        color: #9ca3af !important;
+    }
+
     /* Headings */
     .docx-content h1, .docx-content h2, .docx-content h3,
     .docx-content h4, .docx-content h5, .docx-content h6 {

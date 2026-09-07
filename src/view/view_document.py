@@ -3,6 +3,7 @@ from django.contrib.auth.decorators import login_required
 from django.urls import reverse
 from django.conf import settings
 from django.http import FileResponse, Http404, HttpResponseForbidden
+from django.utils.html import escape
 from src.feature_flag_decorators import require_feature_flag
 from src.models import Legislation, CommitteeDocument
 from src.models.documents import DocumentVersion
@@ -103,8 +104,53 @@ _DOCX_ALLOWED_ATTRS = {
 _DOCX_ALLOWED_PROTOCOLS = list(bleach.sanitizer.ALLOWED_PROTOCOLS) + ['data']
 
 _DOCX_IMAGE_DATA_URI_RE = re.compile(
-    r'^data:image/[a-zA-Z0-9.+-]+;base64,[A-Za-z0-9+/]+=*$'
+    r'^data:image/([a-zA-Z0-9.+-]+);base64,[A-Za-z0-9+/]+=*$'
 )
+
+# Image formats an evergreen browser can actually decode from an <img src>
+# data URI. mammoth itself is more permissive (it also waves through TIFF
+# without a warning), but Chrome/Firefox render no TIFF at all, and legacy
+# vector formats pasted in from older Office documents — EMF/WMF — are
+# common in real chapter documents (clip art, letterhead, anything copied
+# out of an old .doc or another Office app) and no browser renders those
+# either. mammoth still emits a perfectly well-formed
+# `data:image/x-emf;base64,...` for one of these — it isn't stripped by the
+# security checks above, since it IS a genuine image, just not a
+# web-renderable one — and a browser asked to decode it fails silently: no
+# broken-image icon, no visible fallback, the image is just gone and the
+# surrounding text reflows as if it was never there. That silent failure is
+# indistinguishable from the original "images don't show up at all" bug
+# unless you go looking for it, so `_replace_unsupported_image` below swaps
+# it for a visible notice instead.
+_DOCX_BROWSER_RENDERABLE_IMAGE_TYPES = {
+    'png', 'jpeg', 'jpg', 'gif', 'webp', 'bmp', 'svg+xml',
+}
+
+_IMG_TAG_RE = re.compile(r'<img\b[^>]*>')
+_IMG_ATTR_RE = re.compile(r'(\w+)="([^"]*)"')
+
+
+def _replace_unsupported_image(img_tag):
+    """
+    Given a single `<img ...>` tag whose `src` is a well-formed
+    `data:image/<type>;base64,<data>` URI (already validated by the caller),
+    swap it for a visible notice if `<type>` isn't one a browser can
+    actually render — see `_DOCX_BROWSER_RENDERABLE_IMAGE_TYPES` above.
+    Otherwise returns the tag unchanged.
+    """
+    attrs = dict(_IMG_ATTR_RE.findall(img_tag))
+    src = attrs.get('src', '')
+    match = _DOCX_IMAGE_DATA_URI_RE.match(src)
+    if not match or match.group(1).lower() in _DOCX_BROWSER_RENDERABLE_IMAGE_TYPES:
+        return img_tag
+
+    alt_text = escape(attrs.get('alt') or 'Image')
+    return (
+        '<span class="docx-unsupported-image">'
+        f"{alt_text} — this image's format can't be shown here; "
+        'download the document to view it.'
+        '</span>'
+    )
 
 
 def _sanitize_docx_html_images(html):
@@ -119,7 +165,10 @@ def _sanitize_docx_html_images(html):
       the whole point of the widened protocol list is images, not links).
     - any `src="data:...` that isn't `data:image/<type>;base64,<data>`
       (e.g. a docx image part with a relabeled/malformed content-type) is
-      stripped too, leaving the `alt` text as a fallback.
+      stripped, leaving the `alt` text as a fallback.
+    - any `src="data:image/<type>;base64,..."` that IS well-formed but
+      names a type no browser renders (EMF/WMF, etc.) is swapped for a
+      visible notice rather than left as a silently-blank image.
     """
     html = re.sub(r'\shref="data:[^"]*"', '', html)
 
@@ -130,6 +179,7 @@ def _sanitize_docx_html_images(html):
         return ''
 
     html = re.sub(r'\ssrc="(data:[^"]*)"', _strip_bad_image_src, html)
+    html = _IMG_TAG_RE.sub(lambda m: _replace_unsupported_image(m.group(0)), html)
     return html
 
 
@@ -141,6 +191,17 @@ def convert_docx_to_html(file_path):
         with open(file_path, 'rb') as docx_file:
             result = mammoth.convert_to_html(docx_file)
             html = result.value
+
+            # mammoth's own conversion warnings (unsupported styles, image
+            # types "unlikely to display in web browsers" — e.g. an EMF/WMF
+            # image pasted in from an older Office document, which mammoth
+            # still emits an <img> for but which no browser can decode — a
+            # missing/unresolvable image relationship, etc.) were previously
+            # discarded outright. Logging them is the difference between
+            # "the image silently doesn't show up" and "the log says exactly
+            # why," the first time this needs debugging again.
+            for message in result.messages:
+                logger.warning("mammoth (%s) converting %s: %s", message.type, file_path, message.message)
 
             # Sanitize against a strict allowlist. This also removes any inline
             # style/class attributes (not in the allowlist) that could override

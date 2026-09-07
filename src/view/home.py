@@ -300,8 +300,25 @@ def home(request):
     for leg in recently_passed_legislation:
         # Use historical counts if set (manually entered legislation)
         yes = leg.historical_yes_votes if leg.historical_yes_votes is not None else leg.yes_votes
-        total = leg.total_votes
         breakdown = _vote_counts.get(leg.pk, {})
+        # v3.29.19: `leg.total_votes` is the `Count('vote')` annotation —
+        # real Vote rows only. For legislation closed via the officer
+        # "mark as voted" manual-entry tool (no real Vote rows, only
+        # historical_yes/no/abstain_votes), that annotation is 0, so this
+        # card showed "0 votes" right next to a correct "100%" (the
+        # percentage branch below already did the historical fallback for
+        # `yes`/`no`; the total shown in the caption never did). Same gate
+        # `yes` above already uses — if historical counts were recorded at
+        # all, sum them for the total instead of trusting the empty
+        # Vote-row aggregate.
+        if leg.historical_yes_votes is not None:
+            total = (
+                leg.historical_yes_votes
+                + (leg.historical_no_votes or 0)
+                + (leg.historical_abstain_votes or 0)
+            )
+        else:
+            total = leg.total_votes
 
         if leg.vote_mode == 'plurality':
             option_counts = {

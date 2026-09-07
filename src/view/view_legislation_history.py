@@ -138,15 +138,24 @@ def view_legislation_history(request):
         total_non_abstain = yes + no
         total_votes = yes + no + abstain
 
-        # Update passed status for closed votes.
-        # v3.17.1: `counts` is the aggregate we already have, so this issues no
-        # queries; and set_passed now only writes when the value actually
-        # changed, so viewing this page no longer rewrites every closed bill.
-        if leg.voting_closed:
-            try:
-                leg.set_passed(counts=counts)
-            except Exception:
-                pass
+        # v3.29.18: this used to call `leg.set_passed(counts=counts)` here on
+        # every GET. `counts` is the raw real-Vote-row aggregate captured
+        # BEFORE the historical-vote overlay above (lines ~131-136), so for
+        # any bill closed via the officer "mark as voted" manual-entry tool
+        # (no real Vote rows, only historical_yes/no/abstain_votes) `counts`
+        # was empty — set_passed()'s percentage branch then divided by a
+        # zero total and forced `passed = False`, and PERSISTED it, flipping
+        # a correctly-passed bill to failed purely from viewing this page.
+        # That's why the top status badge (reads `leg.status`, untouched)
+        # and the vote-result bar (reads `leg.passed`, just corrupted) could
+        # show "Passed" and "Failed" on the same row.
+        #
+        # `leg.passed` is already set correctly at every real closing path —
+        # `auto_close_votes.py` calls `set_passed()` itself the moment it
+        # closes a vote, and `end_vote.py`'s "End Voting Now" sets `passed`
+        # directly — so a render loop has no business recomputing it at all.
+        # This page now trusts the stored value, same as its sibling
+        # `passed_legislation.py` already does.
 
         # Vote mode specific calculations
         yes_pct_num = 0
