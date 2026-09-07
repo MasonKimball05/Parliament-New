@@ -1,4 +1,5 @@
 import os
+import uuid
 
 from django.db import models
 from django.utils import timezone
@@ -160,6 +161,20 @@ class ServiceHoursSubmission(models.Model):
     # Timestamps
     submitted_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    # v3.29.23 — set once, at creation, for every row that came out of the
+    # SAME "+ Add another date" form POST (see `submit_service_hours`).
+    # Null for an ordinary single-date submission. This is deliberately
+    # NOT used by approval, editing, or the CSV export — those all stay
+    # per-row exactly as v3.29.22 designed — it exists only so the officer
+    # review page can offer "approve/reject all N dates from this
+    # submission together" without guessing which rows belong together
+    # (matching hours/organization/description/submitted_at could collide
+    # by coincidence; a UUID assigned once at creation can't).
+    batch_id = models.UUIDField(
+        null=True, blank=True, db_index=True,
+        help_text="Shared by every row created from the same multi-date submission form; null for a single-date submission."
+    )
 
     class Meta:
         ordering = ['-submitted_at']

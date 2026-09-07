@@ -119,7 +119,16 @@
                         <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50">
                             <td class="px-4 py-3">
                                 {% if submission.status == 'pending' %}
-                                <input type="checkbox" name="submission_ids" value="{{ submission.id }}" class="submission-checkbox rounded border-gray-300 dark:border-gray-600 text-green-600 focus:ring-green-500">
+                                <input type="checkbox" name="submission_ids" value="{{ submission.id }}"
+                                       class="submission-checkbox rounded border-gray-300 dark:border-gray-600 text-green-600 focus:ring-green-500"
+                                       {% if submission.batch_id %}data-batch-id="{{ submission.batch_id }}"{% endif %}>
+                                {% if submission.batch_pending_count > 1 %}
+                                <button type="button" class="select-batch-btn block mt-1 text-[10px] leading-tight text-primary-600 dark:text-primary-400 hover:underline"
+                                        data-batch-id="{{ submission.batch_id }}"
+                                        title="Select all {{ submission.batch_pending_count }} pending dates from this multi-date submission">
+                                    select all {{ submission.batch_pending_count }}
+                                </button>
+                                {% endif %}
                                 {% endif %}
                             </td>
                             <td class="px-4 py-3">
@@ -135,6 +144,12 @@
                             </td>
                             <td class="px-4 py-3 text-sm text-gray-900 dark:text-white">
                                 {{ submission.service_date|date:"M d, Y" }}
+                                {% if submission.batch_total_count > 1 %}
+                                <span class="block text-[10px] text-primary-600 dark:text-primary-400"
+                                      title="Part of one multi-date submission covering {{ submission.batch_total_count }} dates">
+                                    multi-date ({{ submission.batch_total_count }})
+                                </span>
+                                {% endif %}
                             </td>
                             <td class="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
                                 {{ submission.period.name }}
@@ -209,6 +224,21 @@ document.addEventListener('DOMContentLoaded', function() {
 
     checkboxes.forEach(cb => {
         cb.addEventListener('change', updateUI);
+    });
+
+    // v3.29.23 — "select all N" button on a row that's part of a
+    // multi-date submission checks every pending checkbox sharing that
+    // row's batch_id, so approving/rejecting them together is then just
+    // picking the bulk action and clicking Apply (same existing endpoint,
+    // no new form).
+    document.querySelectorAll('.select-batch-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const batchId = this.getAttribute('data-batch-id');
+            document.querySelectorAll('.submission-checkbox[data-batch-id="' + batchId + '"]').forEach(cb => {
+                cb.checked = true;
+            });
+            updateUI();
+        });
     });
 
     bulkAction.addEventListener('change', updateUI);

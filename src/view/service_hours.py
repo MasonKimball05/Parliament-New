@@ -189,6 +189,38 @@ def view_service_submissions(request):
     if member_id:
         submissions = submissions.filter(submitted_by_id=member_id)
 
+    # v3.29.23 — Mason: "for submissions submitted for multiple days can
+    # you add a way for the approver to approve all the ones submitted
+    # together at once?" Every row from one multi-date submit shares a
+    # `batch_id` (see submit_service_hours). Materialize the page here (it
+    # was never paginated) so a `batch_pending_count`/`batch_total_count`
+    # can be attached to each row in two grouped queries instead of one
+    # query per distinct batch on the page.
+    submissions = list(submissions)
+    batch_ids = {s.batch_id for s in submissions if s.batch_id}
+    if batch_ids:
+        # Only PENDING siblings are what "approve/reject together" can
+        # actually act on — bulk_actions_service already restricts itself
+        # to status='pending', so this is the count that decides whether
+        # the "select all in this batch" control has anything to do.
+        pending_counts = dict(
+            ServiceHoursSubmission.objects.filter(batch_id__in=batch_ids, status='pending')
+            .order_by().values('batch_id').annotate(n=Count('id')).values_list('batch_id', 'n')
+        )
+        # Total (any status) is purely informational — it's what the
+        # "multi-date submission" badge shows even once some/all dates
+        # have already been reviewed.
+        total_counts = dict(
+            ServiceHoursSubmission.objects.filter(batch_id__in=batch_ids)
+            .order_by().values('batch_id').annotate(n=Count('id')).values_list('batch_id', 'n')
+        )
+    else:
+        pending_counts = {}
+        total_counts = {}
+    for s in submissions:
+        s.batch_pending_count = pending_counts.get(s.batch_id, 0) if s.batch_id else 0
+        s.batch_total_count = total_counts.get(s.batch_id, 0) if s.batch_id else 0
+
     # Get filter options
     all_periods = ServicePeriod.objects.all().order_by('-start_date')
     all_members = ParliamentUser.objects.filter(member_status='Active').order_by('name')

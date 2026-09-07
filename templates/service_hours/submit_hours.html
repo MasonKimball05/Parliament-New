@@ -49,9 +49,10 @@
                 </div>
             </div>
 
-            <!-- Additional dates: did the same service (same hours, organization,
-                 description, and attachment) on more than one day? Each date added
-                 here becomes its own submission when the form is saved. -->
+            <!-- Additional dates: did the same service (same organization and
+                 description, but not necessarily the same hours) on more than
+                 one day? Each date+hours pair added here becomes its own
+                 submission when the form is saved. -->
             <div>
                 <div id="extra-dates-container" class="space-y-2"></div>
                 <button type="button" id="add-date-btn"
@@ -62,9 +63,10 @@
                     Add another date
                 </button>
                 <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                    Did this same service on more than one day? Add each additional
-                    date and we'll log the same hours, organization, and description
-                    for each one.
+                    Did this same service on more than one day? Add each
+                    additional date along with the hours you worked that day —
+                    organization and description carry over, but hours don't
+                    have to be the same each day.
                 </p>
             </div>
 
@@ -225,15 +227,19 @@
 </div>
 
 <script nonce="{{ request.csp_nonce }}">
-// v3.29.22: additional dates for the same service (same hours,
-// organization, description, attachment — one row per date on submit,
-// see submit_service_hours in src/view/service_user_dashboard.py). Each
-// added row is a plain `<input type="date" name="extra_dates">` — no
-// hidden field or JSON encoding needed, since request.POST.getlist
-// ('extra_dates') already collects every input sharing that name.
-// MAX_EXTRA_DATES mirrors the server-side cap in the view; enforcing it
-// here too is just a nicer failure mode (a disabled button) than letting
-// someone add 500 rows and having the server silently drop the excess.
+// v3.29.22/v3.29.23: additional dates for the same service — same
+// organization/description/attachment, but each date gets its OWN hours
+// value rather than assuming the primary date's hours applied every time
+// (see submit_service_hours in src/view/service_user_dashboard.py). Each
+// added row is a plain `<input type="date" name="extra_dates">` paired
+// with an `<input type="number" name="extra_hours">` — no hidden field
+// or JSON encoding needed, since request.POST.getlist('extra_dates') /
+// ('extra_hours') already collect every input sharing that name, and the
+// two lists stay index-aligned because each row's pair is added AND
+// removed together. MAX_EXTRA_DATES mirrors the server-side cap in the
+// view; enforcing it here too is just a nicer failure mode (a disabled
+// button) than letting someone add 500 rows and having the server
+// silently drop the excess.
 (function() {
     var MAX_EXTRA_DATES = 59; // + the primary date field = 60 total
     var container = document.getElementById('extra-dates-container');
@@ -252,11 +258,21 @@
         var row = document.createElement('div');
         row.className = 'flex items-center gap-2';
 
-        var input = document.createElement('input');
-        input.type = 'date';
-        input.name = 'extra_dates';
-        input.setAttribute('aria-label', 'Additional date of service');
-        input.className = 'w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent';
+        var dateInput = document.createElement('input');
+        dateInput.type = 'date';
+        dateInput.name = 'extra_dates';
+        dateInput.setAttribute('aria-label', 'Additional date of service');
+        dateInput.className = 'w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent';
+
+        var hoursInput = document.createElement('input');
+        hoursInput.type = 'number';
+        hoursInput.name = 'extra_hours';
+        hoursInput.step = '0.25';
+        hoursInput.min = '0.25';
+        hoursInput.max = '24';
+        hoursInput.placeholder = 'Hours';
+        hoursInput.setAttribute('aria-label', 'Hours worked on this additional date');
+        hoursInput.className = 'w-28 flex-shrink-0 px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent';
 
         var removeBtn = document.createElement('button');
         removeBtn.type = 'button';
@@ -268,7 +284,8 @@
             updateAddButtonState();
         });
 
-        row.appendChild(input);
+        row.appendChild(dateInput);
+        row.appendChild(hoursInput);
         row.appendChild(removeBtn);
         container.appendChild(row);
         updateAddButtonState();

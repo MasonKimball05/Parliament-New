@@ -13,8 +13,9 @@ from django.utils.timezone import localtime
 from django.db.models import Sum, Q
 from django.conf import settings
 from src.tasks import send_email
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from datetime import datetime
+import uuid
 import logging
 
 from src.models import (
@@ -134,8 +135,12 @@ def _notify_vpp_new_submissions(submissions, is_resubmission=False):
 
     first = submissions[0]
     total_hours = sum((s.hours for s in submissions), Decimal('0'))
+    # v3.29.23: hours can differ per date now, so each date's line names
+    # its own hours instead of the message claiming one uniform number
+    # ("N dates, X hrs each") that may no longer be true.
     dates_str = ', '.join(
-        s.service_date.strftime('%b %d, %Y') for s in sorted(submissions, key=lambda s: s.service_date)
+        f"{s.service_date.strftime('%b %d, %Y')} ({s.hours} hrs)"
+        for s in sorted(submissions, key=lambda s: s.service_date)
     )
     submitted_at = localtime(first.submitted_at).strftime('%B %d, %Y at %I:%M %p %Z')
     action = 'Resubmitted' if is_resubmission else 'New'
@@ -147,7 +152,7 @@ def _notify_vpp_new_submissions(submissions, is_resubmission=False):
     message = f"""{action} service hours submission received, for multiple dates.
 
 Member: {first.submitted_by.get_display_name()}
-Total Hours: {total_hours} ({len(submissions)} dates, {first.hours} hrs each)
+Total Hours: {total_hours} across {len(submissions)} dates
 Dates: {dates_str}
 Organization: {first.organization}
 Description: {first.description}
@@ -328,33 +333,62 @@ def user_view_submission(request, submission_id):
 MAX_EXTRA_SERVICE_DATES = 59
 
 
-def _extra_service_dates_from_post(request, exclude):
+def _extra_service_entries_from_post(request, exclude):
     """
-    Parse `request.POST.getlist('extra_dates')` (one value per dynamically
-    added row in the template) into a deduplicated list of `date` objects,
-    silently dropping blanks, anything that isn't a real `YYYY-MM-DD` date
-    (the native `<input type="date">` should never send anything else,
-    but the value is still attacker-controlled POST data), and anything
-    equal to `exclude` (the primary date) or already seen once. There is
-    no future-date or period-bounds check here because none exists on the
-    primary `service_date` field either (see `ServiceHoursSubmissionForm`)
-    — this doesn't introduce a new restriction, just extends the existing
-    (lack of) one to each additional date.
+    v3.29.23 — Mason: "instead of assuming that it is x hours exactly each
+    day can it instead require the person to enter the number of hours
+    they put in for those days?" Each dynamically added row in the
+    template now posts a PAIR — `extra_dates[i]` / `extra_hours[i]`,
+    aligned by list index (see submit_hours.html's `addDateRow()`) —
+    instead of a date that silently borrowed the primary submission's
+    hours. Returns a deduplicated list of `(date, Decimal)` pairs.
+
+    A row is dropped if its date is blank/malformed/a duplicate/equal to
+    `exclude` (the primary date) — same silent handling as before
+    v3.29.23, and for the same reason: there is no future-date or
+    period-bounds check on the primary `service_date` field either (see
+    `ServiceHoursSubmissionForm`), so this doesn't introduce a new
+    restriction. An hours value that's blank, unparsable, or outside the
+    `0 < hours <= 24` bound `ServiceHoursSubmissionForm.clean_hours`
+    enforces on the primary field is dropped LOUDLY (`messages.warning`,
+    naming the date) rather than silently — unlike a blank date, a typed
+    hours value is something the member will expect to see reflected, so
+    silently discarding it would look like data loss rather than input
+    hygiene.
     """
-    seen = {exclude}
+    seen_dates = {exclude}
     result = []
-    for raw in request.POST.getlist('extra_dates')[:MAX_EXTRA_SERVICE_DATES]:
-        raw = (raw or '').strip()
-        if not raw:
+    raw_dates = request.POST.getlist('extra_dates')[:MAX_EXTRA_SERVICE_DATES]
+    raw_hours = request.POST.getlist('extra_hours')[:MAX_EXTRA_SERVICE_DATES]
+    for raw_date, raw_hour in zip(raw_dates, raw_hours):
+        raw_date = (raw_date or '').strip()
+        if not raw_date:
             continue
         try:
-            parsed = datetime.strptime(raw, '%Y-%m-%d').date()
+            parsed_date = datetime.strptime(raw_date, '%Y-%m-%d').date()
         except ValueError:
             continue
-        if parsed in seen:
+        if parsed_date in seen_dates:
             continue
-        seen.add(parsed)
-        result.append(parsed)
+
+        raw_hour = (raw_hour or '').strip()
+        try:
+            parsed_hours = Decimal(raw_hour)
+        except (InvalidOperation, ValueError):
+            messages.warning(
+                request,
+                f"{parsed_date.strftime('%b %d, %Y')}: no valid hours entered — this date was skipped."
+            )
+            continue
+        if not (0 < parsed_hours <= 24):
+            messages.warning(
+                request,
+                f"{parsed_date.strftime('%b %d, %Y')}: hours must be more than 0 and no more than 24 — this date was skipped."
+            )
+            continue
+
+        seen_dates.add(parsed_date)
+        result.append((parsed_date, parsed_hours))
     return result
 
 
@@ -455,10 +489,15 @@ def submit_service_hours(request):
         form = ServiceHoursSubmissionForm(request.POST, request.FILES)
 
         if form.is_valid():
-            extra_dates = _extra_service_dates_from_post(request, exclude=form.cleaned_data['service_date'])
+            extra_entries = _extra_service_entries_from_post(request, exclude=form.cleaned_data['service_date'])
 
             submission = form.save(commit=False)
             submission.submitted_by = user
+            # v3.29.23 — only assigned when there's actually a second date;
+            # a single-date submission keeps batch_id=None, same as before
+            # this field existed.
+            if extra_entries:
+                submission.batch_id = uuid.uuid4()
 
             # Set initial status based on period's approval requirement
             if submission.period.requires_approval:
@@ -470,18 +509,22 @@ def submit_service_hours(request):
             submission.save()
             all_submissions = [submission]
 
-            # One clone per additional date, sharing everything except
-            # `service_date` (and, necessarily, `pk`/`submitted_at`).
-            for extra_date in extra_dates:
+            # One clone per additional (date, hours) pair, sharing
+            # everything except `service_date`/`hours` (and, necessarily,
+            # `pk`/`submitted_at`). v3.29.23: hours is now whatever the
+            # member entered for that specific date, not a copy of the
+            # primary submission's hours.
+            for extra_date, extra_hours in extra_entries:
                 clone = ServiceHoursSubmission(
                     period=submission.period,
                     submitted_by=user,
-                    hours=submission.hours,
+                    hours=extra_hours,
                     service_date=extra_date,
                     organization=submission.organization,
                     description=submission.description,
                     status=submission.status,
                     reviewed_at=submission.reviewed_at,
+                    batch_id=submission.batch_id,
                 )
                 if submission.attachment:
                     # Point at the already-uploaded file rather than
@@ -516,10 +559,13 @@ def submit_service_hours(request):
             total_hours = sum((s.hours for s in all_submissions), Decimal('0'))
             auto_approved = ' (Auto-approved)' if submission.status == 'approved' else ' for approval'
             if len(all_submissions) > 1:
+                # v3.29.23: hours can differ per date now, so this no
+                # longer claims one uniform per-date number — just the
+                # count of dates and the combined total.
                 messages.success(
                     request,
-                    f'Successfully submitted {submission.hours} service hours for each of '
-                    f'{len(all_submissions)} dates ({total_hours} hours total){auto_approved}.'
+                    f'Successfully submitted service hours for {len(all_submissions)} dates '
+                    f'({total_hours} hours total){auto_approved}.'
                 )
             else:
                 messages.success(request, f'Successfully submitted {submission.hours} service hours{auto_approved}.')
