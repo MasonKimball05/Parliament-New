@@ -104,7 +104,9 @@ class TheCsrfTokenRefreshExistsTests(SimpleTestCase):
         self.base = (Path(settings.BASE_DIR) / 'templates' / 'base.html').read_text(encoding='utf-8')
 
     def test_the_helper_is_defined(self):
-        self.assertIn('function refreshCsrfToken()', self.base)
+        # v3.29.25 gave it an `attempt` parameter for the internal retry —
+        # see TheCsrfRefreshRetriesOnFailureTests below.
+        self.assertIn('function refreshCsrfToken(attempt)', self.base)
 
     def test_it_fetches_the_refresh_endpoint(self):
         self.assertIn("{% url \"csrf_token_refresh\" %}", self.base)
@@ -120,14 +122,14 @@ class TheCsrfTokenRefreshExistsTests(SimpleTestCase):
         JS-driven POST still holding the stale value.
         """
         stripped = re.sub(r'/\*.*?\*/', '', self.base, flags=re.DOTALL)
-        refresh_at = stripped.index('function refreshCsrfToken()')
+        refresh_at = stripped.index('function refreshCsrfToken(attempt)')
         next_helper_at = stripped.index('P._refreshCsrfToken')
         body = stripped[refresh_at:next_helper_at]
         self.assertIn('meta[name="csrf-token"]', body)
         self.assertIn('setAttribute(\'content\'', body)
 
     def test_the_helper_is_defined_before_the_pageshow_listener_uses_it(self):
-        helper_at = self.base.index('function refreshCsrfToken()')
+        helper_at = self.base.index('function refreshCsrfToken(attempt)')
         listener_at = self.base.index("addEventListener('pageshow'")
         self.assertLess(helper_at, listener_at)
 
@@ -315,3 +317,118 @@ class TheFileInputSafetyNetAlwaysRefreshesTests(SimpleTestCase):
         early_return_at = tail.index('if (!hasFileInput && tokenField && tokenField.value) return;')
         prevent_at = tail.index('event.preventDefault()')
         self.assertLess(early_return_at, prevent_at)
+
+
+class TheCsrfRefreshRetriesOnFailureTests(SimpleTestCase):
+    """
+    v3.29.25 — v3.29.24 shipped, was deployed, and the identical failure
+    (`reason=CSRF token missing.`, `posted_token_present=False`) happened
+    again on a fresh mobile retest. The gap was never about which forms
+    ask for a refresh — it was what happened when the refresh's own
+    `fetch()` failed: silently swallowed, and the submit-time safety net
+    submitted anyway, with a still-empty field if there was never a usable
+    token to fall back on. Two changes: one retry inside `refreshCsrfToken`
+    after a short pause (a fetch issued the instant a backgrounded mobile
+    tab resumes can fail before the network stack has reconnected), and a
+    submit-time check that refuses to submit a still-empty field rather
+    than sending a guaranteed second 403.
+    """
+
+    def setUp(self):
+        self.base = (Path(settings.BASE_DIR) / 'templates' / 'base.html').read_text(encoding='utf-8')
+
+    def test_the_helper_takes_an_attempt_parameter(self):
+        self.assertIn('function refreshCsrfToken(attempt)', self.base)
+
+    def test_it_retries_exactly_once_on_failure(self):
+        """
+        ⚠️ MUST TERMINATE. The retry branch must be gated on `attempt` (so
+        a second failure gives up) — an ungated retry would hang a form
+        submit forever against a genuinely dead network.
+        """
+        stripped = re.sub(r'/\*.*?\*/', '', self.base, flags=re.DOTALL)
+        refresh_at = stripped.index('function refreshCsrfToken(attempt)')
+        next_helper_at = stripped.index('P._refreshCsrfToken')
+        body = stripped[refresh_at:next_helper_at]
+        self.assertIn('if (!attempt)', body)
+        self.assertIn('refreshCsrfToken(1)', body)
+        # Only one retry recursion — a second `refreshCsrfToken(1)` call
+        # (e.g. the retry branch retrying again on its own failure) would
+        # make this open-ended instead of a single bounded retry.
+        self.assertEqual(body.count('refreshCsrfToken(1)'), 1)
+
+    def test_the_retry_still_resolves_to_null_on_a_second_failure(self):
+        """
+        The catch's fallback path (no more retries left) must still return
+        `null` rather than leaving the promise unresolved or rejecting —
+        callers (the submit safety net) branch on a falsy value to decide
+        whether to submit at all.
+        """
+        stripped = re.sub(r'/\*.*?\*/', '', self.base, flags=re.DOTALL)
+        refresh_at = stripped.index('function refreshCsrfToken(attempt)')
+        next_helper_at = stripped.index('P._refreshCsrfToken')
+        body = stripped[refresh_at:next_helper_at]
+        self.assertIn('return null;', body)
+
+    def test_a_still_empty_field_after_refresh_is_not_submitted(self):
+        """
+        ⚠️ THE ACTUAL GAP. The old code only ever set the field's value on
+        a SUCCESSFUL refresh (`if (token) { tokenField.value = token; }`)
+        and fell through to `form.submit()` unconditionally either way —
+        so a failed refresh (even after the retry) submitted a field that
+        was still empty, reproducing the exact original failure. Must
+        check the field's value again after the refresh attempt and bail
+        out rather than submit when it's still empty.
+        """
+        stripped = re.sub(r'/\*.*?\*/', '', self.base, flags=re.DOTALL)
+        listener_at = stripped.index("addEventListener('submit'")
+        tail = stripped[listener_at:]
+        self.assertIn('else if (!tokenField.value)', tail)
+
+    def test_the_still_empty_case_does_not_submit(self):
+        """
+        The bail-out branch must `return` before reaching `form.submit()`
+        — otherwise this is dead code that changes nothing.
+        """
+        stripped = re.sub(r'/\*.*?\*/', '', self.base, flags=re.DOTALL)
+        listener_at = stripped.index("addEventListener('submit'")
+        tail = stripped[listener_at:]
+        branch_at = tail.index('else if (!tokenField.value)')
+        brace_at = tail.index('{', branch_at)
+        close_at = tail.index('}', brace_at)
+        branch_body = tail[brace_at:close_at]
+        self.assertIn('return;', branch_body)
+        self.assertNotIn('form.submit();', branch_body)
+
+    def test_the_still_empty_case_tells_the_user(self):
+        """
+        Silently discarding the submit would be worse than the 403 it
+        replaces — nothing typed or picked is lost, but the member needs
+        to know to try again rather than wondering why nothing happened.
+        """
+        stripped = re.sub(r'/\*.*?\*/', '', self.base, flags=re.DOTALL)
+        listener_at = stripped.index("addEventListener('submit'")
+        tail = stripped[listener_at:]
+        branch_at = tail.index('else if (!tokenField.value)')
+        brace_at = tail.index('{', branch_at)
+        close_at = tail.index('}', brace_at)
+        branch_body = tail[brace_at:close_at]
+        self.assertIn('P.toast(', branch_body)
+
+    def test_a_successful_refresh_still_submits(self):
+        """
+        Control: the success path (`if (token) { ... }`) must still reach
+        `form.submit()` — this fix must not turn a working refresh into a
+        blocked submit.
+        """
+        stripped = re.sub(r'/\*.*?\*/', '', self.base, flags=re.DOTALL)
+        listener_at = stripped.index("addEventListener('submit'")
+        tail = stripped[listener_at:]
+        token_branch_at = tail.index('if (token) {')
+        submit_at = tail.index('form.submit();', token_branch_at)
+        # form.submit() must be reachable from the success branch without
+        # an intervening return — i.e. it's the fall-through, not inside
+        # a block that returns early.
+        else_at = tail.index('else if (!tokenField.value)', token_branch_at)
+        self.assertLess(token_branch_at, else_at)
+        self.assertLess(else_at, submit_at)

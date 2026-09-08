@@ -267,12 +267,29 @@
          * value; every other form keeps the cheaper empty-only check,
          * since nothing else on this site plausibly backgrounds the tab
          * this way.
+         *
+         * v3.29.25 — v3.29.24 shipped, was deployed, and the SAME failure
+         * (`reason=CSRF token missing.`, `posted_token_present=False`)
+         * still happened on a fresh mobile retest. Root cause was never
+         * "which forms ask for a refresh" at all — it was what happens
+         * when the refresh's own `fetch()` call fails. The instant a
+         * backgrounded mobile tab resumes, a fetch issued right then can
+         * fail before the network stack has actually reconnected. Before
+         * this, that failure was silently swallowed (`.catch(() => null)`)
+         * and the submit-time safety net below submitted anyway — with a
+         * still-empty field if there had never been a usable token to fall
+         * back on, i.e. exactly the original failure, immediately, again.
+         * Two changes: one retry here after a short pause, so a fetch that
+         * fails only because the network wasn't back up yet gets a second
+         * chance; and below, if the field is STILL empty after that, the
+         * submit-time guard now stops and says so instead of submitting
+         * into a guaranteed second 403.
          */
-        function refreshCsrfToken() {
+        function refreshCsrfToken(attempt) {
             return fetch('{% url "csrf_token_refresh" %}', { credentials: 'same-origin' })
                 .then(function(response) { return response.ok ? response.json() : null; })
                 .then(function(data) {
-                    if (!data || !data.csrfToken) return null;
+                    if (!data || !data.csrfToken) { throw new Error('no token in response'); }
                     document.querySelectorAll('input[name="csrfmiddlewaretoken"]').forEach(function(field) {
                         field.value = data.csrfToken;
                     });
@@ -280,7 +297,18 @@
                     if (meta) { meta.setAttribute('content', data.csrfToken); }
                     return data.csrfToken;
                 })
-                .catch(function() { return null; }); // best-effort; a failed refresh leaves today's behavior unchanged
+                .catch(function() {
+                    // ONE retry only — this must terminate. The delay is
+                    // long enough to matter for "network still reconnecting"
+                    // without meaningfully slowing the common (already
+                    // failing) path down further.
+                    if (!attempt) {
+                        return new Promise(function(resolve) {
+                            setTimeout(function() { resolve(refreshCsrfToken(1)); }, 400);
+                        });
+                    }
+                    return null; // best-effort; caller decides what "still nothing" means
+                });
         }
         P._refreshCsrfToken = refreshCsrfToken; // exposed for tests only
 
@@ -343,7 +371,23 @@
                     tokenField.type = 'hidden';
                     tokenField.name = 'csrfmiddlewaretoken';
                     form.appendChild(tokenField);
-                    if (token) { tokenField.value = token; } // refreshCsrfToken() already patched it if the field existed; a newly-created one needs it set directly
+                }
+                // ⚠️ v3.29.25 — A FAILED REFRESH IS NOT "SUBMIT ANYWAY." The
+                // old code only ever set the field on SUCCESS and otherwise
+                // fell through to `form.submit()` regardless — so a refresh
+                // that failed (even after the retry above) sent a field that
+                // was still empty straight back into the same 403, silently.
+                // If there's a fresh token, use it (refreshCsrfToken() already
+                // patched an existing field's value; a newly-created one
+                // needs it set directly here). If there isn't AND the field
+                // has nothing usable to fall back on, stop — this submit is
+                // a guaranteed second failure — and say so, rather than
+                // sending the member to a confusing error page.
+                if (token) {
+                    tokenField.value = token;
+                } else if (!tokenField.value) {
+                    P.toast('Could not verify your session before submitting — please try again.', 'error');
+                    return;
                 }
                 form.submit();
             });
