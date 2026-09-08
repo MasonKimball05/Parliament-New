@@ -177,3 +177,60 @@ class CsrfTokenRefreshDiagnosticLoggingTests(TestCase):
             self.client.get(reverse('csrf_token_refresh'))
         combined = '\n'.join(logs.output)
         self.assertIn('had_csrf_cookie_before=True', combined)
+
+
+class CsrfTokenRefreshSourceTaggingTests(TestCase):
+    """
+    v3.29.28 — TEMPORARY. `refreshCsrfToken()` in base.html has two
+    independent callers (the `pageshow` handler and the submit-safety-net
+    listener) that both hit this endpoint and, before this change,
+    produced an identical-looking log line either way. `?source=` closes
+    that gap — see the module docstring's v3.29.28 entry. Remove
+    alongside the rest of this temporary logging once the root cause is
+    confirmed and fixed.
+    """
+    PASSWORD = 'csrf-refresh-source-test-pass-12345!'
+
+    def setUp(self):
+        self.user = ParliamentUser.objects.create_user(
+            user_id='MEL-CSRFSRC', password=self.PASSWORD, name='CSRF Source Tester',
+            username='mel_csrfsrc', member_type='Member', is_admin=False,
+        )
+
+    def test_a_pageshow_sourced_hit_is_labeled(self):
+        self.client.force_login(self.user)
+        with self.assertLogs('security', level='INFO') as logs:
+            self.client.get(reverse('csrf_token_refresh'), {'source': 'pageshow'})
+        combined = '\n'.join(logs.output)
+        self.assertIn('source=pageshow', combined)
+
+    def test_a_submit_sourced_hit_is_labeled(self):
+        self.client.force_login(self.user)
+        with self.assertLogs('security', level='INFO') as logs:
+            self.client.get(reverse('csrf_token_refresh'), {'source': 'submit'})
+        combined = '\n'.join(logs.output)
+        self.assertIn('source=submit', combined)
+
+    def test_a_hit_with_no_source_reads_as_a_dash_not_blank_or_missing(self):
+        """
+        Control — same "ambiguous blank" reasoning csrf_failure.py already
+        applies to its own absent-header fields.
+        """
+        self.client.force_login(self.user)
+        with self.assertLogs('security', level='INFO') as logs:
+            self.client.get(reverse('csrf_token_refresh'))  # no ?source= at all
+        combined = '\n'.join(logs.output)
+        self.assertIn('source=-', combined)
+
+    def test_an_unrecognized_source_value_is_logged_verbatim_not_rejected(self):
+        """
+        This is a diagnostic label, not a validated enum — an unexpected
+        value (e.g. a stale deployed JS build sending something else)
+        should still show up rather than 400 or silently become '-'.
+        """
+        self.client.force_login(self.user)
+        with self.assertLogs('security', level='INFO') as logs:
+            response = self.client.get(reverse('csrf_token_refresh'), {'source': 'something-unexpected'})
+        self.assertEqual(response.status_code, 200)
+        combined = '\n'.join(logs.output)
+        self.assertIn('source=something-unexpected', combined)

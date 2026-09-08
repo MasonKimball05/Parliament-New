@@ -285,8 +285,14 @@
          * submit-time guard now stops and says so instead of submitting
          * into a guaranteed second 403.
          */
-        function refreshCsrfToken(attempt) {
-            return fetch('{% url "csrf_token_refresh" %}', { credentials: 'same-origin' })
+        function refreshCsrfToken(attempt, source) {
+            // ⚠️ TEMPORARY — v3.29.28. `source` ('pageshow' or 'submit')
+            // is purely a diagnostic label for csrf_token.py's log line —
+            // this function has two independent callers below and the
+            // server can't otherwise tell which one produced a given hit.
+            // See that view's module docstring.
+            var qs = source ? ('?source=' + encodeURIComponent(source)) : '';
+            return fetch('{% url "csrf_token_refresh" %}' + qs, { credentials: 'same-origin' })
                 .then(function(response) { return response.ok ? response.json() : null; })
                 .then(function(data) {
                     if (!data || !data.csrfToken) { throw new Error('no token in response'); }
@@ -304,7 +310,7 @@
                     // failing) path down further.
                     if (!attempt) {
                         return new Promise(function(resolve) {
-                            setTimeout(function() { resolve(refreshCsrfToken(1)); }, 400);
+                            setTimeout(function() { resolve(refreshCsrfToken(1, source)); }, 400);
                         });
                     }
                     return null; // best-effort; caller decides what "still nothing" means
@@ -314,7 +320,7 @@
 
         window.addEventListener('pageshow', function(event) {
             if (!event.persisted) return;
-            if (hasUnsavedInput()) { refreshCsrfToken(); return; }
+            if (hasUnsavedInput()) { refreshCsrfToken(undefined, 'pageshow'); return; }
             window.location.reload();
         });
 
@@ -365,7 +371,7 @@
             var hasFileInput = !!form.querySelector('input[type="file"]');
             if (!hasFileInput && tokenField && tokenField.value) return; // token present, and nothing about this form casts doubt on it
             event.preventDefault();
-            refreshCsrfToken().then(function(token) {
+            refreshCsrfToken(undefined, 'submit').then(function(token) {
                 if (!tokenField) {
                     tokenField = document.createElement('input');
                     tokenField.type = 'hidden';

@@ -37,6 +37,25 @@ already logs to) rather than `ActivityLog` — this is throwaway debugging
 signal, not an audit-trail event, and doesn't belong in the formal
 activity log members can be shown. Remove this logging once the root
 cause is confirmed and fixed.
+
+⚠️ EXTENDED — v3.29.28, 09-08-26. `refreshCsrfToken()` in base.html has
+TWO independent callers — the `pageshow` handler (proactive, fires on a
+bfcache restore, unrelated to any click) and the submit-safety-net
+listener (fires immediately before its own resubmit) — and both hit this
+exact endpoint, producing an identical-looking log line either way. The
+09-08 repro showed a successful refresh 165ms before a failure whose
+`csrf_failure.py` line read `is_js_resubmit=False` — and v3.29.27's own
+code proves the submit-listener's resubmit can never reach
+`form.submit()` with an empty token field (every path either sets a
+real value or bails out via `P.toast()` first), so that resubmit is
+provably not what failed. Whether the .222 refresh was even RELATED to
+that failure was still a guess. `source` (`'pageshow'` or `'submit'`,
+sent as a query param since this is a GET) closes that gap: if the
+refresh immediately preceding a failure reads `source=pageshow`, the
+failing POST is confirmed unrelated to anything this JS does — a raw,
+un-intercepted native submission — a different bug class than every
+theory tested so far. Remove alongside the rest of this temporary
+logging once the root cause is confirmed and fixed.
 """
 import logging
 
@@ -78,12 +97,20 @@ def csrf_token_refresh(request):
     else:
         user_desc = 'anonymous'
 
+    # ⚠️ TEMPORARY — v3.29.28, see module docstring. Which of the two JS
+    # callers triggered this hit — 'pageshow' (proactive, no click
+    # involved) or 'submit' (about to resubmit). Read from the query
+    # string, not trusted beyond a diagnostic label: an unrecognized or
+    # absent value just reads as '-' rather than raising.
+    source = request.GET.get('source') or '-'
+
     # TEMPORARY — see module docstring. `bool(token)` not the token value
     # itself, same reasoning as csrf_failure.py: a security log is an
     # asset, don't put secrets in it just to answer "did this work."
     logger.info(
-        'CSRF token refresh called | referer=%s | had_csrf_cookie_before=%s | '
+        'CSRF token refresh called | source=%s | referer=%s | had_csrf_cookie_before=%s | '
         'returned_a_token=%s | ip=%s | user=%s | ua=%s',
+        source,
         request.META.get('HTTP_REFERER', '-'),
         had_csrf_cookie_before,
         bool(token),

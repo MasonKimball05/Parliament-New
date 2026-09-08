@@ -106,7 +106,7 @@ class TheCsrfTokenRefreshExistsTests(SimpleTestCase):
     def test_the_helper_is_defined(self):
         # v3.29.25 gave it an `attempt` parameter for the internal retry —
         # see TheCsrfRefreshRetriesOnFailureTests below.
-        self.assertIn('function refreshCsrfToken(attempt)', self.base)
+        self.assertIn('function refreshCsrfToken(attempt, source)', self.base)
 
     def test_it_fetches_the_refresh_endpoint(self):
         self.assertIn("{% url \"csrf_token_refresh\" %}", self.base)
@@ -122,14 +122,14 @@ class TheCsrfTokenRefreshExistsTests(SimpleTestCase):
         JS-driven POST still holding the stale value.
         """
         stripped = re.sub(r'/\*.*?\*/', '', self.base, flags=re.DOTALL)
-        refresh_at = stripped.index('function refreshCsrfToken(attempt)')
+        refresh_at = stripped.index('function refreshCsrfToken(attempt, source)')
         next_helper_at = stripped.index('P._refreshCsrfToken')
         body = stripped[refresh_at:next_helper_at]
         self.assertIn('meta[name="csrf-token"]', body)
         self.assertIn('setAttribute(\'content\'', body)
 
     def test_the_helper_is_defined_before_the_pageshow_listener_uses_it(self):
-        helper_at = self.base.index('function refreshCsrfToken(attempt)')
+        helper_at = self.base.index('function refreshCsrfToken(attempt, source)')
         listener_at = self.base.index("addEventListener('pageshow'")
         self.assertLess(helper_at, listener_at)
 
@@ -146,7 +146,7 @@ class TheCsrfTokenRefreshExistsTests(SimpleTestCase):
             stripped,
         )
         self.assertIsNotNone(match, 'could not find the hasUnsavedInput() branch in the pageshow listener')
-        self.assertIn('refreshCsrfToken()', match.group(1))
+        self.assertIn("refreshCsrfToken(undefined, 'pageshow')", match.group(1))
 
     def test_the_reload_branch_is_unchanged(self):
         """Control: the clean-page path still reloads, same as v3.26.5."""
@@ -230,7 +230,7 @@ class TheCsrfSubmitSafetyNetExistsTests(SimpleTestCase):
         listener_at = stripped.index("addEventListener('submit'")
         tail = stripped[listener_at:]
         prevent_at = tail.index('event.preventDefault()')
-        refresh_at = tail.index('refreshCsrfToken()')
+        refresh_at = tail.index("refreshCsrfToken(undefined, 'submit')")
         self.assertLess(prevent_at, refresh_at)
 
     def test_it_ignores_get_forms(self):
@@ -338,7 +338,7 @@ class TheCsrfRefreshRetriesOnFailureTests(SimpleTestCase):
         self.base = (Path(settings.BASE_DIR) / 'templates' / 'base.html').read_text(encoding='utf-8')
 
     def test_the_helper_takes_an_attempt_parameter(self):
-        self.assertIn('function refreshCsrfToken(attempt)', self.base)
+        self.assertIn('function refreshCsrfToken(attempt, source)', self.base)
 
     def test_it_retries_exactly_once_on_failure(self):
         """
@@ -347,15 +347,15 @@ class TheCsrfRefreshRetriesOnFailureTests(SimpleTestCase):
         submit forever against a genuinely dead network.
         """
         stripped = re.sub(r'/\*.*?\*/', '', self.base, flags=re.DOTALL)
-        refresh_at = stripped.index('function refreshCsrfToken(attempt)')
+        refresh_at = stripped.index('function refreshCsrfToken(attempt, source)')
         next_helper_at = stripped.index('P._refreshCsrfToken')
         body = stripped[refresh_at:next_helper_at]
         self.assertIn('if (!attempt)', body)
-        self.assertIn('refreshCsrfToken(1)', body)
-        # Only one retry recursion — a second `refreshCsrfToken(1)` call
-        # (e.g. the retry branch retrying again on its own failure) would
-        # make this open-ended instead of a single bounded retry.
-        self.assertEqual(body.count('refreshCsrfToken(1)'), 1)
+        self.assertIn('refreshCsrfToken(1, source)', body)
+        # Only one retry recursion — a second `refreshCsrfToken(1, source)`
+        # call (e.g. the retry branch retrying again on its own failure)
+        # would make this open-ended instead of a single bounded retry.
+        self.assertEqual(body.count('refreshCsrfToken(1, source)'), 1)
 
     def test_the_retry_still_resolves_to_null_on_a_second_failure(self):
         """
@@ -365,7 +365,7 @@ class TheCsrfRefreshRetriesOnFailureTests(SimpleTestCase):
         whether to submit at all.
         """
         stripped = re.sub(r'/\*.*?\*/', '', self.base, flags=re.DOTALL)
-        refresh_at = stripped.index('function refreshCsrfToken(attempt)')
+        refresh_at = stripped.index('function refreshCsrfToken(attempt, source)')
         next_helper_at = stripped.index('P._refreshCsrfToken')
         body = stripped[refresh_at:next_helper_at]
         self.assertIn('return null;', body)
@@ -494,3 +494,57 @@ class TheResubmitMarkerTests(SimpleTestCase):
         marker_at = tail.index("marker.value = '1';")
         self.assertLess(toast_at, return_at)
         self.assertLess(return_at, marker_at)
+
+
+class TheRefreshSourceTaggingTests(SimpleTestCase):
+    """
+    v3.29.28 — TEMPORARY. `refreshCsrfToken()` has two independent
+    callers (the `pageshow` handler and the submit-safety-net listener)
+    that both hit the same server endpoint — before this change, a log
+    line from either was indistinguishable from the other, which is
+    exactly the ambiguity the 09-08 repro ran into (a successful refresh
+    165ms before a failure that v3.29.27 proved could not have been that
+    refresh's own resubmit). `source` closes that gap — see
+    csrf_token.py's module docstring. Remove alongside the rest of this
+    temporary logging once the root cause is confirmed and fixed.
+    """
+
+    def setUp(self):
+        self.base = (Path(settings.BASE_DIR) / 'templates' / 'base.html').read_text(encoding='utf-8')
+
+    def test_the_helper_takes_a_source_parameter(self):
+        stripped = re.sub(r'/\*.*?\*/', '', self.base, flags=re.DOTALL)
+        self.assertIn('function refreshCsrfToken(attempt, source)', stripped)
+
+    def test_the_pageshow_caller_tags_itself(self):
+        stripped = re.sub(r'/\*.*?\*/', '', self.base, flags=re.DOTALL)
+        pageshow_at = stripped.index("addEventListener('pageshow'")
+        tail = stripped[pageshow_at:]
+        submit_listener_at = tail.index("addEventListener('submit'")
+        # Restrict the search to the pageshow handler's own body, not the
+        # submit listener that follows it in the file.
+        pageshow_body = tail[:submit_listener_at]
+        self.assertIn("refreshCsrfToken(undefined, 'pageshow')", pageshow_body)
+
+    def test_the_submit_listener_caller_tags_itself(self):
+        stripped = re.sub(r'/\*.*?\*/', '', self.base, flags=re.DOTALL)
+        listener_at = stripped.index("addEventListener('submit'")
+        tail = stripped[listener_at:]
+        self.assertIn("refreshCsrfToken(undefined, 'submit')", tail)
+
+    def test_the_retry_call_still_threads_the_source_through(self):
+        """
+        ⚠️ THE GAP THIS TEST EXISTS FOR. The retry branch
+        (`refreshCsrfToken(1, ...)`, on a failed first attempt) is a
+        SEPARATE call site from either caller above — if it dropped
+        `source` on retry, a refresh that succeeded only on its second
+        attempt would log as `source=-` regardless of which listener
+        started it, silently reintroducing the exact ambiguity this
+        change exists to remove.
+        """
+        stripped = re.sub(r'/\*.*?\*/', '', self.base, flags=re.DOTALL)
+        self.assertIn('refreshCsrfToken(1, source)', stripped)
+
+    def test_the_query_string_is_only_appended_when_a_source_was_given(self):
+        stripped = re.sub(r'/\*.*?\*/', '', self.base, flags=re.DOTALL)
+        self.assertIn("source ? ('?source=' + encodeURIComponent(source)) : ''", stripped)
