@@ -411,25 +411,49 @@
                     form.appendChild(marker);
                 }
                 marker.value = '1';
-                // ⚠️ TEMPORARY DIAGNOSTIC — v3.29.29 (same-day addendum,
-                // see csrf_token.py's module docstring). The 09-08 retest
-                // showed a `source=submit` refresh succeed, then NOTHING
-                // else at all in an 11-minute log window — no matching
-                // success, no second failure, no trace of this resubmit's
-                // own outcome whatsoever. `form.submit()` immediately
-                // starts navigating the page for the new request, which
-                // can abort an in-flight plain `fetch()` before it's
-                // actually sent — `keepalive: true` is built specifically
-                // to survive that. If this fires (source=about_to_submit)
-                // and NOTHING follows it server-side, that's proof the
-                // code reached this line but the browser never actually
-                // delivered the resulting request — a client-side/WebKit
-                // failure, not anything server-side logging can fix.
-                fetch('{% url "csrf_token_refresh" %}?source=about_to_submit', {
+                // ⚠️ v3.29.30 — THE ACTUAL FIX, found via the v3.29.27–29
+                // diagnostic chain. That chain proved this resubmit reaches
+                // this exact point with a real token and this marker both
+                // set on the form — and the request that then reached the
+                // server carried the RIGHT multipart Content-Type header (a
+                // fresh WebKit boundary, proving it WAS this resubmit) but
+                // a completely EMPTY body: content_length=0,
+                // post_field_count=0, has_file=False (see csrf_failure.py's
+                // matching log fields). Calling `form.submit()` a SECOND
+                // time on a form whose native submission was already
+                // prevented once appears to silently drop the body in
+                // Safari — most visible on a form holding a
+                // `<input type="file">`. Native `form.submit()` gives zero
+                // visibility into this: no error, no event, nothing to
+                // catch — which is exactly why four rounds of logging
+                // couldn't explain it from the server side alone.
+                //
+                // Fix: stop asking the browser to silently re-serialize the
+                // form natively a second time. Build the request ourselves
+                // — `new FormData(form)` reads every current field
+                // (including the file input's current File) at the moment
+                // we're actually about to send, and `fetch()` returns a
+                // real response we can act on instead of a silent native
+                // failure with no signal at all.
+                var formData = new FormData(form);
+                fetch(form.action, {
+                    method: 'POST',
+                    body: formData,
                     credentials: 'same-origin',
-                    keepalive: true,
+                }).then(function(response) {
+                    if (response.ok) {
+                        // Mirror what a native form POST would have done —
+                        // a real navigation, not a DOM swap, so this app's
+                        // normal redirect-after-POST pattern (and any
+                        // session-based flash message it sets) renders
+                        // exactly as it would have from a native submit.
+                        window.location.href = response.url;
+                        return;
+                    }
+                    P.toast('Your submission could not be completed — please try again.', 'error');
+                }).catch(function() {
+                    P.toast('Your submission could not be sent — please check your connection and try again.', 'error');
                 });
-                form.submit();
             });
         }, true);
     })(window.Parliament);

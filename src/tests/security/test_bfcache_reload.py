@@ -207,16 +207,31 @@ class TheCsrfSubmitSafetyNetExistsTests(SimpleTestCase):
         prevent_at = tail.index('event.preventDefault()')
         self.assertLess(prevent_at, 2000, 'preventDefault() moved unexpectedly far from the submit listener')
 
-    def test_it_resubmits_via_the_form_element_not_requestsubmit(self):
+    def test_it_resubmits_via_fetch_not_a_native_form_method(self):
         """
-        `form.submit()` does not re-fire the `submit` event per spec —
-        `form.requestSubmit()` would, and this listener is registered on
-        the document with no way to distinguish "the original attempt" from
-        "the resubmit," so using `requestSubmit()` here would infinite-loop
-        the moment the refresh failed and the field was still empty.
+        ⚠️ REVISED — v3.29.30. The resubmit used to call `form.submit()`
+        specifically because it does NOT re-fire the `submit` event per
+        spec (`form.requestSubmit()` would, and this listener has no way
+        to distinguish "the original attempt" from "the resubmit," so that
+        would infinite-loop). v3.29.30 replaced `form.submit()` itself —
+        proven (see csrf_failure.py's `content_length`/`post_field_count`/
+        `has_file` fields) to silently send an EMPTY body when called a
+        second time on a form whose native submission was already
+        prevented once, most visible on a file-input form — with a
+        `fetch()` request built from `new FormData(form)`. `fetch()`
+        doesn't dispatch a `submit` event at all, so the original
+        loop-prevention concern doesn't even apply to it; neither native
+        method should appear in the resubmit's own body.
         """
-        self.assertIn('form.submit();', self.base)
-        self.assertNotIn('form.requestSubmit()', self.base)
+        stripped = re.sub(r'/\*.*?\*/', '', self.base, flags=re.DOTALL)
+        listener_at = stripped.index("addEventListener('submit'")
+        tail = stripped[listener_at:]
+        marker_at = tail.index("marker.value = '1';")
+        end_at = tail.index("}, true);", marker_at)
+        resubmit_body = tail[marker_at:end_at]
+        self.assertNotIn('form.submit();', resubmit_body)
+        self.assertNotIn('form.requestSubmit()', resubmit_body)
+        self.assertIn('new FormData(form)', resubmit_body)
 
     def test_the_prevent_default_happens_before_the_refresh(self):
         """
@@ -387,7 +402,8 @@ class TheCsrfRefreshRetriesOnFailureTests(SimpleTestCase):
 
     def test_the_still_empty_case_does_not_submit(self):
         """
-        The bail-out branch must `return` before reaching `form.submit()`
+        The bail-out branch must `return` before reaching the resubmit
+        (v3.29.30: `new FormData(form)` + `fetch()`, was `form.submit()`)
         — otherwise this is dead code that changes nothing.
         """
         stripped = re.sub(r'/\*.*?\*/', '', self.base, flags=re.DOTALL)
@@ -398,7 +414,7 @@ class TheCsrfRefreshRetriesOnFailureTests(SimpleTestCase):
         close_at = tail.index('}', brace_at)
         branch_body = tail[brace_at:close_at]
         self.assertIn('return;', branch_body)
-        self.assertNotIn('form.submit();', branch_body)
+        self.assertNotIn('new FormData(form)', branch_body)
 
     def test_the_still_empty_case_tells_the_user(self):
         """
@@ -418,19 +434,21 @@ class TheCsrfRefreshRetriesOnFailureTests(SimpleTestCase):
     def test_a_successful_refresh_still_submits(self):
         """
         Control: the success path (`if (token) { ... }`) must still reach
-        `form.submit()` — this fix must not turn a working refresh into a
+        the resubmit (v3.29.30: `new FormData(form)` + `fetch()`, was
+        `form.submit()`) — this fix must not turn a working refresh into a
         blocked submit.
         """
         stripped = re.sub(r'/\*.*?\*/', '', self.base, flags=re.DOTALL)
         listener_at = stripped.index("addEventListener('submit'")
         tail = stripped[listener_at:]
         token_branch_at = tail.index('if (token) {')
-        submit_at = tail.index('form.submit();', token_branch_at)
-        # form.submit() must be reachable from the success branch without
+        formdata_at = tail.index('new FormData(form)', token_branch_at)
+        # The resubmit must be reachable from the success branch without
         # an intervening return — i.e. it's the fall-through, not inside
         # a block that returns early.
         else_at = tail.index('else if (!tokenField.value)', token_branch_at)
         self.assertLess(token_branch_at, else_at)
+        self.assertLess(else_at, formdata_at)
 
 
 class TheResubmitMarkerTests(SimpleTestCase):
@@ -454,12 +472,20 @@ class TheResubmitMarkerTests(SimpleTestCase):
         self.assertIn("marker.name = 'csrf_diag_resubmit'", self.base)
 
     def test_the_marker_is_stamped_before_the_actual_submit(self):
+        """
+        ⚠️ v3.29.30 — the resubmit mechanism changed (`new FormData(form)`
+        + `fetch()`, was `form.submit()`), but the ordering requirement is
+        unchanged and if anything more literal now: `new FormData(form)`
+        reads the form's CURRENT field values at the moment it's
+        constructed, so the marker must be stamped onto the DOM before
+        that call or it simply won't be in the body at all.
+        """
         stripped = re.sub(r'/\*.*?\*/', '', self.base, flags=re.DOTALL)
         listener_at = stripped.index("addEventListener('submit'")
         tail = stripped[listener_at:]
         marker_at = tail.index("marker.value = '1';")
-        submit_at = tail.index('form.submit();', marker_at)
-        self.assertLess(marker_at, submit_at)
+        formdata_at = tail.index('new FormData(form)', marker_at)
+        self.assertLess(marker_at, formdata_at)
 
     def test_the_marker_is_stamped_on_both_the_success_and_missing_token_paths(self):
         """
@@ -586,41 +612,118 @@ class TheDuplicateSubmitDetectionTests(SimpleTestCase):
         self.assertIn("credentials: 'same-origin'", tail)
 
 
-class ThePreSubmitBeaconTests(SimpleTestCase):
+class TheFetchBasedResubmitTests(SimpleTestCase):
     """
-    v3.29.29 — TEMPORARY, second same-day addendum. An 11-minute log
-    window around a `source=submit` failure showed nothing else at all —
-    no success, no second failure — for a resubmit the code guarantees
-    carries a real token if it ever reaches `form.submit()`. This fires
-    right before that call, using `keepalive: true` specifically because
-    a plain `fetch()` can be aborted by the navigation `form.submit()`
-    itself triggers. Remove alongside the rest of this temporary logging
-    once the root cause is confirmed and fixed.
+    v3.29.30 — THE ACTUAL FIX. Supersedes `ThePreSubmitBeaconTests`
+    (v3.29.29, deleted here along with the `about_to_submit` beacon it
+    tested) — that beacon existed to answer "does the code reach the
+    point right before `form.submit()`", and it proved the answer was
+    yes: a real token set, the resubmit marker stamped, and the request
+    that then reached the server carried the right multipart
+    Content-Type (a fresh WebKit boundary) but a completely EMPTY body
+    (see csrf_failure.py's `content_length`/`post_field_count`/
+    `has_file` fields — all zero/False on that failure). Calling
+    `form.submit()` a second time on a form whose native submission was
+    already prevented once appears to silently drop the body in Safari,
+    most visible on a form holding a file input. `form.submit()` gives
+    no error, no event, nothing to catch when this happens — which is
+    why four rounds of server-side logging could narrow it down but
+    never directly observe it.
+
+    The fix replaces the native resubmit with one built explicitly:
+    `new FormData(form)` reads every current field (including the file
+    input's current File) at the moment of sending, and `fetch()`
+    returns a real response instead of a silent native failure.
     """
 
     def setUp(self):
         self.base = (Path(settings.BASE_DIR) / 'templates' / 'base.html').read_text(encoding='utf-8')
 
-    # The literal query string also appears inside this class's own
-    # explanatory `//` comment above the real call (regex only strips
-    # `/* */` block comments) — anchor on the actual invocation
-    # (`%}?source=...'`, with the closing quote from the fetch() call)
-    # rather than the bare substring, so these tests check the code and
-    # not the comment describing it.
-    _CALL_ANCHOR = '%}?source=about_to_submit'
-
-    def test_it_fires_immediately_before_form_submit(self):
+    def test_formdata_is_built_from_the_form_after_the_marker_is_set(self):
         stripped = re.sub(r'/\*.*?\*/', '', self.base, flags=re.DOTALL)
         listener_at = stripped.index("addEventListener('submit'")
         tail = stripped[listener_at:]
         marker_at = tail.index("marker.value = '1';")
-        beacon_at = tail.index(self._CALL_ANCHOR, marker_at)
-        submit_at = tail.index('form.submit();', beacon_at)
-        self.assertLess(marker_at, beacon_at)
-        self.assertLess(beacon_at, submit_at)
+        formdata_at = tail.index('var formData = new FormData(form);', marker_at)
+        self.assertLess(marker_at, formdata_at)
 
-    def test_it_uses_keepalive_so_the_navigation_cannot_cut_it_off(self):
+    def test_it_posts_to_the_forms_own_action_with_credentials(self):
         stripped = re.sub(r'/\*.*?\*/', '', self.base, flags=re.DOTALL)
-        beacon_at = stripped.index(self._CALL_ANCHOR)
-        tail = stripped[beacon_at:beacon_at + 200]
-        self.assertIn('keepalive: true', tail)
+        listener_at = stripped.index("addEventListener('submit'")
+        tail = stripped[listener_at:]
+        formdata_at = tail.index('var formData = new FormData(form);')
+        fetch_at = tail.index('fetch(form.action', formdata_at)
+        fetch_block_end = tail.index(');', fetch_at)
+        fetch_call = tail[fetch_at:fetch_block_end]
+        self.assertIn("method: 'POST'", fetch_call)
+        self.assertIn('body: formData', fetch_call)
+        self.assertIn("credentials: 'same-origin'", fetch_call)
+
+    def test_it_does_not_set_content_type_manually(self):
+        """
+        ⚠️ WOULD SILENTLY BREAK MULTIPART UPLOADS IF ADDED. The browser
+        must generate the Content-Type header itself for a `FormData`
+        body — it includes a fresh, unique boundary string the browser
+        also uses to delimit the body it writes. Setting Content-Type by
+        hand here would supply a header with no matching boundary in the
+        actual body, and the server would fail to parse the multipart
+        data at all.
+        """
+        stripped = re.sub(r'/\*.*?\*/', '', self.base, flags=re.DOTALL)
+        formdata_at = stripped.index('var formData = new FormData(form);')
+        fetch_at = stripped.index('fetch(form.action', formdata_at)
+        fetch_block_end = stripped.index(');', fetch_at)
+        fetch_call = stripped[fetch_at:fetch_block_end]
+        self.assertNotIn("'Content-Type'", fetch_call)
+        self.assertNotIn('"Content-Type"', fetch_call)
+
+    def test_a_successful_response_navigates_the_browser_there(self):
+        """
+        Mirrors what a native form POST would have done — a real
+        navigation (not a DOM swap), so this app's normal
+        redirect-after-POST pattern, and any session-based flash message
+        it sets, renders exactly as it would have from a native submit.
+        """
+        stripped = re.sub(r'/\*.*?\*/', '', self.base, flags=re.DOTALL)
+        formdata_at = stripped.index('var formData = new FormData(form);')
+        tail = stripped[formdata_at:]
+        ok_at = tail.index('response.ok')
+        nav_at = tail.index('window.location.href = response.url;', ok_at)
+        self.assertLess(ok_at, nav_at)
+
+    def test_a_failed_response_shows_a_toast_and_does_not_navigate(self):
+        stripped = re.sub(r'/\*.*?\*/', '', self.base, flags=re.DOTALL)
+        formdata_at = stripped.index('var formData = new FormData(form);')
+        tail = stripped[formdata_at:]
+        then_at = tail.index('.then(function(response)')
+        catch_at = tail.index('.catch(function()', then_at)
+        then_block = tail[then_at:catch_at]
+        self.assertIn('P.toast(', then_block)
+
+    def test_a_network_error_also_shows_a_toast(self):
+        """
+        `fetch()` rejects (rather than resolving with a non-ok response)
+        on a genuine network failure — must be caught, not left to
+        surface as an unhandled promise rejection with no user feedback
+        at all.
+        """
+        stripped = re.sub(r'/\*.*?\*/', '', self.base, flags=re.DOTALL)
+        formdata_at = stripped.index('var formData = new FormData(form);')
+        tail = stripped[formdata_at:]
+        catch_at = tail.index('.catch(function()')
+        catch_end = tail.index('});', catch_at)
+        catch_block = tail[catch_at:catch_end]
+        self.assertIn('P.toast(', catch_block)
+
+    def test_neither_the_old_beacon_nor_native_submit_remain(self):
+        """
+        Control — the mechanisms this fix replaces must actually be gone,
+        not left dangling alongside the new one.
+        """
+        stripped = re.sub(r'/\*.*?\*/', '', self.base, flags=re.DOTALL)
+        listener_at = stripped.index("addEventListener('submit'")
+        tail = stripped[listener_at:]
+        end_at = tail.index("}, true);")
+        resubmit_body = tail[:end_at]
+        self.assertNotIn('source=about_to_submit', resubmit_body)
+        self.assertNotIn('form.submit();', resubmit_body)
