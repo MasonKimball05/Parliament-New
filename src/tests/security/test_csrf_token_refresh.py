@@ -95,3 +95,85 @@ class CsrfTokenRefreshViewTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 403)
+
+
+class CsrfTokenRefreshDiagnosticLoggingTests(TestCase):
+    """
+    v3.29.26 — TEMPORARY. Added to answer one question live, without
+    needing Safari's remote inspector: does the client-side
+    `refreshCsrfToken()` (base.html) ever actually reach this endpoint on
+    the still-failing mobile page, or does the JS never get that far? This
+    endpoint is the only place that function talks to the server, so a
+    hit here is proof the safety net ran — logged to the `security`
+    logger (same file `csrf_failure.py` already writes the 403 itself
+    into), not `ActivityLog` (this is debugging noise, not an audit-trail
+    event). Remove this whole class along with the logging it tests once
+    the root cause is confirmed and fixed — see the module docstring.
+    """
+    PASSWORD = 'csrf-refresh-diag-test-pass-12345!'
+
+    def setUp(self):
+        self.user = ParliamentUser.objects.create_user(
+            user_id='MEL-CSRFDIAG', password=self.PASSWORD, name='CSRF Diag Tester',
+            username='mel_csrfdiag', member_type='Member', is_admin=False,
+        )
+
+    def test_a_hit_is_logged(self):
+        self.client.force_login(self.user)
+        with self.assertLogs('security', level='INFO') as logs:
+            self.client.get(reverse('csrf_token_refresh'))
+        self.assertTrue(
+            any('CSRF token refresh called' in record for record in logs.output),
+            'the diagnostic log line did not fire on a real hit to this endpoint',
+        )
+
+    def test_it_does_not_log_the_token_value(self):
+        """
+        Same reasoning as `csrf_failure.py`'s own comment: a security log
+        is itself an asset — logging the secret it's trying to protect
+        defeats the point.
+        """
+        self.client.force_login(self.user)
+        with self.assertLogs('security', level='INFO') as logs:
+            response = self.client.get(reverse('csrf_token_refresh'))
+        token = response.json()['csrfToken']
+        combined = '\n'.join(logs.output)
+        self.assertNotIn(token, combined)
+
+    def test_it_identifies_an_authenticated_user(self):
+        self.client.force_login(self.user)
+        with self.assertLogs('security', level='INFO') as logs:
+            self.client.get(reverse('csrf_token_refresh'))
+        combined = '\n'.join(logs.output)
+        self.assertIn('MEL-CSRFDIAG', combined)
+        self.assertIn('mel_csrfdiag', combined)
+
+    def test_it_labels_an_anonymous_hit(self):
+        with self.assertLogs('security', level='INFO') as logs:
+            self.client.get(reverse('csrf_token_refresh'))
+        combined = '\n'.join(logs.output)
+        self.assertIn('anonymous', combined)
+
+    def test_it_records_whether_a_token_came_back(self):
+        self.client.force_login(self.user)
+        with self.assertLogs('security', level='INFO') as logs:
+            self.client.get(reverse('csrf_token_refresh'))
+        combined = '\n'.join(logs.output)
+        self.assertIn('returned_a_token=True', combined)
+
+    def test_it_records_whether_the_csrf_cookie_already_existed(self):
+        """
+        The key diagnostic field for the live question this exists to
+        answer: a mobile session with `has_csrf_cookie=True` on the FAILED
+        request (per the production log) but `had_csrf_cookie_before=False`
+        here would mean this endpoint minted a brand new cookie — i.e. the
+        one the failing POST carried wasn't the one this refresh call, if
+        any, actually produced.
+        """
+        self.client.force_login(self.user)
+        # First hit establishes the cookie on this client.
+        self.client.get(reverse('csrf_token_refresh'))
+        with self.assertLogs('security', level='INFO') as logs:
+            self.client.get(reverse('csrf_token_refresh'))
+        combined = '\n'.join(logs.output)
+        self.assertIn('had_csrf_cookie_before=True', combined)

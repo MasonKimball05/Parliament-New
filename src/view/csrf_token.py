@@ -22,11 +22,35 @@ Reproduced live 09-01-26 on `/committee/<code>/upload-document/` — see
 This endpoint lets `base.html` refresh just the token, in place, without
 navigating away — so typed input and any selected file survive, and the
 token is current either way.
+
+⚠️ TEMPORARY DIAGNOSTIC LOGGING — v3.29.26, 09-08-26. v3.29.25 shipped,
+deployed, and the identical failure (`posted_token_present=False`)
+recurred on a live mobile retest with no visible toast and "almost no
+time at all" before the 403 — a pattern consistent with the client-side
+safety net (`refreshCsrfToken()` in base.html) never actually reaching
+this endpoint at all, but that can't be confirmed from the server side
+alone. This endpoint is the ONLY place that JS function ever talks to the
+server, so a hit here IS proof the safety net ran; silence around a
+failure's timestamp is proof it didn't. Logs to the `security` logger
+(same file/format as `csrf_failure.py`, which the mobile 403 itself
+already logs to) rather than `ActivityLog` — this is throwaway debugging
+signal, not an audit-trail event, and doesn't belong in the formal
+activity log members can be shown. Remove this logging once the root
+cause is confirmed and fixed.
 """
+import logging
+
+from django.conf import settings
 from django.http import JsonResponse
 from django.middleware.csrf import get_token
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET
+
+from src.utils.security_utils import get_client_ip
+
+logger = logging.getLogger('security')
+
+_MAX_UA_LENGTH = 200
 
 
 @ensure_csrf_cookie
@@ -43,7 +67,32 @@ def csrf_token_refresh(request):
     normal page render doesn't already put in `{% csrf_token %}`/the
     `<meta name="csrf-token">` tag.
     """
-    response = JsonResponse({'csrfToken': get_token(request)})
+    csrf_cookie_name = getattr(settings, 'CSRF_COOKIE_NAME', 'csrftoken')
+    had_csrf_cookie_before = csrf_cookie_name in request.COOKIES
+
+    token = get_token(request)
+
+    user = getattr(request, 'user', None)
+    if user is not None and getattr(user, 'is_authenticated', False):
+        user_desc = f'{getattr(user, "user_id", "?")} ({getattr(user, "username", "?")})'
+    else:
+        user_desc = 'anonymous'
+
+    # TEMPORARY — see module docstring. `bool(token)` not the token value
+    # itself, same reasoning as csrf_failure.py: a security log is an
+    # asset, don't put secrets in it just to answer "did this work."
+    logger.info(
+        'CSRF token refresh called | referer=%s | had_csrf_cookie_before=%s | '
+        'returned_a_token=%s | ip=%s | user=%s | ua=%s',
+        request.META.get('HTTP_REFERER', '-'),
+        had_csrf_cookie_before,
+        bool(token),
+        get_client_ip(request) or 'unknown',
+        user_desc,
+        request.META.get('HTTP_USER_AGENT', '')[:_MAX_UA_LENGTH],
+    )
+
+    response = JsonResponse({'csrfToken': token})
     # Never cache a token response — nothing downstream should treat this
     # as reusable beyond the one refresh that asked for it.
     response['Cache-Control'] = 'no-store'
