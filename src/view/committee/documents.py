@@ -3,7 +3,9 @@ from django.http import HttpResponseForbidden
 from src.models import Committee, CommitteePermissions, CommitteeDocument, ChapterMinutes
 from django.contrib.auth.decorators import login_required
 from src.feature_flag_decorators import require_page_enabled, check_feature_enabled
-from src.view.committee.committee_minutes_editor import can_edit_committee_minutes
+from src.view.committee.committee_minutes_editor import (
+    can_edit_committee_minutes, can_edit_specific_minutes, is_committee_member_or_above,
+)
 
 @login_required
 @require_page_enabled('committee_documents')
@@ -42,6 +44,25 @@ def committee_documents(request, code):  # Changed from id to code
     can_delete = is_vp or is_chair
     can_edit_minutes = can_edit_committee_minutes(user, committee)
 
+    # Unpublished minutes (draft/finalized, not yet turned into a
+    # CommitteeDocument via publish_committee_minutes) aren't in
+    # `documents` at all — they're a separate model until published. Show
+    # them here too, so members don't have to know to check the separate
+    # Minutes tab to find a session that hasn't been published yet. Same
+    # permission gate as `committee_minutes_list` itself (member/chair/
+    # officer/admin) — anyone who could see them on that page can see them
+    # here.
+    can_view_minutes = is_committee_member_or_above(user, committee)
+    unpublished_minutes = []
+    if can_view_minutes:
+        unpublished_minutes = list(
+            ChapterMinutes.objects.filter(committee=committee)
+            .exclude(status='published')
+            .select_related('created_by')
+        )
+        for m in unpublished_minutes:
+            m.can_user_edit = can_edit_specific_minutes(user, committee, m)
+
     # Version history is a real query per document (`document.versions`
     # ordered by -version_number per DocumentVersion.Meta), so it's only run
     # when the feature is actually on — a chapter that never enables
@@ -60,4 +81,5 @@ def committee_documents(request, code):  # Changed from id to code
         "is_chair": is_chair,
         "can_edit_minutes": can_edit_minutes,
         "versioning_enabled": versioning_enabled,
+        "unpublished_minutes": unpublished_minutes,
     })

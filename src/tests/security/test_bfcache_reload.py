@@ -192,8 +192,11 @@ class TheCsrfSubmitSafetyNetExistsTests(SimpleTestCase):
         listener_at = stripped.index("addEventListener('submit'")
         tail = stripped[listener_at:]
         # The early-return must require BOTH a present field AND a value —
-        # `!tokenField` alone must not be enough to skip.
-        self.assertIn('if (tokenField && tokenField.value) return;', tail)
+        # `!tokenField` alone must not be enough to skip. (v3.29.24 added a
+        # third condition, `!hasFileInput`, ahead of these two — see the
+        # class below — so this checks the tail end of the guard rather
+        # than the exact full expression.)
+        self.assertIn('tokenField && tokenField.value) return;', tail)
 
     def test_it_prevents_the_original_submit(self):
         stripped = re.sub(r'/\*.*?\*/', '', self.base, flags=re.DOTALL)
@@ -255,3 +258,60 @@ class TheCsrfSubmitSafetyNetExistsTests(SimpleTestCase):
         # GET form must never reach the create-or-refresh logic.
         self.assertLess(html_check_at, method_check_at)
         self.assertLess(method_check_at, token_field_at)
+
+
+class TheFileInputSafetyNetAlwaysRefreshesTests(SimpleTestCase):
+    """
+    v3.29.24 — reported live, still failing a full week after v3.28.4
+    shipped and was deployed. Every check the safety net had only ever
+    asked "is the token field EMPTY" — right for the 09-01 reproduction
+    (`posted_token_present=False`), but a file-picker form has a second
+    failure shape that was never covered: the native OS picker sheet can
+    leave the tab backgrounded long enough for the `csrftoken` cookie to
+    move on without the page's embedded value. Django reports that as
+    "CSRF token incorrect" — a present, non-empty field — and the old
+    guard's `if (tokenField && tokenField.value) return;` let it straight
+    through untouched. Forms with a file input now refresh unconditionally
+    rather than trusting a non-empty value.
+    """
+
+    def setUp(self):
+        self.base = (Path(settings.BASE_DIR) / 'templates' / 'base.html').read_text(encoding='utf-8')
+
+    def test_it_detects_a_file_input(self):
+        self.assertIn('form.querySelector(\'input[type="file"]\')', self.base)
+
+    def test_the_empty_only_early_return_is_gated_on_not_having_a_file_input(self):
+        """
+        ⚠️ THE ASSERTION THIS FIX MUST SATISFY. A form WITHOUT a file input
+        keeps the cheap empty-only check (the previous behavior, unchanged
+        for the ~everything-else population). A form WITH one must not be
+        able to take this early return just because the field happens to
+        hold some value.
+        """
+        stripped = re.sub(r'/\*.*?\*/', '', self.base, flags=re.DOTALL)
+        listener_at = stripped.index("addEventListener('submit'")
+        tail = stripped[listener_at:]
+        self.assertIn('if (!hasFileInput && tokenField && tokenField.value) return;', tail)
+
+    def test_has_file_input_is_computed_before_the_early_return_uses_it(self):
+        stripped = re.sub(r'/\*.*?\*/', '', self.base, flags=re.DOTALL)
+        listener_at = stripped.index("addEventListener('submit'")
+        tail = stripped[listener_at:]
+        computed_at = tail.index('var hasFileInput')
+        used_at = tail.index('if (!hasFileInput && tokenField && tokenField.value) return;')
+        self.assertLess(computed_at, used_at)
+
+    def test_other_forms_are_unaffected_by_the_file_input_check(self):
+        """
+        Control: a plain form with no file input and a genuinely valid
+        (present, non-empty) token must still take the early return and
+        never reach `event.preventDefault()` for that reason — this fix is
+        additive, not a blanket "always refresh" for the whole site.
+        """
+        stripped = re.sub(r'/\*.*?\*/', '', self.base, flags=re.DOTALL)
+        listener_at = stripped.index("addEventListener('submit'")
+        tail = stripped[listener_at:]
+        early_return_at = tail.index('if (!hasFileInput && tokenField && tokenField.value) return;')
+        prevent_at = tail.index('event.preventDefault()')
+        self.assertLess(early_return_at, prevent_at)

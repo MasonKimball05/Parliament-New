@@ -250,6 +250,23 @@
          * quirk after the native file-picker sheet), checking the field's
          * actual value right before submission and fixing it then is the
          * one guard that's correct regardless of which of those it is.
+         *
+         * v3.29.24 — that safety net's own check ("is the field EMPTY")
+         * turned out not to be the whole story either. Reported live still
+         * failing a full week after the above shipped and was deployed —
+         * same page, same mobile member population. The field wasn't
+         * empty this time; it held a value that no longer matched the
+         * `csrftoken` cookie, which Django reports as "CSRF token
+         * incorrect" rather than "missing" — a value the empty-check
+         * treats as fine. The native file-picker sheet is what makes this
+         * plausible here specifically: it can leave the tab backgrounded
+         * for an unpredictable stretch (browsing Photos, searching Files),
+         * long enough for the cookie behind the page's embedded token to
+         * have moved on. So: a form with a file input now refreshes
+         * unconditionally before submit rather than trusting a non-empty
+         * value; every other form keeps the cheaper empty-only check,
+         * since nothing else on this site plausibly backgrounds the tab
+         * this way.
          */
         function refreshCsrfToken() {
             return fetch('{% url "csrf_token_refresh" %}', { credentials: 'same-origin' })
@@ -312,7 +329,13 @@
             // clearing its value, and nothing here can tell those apart from
             // the DOM alone. So: create the field if it's missing, same as
             // refreshing it if it's empty.
-            if (tokenField && tokenField.value) return; // token present — nothing to do
+            //
+            // ⚠️ A PRESENT VALUE IS ALSO NOT "NOTHING TO DO" — v3.29.24, see
+            // the doc comment above the token-refresh helper's definition
+            // for why a file-input form can't trust a non-empty field the
+            // way every other form can.
+            var hasFileInput = !!form.querySelector('input[type="file"]');
+            if (!hasFileInput && tokenField && tokenField.value) return; // token present, and nothing about this form casts doubt on it
             event.preventDefault();
             refreshCsrfToken().then(function(token) {
                 if (!tokenField) {
