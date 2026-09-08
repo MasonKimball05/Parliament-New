@@ -56,6 +56,41 @@ failing POST is confirmed unrelated to anything this JS does — a raw,
 un-intercepted native submission — a different bug class than every
 theory tested so far. Remove alongside the rest of this temporary
 logging once the root cause is confirmed and fixed.
+
+⚠️ EXTENDED AGAIN — v3.29.29, 09-08-26. The 09-08 retest came back
+`source=submit` — a genuine submit event WAS intercepted and ITS OWN
+refresh succeeded — yet the failure it preceded still read
+`is_js_resubmit=False`. Given v3.29.28's proof that this listener's own
+resubmit can't reach `form.submit()` empty, that combination can only
+mean a SECOND, separate submission produced the actual failure — one
+this endpoint has no visibility into, because it never asked for a
+token refresh at all. `base.html`'s pre-existing double-submit
+protection script silently blocks a genuine second `submit` DOM event on
+a form already marked as submitted; it now also fires a bare GET here
+with `?source=duplicate_blocked` (no token use, purely to produce a log
+line) the moment that happens, so a hit here around a failure's
+timestamp is direct evidence a second submission was attempted — instead
+of inferring it from silence, same reasoning as every prior round.
+Remove alongside the rest of this temporary logging once the root cause
+is confirmed and fixed.
+
+⚠️ EXTENDED AGAIN — v3.29.29, same day, second addendum. Mason pasted an
+11-minute log window around the `source=submit` failure above (not just
+the 3 lines immediately around it) — it contains exactly one refresh and
+one failure and nothing else related to this upload attempt at all. No
+second failure line, no success, no trace whatsoever of what the marked
+resubmit (which the code guarantees carries a real token if it ever
+reaches `form.submit()`) actually did. `base.html`'s submit listener now
+also fires `?source=about_to_submit` — via `fetch(..., {keepalive:
+true})`, specifically because a plain `fetch()` can be aborted by the
+page navigation `form.submit()` itself immediately triggers — right
+before that `form.submit()` call. A hit here with nothing following it
+server-side (no success, no `is_js_resubmit=True` failure) would prove
+the code reaches the submit call but the browser never actually delivers
+the resulting request — a client-side/WebKit-level failure specific to
+resubmitting a multipart file form, outside anything server-side logging
+can diagnose further. Remove alongside the rest of this temporary
+logging once the root cause is confirmed and fixed.
 """
 import logging
 

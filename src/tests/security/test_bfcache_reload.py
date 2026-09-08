@@ -548,3 +548,79 @@ class TheRefreshSourceTaggingTests(SimpleTestCase):
     def test_the_query_string_is_only_appended_when_a_source_was_given(self):
         stripped = re.sub(r'/\*.*?\*/', '', self.base, flags=re.DOTALL)
         self.assertIn("source ? ('?source=' + encodeURIComponent(source)) : ''", stripped)
+
+
+class TheDuplicateSubmitDetectionTests(SimpleTestCase):
+    """
+    v3.29.29 — TEMPORARY. The 09-08 repro showed a `source=submit` refresh
+    succeed immediately before a failure that still read
+    `is_js_resubmit=False` — impossible for THAT click's own resubmit,
+    per v3.29.28's proof, which means some second, separate submission is
+    what actually failed. base.html's double-submit-protection script
+    (the "Global Form Submit Protection" block) silently blocks a genuine
+    second `submit` DOM event on an already-submitted form; this makes
+    that branch fire a diagnostic hit instead of staying silent. Remove
+    alongside the rest of this temporary logging once the root cause is
+    confirmed and fixed.
+    """
+
+    def setUp(self):
+        self.base = (Path(settings.BASE_DIR) / 'templates' / 'base.html').read_text(encoding='utf-8')
+
+    def test_the_duplicate_branch_fires_a_diagnostic_hit(self):
+        stripped = re.sub(r'/\*.*?\*/', '', self.base, flags=re.DOTALL)
+        dup_at = stripped.index('submittedForms.has(form)')
+        # Only the FIRST occurrence — the double-submit-protection check,
+        # not TheResubmitMarkerTests' unrelated form-state checks.
+        tail = stripped[dup_at:]
+        prevent_at = tail.index('e.preventDefault()')
+        fetch_at = tail.index("source=duplicate_blocked")
+        self.assertLess(fetch_at, prevent_at)
+
+    def test_the_diagnostic_hit_reuses_the_refresh_endpoint(self):
+        stripped = re.sub(r'/\*.*?\*/', '', self.base, flags=re.DOTALL)
+        dup_at = stripped.index('submittedForms.has(form)')
+        prevent_at = stripped.index('e.preventDefault()', dup_at)
+        tail = stripped[dup_at:prevent_at]
+        self.assertIn('{% url "csrf_token_refresh" %}?source=duplicate_blocked', tail)
+        self.assertIn("credentials: 'same-origin'", tail)
+
+
+class ThePreSubmitBeaconTests(SimpleTestCase):
+    """
+    v3.29.29 — TEMPORARY, second same-day addendum. An 11-minute log
+    window around a `source=submit` failure showed nothing else at all —
+    no success, no second failure — for a resubmit the code guarantees
+    carries a real token if it ever reaches `form.submit()`. This fires
+    right before that call, using `keepalive: true` specifically because
+    a plain `fetch()` can be aborted by the navigation `form.submit()`
+    itself triggers. Remove alongside the rest of this temporary logging
+    once the root cause is confirmed and fixed.
+    """
+
+    def setUp(self):
+        self.base = (Path(settings.BASE_DIR) / 'templates' / 'base.html').read_text(encoding='utf-8')
+
+    # The literal query string also appears inside this class's own
+    # explanatory `//` comment above the real call (regex only strips
+    # `/* */` block comments) — anchor on the actual invocation
+    # (`%}?source=...'`, with the closing quote from the fetch() call)
+    # rather than the bare substring, so these tests check the code and
+    # not the comment describing it.
+    _CALL_ANCHOR = '%}?source=about_to_submit'
+
+    def test_it_fires_immediately_before_form_submit(self):
+        stripped = re.sub(r'/\*.*?\*/', '', self.base, flags=re.DOTALL)
+        listener_at = stripped.index("addEventListener('submit'")
+        tail = stripped[listener_at:]
+        marker_at = tail.index("marker.value = '1';")
+        beacon_at = tail.index(self._CALL_ANCHOR, marker_at)
+        submit_at = tail.index('form.submit();', beacon_at)
+        self.assertLess(marker_at, beacon_at)
+        self.assertLess(beacon_at, submit_at)
+
+    def test_it_uses_keepalive_so_the_navigation_cannot_cut_it_off(self):
+        stripped = re.sub(r'/\*.*?\*/', '', self.base, flags=re.DOTALL)
+        beacon_at = stripped.index(self._CALL_ANCHOR)
+        tail = stripped[beacon_at:beacon_at + 200]
+        self.assertIn('keepalive: true', tail)

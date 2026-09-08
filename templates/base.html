@@ -411,6 +411,24 @@
                     form.appendChild(marker);
                 }
                 marker.value = '1';
+                // ⚠️ TEMPORARY DIAGNOSTIC — v3.29.29 (same-day addendum,
+                // see csrf_token.py's module docstring). The 09-08 retest
+                // showed a `source=submit` refresh succeed, then NOTHING
+                // else at all in an 11-minute log window — no matching
+                // success, no second failure, no trace of this resubmit's
+                // own outcome whatsoever. `form.submit()` immediately
+                // starts navigating the page for the new request, which
+                // can abort an in-flight plain `fetch()` before it's
+                // actually sent — `keepalive: true` is built specifically
+                // to survive that. If this fires (source=about_to_submit)
+                // and NOTHING follows it server-side, that's proof the
+                // code reached this line but the browser never actually
+                // delivered the resulting request — a client-side/WebKit
+                // failure, not anything server-side logging can fix.
+                fetch('{% url "csrf_token_refresh" %}?source=about_to_submit', {
+                    credentials: 'same-origin',
+                    keepalive: true,
+                });
                 form.submit();
             });
         }, true);
@@ -1982,6 +2000,21 @@
 
             // If form was already submitted, prevent duplicate
             if (submittedForms.has(form)) {
+                // ⚠️ TEMPORARY DIAGNOSTIC — v3.29.29. This branch has
+                // always fired silently. The 09-08 repro proved the CSRF
+                // submit-safety-net's own resubmit cannot reach
+                // form.submit() with an empty token field (every path
+                // either sets a real value or bails out first) — so an
+                // is_js_resubmit=False failure, on a form this listener
+                // protects, means SOME OTHER submission produced it. A
+                // genuine second `submit` DOM event on this form would
+                // reach here — fire-and-forget log it via the existing
+                // csrf_token_refresh endpoint (reusing its logging, not
+                // asking it to do anything) so a hit here around a
+                // failure's timestamp is proof a second submission was
+                // attempted, rather than a guess. Remove once the root
+                // cause is confirmed and fixed.
+                fetch('{% url "csrf_token_refresh" %}?source=duplicate_blocked', { credentials: 'same-origin' });
                 e.preventDefault();
                 return false;
             }
