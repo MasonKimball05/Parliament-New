@@ -285,14 +285,8 @@
          * submit-time guard now stops and says so instead of submitting
          * into a guaranteed second 403.
          */
-        function refreshCsrfToken(attempt, source) {
-            // ⚠️ TEMPORARY — v3.29.28. `source` ('pageshow' or 'submit')
-            // is purely a diagnostic label for csrf_token.py's log line —
-            // this function has two independent callers below and the
-            // server can't otherwise tell which one produced a given hit.
-            // See that view's module docstring.
-            var qs = source ? ('?source=' + encodeURIComponent(source)) : '';
-            return fetch('{% url "csrf_token_refresh" %}' + qs, { credentials: 'same-origin' })
+        function refreshCsrfToken(attempt) {
+            return fetch('{% url "csrf_token_refresh" %}', { credentials: 'same-origin' })
                 .then(function(response) { return response.ok ? response.json() : null; })
                 .then(function(data) {
                     if (!data || !data.csrfToken) { throw new Error('no token in response'); }
@@ -310,7 +304,7 @@
                     // failing) path down further.
                     if (!attempt) {
                         return new Promise(function(resolve) {
-                            setTimeout(function() { resolve(refreshCsrfToken(1, source)); }, 400);
+                            setTimeout(function() { resolve(refreshCsrfToken(1)); }, 400);
                         });
                     }
                     return null; // best-effort; caller decides what "still nothing" means
@@ -320,7 +314,7 @@
 
         window.addEventListener('pageshow', function(event) {
             if (!event.persisted) return;
-            if (hasUnsavedInput()) { refreshCsrfToken(undefined, 'pageshow'); return; }
+            if (hasUnsavedInput()) { refreshCsrfToken(); return; }
             window.location.reload();
         });
 
@@ -371,7 +365,7 @@
             var hasFileInput = !!form.querySelector('input[type="file"]');
             if (!hasFileInput && tokenField && tokenField.value) return; // token present, and nothing about this form casts doubt on it
             event.preventDefault();
-            refreshCsrfToken(undefined, 'submit').then(function(token) {
+            refreshCsrfToken().then(function(token) {
                 if (!tokenField) {
                     tokenField = document.createElement('input');
                     tokenField.type = 'hidden';
@@ -380,7 +374,7 @@
                 }
                 // ⚠️ v3.29.25 — A FAILED REFRESH IS NOT "SUBMIT ANYWAY." The
                 // old code only ever set the field on SUCCESS and otherwise
-                // fell through to `form.submit()` regardless — so a refresh
+                // fell through to the resubmit regardless — so a refresh
                 // that failed (even after the retry above) sent a field that
                 // was still empty straight back into the same 403, silently.
                 // If there's a fresh token, use it (refreshCsrfToken() already
@@ -395,38 +389,20 @@
                     P.toast('Could not verify your session before submitting — please try again.', 'error');
                     return;
                 }
-                // ⚠️ TEMPORARY DIAGNOSTIC — v3.29.27, see csrf_failure.py.
-                // The 09-08 log showed a successful refresh (returned a real
-                // token) immediately followed by a 403 with the token still
-                // missing — meaning either THIS resubmit is somehow still
-                // sending nothing, or an entirely separate, uncontrolled
-                // submission raced it. Marking this specific resubmit lets
-                // the failure log say which one happened, instead of
-                // guessing from timing alone.
-                var marker = form.querySelector('input[name="csrf_diag_resubmit"]');
-                if (!marker) {
-                    marker = document.createElement('input');
-                    marker.type = 'hidden';
-                    marker.name = 'csrf_diag_resubmit';
-                    form.appendChild(marker);
-                }
-                marker.value = '1';
-                // ⚠️ v3.29.30 — THE ACTUAL FIX, found via the v3.29.27–29
-                // diagnostic chain. That chain proved this resubmit reaches
-                // this exact point with a real token and this marker both
-                // set on the form — and the request that then reached the
-                // server carried the RIGHT multipart Content-Type header (a
-                // fresh WebKit boundary, proving it WAS this resubmit) but
-                // a completely EMPTY body: content_length=0,
-                // post_field_count=0, has_file=False (see csrf_failure.py's
-                // matching log fields). Calling `form.submit()` a SECOND
-                // time on a form whose native submission was already
-                // prevented once appears to silently drop the body in
-                // Safari — most visible on a form holding a
-                // `<input type="file">`. Native `form.submit()` gives zero
-                // visibility into this: no error, no event, nothing to
-                // catch — which is exactly why four rounds of logging
-                // couldn't explain it from the server side alone.
+                // ⚠️ v3.29.30 — THE ACTUAL FIX. A round of live diagnostics
+                // on 09-08-26 proved this resubmit reaches this exact point
+                // with a real, freshly-refreshed token set on the form — and
+                // the request that then reached the server carried the
+                // RIGHT multipart Content-Type header (a fresh WebKit
+                // boundary, proving it WAS this resubmit) but a completely
+                // EMPTY body (zero fields, no file). Calling `form.submit()`
+                // a SECOND time on a form whose native submission was
+                // already prevented once silently drops the body in Safari
+                // (and Chrome for iOS, which uses the same WebKit engine
+                // under Apple's platform policy) — most visible on a form
+                // holding a `<input type="file">`. Native `form.submit()`
+                // gives zero visibility into this: no error, no event,
+                // nothing to catch.
                 //
                 // Fix: stop asking the browser to silently re-serialize the
                 // form natively a second time. Build the request ourselves
@@ -434,7 +410,10 @@
                 // (including the file input's current File) at the moment
                 // we're actually about to send, and `fetch()` returns a
                 // real response we can act on instead of a silent native
-                // failure with no signal at all.
+                // failure with no signal at all. Confirmed fixed live
+                // 09-08-26 on both Safari and CriOS. Full diagnostic history
+                // in `changelogs/v3.29.28.md` if this class of bug ever
+                // needs revisiting.
                 var formData = new FormData(form);
                 fetch(form.action, {
                     method: 'POST',
@@ -2024,21 +2003,6 @@
 
             // If form was already submitted, prevent duplicate
             if (submittedForms.has(form)) {
-                // ⚠️ TEMPORARY DIAGNOSTIC — v3.29.29. This branch has
-                // always fired silently. The 09-08 repro proved the CSRF
-                // submit-safety-net's own resubmit cannot reach
-                // form.submit() with an empty token field (every path
-                // either sets a real value or bails out first) — so an
-                // is_js_resubmit=False failure, on a form this listener
-                // protects, means SOME OTHER submission produced it. A
-                // genuine second `submit` DOM event on this form would
-                // reach here — fire-and-forget log it via the existing
-                // csrf_token_refresh endpoint (reusing its logging, not
-                // asking it to do anything) so a hit here around a
-                // failure's timestamp is proof a second submission was
-                // attempted, rather than a guess. Remove once the root
-                // cause is confirmed and fixed.
-                fetch('{% url "csrf_token_refresh" %}?source=duplicate_blocked', { credentials: 'same-origin' });
                 e.preventDefault();
                 return false;
             }

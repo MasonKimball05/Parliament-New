@@ -65,47 +65,14 @@ Fields, and what each is FOR:
   user              — if the request is (somehow) authenticated despite the
                       CSRF failure, who — lets a report of "it happened to
                       me" be matched against a specific log line.
-  resubmit_marker   — ⚠️ TEMPORARY, v3.29.27. `csrf_diag_resubmit` is a
-                      hidden field the submit-time safety net in base.html
-                      now stamps onto a form immediately before calling
-                      `form.submit()` on its own resubmit attempt (after
-                      refreshing the token). Its presence here means THIS
-                      failing POST is that resubmit — so a refresh that
-                      itself succeeded (see csrf_token.py's diagnostic
-                      log) still didn't reach the server with the token it
-                      just set. Its absence on a "missing" failure means
-                      this POST was never touched by the safety net at
-                      all — some other, uncontrolled submission (a
-                      double-tap, or the native submit racing ahead of
-                      preventDefault() for some reason) is what actually
-                      failed. Remove this field once the root cause is
-                      confirmed and fixed — see csrf_token.py's docstring
-                      for the matching removal note on the other half.
-  content_length,
-  content_type,
-  post_field_count,
-  has_file          — ⚠️ TEMPORARY, v3.29.29, second addendum, 09-08-26.
-                      The 09-08 log proved (see csrf_token.py's matching
-                      entry) that a `source=about_to_submit` beacon can
-                      fire — meaning the code reached the line immediately
-                      before `form.submit()` with a real token and the
-                      resubmit marker both already set on the form — and
-                      the very next failure STILL carries neither. Since
-                      nothing else touches the form between the beacon and
-                      `form.submit()`, that failure cannot be the request
-                      this call produced; it has to be a second, different
-                      submission. These four fields test whether that
-                      second submission even resembles the real upload:
-                      a multipart body with the file field, several other
-                      form fields, and a non-trivial size — or something
-                      much smaller/thinner, which would point at an
-                      entirely different, uncontrolled submission path
-                      rather than a browser bug in serializing THIS form.
-                      `content_length`/`content_type` come straight from
-                      request headers, no parsing needed. `post_field_count`
-                      and `has_file` reuse the same already-parsed
-                      request.POST/request.FILES the fields above already
-                      read from — no second body read.
+
+⚠️ A temporary diagnostic chain lived on this view from 09-08-26
+(v3.29.27 and v3.29.29 added `resubmit_marker`/`is_js_resubmit` and
+`content_length`/`content_type`/`post_field_count`/`has_file`) while
+chasing a mobile CSRF 403 that survived several earlier fixes. Root
+cause confirmed and fixed the same day (v3.29.30 — see
+`changelogs/v3.29.28.md` for the full diagnostic history) and all of
+that logging is removed here.
 """
 import logging
 
@@ -154,32 +121,11 @@ def csrf_failure(request, reason=""):
 
     user_agent = request.META.get('HTTP_USER_AGENT', '')[:_MAX_UA_LENGTH]
 
-    # ⚠️ TEMPORARY, v3.29.27 — see the module docstring's `resubmit_marker`
-    # entry. Safe to read the same way `posted_token_present` is above:
-    # CsrfViewMiddleware has already parsed the body.
-    try:
-        is_js_resubmit = bool(request.POST.get('csrf_diag_resubmit'))
-    except Exception:
-        is_js_resubmit = None
-
-    # ⚠️ TEMPORARY — v3.29.29, see the module docstring's
-    # `content_length`/`content_type`/`post_field_count`/`has_file` entry.
-    # Same "already parsed, safe to read" reasoning as the two try blocks
-    # above — request.POST/request.FILES were already populated by
-    # CsrfViewMiddleware's own parsing.
-    try:
-        post_field_count = len(request.POST)
-        has_file = 'file' in request.FILES
-    except Exception:
-        post_field_count = None
-        has_file = None
-
     logger.warning(
         'CSRF failure | reason=%s | path=%s | method=%s | '
         'has_csrf_cookie=%s | has_session_cookie=%s | posted_token_present=%s | '
         'referer=%s | origin=%s | cf_ray=%s | sec_fetch_site=%s | '
-        'ip=%s | user=%s | ua=%s | is_js_resubmit=%s | '
-        'content_length=%s | content_type=%s | post_field_count=%s | has_file=%s',
+        'ip=%s | user=%s | ua=%s',
         reason,
         request.path,
         request.method,
@@ -193,11 +139,6 @@ def csrf_failure(request, reason=""):
         get_client_ip(request) or 'unknown',
         user_desc,
         user_agent or '-',
-        is_js_resubmit,
-        request.META.get('CONTENT_LENGTH', '-'),
-        (request.META.get('CONTENT_TYPE', '-') or '-')[:60],
-        post_field_count,
-        has_file,
     )
 
     return _render_403(request, reason)

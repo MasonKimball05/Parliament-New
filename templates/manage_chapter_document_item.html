@@ -26,6 +26,9 @@
                 {% else %}
                     • Folder: <span class="text-gray-600">Uncategorized</span>
                 {% endif %}
+                {% if doc.committee %}
+                    • Committee: <span class="text-indigo-600">{{ doc.committee.name }}</span>
+                {% endif %}
                 {% if doc.document_type == "minutes" %}
                     <span class="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800">
                         📋 Minutes

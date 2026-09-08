@@ -106,7 +106,7 @@ class TheCsrfTokenRefreshExistsTests(SimpleTestCase):
     def test_the_helper_is_defined(self):
         # v3.29.25 gave it an `attempt` parameter for the internal retry —
         # see TheCsrfRefreshRetriesOnFailureTests below.
-        self.assertIn('function refreshCsrfToken(attempt, source)', self.base)
+        self.assertIn('function refreshCsrfToken(attempt)', self.base)
 
     def test_it_fetches_the_refresh_endpoint(self):
         self.assertIn("{% url \"csrf_token_refresh\" %}", self.base)
@@ -122,14 +122,14 @@ class TheCsrfTokenRefreshExistsTests(SimpleTestCase):
         JS-driven POST still holding the stale value.
         """
         stripped = re.sub(r'/\*.*?\*/', '', self.base, flags=re.DOTALL)
-        refresh_at = stripped.index('function refreshCsrfToken(attempt, source)')
+        refresh_at = stripped.index('function refreshCsrfToken(attempt)')
         next_helper_at = stripped.index('P._refreshCsrfToken')
         body = stripped[refresh_at:next_helper_at]
         self.assertIn('meta[name="csrf-token"]', body)
         self.assertIn('setAttribute(\'content\'', body)
 
     def test_the_helper_is_defined_before_the_pageshow_listener_uses_it(self):
-        helper_at = self.base.index('function refreshCsrfToken(attempt, source)')
+        helper_at = self.base.index('function refreshCsrfToken(attempt)')
         listener_at = self.base.index("addEventListener('pageshow'")
         self.assertLess(helper_at, listener_at)
 
@@ -146,7 +146,7 @@ class TheCsrfTokenRefreshExistsTests(SimpleTestCase):
             stripped,
         )
         self.assertIsNotNone(match, 'could not find the hasUnsavedInput() branch in the pageshow listener')
-        self.assertIn("refreshCsrfToken(undefined, 'pageshow')", match.group(1))
+        self.assertIn("refreshCsrfToken()", match.group(1))
 
     def test_the_reload_branch_is_unchanged(self):
         """Control: the clean-page path still reloads, same as v3.26.5."""
@@ -214,21 +214,20 @@ class TheCsrfSubmitSafetyNetExistsTests(SimpleTestCase):
         spec (`form.requestSubmit()` would, and this listener has no way
         to distinguish "the original attempt" from "the resubmit," so that
         would infinite-loop). v3.29.30 replaced `form.submit()` itself —
-        proven (see csrf_failure.py's `content_length`/`post_field_count`/
-        `has_file` fields) to silently send an EMPTY body when called a
-        second time on a form whose native submission was already
-        prevented once, most visible on a file-input form — with a
-        `fetch()` request built from `new FormData(form)`. `fetch()`
-        doesn't dispatch a `submit` event at all, so the original
-        loop-prevention concern doesn't even apply to it; neither native
-        method should appear in the resubmit's own body.
+        proven live to silently send an EMPTY body when called a second
+        time on a form whose native submission was already prevented once,
+        most visible on a file-input form — with a `fetch()` request built
+        from `new FormData(form)`. `fetch()` doesn't dispatch a `submit`
+        event at all, so the original loop-prevention concern doesn't even
+        apply to it; neither native method should appear in the resubmit's
+        own body.
         """
         stripped = re.sub(r'/\*.*?\*/', '', self.base, flags=re.DOTALL)
         listener_at = stripped.index("addEventListener('submit'")
         tail = stripped[listener_at:]
-        marker_at = tail.index("marker.value = '1';")
-        end_at = tail.index("}, true);", marker_at)
-        resubmit_body = tail[marker_at:end_at]
+        formdata_at = tail.index('var formData = new FormData(form);')
+        end_at = tail.index("}, true);", formdata_at)
+        resubmit_body = tail[formdata_at:end_at]
         self.assertNotIn('form.submit();', resubmit_body)
         self.assertNotIn('form.requestSubmit()', resubmit_body)
         self.assertIn('new FormData(form)', resubmit_body)
@@ -245,7 +244,7 @@ class TheCsrfSubmitSafetyNetExistsTests(SimpleTestCase):
         listener_at = stripped.index("addEventListener('submit'")
         tail = stripped[listener_at:]
         prevent_at = tail.index('event.preventDefault()')
-        refresh_at = tail.index("refreshCsrfToken(undefined, 'submit')")
+        refresh_at = tail.index("refreshCsrfToken()", prevent_at)
         self.assertLess(prevent_at, refresh_at)
 
     def test_it_ignores_get_forms(self):
@@ -353,7 +352,7 @@ class TheCsrfRefreshRetriesOnFailureTests(SimpleTestCase):
         self.base = (Path(settings.BASE_DIR) / 'templates' / 'base.html').read_text(encoding='utf-8')
 
     def test_the_helper_takes_an_attempt_parameter(self):
-        self.assertIn('function refreshCsrfToken(attempt, source)', self.base)
+        self.assertIn('function refreshCsrfToken(attempt)', self.base)
 
     def test_it_retries_exactly_once_on_failure(self):
         """
@@ -362,15 +361,15 @@ class TheCsrfRefreshRetriesOnFailureTests(SimpleTestCase):
         submit forever against a genuinely dead network.
         """
         stripped = re.sub(r'/\*.*?\*/', '', self.base, flags=re.DOTALL)
-        refresh_at = stripped.index('function refreshCsrfToken(attempt, source)')
+        refresh_at = stripped.index('function refreshCsrfToken(attempt)')
         next_helper_at = stripped.index('P._refreshCsrfToken')
         body = stripped[refresh_at:next_helper_at]
         self.assertIn('if (!attempt)', body)
-        self.assertIn('refreshCsrfToken(1, source)', body)
-        # Only one retry recursion — a second `refreshCsrfToken(1, source)`
-        # call (e.g. the retry branch retrying again on its own failure)
-        # would make this open-ended instead of a single bounded retry.
-        self.assertEqual(body.count('refreshCsrfToken(1, source)'), 1)
+        self.assertIn('refreshCsrfToken(1)', body)
+        # Only one retry recursion — a second `refreshCsrfToken(1)` call
+        # (e.g. the retry branch retrying again on its own failure) would
+        # make this open-ended instead of a single bounded retry.
+        self.assertEqual(body.count('refreshCsrfToken(1)'), 1)
 
     def test_the_retry_still_resolves_to_null_on_a_second_failure(self):
         """
@@ -380,7 +379,7 @@ class TheCsrfRefreshRetriesOnFailureTests(SimpleTestCase):
         whether to submit at all.
         """
         stripped = re.sub(r'/\*.*?\*/', '', self.base, flags=re.DOTALL)
-        refresh_at = stripped.index('function refreshCsrfToken(attempt, source)')
+        refresh_at = stripped.index('function refreshCsrfToken(attempt)')
         next_helper_at = stripped.index('P._refreshCsrfToken')
         body = stripped[refresh_at:next_helper_at]
         self.assertIn('return null;', body)
@@ -451,49 +450,38 @@ class TheCsrfRefreshRetriesOnFailureTests(SimpleTestCase):
         self.assertLess(else_at, formdata_at)
 
 
-class TheResubmitMarkerTests(SimpleTestCase):
+class TheFetchBasedResubmitTests(SimpleTestCase):
     """
-    v3.29.27 — TEMPORARY. A live retest showed the token refresh
-    succeeding (`returned_a_token=True`) immediately before a 403 with the
-    posted token still missing — meaning either this exact resubmit still
-    isn't sending what it just set, or an unrelated submission raced it.
-    `csrf_diag_resubmit` is stamped onto the form right before the actual
-    `form.submit()` call so the server-side failure log
-    (`csrf_failure.py`) can tell those two cases apart. Remove alongside
-    the field/logging it tests once the root cause is confirmed and
-    fixed.
+    v3.29.30 — THE ACTUAL FIX, found via a round of live diagnostics on
+    09-08-26 (server-side logging that has since been removed — see
+    `changelogs/v3.29.28.md` for the full history if this class of bug
+    ever needs revisiting). That diagnostic chain proved a resubmit could
+    reach the point of calling `form.submit()` with a real, freshly
+    refreshed token already set on the form — and the request that then
+    reached the server carried the right multipart Content-Type (a fresh
+    WebKit boundary) but a completely EMPTY body (zero fields, no file).
+    Calling `form.submit()` a second time on a form whose native
+    submission was already prevented once silently drops the body in
+    Safari (and Chrome for iOS, which uses the same WebKit engine),
+    most visible on a form holding a file input. `form.submit()` gives
+    no error, no event, nothing to catch when this happens.
+
+    The fix replaces the native resubmit with one built explicitly:
+    `new FormData(form)` reads every current field (including the file
+    input's current File) at the moment of sending, and `fetch()`
+    returns a real response instead of a silent native failure.
+    Confirmed fixed live 09-08-26 on both Safari and CriOS.
     """
 
     def setUp(self):
         self.base = (Path(settings.BASE_DIR) / 'templates' / 'base.html').read_text(encoding='utf-8')
 
-    def test_the_marker_field_is_stamped(self):
-        self.assertIn('input[name="csrf_diag_resubmit"]', self.base)
-        self.assertIn("marker.name = 'csrf_diag_resubmit'", self.base)
-
-    def test_the_marker_is_stamped_before_the_actual_submit(self):
+    def test_formdata_is_built_after_the_token_is_resolved(self):
         """
-        ⚠️ v3.29.30 — the resubmit mechanism changed (`new FormData(form)`
-        + `fetch()`, was `form.submit()`), but the ordering requirement is
-        unchanged and if anything more literal now: `new FormData(form)`
-        reads the form's CURRENT field values at the moment it's
-        constructed, so the marker must be stamped onto the DOM before
-        that call or it simply won't be in the body at all.
-        """
-        stripped = re.sub(r'/\*.*?\*/', '', self.base, flags=re.DOTALL)
-        listener_at = stripped.index("addEventListener('submit'")
-        tail = stripped[listener_at:]
-        marker_at = tail.index("marker.value = '1';")
-        formdata_at = tail.index('new FormData(form)', marker_at)
-        self.assertLess(marker_at, formdata_at)
-
-    def test_the_marker_is_stamped_on_both_the_success_and_missing_token_paths(self):
-        """
-        ⚠️ THE POINT OF THIS FIX. If the marker were only stamped inside
-        the `if (token)` branch, a resubmit that reached `form.submit()`
-        via the fallback-to-existing-value path would go out unmarked —
-        exactly the ambiguity this exists to remove. The marker must be
-        set AFTER both branches converge, not inside either one.
+        `new FormData(form)` reads the form's CURRENT field values at the
+        moment it's constructed, so it must come after the token field
+        has actually been set/fallen-back-to — building it earlier would
+        capture a stale or still-empty token.
         """
         stripped = re.sub(r'/\*.*?\*/', '', self.base, flags=re.DOTALL)
         listener_at = stripped.index("addEventListener('submit'")
@@ -501,151 +489,8 @@ class TheResubmitMarkerTests(SimpleTestCase):
         token_branch_at = tail.index('if (token) {')
         else_at = tail.index('else if (!tokenField.value)', token_branch_at)
         close_brace_at = tail.index('}', else_at)
-        marker_at = tail.index("marker.value = '1';")
-        # The marker line must come AFTER the closing brace of the
-        # token/else-if block, not inside it.
-        self.assertGreater(marker_at, close_brace_at)
-
-    def test_the_still_empty_bailout_does_not_reach_the_marker(self):
-        """
-        Control: the `P.toast(...)` bail-out path (no usable token at all)
-        must `return` before the marker line — an unmarked, un-submitted
-        bail-out should never be confused with a marked resubmit.
-        """
-        stripped = re.sub(r'/\*.*?\*/', '', self.base, flags=re.DOTALL)
-        listener_at = stripped.index("addEventListener('submit'")
-        tail = stripped[listener_at:]
-        toast_at = tail.index('P.toast(')
-        return_at = tail.index('return;', toast_at)
-        marker_at = tail.index("marker.value = '1';")
-        self.assertLess(toast_at, return_at)
-        self.assertLess(return_at, marker_at)
-
-
-class TheRefreshSourceTaggingTests(SimpleTestCase):
-    """
-    v3.29.28 — TEMPORARY. `refreshCsrfToken()` has two independent
-    callers (the `pageshow` handler and the submit-safety-net listener)
-    that both hit the same server endpoint — before this change, a log
-    line from either was indistinguishable from the other, which is
-    exactly the ambiguity the 09-08 repro ran into (a successful refresh
-    165ms before a failure that v3.29.27 proved could not have been that
-    refresh's own resubmit). `source` closes that gap — see
-    csrf_token.py's module docstring. Remove alongside the rest of this
-    temporary logging once the root cause is confirmed and fixed.
-    """
-
-    def setUp(self):
-        self.base = (Path(settings.BASE_DIR) / 'templates' / 'base.html').read_text(encoding='utf-8')
-
-    def test_the_helper_takes_a_source_parameter(self):
-        stripped = re.sub(r'/\*.*?\*/', '', self.base, flags=re.DOTALL)
-        self.assertIn('function refreshCsrfToken(attempt, source)', stripped)
-
-    def test_the_pageshow_caller_tags_itself(self):
-        stripped = re.sub(r'/\*.*?\*/', '', self.base, flags=re.DOTALL)
-        pageshow_at = stripped.index("addEventListener('pageshow'")
-        tail = stripped[pageshow_at:]
-        submit_listener_at = tail.index("addEventListener('submit'")
-        # Restrict the search to the pageshow handler's own body, not the
-        # submit listener that follows it in the file.
-        pageshow_body = tail[:submit_listener_at]
-        self.assertIn("refreshCsrfToken(undefined, 'pageshow')", pageshow_body)
-
-    def test_the_submit_listener_caller_tags_itself(self):
-        stripped = re.sub(r'/\*.*?\*/', '', self.base, flags=re.DOTALL)
-        listener_at = stripped.index("addEventListener('submit'")
-        tail = stripped[listener_at:]
-        self.assertIn("refreshCsrfToken(undefined, 'submit')", tail)
-
-    def test_the_retry_call_still_threads_the_source_through(self):
-        """
-        ⚠️ THE GAP THIS TEST EXISTS FOR. The retry branch
-        (`refreshCsrfToken(1, ...)`, on a failed first attempt) is a
-        SEPARATE call site from either caller above — if it dropped
-        `source` on retry, a refresh that succeeded only on its second
-        attempt would log as `source=-` regardless of which listener
-        started it, silently reintroducing the exact ambiguity this
-        change exists to remove.
-        """
-        stripped = re.sub(r'/\*.*?\*/', '', self.base, flags=re.DOTALL)
-        self.assertIn('refreshCsrfToken(1, source)', stripped)
-
-    def test_the_query_string_is_only_appended_when_a_source_was_given(self):
-        stripped = re.sub(r'/\*.*?\*/', '', self.base, flags=re.DOTALL)
-        self.assertIn("source ? ('?source=' + encodeURIComponent(source)) : ''", stripped)
-
-
-class TheDuplicateSubmitDetectionTests(SimpleTestCase):
-    """
-    v3.29.29 — TEMPORARY. The 09-08 repro showed a `source=submit` refresh
-    succeed immediately before a failure that still read
-    `is_js_resubmit=False` — impossible for THAT click's own resubmit,
-    per v3.29.28's proof, which means some second, separate submission is
-    what actually failed. base.html's double-submit-protection script
-    (the "Global Form Submit Protection" block) silently blocks a genuine
-    second `submit` DOM event on an already-submitted form; this makes
-    that branch fire a diagnostic hit instead of staying silent. Remove
-    alongside the rest of this temporary logging once the root cause is
-    confirmed and fixed.
-    """
-
-    def setUp(self):
-        self.base = (Path(settings.BASE_DIR) / 'templates' / 'base.html').read_text(encoding='utf-8')
-
-    def test_the_duplicate_branch_fires_a_diagnostic_hit(self):
-        stripped = re.sub(r'/\*.*?\*/', '', self.base, flags=re.DOTALL)
-        dup_at = stripped.index('submittedForms.has(form)')
-        # Only the FIRST occurrence — the double-submit-protection check,
-        # not TheResubmitMarkerTests' unrelated form-state checks.
-        tail = stripped[dup_at:]
-        prevent_at = tail.index('e.preventDefault()')
-        fetch_at = tail.index("source=duplicate_blocked")
-        self.assertLess(fetch_at, prevent_at)
-
-    def test_the_diagnostic_hit_reuses_the_refresh_endpoint(self):
-        stripped = re.sub(r'/\*.*?\*/', '', self.base, flags=re.DOTALL)
-        dup_at = stripped.index('submittedForms.has(form)')
-        prevent_at = stripped.index('e.preventDefault()', dup_at)
-        tail = stripped[dup_at:prevent_at]
-        self.assertIn('{% url "csrf_token_refresh" %}?source=duplicate_blocked', tail)
-        self.assertIn("credentials: 'same-origin'", tail)
-
-
-class TheFetchBasedResubmitTests(SimpleTestCase):
-    """
-    v3.29.30 — THE ACTUAL FIX. Supersedes `ThePreSubmitBeaconTests`
-    (v3.29.29, deleted here along with the `about_to_submit` beacon it
-    tested) — that beacon existed to answer "does the code reach the
-    point right before `form.submit()`", and it proved the answer was
-    yes: a real token set, the resubmit marker stamped, and the request
-    that then reached the server carried the right multipart
-    Content-Type (a fresh WebKit boundary) but a completely EMPTY body
-    (see csrf_failure.py's `content_length`/`post_field_count`/
-    `has_file` fields — all zero/False on that failure). Calling
-    `form.submit()` a second time on a form whose native submission was
-    already prevented once appears to silently drop the body in Safari,
-    most visible on a form holding a file input. `form.submit()` gives
-    no error, no event, nothing to catch when this happens — which is
-    why four rounds of server-side logging could narrow it down but
-    never directly observe it.
-
-    The fix replaces the native resubmit with one built explicitly:
-    `new FormData(form)` reads every current field (including the file
-    input's current File) at the moment of sending, and `fetch()`
-    returns a real response instead of a silent native failure.
-    """
-
-    def setUp(self):
-        self.base = (Path(settings.BASE_DIR) / 'templates' / 'base.html').read_text(encoding='utf-8')
-
-    def test_formdata_is_built_from_the_form_after_the_marker_is_set(self):
-        stripped = re.sub(r'/\*.*?\*/', '', self.base, flags=re.DOTALL)
-        listener_at = stripped.index("addEventListener('submit'")
-        tail = stripped[listener_at:]
-        marker_at = tail.index("marker.value = '1';")
-        formdata_at = tail.index('var formData = new FormData(form);', marker_at)
-        self.assertLess(marker_at, formdata_at)
+        formdata_at = tail.index('var formData = new FormData(form);', close_brace_at)
+        self.assertLess(close_brace_at, formdata_at)
 
     def test_it_posts_to_the_forms_own_action_with_credentials(self):
         stripped = re.sub(r'/\*.*?\*/', '', self.base, flags=re.DOTALL)
