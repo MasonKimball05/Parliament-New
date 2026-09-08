@@ -431,4 +431,66 @@ class TheCsrfRefreshRetriesOnFailureTests(SimpleTestCase):
         # a block that returns early.
         else_at = tail.index('else if (!tokenField.value)', token_branch_at)
         self.assertLess(token_branch_at, else_at)
-        self.assertLess(else_at, submit_at)
+
+
+class TheResubmitMarkerTests(SimpleTestCase):
+    """
+    v3.29.27 — TEMPORARY. A live retest showed the token refresh
+    succeeding (`returned_a_token=True`) immediately before a 403 with the
+    posted token still missing — meaning either this exact resubmit still
+    isn't sending what it just set, or an unrelated submission raced it.
+    `csrf_diag_resubmit` is stamped onto the form right before the actual
+    `form.submit()` call so the server-side failure log
+    (`csrf_failure.py`) can tell those two cases apart. Remove alongside
+    the field/logging it tests once the root cause is confirmed and
+    fixed.
+    """
+
+    def setUp(self):
+        self.base = (Path(settings.BASE_DIR) / 'templates' / 'base.html').read_text(encoding='utf-8')
+
+    def test_the_marker_field_is_stamped(self):
+        self.assertIn('input[name="csrf_diag_resubmit"]', self.base)
+        self.assertIn("marker.name = 'csrf_diag_resubmit'", self.base)
+
+    def test_the_marker_is_stamped_before_the_actual_submit(self):
+        stripped = re.sub(r'/\*.*?\*/', '', self.base, flags=re.DOTALL)
+        listener_at = stripped.index("addEventListener('submit'")
+        tail = stripped[listener_at:]
+        marker_at = tail.index("marker.value = '1';")
+        submit_at = tail.index('form.submit();', marker_at)
+        self.assertLess(marker_at, submit_at)
+
+    def test_the_marker_is_stamped_on_both_the_success_and_missing_token_paths(self):
+        """
+        ⚠️ THE POINT OF THIS FIX. If the marker were only stamped inside
+        the `if (token)` branch, a resubmit that reached `form.submit()`
+        via the fallback-to-existing-value path would go out unmarked —
+        exactly the ambiguity this exists to remove. The marker must be
+        set AFTER both branches converge, not inside either one.
+        """
+        stripped = re.sub(r'/\*.*?\*/', '', self.base, flags=re.DOTALL)
+        listener_at = stripped.index("addEventListener('submit'")
+        tail = stripped[listener_at:]
+        token_branch_at = tail.index('if (token) {')
+        else_at = tail.index('else if (!tokenField.value)', token_branch_at)
+        close_brace_at = tail.index('}', else_at)
+        marker_at = tail.index("marker.value = '1';")
+        # The marker line must come AFTER the closing brace of the
+        # token/else-if block, not inside it.
+        self.assertGreater(marker_at, close_brace_at)
+
+    def test_the_still_empty_bailout_does_not_reach_the_marker(self):
+        """
+        Control: the `P.toast(...)` bail-out path (no usable token at all)
+        must `return` before the marker line — an unmarked, un-submitted
+        bail-out should never be confused with a marked resubmit.
+        """
+        stripped = re.sub(r'/\*.*?\*/', '', self.base, flags=re.DOTALL)
+        listener_at = stripped.index("addEventListener('submit'")
+        tail = stripped[listener_at:]
+        toast_at = tail.index('P.toast(')
+        return_at = tail.index('return;', toast_at)
+        marker_at = tail.index("marker.value = '1';")
+        self.assertLess(toast_at, return_at)
+        self.assertLess(return_at, marker_at)

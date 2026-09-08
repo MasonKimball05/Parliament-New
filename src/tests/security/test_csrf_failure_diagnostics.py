@@ -157,3 +157,42 @@ class CsrfFailureDiagnosticsTests(TestCase):
 
     def test_settings_points_at_the_diagnostic_view(self):
         self.assertEqual(settings.CSRF_FAILURE_VIEW, 'src.view.csrf_failure.csrf_failure')
+
+
+class CsrfFailureResubmitMarkerTests(TestCase):
+    """
+    v3.29.27 — TEMPORARY. `csrf_diag_resubmit` is the hidden field
+    base.html's submit-time safety net now stamps onto its OWN resubmit
+    attempt (after a token refresh) — see the module docstring's
+    `resubmit_marker` entry. This distinguishes "the safety net's own
+    resubmit still failed" from "an unrelated submission failed" on a
+    given failure line. Remove alongside the field/logging it tests once
+    the root cause is confirmed and fixed.
+    """
+
+    def setUp(self):
+        self.client = Client(enforce_csrf_checks=True)
+
+    def test_the_marker_is_logged_when_present(self):
+        self.client.get(reverse('login'))  # establishes a real csrftoken cookie
+        with self.assertLogs('security', level='WARNING') as cm:
+            resp = self.client.post(reverse('login'), {
+                'username': 'x', 'password': 'y',
+                'csrf_diag_resubmit': '1',
+            })
+        self.assertEqual(resp.status_code, 403)
+        line = cm.output[0]
+        self.assertIn('is_js_resubmit=True', line)
+
+    def test_the_marker_reads_false_when_absent(self):
+        """
+        Control — an ordinary failure with no marker field at all (every
+        pre-v3.29.27 test above) must read False, not None or a blank —
+        the whole point is a clean True/False distinction on this line.
+        """
+        self.client.get(reverse('login'))
+        with self.assertLogs('security', level='WARNING') as cm:
+            resp = self.client.post(reverse('login'), {'username': 'x', 'password': 'y'})
+        self.assertEqual(resp.status_code, 403)
+        line = cm.output[0]
+        self.assertIn('is_js_resubmit=False', line)

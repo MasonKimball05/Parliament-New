@@ -389,6 +389,22 @@
                     P.toast('Could not verify your session before submitting — please try again.', 'error');
                     return;
                 }
+                // ⚠️ TEMPORARY DIAGNOSTIC — v3.29.27, see csrf_failure.py.
+                // The 09-08 log showed a successful refresh (returned a real
+                // token) immediately followed by a 403 with the token still
+                // missing — meaning either THIS resubmit is somehow still
+                // sending nothing, or an entirely separate, uncontrolled
+                // submission raced it. Marking this specific resubmit lets
+                // the failure log say which one happened, instead of
+                // guessing from timing alone.
+                var marker = form.querySelector('input[name="csrf_diag_resubmit"]');
+                if (!marker) {
+                    marker = document.createElement('input');
+                    marker.type = 'hidden';
+                    marker.name = 'csrf_diag_resubmit';
+                    form.appendChild(marker);
+                }
+                marker.value = '1';
                 form.submit();
             });
         }, true);

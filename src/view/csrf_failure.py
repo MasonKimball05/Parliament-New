@@ -65,6 +65,22 @@ Fields, and what each is FOR:
   user              — if the request is (somehow) authenticated despite the
                       CSRF failure, who — lets a report of "it happened to
                       me" be matched against a specific log line.
+  resubmit_marker   — ⚠️ TEMPORARY, v3.29.27. `csrf_diag_resubmit` is a
+                      hidden field the submit-time safety net in base.html
+                      now stamps onto a form immediately before calling
+                      `form.submit()` on its own resubmit attempt (after
+                      refreshing the token). Its presence here means THIS
+                      failing POST is that resubmit — so a refresh that
+                      itself succeeded (see csrf_token.py's diagnostic
+                      log) still didn't reach the server with the token it
+                      just set. Its absence on a "missing" failure means
+                      this POST was never touched by the safety net at
+                      all — some other, uncontrolled submission (a
+                      double-tap, or the native submit racing ahead of
+                      preventDefault() for some reason) is what actually
+                      failed. Remove this field once the root cause is
+                      confirmed and fixed — see csrf_token.py's docstring
+                      for the matching removal note on the other half.
 """
 import logging
 
@@ -113,11 +129,19 @@ def csrf_failure(request, reason=""):
 
     user_agent = request.META.get('HTTP_USER_AGENT', '')[:_MAX_UA_LENGTH]
 
+    # ⚠️ TEMPORARY, v3.29.27 — see the module docstring's `resubmit_marker`
+    # entry. Safe to read the same way `posted_token_present` is above:
+    # CsrfViewMiddleware has already parsed the body.
+    try:
+        is_js_resubmit = bool(request.POST.get('csrf_diag_resubmit'))
+    except Exception:
+        is_js_resubmit = None
+
     logger.warning(
         'CSRF failure | reason=%s | path=%s | method=%s | '
         'has_csrf_cookie=%s | has_session_cookie=%s | posted_token_present=%s | '
         'referer=%s | origin=%s | cf_ray=%s | sec_fetch_site=%s | '
-        'ip=%s | user=%s | ua=%s',
+        'ip=%s | user=%s | ua=%s | is_js_resubmit=%s',
         reason,
         request.path,
         request.method,
@@ -131,6 +155,7 @@ def csrf_failure(request, reason=""):
         get_client_ip(request) or 'unknown',
         user_desc,
         user_agent or '-',
+        is_js_resubmit,
     )
 
     return _render_403(request, reason)
