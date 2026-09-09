@@ -522,19 +522,69 @@ class TheFetchBasedResubmitTests(SimpleTestCase):
         self.assertNotIn("'Content-Type'", fetch_call)
         self.assertNotIn('"Content-Type"', fetch_call)
 
-    def test_a_successful_response_navigates_the_browser_there(self):
+    def test_it_sends_the_resubmit_header(self):
         """
-        Mirrors what a native form POST would have done — a real
-        navigation (not a DOM swap), so this app's normal
-        redirect-after-POST pattern, and any session-based flash message
-        it sets, renders exactly as it would have from a native submit.
+        v3.29.33 — this exact header is what
+        `JsResubmitEnvelopeMiddleware` (src/middleware/js_resubmit.py)
+        keys off of, and deliberately NOT the pre-existing
+        X-Requested-With header ~13 other views already branch on for
+        their own, unrelated JSON responses.
+        """
+        stripped = re.sub(r'/\*.*?\*/', '', self.base, flags=re.DOTALL)
+        formdata_at = stripped.index('var formData = new FormData(form);')
+        fetch_at = stripped.index('fetch(form.action', formdata_at)
+        fetch_block_end = stripped.index('.then(function(response)', fetch_at)
+        fetch_call = stripped[fetch_at:fetch_block_end]
+        self.assertIn("'X-Parliament-Resubmit': '1'", fetch_call)
+
+    def test_a_successful_response_is_parsed_as_json_before_acting(self):
+        """
+        v3.29.33 — `response.ok`/`response.url` are no longer trusted
+        directly. `fetch()`'s own automatic redirect-following silently
+        executes (and consumes the flash message from) the redirect
+        target before this code ever runs — see
+        `src/middleware/js_resubmit.py`'s module docstring — so the
+        server now answers this header with a JSON envelope instead of
+        an HTTP redirect, and this code must parse it rather than act on
+        `response.ok`/`.url` alone.
         """
         stripped = re.sub(r'/\*.*?\*/', '', self.base, flags=re.DOTALL)
         formdata_at = stripped.index('var formData = new FormData(form);')
         tail = stripped[formdata_at:]
-        ok_at = tail.index('response.ok')
-        nav_at = tail.index('window.location.href = response.url;', ok_at)
-        self.assertLess(ok_at, nav_at)
+        ok_at = tail.index('!response.ok')
+        json_at = tail.index('response.json()', ok_at)
+        self.assertLess(ok_at, json_at)
+
+    def test_messages_from_the_envelope_are_toasted(self):
+        """
+        v3.29.33 — the flash message text now travels in the JSON body
+        itself (read server-side out of Django's messages framework
+        before it could be silently consumed), not via whatever session
+        state happens to survive to the next page.
+        """
+        stripped = re.sub(r'/\*.*?\*/', '', self.base, flags=re.DOTALL)
+        formdata_at = stripped.index('var formData = new FormData(form);')
+        tail = stripped[formdata_at:]
+        json_at = tail.index('response.json()')
+        forward = tail[json_at:]
+        foreach_at = forward.index('data.messages')
+        toast_at = forward.index('P.toast(', foreach_at)
+        self.assertLess(foreach_at, toast_at)
+
+    def test_navigation_only_happens_when_the_envelope_carries_a_redirect(self):
+        """
+        A validation error re-renders the form in place server-side
+        (`redirect: null`) — the member's typed input and selected file
+        must stay put, not be wiped by a navigation to nowhere useful.
+        """
+        stripped = re.sub(r'/\*.*?\*/', '', self.base, flags=re.DOTALL)
+        formdata_at = stripped.index('var formData = new FormData(form);')
+        tail = stripped[formdata_at:]
+        json_at = tail.index('response.json()')
+        forward = tail[json_at:]
+        if_at = forward.index('if (data.redirect)')
+        nav_at = forward.index('window.location.href = data.redirect;', if_at)
+        self.assertLess(if_at, nav_at)
 
     def test_a_failed_response_shows_a_toast_and_does_not_navigate(self):
         stripped = re.sub(r'/\*.*?\*/', '', self.base, flags=re.DOTALL)

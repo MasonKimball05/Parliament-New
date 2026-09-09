@@ -414,22 +414,59 @@
                 // 09-08-26 on both Safari and CriOS. Full diagnostic history
                 // in `changelogs/v3.29.28.md` if this class of bug ever
                 // needs revisiting.
+                //
+                // ⚠️ v3.29.33 — THE FOLLOW-UP FIX. `fetch()`'s default
+                // `redirect: 'follow'` makes the browser silently execute
+                // the redirect TARGET request *inside* this fetch call,
+                // invisibly to this code — and that target request is a
+                // real page render that consumes this app's one-shot
+                // session flash message (base.html renders `{% for
+                // message in messages %}` on every page). So the message
+                // set by a successful upload, or the error set by a
+                // rejected one, was gone by the time the `window.location`
+                // navigation below ever requested the page a SECOND time.
+                // Verified directly with the Django test client, not just
+                // reasoned about — see `src/middleware/js_resubmit.py`'s
+                // module docstring and `changelogs/v3.29.33.md`.
+                //
+                // Fix: send a header only this fetch call ever sends
+                // (deliberately not the pre-existing X-Requested-With,
+                // which ~13 other views already branch on for unrelated
+                // JSON responses of their own). `JsResubmitEnvelopeMiddleware`
+                // sees it and hands back `{redirect, messages}` as the
+                // ONE HTTP response this fetch ever receives — never a
+                // 3xx it could silently follow — with the message text
+                // already read out of Django's messages framework
+                // server-side, so there's nothing left to consume twice.
                 var formData = new FormData(form);
                 fetch(form.action, {
                     method: 'POST',
                     body: formData,
                     credentials: 'same-origin',
+                    headers: { 'X-Parliament-Resubmit': '1' },
                 }).then(function(response) {
-                    if (response.ok) {
-                        // Mirror what a native form POST would have done —
-                        // a real navigation, not a DOM swap, so this app's
-                        // normal redirect-after-POST pattern (and any
-                        // session-based flash message it sets) renders
-                        // exactly as it would have from a native submit.
-                        window.location.href = response.url;
+                    if (!response.ok) {
+                        P.toast('Your submission could not be completed — please try again.', 'error');
                         return;
                     }
-                    P.toast('Your submission could not be completed — please try again.', 'error');
+                    return response.json().then(function(data) {
+                        (data.messages || []).forEach(function(m) {
+                            P.toast(m.text, m.level === 'success' ? 'success' : 'error');
+                        });
+                        if (data.redirect) {
+                            // Mirror what a native form POST would have
+                            // done — a real navigation, not a DOM swap.
+                            // The flash message (if any) was already
+                            // toasted above from the JSON payload, not
+                            // read from whatever session state survives
+                            // to this new page.
+                            window.location.href = data.redirect;
+                        }
+                        // else: the server re-rendered the form in place
+                        // (a validation error) — stay on this page, with
+                        // the member's typed input and selected file
+                        // still intact. The toast above already said why.
+                    });
                 }).catch(function() {
                     P.toast('Your submission could not be sent — please check your connection and try again.', 'error');
                 });

@@ -165,6 +165,7 @@ MIDDLEWARE = [
     'src.middleware.security.QuarantineEnforcementMiddleware',  # Log out quarantined users on every request
     'src.middleware.maintenance.MaintenanceModeMiddleware',  # Block access when maintenance mode is enabled
     'django.contrib.messages.middleware.MessageMiddleware',  # Required
+    'src.middleware.js_resubmit.JsResubmitEnvelopeMiddleware',  # v3.29.33: wraps the JS fetch-resubmit response — must stay directly after MessageMiddleware (response phase runs in reverse, so this reads/consumes messages before MessageMiddleware persists them)
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'src.middleware.geo_restriction.GeoRestrictionMiddleware',  # Block export endpoints for non-US sessions
     # Developer mode — MUST be last. Its request phase runs after everything
