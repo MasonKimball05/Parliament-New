@@ -107,37 +107,54 @@ which predate this file and are more specific than their commit dates.
 | v3.24.0 | 08-23-26 ‡ | `ea0dd36` | ⚠️ **THE `/admin/` "MIGRATE USER ID" BUTTON IS DELETED — DO NOT RE-ADD IT IN ANY FORM.** It rendered on **every row of the member list** and did exactly what v3.23.0 had just abolished. Reproduced end to end as an admin: the pk moved, the old row was deleted, and the member's `TwoFactorRequirement` row was **silently destroyed** — `getattr()` on a reverse OneToOne returns the object, not a manager, so `.all().update(…)` raised `AttributeError` into `except Exception: pass` and the delete CASCADEd. A **silent security downgrade**, plus 21 of 45 fields dropped and no CASCADE check. ⚠️ **v3.23.0's own guard could not see it: a regex matching attribute assignment, against a constructor kwarg. A GUARD WRITTEN AGAINST ONE SYNTAX IS A GUARD AGAINST ONE SYNTAX** — now an AST walk with four detectors, keyed on `(file, function)` because a file-level exemption would have re-opened the hole. 🟠 `/my-attendance/` cost **349 queries** at 120 events with the one-click "All time" filter, harmless for years because nothing linked to it and **v3.22.0 had put it on every member's home page the day before** — *promoting an unreachable page is a performance change*. 🟡 `_parse_remember_cookie` left outside v3.23.0's own fix; 🟡 three home badges still printing the pk; 🟡 a backfill assertion that could not fail. **No migration.** ✅ 1,633 tests. |
 | v3.25.0 | 08-23-26 ‡ | `ea0dd36` | 08-23 auto-run fixes, in two passes. 🟠 **`test_url_smoke.py`'s N+1 sweep had been blind to every attendance page since it was written** — its fixture creates six events, all at `now + timedelta(...)`, and every attendance page filters `date_time__lt=now`, so a per-row query fired zero times and repeated zero times. ⚠️ **A FIXTURE CAN SATISFY "THE MODEL IS REPRESENTED" AND STILL SIT ON THE WRONG SIDE OF THE ONE FILTER THE PAGES APPLY** — fourth variant of that file's one lesson and the first to pass the other three checks. Same 216 pages, same detector, only the fixture changed: 0 offenders → 3. 🟠 That surfaced **`/officers/attendance/` at 271 queries** — the template renders its 20 past events twice (desktop + mobile) and each row called a six-query method, so exactly 40 calls → 240 queries **every time, bounded by the `[:20]` cap**. ⚠️ **A bounded cost is not a small cost, and a flat line is not evidence of health.** Now **33, flat**; `.order_by()` on the new aggregate is load-bearing (v3.18.6's GROUP BY trap) and `unmarked` counts every row because `'late'` is in no bucket. 🟡 **Three search boxes could not find a member by roll number** since v3.23.0 — and would have kept working on today's roster and failed only for members initiated from now on. **Second pass:** `/my-attendance/` measured (`BUDGET = 34`) and folded into the budget suite with its ratchet re-keyed on `QueryBudgetMixin` across every module; **`make_event`/`manage_event` deleted** (229 lines of a real-looking page whose view passed `{}`); a fifth raw-SQL detector on the key guard. **No migration.** ✅ 1,645 tests, two orderings. |
 | v3.25.1 | 08-24-26 ‡ | `7296056` | See `changelogs/v3.25.1.md`. |
-| v3.25.2 | *not deployed* | `13240de` | See `changelogs/v3.25.2.md`. |
-| v3.25.3 | *not deployed* | `17b3d64` | See `changelogs/v3.25.3.md`. |
-| v3.26.0 | *not deployed* | `17b3d64` | See `changelogs/v3.26.0.md`. |
-| v3.26.1 | *not deployed* | `17b3d64` | See `changelogs/v3.26.1.md`. |
-| v3.26.2 | *not deployed* | `fcdceb9` | See `changelogs/v3.26.2.md`. |
-| v3.26.3 | *not deployed* | `fcdceb9` | See `changelogs/v3.26.3.md`. |
-| v3.26.4 | *not deployed* | `9b40a83` | See `changelogs/v3.26.4.md`. |
-| v3.26.5 | *not deployed* | `9b40a83` | See `changelogs/v3.26.5.md`. |
-| v3.26.6 | *not deployed* | `c3f31b5` | See `changelogs/v3.26.6.md`. |
-| v3.27.0 | *not deployed* | `d4495be` | See `changelogs/v3.27.0.md`. Code landed 08-28-26 in `b38b159`; stamped to `d4495be` (the commit that added this changelog file) 08-31-26 to match `git log --diff-filter=A` and clear `src.W003`. |
-| v3.28.0 | *not deployed* | `d4495be` | See `changelogs/v3.28.0.md`. Code landed 08-29-26 in `44ac560`; stamped to `d4495be` 08-31-26, same reason as v3.27.0 above. |
-| v3.28.1 | *not deployed* | `d4495be` | See `changelogs/v3.28.1.md`. Code landed 08-29-26 in `c6b5d93`; stamped to `d4495be` 08-31-26, same reason as v3.27.0 above. |
-| v3.28.2 | *not deployed* | `d4495be` | See `changelogs/v3.28.2.md`. |
-| v3.28.3 | *not deployed* | `d6d4de2` | See `changelogs/v3.28.3.md`. |
-| v3.28.4 | *not deployed* | `34952f0` | See `changelogs/v3.28.4.md`. |
-| v3.28.5 | *not deployed* | `68f4a5f` | See `changelogs/v3.28.5.md`. |
-| v3.28.6 | *not deployed* | `68f4a5f` | See `changelogs/v3.28.6.md`. |
-| v3.28.7 | *not deployed* | `68f4a5f` | See `changelogs/v3.28.7.md`. |
-| v3.28.8 | *not deployed* | `68f4a5f` | See `changelogs/v3.28.8.md`. **⚠️ Superseded same day by v3.28.9** (uncommitted) — the feature this row's migration built was named under a wording mistake in the original request ("accommodation" instead of "commendation") and was also missing its one required field; v3.28.9 renames `KaiAccommodationRequest` → `KaiCommendation` throughout and adds it. This row still describes what commit `68f4a5f` actually contains — the rename hasn't been committed, so there's no new commit to point this row at yet. |
-| v3.28.9 | *not deployed* | `ef21819` | See `changelogs/v3.28.9.md`. |
-| v3.29.0 | *not deployed* | `c72b273` | See `changelogs/v3.29.0.md`. |
-| v3.29.1 | *not deployed* | `c72b273` | See `changelogs/v3.29.1.md`. |
-| v3.29.2 | *not deployed* | `4afc446` | See `changelogs/v3.29.2.md`. |
-| v3.29.3 | *not deployed* | `4afc446` | See `changelogs/v3.29.3.md`. |
-| v3.29.4 | *not deployed* | `ca6ffdb` | See `changelogs/v3.29.4.md`. |
-| v3.29.5 | *not deployed* | `5a586a6` | See `changelogs/v3.29.5.md`. |
-| v3.29.6 | *not deployed* | `5a586a6` | See `changelogs/v3.29.6.md`. |
-| v3.29.7 | *not deployed* | `4dea670` | See `changelogs/v3.29.7.md`. |
-| v3.29.8 | *not deployed* | `b720fa0` | See `changelogs/v3.29.8.md`. |
-| v3.29.9 | *not deployed* | `b720fa0` | See `changelogs/v3.29.9.md`. |
-| v3.29.12 | *not deployed* | `f4a7298` | See `changelogs/v3.29.12.md`. |
+| v3.25.2 | 08-25-26 § | `13240de` | See `changelogs/v3.25.2.md`. |
+| v3.25.3 | 08-25-26 § | `17b3d64` | See `changelogs/v3.25.3.md`. |
+| v3.26.0 | 08-25-26 § | `17b3d64` | See `changelogs/v3.26.0.md`. |
+| v3.26.1 | 08-25-26 § | `17b3d64` | See `changelogs/v3.26.1.md`. |
+| v3.26.2 | 08-25-26 § | `fcdceb9` | See `changelogs/v3.26.2.md`. |
+| v3.26.3 | 08-25-26 § | `fcdceb9` | See `changelogs/v3.26.3.md`. |
+| v3.26.4 | 08-25-26 § | `9b40a83` | See `changelogs/v3.26.4.md`. |
+| v3.26.5 | 08-25-26 § | `9b40a83` | See `changelogs/v3.26.5.md`. |
+| v3.26.6 | 08-25-26 § | `c3f31b5` | See `changelogs/v3.26.6.md`. |
+| v3.27.0 | 08-30-26 § | `d4495be` | See `changelogs/v3.27.0.md`. Code landed 08-28-26 in `b38b159`; stamped to `d4495be` (the commit that added this changelog file) 08-31-26 to match `git log --diff-filter=A` and clear `src.W003`. |
+| v3.28.0 | 08-30-26 § | `d4495be` | See `changelogs/v3.28.0.md`. Code landed 08-29-26 in `44ac560`; stamped to `d4495be` 08-31-26, same reason as v3.27.0 above. |
+| v3.28.1 | 08-30-26 § | `d4495be` | See `changelogs/v3.28.1.md`. Code landed 08-29-26 in `c6b5d93`; stamped to `d4495be` 08-31-26, same reason as v3.27.0 above. |
+| v3.28.2 | 08-30-26 § | `d4495be` | See `changelogs/v3.28.2.md`. |
+| v3.28.3 | 09-01-26 § | `d6d4de2` | See `changelogs/v3.28.3.md`. |
+| v3.28.4 | 09-01-26 § | `34952f0` | See `changelogs/v3.28.4.md`. |
+| v3.28.5 | 09-02-26 § | `68f4a5f` | See `changelogs/v3.28.5.md`. |
+| v3.28.6 | 09-02-26 § | `68f4a5f` | See `changelogs/v3.28.6.md`. |
+| v3.28.7 | 09-02-26 § | `68f4a5f` | See `changelogs/v3.28.7.md`. |
+| v3.28.8 | 09-02-26 § | `68f4a5f` | See `changelogs/v3.28.8.md`. **⚠️ Superseded same day by v3.28.9** (uncommitted) — the feature this row's migration built was named under a wording mistake in the original request ("accommodation" instead of "commendation") and was also missing its one required field; v3.28.9 renames `KaiAccommodationRequest` → `KaiCommendation` throughout and adds it. This row still describes what commit `68f4a5f` actually contains — the rename hasn't been committed, so there's no new commit to point this row at yet. |
+| v3.28.9 | 09-02-26 § | `ef21819` | See `changelogs/v3.28.9.md`. |
+| v3.29.0 | 09-02-26 § | `c72b273` | See `changelogs/v3.29.0.md`. |
+| v3.29.1 | 09-02-26 § | `c72b273` | See `changelogs/v3.29.1.md`. |
+| v3.29.2 | 09-03-26 § | `4afc446` | See `changelogs/v3.29.2.md`. |
+| v3.29.3 | 09-03-26 § | `4afc446` | See `changelogs/v3.29.3.md`. |
+| v3.29.4 | 09-03-26 § | `ca6ffdb` | See `changelogs/v3.29.4.md`. |
+| v3.29.5 | 09-03-26 § | `5a586a6` | See `changelogs/v3.29.5.md`. |
+| v3.29.6 | 09-03-26 § | `5a586a6` | See `changelogs/v3.29.6.md`. |
+| v3.29.7 | 09-03-26 § | `4dea670` | See `changelogs/v3.29.7.md`. |
+| v3.29.8 | 09-03-26 § | `b720fa0` | See `changelogs/v3.29.8.md`. |
+| v3.29.9 | 09-03-26 § | `b720fa0` | See `changelogs/v3.29.9.md`. |
+| v3.29.12 | 09-05-26 § | `f4a7298` | See `changelogs/v3.29.12.md`. |
+| v3.29.13 | 09-06-26 § | `9adada2` | See `changelogs/v3.29.13.md`. |
+| v3.29.14 | 09-06-26 § | `15f2d93` | See `changelogs/v3.29.14.md`. |
+| v3.29.15 | 09-06-26 § | `15f2d93` | See `changelogs/v3.29.15.md`. |
+| v3.29.16 | 09-06-26 § | `51ff522` | See `changelogs/v3.29.16.md`. |
+| v3.29.17 | 09-07-26 § | `873c325` | See `changelogs/v3.29.17.md`. |
+| v3.29.18 | 09-07-26 § | `873c325` | See `changelogs/v3.29.18.md`. |
+| v3.29.19 | 09-07-26 § | `873c325` | See `changelogs/v3.29.19.md`. |
+| v3.29.20 | 09-07-26 § | `d8c9c89` | See `changelogs/v3.29.20.md`. |
+| v3.29.21 | 09-07-26 § | `d8c9c89` | See `changelogs/v3.29.21.md`. |
+| v3.29.22 | 09-07-26 § | `d8c9c89` | See `changelogs/v3.29.22.md`. |
+| v3.29.23 | 09-07-26 § | `afc10d3` | See `changelogs/v3.29.23.md`. |
+| v3.29.24 | 09-08-26 § | `1def1fb` | See `changelogs/v3.29.24.md`. |
+| v3.29.25 | 09-08-26 § | `a042754` | See `changelogs/v3.29.25.md`. |
+| v3.29.26 | 09-08-26 § | `a99596d` | See `changelogs/v3.29.26.md`. |
+| v3.29.27 | 09-08-26 § | `7263a91` | See `changelogs/v3.29.27.md`. |
+| v3.29.28 | 09-08-26 § | `79bdd96` | See `changelogs/v3.29.28.md`. |
+| v3.29.33 | 09-09-26 § | `aeadea3` | See `changelogs/v3.29.33.md`. |
 
 > **⚠️ 09-02-26 — code for the whole backlog above (v3.25.2 through
 > v3.28.8) was restarted into prod the same day, and Mason confirmed
@@ -177,6 +194,22 @@ which predate this file and are more specific than their commit dates.
 > Verification). Whichever database produced the `DuplicateColumn`
 > error should now be re-migrated — `manage.py migrate` again — and
 > should complete cleanly against `0030` this time.
+
+> **§ Resolved 09-10-26 — the caution above is closed, not overridden.**
+> This block asked for the row to move off *not deployed* only once Mason
+> confirmed `manage.py migrate` had run clean and `/kai/` loaded, rather
+> than accepting "intent to deploy" as the same thing as "deployed." That
+> distinction still stands. What changed: in a live session on 09-10-26,
+> Mason stated directly, in the present/past tense rather than as an
+> intent, that everything through v3.29.33 **has been** committed and
+> deployed and that only the ledger was stale. That is a different kind
+> of statement than the 09-02-26 one this block was written to be
+> skeptical of, and it is the same kind of statement that moved the
+> v3.21.5→v3.25.1 block (‡, below) and the pre-v3.19.10 block (†, below)
+> off *not deployed*. See the § note near "How to update this" for the
+> mechanics. **If a live error resembling the 09-02 `form_type` one
+> resurfaces, that is new information and should be checked directly
+> against the server rather than assumed away by this note.**
 
 > **⚠️ Why v3.18.8 and v3.19.2 were missing (added 08-07-26).** Both were
 > committed and pushed on 08-06, both changelogs still said
@@ -223,6 +256,28 @@ recorded.
 
 Each `changelogs/vX.Y.Z.md` also carries its own `**Deployed:**` line. Keep the
 two in sync; this table is the index, the changelog line is the detail.
+
+> **§ Confirmed 09-10-26, dates derived — the third time, and the marker is
+> still the point.** Forty-eight rows (v3.25.2 → v3.29.33) sat at *not
+> deployed*. Mason confirmed directly, in chat on 09-10-26, that
+> everything through v3.29.33 has been committed and deployed and that
+> only this ledger was out of date. He did not give per-release dates and
+> was not asked to reconstruct them from memory, so — same convention as
+> the ‡ and † blocks below — each date here is **the commit that added
+> that release's changelog**, not an independently observed deploy date.
+>
+> **The commit hashes, by contrast, are observed** — they were already
+> correct (or were just corrected by `scripts/stamp_ledger.py`, run the
+> same session, which reads `git log --diff-filter=A` directly). Nothing
+> here was inferred; the script fixes the Commit column and adds missing
+> rows, and only ever leaves the Deployed column at its honest default of
+> `*not deployed*` — this note is what moved it off that default, and it
+> is a record of a person's confirmation, not a tool's guess.
+>
+> ⚠️ **Read the two columns differently, same as always.** Deployed is
+> `≤ the date shown`, confirmed as a set on 09-10-26. Commit is exact.
+> The v3.28.8 caution a few sections above (now resolved, see the §
+> block there) is why this note exists rather than a silent edit.
 
 > **‡ Confirmed 08-24-26, dates derived — the second time, and the marker is
 > still the point.** Eight rows (v3.21.5 → v3.25.1) sat at *not deployed*.
