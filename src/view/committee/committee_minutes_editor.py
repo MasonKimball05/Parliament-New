@@ -39,12 +39,21 @@ def can_edit_committee_minutes(user, committee):
     ).exists()
 
 
-def can_edit_specific_minutes(user, committee, minutes):
+def can_edit_specific_minutes(user, committee, minutes, can_edit_any=None):
     """Check if user can edit a specific minutes record.
     - Chairs, admins, and secretaries can edit any minutes.
     - The original creator can edit their own draft minutes.
+
+    `can_edit_any` lets a caller that has already computed
+    `can_edit_committee_minutes(user, committee)` for this user/committee
+    pass the result in, instead of this function re-running that query
+    (a `CommitteePermissions.objects.filter(...).exists()`, plus
+    `committee.is_chair(user)`) again. `user` and `committee` don't vary
+    per `minutes` row, so calling this in a loop over several minutes
+    records without passing `can_edit_any` repeats an identical query once
+    per record — see `committee_documents()`, the one caller that loops.
     """
-    if can_edit_committee_minutes(user, committee):
+    if can_edit_any if can_edit_any is not None else can_edit_committee_minutes(user, committee):
         return True
     # Creator can edit their own draft
     if minutes.created_by == user and minutes.status == 'draft':

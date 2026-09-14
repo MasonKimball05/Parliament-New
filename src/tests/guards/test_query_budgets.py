@@ -431,7 +431,12 @@ class ActivityLogQueryBudgetTests(QueryBudgetMixin, TestCase):
     #: Measured 08-02-26, cold cache. Includes v3.18.2's `redact_kai_logs`
     #: pass, which resolves every referenced case in one query.
     #: v3.19.10: 41 → 38, see `warm_singleton_rows`.
-    BUDGET = 38
+    #: v3.29.35: 38 → 39 — `activity_logs_view` gained
+    #: `@require_feature_flag('activity_logs')` (that flag previously gated
+    #: nothing; see `changelogs/v3.29.35.md`), one more cold-cache
+    #: `src_featureflag` lookup, same shape every other `@require_feature_flag`
+    #: view already pays.
+    BUDGET = 39
 
     def setUp(self):
         from src.models import ActivityLog

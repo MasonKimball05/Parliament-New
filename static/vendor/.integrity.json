@@ -1,30 +1,51 @@
 {
   "_comment": "SHA-256 hashes of self-hosted vendor files. Regenerate with: python manage.py check_env --update-hashes",
-  "_generated": "2026-07-24",
+  "_generated": "2026-09-14",
   "files": {
     "static/vendor/chart.min.js": {
       "source": "npm chart.js@3.9.1 dist/chart.min.js",
       "version": "3.9.1",
+      "note": "provenance VERIFIED 07-24-26: sha256 byte-identical to the official npm release",
       "sha256": "fbc45926e6b46845a0f905552a0e0b1331049bff1115ecf94dbe0904d895e710",
       "sri": "sha384-9MhbyIRcBVQiiC7FSd7T38oJNj2Zh+EfxS7/vjhBi4OOT78NlHSnzM31EZRWR1LZ",
-      "size": 199560,
-      "note": "provenance VERIFIED 07-24-26: sha256 byte-identical to the official npm release"
+      "size": 199560
     },
     "static/vendor/cropper.min.css": {
       "source": "npm cropperjs@1.6.1 dist/cropper.min.css",
       "version": "1.6.1",
+      "note": "provenance VERIFIED 07-24-26: sha256 byte-identical to the official npm release",
       "sha256": "f7f61b6cc4219716618f8295502eadf36f9612f4a4a8fadfce9d165bd58dbac4",
       "sri": "sha384-AMJcAgMUmNt1Zo4ranquGLeT5m7yOrVbtNsNk0oZohvxqKk6RRzXHqlEaS9gFXR7",
-      "size": 3768,
-      "note": "provenance VERIFIED 07-24-26: sha256 byte-identical to the official npm release"
+      "size": 3768
     },
     "static/vendor/cropper.min.js": {
       "source": "npm cropperjs@1.6.1 dist/cropper.min.js",
       "version": "1.6.1",
+      "note": "provenance VERIFIED 07-24-26: sha256 byte-identical to the official npm release",
       "sha256": "b20765dff4a5c832a07a5e86d2f46d429ba60024b2c8a0a746d7f5ef5eaad33c",
       "sri": "sha384-jzwsV9ieM/KUDMeo+d8dc+jm0GEl7ywPNwg10alB5BodVuC/Kx9RpEnyrl2Om9zH",
-      "size": 37380,
-      "note": "provenance VERIFIED 07-24-26: sha256 byte-identical to the official npm release"
+      "size": 37380
+    },
+    "static/vendor/pageflip/LICENSE": {
+      "sha256": "88d7b609a3be5efa2abe8648ddc35d5489579db5e06299545760df45c2c32d66",
+      "sri": "sha384-uA4IUptdVH9/W9Lg1nNFQbvdsCfrgEey2HCrC0mW2PKp3WvJzkYNZj3CU1keyQuP",
+      "size": 1063
+    },
+    "static/vendor/pageflip/page-flip.browser.js": {
+      "source": "npm page-flip@2.0.7 dist/js/page-flip.browser.js",
+      "version": "2.0.7",
+      "note": "provenance VERIFIED 09-14-26: sha256 byte-identical to the official npm release. Rollup UMD build; already minified by upstream (checked with terser -c -m, output was 3 bytes smaller \u2014 not worth re-minifying a file and breaking byte-identical-to-release provenance for).",
+      "sha256": "bbaca0bbef57a22bb66a3fc69d67baf9a17fb9a9c89ec9ed35e2b91abe4bd1e7",
+      "sri": "sha384-L4eWrYFdqQ+LoGA0MMuqLqzV13x7SKkQaqacy4MED8e815dS37tTKlO/6xBEUpZW",
+      "size": 44058
+    },
+    "static/vendor/pageflip/stPageFlip.css": {
+      "source": "npm page-flip@2.0.7 src/Style/stPageFlip.css",
+      "version": "2.0.7",
+      "note": "provenance VERIFIED 09-14-26: sha256 byte-identical to the official npm release",
+      "sha256": "ebca2fc2e54480fe0a3faf34dc2361760e92d2309f132763338b0cfd0767739a",
+      "sri": "sha384-O2uXnD1AT4ht+WxUTt9Pp3kA/+5CwhIlMka0noIWCnnE6ql4qrb1BDbIzHunD1kh",
+      "size": 815
     },
     "static/vendor/quill/quill.min.js": {
       "source": "https://cdn.quilljs.com/1.3.7/quill.min.js",
@@ -43,9 +64,9 @@
     "static/css/tailwind.css": {
       "source": "built locally via tailwindcss standalone CLI v3.4.17",
       "note": "Regenerate with: ./build_css.sh, then run python manage.py check_env --update-hashes",
-      "sha256": "59781b8982ee76f339eca1f7ea4871c9e5ed3f45d9a6d17f69b33744d47a75fb",
-      "sri": "sha384-ZSD4/eSkxvOr44ICxqfILV1SvzWH7SxKhpsXGSZNa4ig+tIYYNI/Z5vuHjdge4L5",
-      "size": 169121
+      "sha256": "7dad3b699cac6d78193a24065e1ed95f428553d4c39fd753c9b7bbbfe2d64149",
+      "sri": "sha384-j8XDL2KgpjJ/sfMaxZhinuNU4Dp2lT3PkSKsuvciFSQrF/JtXAzQnBXNl0BJ4yDd",
+      "size": 181335
     }
   }
 }

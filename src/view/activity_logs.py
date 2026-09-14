@@ -12,6 +12,7 @@ from django.utils.timezone import localtime
 from src.utils.export_utils import export_to_csv
 from src.models.users import member_defer
 from src.kai_audit import audit_search_q, exclude_kai_logs, redact_kai_logs
+from src.feature_flag_decorators import require_feature_flag
 
 #: v3.18.4 — ceiling on a single CSV export. `date_range` is a query parameter
 #: and `'all'` matches every branchless case, so `/activity-logs/export/
@@ -24,6 +25,7 @@ EXPORT_LIMIT = 5000
 
 
 @officer_required
+@require_feature_flag('activity_logs')
 def activity_logs_view(request):
     """
     View for officers to see comprehensive activity logs with filtering
@@ -175,6 +177,7 @@ def activity_logs_view(request):
 
 
 @officer_required
+@require_feature_flag('activity_logs')
 def export_activity_logs(request):
     """
     Export activity logs to CSV with applied filters

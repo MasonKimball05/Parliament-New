@@ -364,8 +364,12 @@
 
     {% comment %}
     FEATURED CARDS. v3.22.0 added My Attendance as a fourth, so the grid is
-    2-up on small screens and 4-up on large rather than 3-up. See the card
-    itself for why it is here at all.
+    2-up on small screens and 4-up on large rather than 3-up. Quote Book
+    (09-14-26) deliberately does NOT go here — a 5th card in a 4-column
+    grid leaves it alone on its own row, which read as visibly out of
+    place. It's a Quick Links pill below instead, next to Robert's Rules
+    and Constitution — same tier of "nice to have," and pills wrap without
+    ever leaving an orphan.
     {% endcomment %}
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
 
@@ -465,6 +469,26 @@
             <a href="{% url 'roberts_rules' %}" class="btn-secondary btn-sm inline-flex items-center gap-1.5">
                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
                 Robert's Rules
+            </a>
+
+            {% comment %}
+            Quote Book — added 09-14-26, moved here from the featured-card
+            grid the same day: a 5th card in a 4-column grid left it alone
+            on its own row, which looked out of place, and the gradient
+            card's hardcoded text-white read fine in isolation but was
+            inconsistent with every other pill's actual dark-mode-aware
+            text color (btn-secondary's text-gray-700 dark:text-gray-200).
+            Not a nav item either — see UserPreferencesForm's 9-item cap,
+            same reasoning as My Attendance (v3.22.0).
+            Given a maroon background 09-14-26 (Mason: make it noticeable) —
+            styled inline like the Bug Report pill below rather than
+            btn-secondary, since btn-secondary has no color-variant hook.
+            White text in both modes on purpose: maroon is dark enough that
+            the same text color reads fine whether the page is light or dark.
+            {% endcomment %}
+            <a href="{% url 'quote_book' %}" class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#7a1f2b] hover:bg-[#661a24] dark:bg-[#7a1f2b] dark:hover:bg-[#8f2532] text-white text-sm rounded-lg transition-colors">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25"/></svg>
+                Quote Book
             </a>
 
             <a href="{% url 'profile' %}" class="btn-secondary btn-sm inline-flex items-center gap-1.5">

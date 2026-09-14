@@ -58,7 +58,13 @@ class FeatureFlag(models.Model):
     #: opened a window for it. Manual attendance marking is NEVER gated by
     #: this flag — see mark_event_attendance, which has no
     #: @require_feature_flag('qr_attendance_checkin') anywhere near it.
-    DISABLED_BY_DEFAULT = ['maintenance_mode', 'cnb_foreword', 'qr_attendance_checkin']
+    #: v3.29.35 — 'login_as_user' added. This one IS about confidentiality,
+    #: same reasoning as 'cnb_foreword': impersonating a user bypasses every
+    #: app-level permission check by making the impersonator literally BE
+    #: that user for the rest of the session, including the Kai/Slating
+    #: identity boundaries. A missing row must not silently leave that
+    #: reachable — see `seed_feature_flags.py`'s entry for the full reasoning.
+    DISABLED_BY_DEFAULT = ['maintenance_mode', 'cnb_foreword', 'qr_attendance_checkin', 'login_as_user']
 
     @classmethod
     def is_feature_enabled(cls, feature_name):

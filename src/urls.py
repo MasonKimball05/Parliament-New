@@ -274,6 +274,9 @@ from src.view.feedback import (
     submit_feedback, feedback_request_success, my_feedback_requests,
     feedback_tracker, feedback_request_detail, feedback_admin, feedback_admin_update,
 )
+from src.view.quote_book import (
+    quote_book, submit_quote, flag_quote, review_flagged_quotes, restore_quote,
+)
 from src.view.debug_panel import (
     debug_request_info, debug_server_info, debug_database_info,
     debug_cache_info, debug_cache_clear, debug_session_info, debug_session_edit,
@@ -453,6 +456,13 @@ urlpatterns = [
     path('feedback/ideas/<int:feedback_id>/', feedback_request_detail, name='feedback_request_detail'),
     path('feedback/admin/', feedback_admin, name='feedback_admin'),
     path('feedback/admin/update/<int:feedback_id>/', feedback_admin_update, name='feedback_admin_update'),
+
+    # Quote Book
+    path('quote-book/', quote_book, name='quote_book'),
+    path('quote-book/submit/', submit_quote, name='submit_quote'),
+    path('quote-book/flag/<int:quote_id>/', flag_quote, name='flag_quote'),
+    path('quote-book/flagged/', review_flagged_quotes, name='review_flagged_quotes'),
+    path('quote-book/flagged/<int:quote_id>/restore/', restore_quote, name='restore_quote'),
 
     # Changelog / Version History
     path('changelog/', changelog, name='changelog'),

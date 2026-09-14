@@ -1,0 +1,79 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Flagged Quotes - Quote Book{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Breadcrumb -->
+    {% url 'quote_book' as quote_book_url %}
+    {% include 'includes/breadcrumbs.html' with back_url=quote_book_url back_label='Quote Book' current='Flagged Quotes' %}
+
+    <!-- Page Header -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-6">
+        <div class="flex items-center gap-4">
+            <div class="w-12 h-12 sm:w-14 sm:h-14 bg-pink-100 dark:bg-pink-900/30 rounded-full flex items-center justify-center">
+                <svg class="w-7 h-7 text-pink-600 dark:text-pink-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9"/>
+                </svg>
+            </div>
+            <div>
+                <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                    {% if viewing_as_officer %}Flagged Quotes{% else %}Quotes You Can Restore{% endif %}
+                </h1>
+                <p class="text-gray-600 dark:text-gray-400 text-sm">
+                    {% if viewing_as_officer %}
+                    Every quote currently hidden from the book. Flagging needs no approval — this is a place
+                    to look afterward, not a queue to approve before a flag takes effect.
+                    {% else %}
+                    Quotes you flagged, or flagged quotes on your own chapter — restore one if it was
+                    a mistake or you've changed your mind.
+                    {% endif %}
+                </p>
+            </div>
+        </div>
+    </div>
+
+    {% if flagged_quotes %}
+    <div class="space-y-4">
+        {% for quote in flagged_quotes %}
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-5">
+            <div class="flex items-start justify-between gap-4 flex-wrap">
+                <div class="min-w-0 flex-1">
+                    <p class="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                        {{ quote.quoted_member.get_display_name }}'s chapter
+                    </p>
+                    <blockquote class="mt-2 text-gray-700 dark:text-gray-300 italic" style="white-space: pre-wrap;">&ldquo;{{ quote.text }}&rdquo;</blockquote>
+                    {% if quote.context %}
+                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400" style="white-space: pre-wrap;">{{ quote.context }}</p>
+                    {% endif %}
+                    <p class="mt-3 text-xs text-gray-400 dark:text-gray-500">
+                        Submitted by {% if quote.submitted_by %}{{ quote.submitted_by.get_display_name }}{% else %}Unknown{% endif %}
+                        on {{ quote.created_at|date:"M j, Y" }}
+                        &middot;
+                        Flagged by {% if quote.flagged_by %}{{ quote.flagged_by.get_display_name }}{% else %}Unknown{% endif %}
+                        on {{ quote.flagged_at|date:"M j, Y" }}
+                    </p>
+                </div>
+                <form method="post" action="{% url 'restore_quote' quote.pk %}" class="flex-shrink-0">
+                    {% csrf_token %}
+                    <button type="submit" class="px-3 py-1.5 bg-primary-600 hover:bg-primary-700 text-white text-sm rounded-lg transition">
+                        Restore to Book
+                    </button>
+                </form>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <!-- Empty State -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-12 text-center">
+        <svg class="w-16 h-16 text-gray-400 dark:text-gray-600 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+        </svg>
+        <h3 class="text-xl font-semibold text-gray-700 dark:text-gray-300 mb-2">Nothing Flagged</h3>
+        <p class="text-gray-500 dark:text-gray-400">No quotes are currently hidden from the book.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

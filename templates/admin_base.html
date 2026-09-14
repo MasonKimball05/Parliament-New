@@ -82,11 +82,13 @@
             </a>
 
             <!-- Activity Logs -->
+            {% if feature_flags.activity_logs %}
             <a href="{% url 'activity_logs' %}"
                class="px-3 h-10 flex items-center text-xs font-medium hover:bg-gray-700 hover:text-white transition-colors whitespace-nowrap
                       {% if request.resolver_match.url_name == 'activity_logs' %}text-white bg-gray-700{% endif %}">
                 Activity Logs
             </a>
+            {% endif %}
 
             <!-- Kai — only if user is a Kai chair -->
             {% if user.can_access_kai %}

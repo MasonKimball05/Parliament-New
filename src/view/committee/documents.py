@@ -60,8 +60,12 @@ def committee_documents(request, code):  # Changed from id to code
             .exclude(status='published')
             .select_related('created_by')
         )
+        # `can_edit_minutes` (computed above) already IS
+        # `can_edit_committee_minutes(user, committee)` for this exact
+        # user/committee pair — pass it through so the per-row call below
+        # doesn't re-run that query once per unpublished minutes record.
         for m in unpublished_minutes:
-            m.can_user_edit = can_edit_specific_minutes(user, committee, m)
+            m.can_user_edit = can_edit_specific_minutes(user, committee, m, can_edit_any=can_edit_minutes)
 
     # Version history is a real query per document (`document.versions`
     # ordered by -version_number per DocumentVersion.Meta), so it's only run

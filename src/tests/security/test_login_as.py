@@ -13,6 +13,7 @@ from src.models import ParliamentUser
 from src.middleware.two_factor import Enforce2FAMiddleware
 from src.context_processors import impersonation as impersonation_processor
 from src.view.login_as_view import SESSION_ORIGINAL_ID, SESSION_ORIGINAL_NAME
+from src.models_feature_flags import FeatureFlag
 
 ParliamentUser = get_user_model()
 
@@ -36,6 +37,12 @@ class LoginAsViewTest(TestCase):
         self.client = Client()
         self.admin = make_user('admin_user', 'ADM01', is_admin_flag=True)
         self.target = make_user('target_user', 'TGT01')
+        # v3.29.35 — 'login_as_user' is DISABLED_BY_DEFAULT (see
+        # src/models_feature_flags.py). This class tests the impersonation
+        # flow itself, so it turns the flag on here, the way a chapter that
+        # actually wants the feature would. `LoginAsUserFeatureFlagTests`
+        # below covers the flag OFF (and unseeded) cases specifically.
+        FeatureFlag.objects.create(name='login_as_user', is_enabled=True)
 
     def _login_as_admin(self):
         self.client.force_login(self.admin)
@@ -192,3 +199,92 @@ class LoginAsViewTest(TestCase):
         with self.assertLogs('security', level='WARNING') as cm:
             self.client.get(reverse('return_to_original_user'))
         self.assertTrue(any('IMPERSONATION END' in line for line in cm.output))
+
+
+class LoginAsUserFeatureFlagTests(TestCase):
+    """
+    v3.29.35 — 'login_as_user' went from an always-live feature (gated only
+    by `is_staff`, which on this model is just `is_admin`) to one gated by a
+    DISABLED_BY_DEFAULT feature flag. This class is the direct regression
+    test for that change: does the flag actually stop both entry points
+    (the `/staff/login-as/` view AND the separate `ParliamentUserAdmin`
+    method), and does an admin still get back OUT of an impersonation that
+    started before the flag was turned off.
+    """
+
+    def setUp(self):
+        self.client = Client()
+        self.admin = make_user('flag_admin', 'FADM1', is_admin_flag=True)
+        self.target = make_user('flag_target', 'FTGT1')
+
+    def test_disabled_by_default_with_no_row_blocks_impersonation(self):
+        """No FeatureFlag row at all — DISABLED_BY_DEFAULT must fail closed."""
+        self.assertFalse(FeatureFlag.objects.filter(name='login_as_user').exists())
+        self.client.force_login(self.admin)
+        self.client.get(reverse('login-as', args=[self.target.pk]))
+        # Still logged in as the admin, not the target.
+        self.assertEqual(self.client.session['_auth_user_id'], self.admin.pk)
+
+    def test_explicitly_disabled_blocks_impersonation(self):
+        FeatureFlag.objects.create(name='login_as_user', is_enabled=False)
+        self.client.force_login(self.admin)
+        self.client.get(reverse('login-as', args=[self.target.pk]))
+        self.assertEqual(self.client.session['_auth_user_id'], self.admin.pk)
+
+    def test_enabled_allows_impersonation(self):
+        """Control: the flag mechanism itself isn't what's broken."""
+        FeatureFlag.objects.create(name='login_as_user', is_enabled=True)
+        self.client.force_login(self.admin)
+        self.client.get(reverse('login-as', args=[self.target.pk]))
+        self.assertEqual(self.client.session['_auth_user_id'], self.target.pk)
+
+    def test_admin_site_entry_point_also_blocked_when_disabled(self):
+        """
+        The second, independent impersonation entry point —
+        `ParliamentUserAdmin.login_as_user`, registered via `admin_view()` —
+        needs its own coverage since it isn't a call into `login_as_view`
+        and couldn't inherit a decorator even if one were stacked there.
+        """
+        FeatureFlag.objects.create(name='login_as_user', is_enabled=False)
+        self.client.force_login(self.admin)
+        url = reverse('admin:login_as_user', args=[self.target.pk])
+        self.client.get(url)
+        self.assertEqual(self.client.session['_auth_user_id'], self.admin.pk)
+
+    def test_admin_site_entry_point_works_when_enabled(self):
+        FeatureFlag.objects.create(name='login_as_user', is_enabled=True)
+        self.client.force_login(self.admin)
+        url = reverse('admin:login_as_user', args=[self.target.pk])
+        self.client.get(url)
+        self.assertEqual(self.client.session['_auth_user_id'], self.target.pk)
+
+    def test_return_still_works_after_flag_disabled_mid_impersonation(self):
+        """
+        The specific property `login_as_view`'s docstring promises: turning
+        the flag off must not trap someone who is already impersonating —
+        only the START of impersonation is gated, never the return.
+        """
+        FeatureFlag.objects.create(name='login_as_user', is_enabled=True)
+        self.client.force_login(self.admin)
+        self.client.get(reverse('login-as', args=[self.target.pk]))
+        self.assertEqual(self.client.session['_auth_user_id'], self.target.pk)
+
+        FeatureFlag.objects.filter(name='login_as_user').update(is_enabled=False)
+
+        response = self.client.get(reverse('return_to_original_user'))
+        self.assertRedirects(response, reverse('home'), fetch_redirect_response=False)
+        self.assertEqual(self.client.session['_auth_user_id'], self.admin.pk)
+
+    def test_login_as_link_hidden_when_disabled(self):
+        FeatureFlag.objects.create(name='login_as_user', is_enabled=False)
+        from src.admin import ParliamentUserAdmin
+        from django.contrib import admin as django_admin
+        model_admin = ParliamentUserAdmin(self.target.__class__, django_admin.site)
+        self.assertEqual(model_admin.login_as_link(self.target), '—')
+
+    def test_login_as_link_shown_when_enabled(self):
+        FeatureFlag.objects.create(name='login_as_user', is_enabled=True)
+        from src.admin import ParliamentUserAdmin
+        from django.contrib import admin as django_admin
+        model_admin = ParliamentUserAdmin(self.target.__class__, django_admin.site)
+        self.assertIn('Login As User', model_admin.login_as_link(self.target))

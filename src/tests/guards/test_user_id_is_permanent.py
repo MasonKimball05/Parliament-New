@@ -607,8 +607,19 @@ class TheAdminCannotMoveAPrimaryKeyTests(TestCase):
         """
         CONTROL. Asserting a button is absent passes trivially if the whole
         column stopped rendering — which would be a different bug, not a fix.
+
+        v3.29.35 — 'login_as_user' is now DISABLED_BY_DEFAULT (see
+        `changelogs/v3.29.35.md`), and `login_as_link` renders '—' instead
+        of the button when the flag is off. This test is about the column
+        rendering machinery, not about that flag, so it turns the flag on
+        explicitly — `LoginAsUserFeatureFlagTests` in
+        `src/tests/security/test_login_as.py` covers the flag's own on/off
+        behaviour, including this same button, directly.
         """
         from src.admin import ParliamentUserAdmin
+        from src.models_feature_flags import FeatureFlag
+
+        FeatureFlag.objects.create(name='login_as_user', is_enabled=True)
 
         user = ParliamentUser.objects.create(
             user_id='P-ADMINQ', name='Rendered', username='rendered',

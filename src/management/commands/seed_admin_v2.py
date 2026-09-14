@@ -25,13 +25,15 @@ class Command(BaseCommand):
                 'category': 'communications',
                 'is_enabled': True
             },
-            {
-                'name': 'calendar',
-                'display_name': 'Calendar',
-                'description': 'Enable/disable the calendar feature',
-                'category': 'events',
-                'is_enabled': True
-            },
+            # v3.29.35 — 'calendar' removed from this list. It never gated
+            # anything: `calendar_view`/`event_signup` are (and always were)
+            # gated by `@require_page_enabled('calendar')`, which reads
+            # `PageToggle`, a completely different model this same command
+            # seeds below — not this `FeatureFlag`. So this row was a second,
+            # do-nothing switch with the same name as a real one, exactly the
+            # "control that reads as coverage and provides none" hazard the
+            # other 15 dead flags were raised over on 07-25-26. See
+            # `prune_dead_feature_flags` for removing it from an existing DB.
             {
                 'name': 'global_search',
                 'display_name': 'Global Search',
@@ -78,22 +80,17 @@ class Command(BaseCommand):
                 'category': 'committees',
                 'is_enabled': True
             },
-            {
-                'name': 'committee_documents',
-                'display_name': 'Committee Documents',
-                'description': 'Enable/disable document management in committees',
-                'category': 'committees',
-                'is_enabled': True
-            },
+            # v3.29.35 — 'committee_documents' removed from this list, same
+            # reason as 'calendar' above: `committee_documents()` in
+            # `src/view/committee/documents.py` is gated by
+            # `@require_page_enabled('committee_documents')` — a `PageToggle`
+            # this command also seeds below — so this `FeatureFlag` row of
+            # the same name gated nothing.
 
             # Documents
-            {
-                'name': 'chapter_documents',
-                'display_name': 'Chapter Documents',
-                'description': 'Enable/disable chapter document library',
-                'category': 'documents',
-                'is_enabled': True
-            },
+            # v3.29.35 — 'chapter_documents' removed, same reason: the
+            # `chapter_documents()` view is gated by
+            # `@require_page_enabled('chapter_documents')`, a `PageToggle`.
             {
                 'name': 'document_versioning',
                 'display_name': 'Document Versioning',
@@ -126,13 +123,12 @@ class Command(BaseCommand):
             },
 
             # Communications
-            {
-                'name': 'chat_channels',
-                'display_name': 'Chat Channels',
-                'description': 'Enable/disable the chat channel system',
-                'category': 'communications',
-                'is_enabled': True
-            },
+            # v3.29.35 — 'chat_channels' removed from this list. The real
+            # chat system (`src/view/chat/`, `src/view/committee/chat.py`)
+            # is gated by `@require_feature_flag('chats')` throughout — a
+            # different `FeatureFlag` row, seeded in the canonical
+            # `seed_feature_flags.py`. 'chat_channels' gated nothing; it was
+            # a same-idea, different-name duplicate that never got wired.
             {
                 'name': 'email_notifications',
                 'display_name': 'Email Notifications',
@@ -149,20 +145,15 @@ class Command(BaseCommand):
                 'category': 'admin',
                 'is_enabled': True
             },
-            {
-                'name': 'activity_logs',
-                'display_name': 'Activity Logs',
-                'description': 'Enable/disable activity logging and viewing',
-                'category': 'admin',
-                'is_enabled': True
-            },
-            {
-                'name': 'login_as_user',
-                'display_name': 'Login As User',
-                'description': 'Allow admins to login as other users',
-                'category': 'admin',
-                'is_enabled': True
-            },
+            # v3.29.35 — 'activity_logs' and 'login_as_user' removed from
+            # this list and moved to the canonical `seed_feature_flags.py`,
+            # where they're now actually wired (`@require_feature_flag` on
+            # `activity_logs_view`/`export_activity_logs`, and on both
+            # impersonation entry points). Both used to be dead rows here —
+            # seeded, toggleable in the admin, gating nothing — which is
+            # exactly what led to `login_as_user` in particular being fully
+            # reachable by any `is_admin` user with no way to turn it off
+            # short of a code change. Kept in one seeder now, not two.
         ]
 
         created_flags = 0

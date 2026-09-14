@@ -622,3 +622,64 @@ class TheFetchBasedResubmitTests(SimpleTestCase):
         resubmit_body = tail[:end_at]
         self.assertNotIn('source=about_to_submit', resubmit_body)
         self.assertNotIn('form.submit();', resubmit_body)
+
+    def test_the_envelope_relays_the_messages_own_level(self):
+        """
+        v3.29.34 — 09-09-26's auto-run review found that v3.29.33's own
+        fix collapsed every message to `'success'` or `'error'` before
+        toasting it (`m.level === 'success' ? 'success' : 'error'`), so
+        a `messages.warning()`/`.info()` call on one of these forms
+        showed as an alarming red toast. Fixed by passing the message's
+        own `level` straight through — `js_resubmit.py` already puts
+        Django's own tag (`message.tags`) there — and letting `P.toast`
+        pick the matching style. This is the control that the collapsing
+        ternary is actually gone, not just that a replacement exists.
+        """
+        stripped = re.sub(r'/\*.*?\*/', '', self.base, flags=re.DOTALL)
+        formdata_at = stripped.index('var formData = new FormData(form);')
+        tail = stripped[formdata_at:]
+        json_at = tail.index('response.json()')
+        forward = tail[json_at:]
+        foreach_at = forward.index('data.messages')
+        toast_at = forward.index('P.toast(', foreach_at)
+        toast_call_end = forward.index(');', toast_at)
+        toast_call = forward[toast_at:toast_call_end]
+        self.assertIn('m.level', toast_call)
+        self.assertNotIn("'success' ? 'success' : 'error'", toast_call)
+
+    def test_toast_has_a_distinct_style_for_all_four_message_tones(self):
+        """
+        Companion to the test above — relaying `m.level` is only a real
+        fix if `P.toast` actually has somewhere to put a 'warning' or
+        'info' tone instead of falling through to red. Checks the style
+        map directly rather than just that the four words appear
+        somewhere in the file.
+        """
+        stripped = re.sub(r'/\*.*?\*/', '', self.base, flags=re.DOTALL)
+        styles_at = stripped.index('var TOAST_STYLES = {')
+        styles_end = stripped.index('};', styles_at)
+        styles_block = stripped[styles_at:styles_end]
+        self.assertIn("success:", styles_block)
+        self.assertIn("error:", styles_block)
+        self.assertIn("warning:", styles_block)
+        self.assertIn("info:", styles_block)
+        # Four distinct colors, not the same class reused under four keys.
+        self.assertIn('bg-green-600', styles_block)
+        self.assertIn('bg-red-600', styles_block)
+        self.assertIn('bg-yellow-600', styles_block)
+        self.assertIn('bg-blue-600', styles_block)
+
+    def test_an_unrecognized_tone_falls_back_to_info_not_error(self):
+        """
+        A message tag this code doesn't recognize (Django's 'debug', or
+        anything with `extra_tags`) should read as neutral, not
+        alarming — falling back to 'error' would put an unrelated,
+        unexpected red toast in front of a member for a message that
+        was never actually an error.
+        """
+        stripped = re.sub(r'/\*.*?\*/', '', self.base, flags=re.DOTALL)
+        toast_fn_at = stripped.index('P.toast = function(message, kind)')
+        toast_fn_end = stripped.index('};', toast_fn_at)
+        toast_fn = stripped[toast_fn_at:toast_fn_end]
+        self.assertIn('TOAST_STYLES[kind] || TOAST_STYLES.info', toast_fn)
+        self.assertNotIn('TOAST_STYLES[kind] || TOAST_STYLES.error', toast_fn)

@@ -389,6 +389,9 @@ class ParliamentUserAdmin(admin.ModelAdmin):
         return custom_urls + urls
 
     def login_as_link(self, obj):
+        from src.feature_flag_decorators import check_feature_enabled
+        if not check_feature_enabled('login_as_user'):
+            return '—'
         login_url = reverse('admin:login_as_user', args=[obj.pk])
         return format_html('<a class="button" href="{}">Login As User</a>', login_url)
     login_as_link.short_description = 'Actions'
@@ -396,11 +399,27 @@ class ParliamentUserAdmin(admin.ModelAdmin):
 
     def login_as_user(self, request, user_id):
         from src.view.login_as_view import SESSION_ORIGINAL_ID, SESSION_ORIGINAL_NAME
+        from src.feature_flag_decorators import check_feature_enabled
         logger = logging.getLogger('function_calls')
         security_logger = logging.getLogger('security')
 
         if not request.user.is_authenticated or not request.user.is_admin:
             messages.error(request, 'You are not an admin')
+            return redirect('/admin/')
+
+        # v3.29.35 — a second, independent impersonation entry point from
+        # `login_as_view.login_as_view` (this is a bound ModelAdmin method
+        # registered via `admin_view()`, not a call into that function), so
+        # it needs its own gate rather than inheriting one from there.
+        # Deliberately an inline check, not a stacked `@require_feature_flag`
+        # decorator: that decorator's wrapper expects `request` as its first
+        # positional argument, and a bound method's first argument is `self`
+        # — the exact "orphaned request-decorator on a non-view" shape
+        # documented in `changelogs/v3.16.2.md` (`_get_kai_access`) and
+        # `changelogs/v3.24.0.md` (`ParliamentUserAdmin` itself, via
+        # `@log_function_call`). Do not "simplify" this back to a decorator.
+        if not check_feature_enabled('login_as_user'):
+            messages.error(request, 'Login-as-user is currently disabled.')
             return redirect('/admin/')
 
         try:

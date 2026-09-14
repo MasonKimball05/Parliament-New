@@ -258,6 +258,23 @@
             <p class="text-white text-sm opacity-90">Chapter songs and lyrics</p>
         </a>
 
+        {% comment %}
+        Quote Book — added 09-14-26. Same reasoning as My Attendance
+        (v3.22.0): nav items are capped at 9 selections per
+        UserPreferencesForm.clean(), the nav is a scarce resource by design,
+        and this is a fun, non-critical feature — so it lives on the home
+        page next to Songbook rather than as a show_quote_book_menu pref.
+        {% endcomment %}
+        <a href="{% url 'quote_book' %}" class="block rounded-xl shadow-sm hover:shadow-md transition-shadow p-6 group" style="background: linear-gradient(135deg, #EC4899 0%, #BE185D 100%);">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-xl font-semibold text-white group-hover:opacity-90 transition-opacity">Quote Book</h2>
+                <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25"/>
+                </svg>
+            </div>
+            <p class="text-white text-sm opacity-90">Outrageous and funny things members have said</p>
+        </a>
+
         <!-- Kai Report Card -->
         <a href="{% url 'user_kai_dashboard' %}" class="block rounded-xl shadow-sm hover:shadow-md transition-shadow p-6 group" style="background: linear-gradient(135deg, #10B981 0%, #059669 100%);">
             <div class="flex items-center justify-between mb-4">

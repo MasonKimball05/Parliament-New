@@ -79,16 +79,32 @@
             return host;
         }
 
-        /* `kind` is 'error' | 'success'. Errors persist longer because the
-         * whole point is that somebody reads them. */
+        /* `kind` is 'success' | 'error' | 'warning' | 'info' — the same
+         * four tones the full-page flash-message partial further down
+         * this file already uses for `message.tags`, so a toasted
+         * message and that same message's full-page rendering never
+         * disagree about how alarmed the member should be. Anything
+         * else (an unrecognized tag, or none passed) falls back to the
+         * 'info' treatment rather than 'error' — an unknown level should
+         * read as neutral, not alarming. Everything but 'success'
+         * persists longer, because the whole point of a warning or an
+         * info notice — same as an error — is that somebody reads it.
+         *
+         * ⚠️ And do not name that partial's own loop tag literally in a
+         * comment here, same warning as the one a few lines up — this
+         * exact mistake was made and caught while writing this comment. */
+        var TOAST_STYLES = {
+            success: 'bg-green-600 text-white',
+            error: 'bg-red-600 text-white',
+            warning: 'bg-yellow-600 text-white',
+            info: 'bg-blue-600 text-white',
+        };
         P.toast = function(message, kind) {
             var host = toastHost();
             var el = document.createElement('div');
             el.className =
                 'rounded-lg px-4 py-3 text-sm shadow-lg transition-opacity duration-300 ' +
-                (kind === 'success'
-                    ? 'bg-green-600 text-white'
-                    : 'bg-red-600 text-white');
+                (TOAST_STYLES[kind] || TOAST_STYLES.info);
             el.textContent = message;
             host.appendChild(el);
             setTimeout(function() {
@@ -450,8 +466,16 @@
                         return;
                     }
                     return response.json().then(function(data) {
+                        // v3.29.34 — relay the message's own level (one of
+                        // Django's five tags; `js_resubmit.py` reads it
+                        // straight off `message.tags`) instead of
+                        // collapsing everything non-success to 'error'.
+                        // A `messages.warning()`/`.info()` call on one of
+                        // these forms used to show as an alarming red
+                        // toast; P.toast() now has a matching style for
+                        // each tone, same as the full-page partial does.
                         (data.messages || []).forEach(function(m) {
-                            P.toast(m.text, m.level === 'success' ? 'success' : 'error');
+                            P.toast(m.text, m.level);
                         });
                         if (data.redirect) {
                             // Mirror what a native form POST would have

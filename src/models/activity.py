@@ -93,6 +93,12 @@ class ActivityLog(models.Model):
         ('other', 'Other Action'),
         ('bug_report_submitted', 'Bug Report Submitted'),
         ('email_sent', 'Email Sent'),
+
+        # Quote Book
+        ('quote_submitted', 'Quote Added'),
+        ('quote_flagged', 'Quote Flagged/Removed'),
+        ('quote_restored', 'Quote Restored'),
+        ('quote_deleted', 'Quote Deleted (self-authored, self-quoted)'),
     )
 
     # Core fields

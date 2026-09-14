@@ -10,6 +10,7 @@ from django.contrib import messages
 from django.utils import timezone
 from django.utils.timezone import localtime
 from django.db.models import Sum, Count, Q
+from django.core.paginator import Paginator
 from django.http import HttpResponse
 from decimal import Decimal
 import csv
@@ -189,14 +190,32 @@ def view_service_submissions(request):
     if member_id:
         submissions = submissions.filter(submitted_by_id=member_id)
 
+    # This page was unbounded — every submission ever made, rendered in
+    # one response, with no Paginator. Paginate the filtered queryset
+    # first, so everything below (the batch-count annotation) only ever
+    # works over one page's worth of rows rather than the whole table.
+    # Known, accepted limitation this introduces: the template's "select
+    # all N" button for a multi-date batch only checks checkboxes present
+    # in the current page's DOM, so a batch that straddles a page boundary
+    # would under-select. Rows are ordered by `-submitted_at` and a batch's
+    # rows share (near-)identical timestamps, so in practice a batch's rows
+    # stay contiguous and this would only bite a single submission of more
+    # than 50 dates at once — not worth the added complexity of a
+    # cross-page AJAX select for that case.
+    paginator = Paginator(submissions, 50)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
     # v3.29.23 — Mason: "for submissions submitted for multiple days can
     # you add a way for the approver to approve all the ones submitted
     # together at once?" Every row from one multi-date submit shares a
-    # `batch_id` (see submit_service_hours). Materialize the page here (it
-    # was never paginated) so a `batch_pending_count`/`batch_total_count`
-    # can be attached to each row in two grouped queries instead of one
-    # query per distinct batch on the page.
-    submissions = list(submissions)
+    # `batch_id` (see submit_service_hours). Materialize the page here so a
+    # `batch_pending_count`/`batch_total_count` can be attached to each row
+    # in two grouped queries instead of one query per distinct batch on the
+    # page. The batch-count queries below are scoped by `batch_id`, not by
+    # what's on this page, so a batch split across two pages still reports
+    # accurate counts regardless of which page is being viewed.
+    submissions = list(page_obj.object_list)
     batch_ids = {s.batch_id for s in submissions if s.batch_id}
     if batch_ids:
         # Only PENDING siblings are what "approve/reject together" can
@@ -227,6 +246,7 @@ def view_service_submissions(request):
 
     context = {
         'submissions': submissions,
+        'page_obj': page_obj,
         'all_periods': all_periods,
         'all_members': all_members,
         'selected_period': period_id,

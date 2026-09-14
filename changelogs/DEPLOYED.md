@@ -137,6 +137,8 @@ which predate this file and are more specific than their commit dates.
 | v3.29.7 | 09-03-26 § | `4dea670` | See `changelogs/v3.29.7.md`. |
 | v3.29.8 | 09-03-26 § | `b720fa0` | See `changelogs/v3.29.8.md`. |
 | v3.29.9 | 09-03-26 § | `b720fa0` | See `changelogs/v3.29.9.md`. |
+| v3.29.10 | ≤ 09-10-26 (ancestry) | `c5df9f3` | See `changelogs/v3.29.10.md`. Row added 09-14-26 — this release had no changelog file, and therefore no ledger row, until tonight; see that file's header for why. Deploy date isn't independently confirmed the way the § rows are — it's derived from `git merge-base --is-ancestor c5df9f3 aeadea3` (the v3.29.33 commit, confirmed deployed 09-10-26), which proves this commit shipped in that deploy or an earlier one, not which one. |
+| v3.29.11 | ≤ 09-10-26 (ancestry) | `c4d55a8` | See `changelogs/v3.29.11.md`. Row added 09-14-26, same circumstances as v3.29.10 above — `git merge-base --is-ancestor c4d55a8 aeadea3` confirms it shipped by 09-10-26, not on which date. |
 | v3.29.12 | 09-05-26 § | `f4a7298` | See `changelogs/v3.29.12.md`. |
 | v3.29.13 | 09-06-26 § | `9adada2` | See `changelogs/v3.29.13.md`. |
 | v3.29.14 | 09-06-26 § | `15f2d93` | See `changelogs/v3.29.14.md`. |

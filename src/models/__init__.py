@@ -102,6 +102,7 @@ from src.models.kai import (
     KaiAppeal,
     KaiBreakGlassGrant,
 )
+from src.models.quote_book import Quote
 from src.models.kai_commendations import (
     KaiCommendation,
     KaiCommendationActivity,
@@ -310,6 +311,8 @@ __all__ = [
     'KaiCommendation',
     'KaiCommendationActivity',
     'KaiCommendationFieldResponse',
+    # Quote Book
+    'Quote',
     # Slating
     'SlatingPeriod',
     'SlatingPosition',

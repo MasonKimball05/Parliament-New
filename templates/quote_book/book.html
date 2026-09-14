@@ -1,0 +1,429 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Quote Book{% endblock %}
+
+{% block content %}
+<link rel="stylesheet" href="{% static 'vendor/pageflip/stPageFlip.css' %}">
+<style nonce="{{ request.csp_nonce }}">
+    /* Quote Book aesthetic — a "real" book rather than a book-styled list.
+       Scoped under .quote-book-wrap so nothing here leaks onto the rest of
+       the site; base.html has no extra_head block to hang a stylesheet
+       block off of (see templates/profile.html's dead one), so this lives
+       inline in content like the rest of the page does. */
+    .quote-book-wrap { display: flex; flex-direction: column; align-items: center; gap: 1rem; }
+    .quote-book-stage-wrap { position: relative; width: 100%; max-width: 900px; }
+    .quote-book-stage { width: 100%; }
+    /* A static "spine" down the center — real books show a shadowed gap
+       at the binding even on a page that isn't mid-flip; the animation
+       library only draws a shadow WHILE a page is turning, so at rest
+       the reader was just looking at a flat page with no sense of a
+       binding. This is a sibling overlay (not part of the canvas
+       PageFlip renders), positioned above it so it stays visible at
+       rest, and pointer-events: none so it never blocks the
+       drag-to-flip gesture. Mason's call, 09-14-26.
+
+       ⚠️ Hidden DURING an actual flip (JS toggles .is-flipping on the
+       stage wrap via PageFlip's 'changeState' event) — left showing, this
+       static line sat on top of the page that's animating across the
+       stage and looked like a second, wrong crease fighting the one the
+       library draws itself on the moving page. At rest there's nothing
+       moving for it to conflict with. */
+    .quote-book-spine {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        left: 50%;
+        width: 22px;
+        margin-left: -11px;
+        pointer-events: none;
+        z-index: 5;
+        opacity: 1;
+        transition: opacity 0.15s ease;
+        background: linear-gradient(to right,
+            rgba(0, 0, 0, 0) 0%,
+            rgba(0, 0, 0, 0.16) 35%,
+            rgba(0, 0, 0, 0.26) 50%,
+            rgba(0, 0, 0, 0.16) 65%,
+            rgba(0, 0, 0, 0) 100%);
+    }
+    .quote-book-stage-wrap.is-flipping .quote-book-spine { opacity: 0; }
+    /* Pages read as "paper" rather than site UI on purpose — a real book's
+       pages don't change color with the room lights — but v1 of this used
+       a deep parchment/sepia tint (#fdf6e3 / #f1e6c8) that read as an odd
+       mustard-yellow rather than "aged paper." Toned down to a near-white
+       warm gray, which keeps the serif/paper feel without the color being
+       the first thing you notice. */
+    .quote-book-stage .page {
+        background: #fdfcfa;
+        color: #27241f;
+        font-family: Georgia, 'Times New Roman', serif;
+        box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.04);
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        padding: 2.25rem 2rem;
+        box-sizing: border-box;
+        overflow: hidden;
+    }
+    html.dark .quote-book-stage .page { background: #fdfcfa; color: #27241f; }
+    .book-cover-page {
+        /* Beta Theta Pi royal blue (primary-600 → primary-800), the same
+           gradient used site-wide (see e.g. the featured home-page cards).
+           justify-content: flex-start overrides the shared .page rule
+           (center) — title sits at the top, the seal is centered in the
+           space below it via .book-cover-seal-wrap, rather than the whole
+           group being centered as one block. */
+        background: linear-gradient(135deg, #003da5 0%, #002275 100%) !important;
+        color: #ffffff !important;
+        align-items: center;
+        text-align: center;
+        justify-content: flex-start;
+    }
+    .book-cover-page h1 { font-size: 1.9rem; margin: 0 0 0.5rem; letter-spacing: 0.03em; }
+    .book-cover-page p { opacity: 0.85; margin: 0; }
+    .book-cover-seal-wrap { flex: 1; width: 100%; display: flex; align-items: center; justify-content: center; }
+    .book-cover-page img { width: 100px; height: 100px; object-fit: contain; filter: drop-shadow(0 2px 6px rgba(0,0,0,0.35)); }
+    .book-toc h2, .chapter-title h2 { font-size: 1.4rem; margin: 0 0 1rem; border-bottom: 2px solid #003da5; padding-bottom: 0.5rem; }
+    .book-toc ul { list-style: none; margin: 0; padding: 0; overflow-y: auto; }
+    .book-toc li { margin-bottom: 0.4rem; }
+    .toc-link {
+        background: none; border: none; padding: 0.2rem 0; cursor: pointer;
+        font-family: inherit; font-size: 0.95rem; color: #003da5; text-align: left;
+        text-decoration: underline; text-decoration-color: transparent; transition: text-decoration-color 0.15s;
+    }
+    .toc-link:hover { text-decoration-color: #003da5; }
+    .chapter-title-page { align-items: center; text-align: center; }
+    .chapter-title-page p { opacity: 0.7; margin-top: 0.25rem; }
+    /* .quote-page-body holds every quote-block on a page (several, since
+       09-14-26 — see QUOTES_PER_PAGE below); .quote-block is one quote's
+       text + byline + flag button. Previously each page held exactly one
+       quote and the byline was pinned to the page bottom with
+       margin-top: auto — that stopped working the moment a second quote
+       could share the page (the byline would land below BOTH quotes,
+       not under the one it belongs to), so the byline now flows directly
+       under its own quote's text instead. overflow-y: auto rather than
+       the page's default `hidden` — a page with several long quotes can
+       run past the fixed page height, and scrolling within the page beats
+       silently clipping a quote's byline or flag button off the bottom. */
+    .quote-page-body { display: flex; flex-direction: column; height: 100%; gap: 1.5rem; overflow-y: auto; }
+    .quote-block { flex-shrink: 0; }
+    .quote-block + .quote-block { padding-top: 1.5rem; border-top: 1px solid rgba(0, 61, 165, 0.15); }
+    /* white-space: pre-wrap — a quote submitted with line breaks (an
+       "-- Enter --" in the textarea) was rendering them as a single space,
+       because the browser's default text flow collapses newlines like any
+       other whitespace. pre-wrap keeps the member's line breaks while
+       still wrapping long lines normally (unlike plain `pre`, which would
+       force horizontal scroll instead of wrapping). */
+    .quote-block blockquote { font-size: 1.15rem; line-height: 1.5; margin: 0 0 0.5rem; font-style: italic; white-space: pre-wrap; }
+    .quote-context { font-size: 0.85rem; opacity: 0.75; margin: 0 0 0.5rem; white-space: pre-wrap; }
+    .quote-byline { font-size: 0.8rem; opacity: 0.65; margin: 0; }
+    .quote-flag-btn {
+        display: inline-block; margin-top: 0.5rem; font-family: -apple-system, sans-serif;
+        font-size: 0.75rem; color: #9f1239; background: none; border: 1px solid #9f1239;
+        border-radius: 9999px; padding: 0.25rem 0.75rem; cursor: pointer; opacity: 0.7;
+    }
+    .quote-flag-btn:hover { opacity: 1; background: rgba(159, 18, 57, 0.08); }
+    .quote-flag-btn:disabled { opacity: 0.4; cursor: default; }
+    .quote-flagged-msg { font-family: -apple-system, sans-serif; font-size: 0.85rem; color: #9f1239; margin-top: 0.75rem; }
+    .quote-book-nav { display: flex; align-items: center; gap: 1rem; }
+    .quote-book-page-indicator { font-size: 0.85rem; color: #6b7280; min-width: 4.5rem; text-align: center; }
+</style>
+
+<div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+    <!-- Page Header -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-6">
+        <div class="flex items-center justify-between flex-wrap gap-4">
+            <div class="flex items-center gap-4">
+                <div class="w-12 h-12 sm:w-14 sm:h-14 bg-pink-100 dark:bg-pink-900/30 rounded-full flex items-center justify-center">
+                    <svg class="w-7 h-7 text-pink-600 dark:text-pink-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25"/>
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100">Quote Book</h1>
+                    <p class="text-gray-600 dark:text-gray-400">Outrageous and funny things members have said — a chapter per member</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                {% if flagged_count is not None %}
+                <a href="{% url 'review_flagged_quotes' %}"
+                   class="inline-flex items-center px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+                    <svg class="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9"/>
+                    </svg>
+                    Flagged
+                    {% if flagged_count %}<span class="ml-1.5 bg-pink-600 text-white text-xs font-bold px-1.5 py-0.5 rounded-full leading-none">{{ flagged_count }}</span>{% endif %}
+                </a>
+                {% endif %}
+                <a href="{% url 'submit_quote' %}"
+                   class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+                    <svg class="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+                    </svg>
+                    Add a Quote
+                </a>
+            </div>
+        </div>
+    </div>
+
+    {% if has_quotes %}
+    <div class="quote-book-wrap">
+        <div class="quote-book-stage-wrap">
+            <div id="quote-book-stage" class="quote-book-stage"></div>
+            <div class="quote-book-spine" aria-hidden="true"></div>
+        </div>
+        <div class="quote-book-nav">
+            <button type="button" id="quote-book-prev" class="px-3 py-1.5 bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 text-gray-800 dark:text-gray-200 rounded-lg transition text-sm">← Prev</button>
+            <button type="button" id="quote-book-toc" class="px-3 py-1.5 bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 text-gray-800 dark:text-gray-200 rounded-lg transition text-sm" title="Jump back to the table of contents">Table of Contents</button>
+            <span id="quote-book-page-indicator" class="quote-book-page-indicator"></span>
+            <button type="button" id="quote-book-next" class="px-3 py-1.5 bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 text-gray-800 dark:text-gray-200 rounded-lg transition text-sm">Next →</button>
+        </div>
+        <p class="text-xs text-gray-400 dark:text-gray-500">Click and drag a page corner to flip, or use the buttons above. "Table of Contents" jumps straight back to the chapter list from anywhere in the book.</p>
+    </div>
+    {% else %}
+    <!-- Empty State -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-12 text-center">
+        <svg class="w-16 h-16 text-gray-400 dark:text-gray-600 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25"/>
+        </svg>
+        <h3 class="text-xl font-semibold text-gray-700 dark:text-gray-300 mb-2">The Book Is Empty</h3>
+        <p class="text-gray-500 dark:text-gray-400 mb-4">Nobody's said anything quotable yet — or everything said so far has been flagged. Be the first to add one.</p>
+        <a href="{% url 'submit_quote' %}" class="inline-flex items-center px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition">
+            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+            </svg>
+            Add the First Quote
+        </a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{% if has_quotes %}
+<script src="{% static 'vendor/pageflip/page-flip.browser.js' %}"></script>
+<script nonce="{{ request.csp_nonce }}">
+(function() {
+    'use strict';
+
+    // Single source of truth for the whole book — see quote_book() in
+    // src/view/quote_book.py. Escaped with `_script_safe_json` (server
+    // side) against a stored-XSS-via-quote-text breakout of this script
+    // tag, same fix as src/view/officer/transitions.py's roles_json.
+    var chapters = {{ chapters_json|safe }};
+
+    var stage = document.getElementById('quote-book-stage');
+    if (!stage || !window.St || !window.St.PageFlip) return;
+
+    function escapeHtml(s) {
+        var d = document.createElement('div');
+        d.textContent = s === null || s === undefined ? '' : String(s);
+        return d.innerHTML;
+    }
+
+    // Build every leaf up front — cover, table of contents, then one
+    // title page + one page per quote for each chapter. loadFromHTML
+    // reads these back off the DOM once they're all in place.
+    var pageIndexByMember = {};
+    var pages = [];
+
+    function addPage(innerHtml, extraClass) {
+        var div = document.createElement('div');
+        div.className = 'page' + (extraClass ? ' ' + extraClass : '');
+        div.innerHTML = innerHtml;
+        stage.appendChild(div);
+        pages.push(div);
+        return pages.length - 1;
+    }
+
+    // Canonical seal artwork per Resources/CLAUDE.md — always referenced via
+    // the static template tag, never /exportable_media/ (that path is
+    // login-gated and breaks for sessionless fetches).
+    var sealUrl = '{% static "images/am-coat-of-arms.png" %}';
+    addPage(
+        '<div class="book-cover-page">' +
+        '<h1>The Quote Book</h1>' +
+        '<p>Things members said that someone thought deserved a page.</p>' +
+        '<div class="book-cover-seal-wrap"><img src="' + sealUrl + '" alt="Chapter seal"></div>' +
+        '</div>',
+        'book-cover-page'
+    );
+
+    var tocHtml = '<div class="book-toc"><h2>Table of Contents</h2><ul>' +
+        chapters.map(function(ch) {
+            return '<li><button type="button" class="toc-link" data-member-id="' + ch.member_id + '">' +
+                escapeHtml(ch.member_name) + '</button></li>';
+        }).join('') +
+        '</ul></div>';
+    var tocIdx = addPage(tocHtml, 'book-toc-page');
+
+    // Several quotes share a page rather than one-per-page — Mason's call,
+    // 09-14-26, once the byline stopped being pinned to the page bottom
+    // (see .quote-page-body's comment above) and could instead sit right
+    // under its own quote. Not adaptive to quote length: a page of three
+    // short quotes has room to spare and a page of three long ones may
+    // need to scroll (.quote-page-body is overflow-y: auto for exactly
+    // that reason) — real pagination-by-content-height would need to
+    // measure rendered text, which StPageFlip's fixed page size doesn't
+    // make easy, and a fixed count is a reasonable trade for a feature
+    // this size.
+    var QUOTES_PER_PAGE = 3;
+
+    function buildQuoteBlock(q) {
+        // Same endpoint either way (flag_quote) — the server decides
+        // whether this is a soft flag or an outright delete
+        // (Quote.can_be_deleted_outright_by: the same person both wrote
+        // this quote and is who it's about). `delete_not_flag` only
+        // changes the button's label/confirm text/data attribute so the
+        // click handler knows which message to show on success.
+        var flagBtn = '';
+        if (q.delete_not_flag) {
+            flagBtn = '<button type="button" class="quote-flag-btn" data-quote-id="' + q.id + '" data-delete="1">Delete Quote</button>';
+        } else if (q.can_flag) {
+            flagBtn = '<button type="button" class="quote-flag-btn" data-quote-id="' + q.id + '">Flag for removal</button>';
+        }
+        return '<div class="quote-block" data-quote-id="' + q.id + '">' +
+            '<blockquote>&ldquo;' + escapeHtml(q.text) + '&rdquo;</blockquote>' +
+            (q.context ? '<p class="quote-context">' + escapeHtml(q.context) + '</p>' : '') +
+            '<p class="quote-byline">&mdash; submitted by ' + escapeHtml(q.submitted_by) + ', ' + escapeHtml(q.created_at) + '</p>' +
+            flagBtn +
+            '<p class="quote-flagged-msg" hidden></p>' +
+            '</div>';
+    }
+
+    chapters.forEach(function(ch) {
+        var count = ch.quotes.length;
+        var titleIdx = addPage(
+            '<div class="chapter-title-page"><h2>' + escapeHtml(ch.member_name) + '</h2>' +
+            '<p>' + count + ' quote' + (count === 1 ? '' : 's') + '</p></div>',
+            'chapter-title-page'
+        );
+        pageIndexByMember[ch.member_id] = titleIdx;
+
+        for (var i = 0; i < ch.quotes.length; i += QUOTES_PER_PAGE) {
+            var group = ch.quotes.slice(i, i + QUOTES_PER_PAGE);
+            var html = '<div class="quote-page-body">' +
+                group.map(buildQuoteBlock).join('') +
+                '</div>';
+            addPage(html, 'quote-page');
+        }
+    });
+
+    var pageFlip = new window.St.PageFlip(stage, {
+        width: 380,
+        height: 520,
+        size: 'stretch',
+        minWidth: 260,
+        maxWidth: 500,
+        minHeight: 380,
+        maxHeight: 700,
+        showCover: false,
+        usePortrait: true,
+        maxShadowOpacity: 0.4,
+        mobileScrollSupport: false,
+    });
+    pageFlip.loadFromHTML(document.querySelectorAll('#quote-book-stage .page'));
+
+    var indicator = document.getElementById('quote-book-page-indicator');
+    function updateIndicator() {
+        if (!indicator) return;
+        var total = pageFlip.getPageCount();
+        var current = pageFlip.getCurrentPageIndex() + 1;
+        indicator.textContent = 'Page ' + current + ' of ' + total;
+    }
+    updateIndicator();
+    pageFlip.on('flip', updateIndicator);
+
+    // Hide the static spine overlay while a page is actually turning —
+    // see the CSS comment on .quote-book-spine for why. 'read' is the
+    // library's own name for "at rest, nothing animating"; anything else
+    // ('flipping', 'user_fold' — mid-drag before release) hides it.
+    var stageWrap = document.querySelector('.quote-book-stage-wrap');
+    pageFlip.on('changeState', function(e) {
+        if (!stageWrap) return;
+        stageWrap.classList.toggle('is-flipping', e.data !== 'read');
+    });
+
+    document.querySelectorAll('.toc-link').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            var idx = pageIndexByMember[this.dataset.memberId];
+            if (idx !== undefined) pageFlip.flip(idx);
+        });
+    });
+
+    var prevBtn = document.getElementById('quote-book-prev');
+    var nextBtn = document.getElementById('quote-book-next');
+    var tocBtn = document.getElementById('quote-book-toc');
+    if (prevBtn) prevBtn.addEventListener('click', function() { pageFlip.flipPrev(); });
+    if (nextBtn) nextBtn.addEventListener('click', function() { pageFlip.flipNext(); });
+    // Jump straight back to the table of contents from anywhere in the
+    // book, rather than clicking Prev once per page — Mason's call,
+    // 09-14-26, after a chapter 20+ pages in made that a lot of clicking.
+    if (tocBtn) tocBtn.addEventListener('click', function() { pageFlip.flip(tocIdx); });
+
+    // Flagging is AJAX-only on purpose — a full page reload on a flip-book
+    // throws the reader back to page 1, which is a bad experience for
+    // "reading, notice something, remove it, resume reading." Built from
+    // a Django URL reverse with a placeholder id (route names, not
+    // hand-built strings — see src/tests/guards/test_hardcoded_urls.py).
+    var flagUrlTemplate = '{% url "flag_quote" 0 %}';
+    var csrfMeta = document.querySelector('meta[name="csrf-token"]');
+    var csrfToken = csrfMeta ? csrfMeta.content : '';
+
+    stage.addEventListener('click', function(e) {
+        var btn = e.target.closest('.quote-flag-btn');
+        if (!btn) return;
+
+        // Same click handler for both — `data-delete` only changes the
+        // confirm/success copy. Which one actually happens is decided
+        // server-side (Quote.can_be_deleted_outright_by), not by this
+        // attribute; a stale/tampered attribute would just show the
+        // "wrong" wording for whatever the server actually did.
+        var isDelete = btn.dataset.delete === '1';
+        var confirmMsg = isDelete
+            ? 'Delete this quote permanently? This cannot be undone.'
+            : 'Remove this quote? It will be hidden from the book right away.';
+        if (!window.confirm(confirmMsg)) return;
+
+        var quoteId = btn.dataset.quoteId;
+        var url = flagUrlTemplate.replace('/0/', '/' + quoteId + '/');
+        btn.disabled = true;
+
+        fetch(url, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': csrfToken },
+        }).then(function(resp) {
+            return resp.json();
+        }).then(function(data) {
+            if (!data.success) {
+                btn.disabled = false;
+                window.alert(isDelete ? 'Could not delete that quote.' : 'Could not flag that quote.');
+                return;
+            }
+            var wrap = btn.closest('.quote-block');
+            if (!wrap) return;
+            var bq = wrap.querySelector('blockquote');
+            var ctx = wrap.querySelector('.quote-context');
+            var byline = wrap.querySelector('.quote-byline');
+            var flaggedMsg = wrap.querySelector('.quote-flagged-msg');
+            if (bq) bq.style.display = 'none';
+            if (ctx) ctx.style.display = 'none';
+            if (byline) byline.style.display = 'none';
+            btn.hidden = true;
+            if (flaggedMsg) {
+                flaggedMsg.textContent = data.deleted
+                    ? 'This quote has been deleted.'
+                    : 'This quote has been flagged and removed from the book.';
+                flaggedMsg.hidden = false;
+            }
+        }).catch(function() {
+            btn.disabled = false;
+            window.alert(isDelete ? 'Could not delete that quote — check your connection and try again.' : 'Could not flag that quote — check your connection and try again.');
+        });
+    });
+})();
+</script>
+{% endif %}
+{% endblock %}

@@ -3,7 +3,6 @@ from django.contrib.auth.decorators import login_required
 from django.urls import reverse
 from django.conf import settings
 from django.http import FileResponse, Http404, HttpResponseForbidden
-from django.utils.html import escape
 from src.feature_flag_decorators import require_feature_flag
 from src.models import Legislation, CommitteeDocument
 from src.models.documents import DocumentVersion
@@ -144,7 +143,14 @@ def _replace_unsupported_image(img_tag):
     if not match or match.group(1).lower() in _DOCX_BROWSER_RENDERABLE_IMAGE_TYPES:
         return img_tag
 
-    alt_text = escape(attrs.get('alt') or 'Image')
+    # `attrs` is parsed out of `html`, which has already been through
+    # `bleach.clean()` by the time this runs (see `_sanitize_docx_html_images`)
+    # — so the `alt` value pulled off the tag is already HTML-entity-escaped
+    # (that's what a serialized HTML attribute value IS). Escaping it again
+    # here double-escapes anything with an `&`, `<`, `>` or `"` in the
+    # original alt text (`&amp;` -> `&amp;amp;`, etc.) instead of rendering
+    # cleanly.
+    alt_text = attrs.get('alt') or 'Image'
     return (
         '<span class="docx-unsupported-image">'
         f"{alt_text} — this image's format can't be shown here; "

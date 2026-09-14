@@ -142,6 +142,39 @@ class Command(BaseCommand):
                 'category': 'admin',
                 'is_enabled': False,  # Require manual approval by default (safer)
             },
+            {
+                # v3.29.35 — previously seeded only by the legacy
+                # `seed_admin_v2` and gating nothing. Now actually checked by
+                # `@require_feature_flag('activity_logs')` on
+                # `activity_logs_view`/`export_activity_logs`.
+                'name': 'activity_logs',
+                'display_name': 'Activity Logs',
+                'description': 'Enable the officer-facing /officers/activity-logs/ audit log page and its CSV export.',
+                'category': 'admin',
+                'is_enabled': True,
+            },
+            {
+                # v3.29.35 — same history as 'activity_logs' above, but this
+                # one previously gated nothing while sitting in front of a
+                # real, always-reachable feature: `login_as_view.login_as_user`
+                # (`/staff/login-as/<id>/`) and the admin's "Login As" action
+                # were both live behind `is_staff` alone (which on this
+                # model IS `is_admin` — see `ParliamentUser.is_staff`), with
+                # no app-level way to turn impersonation off short of a code
+                # change. Impersonating a user means becoming them for every
+                # permission check the app makes — including the Kai/Slating
+                # confidentiality boundaries documented elsewhere, since
+                # those checks ask "who is the current user," not "is the
+                # current session an impersonation." DISABLED_BY_DEFAULT
+                # (see `FeatureFlag`) on top of `is_enabled=False` here, so
+                # this fails closed both on a missing row and on a fresh
+                # seed — an admin has to deliberately turn it on.
+                'name': 'login_as_user',
+                'display_name': 'Login As User',
+                'description': 'Allow admins to impersonate another user (for support/debugging). Off by default — turn on only when actively needed, then back off.',
+                'category': 'admin',
+                'is_enabled': False,
+            },
 
             # ── Constitution & Bylaws, one flag per document (v3.19.1) ───────
             #
@@ -474,6 +507,13 @@ class Command(BaseCommand):
                 'url_name': 'constitution_bylaws',
                 'display_name': 'Constitution & Bylaws',
                 'description': 'Constitution and bylaws page',
+                'is_enabled': True,
+            },
+            {
+                # v3.29.36 — the Quote Book.
+                'url_name': 'quote_book',
+                'display_name': 'Quote Book',
+                'description': 'The chapter quote book — a chapter per member.',
                 'is_enabled': True,
             },
         ]

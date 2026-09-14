@@ -5,6 +5,7 @@ from ..models import ParliamentUser, ActivityLog
 from django.contrib.auth import login
 import logging
 from src.auth_backends import AUTH_BACKEND_PATH
+from src.feature_flag_decorators import require_feature_flag
 
 security_logger = logging.getLogger('security')
 logger = logging.getLogger('function_calls')
@@ -16,10 +17,17 @@ from src.impersonation import SESSION_ORIGINAL_ID, SESSION_ORIGINAL_NAME  # noqa
 
 
 @staff_member_required
+@require_feature_flag('login_as_user')
 def login_as_view(request, user_id):
     """
     Admin impersonation — logs in as another user for support/debugging.
     Stores the original admin's identity in the session so they can return.
+
+    v3.29.35 — gated behind the (previously dead) 'login_as_user' feature
+    flag, DISABLED_BY_DEFAULT. Deliberately only on the START of
+    impersonation, not on `return_to_original_user` below: if the flag gets
+    turned off while someone is mid-impersonation, they must still be able
+    to return to their own account rather than getting stuck.
     """
     target = get_object_or_404(ParliamentUser, pk=user_id)
 

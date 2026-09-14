@@ -1,0 +1,82 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Add a Quote - Quote Book{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Breadcrumb -->
+    {% url 'quote_book' as quote_book_url %}
+    {% include 'includes/breadcrumbs.html' with back_url=quote_book_url back_label='Quote Book' current='Add a Quote' %}
+
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+        <!-- Header -->
+        <div class="bg-gradient-to-r from-pink-50 to-rose-100 dark:from-pink-900/30 dark:to-rose-800/30 px-6 py-4 border-b border-pink-200 dark:border-pink-700">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-pink-100 dark:bg-pink-900/50 rounded-full flex items-center justify-center">
+                    <svg class="w-5 h-5 text-pink-600 dark:text-pink-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25"/>
+                    </svg>
+                </div>
+                <div>
+                    <h2 class="text-xl font-bold text-gray-900 dark:text-white">Add a Quote</h2>
+                    <p class="text-sm text-gray-600 dark:text-gray-400">Goes in the quoted member's chapter — they can flag it for removal if they don't want it there.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Form -->
+        <form method="post" class="p-6 space-y-6">
+            {% csrf_token %}
+
+            <!-- Who said it -->
+            <div>
+                <label for="id_quoted_member" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Who said it? <span class="text-red-500">*</span>
+                </label>
+                <select id="id_quoted_member" name="quoted_member" required
+                        class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm focus:border-primary-500 focus:ring-primary-500">
+                    <option value="">Select a member…</option>
+                    {% for member in members %}
+                    <option value="{{ member.pk }}">{{ member.get_display_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- The quote -->
+            <div>
+                <label for="id_text" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    The quote <span class="text-red-500">*</span>
+                </label>
+                <textarea id="id_text" name="text" rows="3" required maxlength="1000"
+                          placeholder="&quot;...&quot;"
+                          class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm focus:border-primary-500 focus:ring-primary-500"></textarea>
+            </div>
+
+            <!-- Context -->
+            <div>
+                <label for="id_context" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Context <span class="text-gray-400 font-normal">(optional)</span>
+                </label>
+                <input type="text" id="id_context" name="context" maxlength="300"
+                       placeholder="What was going on when they said it?"
+                       class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm focus:border-primary-500 focus:ring-primary-500">
+            </div>
+
+            <p class="text-xs text-gray-500 dark:text-gray-400">
+                Your name is shown alongside the quote as the person who submitted it.
+            </p>
+
+            <!-- Actions -->
+            <div class="flex items-center gap-3 pt-2">
+                <button type="submit" class="px-6 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition">
+                    Add to the Book
+                </button>
+                <a href="{% url 'quote_book' %}" class="px-4 py-2 bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 text-gray-800 dark:text-gray-200 rounded-lg transition">
+                    Cancel
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
