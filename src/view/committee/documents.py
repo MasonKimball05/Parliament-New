@@ -1,6 +1,7 @@
 from django.shortcuts import render, get_object_or_404
 from django.http import HttpResponseForbidden
 from src.models import Committee, CommitteePermissions, CommitteeDocument, ChapterMinutes
+from src.models.documents import DocumentVersion
 from django.contrib.auth.decorators import login_required
 from src.feature_flag_decorators import require_page_enabled, check_feature_enabled
 from src.view.committee.committee_minutes_editor import (
@@ -21,10 +22,38 @@ def committee_documents(request, code):  # Changed from id to code
         return HttpResponseForbidden("You cannot view documents in this committee.")
 
     # Get all documents for this committee
-    all_documents = CommitteeDocument.objects.filter(committee=committee)
+    # select_related('uploaded_by') — `can_user_view()` below short-circuits
+    # on `published_to_chapter` (and several other branches) before ever
+    # touching `self.uploaded_by`, so most rows reach the template with
+    # nothing warming the FK cache, and `documents.html` prints
+    # `doc.uploaded_by.name` once per row — one query per document
+    # otherwise. Caught live via the dev-mode query monitor: 13x the same
+    # query shape for 13 documents.
+    # select_related('committee') too — `can_user_view()`'s `committee_only`
+    # branch touches `self.committee`, and without this every document
+    # whose visibility check reaches that branch re-fetches the Committee
+    # row we already have in `committee` above, one query per document.
+    all_documents = CommitteeDocument.objects.filter(committee=committee).select_related('committee', 'uploaded_by')
+
+    # Every document on this page belongs to the same `committee`, so
+    # whether `user` is a member/chair of it is one fact, not one fact per
+    # document. Compute both once and hand them to `can_user_view()` so its
+    # `committee_only`/`chairs_only` branches don't each run their own
+    # membership query per document (still just as correct for a
+    # `visibility='custom'` document, which is genuinely per-document and
+    # not precomputed here).
+    user_is_committee_member = committee.members.filter(pk=user.pk).exists()
+    user_is_committee_chair = committee.chairs.filter(pk=user.pk).exists()
 
     # Filter documents based on visibility permissions
-    documents = [doc for doc in all_documents if doc.can_user_view(user)]
+    documents = [
+        doc for doc in all_documents
+        if doc.can_user_view(
+            user,
+            is_committee_member=user_is_committee_member,
+            is_committee_chair=user_is_committee_chair,
+        )
+    ]
 
     # Build a map of document_id -> linked minutes for "Edit Minutes" links
     doc_ids = [doc.id for doc in documents]
@@ -67,14 +96,25 @@ def committee_documents(request, code):  # Changed from id to code
         for m in unpublished_minutes:
             m.can_user_edit = can_edit_specific_minutes(user, committee, m, can_edit_any=can_edit_minutes)
 
-    # Version history is a real query per document (`document.versions`
-    # ordered by -version_number per DocumentVersion.Meta), so it's only run
-    # when the feature is actually on — a chapter that never enables
-    # document_versioning pays nothing extra for this page.
+    # Version history — only run when the feature is actually on, so a
+    # chapter that never enables document_versioning pays nothing extra for
+    # this page. Was `doc.versions.all()` inside a `for doc in documents`
+    # loop: one query per document regardless of the select_related on it
+    # (a per-instance reverse-FK lookup is still a per-instance lookup).
+    # Caught by the same dev-mode monitor pass as the `uploaded_by` fix
+    # above — one bulk query across every document's versions, grouped in
+    # Python, same pattern `linked_minutes_map` already uses a few lines up
+    # for the same reason.
     versioning_enabled = check_feature_enabled('document_versioning')
     if versioning_enabled:
+        versions_by_doc = {}
+        versions_qs = DocumentVersion.objects.filter(
+            document_id__in=[doc.id for doc in documents]
+        ).select_related('uploaded_by')
+        for version in versions_qs:
+            versions_by_doc.setdefault(version.document_id, []).append(version)
         for doc in documents:
-            doc.version_history = list(doc.versions.all())
+            doc.version_history = versions_by_doc.get(doc.id, [])
 
     return render(request, "committee/documents.html", {
         "committee": committee,

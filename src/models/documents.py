@@ -110,8 +110,19 @@ class CommitteeDocument(models.Model):
         """Return formatted version string like 'v1.0'"""
         return f"v{self.version_number}.0"
 
-    def can_user_view(self, user):
-        """Check if a user has permission to view this document"""
+    def can_user_view(self, user, is_committee_member=None, is_committee_chair=None):
+        """
+        Check if a user has permission to view this document.
+
+        `is_committee_member`/`is_committee_chair` let a caller looping over
+        several documents *for the same committee* (see
+        `committee_documents()`) pass in a value it already computed once,
+        instead of this method re-deriving it per document — same idiom as
+        `can_edit_specific_minutes(..., can_edit_any=...)`. Both default to
+        `None`, meaning "not precomputed, derive it here," so a caller with
+        a single document (or documents from different committees) doesn't
+        need to change anything.
+        """
         # Documents published to chapter are visible to all members
         if self.published_to_chapter:
             return True
@@ -126,15 +137,25 @@ class CommitteeDocument(models.Model):
         elif self.visibility == 'committee_only':
             if not self.committee:
                 return True  # Chapter-level docs with committee_only treated as all_members
-            return user in self.committee.members.all()
+            if is_committee_member is not None:
+                return is_committee_member
+            # `.filter(pk=user.pk).exists()` rather than `user in
+            # self.committee.members.all()` — the `in` form has no
+            # `QuerySet.__contains__` to short-circuit on, so Python falls
+            # back to iterating (and therefore fetching every column of
+            # every member row) just to answer a yes/no membership
+            # question.
+            return self.committee.members.filter(pk=user.pk).exists()
         elif self.visibility == 'chairs_only':
             if not self.committee:
                 return user.is_officer
-            return user in self.committee.chairs.all()
+            if is_committee_chair is not None:
+                return is_committee_chair
+            return self.committee.chairs.filter(pk=user.pk).exists()
         elif self.visibility == 'officers_only':
             return user.member_type == 'Officer' or user.is_officer
         elif self.visibility == 'custom':
-            return user in self.custom_viewers.all()
+            return self.custom_viewers.filter(pk=user.pk).exists()
 
         return False
 

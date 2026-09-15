@@ -89,13 +89,15 @@ shows up as a count at any scale, which is why count is the thing worth
 guarding.
 """
 
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import connection
 from django.test import Client, TestCase
 from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 
 from src.dev_mode import normalize_sql
-from src.models import Committee, KaiReport, ParliamentUser
+from src.models import Committee, CommitteeDocument, KaiReport, ParliamentUser
+from src.models.committees import CommitteePermissions
 from src.models.kai import KaiMemberPermission, KaiReportActivity
 
 #: How much slack a budget may carry before `assert_within_budget` calls it
@@ -1089,6 +1091,125 @@ class ServiceDashboardQueryBudgetTests(QueryBudgetMixin, TestCase):
                 self.assertEqual(
                     row['expected_hours'],
                     Decimal('15.00') if i % 4 == 0 else Decimal('10.00'))
+
+
+def _fixture_pdf(name='doc.pdf', label=b'fixture'):
+    """A minimal but structurally real PDF — see test_document_versioning.py's
+    identical helper for why a bare `%PDF` string isn't reliable against
+    `validate_uploaded_file`'s libmagic sniff."""
+    content = b'%PDF-1.4\n1 0 obj\n<< /Type /Catalog >>\nendobj\n% ' + label + b'\ntrailer\n%%EOF\n'
+    return SimpleUploadedFile(name, content, content_type='application/pdf')
+
+
+class CommitteeDocumentsQueryBudgetTests(QueryBudgetMixin, TestCase):
+    """
+    `/committee/<code>/documents/` — caught live via the dev-mode query
+    monitor: 13x the same query shape for 13 documents.
+
+    `all_documents = CommitteeDocument.objects.filter(committee=committee)`
+    had no `select_related('uploaded_by')`, and the permission filter one
+    line below (`doc.can_user_view(user)`) doesn't reliably warm that FK
+    either — `can_user_view` short-circuits on `published_to_chapter` (and
+    several other visibility branches) before ever touching
+    `self.uploaded_by`, so most documents reach `documents.html` with
+    nothing cached. The template prints `doc.uploaded_by.name` once per
+    row — one query per document. Fixed by adding
+    `.select_related('uploaded_by')` to the queryset.
+
+    Chasing that fix down to a flat, non-scaling number surfaced two more
+    N+1s in the same view, both fixed here too:
+
+    - The version-history loop (`doc.versions.all()` inside
+      `for doc in documents`) was one query per document regardless of any
+      select_related on it — a per-instance reverse-FK lookup is still a
+      per-instance lookup. Replaced with one bulk
+      `DocumentVersion.objects.filter(document_id__in=...)`, grouped by
+      `document_id` in Python (same pattern `linked_minutes_map` already
+      uses a few lines up for the same reason).
+    - `CommitteeDocument.can_user_view()`'s `committee_only`/`chairs_only`/
+      `custom` branches used `user in some_queryset.all()` to answer a
+      yes/no membership question — `QuerySet` has no `__contains__`, so
+      Python's `in` falls back to iterating (fetching every column of
+      every row) just to check one. Since every document on this page
+      belongs to the same committee, `is_committee_member`/
+      `is_committee_chair` are now computed once per request and passed
+      into `can_user_view()`, matching the `can_edit_any=` idiom
+      `can_edit_specific_minutes` already established for the identical
+      shape of problem. `custom_viewers` stays a per-document
+      `.filter(pk=user.pk).exists()` — that one is genuinely
+      per-document, not something a single committee-level fact can
+      answer.
+
+    Not fixed here, and deliberately out of scope for this pass: two
+    remaining `×2` duplicate-shape queries (committee membership, chair
+    status) come from this view separately calling `committee.is_vp()`,
+    `committee.is_chair()`, and `is_committee_member_or_above()` (via
+    `can_view_minutes`) — each re-deriving membership/chair status through
+    its own code path rather than reusing the two facts this class
+    computes. That's a small, pre-existing redundancy (2 queries instead
+    of 1 for each fact, not one per document), not the N+1 this class
+    exists to guard against — worth a follow-up, not worth blocking this
+    fix on.
+    """
+
+    #: Measured 09-15-26, cold cache, on a fixture of 9 documents (3
+    #: published-to-chapter — an early return in `can_user_view` that never
+    #: touches membership — and 6 committee_only, which do) uploaded by 3
+    #: distinct members. Confirmed flat regardless of document count by
+    #: `test_the_page_does_not_scale_with_document_count` below.
+    BUDGET = 39
+
+    def setUp(self):
+        self.committee = Committee.objects.create(
+            name='Budget Test Committee', code='QBDOC', is_active=True,
+        )
+        self.viewer = make_user('qb-doc-viewer', 'Doc Viewer', member_type='Member')
+        self.committee.members.add(self.viewer)
+        CommitteePermissions.objects.create(
+            committee=self.committee, user=self.viewer, can_view_docs=True,
+        )
+
+        self.uploaders = [
+            make_user(f'qb-doc-up{i}', f'Uploader {i}', member_type='Officer')
+            for i in range(3)
+        ]
+        for i in range(9):
+            CommitteeDocument.objects.create(
+                committee=self.committee,
+                title=f'Document {i}',
+                document=_fixture_pdf(f'doc{i}.pdf', f'doc{i}'.encode()),
+                uploaded_by=self.uploaders[i % 3],
+                visibility='committee_only',
+                published_to_chapter=(i % 3 == 0),
+            )
+
+    def test_the_page_stays_within_budget(self):
+        self.assert_within_budget(self.viewer, 'committee_documents', self.BUDGET, self.committee.code)
+
+    def test_the_page_does_not_scale_with_document_count(self):
+        before = len(self.measure(self.viewer, 'committee_documents', self.committee.code))
+
+        extra_uploaders = [
+            make_user(f'qb-doc-xup{i}', f'Extra Uploader {i}', member_type='Officer')
+            for i in range(3)
+        ]
+        for i in range(18):
+            CommitteeDocument.objects.create(
+                committee=self.committee,
+                title=f'Extra Document {i}',
+                document=_fixture_pdf(f'extra{i}.pdf', f'extra{i}'.encode()),
+                uploaded_by=extra_uploaders[i % 3],
+                visibility='committee_only',
+                published_to_chapter=(i % 3 == 0),
+            )
+
+        after = len(self.measure(self.viewer, 'committee_documents', self.committee.code))
+        self.assertLessEqual(
+            after, before,
+            f'The committee documents page cost {before} queries with 9 '
+            f'documents and {after} with 27. `uploaded_by` access must stay '
+            f'select_related, not fall back to one query per document.',
+        )
 
 
 # ---------------------------------------------------------------------------

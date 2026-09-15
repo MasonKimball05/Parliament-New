@@ -5,6 +5,7 @@ Celery tasks for Parliament — split into submodules by domain.
   votes.py         — vote auto-open/close + scheduled announcement dispatch
   cleanup.py       — nightly/monthly pruning of stale DB records
   notifications.py — user-facing push/in-app notifications + daily digest
+  security_audit.py — scheduled security audits (weekly weak-password check)
 
 All names are re-exported here so existing `from src.tasks import X` call sites
 continue to work without modification. Celery's autodiscovery imports this package
@@ -39,6 +40,9 @@ from src.tasks.notifications import (
     send_service_event_email_reminders,
     send_daily_digest,
 )
+from src.tasks.security_audit import (
+    check_weak_passwords,
+)
 
 __all__ = [
     'send_announcement_email',
@@ -62,4 +66,5 @@ __all__ = [
     'send_event_reminder_pushes',
     'send_service_event_email_reminders',
     'send_daily_digest',
+    'check_weak_passwords',
 ]

@@ -361,6 +361,13 @@ AUTH_PASSWORD_VALIDATORS = [
             'min_length': 9,
         }
     },
+    # Local, network-independent backstop for "Password123!"-style passwords
+    # that pass CustomPasswordValidator's complexity rule and may not be in
+    # Django's bundled common-password list — see src/validators.py for why
+    # this exists alongside (not instead of) the two checks below.
+    {
+        'NAME': 'src.validators.KnownWeakPasswordValidator',
+    },
     {
         'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
     },

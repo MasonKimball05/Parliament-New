@@ -122,6 +122,12 @@ class LoginAlert(models.Model):
         ('unusual_time', 'Unusual Login Time'),
         ('vpn_detected', 'VPN/Proxy Detected'),
         ('watch_flag', 'Watch Flag Alert'),
+        # v3.30.2 — filed by the weekly weak-password audit (see
+        # src/weak_password_audit.py). Not login-triggered, like watch_flag's
+        # password-change branch and admin-initiated resets before it —
+        # `login_history` stays null for these, which the field already
+        # supports ("optional for admin-initiated alerts").
+        ('weak_password', 'Weak/Compromised Password'),
         ('other', 'Other Suspicious Activity'),
     )
 
