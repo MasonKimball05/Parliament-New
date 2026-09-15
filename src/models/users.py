@@ -959,16 +959,28 @@ class UserSession(models.Model):
             browser = 'Internet Explorer'
 
         # Detect OS
+        # v3.31.2 — iphone/ipad MUST be checked before the bare 'mac os x'
+        # test below: every iOS/iPadOS Safari UA string contains the literal
+        # substring "like Mac OS X" (that's Apple's own compatibility
+        # token), so with 'mac os x' checked first, the 'iphone'/'ipad'
+        # branches were unreachable dead code — every phone and tablet was
+        # reported as "macOS". Found while verifying the bug-report
+        # device/browser display this release adds: an iPhone-submitted
+        # report showed "macOS", which would have quietly defeated the
+        # entire point of this feature (knowing at a glance whether a report
+        # came from a phone). This function is shared with the Active
+        # Sessions feature, so that display was equally wrong before this
+        # fix — not a new bug, just newly load-bearing.
         if 'windows nt 10' in ua_lower:
             operating_system = 'Windows 10/11'
         elif 'windows nt' in ua_lower:
             operating_system = 'Windows'
-        elif 'mac os x' in ua_lower:
-            operating_system = 'macOS'
         elif 'iphone' in ua_lower:
             operating_system = 'iOS'
         elif 'ipad' in ua_lower:
             operating_system = 'iPadOS'
+        elif 'mac os x' in ua_lower:
+            operating_system = 'macOS'
         elif 'android' in ua_lower:
             operating_system = 'Android'
         elif 'linux' in ua_lower:

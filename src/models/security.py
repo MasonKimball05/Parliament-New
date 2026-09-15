@@ -475,6 +475,35 @@ class BugReport(models.Model):
         help_text='Browser and device information'
     )
 
+    # v3.31.1 — `browser_info` above is the raw navigator.userAgent string:
+    # complete, but not something anyone reads at a glance to know "was this
+    # a phone or a laptop, and which browser". Requested by Mason directly,
+    # after a bug report ("the Add Meeting button does nothing") turned out
+    # to be a server-side CSP issue affecting every browser and device
+    # equally — precisely the kind of thing that's slow to rule out without
+    # this info visible up front. Parsed at submission time from
+    # request.META['HTTP_USER_AGENT'] (server-side, not the JS-set hidden
+    # field above — no dependency on that script having run before submit)
+    # via `UserSession.parse_user_agent()`, the same hand-rolled parser this
+    # codebase already uses for the Active Sessions feature — reused rather
+    # than introducing a third parser alongside it and
+    # `security_utils.parse_device_info()` (which wraps the `user-agents`
+    # library). Blank on every report submitted before this release; migration
+    # 0039 backfills them from the existing `browser_info` value where one was
+    # captured.
+    device_type = models.CharField(
+        max_length=50, blank=True,
+        help_text='mobile / tablet / desktop — parsed from the browser\'s user agent',
+    )
+    browser = models.CharField(
+        max_length=100, blank=True,
+        help_text='Browser name — parsed from the browser\'s user agent',
+    )
+    operating_system = models.CharField(
+        max_length=100, blank=True,
+        help_text='Operating system — parsed from the browser\'s user agent',
+    )
+
     # Screenshot
     screenshot = models.ImageField(
         upload_to='bug_reports/%Y/%m/',

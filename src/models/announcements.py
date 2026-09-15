@@ -460,13 +460,37 @@ class AnnouncementPollOption(models.Model):
 
 
 class AnnouncementPollResponse(models.Model):
-    """One user's complete response to a poll."""
+    """One user's complete response to a poll.
+
+    v3.31.3 — Mason asked for polls to "allow multiple responses". What that
+    turned out to mean (confirmed with him directly) is letting a member
+    change their answer while the poll is still open, not letting one member
+    have several simultaneous response rows. `unique_together` below is kept
+    exactly as it was — one row per (poll, respondent), still DB-enforced —
+    because relaxing it would have forced a much bigger redesign of how
+    `poll_results` counts respondents, the anonymous-poll reveal threshold
+    (`anon_threshold_met = respondent_count > 2` in
+    `src/view/officer/announcement_polls.py`), and the CSV export, all of
+    which assume "one response row = one person's current answer". Instead,
+    `take_poll` now UPDATES this same row in place (replacing its
+    `AnnouncementPollAnswer` rows) when a respondent resubmits, rather than
+    refusing the second POST outright. `updated_at` is deliberately NOT
+    `auto_now` — it stays null until the view explicitly sets it on an edit,
+    so "was this ever changed" is an exact fact (`updated_at is not None`)
+    rather than a timestamp-difference heuristic against `submitted_at`
+    (which two independent `auto_now_add`/`auto_now` calls made at creation
+    time aren't guaranteed to agree on to the microsecond anyway).
+    """
     poll = models.ForeignKey(AnnouncementPoll, on_delete=models.CASCADE, related_name='responses')
     respondent = models.ForeignKey(
         'ParliamentUser', on_delete=models.SET_NULL, null=True, blank=True,
         related_name='poll_responses',
     )
     submitted_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(
+        null=True, blank=True,
+        help_text='Set when the respondent changes their answer after initially submitting. Null if never edited.',
+    )
 
     class Meta:
         unique_together = ['poll', 'respondent']

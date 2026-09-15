@@ -27,7 +27,7 @@ from src.view.officer.manage_announcements import (
 from src.view.officer.announcement_polls import (
     create_or_edit_poll, poll_results, take_poll, poll_confirmation,
     manage_poll_qr, poll_qr_image, generate_poll_qr_embed_link,
-    revoke_poll_qr_embed_link, poll_qr_embed_image,
+    revoke_poll_qr_embed_link, poll_qr_embed_image, polls_view,
 )
 from src.view.officer.edit_landing_page import edit_landing_page
 from src.view.officer.contact_submissions import contact_submissions_view, mark_contact_read, mark_all_contact_read
@@ -625,6 +625,7 @@ urlpatterns = [
     path('announcements/<int:announcement_id>/poll/qr/embed/<str:embed_token>/qr.svg', poll_qr_embed_image, name='poll_qr_embed_image'),
     path('announcements/<int:announcement_id>/poll/', take_poll, name='take_poll'),
     path('announcements/<int:announcement_id>/poll/thanks/', poll_confirmation, name='poll_confirmation'),
+    path('polls/', polls_view, name='polls_view'),
     path('officers/announcements/<int:announcement_id>/confirm-email/', confirm_announcement_email, name='confirm_announcement_email'),
     path('officers/announcements/<int:announcement_id>/send-emails/', send_announcement_emails, name='send_announcement_emails'),
     path('officers/announcements/<int:announcement_id>/skip-email/', skip_announcement_email, name='skip_announcement_email'),

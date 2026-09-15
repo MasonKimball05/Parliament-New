@@ -11,7 +11,7 @@ from django.template.loader import render_to_string
 from django.utils.html import strip_tags
 
 from src.models import BugReport, ActivityLog
-from src.models.users import member_defer
+from src.models.users import member_defer, UserSession
 
 
 @login_required
@@ -27,6 +27,17 @@ def submit_bug_report(request):
             messages.error(request, 'Please provide a description of the issue.')
             return redirect('bug_report')
 
+        # v3.31.1 — device_type/browser/operating_system parsed server-side
+        # from the real request header, not the JS-set `browser_info` hidden
+        # field below — so this is captured even if that script never ran
+        # (JS disabled, form auto-submitted before onload, etc.). Same parser
+        # `UserSession` already uses for Active Sessions, reused rather than
+        # duplicated a third time (see the field comments in
+        # src/models/security.py).
+        device_type, browser, operating_system = UserSession.parse_user_agent(
+            request.META.get('HTTP_USER_AGENT', '')
+        )
+
         # Create the bug report
         bug_report = BugReport(
             description=description,
@@ -39,6 +50,9 @@ def submit_bug_report(request):
             expected_behavior=request.POST.get('expected_behavior', ''),
             actual_behavior=request.POST.get('actual_behavior', ''),
             browser_info=request.POST.get('browser_info', ''),
+            device_type=device_type,
+            browser=browser,
+            operating_system=operating_system,
             submitted_by=request.user,
         )
 
@@ -197,6 +211,7 @@ def bug_admin(request):
     status_filter = request.GET.get('status', '')
     type_filter = request.GET.get('type', '')
     priority_filter = request.GET.get('priority', '')
+    device_filter = request.GET.get('device_type', '')
 
     # Custom status ordering: acknowledged/in_progress first, then new, then resolved/others
     status_order = Case(
@@ -222,6 +237,8 @@ def bug_admin(request):
         bug_reports = bug_reports.filter(issue_type=type_filter)
     if priority_filter:
         bug_reports = bug_reports.filter(priority=priority_filter)
+    if device_filter:
+        bug_reports = bug_reports.filter(device_type=device_filter)
 
     # Get counts for summary
     total_count = BugReport.objects.count()
@@ -229,14 +246,27 @@ def bug_admin(request):
     in_progress_count = BugReport.objects.filter(status__in=['acknowledged', 'in_progress']).count()
     resolved_count = BugReport.objects.filter(status='resolved').count()
 
+    # v3.31.2 — device-type filter options. Built from the distinct values
+    # actually on file rather than a hardcoded ('mobile', 'tablet', 'desktop')
+    # tuple, so a blank ('' — pre-migration rows the backfill couldn't parse,
+    # e.g. no browser_info was ever recorded) doesn't render as a phantom
+    # choice, and the dropdown never silently omits a value the parser starts
+    # returning in the future.
+    device_type_choices = list(
+        BugReport.objects.exclude(device_type='').order_by('device_type')
+        .values_list('device_type', flat=True).distinct()
+    )
+
     context = {
         'bug_reports': bug_reports,
         'status_choices': BugReport.STATUS_CHOICES,
         'issue_types': BugReport.ISSUE_TYPES,
         'priority_choices': BugReport.PRIORITY_CHOICES,
+        'device_type_choices': device_type_choices,
         'current_status': status_filter,
         'current_type': type_filter,
         'current_priority': priority_filter,
+        'current_device_type': device_filter,
         'total_count': total_count,
         'new_count': new_count,
         'in_progress_count': in_progress_count,

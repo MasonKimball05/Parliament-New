@@ -10,6 +10,8 @@ form's actual field names/ids/values were deliberately left untouched, so
 that: the redesign is markup/CSS only, and submitting a poll through the
 real view still records the right answer for every question type.
 """
+import re
+
 from django.test import Client, TestCase
 from django.urls import reverse
 
@@ -96,12 +98,47 @@ class TakePollPageRendersTests(TestCase):
         self.assertContains(response, 'no longer accepting responses')
         self.assertNotContains(response, f'name="q_{parts["single_q"].id}"')
 
-    def test_already_responded_shows_confirmation_card_not_the_form(self):
-        announcement, poll, parts = make_full_poll(self.officer)
+    def test_closed_poll_the_member_already_answered_still_shows_the_closed_card(self):
+        """v3.31.3: editing is only possible while the poll is still open —
+        once closed, a prior respondent sees the same static closed card as
+        anyone else, not the form."""
+        announcement, poll, parts = make_full_poll(self.officer, is_open=False)
         AnnouncementPollResponse.objects.create(poll=poll, respondent=self.member)
         response = self.client.get(reverse('take_poll', args=[announcement.id]))
-        self.assertContains(response, "already submitted your response")
+        self.assertContains(response, 'no longer accepting responses')
+        self.assertContains(response, 'recorded before it closed')
         self.assertNotContains(response, f'name="q_{parts["single_q"].id}"')
+
+    def test_already_responded_on_an_open_poll_shows_the_editable_form_prefilled(self):
+        """v3.31.3: Mason asked for polls to allow a member to change their
+        answer. While the poll is still open, a respondent gets the same
+        form back (not a static "thanks" card), pre-filled with what they
+        picked, and can resubmit to update it."""
+        announcement, poll, parts = make_full_poll(self.officer)
+        resp = AnnouncementPollResponse.objects.create(poll=poll, respondent=self.member)
+        answer = resp.answers.create(question=parts['single_q'])
+        answer.selected_options.add(parts['opt_a'])
+
+        response = self.client.get(reverse('take_poll', args=[announcement.id]))
+        html = response.content.decode()
+        self.assertIn("already responded to this poll", html)
+        self.assertIn(f'name="q_{parts["single_q"].id}"', html)
+        self.assertIn('Update Response', html)
+
+        # The previously-selected option's <input> is re-rendered checked;
+        # the other option in the same question is not. Matched by id rather
+        # than an exact string of surrounding markup/whitespace, since the
+        # latter breaks on any unrelated markup tweak.
+        opt_a_input = re.search(
+            rf'<input[^>]*id="q{parts["single_q"].id}_opt{parts["opt_a"].id}"[^>]*>', html,
+        )
+        opt_b_input = re.search(
+            rf'<input[^>]*id="q{parts["single_q"].id}_opt{parts["opt_b"].id}"[^>]*>', html,
+        )
+        self.assertIsNotNone(opt_a_input)
+        self.assertIsNotNone(opt_b_input)
+        self.assertIn('checked', opt_a_input.group(0))
+        self.assertNotIn('checked', opt_b_input.group(0))
 
 
 class TakePollSubmissionStillWorksTests(TestCase):
@@ -139,12 +176,29 @@ class TakePollSubmissionStillWorksTests(TestCase):
         text_answer = answers[parts['text_q'].id]
         self.assertEqual(text_answer.text_answer, 'Looking forward to it!')
 
-    def test_double_submission_is_rejected(self):
+    def test_resubmitting_updates_the_existing_response_rather_than_duplicating(self):
+        """v3.31.3: a second submission while the poll is still open no
+        longer gets rejected — it replaces the respondent's answers on the
+        same row. `unique_together = ['poll', 'respondent']` is unchanged
+        and still holds: there is still exactly one response row."""
         announcement, poll, parts = make_full_poll(self.officer)
-        AnnouncementPollResponse.objects.create(poll=poll, respondent=self.member)
+        original = AnnouncementPollResponse.objects.create(poll=poll, respondent=self.member)
+        original_pk = original.pk
+        original_answer = original.answers.create(question=parts['single_q'])
+        original_answer.selected_options.add(parts['opt_a'])
+        self.assertIsNone(original.updated_at)
 
         response = self.client.post(reverse('take_poll', args=[announcement.id]), {
-            f'q_{parts["single_q"].id}': str(parts['opt_a'].id),
+            f'q_{parts["single_q"].id}': str(parts['opt_b'].id),
         })
         self.assertRedirects(response, reverse('poll_confirmation', args=[announcement.id]))
+
+        # Still exactly one response row for this (poll, respondent) pair.
         self.assertEqual(AnnouncementPollResponse.objects.filter(poll=poll, respondent=self.member).count(), 1)
+
+        original.refresh_from_db()
+        self.assertEqual(original.pk, original_pk)  # same row, not a new one
+        self.assertIsNotNone(original.updated_at)
+
+        answer = original.answers.get(question=parts['single_q'])
+        self.assertEqual(list(answer.selected_options.values_list('id', flat=True)), [parts['opt_b'].id])

@@ -34,7 +34,7 @@ Params: `modal_id` (required), `title` (required), `subtitle` (optional).
         <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{{ subtitle }}</p>
         {% endif %}
       </div>
-      <button type="button" onclick="document.getElementById('{{ modal_id }}').classList.add('hidden')"
+      <button type="button" data-modal-close="{{ modal_id }}"
               class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-xl leading-none shrink-0"
               aria-label="Close">&#10005;</button>
     </div>

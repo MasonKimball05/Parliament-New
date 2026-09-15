@@ -16,7 +16,7 @@
         </div>
         <div class="flex items-center gap-3 flex-wrap">
           {% if is_chair %}
-          <button onclick="document.getElementById('add-task-modal').classList.remove('hidden')"
+          <button type="button" data-modal-open="add-task-modal"
             class="bg-white/20 hover:bg-white/30 text-white text-sm font-semibold px-4 py-2 rounded-lg transition">
             + Add Task
           </button>
@@ -112,7 +112,7 @@
                 <span class="inline-block mt-1 text-xs font-medium text-green-600 dark:text-green-400">● Live</span>
                 {% elif status == 'draft' %}
                 {% if is_chair %}
-                <button onclick="publishTask('{{ committee.code }}', {{ row.task.pk }}, this)"
+                <button type="button" data-action="publish-task" data-task-pk="{{ row.task.pk }}"
                   data-published="false"
                   class="inline-block mt-1 text-xs font-medium text-gray-400 dark:text-gray-500 hover:text-green-600 dark:hover:text-green-400 transition"
                   title="Click to publish">○ Draft — click to publish</button>
@@ -139,8 +139,8 @@
               {% for pc in row.pledge_completions %}
               <td class="px-3 py-3 text-center">
                 {% if pc.applies %}
-                <button
-                  onclick="toggleCompletion('{{ committee.code }}', {{ row.task.pk }}, {{ pc.pledge.pk }}, this)"
+                <button type="button"
+                  data-action="toggle-completion" data-task-pk="{{ row.task.pk }}" data-pledge-pk="{{ pc.pledge.pk }}"
                   data-status="{% if pc.completion %}{{ pc.completion.status }}{% else %}pending{% endif %}"
                   title="{% if pc.completion %}{{ pc.completion.get_status_display }}{% else %}Pending{% endif %}"
                   class="w-8 h-8 rounded-full text-lg flex items-center justify-center mx-auto transition hover:scale-110 focus:outline-none
@@ -161,7 +161,7 @@
               {% endfor %}
               {% if is_chair %}
               <td class="px-3 py-3 text-center">
-                <button onclick="duplicateTask('{{ committee.code }}', {{ row.task.pk }})"
+                <button type="button" data-action="duplicate-task" data-task-pk="{{ row.task.pk }}"
                   class="opacity-0 group-hover:opacity-100 transition text-gray-400 hover:text-primary-600 text-xs px-2 py-1 rounded hover:bg-primary-50 dark:hover:bg-primary-900/20"
                   title="Make a copy — lands as a draft">Duplicate</button>
                 {% if row.task.task_type == 'quiz' %}
@@ -169,7 +169,7 @@
                   class="opacity-0 group-hover:opacity-100 transition text-gray-400 hover:text-primary-600 text-xs px-2 py-1 rounded hover:bg-primary-50 dark:hover:bg-primary-900/20"
                   title="Which questions the class missed">Breakdown</a>
                 {% endif %}
-                <button onclick="deleteTask('{{ committee.code }}', {{ row.task.pk }})"
+                <button type="button" data-action="delete-task" data-task-pk="{{ row.task.pk }}"
                   class="opacity-0 group-hover:opacity-100 transition text-red-400 hover:text-red-600 text-xs px-2 py-1 rounded hover:bg-red-50 dark:hover:bg-red-900/20">
                   Delete
                 </button>
@@ -248,7 +248,7 @@
           </p>
         </div>
         {% if is_chair %}
-        <button type="button" onclick="document.getElementById('addMeetingModal').classList.remove('hidden')"
+        <button type="button" data-modal-open="addMeetingModal"
           class="px-3 py-1.5 text-sm font-semibold bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition">
           + Add Meeting
         </button>
@@ -284,7 +284,7 @@
               Pledges can visit all pages by default. Add a page here to <strong class="text-gray-700 dark:text-gray-300">restrict it by phase</strong> — check the phases that <em>should</em> have access; uncheck to block that phase. Remove a row to let all pledges through again.
             </p>
           </div>
-          <button onclick="document.getElementById('add-restriction-modal').classList.remove('hidden')"
+          <button type="button" data-modal-open="add-restriction-modal"
             class="shrink-0 text-sm font-semibold bg-primary-600 hover:bg-primary-700 text-white px-3 py-1.5 rounded-lg transition">
             + Restrict a page
           </button>
@@ -316,7 +316,9 @@
               <td class="px-3 py-3 text-center">
                 <input type="checkbox"
                   {% if phase_val in r.allowed_phases %}checked{% endif %}
-                  onchange="updateRestriction('{{ committee.code }}', '{{ r.url_name }}', '{{ r.display_name|default:r.url_name }}', this)"
+                  data-action="update-restriction"
+                  data-url-name="{{ r.url_name }}"
+                  data-display-name="{{ r.display_name|default:r.url_name }}"
                   data-phase="{{ phase_val }}"
                   data-row="{{ r.pk }}"
                   title="{% if phase_val in r.allowed_phases %}✓ This group can visit — uncheck to block{% else %}✗ This group is blocked — check to allow{% endif %}"
@@ -331,7 +333,7 @@
                 {% endif %}
               </td>
               <td class="px-3 py-3 text-center">
-                <button onclick="deleteRestriction('{{ committee.code }}', {{ r.pk }})"
+                <button type="button" data-action="delete-restriction" data-restriction-pk="{{ r.pk }}"
                   title="Remove restriction — pledges can visit this page freely again"
                   class="text-xs text-gray-400 hover:text-red-600 px-2 py-1 rounded hover:bg-red-50 dark:hover:bg-red-900/20 transition">
                   Remove
@@ -358,7 +360,7 @@
           <p class="text-xs text-gray-500 dark:text-gray-500 mb-4">
             Each page you add here becomes phase-gated. Check the phases that <em>should</em> have access; uncheck to block. Remove a row at any time to let all pledges through again.
           </p>
-          <button onclick="document.getElementById('add-restriction-modal').classList.remove('hidden')"
+          <button type="button" data-modal-open="add-restriction-modal"
             class="inline-flex items-center gap-2 text-sm font-semibold bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-lg transition">
             <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
@@ -377,7 +379,7 @@
 <!-- ── Add Restriction Modal ────────────────────────────────────────── -->
 {% if is_chair %}
 {% include "components/modal_open.html" with modal_id="add-restriction-modal" title="Restrict a Page" %}
-    <form id="add-restriction-form" onsubmit="submitNewRestriction(event)">
+    <form id="add-restriction-form">
       {% csrf_token %}
       <div class="space-y-4">
         <!-- Explanation banner -->
@@ -527,7 +529,7 @@
           <div class="space-y-2">
             <label class="flex items-start gap-2 cursor-pointer">
               <input type="radio" name="activation_mode" value="immediate" checked
-                onchange="toggleActivationFields(this.value)"
+                data-action="toggle-activation"
                 class="mt-0.5 h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300">
               <div>
                 <span class="text-sm font-medium text-gray-800 dark:text-gray-200">Immediately active</span>
@@ -536,7 +538,7 @@
             </label>
             <label class="flex items-start gap-2 cursor-pointer">
               <input type="radio" name="activation_mode" value="manual"
-                onchange="toggleActivationFields(this.value)"
+                data-action="toggle-activation"
                 class="mt-0.5 h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300">
               <div>
                 <span class="text-sm font-medium text-gray-800 dark:text-gray-200">Manual — save as draft</span>
@@ -545,7 +547,7 @@
             </label>
             <label class="flex items-start gap-2 cursor-pointer">
               <input type="radio" name="activation_mode" value="timed"
-                onchange="toggleActivationFields(this.value)"
+                data-action="toggle-activation"
                 class="mt-0.5 h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300">
               <div>
                 <span class="text-sm font-medium text-gray-800 dark:text-gray-200">Timed — go live on a date</span>
@@ -615,6 +617,7 @@ const STATUS_CLASSES = {
     waived: 'bg-gray-100 dark:bg-gray-700 hover:bg-gray-200',
 };
 const CYCLE = { pending: 'completed', completed: 'incomplete', incomplete: 'pending', waived: 'pending' };
+const COMMITTEE_CODE = '{{ committee.code }}';
 
 async function toggleCompletion(committeeCode, taskPk, pledgePk, btn) {
     btn.disabled = true;
@@ -732,5 +735,63 @@ async function deleteTask(committeeCode, taskPk) {
         }
     } catch (e) { /* reported by the helper */ }
 }
+
+// ⚠️ v3.31.1 — every button/checkbox/form above that calls one of the
+// functions in this file used to do it via an inline onclick=/onchange=/
+// onsubmit= attribute. Prod's CSP (script-src 'self' 'nonce-…', no
+// 'unsafe-inline') blocks ALL of those outright — the nonce on this script
+// element only covers its own content, not attributes on other tags,
+// so every one of them was silently dead in prod despite dev showing nothing
+// wrong (dev sends no CSP header at all). Reported directly by Mason as "the
+// Add Meeting button does nothing" — tracing it found the same problem on
+// every other control on this page, not just that one button.
+//
+// Fixed with data-action (+ data-*-pk / data-url-name / etc. for the values
+// each handler needs) and ONE delegated listener per event type here, rather
+// than an addEventListener per element — this page's rows are re-rendered by
+// a full page reload after most actions (see e.g. duplicateTask, deleteTask
+// above), so a per-element listener would need re-attaching after every one
+// of those anyway; delegation on `document` needs no re-attaching, ever.
+// Modal open/close (data-modal-open / data-modal-close) is handled generically
+// in base.html, not here — see the comment there.
+document.addEventListener('click', function(e) {
+    const el = e.target.closest('[data-action]');
+    if (!el) return;
+    switch (el.dataset.action) {
+        case 'publish-task':
+            publishTask(COMMITTEE_CODE, el.dataset.taskPk, el);
+            break;
+        case 'duplicate-task':
+            duplicateTask(COMMITTEE_CODE, el.dataset.taskPk);
+            break;
+        case 'delete-task':
+            deleteTask(COMMITTEE_CODE, el.dataset.taskPk);
+            break;
+        case 'toggle-completion':
+            toggleCompletion(COMMITTEE_CODE, el.dataset.taskPk, el.dataset.pledgePk, el);
+            break;
+        case 'delete-restriction':
+            deleteRestriction(COMMITTEE_CODE, el.dataset.restrictionPk);
+            break;
+    }
+});
+
+document.addEventListener('change', function(e) {
+    const restriction = e.target.closest('[data-action="update-restriction"]');
+    if (restriction) {
+        updateRestriction(COMMITTEE_CODE, restriction.dataset.urlName, restriction.dataset.displayName, restriction);
+        return;
+    }
+    const activation = e.target.closest('[data-action="toggle-activation"]');
+    if (activation) {
+        toggleActivationFields(activation.value);
+    }
+});
+
+document.addEventListener('submit', function(e) {
+    if (e.target && e.target.id === 'add-restriction-form') {
+        submitNewRestriction(e);
+    }
+});
 </script>
 {% endblock %}

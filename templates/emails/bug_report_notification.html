@@ -186,12 +186,32 @@
         </div>
         {% endif %}
 
-        {% if bug_report.browser_info %}
+        {% if bug_report.device_type or bug_report.browser or bug_report.operating_system or bug_report.browser_info %}
         <div class="info-section">
+            {% if bug_report.device_type %}
             <div class="info-row">
-                <span class="info-label">Browser Info</span>
+                <span class="info-label">Device</span>
+                <span class="info-value">{{ bug_report.device_type|capfirst }}</span>
+            </div>
+            {% endif %}
+            {% if bug_report.browser %}
+            <div class="info-row">
+                <span class="info-label">Browser</span>
+                <span class="info-value">{{ bug_report.browser }}</span>
+            </div>
+            {% endif %}
+            {% if bug_report.operating_system %}
+            <div class="info-row">
+                <span class="info-label">Operating System</span>
+                <span class="info-value">{{ bug_report.operating_system }}</span>
+            </div>
+            {% endif %}
+            {% if bug_report.browser_info %}
+            <div class="info-row">
+                <span class="info-label">Raw User Agent</span>
                 <span class="info-value" style="font-size: 11px; word-break: break-all;">{{ bug_report.browser_info }}</span>
             </div>
+            {% endif %}
         </div>
         {% endif %}
 

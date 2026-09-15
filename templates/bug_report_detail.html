@@ -90,6 +90,18 @@
                 <span>{{ bug_report.get_page_display }}</span>
             </div>
             {% endif %}
+            {% if bug_report.device_type or bug_report.browser or bug_report.operating_system %}
+            <div class="flex items-center">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+                </svg>
+                <span>
+                    {% if bug_report.browser %}{{ bug_report.browser }}{% endif %}
+                    {% if bug_report.operating_system %} on {{ bug_report.operating_system }}{% endif %}
+                    {% if bug_report.device_type %} ({{ bug_report.device_type|capfirst }}){% endif %}
+                </span>
+            </div>
+            {% endif %}
         </div>
     </div>
 
@@ -107,7 +119,7 @@
     </div>
 
     <!-- Location Details (if any) -->
-    {% if bug_report.feature or bug_report.page_url %}
+    {% if bug_report.feature or bug_report.page_url or bug_report.device_type or bug_report.browser or bug_report.operating_system or bug_report.browser_info %}
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-6 transition-colors duration-200">
         <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center">
             <svg class="w-5 h-5 mr-2 text-primary-600 dark:text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -132,6 +144,24 @@
                        style="word-break: break-all; overflow-wrap: anywhere;">
                         {{ bug_report.page_url }}
                     </a>
+                </dd>
+            </div>
+            {% endif %}
+            {% if bug_report.device_type or bug_report.browser or bug_report.operating_system %}
+            <div>
+                <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Device &amp; Browser</dt>
+                <dd class="mt-1 text-gray-900 dark:text-gray-100">
+                    {% if bug_report.device_type %}<span class="capitalize">{{ bug_report.device_type }}</span>{% endif %}
+                    {% if bug_report.browser %} &middot; {{ bug_report.browser }}{% endif %}
+                    {% if bug_report.operating_system %} &middot; {{ bug_report.operating_system }}{% endif %}
+                </dd>
+            </div>
+            {% endif %}
+            {% if bug_report.browser_info %}
+            <div>
+                <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Raw User Agent</dt>
+                <dd class="mt-1 text-gray-500 dark:text-gray-400 font-mono text-xs" style="word-break: break-all; overflow-wrap: anywhere;">
+                    {{ bug_report.browser_info }}
                 </dd>
             </div>
             {% endif %}

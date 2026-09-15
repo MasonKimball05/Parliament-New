@@ -6,8 +6,9 @@ Officer views:
   - poll_results                — view results, respondents, non-respondents, export CSV
 
 Member views:
-  - take_poll                   — submit a response
+  - take_poll                   — submit (or, since v3.31.3, edit) a response
   - poll_confirmation           — shown after submission
+  - polls_view                  — v3.31.3: browse open/closed polls
 """
 import csv
 import random
@@ -29,6 +30,7 @@ from src.models import (
 )
 from src.decorators import officer_required
 from src.models.users import member_defer
+from src.utils.visibility import visible_to_q
 
 
 # ---------------------------------------------------------------------------
@@ -473,7 +475,20 @@ def poll_qr_embed_image(request, announcement_id, embed_token):
 
 @login_required
 def take_poll(request, announcement_id):
-    """Display and process a poll for a regular member."""
+    """
+    Display and process a poll for a regular member.
+
+    v3.31.3 — a respondent may now EDIT their answer for as long as the poll
+    keeps accepting responses (`poll.is_accepting_responses()`), instead of
+    the second submission being refused outright. The one-response-per-
+    (poll, respondent) DB constraint (`AnnouncementPollResponse.Meta.
+    unique_together`) is unchanged — this updates the same row's answers in
+    place rather than creating a second one, so `poll_results`' respondent
+    counting, the anonymous-poll reveal threshold, and the CSV export all
+    keep working exactly as before with no changes there. Editing stops the
+    moment the poll closes, same as first-time submission — there's no path
+    to changing an answer after the poll is no longer accepting responses.
+    """
     announcement = get_object_or_404(Announcement, id=announcement_id)
 
     if not announcement.is_visible_to_user(request.user):
@@ -482,22 +497,36 @@ def take_poll(request, announcement_id):
 
     poll = get_object_or_404(AnnouncementPoll, announcement=announcement)
 
-    already_responded = poll.has_user_responded(request.user)
+    existing_response = poll.responses.filter(respondent=request.user).first()
+    already_responded = existing_response is not None
     accepting = poll.is_accepting_responses()
+    is_edit = already_responded
 
     if request.method == 'POST':
-        if already_responded:
-            messages.warning(request, 'You have already submitted a response.')
-            return redirect('poll_confirmation', announcement_id=announcement_id)
         if not accepting:
-            messages.error(request, 'This poll is no longer accepting responses.')
+            messages.error(
+                request,
+                'This poll is no longer accepting responses, so your answer '
+                'can no longer be changed.' if already_responded else
+                'This poll is no longer accepting responses.',
+            )
             return redirect('announcements')
 
-        # Create the response
-        resp = AnnouncementPollResponse.objects.create(
-            poll=poll,
-            respondent=request.user,
-        )
+        if is_edit:
+            resp = existing_response
+            # Clear the previous answer rows and rebuild them below — simpler
+            # and less error-prone than diffing per-question, and an
+            # AnnouncementPollAnswer's only purpose is to hold this response's
+            # current answer to one question, so there's nothing to preserve
+            # in the old rows once a new submission has arrived.
+            resp.answers.all().delete()
+            resp.updated_at = timezone.now()
+            resp.save(update_fields=['updated_at'])
+        else:
+            resp = AnnouncementPollResponse.objects.create(
+                poll=poll,
+                respondent=request.user,
+            )
 
         questions = poll.questions.prefetch_related('options').all()
         for question in questions:
@@ -521,15 +550,46 @@ def take_poll(request, announcement_id):
                 options = question.options.filter(id__in=option_ids)
                 answer.selected_options.set(options)
 
+        messages.success(
+            request,
+            'Your response has been updated.' if is_edit else 'Thanks for responding!',
+        )
         return redirect('poll_confirmation', announcement_id=announcement_id)
 
-    questions = poll.questions.prefetch_related('options').all()
+    questions = list(poll.questions.prefetch_related('options').all())
+
+    # Pre-fill the form when editing, so a respondent sees what they picked
+    # last time rather than a blank poll. Set directly as attributes on the
+    # already-prefetched question/option objects (`option.is_selected`,
+    # `question.existing_text_answer`) rather than passing separate lookup
+    # dicts into the template — Django templates have no clean way to do a
+    # two-level dict lookup keyed on a loop variable without a custom filter,
+    # and mutating the prefetched objects in place is free (no extra
+    # queries: `question.options.all()` below reads the same prefetch cache
+    # these attributes were just set on).
+    if is_edit:
+        answers_by_question_id = {
+            a.question_id: a
+            for a in existing_response.answers.prefetch_related('selected_options')
+        }
+        for question in questions:
+            answer = answers_by_question_id.get(question.id)
+            if answer is None:
+                continue
+            if question.question_type == 'text':
+                question.existing_text_answer = answer.text_answer
+            else:
+                selected_ids = {o.id for o in answer.selected_options.all()}
+                for option in question.options.all():
+                    option.is_selected = option.id in selected_ids
+
     return render(request, 'announcement_poll.html', {
         'announcement': announcement,
         'poll': poll,
         'questions': questions,
         'already_responded': already_responded,
         'accepting': accepting,
+        'is_edit': is_edit,
     })
 
 
@@ -541,4 +601,62 @@ def poll_confirmation(request, announcement_id):
     return render(request, 'announcement_poll_confirmation.html', {
         'announcement': announcement,
         'poll': poll,
+    })
+
+
+# ---------------------------------------------------------------------------
+# Member: Browse open/closed polls (v3.31.3)
+# ---------------------------------------------------------------------------
+
+@login_required
+def polls_view(request):
+    """
+    Every poll on an announcement the member can see, split into Open (still
+    accepting responses) and Closed — a poll "inbox" separate from scrolling
+    the whole announcements feed. Mirrors `announcements_view`'s visibility
+    and eligibility scoping exactly (`is_active`, `publish_at`, `visible_to_q`)
+    so this page can never surface a poll the member couldn't already reach
+    by opening its announcement.
+
+    One query for the announcements+polls, one batched query for "have I
+    responded" across all of them — same N+1-avoidance shape as
+    `announcements_view`'s `responded_poll_ids`, not a query per poll.
+    """
+    from django.db.models import Q
+
+    now = timezone.now()
+    announcements_with_polls = list(
+        Announcement.objects
+        .filter(is_active=True)
+        .filter(Q(publish_at__isnull=True) | Q(publish_at__lte=now))
+        .filter(visible_to_q(request.user.member_type))
+        .exclude(poll__isnull=True)
+        .select_related('poll')
+        .order_by('-posted_at')
+    )
+
+    responded_poll_ids = set(
+        AnnouncementPollResponse.objects.filter(
+            respondent=request.user,
+            poll__announcement__in=announcements_with_polls,
+        ).values_list('poll_id', flat=True)
+    )
+
+    open_polls = []
+    closed_polls = []
+    for announcement in announcements_with_polls:
+        poll = announcement.poll
+        entry = {
+            'announcement': announcement,
+            'poll': poll,
+            'responded': poll.id in responded_poll_ids,
+        }
+        if poll.is_accepting_responses():
+            open_polls.append(entry)
+        else:
+            closed_polls.append(entry)
+
+    return render(request, 'polls.html', {
+        'open_polls': open_polls,
+        'closed_polls': closed_polls,
     })

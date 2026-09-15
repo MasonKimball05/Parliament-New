@@ -29,8 +29,7 @@
                meeting, which meant a mistyped time cost the attendance — the
                warning matters more now that there is a safe alternative right
                above it. -->
-          <button type="button"
-            onclick="document.getElementById('delete-meeting-form').requestSubmit()"
+          <button type="button" id="delete-meeting-trigger"
             class="text-sm text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 font-medium">
             Delete meeting
           </button>
@@ -51,12 +50,29 @@
 
       {% if is_chair %}
       <form method="post" id="delete-meeting-form"
-            action="{% url 'education_delete_meeting' committee.code meeting.pk %}"
-            onsubmit="return confirm('Delete this meeting? Its calendar entry and every attendance record for it go with it. To change the time or place, use Save changes instead — that keeps the attendance.');">
+            action="{% url 'education_delete_meeting' committee.code meeting.pk %}">
         {% csrf_token %}
       </form>
       {% endif %}
     </div>
   </div>
 </div>
+
+{% if is_chair %}
+<script nonce="{{ request.csp_nonce }}">
+// ⚠️ v3.31.1 — both the trigger button and the confirm-on-submit were inline
+// onclick=/onsubmit= attributes, silently blocked in prod by CSP's
+// script-src 'self' 'nonce-…' (no 'unsafe-inline') — same bug class as the
+// education dashboard's "Add Meeting" button Mason reported; see the comment
+// in templates/base.html for the general explanation.
+document.getElementById('delete-meeting-trigger')?.addEventListener('click', function() {
+    document.getElementById('delete-meeting-form')?.requestSubmit();
+});
+document.getElementById('delete-meeting-form')?.addEventListener('submit', function(e) {
+    if (!confirm('Delete this meeting? Its calendar entry and every attendance record for it go with it. To change the time or place, use Save changes instead — that keeps the attendance.')) {
+        e.preventDefault();
+    }
+});
+</script>
+{% endif %}
 {% endblock %}

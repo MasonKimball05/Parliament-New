@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Polls - Parliament{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Header -->
+    <div class="bg-gradient-to-br from-primary-600 via-primary-700 to-primary-800 rounded-xl shadow-lg p-4 sm:p-5 mb-6 text-white relative overflow-hidden">
+        <div class="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-yellow-400/60 to-transparent pointer-events-none"></div>
+        <div class="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div class="flex items-center gap-3">
+                <div class="flex-shrink-0 w-11 h-11 rounded-xl bg-white/15 backdrop-blur flex items-center justify-center">
+                    <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="text-2xl sm:text-3xl font-bold">Polls</h1>
+                    <p class="text-sm text-white/75 mt-0.5">Open polls you can answer, and polls that have closed</p>
+                </div>
+            </div>
+            <a href="{% url 'announcements' %}" class="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-white/15 hover:bg-white/25 text-white transition flex-shrink-0">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+                </svg>
+                Announcements
+            </a>
+        </div>
+    </div>
+
+    <!-- Open Polls -->
+    <div class="mb-8">
+        <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3 flex items-center gap-2">
+            <span class="inline-block w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+            Open Polls
+            <span class="text-sm font-normal text-gray-400 dark:text-gray-500">({{ open_polls|length }})</span>
+        </h2>
+
+        {% if open_polls %}
+        <div class="space-y-3">
+            {% for entry in open_polls %}
+            <div class="card p-4 sm:p-5 transition-colors duration-200">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div class="min-w-0">
+                        <p class="text-xs text-gray-400 dark:text-gray-500 mb-0.5">From: {{ entry.announcement.title }}</p>
+                        <p class="font-semibold text-gray-900 dark:text-gray-100 truncate">{{ entry.poll.title }}</p>
+                        <div class="flex flex-wrap items-center gap-2 mt-1.5">
+                            {% if entry.responded %}
+                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-700">
+                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                                Responded
+                            </span>
+                            {% else %}
+                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-50 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-300 border border-yellow-200 dark:border-yellow-700">
+                                Not yet answered
+                            </span>
+                            {% endif %}
+                            {% if entry.poll.is_anonymous %}
+                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400">
+                                Anonymous
+                            </span>
+                            {% endif %}
+                            {% if entry.poll.closes_at %}
+                            <span class="text-xs text-gray-400 dark:text-gray-500">Closes {{ entry.poll.closes_at|date:"M d, g:i A" }}</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <a href="{% url 'take_poll' entry.announcement.id %}"
+                       class="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold flex-shrink-0
+                              {% if entry.responded %}bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600{% else %}bg-primary-600 hover:bg-primary-700 text-white{% endif %}">
+                        {% if entry.responded %}Edit Response{% else %}Take Poll{% endif %}
+                    </a>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="card p-6 text-center text-sm text-gray-500 dark:text-gray-400">
+            No open polls right now — check back later.
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Closed Polls -->
+    <div>
+        <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3 flex items-center gap-2">
+            <span class="inline-block w-2 h-2 rounded-full bg-gray-400 dark:bg-gray-500"></span>
+            Closed Polls
+            <span class="text-sm font-normal text-gray-400 dark:text-gray-500">({{ closed_polls|length }})</span>
+        </h2>
+
+        {% if closed_polls %}
+        <div class="space-y-3">
+            {% for entry in closed_polls %}
+            <div class="card p-4 sm:p-5 opacity-80 transition-colors duration-200">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div class="min-w-0">
+                        <p class="text-xs text-gray-400 dark:text-gray-500 mb-0.5">From: {{ entry.announcement.title }}</p>
+                        <p class="font-semibold text-gray-700 dark:text-gray-300 truncate">{{ entry.poll.title }}</p>
+                        <div class="flex flex-wrap items-center gap-2 mt-1.5">
+                            {% if entry.responded %}
+                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-700">
+                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                                You responded
+                            </span>
+                            {% else %}
+                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400">
+                                You didn't respond
+                            </span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <span class="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500 flex-shrink-0">
+                        Closed
+                    </span>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="card p-6 text-center text-sm text-gray-500 dark:text-gray-400">
+            No closed polls yet.
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

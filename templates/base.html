@@ -2360,6 +2360,42 @@
         return { init, open, close };
     })();
 
+    // ⚠️ v3.31.1 — generic modal open/close via data attributes, not onclick.
+    // Prod CSP is `script-src 'self' 'nonce-…'` with NO 'unsafe-inline', which
+    // blocks EVERY inline event handler attribute (onclick=, onchange=,
+    // onsubmit=) outright, regardless of whether the function it calls lives in
+    // a properly nonced script element — the nonce only covers that element's
+    // own content, not attributes on other tags. Dev sends no CSP header at
+    // all, so this class of bug is invisible until someone clicks the button
+    // in prod. Reported directly by Mason: the education dashboard's "Add
+    // Meeting" button did nothing — traced to exactly this on the shared
+    // modal shell's own open/close include files (see components/ — the
+    // close/cancel buttons on every modal), plus every onclick/onchange/
+    // onsubmit on the education committee dashboard template itself.
+    //
+    // These two attributes are the general fix for the SHARED modal shell —
+    // `data-modal-open`/`data-modal-close` name the target modal id, and one
+    // delegated listener here (present on every page via base.html) opens or
+    // closes it by plain classList toggle, exactly matching what the onclick
+    // attributes used to do. Deliberately NOT routed through ParliamentModal
+    // above: that module requires `ParliamentModal.init(modalId, …)` to have
+    // registered the modal first, or `.open()`/`.close()` silently no-op —
+    // the same "does nothing" failure mode this fix exists to remove. A page
+    // that wants the accessibility features (focus trap, Escape-to-close) can
+    // still call `ParliamentModal.init()` itself; this listener only covers
+    // the plain show/hide every modal on this site already relied on.
+    document.addEventListener('click', function(e) {
+        const opener = e.target.closest('[data-modal-open]');
+        if (opener) {
+            document.getElementById(opener.dataset.modalOpen)?.classList.remove('hidden');
+            return;
+        }
+        const closer = e.target.closest('[data-modal-close]');
+        if (closer) {
+            document.getElementById(closer.dataset.modalClose)?.classList.add('hidden');
+        }
+    });
+
     /**
      * Helper function to open a confirmation modal with dynamic content.
      *

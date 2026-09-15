@@ -157,7 +157,7 @@ class AnnouncementPollResponseAdmin(ReadOnlyAdmin):
     the poll CSV export (which carries submitted_at + answers). Participation
     for anonymous polls is available, threshold-protected, on the in-app
     results page."""
-    list_display = ('poll', 'respondent', 'submitted_at')
+    list_display = ('poll', 'respondent', 'submitted_at', 'updated_at')
     list_filter = ('submitted_at',)
     search_fields = ('poll__title',)
 
