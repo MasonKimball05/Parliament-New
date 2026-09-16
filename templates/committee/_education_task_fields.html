@@ -1,0 +1,168 @@
+{% comment %}
+The pledge task form fields — v3.31.5.
+
+⚠️ SHARED BY THE "ADD TASK" MODAL AND THE EDIT PAGE, deliberately, mirroring
+`_education_meeting_fields.html` (v3.20.1). Two copies would drift the first
+time a field was added to one of them, and the symptom would be a field that
+silently does nothing on the other — the same shape this codebase has
+recorded repeatedly as "a rule stated correctly and one call site left
+outside it". The server side is shared too, by `_apply_task_fields`.
+
+Expects: `TASK_TYPES`, `PHASE_CHOICES`, and optionally `task` (edit),
+`all_pledges` and `assigned_pks` (a set of pledge pks already assigned — if
+empty/absent, the task applies to every pledge).
+{% endcomment %}
+<div class="space-y-4">
+  <div>
+    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Title *</label>
+    <input type="text" name="title" required value="{{ task.title|default:'' }}"
+      class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
+  </div>
+  <div>
+    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Description</label>
+    <textarea name="description" rows="2"
+      class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500">{{ task.description|default:'' }}</textarea>
+  </div>
+  <div class="grid grid-cols-2 gap-4">
+    <div>
+      <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Type</label>
+      <select name="task_type"
+        class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500">
+        {% for val, label in TASK_TYPES %}
+        <option value="{{ val }}" {% if task.task_type == val %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Phase</label>
+      <select name="phase"
+        class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500">
+        {% for val, label in PHASE_CHOICES %}
+        <option value="{{ val }}" {% if task.phase == val or not task and val == 'all' %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-2 gap-4">
+    <div>
+      <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+        Due date <span class="font-normal text-gray-400">(optional)</span>
+      </label>
+      <input type="date" name="due_date" value="{{ task.due_date|date:'Y-m-d' }}"
+        class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500">
+    </div>
+    <div>
+      <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Points</label>
+      <input type="number" name="points" value="{{ task.points|default:0 }}" min="0"
+        class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500">
+    </div>
+  </div>
+
+  <div>
+    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Display Order</label>
+    <input type="number" name="display_order" value="{{ task.display_order|default:0 }}" min="0"
+      class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500">
+  </div>
+
+  <!-- Scored out of (v3.20.0) -->
+  <div>
+    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+      Scored out of <span class="font-normal text-gray-400">(optional)</span>
+    </label>
+    <input type="number" name="max_score" min="1" placeholder="e.g. 60" value="{{ task.max_score|default:'' }}"
+      class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500">
+    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+      Set this to grade the task out of a total — a chair then records what each
+      pledge earned (50/60) and the pledge sees it on My Tasks. Leave blank for
+      pass/fail. This is not the same as <span class="font-medium">Points</span>,
+      which everyone who completes the task earns.
+    </p>
+  </div>
+  <div class="flex items-start gap-2">
+    <input type="checkbox" name="show_analysis_to_pledges" id="show_analysis_to_pledges"
+      {% if task.show_analysis_to_pledges %}checked{% endif %}
+      class="h-4 w-4 mt-0.5 text-primary-600 focus:ring-primary-500 border-gray-300 rounded">
+    <label for="show_analysis_to_pledges" class="text-sm text-gray-700 dark:text-gray-300">
+      Show the question breakdown to pledges
+      <span class="block text-xs text-gray-500 dark:text-gray-400">
+        Off by default — the breakdown is an educator's tool. Turn on after a review
+        session, when knowing which questions the class missed is the point. Class
+        totals only; no pledge sees another's answers either way.
+      </span>
+    </label>
+  </div>
+
+  <div class="flex items-center gap-2">
+    {# `task` is undefined when creating, so the default is checked. #}
+    <input type="checkbox" name="is_required" id="is_required"
+      {% if not task or task.is_required %}checked{% endif %}
+      class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded">
+    <label for="is_required" class="text-sm text-gray-700 dark:text-gray-300">Required for initiation</label>
+  </div>
+
+  <!-- Activation mode -->
+  <div>
+    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Activation</label>
+    <div class="space-y-2">
+      <label class="flex items-start gap-2 cursor-pointer">
+        <input type="radio" name="activation_mode" value="immediate"
+          {% if not task or task.activation_mode == 'immediate' %}checked{% endif %}
+          data-action="toggle-activation"
+          class="mt-0.5 h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300">
+        <div>
+          <span class="text-sm font-medium text-gray-800 dark:text-gray-200">Immediately active</span>
+          <p class="text-xs text-gray-500 dark:text-gray-400">Pledges see this task as soon as it's created.</p>
+        </div>
+      </label>
+      <label class="flex items-start gap-2 cursor-pointer">
+        <input type="radio" name="activation_mode" value="manual"
+          {% if task.activation_mode == 'manual' %}checked{% endif %}
+          data-action="toggle-activation"
+          class="mt-0.5 h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300">
+        <div>
+          <span class="text-sm font-medium text-gray-800 dark:text-gray-200">Manual — save as draft</span>
+          <p class="text-xs text-gray-500 dark:text-gray-400">Saved but hidden from pledges. You publish it when ready.</p>
+        </div>
+      </label>
+      <label class="flex items-start gap-2 cursor-pointer">
+        <input type="radio" name="activation_mode" value="timed"
+          {% if task.activation_mode == 'timed' %}checked{% endif %}
+          data-action="toggle-activation"
+          class="mt-0.5 h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300">
+        <div>
+          <span class="text-sm font-medium text-gray-800 dark:text-gray-200">Timed — go live on a date</span>
+          <p class="text-xs text-gray-500 dark:text-gray-400">Automatically becomes visible to pledges at the chosen time.</p>
+        </div>
+      </label>
+    </div>
+    <!-- Date/time picker for timed mode -->
+    <div id="timed-activation-field" class="mt-3 {% if task.activation_mode != 'timed' %}hidden{% endif %}">
+      <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Go live at</label>
+      {# `Y-m-d\TH:i` is the only format <input type="datetime-local"> accepts as a value. #}
+      <input type="datetime-local" name="activates_at" id="activates_at"
+        value="{{ task.activates_at|date:'Y-m-d\TH:i' }}"
+        {% if task.activation_mode == 'timed' %}required{% endif %}
+        class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500">
+    </div>
+  </div>
+
+  {% if all_pledges %}
+  <div>
+    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+      Assign to specific pledges
+      <span class="font-normal text-gray-400">(leave blank for all)</span>
+    </label>
+    <div class="border border-gray-200 dark:border-gray-600 rounded-lg p-3 max-h-36 overflow-y-auto space-y-1.5">
+      {% for pledge in all_pledges %}
+      <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
+        <input type="checkbox" name="assigned_to" value="{{ pledge.pk }}"
+          {% if pledge.pk in assigned_pks %}checked{% endif %}
+          class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded">
+        {{ pledge.name }}
+      </label>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+</div>

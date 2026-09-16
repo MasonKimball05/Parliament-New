@@ -98,6 +98,46 @@ def parse_version(filename):
     return (major, minor, patch, suffix)
 
 
+def group_changelogs_by_minor(entries):
+    """
+    Collapse a flat list of changelog entries into one group per minor
+    series — every v3.29.* file becomes a single '3.29.x' group instead of
+    32 separate badges.
+
+    v3.31.4 — requested by Mason directly: v3.29.x alone has more patch
+    releases (32) than most projects ship in their lifetime, and the old
+    flat badge row made the index page unreadable. Grouping is computed
+    fresh from whatever files are actually in `changelogs/` on every
+    (cache-TTL-bounded) call, keyed on `(major, minor)` parsed from the
+    filename — there is no hardcoded list of known series anywhere in this
+    function. That's the "automatic" part of the ask: the first `v3.32.0.md`
+    that ever gets written creates a brand new '3.32.x' group the next time
+    this runs, with nothing here to update.
+    """
+    groups = {}
+    for entry in entries:
+        major, minor, _patch, _suffix = parse_version(entry['filename'])
+        groups.setdefault((major, minor), []).append(entry)
+
+    grouped = []
+    for (major, minor), group_entries in groups.items():
+        # Newest patch first within the group, same ordering rule as the
+        # top-level file listing this was built from.
+        group_entries.sort(key=lambda e: parse_version(e['filename']), reverse=True)
+        grouped.append({
+            'major': major,
+            'minor': minor,
+            'key': f'{major}-{minor}',
+            'label': f'{major}.{minor}.x',
+            'entries': group_entries,
+            'count': len(group_entries),
+            'has_external': any(e['has_external'] for e in group_entries),
+        })
+
+    grouped.sort(key=lambda g: (g['major'], g['minor']), reverse=True)
+    return grouped
+
+
 def changelog(request):
     """
     Display the changelog/version history page.
@@ -138,11 +178,14 @@ def changelog(request):
         logger.exception('Failed to render the changelog index')
         changelog_html = "<p>The changelog could not be loaded.</p>"
 
-    # Get list of detailed changelogs if they exist
-    detailed_changelogs = []
+    # Get list of detailed changelogs if they exist, one entry per file,
+    # then collapse them into per-minor-series groups below. v3.31.4: this
+    # used to split into a flat "v3+" badge row plus a single "Version 2.x"
+    # catch-all — replaced by `group_changelogs_by_minor`, which treats every
+    # major version the same way and needs no major-version cutoff here.
+    changelog_entries = []
     changelogs_dir = os.path.join(settings.BASE_DIR, 'changelogs')
 
-    v2_changelogs = []
     if os.path.exists(changelogs_dir):
         # Get all changelog files and sort by semantic version (newest first)
         changelog_files = [f for f in os.listdir(changelogs_dir)
@@ -158,22 +201,18 @@ def changelog(request):
             except Exception:
                 file_content = ''
             contributors = parse_contributors(file_content)
-            entry = {
+            changelog_entries.append({
                 'version': version,
                 'filename': filename,
                 'contributors': contributors,
                 'has_external': has_external_contributors(contributors),
-            }
-            major = parse_version(filename)[0]
-            if major >= 3:
-                detailed_changelogs.append(entry)
-            else:
-                v2_changelogs.append(entry)
+            })
+
+    changelog_groups = group_changelogs_by_minor(changelog_entries)
 
     context = {
         'changelog_html': changelog_html,
-        'detailed_changelogs': detailed_changelogs,
-        'v2_changelogs': v2_changelogs,
+        'changelog_groups': changelog_groups,
     }
     cache.set('changelog_index_v1', context, CONTENT_CACHE_TTL)
 

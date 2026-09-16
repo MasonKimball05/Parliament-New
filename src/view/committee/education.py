@@ -4,8 +4,10 @@ Education committee dashboard — VPE + education committee chairs only.
 Provides:
   - GET  committee/<code>/education/                                      → pledge task grid + page access settings
   - POST committee/<code>/education/tasks/add/                            → create a new PledgeTask
+  - GET/POST committee/<code>/education/tasks/<task_pk>/edit/             → edit a PledgeTask (v3.31.5)
   - POST committee/<code>/education/tasks/<task_pk>/toggle/<pledge_pk>/   → mark completion (cycles status)
   - POST committee/<code>/education/tasks/<task_pk>/delete/               → soft-delete task (chair only)
+  - GET  committee/<code>/education/tasks/<task_pk>/questions/           → manage a quiz's questions (v3.31.5)
   - POST committee/<code>/education/restrictions/update/                  → create/update PledgePageRestriction
   - POST committee/<code>/education/restrictions/<restriction_pk>/delete/ → remove PledgePageRestriction
 """
@@ -52,6 +54,76 @@ def _parse_optional_positive_int(value):
     except (TypeError, ValueError):
         return None
     return parsed if parsed > 0 else None
+
+
+def _apply_task_fields(request, task):
+    """
+    Read the task form into `task`. Not saved here, and `assigned_to` (an M2M)
+    is not touched here either — the caller does both, so it can wrap them in
+    one `transaction.atomic()` alongside anything else it needs to do.
+
+    ⚠️ SHARED BY ADD AND EDIT ON PURPOSE, mirroring `_apply_meeting_fields`
+    (v3.20.1) — the same shape this codebase has recorded repeatedly as "a
+    rule stated correctly, then one call site left outside it." Two copies of
+    this parsing would drift the first time a field was added to one form and
+    not the other, and the symptom would be a field that silently does
+    nothing on whichever form was missed. Returns an error string, or None.
+
+    ⚠️ `is_published` IS DELIBERATELY NOT SET HERE, other than forcing it True
+    for immediate mode. `education_add_task` (a brand new task, nothing to
+    protect) explicitly defaults it False for manual/timed drafts after
+    calling this. `education_edit_task` does not touch it at all for
+    manual/timed — forcing it False on every edit would silently unpublish an
+    already-published manual task the moment a chair fixed an unrelated typo.
+    """
+    from django.utils.dateparse import parse_date, parse_datetime
+
+    title = (request.POST.get('title') or '').strip()
+    if not title:
+        return 'Title is required'
+
+    _valid_task_types = {c[0] for c in PledgeTask.TASK_TYPES}
+    _valid_phases = {c[0] for c in PledgeTask.PHASE_CHOICES}
+    task_type = request.POST.get('task_type', 'task')
+    if task_type not in _valid_task_types:
+        task_type = 'task'
+    phase = request.POST.get('phase', 'all')
+    if phase not in _valid_phases:
+        phase = 'all'
+
+    _valid_activation_modes = {c[0] for c in PledgeTask.ACTIVATION_MODES}
+    activation_mode = request.POST.get('activation_mode', 'immediate')
+    if activation_mode not in _valid_activation_modes:
+        activation_mode = 'immediate'
+
+    activates_at_raw = (request.POST.get('activates_at') or '').strip()
+    activates_at = None
+    if activation_mode == 'timed' and activates_at_raw:
+        parsed = parse_datetime(activates_at_raw)
+        if parsed and timezone.is_naive(parsed):
+            parsed = timezone.make_aware(parsed)
+        activates_at = parsed
+
+    due_date_raw = (request.POST.get('due_date') or '').strip()
+    due_date = parse_date(due_date_raw) if due_date_raw else None
+
+    task.title = title
+    task.description = (request.POST.get('description') or '').strip()
+    task.task_type = task_type
+    task.phase = phase
+    task.due_date = due_date
+    task.is_required = request.POST.get('is_required') == 'on'
+    task.points = _parse_non_negative_int(request.POST.get('points'), 0)
+    # Blank = not scored. `_parse_non_negative_int` would turn '' into 0, and a
+    # task scored out of 0 is not the same thing as an unscored one.
+    task.max_score = _parse_optional_positive_int(request.POST.get('max_score'))
+    task.show_analysis_to_pledges = request.POST.get('show_analysis_to_pledges') == 'on'
+    task.display_order = _parse_non_negative_int(request.POST.get('display_order'), 0)
+    task.activation_mode = activation_mode
+    task.activates_at = activates_at
+    if activation_mode == 'immediate':
+        task.is_published = True
+    return None
 
 
 def _education_committee_or_404(code, user):
@@ -194,55 +266,18 @@ def education_home(request, code):
 def education_add_task(request, code):
     committee, _ = _education_committee_or_404(code, request.user)
 
-    title = request.POST.get('title', '').strip()
-    if not title:
-        return JsonResponse({'error': 'Title is required'}, status=400)
+    task = PledgeTask(created_by=request.user)
+    error = _apply_task_fields(request, task)
+    if error:
+        return JsonResponse({'error': error}, status=400)
+    # New tasks in manual/timed mode start as drafts. `_apply_task_fields`
+    # only forces `is_published` True for immediate mode on purpose (see its
+    # docstring) — a brand new task has no already-published state to
+    # protect, so the create path closes the other half here explicitly.
+    if task.activation_mode != 'immediate':
+        task.is_published = False
+    task.save()
 
-    _valid_activation_modes = {c[0] for c in PledgeTask.ACTIVATION_MODES}
-    activation_mode = request.POST.get('activation_mode', 'immediate')
-    if activation_mode not in _valid_activation_modes:
-        activation_mode = 'immediate'
-    activates_at_raw = request.POST.get('activates_at', '').strip()
-    activates_at = None
-    if activation_mode == 'timed' and activates_at_raw:
-        from django.utils.dateparse import parse_datetime
-        import pytz
-        parsed = parse_datetime(activates_at_raw)
-        if parsed and parsed.tzinfo is None:
-            from django.utils import timezone as tz
-            parsed = tz.make_aware(parsed)
-        activates_at = parsed
-
-    # is_published: True only for immediate mode (timed uses activates_at; manual stays False)
-    is_published = activation_mode == 'immediate'
-
-    # Validate choice fields against the model's defined choices
-    _valid_task_types = {c[0] for c in PledgeTask.TASK_TYPES}
-    _valid_phases = {c[0] for c in PledgeTask.PHASE_CHOICES}
-    task_type = request.POST.get('task_type', 'task')
-    if task_type not in _valid_task_types:
-        task_type = 'task'
-    phase = request.POST.get('phase', 'all')
-    if phase not in _valid_phases:
-        phase = 'all'
-
-    task = PledgeTask.objects.create(
-        title=title,
-        description=request.POST.get('description', '').strip(),
-        task_type=task_type,
-        phase=phase,
-        is_required=request.POST.get('is_required') == 'on',
-        points=_parse_non_negative_int(request.POST.get('points'), 0),
-        # Blank = not scored. `_parse_non_negative_int` would turn '' into 0,
-        # and a task scored out of 0 is not the same thing as an unscored one.
-        max_score=_parse_optional_positive_int(request.POST.get('max_score')),
-        show_analysis_to_pledges=request.POST.get('show_analysis_to_pledges') == 'on',
-        display_order=_parse_non_negative_int(request.POST.get('display_order'), 0),
-        activation_mode=activation_mode,
-        activates_at=activates_at,
-        is_published=is_published,
-        created_by=request.user,
-    )
     # Specific pledge assignment (empty = all pledges)
     assigned_pks = request.POST.getlist('assigned_to')
     if assigned_pks:
@@ -250,6 +285,50 @@ def education_add_task(request, code):
             ParliamentUser.objects.filter(pk__in=assigned_pks, member_type='Pledge')
         )
     return redirect('education_home', code=code)
+
+
+@login_required
+@require_page_enabled('committee_home')
+def education_edit_task(request, code, task_pk):
+    """
+    Edit a pledge task.
+
+    ⚠️ WHY THIS EXISTS. Reported by Mason: "I cannot edit tasks after I make
+    them." Add, Duplicate and Delete existed; there was no way to fix a typo,
+    move a due date, or adjust points/scoring/phase once a task was created —
+    short of deleting it and starting over, which CASCADEs and destroys every
+    pledge's completion history for it. Mirrors `education_edit_meeting`'s
+    shape exactly, for the same reason: editing must never cost the records
+    hung off the thing being edited. `completions` are untouched here.
+    """
+    committee, is_chair = _education_committee_or_404(code, request.user)
+    task = get_object_or_404(PledgeTask, pk=task_pk, is_active=True)
+
+    if request.method == 'POST':
+        error = _apply_task_fields(request, task)
+        if error:
+            return JsonResponse({'error': error}, status=400)
+        with transaction.atomic():
+            task.save()
+            # `set()` handles all three cases — added, removed, cleared — so
+            # unticking every pledge actually reopens the task to everyone
+            # rather than silently leaving the old assignment in place.
+            task.assigned_to.set(
+                ParliamentUser.objects.filter(
+                    pk__in=request.POST.getlist('assigned_to'), member_type='Pledge',
+                )
+            )
+        return redirect('education_home', code=code)
+
+    return render(request, 'committee/education_task_form.html', {
+        'committee': committee,
+        'task': task,
+        'is_chair': is_chair,
+        'TASK_TYPES': PledgeTask.TASK_TYPES,
+        'PHASE_CHOICES': PledgeTask.PHASE_CHOICES,
+        'all_pledges': ParliamentUser.objects.filter(member_type='Pledge', is_active=True).order_by('name'),
+        'assigned_pks': set(task.assigned_to.values_list('pk', flat=True)),
+    })
 
 
 @login_required
@@ -421,11 +500,23 @@ def education_toggle_task_published(request, code, task_pk):
 @require_page_enabled('committee_home')
 @require_POST
 def education_delete_task(request, code, task_pk):
-    """Soft-delete (deactivate) a pledge task. Chair or officer only."""
+    """
+    Soft-delete (deactivate) a pledge task. Chair or officer only.
+
+    ⚠️ TWO CALLERS, TWO RESPONSE SHAPES — same dispatch as
+    `education_toggle_completion`. The dashboard grid's Delete button calls
+    this via `Parliament.post()` (fetch, `X-Requested-With: XMLHttpRequest`)
+    and removes the row from the DOM itself using the JSON response. The new
+    Edit Task page's Delete button (v3.31.5) posts a plain HTML form — there
+    is no JS to hand a JSON body to, so a form-style request gets a real
+    redirect back to the dashboard instead.
+    """
     committee, _ = _education_committee_or_404(code, request.user)
     task = get_object_or_404(PledgeTask, pk=task_pk)
     task.is_active = False
     task.save(update_fields=['is_active', 'updated_at'])
+    if request.headers.get('X-Requested-With') != 'XMLHttpRequest':
+        return redirect('education_home', code=code)
     return JsonResponse({'deleted': True, 'task_pk': task_pk})
 
 
@@ -472,6 +563,32 @@ def education_delete_quiz_question(request, code, task_pk, question_pk):
     question = get_object_or_404(PledgeTaskQuestion, pk=question_pk, task=task)
     question.delete()
     return JsonResponse({'deleted': True, 'question_pk': question_pk})
+
+
+@login_required
+@require_page_enabled('committee_home')
+def education_manage_quiz_questions(request, code, task_pk):
+    """
+    Page for adding/removing a quiz task's questions.
+
+    ⚠️ WHY THIS EXISTS. Reported by Mason: "I also cannot add questions to
+    the quizzes." `education_add_quiz_question` / `education_delete_quiz_question`
+    above have been fully implemented since quiz scoring shipped — validated,
+    tested — with no template anywhere that ever called either one. The
+    backend was never the bug; there was simply no page. This GET-only view
+    adds nothing new to the write path: the page below posts to those same
+    two existing endpoints via `Parliament.post()`, the same fetch-plus-JSON
+    pattern every other control on the education dashboard already uses.
+    """
+    committee, is_chair = _education_committee_or_404(code, request.user)
+    task = get_object_or_404(PledgeTask, pk=task_pk, is_active=True, task_type='quiz')
+    questions = list(task.questions.all())
+    return render(request, 'committee/education_quiz_questions.html', {
+        'committee': committee,
+        'task': task,
+        'is_chair': is_chair,
+        'questions': questions,
+    })
 
 
 @login_required

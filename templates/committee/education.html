@@ -160,11 +160,17 @@
               </td>
               {% endfor %}
               {% if is_chair %}
-              <td class="px-3 py-3 text-center">
+              <td class="px-3 py-3 text-center whitespace-nowrap">
+                <a href="{% url 'education_edit_task' committee.code row.task.pk %}"
+                  class="opacity-0 group-hover:opacity-100 transition text-gray-400 hover:text-primary-600 text-xs px-2 py-1 rounded hover:bg-primary-50 dark:hover:bg-primary-900/20"
+                  title="Edit title, due date, points, phase, and more">Edit</a>
                 <button type="button" data-action="duplicate-task" data-task-pk="{{ row.task.pk }}"
                   class="opacity-0 group-hover:opacity-100 transition text-gray-400 hover:text-primary-600 text-xs px-2 py-1 rounded hover:bg-primary-50 dark:hover:bg-primary-900/20"
                   title="Make a copy — lands as a draft">Duplicate</button>
                 {% if row.task.task_type == 'quiz' %}
+                <a href="{% url 'education_manage_quiz_questions' committee.code row.task.pk %}"
+                  class="opacity-0 group-hover:opacity-100 transition text-gray-400 hover:text-primary-600 text-xs px-2 py-1 rounded hover:bg-primary-50 dark:hover:bg-primary-900/20"
+                  title="Add or remove quiz questions">Questions</a>
                 <a href="{% url 'education_quiz_analysis' committee.code row.task.pk %}"
                   class="opacity-0 group-hover:opacity-100 transition text-gray-400 hover:text-primary-600 text-xs px-2 py-1 rounded hover:bg-primary-50 dark:hover:bg-primary-900/20"
                   title="Which questions the class missed">Breakdown</a>
@@ -446,141 +452,14 @@
 {% include "components/modal_open.html" with modal_id="add-task-modal" title="Add Pledge Task" %}
     <form id="add-task-form" method="post" action="{% url 'education_add_task' code=committee.code %}">
       {% csrf_token %}
-      <div class="space-y-4">
-        <div>
-          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Title *</label>
-          <input type="text" name="title" required
-            class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
-        </div>
-        <div>
-          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Description</label>
-          <textarea name="description" rows="2"
-            class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"></textarea>
-        </div>
-        <div class="grid grid-cols-2 gap-4">
-          <div>
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Type</label>
-            <select name="task_type"
-              class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500">
-              {% for val, label in TASK_TYPES %}
-              <option value="{{ val }}">{{ label }}</option>
-              {% endfor %}
-            </select>
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Phase</label>
-            <select name="phase"
-              class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500">
-              {% for val, label in PHASE_CHOICES %}
-              <option value="{{ val }}">{{ label }}</option>
-              {% endfor %}
-            </select>
-          </div>
-        </div>
-        <div class="grid grid-cols-2 gap-4">
-          <div>
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Points</label>
-            <input type="number" name="points" value="0" min="0"
-              class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500">
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Display Order</label>
-            <input type="number" name="display_order" value="0" min="0"
-              class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500">
-          </div>
-        </div>
+      {% comment %}
+      ⚠️ v3.31.5 — the fields are a shared include, used by this modal and by
+      the edit page, mirroring the meeting fields/edit-page split (v3.20.1).
+      Two copies would drift the first time a field was added to one of them.
+      The server side is shared too, by `_apply_task_fields`.
+      {% endcomment %}
+      {% include "committee/_education_task_fields.html" %}
 
-        <!-- Scored out of (v3.20.0) -->
-        <div>
-          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            Scored out of <span class="font-normal text-gray-400">(optional)</span>
-          </label>
-          <input type="number" name="max_score" min="1" placeholder="e.g. 60"
-            class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500">
-          <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
-            Set this to grade the task out of a total — a chair then records what each
-            pledge earned (50/60) and the pledge sees it on My Tasks. Leave blank for
-            pass/fail. This is not the same as <span class="font-medium">Points</span>,
-            which everyone who completes the task earns.
-          </p>
-        </div>
-        <div class="flex items-start gap-2">
-          <input type="checkbox" name="show_analysis_to_pledges" id="show_analysis_to_pledges"
-            class="h-4 w-4 mt-0.5 text-primary-600 focus:ring-primary-500 border-gray-300 rounded">
-          <label for="show_analysis_to_pledges" class="text-sm text-gray-700 dark:text-gray-300">
-            Show the question breakdown to pledges
-            <span class="block text-xs text-gray-500 dark:text-gray-400">
-              Off by default — the breakdown is an educator's tool. Turn on after a review
-              session, when knowing which questions the class missed is the point. Class
-              totals only; no pledge sees another's answers either way.
-            </span>
-          </label>
-        </div>
-
-        <div class="flex items-center gap-2">
-          <input type="checkbox" name="is_required" id="is_required" checked
-            class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded">
-          <label for="is_required" class="text-sm text-gray-700 dark:text-gray-300">Required for initiation</label>
-        </div>
-
-        <!-- Activation mode -->
-        <div>
-          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Activation</label>
-          <div class="space-y-2">
-            <label class="flex items-start gap-2 cursor-pointer">
-              <input type="radio" name="activation_mode" value="immediate" checked
-                data-action="toggle-activation"
-                class="mt-0.5 h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300">
-              <div>
-                <span class="text-sm font-medium text-gray-800 dark:text-gray-200">Immediately active</span>
-                <p class="text-xs text-gray-500 dark:text-gray-400">Pledges see this task as soon as it's created.</p>
-              </div>
-            </label>
-            <label class="flex items-start gap-2 cursor-pointer">
-              <input type="radio" name="activation_mode" value="manual"
-                data-action="toggle-activation"
-                class="mt-0.5 h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300">
-              <div>
-                <span class="text-sm font-medium text-gray-800 dark:text-gray-200">Manual — save as draft</span>
-                <p class="text-xs text-gray-500 dark:text-gray-400">Saved but hidden from pledges. You publish it when ready.</p>
-              </div>
-            </label>
-            <label class="flex items-start gap-2 cursor-pointer">
-              <input type="radio" name="activation_mode" value="timed"
-                data-action="toggle-activation"
-                class="mt-0.5 h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300">
-              <div>
-                <span class="text-sm font-medium text-gray-800 dark:text-gray-200">Timed — go live on a date</span>
-                <p class="text-xs text-gray-500 dark:text-gray-400">Automatically becomes visible to pledges at the chosen time.</p>
-              </div>
-            </label>
-          </div>
-          <!-- Date/time picker for timed mode -->
-          <div id="timed-activation-field" class="hidden mt-3">
-            <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Go live at</label>
-            <input type="datetime-local" name="activates_at" id="activates_at"
-              class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500">
-          </div>
-        </div>
-
-        {% if all_pledges %}
-        <div>
-          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            Assign to specific pledges
-            <span class="font-normal text-gray-400">(leave blank for all)</span>
-          </label>
-          <div class="border border-gray-200 dark:border-gray-600 rounded-lg p-3 max-h-36 overflow-y-auto space-y-1.5">
-            {% for pledge in all_pledges %}
-            <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
-              <input type="checkbox" name="assigned_to" value="{{ pledge.pk }}"
-                class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded">
-              {{ pledge.name }}
-            </label>
-            {% endfor %}
-          </div>
-        </div>
-        {% endif %}
-      </div>
     </form>
 {% include "components/modal_close.html" with modal_id="add-task-modal" submit_label="Add Task" form_id="add-task-form" %}
 {% endif %}

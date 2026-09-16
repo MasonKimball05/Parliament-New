@@ -81,10 +81,11 @@ from src.view.committee.recruitment import (
     add_candidate_note, delete_candidate_note,
 )
 from src.view.committee.education import (
-    education_home, education_add_task, education_toggle_completion,
+    education_home, education_add_task, education_edit_task, education_toggle_completion,
     education_delete_task, education_toggle_task_published,
     education_update_page_restriction, education_delete_page_restriction,
     education_add_quiz_question, education_delete_quiz_question, education_quiz_submissions,
+    education_manage_quiz_questions,
     education_pledge_detail, education_duplicate_task,
     education_quiz_analysis, education_mark_answer, education_review_absence,
     education_add_meeting, education_edit_meeting, education_delete_meeting,
@@ -883,12 +884,14 @@ urlpatterns = [
     # Education dashboard (pledge tracker + page access controls)
     path('committee/<str:code>/education/', education_home, name='education_home'),
     path('committee/<str:code>/education/tasks/add/', education_add_task, name='education_add_task'),
+    path('committee/<str:code>/education/tasks/<int:task_pk>/edit/', education_edit_task, name='education_edit_task'),
     path('committee/<str:code>/education/tasks/<int:task_pk>/toggle/<str:pledge_pk>/', education_toggle_completion, name='education_toggle_completion'),
     path('committee/<str:code>/education/tasks/<int:task_pk>/delete/', education_delete_task, name='education_delete_task'),
     path('committee/<str:code>/education/tasks/<int:task_pk>/publish/', education_toggle_task_published, name='education_toggle_task_published'),
     path('committee/<str:code>/education/restrictions/update/', education_update_page_restriction, name='education_update_page_restriction'),
     path('committee/<str:code>/education/restrictions/<int:restriction_pk>/delete/', education_delete_page_restriction, name='education_delete_page_restriction'),
     # Quiz question management
+    path('committee/<str:code>/education/tasks/<int:task_pk>/questions/', education_manage_quiz_questions, name='education_manage_quiz_questions'),
     path('committee/<str:code>/education/tasks/<int:task_pk>/questions/add/', education_add_quiz_question, name='education_add_quiz_question'),
     path('committee/<str:code>/education/tasks/<int:task_pk>/questions/<int:question_pk>/delete/', education_delete_quiz_question, name='education_delete_quiz_question'),
     path('committee/<str:code>/education/tasks/<int:task_pk>/submissions/', education_quiz_submissions, name='education_quiz_submissions'),

@@ -88,6 +88,10 @@ ALLOWED = {
     # Dev-mode panel: `sh` and `f` are dicts built in src/dev_mode.py.
     ('dev/panel.html', 'sh.count'),
     ('dev/panel.html', 'f.count'),
+    # `group` is a plain dict built by group_changelogs_by_minor()
+    # (src/view/changelog.py) — {'label', 'count', 'entries', 'has_external',
+    # 'key'} — not a queryset or a related manager. v3.31.4.
+    ('changelog.html', 'group.count'),
 }
 
 

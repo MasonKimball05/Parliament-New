@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+
+{% block title %}Quiz questions — {{ task.title }}{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gray-50 dark:bg-gray-900">
+
+  <div class="bg-gradient-to-r from-primary-600 via-primary-700 to-primary-800 text-white py-8 shadow-lg">
+    <div class="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8">
+      <a href="{% url 'education_home' committee.code %}"
+         class="text-primary-200 hover:text-white text-sm mb-2 inline-block">← Education</a>
+      <h1 class="text-3xl font-bold">Quiz questions</h1>
+      <p class="text-primary-100 text-sm mt-1">{{ task.title }}</p>
+    </div>
+  </div>
+
+  <div class="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+
+    <!-- ── Existing questions ──────────────────────────────────────────── -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+      <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
+        <h2 class="text-base font-bold text-gray-900 dark:text-white">
+          Questions <span class="text-sm font-normal text-gray-400">({{ questions|length }})</span>
+        </h2>
+      </div>
+      {% if questions %}
+      <div class="divide-y divide-gray-100 dark:divide-gray-700" id="question-list">
+        {% for question in questions %}
+        <div class="px-6 py-4 flex items-start justify-between gap-4" id="question-row-{{ question.pk }}">
+          <div class="min-w-0">
+            <p class="text-sm font-medium text-gray-900 dark:text-white">
+              Q{{ question.display_order }}. {{ question.question_text }}
+            </p>
+            {% if question.answer_hint %}
+            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              Model answer (chairs only): {{ question.answer_hint }}
+            </p>
+            {% endif %}
+          </div>
+          {% if is_chair %}
+          <button type="button" data-action="delete-question" data-question-pk="{{ question.pk }}"
+            class="shrink-0 text-xs text-red-400 hover:text-red-600 px-2 py-1 rounded hover:bg-red-50 dark:hover:bg-red-900/20 transition">
+            Delete
+          </button>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="p-8 text-center">
+        <p class="text-gray-500 dark:text-gray-400 text-sm">No questions yet.
+          {% if is_chair %}Add the first one below.{% endif %}
+        </p>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- ── Add question ────────────────────────────────────────────────── -->
+    {% if is_chair %}
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
+      <h2 class="text-base font-bold text-gray-900 dark:text-white mb-4">Add a question</h2>
+      <form id="add-question-form" class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Question *</label>
+          <textarea name="question_text" rows="2" required
+            class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500"></textarea>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            Model answer <span class="font-normal text-gray-400">(optional — shown to chairs while grading, never to pledges)</span>
+          </label>
+          <textarea name="answer_hint" rows="2"
+            class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500"></textarea>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Display order</label>
+          <input type="number" name="display_order" value="{{ questions|length }}" min="0"
+            class="w-32 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500">
+          <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Lower numbers shown first to pledges taking the quiz.</p>
+        </div>
+        <button type="submit"
+          class="px-4 py-2 text-sm font-semibold bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition">
+          Add question
+        </button>
+      </form>
+    </div>
+    {% endif %}
+
+    <a href="{% url 'education_home' committee.code %}"
+       class="inline-block text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200">← Back to Education</a>
+  </div>
+</div>
+
+{% if is_chair %}
+<script nonce="{{ request.csp_nonce }}">
+// Same fetch-plus-JSON pattern as education.html — see the comment there for
+// the full CSP trace (no inline onclick=/onsubmit=, delegated listeners,
+// Parliament.post() for CSRF).
+const COMMITTEE_CODE = '{{ committee.code }}';
+const TASK_PK = '{{ task.pk }}';
+
+document.getElementById('add-question-form')?.addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const form = e.target;
+    const data = new FormData(form);
+    try {
+        await Parliament.post(
+            `/committee/${COMMITTEE_CODE}/education/tasks/${TASK_PK}/questions/add/`, data
+        );
+        window.location.reload();
+    } catch (err) {
+        /* Reported by Parliament.post. Leave the form filled in rather than
+           clearing it — the whole point is not to make the chair retype it. */
+    }
+});
+
+document.addEventListener('click', async function(e) {
+    const el = e.target.closest('[data-action="delete-question"]');
+    if (!el) return;
+    if (!confirm('Delete this question? Any pledge answers to it go with it.')) return;
+    try {
+        const data = await Parliament.post(
+            `/committee/${COMMITTEE_CODE}/education/tasks/${TASK_PK}/questions/${el.dataset.questionPk}/delete/`
+        );
+        if (data.deleted) {
+            document.getElementById(`question-row-${el.dataset.questionPk}`)?.remove();
+        }
+    } catch (err) { /* reported by the helper */ }
+});
+</script>
+{% endif %}
+{% endblock %}
