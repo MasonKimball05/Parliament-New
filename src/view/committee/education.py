@@ -8,12 +8,14 @@ Provides:
   - POST committee/<code>/education/tasks/<task_pk>/toggle/<pledge_pk>/   → mark completion (cycles status)
   - POST committee/<code>/education/tasks/<task_pk>/delete/               → soft-delete task (chair only)
   - GET  committee/<code>/education/tasks/<task_pk>/questions/           → manage a quiz's questions (v3.31.5)
+  - POST committee/<code>/education/tasks/<task_pk>/questions/<question_pk>/edit/ → edit a quiz question (v3.31.6)
   - POST committee/<code>/education/restrictions/update/                  → create/update PledgePageRestriction
   - POST committee/<code>/education/restrictions/<restriction_pk>/delete/ → remove PledgePageRestriction
 """
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse, Http404
 from django.shortcuts import get_object_or_404, render, redirect
+from django.urls import reverse
 from django.views.decorators.http import require_POST
 from django.db import transaction
 from django.utils import timezone
@@ -25,6 +27,7 @@ from src.models import (  # noqa: F401 PledgeQuizAnswer used in the quiz submiss
     Committee, ParliamentUser, PledgeTask, PledgeTaskCompletion,
     PledgePageRestriction, PledgeTaskQuestion, PledgeQuizAnswer,
     Event, EducationMeeting, EducationMeetingAttendance, EducationAbsenceRequest,
+    EducationMemberPermission,
 )
 from src.models.users import member_defer, member_prefetch
 
@@ -126,20 +129,131 @@ def _apply_task_fields(request, task):
     return None
 
 
-def _education_committee_or_404(code, user):
-    """Return (committee, is_chair). Raises Http404 if the user lacks access."""
-    committee = get_object_or_404(Committee, code=code, is_active=True, is_education_committee=True)
+def _get_education_access(user, committee):
+    """
+    Return this user's education committee permissions for `committee`, as a
+    dict of three additive booleans plus `is_chair`/`is_full_access`.
+
+    ⚠️ v3.32.0 — Mason: "can we add an education permissions dashboard so the
+    admin of the committee can set what permissions the members have...
+    Kai has a version of this already." This mirrors `_get_kai_access` in
+    `src/view/kai_reports.py` at his explicit direction:
+
+    1. A real chair (`committee.chairs`, NOT `Committee.is_chair()` — that
+       method also returns True for any member of an `is_exec_board`-flagged
+       committee, which is not what "chair" should mean here) → everything.
+    2. A site admin → everything. Unlike Kai, education data carries no
+       confidentiality boundary, so there is no need for Kai's separate
+       break-glass grant mechanism — this is the same admin bypass the
+       pre-existing `education_toggle_task_published` already had.
+    3. An explicit `EducationMemberPermission` row → exactly what it grants.
+    4. Otherwise → nothing. This is the behaviour change from before v3.32.0:
+       any chapter officer used to get full access regardless of committee
+       membership; now access is opt-in per member, granted by a chair on
+       `manage_education_permissions`.
+
+    ⚠️ DO NOT decorate this with `@login_required` / `@require_page_enabled` /
+    etc. — same warning as `_get_kai_access`. It takes a `ParliamentUser`, not
+    a `request`; every call site is already inside a decorated view.
+    """
     is_chair = committee.chairs.filter(pk=user.pk).exists()
-    is_officer = getattr(user, 'is_officer', False)
-    if not (is_chair or is_officer):
+    if is_chair or user.is_admin:
+        return {
+            'is_chair': is_chair,
+            'is_full_access': True,
+            'can_view_submissions': True,
+            'can_grade_submissions': True,
+            'can_manage_tasks': True,
+        }
+    try:
+        perm = EducationMemberPermission.objects.get(committee=committee, user=user)
+    except EducationMemberPermission.DoesNotExist:
+        return {
+            'is_chair': False,
+            'is_full_access': False,
+            'can_view_submissions': False,
+            'can_grade_submissions': False,
+            'can_manage_tasks': False,
+        }
+    return {
+        'is_chair': False,
+        'is_full_access': False,
+        'can_view_submissions': perm.can_view_submissions,
+        'can_grade_submissions': perm.can_grade_submissions,
+        'can_manage_tasks': perm.can_manage_tasks,
+    }
+
+
+def _education_committee_or_404(code, user):
+    """
+    Return (committee, access). Raises Http404 if the user has no education
+    permission at all.
+
+    ⚠️ `access` REPLACES the old `is_chair` return value (v3.32.0) — it is a
+    dict from `_get_education_access` with `is_chair`, `is_full_access`,
+    `can_view_submissions`, `can_grade_submissions`, and `can_manage_tasks`.
+    Call sites that only rendered `is_chair` into a template can read
+    `access['is_chair']`; call sites gating a specific write action must
+    check the specific permission with `_require_education_permission`
+    below, not just "did this 404 or not" — reaching this function only
+    proves the user has SOME permission, not the one a given action needs.
+    """
+    committee = get_object_or_404(Committee, code=code, is_active=True, is_education_committee=True)
+    access = _get_education_access(user, committee)
+    has_any_access = (
+        access['can_view_submissions']
+        or access['can_grade_submissions']
+        or access['can_manage_tasks']
+    )
+    if not has_any_access:
         raise Http404
-    return committee, is_chair
+    return committee, access
+
+
+def _require_education_permission(access, key, message=None):
+    """
+    Return a 403 JsonResponse if `access[key]` is False, else None.
+
+    Usage: `denied = _require_education_permission(access, 'can_manage_tasks')`
+    `if denied: return denied`. Kept as a plain function rather than a
+    decorator because these views take positional URL kwargs of varying
+    shapes and already need `committee`/`access` from
+    `_education_committee_or_404` before this can run.
+    """
+    if access.get(key):
+        return None
+    labels = {
+        'can_view_submissions': 'view this',
+        'can_grade_submissions': 'grade quizzes',
+        'can_manage_tasks': 'manage tasks',
+    }
+    return JsonResponse(
+        {'error': message or f"You don't have permission to {labels.get(key, 'do that')}."},
+        status=403,
+    )
+
+
+def _require_education_permission_or_404(access, key):
+    """
+    Raise Http404 if `access[key]` is False, else return None.
+
+    For GET-rendered pages rather than AJAX/form POST actions (where
+    `_require_education_permission`'s JSON 403 is the right shape). Raising
+    404 rather than a real 403 matches `_education_committee_or_404`'s own
+    choice for the same reason: a member with view-only access should not be
+    able to tell, from the response, that an edit page exists at all versus
+    the whole committee being unreachable to them.
+    """
+    if not access.get(key):
+        raise Http404
+    return None
 
 
 @login_required
 @require_page_enabled('committee_home')
 def education_home(request, code):
-    committee, is_chair = _education_committee_or_404(code, request.user)
+    committee, access = _education_committee_or_404(code, request.user)
+    is_chair = access['is_chair']
 
     phases = ['all', '1', '2', '3']
     phase_labels = {'all': 'All Phases', '1': 'Phase 1', '2': 'Phase 2', '3': 'Phase 3'}
@@ -250,6 +364,7 @@ def education_home(request, code):
         'phases': phases,
         'phase_labels': phase_labels,
         'is_chair': is_chair,
+        'access': access,
         'TASK_TYPES': PledgeTask.TASK_TYPES,
         'PHASE_CHOICES': PledgeTask.PHASE_CHOICES,
         'page_restrictions': page_restrictions,
@@ -264,7 +379,10 @@ def education_home(request, code):
 @require_page_enabled('committee_home')
 @require_POST
 def education_add_task(request, code):
-    committee, _ = _education_committee_or_404(code, request.user)
+    committee, access = _education_committee_or_404(code, request.user)
+    denied = _require_education_permission(access, 'can_manage_tasks')
+    if denied:
+        return denied
 
     task = PledgeTask(created_by=request.user)
     error = _apply_task_fields(request, task)
@@ -284,6 +402,19 @@ def education_add_task(request, code):
         task.assigned_to.set(
             ParliamentUser.objects.filter(pk__in=assigned_pks, member_type='Pledge')
         )
+
+    # ⚠️ v3.31.6 — Mason: a chair who just created a quiz still has to find it
+    # in the grid and click "Questions" to actually put questions on it,
+    # which is the same "the feature exists but nobody can reach it in the
+    # moment that matters" shape as root cause 3 above. A brand-new quiz has
+    # zero questions, so it is generally useless to a pledge until someone
+    # visits that page anyway — send the chair there directly instead of back
+    # to the dashboard. Every other task type still returns to the dashboard,
+    # where there is nothing analogous to jump to.
+    if task.task_type == 'quiz':
+        return redirect(
+            reverse('education_manage_quiz_questions', args=[code, task.pk]) + '?created=1'
+        )
     return redirect('education_home', code=code)
 
 
@@ -301,7 +432,8 @@ def education_edit_task(request, code, task_pk):
     shape exactly, for the same reason: editing must never cost the records
     hung off the thing being edited. `completions` are untouched here.
     """
-    committee, is_chair = _education_committee_or_404(code, request.user)
+    committee, access = _education_committee_or_404(code, request.user)
+    _require_education_permission_or_404(access, 'can_manage_tasks')
     task = get_object_or_404(PledgeTask, pk=task_pk, is_active=True)
 
     if request.method == 'POST':
@@ -323,7 +455,7 @@ def education_edit_task(request, code, task_pk):
     return render(request, 'committee/education_task_form.html', {
         'committee': committee,
         'task': task,
-        'is_chair': is_chair,
+        'is_chair': access['is_chair'],
         'TASK_TYPES': PledgeTask.TASK_TYPES,
         'PHASE_CHOICES': PledgeTask.PHASE_CHOICES,
         'all_pledges': ParliamentUser.objects.filter(member_type='Pledge', is_active=True).order_by('name'),
@@ -356,8 +488,16 @@ def education_toggle_completion(request, code, task_pk, pledge_pk):
 
     `score` is optional and independent of status: scoring is informational and
     a chair still decides pass/fail. See `PledgeTaskCompletion.score_display`.
+
+    ⚠️ v3.32.0 — gated on `can_grade_submissions`, not `can_manage_tasks`.
+    This is literally "grading" in the sense Mason asked for the permission
+    to cover — both the dashboard grid's cycle-on-click and the quiz
+    submissions page's explicit set_status/score form go through here.
     """
-    committee, _ = _education_committee_or_404(code, request.user)
+    committee, access = _education_committee_or_404(code, request.user)
+    denied = _require_education_permission(access, 'can_grade_submissions')
+    if denied:
+        return denied
 
     task = get_object_or_404(PledgeTask, pk=task_pk, is_active=True)
     pledge = get_object_or_404(ParliamentUser, pk=pledge_pk, member_type='Pledge')
@@ -447,9 +587,12 @@ def education_update_page_restriction(request, code):
     """
     Create or update a PledgePageRestriction entry.
     Body: url_name, display_name, phases[] (checkboxes: 'all', '1', '2', '3')
-    Chair or officer only.
+    Requires `can_manage_tasks` (v3.32.0).
     """
-    committee, _ = _education_committee_or_404(code, request.user)
+    committee, access = _education_committee_or_404(code, request.user)
+    denied = _require_education_permission(access, 'can_manage_tasks')
+    if denied:
+        return denied
 
     url_name = request.POST.get('url_name', '').strip()
     if not url_name:
@@ -473,8 +616,11 @@ def education_update_page_restriction(request, code):
 @require_page_enabled('committee_home')
 @require_POST
 def education_delete_page_restriction(request, code, restriction_pk):
-    """Remove a PledgePageRestriction entry (page returns to fully blocked)."""
-    _, _ = _education_committee_or_404(code, request.user)
+    """Remove a PledgePageRestriction entry (page returns to fully blocked). Requires `can_manage_tasks`."""
+    _, access = _education_committee_or_404(code, request.user)
+    denied = _require_education_permission(access, 'can_manage_tasks')
+    if denied:
+        return denied
     obj = get_object_or_404(PledgePageRestriction, pk=restriction_pk)
     url_name = obj.url_name
     obj.delete()
@@ -486,10 +632,19 @@ def education_delete_page_restriction(request, code, restriction_pk):
 @require_page_enabled('committee_home')
 @require_POST
 def education_toggle_task_published(request, code, task_pk):
-    """Manually publish or unpublish a task (manual activation mode only). Chair-only."""
-    committee, is_chair = _education_committee_or_404(code, request.user)
-    if not is_chair and not request.user.is_admin:
-        return JsonResponse({'error': 'Only education chairs can publish tasks.'}, status=403)
+    """
+    Manually publish or unpublish a task (manual activation mode only).
+
+    ⚠️ v3.32.0 — was chair-or-admin only; now `can_manage_tasks`, folded in
+    with the rest of task management (add/edit/duplicate/delete) rather than
+    kept as its own chair-only sub-tier. The 3-permission model has no room
+    for a fourth "chair only" level, and publishing is squarely inside what
+    Mason called "all permissions where they can make tasks and whatnot."
+    """
+    committee, access = _education_committee_or_404(code, request.user)
+    denied = _require_education_permission(access, 'can_manage_tasks', 'Only members with task-management permission can publish tasks.')
+    if denied:
+        return denied
     task = get_object_or_404(PledgeTask, pk=task_pk, is_active=True)
     task.is_published = not task.is_published
     task.save(update_fields=['is_published', 'updated_at'])
@@ -511,7 +666,10 @@ def education_delete_task(request, code, task_pk):
     is no JS to hand a JSON body to, so a form-style request gets a real
     redirect back to the dashboard instead.
     """
-    committee, _ = _education_committee_or_404(code, request.user)
+    committee, access = _education_committee_or_404(code, request.user)
+    denied = _require_education_permission(access, 'can_manage_tasks')
+    if denied:
+        return denied
     task = get_object_or_404(PledgeTask, pk=task_pk)
     task.is_active = False
     task.save(update_fields=['is_active', 'updated_at'])
@@ -529,8 +687,12 @@ def education_add_quiz_question(request, code, task_pk):
     """
     Add a question to a quiz-type PledgeTask.
     POST body: question_text, answer_hint (optional), display_order (optional)
+    Requires `can_manage_tasks` (v3.32.0).
     """
-    committee, _ = _education_committee_or_404(code, request.user)
+    committee, access = _education_committee_or_404(code, request.user)
+    denied = _require_education_permission(access, 'can_manage_tasks')
+    if denied:
+        return denied
     task = get_object_or_404(PledgeTask, pk=task_pk, is_active=True, task_type='quiz')
 
     question_text = request.POST.get('question_text', '').strip()
@@ -556,9 +718,54 @@ def education_add_quiz_question(request, code, task_pk):
 @login_required
 @require_page_enabled('committee_home')
 @require_POST
+def education_edit_quiz_question(request, code, task_pk, question_pk):
+    """
+    Edit an existing quiz question's text, model answer, or display order.
+
+    ⚠️ WHY THIS EXISTS. Reported by Mason: "for quizzes you cannot edit the
+    questions after making them." Add and Delete existed; fixing a typo in a
+    question or its model answer meant deleting it and re-adding it — which
+    loses its `display_order` unless re-typed correctly, and CASCADEs any
+    pledge answers already submitted for it. Answers are left alone here on
+    purpose: a chair correcting a typo is not the same act as retracting the
+    question, and a pledge's already-submitted answer to question 3 should
+    not vanish because someone fixed a comma in it. Requires `can_manage_tasks`.
+    """
+    committee, access = _education_committee_or_404(code, request.user)
+    denied = _require_education_permission(access, 'can_manage_tasks')
+    if denied:
+        return denied
+    task = get_object_or_404(PledgeTask, pk=task_pk, is_active=True, task_type='quiz')
+    question = get_object_or_404(PledgeTaskQuestion, pk=question_pk, task=task)
+
+    question_text = request.POST.get('question_text', '').strip()
+    if not question_text:
+        return JsonResponse({'error': 'Question text is required.'}, status=400)
+
+    question.question_text = question_text
+    question.answer_hint = request.POST.get('answer_hint', '').strip()
+    question.display_order = _parse_non_negative_int(
+        request.POST.get('display_order'), question.display_order,
+    )
+    question.save(update_fields=['question_text', 'answer_hint', 'display_order'])
+
+    return JsonResponse({
+        'question_id': question.pk,
+        'question_text': question.question_text,
+        'answer_hint': question.answer_hint,
+        'display_order': question.display_order,
+    })
+
+
+@login_required
+@require_page_enabled('committee_home')
+@require_POST
 def education_delete_quiz_question(request, code, task_pk, question_pk):
-    """Delete a quiz question (and all existing pledge answers for it)."""
-    committee, _ = _education_committee_or_404(code, request.user)
+    """Delete a quiz question (and all existing pledge answers for it). Requires `can_manage_tasks`."""
+    committee, access = _education_committee_or_404(code, request.user)
+    denied = _require_education_permission(access, 'can_manage_tasks')
+    if denied:
+        return denied
     task = get_object_or_404(PledgeTask, pk=task_pk, is_active=True, task_type='quiz')
     question = get_object_or_404(PledgeTaskQuestion, pk=question_pk, task=task)
     question.delete()
@@ -579,15 +786,22 @@ def education_manage_quiz_questions(request, code, task_pk):
     adds nothing new to the write path: the page below posts to those same
     two existing endpoints via `Parliament.post()`, the same fetch-plus-JSON
     pattern every other control on the education dashboard already uses.
+
+    Requires `can_manage_tasks` (v3.32.0).
     """
-    committee, is_chair = _education_committee_or_404(code, request.user)
+    committee, access = _education_committee_or_404(code, request.user)
+    _require_education_permission_or_404(access, 'can_manage_tasks')
     task = get_object_or_404(PledgeTask, pk=task_pk, is_active=True, task_type='quiz')
     questions = list(task.questions.all())
     return render(request, 'committee/education_quiz_questions.html', {
         'committee': committee,
         'task': task,
-        'is_chair': is_chair,
+        'is_chair': access['is_chair'],
         'questions': questions,
+        # Set only by the redirect `education_add_task` sends a brand-new quiz
+        # through (v3.31.6) — confirms the task itself saved before asking the
+        # chair to trust a page they did not click their way to.
+        'just_created': request.GET.get('created') == '1',
     })
 
 
@@ -595,10 +809,18 @@ def education_manage_quiz_questions(request, code, task_pk):
 @require_page_enabled('committee_home')
 def education_quiz_submissions(request, code, task_pk):
     """
-    Chair/officer view of all pledge submissions for a quiz task.
+    View of all pledge submissions for a quiz task.
     Shows each pledge's answers alongside the model answer hints.
+
+    ⚠️ v3.32.0 — viewing this page only needs SOME education permission (the
+    base gate in `_education_committee_or_404` already guarantees that); the
+    grading controls rendered on it are separately gated by
+    `can_grade_submissions` in the template, and the endpoints they post to
+    (`education_mark_answer`, `education_toggle_completion`) enforce that
+    same permission server-side regardless of what the template shows.
     """
-    committee, is_chair = _education_committee_or_404(code, request.user)
+    committee, access = _education_committee_or_404(code, request.user)
+    is_chair = access['is_chair']
     task = get_object_or_404(PledgeTask, pk=task_pk, is_active=True, task_type='quiz')
 
     questions = list(task.questions.all())
@@ -653,6 +875,7 @@ def education_quiz_submissions(request, code, task_pk):
         'questions': questions,
         'pledge_rows': pledge_rows,
         'is_chair': is_chair,
+        'access': access,
     })
 
 
@@ -677,8 +900,11 @@ def _pledge_roster():
 @require_page_enabled('committee_home')
 @require_POST
 def education_add_meeting(request, code):
-    """Create an education meeting and its calendar event."""
-    committee, _ = _education_committee_or_404(code, request.user)
+    """Create an education meeting and its calendar event. Requires `can_manage_tasks`."""
+    committee, access = _education_committee_or_404(code, request.user)
+    denied = _require_education_permission(access, 'can_manage_tasks')
+    if denied:
+        return denied
 
     # ⚠️ `visible_to=None` means "everyone", which is what Mason asked for:
     # brothers should see when the pledge class meets. Only ATTENDANCE is
@@ -767,8 +993,12 @@ def education_edit_meeting(request, code, meeting_pk):
     Editing deliberately does NOT touch attendance: the meeting keeps its pk, so
     every `EducationMeetingAttendance` row survives a change of time, place or
     points. `test_attendance_survives_an_edit` is the point of the whole change.
+
+    Requires `can_manage_tasks` (v3.32.0).
     """
-    committee, is_chair = _education_committee_or_404(code, request.user)
+    committee, access = _education_committee_or_404(code, request.user)
+    _require_education_permission_or_404(access, 'can_manage_tasks')
+    is_chair = access['is_chair']
     meeting = get_object_or_404(
         EducationMeeting.objects.select_related('event'),
         pk=meeting_pk, committee=committee,
@@ -806,10 +1036,18 @@ def education_edit_meeting(request, code, meeting_pk):
 @require_page_enabled('committee_home')
 @require_POST
 def education_delete_meeting(request, code, meeting_pk):
-    """Delete a meeting and its calendar entry. Chair only."""
-    committee, is_chair = _education_committee_or_404(code, request.user)
-    if not is_chair:
-        return JsonResponse({'error': 'Chair access required'}, status=403)
+    """
+    Delete a meeting and its calendar entry.
+
+    ⚠️ v3.32.0 — was chair-only; now `can_manage_tasks`, folded in with the
+    rest of meeting management for the same reason as
+    `education_toggle_task_published`: the 3-permission model has no room
+    for a separate chair-only sub-tier.
+    """
+    committee, access = _education_committee_or_404(code, request.user)
+    denied = _require_education_permission(access, 'can_manage_tasks', 'Only members with task-management permission can delete meetings.')
+    if denied:
+        return denied
 
     meeting = get_object_or_404(EducationMeeting, pk=meeting_pk, committee=committee)
     # The Event owns the calendar entry and the meeting is a OneToOne on it, so
@@ -823,8 +1061,18 @@ def education_delete_meeting(request, code, meeting_pk):
 @login_required
 @require_page_enabled('committee_home')
 def education_meeting_attendance(request, code, meeting_pk):
-    """Take attendance for a meeting. Pledges only, by construction."""
-    committee, is_chair = _education_committee_or_404(code, request.user)
+    """
+    Take attendance for a meeting. Pledges only, by construction.
+
+    ⚠️ v3.32.0 — gated on `can_manage_tasks`, NOT `can_grade_submissions`.
+    Mason's "grade" permission was scoped to quiz grading specifically when
+    this feature was designed; attendance-marking is a write action outside
+    that scope, so it falls under the general "manage" tier along with
+    meetings, tasks, and page restrictions.
+    """
+    committee, access = _education_committee_or_404(code, request.user)
+    _require_education_permission_or_404(access, 'can_manage_tasks')
+    is_chair = access['is_chair']
     meeting = get_object_or_404(
         EducationMeeting.objects.select_related('event'),
         pk=meeting_pk, committee=committee,
@@ -892,7 +1140,8 @@ def education_pledge_detail(request, code, pledge_pk):
     page, so there is one place to change each thing and this page cannot
     disagree with them.
     """
-    committee, is_chair = _education_committee_or_404(code, request.user)
+    committee, access = _education_committee_or_404(code, request.user)
+    is_chair = access['is_chair']
     pledge = get_object_or_404(ParliamentUser, pk=pledge_pk, member_type='Pledge')
 
     tasks = list(
@@ -952,6 +1201,7 @@ def education_pledge_detail(request, code, pledge_pk):
     return render(request, 'committee/education_pledge_detail.html', {
         'committee': committee,
         'is_chair': is_chair,
+        'access': access,
         'pledge': pledge,
         'task_rows': task_rows,
         'required_total': len(required),
@@ -989,9 +1239,12 @@ def education_duplicate_task(request, code, task_pk):
 
     Deliberately NOT copied: `due_date` (last term's date is wrong by
     definition and a silently stale one is worse than none), completions,
-    and quiz questions — see below.
+    and quiz questions — see below. Requires `can_manage_tasks`.
     """
-    committee, _ = _education_committee_or_404(code, request.user)
+    committee, access = _education_committee_or_404(code, request.user)
+    denied = _require_education_permission(access, 'can_manage_tasks')
+    if denied:
+        return denied
     original = get_object_or_404(PledgeTask, pk=task_pk, is_active=True)
 
     clone = PledgeTask.objects.create(
@@ -1046,10 +1299,10 @@ def education_quiz_analysis(request, code, task_pk):
     Audience: educators. A pledge may see it only when the chair has ticked
     `show_analysis_to_pledges` on that quiz — see `pledge_quiz_analysis`.
     """
-    committee, is_chair = _education_committee_or_404(code, request.user)
+    committee, access = _education_committee_or_404(code, request.user)
     task = get_object_or_404(PledgeTask, pk=task_pk, is_active=True, task_type='quiz')
     return render(request, 'committee/education_quiz_analysis.html',
-                  quiz_analysis_context(task, committee=committee, is_chair=is_chair))
+                  quiz_analysis_context(task, committee=committee, is_chair=access['is_chair']))
 
 
 #: A pledge sees class totals only once this many pledges have submitted.
@@ -1224,9 +1477,12 @@ def quiz_analysis_context(task, committee=None, is_chair=False, viewer_is_pledge
 def education_mark_answer(request, code, task_pk, answer_pk):
     """
     Mark one answer right or wrong (v3.21.0). `verdict` is `correct`,
-    `wrong`, or `clear`.
+    `wrong`, or `clear`. Requires `can_grade_submissions` (v3.32.0).
     """
-    committee, _ = _education_committee_or_404(code, request.user)
+    committee, access = _education_committee_or_404(code, request.user)
+    denied = _require_education_permission(access, 'can_grade_submissions')
+    if denied:
+        return denied
     task = get_object_or_404(PledgeTask, pk=task_pk, is_active=True, task_type='quiz')
     answer = get_object_or_404(PledgeQuizAnswer, pk=answer_pk, question__task=task)
 
@@ -1253,9 +1509,13 @@ def education_review_absence(request, code, request_pk):
     marked `absent` (or unmarked) at the next review — which is exactly the
     "I told him and he forgot" failure the request flow exists to remove.
     Denying deliberately writes nothing: the meeting has not happened yet, and
-    the pledge may still turn up.
+    the pledge may still turn up. Requires `can_manage_tasks` (v3.32.0) — see
+    `education_meeting_attendance` for why this is not `can_grade_submissions`.
     """
-    committee, _ = _education_committee_or_404(code, request.user)
+    committee, access = _education_committee_or_404(code, request.user)
+    denied = _require_education_permission(access, 'can_manage_tasks')
+    if denied:
+        return denied
     absence = get_object_or_404(
         EducationAbsenceRequest.objects.select_related('meeting', 'pledge'),
         pk=request_pk, meeting__committee=committee,

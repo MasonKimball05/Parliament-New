@@ -64,6 +64,24 @@
                     Education Dashboard
                 </a>
                 {% endif %}
+                {% if committee.is_education_committee and is_chair or committee.is_education_committee and user.is_admin %}
+                {% comment %}
+                ⚠️ v3.32.0 — Mason: "can we also add an education permissions
+                dashboard so the admin of the committee can set what
+                permissions the members have." Mirrors the Kai "Member
+                Perms" link below. Chair-or-admin gated here just for
+                visibility — `manage_education_permissions` itself enforces
+                the same check server-side regardless of what this template
+                shows.
+                {% endcomment %}
+                <a href="{% url 'manage_education_permissions' committee.code %}"
+                   class="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-white/20 hover:bg-white/30 text-white transition">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/>
+                    </svg>
+                    Member Perms
+                </a>
+                {% endif %}
                 {% if feature_flags.chats %}
                 <a href="{% url 'committee_chat' committee.code %}"
                    class="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-white/20 hover:bg-white/30 text-white transition">

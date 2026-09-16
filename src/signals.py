@@ -462,6 +462,15 @@ def sync_exec_committee_on_role_change(sender, instance, action, pk_set, model, 
         except Exception as e:
             logger.error(f"Error resetting Kai permissions on role change: {e}")
 
+    # Reset education permissions if a role tied to the education committee
+    # changed hands (v3.32.0 — mirrors the Kai reset above, at Mason's
+    # direction).
+    if action in ['post_add', 'post_remove'] and pk_set:
+        try:
+            reset_education_permissions_on_role_change(pk_set)
+        except Exception as e:
+            logger.error(f"Error resetting education permissions on role change: {e}")
+
 
 # ============================================================================
 # Kai Permission Reset on Exec Role Change
@@ -510,3 +519,35 @@ def reset_kai_permissions_on_role_change(changed_role_pks):
                 )
         except ChatChannel.DoesNotExist:
             pass
+
+
+# ============================================================================
+# Education Permission Reset on Exec Role Change (v3.32.0)
+# ============================================================================
+
+def reset_education_permissions_on_role_change(changed_role_pks):
+    """
+    When a role changes hands, reset all EducationMemberPermission rows for
+    any education committee whose .role FK matches the changed role.
+
+    Mirrors `reset_kai_permissions_on_role_change` above, at Mason's
+    direction: every time a new person takes the education chair exec
+    position, they start with a clean slate and deliberately grant
+    permissions to members they trust, rather than inheriting whatever the
+    outgoing chair had set up. No chat-channel-guest analog here — that
+    mechanism is specific to Kai's committee chat channel.
+    """
+    from src.models import Committee, EducationMemberPermission
+
+    education_committees = Committee.objects.filter(
+        is_education_committee=True,
+        role__pk__in=changed_role_pks,
+    )
+
+    for committee in education_committees:
+        deleted, _ = EducationMemberPermission.objects.filter(committee=committee).delete()
+        if deleted:
+            logger.info(
+                f"[signals] reset_education_permissions: wiped {deleted} EducationMemberPermission "
+                f"rows for committee '{committee.name}' after role change"
+            )

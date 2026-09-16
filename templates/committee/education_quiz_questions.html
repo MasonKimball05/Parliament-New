@@ -16,6 +16,13 @@
 
   <div class="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
 
+    {% if just_created %}
+    <div class="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg px-4 py-3 text-sm text-green-800 dark:text-green-300">
+      <span class="font-semibold">"{{ task.title }}" was created.</span>
+      It has no questions yet — add at least one below before publishing it to pledges.
+    </div>
+    {% endif %}
+
     <!-- ── Existing questions ──────────────────────────────────────────── -->
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
       <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
@@ -26,22 +33,79 @@
       {% if questions %}
       <div class="divide-y divide-gray-100 dark:divide-gray-700" id="question-list">
         {% for question in questions %}
-        <div class="px-6 py-4 flex items-start justify-between gap-4" id="question-row-{{ question.pk }}">
-          <div class="min-w-0">
-            <p class="text-sm font-medium text-gray-900 dark:text-white">
-              Q{{ question.display_order }}. {{ question.question_text }}
-            </p>
-            {% if question.answer_hint %}
-            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
-              Model answer (chairs only): {{ question.answer_hint }}
-            </p>
+        <div class="px-6 py-4" id="question-row-{{ question.pk }}">
+          <div class="flex items-start justify-between gap-4" id="question-view-{{ question.pk }}">
+            <div class="min-w-0">
+              <p class="text-sm font-medium text-gray-900 dark:text-white">
+                Q{{ question.display_order }}. {{ question.question_text }}
+              </p>
+              {% if question.answer_hint %}
+              <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                Model answer (chairs only): {{ question.answer_hint }}
+              </p>
+              {% endif %}
+            </div>
+            {% if is_chair %}
+            <div class="shrink-0 flex items-center gap-1">
+              <button type="button" data-action="edit-question" data-question-pk="{{ question.pk }}"
+                class="text-xs text-gray-400 hover:text-primary-600 px-2 py-1 rounded hover:bg-primary-50 dark:hover:bg-primary-900/20 transition">
+                Edit
+              </button>
+              <button type="button" data-action="delete-question" data-question-pk="{{ question.pk }}"
+                class="text-xs text-red-400 hover:text-red-600 px-2 py-1 rounded hover:bg-red-50 dark:hover:bg-red-900/20 transition">
+                Delete
+              </button>
+            </div>
             {% endif %}
           </div>
+
           {% if is_chair %}
-          <button type="button" data-action="delete-question" data-question-pk="{{ question.pk }}"
-            class="shrink-0 text-xs text-red-400 hover:text-red-600 px-2 py-1 rounded hover:bg-red-50 dark:hover:bg-red-900/20 transition">
-            Delete
-          </button>
+          {% comment %}
+          ⚠️ v3.31.6 — Mason: "for quizzes you cannot edit the questions after
+          making them." Add and Delete existed; a typo meant deleting and
+          re-adding the question, which loses its display_order unless
+          re-typed and CASCADEs any pledge answers already on it (see
+          `education_edit_quiz_question`'s docstring). This is an inline
+          edit rather than a separate page, mirroring the dashboard grid's
+          own preference for staying on one page for a small correction.
+          The `data-original-*` attributes are what Cancel restores —
+          without them, cancelling after typing and not saving would leave
+          the textareas showing the unsaved text the next time Edit is
+          clicked, since nothing else in this page ever re-renders them.
+          {% endcomment %}
+          <form class="hidden mt-3 space-y-3" id="question-edit-{{ question.pk }}"
+                data-question-pk="{{ question.pk }}"
+                data-original-question-text="{{ question.question_text }}"
+                data-original-answer-hint="{{ question.answer_hint }}"
+                data-original-display-order="{{ question.display_order }}">
+            <div>
+              <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Question *</label>
+              <textarea name="question_text" rows="2" required
+                class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500">{{ question.question_text }}</textarea>
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Model answer <span class="font-normal text-gray-400">(chairs only)</span>
+              </label>
+              <textarea name="answer_hint" rows="2"
+                class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500">{{ question.answer_hint }}</textarea>
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Display order</label>
+              <input type="number" name="display_order" value="{{ question.display_order }}" min="0"
+                class="w-24 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500">
+            </div>
+            <div class="flex items-center gap-2">
+              <button type="submit"
+                class="px-3 py-1.5 text-xs font-semibold bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition">
+                Save
+              </button>
+              <button type="button" data-action="cancel-edit-question" data-question-pk="{{ question.pk }}"
+                class="px-3 py-1.5 text-xs font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white">
+                Cancel
+              </button>
+            </div>
+          </form>
           {% endif %}
         </div>
         {% endfor %}
@@ -114,17 +178,66 @@ document.getElementById('add-question-form')?.addEventListener('submit', async f
     }
 });
 
+function openQuestionEdit(pk) {
+    document.getElementById(`question-view-${pk}`)?.classList.add('hidden');
+    document.getElementById(`question-edit-${pk}`)?.classList.remove('hidden');
+}
+
+function closeQuestionEdit(pk) {
+    document.getElementById(`question-edit-${pk}`)?.classList.add('hidden');
+    document.getElementById(`question-view-${pk}`)?.classList.remove('hidden');
+}
+
+function resetQuestionEditForm(form) {
+    form.elements['question_text'].value = form.dataset.originalQuestionText;
+    form.elements['answer_hint'].value = form.dataset.originalAnswerHint;
+    form.elements['display_order'].value = form.dataset.originalDisplayOrder;
+}
+
 document.addEventListener('click', async function(e) {
-    const el = e.target.closest('[data-action="delete-question"]');
-    if (!el) return;
-    if (!confirm('Delete this question? Any pledge answers to it go with it.')) return;
+    const editBtn = e.target.closest('[data-action="edit-question"]');
+    if (editBtn) {
+        openQuestionEdit(editBtn.dataset.questionPk);
+        return;
+    }
+
+    const cancelBtn = e.target.closest('[data-action="cancel-edit-question"]');
+    if (cancelBtn) {
+        const pk = cancelBtn.dataset.questionPk;
+        resetQuestionEditForm(document.getElementById(`question-edit-${pk}`));
+        closeQuestionEdit(pk);
+        return;
+    }
+
+    const deleteBtn = e.target.closest('[data-action="delete-question"]');
+    if (deleteBtn) {
+        if (!confirm('Delete this question? Any pledge answers to it go with it.')) return;
+        try {
+            const data = await Parliament.post(
+                `/committee/${COMMITTEE_CODE}/education/tasks/${TASK_PK}/questions/${deleteBtn.dataset.questionPk}/delete/`
+            );
+            if (data.deleted) {
+                document.getElementById(`question-row-${deleteBtn.dataset.questionPk}`)?.remove();
+            }
+        } catch (err) { /* reported by the helper */ }
+    }
+});
+
+document.addEventListener('submit', async function(e) {
+    const form = e.target.closest('form[id^="question-edit-"]');
+    if (!form) return;
+    e.preventDefault();
+    const pk = form.dataset.questionPk;
+    const data = new FormData(form);
     try {
-        const data = await Parliament.post(
-            `/committee/${COMMITTEE_CODE}/education/tasks/${TASK_PK}/questions/${el.dataset.questionPk}/delete/`
+        await Parliament.post(
+            `/committee/${COMMITTEE_CODE}/education/tasks/${TASK_PK}/questions/${pk}/edit/`, data
         );
-        if (data.deleted) {
-            document.getElementById(`question-row-${el.dataset.questionPk}`)?.remove();
-        }
+        // Full reload rather than patching the DOM in place — simplest way
+        // to keep the view-mode text AND the edit form's `data-original-*`
+        // restore values (what Cancel reverts to) both correct after a save,
+        // matching how Add already reloads on success.
+        window.location.reload();
     } catch (err) { /* reported by the helper */ }
 });
 </script>

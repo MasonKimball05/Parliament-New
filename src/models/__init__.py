@@ -235,6 +235,7 @@ from src.models.education import (
     EducationMeeting,
     EducationMeetingAttendance,
     EducationAbsenceRequest,
+    EducationMemberPermission,
 )
 
 # Feature Flags (defined in separate module)

@@ -46,7 +46,17 @@
 
     <!-- Pledge submissions -->
     {% for row in pledge_rows %}
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+    {% comment %}
+    ⚠️ v3.31.7 — `id="pledge-{pk}"` + the `:target` rule below are what make
+    a link like `...#pledge-7` from the pledge-detail page or the dashboard
+    actually land ON that pledge's card rather than the top of a page that
+    can hold dozens of them. Mason: "for quizzes I can click on it and it
+    shows the work they did and the answers so they can be 'graded'" — the
+    grading UI already existed on this page (mark right/wrong, score entry,
+    pass/incomplete); what was missing was a way to jump straight to one
+    pledge's card instead of scrolling to find them.
+    {% endcomment %}
+    <div id="pledge-{{ row.pledge.pk }}" class="target-highlight bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden scroll-mt-6">
       <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div class="flex items-center gap-3 flex-wrap">
           <span class="font-semibold text-gray-900 dark:text-white">{{ row.pledge.name }}</span>
@@ -163,6 +173,18 @@
   </div>
 </div>
 
+<style>
+/* Highlights whichever pledge card a `#pledge-<N>` link landed on — see the
+   comment on the pledge card's `id=` in the loop above. This is a plain
+   inline <style> (allowed by `style-src 'unsafe-inline'`, not run through
+   Tailwind's build), so it uses the raw primary-500 hex from
+   tailwind.config.js rather than a `theme()` call, which only resolves at
+   build time. */
+.target-highlight:target {
+    outline: 2px solid #1a52bb;
+    outline-offset: 2px;
+}
+</style>
 <script nonce="{{ request.csp_nonce }}">
 document.querySelectorAll('.js-mark').forEach(function (button) {
     button.addEventListener('click', async function () {

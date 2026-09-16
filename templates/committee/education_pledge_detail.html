@@ -77,6 +77,23 @@
               {% if row.task.is_required %}
               <span class="text-xs font-semibold text-red-500">Required</span>
               {% endif %}
+              {% comment %}
+              ⚠️ v3.31.7 — Mason: "for quizzes I can click on it and it shows
+              the work they did and the answers so they can be 'graded'."
+              The grading UI (per-question right/wrong, score entry,
+              pass/incomplete) already existed on the Submissions page — it
+              was just never linked to from HERE, the one page a VPE opens
+              to ask "how is this specific pledge doing." The anchor lands
+              directly on {{ pledge.name }}'s own card via
+              `id="pledge-{{ pledge.pk }}"` in quiz_submissions.html, not
+              just the top of a page with every pledge on it.
+              {% endcomment %}
+              {% if row.task.task_type == 'quiz' %}
+              <a href="{% url 'education_quiz_submissions' committee.code row.task.pk %}#pledge-{{ pledge.pk }}"
+                 class="text-xs font-semibold text-primary-600 dark:text-primary-400 hover:underline">
+                View answers →
+              </a>
+              {% endif %}
             </div>
             <div class="flex items-center gap-3 mt-1 flex-wrap text-xs">
               {% if row.overdue %}

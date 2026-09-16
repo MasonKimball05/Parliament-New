@@ -72,6 +72,7 @@ from src.view.committee.committee_minutes_editor import (
 )
 from src.view.committee.manage_chat_permissions import manage_chat_permissions, add_guest_permission, bulk_add_guest_permissions, update_guest_permission, remove_guest_permission, bulk_remove_guest_permissions
 from src.view.committee.manage_kai_permissions import manage_kai_permissions, update_kai_member_permission, reset_kai_permissions
+from src.view.committee.manage_education_permissions import manage_education_permissions, update_education_member_permission, reset_education_permissions
 from src.view.committee.recruitment import (
     recruitment_dashboard, create_recruitment_event, edit_recruitment_event,
     recruitment_event_detail, delete_recruitment_event,
@@ -84,7 +85,8 @@ from src.view.committee.education import (
     education_home, education_add_task, education_edit_task, education_toggle_completion,
     education_delete_task, education_toggle_task_published,
     education_update_page_restriction, education_delete_page_restriction,
-    education_add_quiz_question, education_delete_quiz_question, education_quiz_submissions,
+    education_add_quiz_question, education_edit_quiz_question, education_delete_quiz_question,
+    education_quiz_submissions,
     education_manage_quiz_questions,
     education_pledge_detail, education_duplicate_task,
     education_quiz_analysis, education_mark_answer, education_review_absence,
@@ -871,6 +873,11 @@ urlpatterns = [
     path('api/committee/<str:code>/kai-permissions/<str:user_id>/update/', update_kai_member_permission, name='update_kai_member_permission'),
     path('api/committee/<str:code>/kai-permissions/reset/', reset_kai_permissions, name='reset_kai_permissions'),
 
+    # Education committee member permissions (v3.32.0)
+    path('committee/<str:code>/education-permissions/', manage_education_permissions, name='manage_education_permissions'),
+    path('api/committee/<str:code>/education-permissions/<str:user_id>/update/', update_education_member_permission, name='update_education_member_permission'),
+    path('api/committee/<str:code>/education-permissions/reset/', reset_education_permissions, name='reset_education_permissions'),
+
     # Recruitment dashboard
     path('committee/<str:code>/recruitment/', recruitment_dashboard, name='recruitment_dashboard'),
     path('committee/<str:code>/recruitment/create/', create_recruitment_event, name='create_recruitment_event'),
@@ -893,6 +900,7 @@ urlpatterns = [
     # Quiz question management
     path('committee/<str:code>/education/tasks/<int:task_pk>/questions/', education_manage_quiz_questions, name='education_manage_quiz_questions'),
     path('committee/<str:code>/education/tasks/<int:task_pk>/questions/add/', education_add_quiz_question, name='education_add_quiz_question'),
+    path('committee/<str:code>/education/tasks/<int:task_pk>/questions/<int:question_pk>/edit/', education_edit_quiz_question, name='education_edit_quiz_question'),
     path('committee/<str:code>/education/tasks/<int:task_pk>/questions/<int:question_pk>/delete/', education_delete_quiz_question, name='education_delete_quiz_question'),
     path('committee/<str:code>/education/tasks/<int:task_pk>/submissions/', education_quiz_submissions, name='education_quiz_submissions'),
 

@@ -2329,6 +2329,18 @@ class LoginLockoutAdmin(admin.ModelAdmin):
 # by KaiMemberPermission grants inside the app, and superuser/admin status
 # must not bypass that. Manage Kai entirely through the in-app module.
 
+# === EDUCATION MEMBER PERMISSIONS ===
+# v3.32.0: `EducationMemberPermission` is deliberately NOT registered in the
+# Django admin either, for a narrower reason than Kai's (education data
+# carries no confidentiality boundary — `is_admin` already has implicit full
+# access via `_get_education_access`). The reason here is simply that this
+# codebase's own rule of thumb applies: a model whose visibility is decided
+# by an in-app permission/flag should either stay out of the admin or have
+# its sensitive fields excluded. Editing a row through `/admin/` would bypass
+# `granted_by`/`granted_at` and the auto-reset-on-role-change signal, and
+# would give a chair two different places to manage the same grants that
+# could silently disagree. Manage entirely via `manage_education_permissions`.
+
 
 # === PASSED RESOLUTIONS ===
 

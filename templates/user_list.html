@@ -570,25 +570,6 @@
                     <!-- Error display -->
                     <div id="add-member-error" class="hidden mt-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-400 text-sm"></div>
 
-                    <!-- Success display with credentials -->
-                    <div id="add-member-success" class="hidden mt-4 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
-                        <p class="text-green-700 dark:text-green-400 font-medium mb-3">Member created successfully!</p>
-                        <div class="bg-white dark:bg-gray-800 border border-green-300 dark:border-green-700 rounded p-3 space-y-3">
-                            <div>
-                                <p class="text-sm text-gray-600 dark:text-gray-400 mb-1">Username:</p>
-                                <code id="new-username" class="block text-lg font-mono text-gray-900 dark:text-white select-all"></code>
-                            </div>
-                            <div>
-                                <p class="text-sm text-gray-600 dark:text-gray-400 mb-1">Temporary Password:</p>
-                                <code id="temp-password" class="block text-lg font-mono text-gray-900 dark:text-white select-all"></code>
-                            </div>
-                        </div>
-                        <p id="pledge-password-note" class="hidden text-xs text-primary-600 dark:text-primary-400 mt-2 font-medium">
-                            Note: For pledges, username and password are the same.
-                        </p>
-                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">The member will be required to change this password on first login.</p>
-                    </div>
-
                     <!-- Buttons -->
                     <div class="mt-6 flex justify-end gap-3">
                         <button type="button" class="js-close-add-modal px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition font-medium">
@@ -599,6 +580,58 @@
                         </button>
                     </div>
                 </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Member Created Modal -->
+<!-- ⚠️ v3.31.6 — this used to be a div appended to the bottom of the Add
+     Member form itself, which left that modal permanently disabled/"stuck"
+     showing the just-created credentials with no way back into a usable
+     state short of closing and reloading the whole page. A separate modal
+     lets the Add Member form be reset and reused immediately (see
+     `showMemberCreatedPopup` / `resetAddMemberForm` below), so an officer
+     adding several members in a row is not forced to reload between each
+     one — and Add Member itself never again shows a stuck greyed-out button. -->
+<div id="member-created-modal" class="hidden fixed inset-0 z-50 overflow-y-auto" aria-labelledby="member-created-title" role="dialog" aria-modal="true">
+    <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+        <div class="fixed inset-0 bg-gray-500 dark:bg-gray-900 bg-opacity-75 dark:bg-opacity-75 transition-opacity"></div>
+        <div class="inline-block align-bottom bg-white dark:bg-gray-800 rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+            <div class="bg-white dark:bg-gray-800 px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                <div class="flex items-center gap-2 mb-1">
+                    <svg class="w-6 h-6 text-green-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white" id="member-created-title">Member created</h3>
+                </div>
+                <p id="created-member-name" class="text-sm text-gray-600 dark:text-gray-400 mb-3 ml-8"></p>
+                <div class="bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded p-3 space-y-3">
+                    <div>
+                        <p class="text-sm text-gray-600 dark:text-gray-400 mb-1">Username:</p>
+                        <code id="created-username" class="block text-lg font-mono text-gray-900 dark:text-white select-all"></code>
+                    </div>
+                    <div>
+                        <p class="text-sm text-gray-600 dark:text-gray-400 mb-1">Temporary Password:</p>
+                        <code id="created-temp-password" class="block text-lg font-mono text-gray-900 dark:text-white select-all"></code>
+                    </div>
+                </div>
+                <p id="created-pledge-note" class="hidden text-xs text-primary-600 dark:text-primary-400 mt-2 font-medium">
+                    Note: For pledges, username and password are the same.
+                </p>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                    The member will be required to change this password on first login. Copy it now — it will not be shown again.
+                </p>
+
+                <!-- Buttons -->
+                <div class="mt-6 flex justify-end gap-3">
+                    <button type="button" id="member-created-add-another-btn" class="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition font-medium">
+                        Add Another
+                    </button>
+                    <button type="button" id="member-created-done-btn" class="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition font-medium">
+                        Done
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -1130,28 +1163,38 @@ function populateRolesCheckboxes(containerId, selectedIds) {
 }
 
 // Add Member Modal
-function openAddModal() {
+//
+// ⚠️ v3.31.6 — Mason reported that clicking Add just appended the new
+// username/password to the bottom of this same form and left the button
+// permanently greyed out ("Adding..."), and that trying to add a second
+// member then failed with "a member with this ID already exists" — because
+// the ID box still held the ID the first submission had just used, and
+// nothing ever cleared or regenerated it. `resetAddMemberForm()` is now the
+// one place that puts this form back into a genuinely fresh state — called
+// on open, after a successful add (before the separate credentials popup
+// even appears), and after Add Another — so there is no path left where a
+// used ID can survive into the next submission.
+function resetAddMemberForm() {
     document.getElementById('add-member-form').reset();
     document.getElementById('add-member-error').classList.add('hidden');
-    document.getElementById('add-member-success').classList.add('hidden');
     document.getElementById('add-member-submit').disabled = false;
     document.getElementById('add-member-submit').textContent = 'Add Member';
     populateRolesCheckboxes('add-roles-container', []);
-    document.getElementById('add-member-modal').classList.remove('hidden');
 
-    // Auto-generate ID if Pledge is the default selection
+    // Auto-generate ID if Pledge is the default selection.
     const memberType = document.getElementById('add-member-type').value;
     if (memberType === 'Pledge') {
         generatePledgeId();
     }
 }
 
+function openAddModal() {
+    document.getElementById('add-member-modal').classList.remove('hidden');
+    resetAddMemberForm();
+}
+
 function closeAddModal() {
     document.getElementById('add-member-modal').classList.add('hidden');
-    // Reload page if member was added
-    if (!document.getElementById('add-member-success').classList.contains('hidden')) {
-        window.location.reload();
-    }
 }
 
 function generatePledgeId() {
@@ -1192,13 +1235,10 @@ document.getElementById('add-member-type').addEventListener('change', function()
 
 async function submitAddMember(e) {
     e.preventDefault();
-    const form = document.getElementById('add-member-form');
     const errorDiv = document.getElementById('add-member-error');
-    const successDiv = document.getElementById('add-member-success');
     const submitBtn = document.getElementById('add-member-submit');
 
     errorDiv.classList.add('hidden');
-    successDiv.classList.add('hidden');
     submitBtn.disabled = true;
     submitBtn.textContent = 'Adding...';
 
@@ -1227,22 +1267,38 @@ async function submitAddMember(e) {
         const result = await response.json();
 
         if (result.success) {
-            document.getElementById('new-username').textContent = result.username;
-            document.getElementById('temp-password').textContent = result.temp_password;
-            // Show pledge note if password = username
-            const pledgeNote = document.getElementById('pledge-password-note');
-            if (result.password_is_username) {
-                pledgeNote.classList.remove('hidden');
-            } else {
-                pledgeNote.classList.add('hidden');
-            }
-            successDiv.classList.remove('hidden');
-            submitBtn.textContent = 'Done';
+            // Hide and fully reset the Add Member form BEFORE the popup even
+            // opens — there is no "Done"/disabled state left on this modal
+            // for anyone to get stuck looking at, and the ID box already has
+            // a fresh, unused value in it the moment this popup closes.
+            document.getElementById('add-member-modal').classList.add('hidden');
+            showMemberCreatedPopup(result);
+            resetAddMemberForm();
         } else {
             errorDiv.textContent = result.error || Object.values(result.errors || {}).join(', ') || 'Failed to add member';
             errorDiv.classList.remove('hidden');
             submitBtn.disabled = false;
             submitBtn.textContent = 'Add Member';
+
+            // A rejected member ID is almost always the officer's own
+            // auto-generated ID from moments ago, still sitting in the box
+            // because nothing had ever cleared it — that is the "you need to
+            // regenerate the ID number to add another user" behavior Mason
+            // ran into. Hand back a fresh one automatically instead of
+            // requiring the officer to notice and click Generate themselves.
+            const idRejected = (result.errors && result.errors.user_id) || /\bID\b.*exists/i.test(errorDiv.textContent);
+            if (idRejected) {
+                const memberType = document.getElementById('add-member-type').value;
+                if (memberType === 'Pledge') {
+                    generatePledgeId();
+                } else {
+                    // Blank tells the server to generate a real one
+                    // (`generate_member_uid()`), which is what a non-pledge
+                    // type should get anyway rather than another client-side
+                    // guess.
+                    document.getElementById('add-user-id').value = '';
+                }
+            }
         }
     } catch (error) {
         errorDiv.textContent = 'An error occurred. Please try again.';
@@ -1250,6 +1306,26 @@ async function submitAddMember(e) {
         submitBtn.disabled = false;
         submitBtn.textContent = 'Add Member';
     }
+}
+
+// Member Created popup — see the comment above resetAddMemberForm() for why
+// this is a separate modal rather than a div appended to Add Member's own.
+function showMemberCreatedPopup(result) {
+    document.getElementById('created-member-name').textContent =
+        (result.member && result.member.name) ? result.member.name : '';
+    document.getElementById('created-username').textContent = result.username;
+    document.getElementById('created-temp-password').textContent = result.temp_password;
+    const pledgeNote = document.getElementById('created-pledge-note');
+    if (result.password_is_username) {
+        pledgeNote.classList.remove('hidden');
+    } else {
+        pledgeNote.classList.add('hidden');
+    }
+    document.getElementById('member-created-modal').classList.remove('hidden');
+}
+
+function closeMemberCreatedPopup() {
+    document.getElementById('member-created-modal').classList.add('hidden');
 }
 
 // Edit Member Modal
@@ -1887,6 +1963,16 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     document.getElementById('add-member-form').addEventListener('submit', submitAddMember);
     document.getElementById('generate-id-btn').addEventListener('click', generatePledgeId);
+
+    // Member Created popup
+    document.getElementById('member-created-add-another-btn').addEventListener('click', function() {
+        closeMemberCreatedPopup();
+        openAddModal();
+    });
+    document.getElementById('member-created-done-btn').addEventListener('click', function() {
+        closeMemberCreatedPopup();
+        window.location.reload();
+    });
 
     // Batch modal
     document.getElementById('js-close-batch-x').addEventListener('click', closeBatchAddModal);

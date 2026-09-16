@@ -281,6 +281,87 @@ class ManageQuizQuestionsPageTests(EducationFixtureMixin, TestCase):
         self.assertIsNone(re.search(r'<[a-zA-Z][^>]*\b(?:onclick|onchange|onsubmit)\s*=', html, re.IGNORECASE))
 
 
+class EditQuizQuestionTests(EducationFixtureMixin, TestCase):
+    """
+    v3.31.6 — Mason: "for quizzes you cannot edit the questions after making
+    them can we change that." Add and Delete existed; there was no way to
+    fix a typo short of deleting and re-adding the question (losing its
+    `display_order` and CASCADEing any pledge answers already submitted).
+    """
+
+    def setUp(self):
+        self.build()
+        self.quiz = PledgeTask.objects.create(title='Founders Quiz', task_type='quiz')
+        self.question = PledgeTaskQuestion.objects.create(
+            task=self.quiz, question_text='Who fouded the chapter?',
+            answer_hint='Wrong spelling on purpose', display_order=0,
+        )
+        self.url = reverse(
+            'education_edit_quiz_question', args=[self.committee.code, self.quiz.pk, self.question.pk]
+        )
+        self.manage_url = reverse('education_manage_quiz_questions', args=[self.committee.code, self.quiz.pk])
+
+    def test_editing_updates_the_question(self):
+        response = self.client.post(self.url, {
+            'question_text': 'Who founded the chapter?',
+            'answer_hint': 'John Founder, 1839',
+            'display_order': '2',
+        }, HTTP_X_REQUESTED_WITH='XMLHttpRequest')
+        self.assertEqual(response.status_code, 200)
+        self.question.refresh_from_db()
+        self.assertEqual(self.question.question_text, 'Who founded the chapter?')
+        self.assertEqual(self.question.answer_hint, 'John Founder, 1839')
+        self.assertEqual(self.question.display_order, 2)
+
+    def test_the_edited_text_appears_on_the_manage_page(self):
+        self.client.post(self.url, {
+            'question_text': 'Who founded the chapter?', 'answer_hint': '', 'display_order': '0',
+        }, HTTP_X_REQUESTED_WITH='XMLHttpRequest')
+        html = self.client.get(self.manage_url).content.decode()
+        self.assertIn('Who founded the chapter?', html)
+        self.assertNotIn('Who fouded the chapter?', html)
+
+    def test_editing_does_not_touch_a_pledges_existing_answer(self):
+        from src.models import PledgeQuizAnswer
+        answer = PledgeQuizAnswer.objects.create(
+            question=self.question, pledge=self.pledge, answer_text='1839', is_correct=True,
+        )
+        self.client.post(self.url, {
+            'question_text': 'Who founded the chapter?', 'answer_hint': '', 'display_order': '0',
+        }, HTTP_X_REQUESTED_WITH='XMLHttpRequest')
+        answer.refresh_from_db()
+        self.assertEqual(answer.answer_text, '1839')
+        self.assertTrue(answer.is_correct)
+
+    def test_blank_question_text_is_rejected(self):
+        response = self.client.post(self.url, {
+            'question_text': '', 'answer_hint': '', 'display_order': '0',
+        }, HTTP_X_REQUESTED_WITH='XMLHttpRequest')
+        self.assertEqual(response.status_code, 400)
+        self.question.refresh_from_db()
+        self.assertEqual(self.question.question_text, 'Who fouded the chapter?')
+
+    def test_a_non_officer_non_chair_gets_404(self):
+        self.client.force_login(self.brother)
+        response = self.client.post(self.url, {
+            'question_text': 'Hijacked', 'answer_hint': '', 'display_order': '0',
+        }, HTTP_X_REQUESTED_WITH='XMLHttpRequest')
+        self.assertEqual(response.status_code, 404)
+        self.question.refresh_from_db()
+        self.assertEqual(self.question.question_text, 'Who fouded the chapter?')
+
+    def test_the_manage_page_has_edit_buttons_and_inline_edit_forms(self):
+        html = self.client.get(self.manage_url).content.decode()
+        self.assertIn('data-action="edit-question"', html)
+        self.assertIn(f'id="question-edit-{self.question.pk}"', html)
+        self.assertIn('data-action="cancel-edit-question"', html)
+
+    def test_no_inline_event_handlers_on_the_manage_page(self):
+        import re
+        html = self.client.get(self.manage_url).content.decode()
+        self.assertIsNone(re.search(r'<[a-zA-Z][^>]*\b(?:onclick|onchange|onsubmit)\s*=', html, re.IGNORECASE))
+
+
 class ToggleCompletionIsGenuinelyWiredTests(EducationFixtureMixin, TestCase):
     """
     Root cause 4 — Mason also reported being unable to change a task's status
@@ -315,3 +396,41 @@ class ToggleCompletionIsGenuinelyWiredTests(EducationFixtureMixin, TestCase):
         self.assertEqual(second.json()['status'], 'incomplete')
         third = self.client.post(url, HTTP_X_REQUESTED_WITH='XMLHttpRequest')
         self.assertEqual(third.json()['status'], 'pending')
+
+
+class CreatingAQuizRedirectsStraightToItsQuestionsTests(EducationFixtureMixin, TestCase):
+    """
+    v3.31.6 — Mason, mid-session, about the fix for root cause 3 above: "when
+    a user makes a quiz can we just give them another popup/redirect to make
+    the quiz instead of them having to go find it in the tasks?" A brand-new
+    quiz has zero questions and is useless to pledges until someone adds at
+    least one, so `education_add_task` now sends a quiz straight to its own
+    Manage Questions page instead of back to the dashboard.
+    """
+
+    def setUp(self):
+        self.build()
+        self.url = reverse('education_add_task', args=[self.committee.code])
+
+    def test_creating_a_quiz_redirects_to_its_manage_questions_page(self):
+        response = self.client.post(self.url, {'title': 'Founders Quiz', 'task_type': 'quiz'})
+        task = PledgeTask.objects.get(title='Founders Quiz')
+        self.assertRedirects(
+            response,
+            reverse('education_manage_quiz_questions', args=[self.committee.code, task.pk]) + '?created=1',
+        )
+
+    def test_creating_a_non_quiz_task_still_redirects_to_the_dashboard(self):
+        response = self.client.post(self.url, {'title': 'Read a chapter', 'task_type': 'reading'})
+        self.assertRedirects(response, reverse('education_home', args=[self.committee.code]))
+
+    def test_the_manage_questions_page_shows_a_just_created_banner(self):
+        response = self.client.post(self.url, {'title': 'Founders Quiz', 'task_type': 'quiz'}, follow=True)
+        self.assertContains(response, '"Founders Quiz" was created.')
+
+    def test_visiting_manage_questions_directly_shows_no_banner(self):
+        task = PledgeTask.objects.create(title='Existing Quiz', task_type='quiz')
+        html = self.client.get(
+            reverse('education_manage_quiz_questions', args=[self.committee.code, task.pk])
+        ).content.decode()
+        self.assertNotIn('was created.', html)

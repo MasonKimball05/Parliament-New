@@ -578,6 +578,89 @@ class EducationMeetingAttendance(models.Model):
         return self.meeting.points if self.status in self.EARNS_POINTS else 0
 
 
+class EducationMemberPermission(models.Model):
+    """
+    Granular, additive permissions for an education committee member.
+
+    v3.32.0 — Mason: "can we... add an education permissions dashboard so
+    the admin of the committee can set what permissions the members have
+    whether it's none, some permissions; view and grade tasks (2 separate
+    perms), or all permissions where they can make tasks and whatnot. Kai
+    has a version of this already." Mirrors `KaiMemberPermission` exactly,
+    at his explicit direction, with one deliberate difference: Kai's model
+    defaults every non-chair, non-permissioned user to zero access because
+    Kai data is confidential judicial material with no legitimate "outsider"
+    reader. Education tasks and pledge progress carry no such confidentiality
+    boundary, so `is_admin` retains implicit full access here (as it already
+    did for the one chair-gated action that existed before this model:
+    `education_toggle_task_published`) rather than needing Kai's separate
+    break-glass grant mechanism.
+
+    By default a committee member has no access at all — chairs (and site
+    admins) explicitly grant each permission. This REPLACES the previous
+    behaviour, where any chapter officer could use the entire education
+    dashboard regardless of committee membership; see `_get_education_access`
+    in `src/view/committee/education.py`.
+
+    All permissions are wiped automatically when the exec role tied to the
+    committee (`committee.role`) changes holders — see
+    `reset_education_permissions_on_role_change` in `src/signals.py`,
+    mirroring the Kai equivalent.
+    """
+
+    committee = models.ForeignKey(
+        'Committee',
+        on_delete=models.CASCADE,
+        related_name='education_member_permissions',
+        limit_choices_to={'is_education_committee': True},
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='education_permissions',
+    )
+
+    #: View pledge progress, task rows, quiz submissions/answers, and the
+    #: quiz item-analysis breakdown. Read-only.
+    can_view_submissions = models.BooleanField(
+        default=False,
+        help_text='Can view the dashboard, pledge progress, and quiz answers/submissions',
+    )
+    #: Grade a quiz specifically: mark answers right/wrong, enter a score,
+    #: and set a completion's status (pass/incomplete/waived). Deliberately
+    #: does NOT cover attendance marking or absence-request review — see the
+    #: v3.32.0 changelog for why those fall under `can_manage_tasks` instead.
+    can_grade_submissions = models.BooleanField(
+        default=False,
+        help_text='Can mark quiz answers, enter scores, and set completion status (pass/incomplete)',
+    )
+    #: Everything else: create/edit/duplicate/delete tasks, publish/unpublish,
+    #: manage quiz questions, manage meetings (add/edit/delete), mark
+    #: attendance, review absence requests, and edit page-access restrictions.
+    can_manage_tasks = models.BooleanField(
+        default=False,
+        help_text='Can create/edit/delete tasks and quiz questions, manage meetings and '
+                  'attendance, review absence requests, and edit pledge page restrictions',
+    )
+
+    granted_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='education_permissions_granted',
+    )
+    granted_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = [('committee', 'user')]
+        verbose_name = 'Education Member Permission'
+        verbose_name_plural = 'Education Member Permissions'
+
+    def __str__(self):
+        return f'{self.committee.name} — {self.user.name}'
+
+
 class EducationAbsenceRequest(models.Model):
     """
     A pledge asking to be excused from an education meeting.
