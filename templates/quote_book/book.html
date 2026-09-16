@@ -48,6 +48,14 @@
             rgba(0, 0, 0, 0) 100%);
     }
     .quote-book-stage-wrap.is-flipping .quote-book-spine { opacity: 0; }
+    /* Single-page ("portrait") mode — PageFlip's own responsive breakpoint
+       collapses the two-page spread into one page filling the whole stage
+       once the stage is narrower than 2x its minWidth (this is what happens
+       on mobile). There's no second page left for the spine to mark a
+       binding between at that point, so it's just a line down the middle
+       of the one visible page. Hidden via a class the 'changeOrientation'
+       handler below sets/clears — same technique as .is-flipping above. */
+    .quote-book-stage-wrap.is-portrait .quote-book-spine { display: none; }
     /* Pages read as "paper" rather than site UI on purpose — a real book's
        pages don't change color with the room lights — but v1 of this used
        a deep parchment/sepia tint (#fdf6e3 / #f1e6c8) that read as an odd
@@ -326,6 +334,21 @@
     });
     pageFlip.loadFromHTML(document.querySelectorAll('#quote-book-stage .page'));
 
+    var stageWrap = document.querySelector('.quote-book-stage-wrap');
+
+    // Mobile/narrow viewports collapse the two-page spread into a single
+    // "portrait" page (see the CSS comment on .quote-book-spine) — read the
+    // orientation synchronously right after load (loadFromHTML resolves it
+    // before this line runs, so there's no separate "changeOrientation"
+    // fired for the initial state to listen for) and again on every later
+    // orientation change (window resize, rotating the phone).
+    function updateSpineForOrientation() {
+        if (!stageWrap) return;
+        stageWrap.classList.toggle('is-portrait', pageFlip.getOrientation() === 'portrait');
+    }
+    updateSpineForOrientation();
+    pageFlip.on('changeOrientation', updateSpineForOrientation);
+
     var indicator = document.getElementById('quote-book-page-indicator');
     function updateIndicator() {
         if (!indicator) return;
@@ -340,7 +363,6 @@
     // see the CSS comment on .quote-book-spine for why. 'read' is the
     // library's own name for "at rest, nothing animating"; anything else
     // ('flipping', 'user_fold' — mid-drag before release) hides it.
-    var stageWrap = document.querySelector('.quote-book-stage-wrap');
     pageFlip.on('changeState', function(e) {
         if (!stageWrap) return;
         stageWrap.classList.toggle('is-flipping', e.data !== 'read');
