@@ -176,7 +176,7 @@
                     <div class="flex items-center gap-3">
                         <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Sort by:</label>
                         <select id="attendanceSortBy" class="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500">
-                            <option value="user_id">Member ID</option>
+                            <option value="role_number">Roll #</option>
                             <option value="name">Name</option>
                             <option value="member_type">Role</option>
                         </select>
@@ -710,7 +710,7 @@ function renderAttendance() {
                             <span class="text-sm font-medium text-gray-900 dark:text-white">${escapeHtml(m.name)}</span>
                             ${excuseBadge}
                         </div>
-                        <div class="text-xs text-gray-500 dark:text-gray-400">${m.member_type !== 'Pledge' ? escapeHtml(String(m.user_id)) + ' &middot; ' : ''}${escapeHtml(m.member_type)}</div>
+                        <div class="text-xs text-gray-500 dark:text-gray-400">${m.role_number ? '#' + escapeHtml(String(m.role_number)) + ' &middot; ' : ''}${escapeHtml(m.member_type)}</div>
                     </div>
                 </div>
             </td>
@@ -754,7 +754,19 @@ function sortAttendance() {
     const sortBy = document.getElementById('attendanceSortBy').value;
     members.sort((a, b) => {
         if (sortBy === 'name') return a.name.localeCompare(b.name);
-        if (sortBy === 'user_id') return String(a.user_id).localeCompare(String(b.user_id));
+        if (sortBy === 'role_number') {
+            // Numeric where possible — role_number is free-text (blank for
+            // some pledges/advisors), and a plain string sort would put
+            // "19" ahead of "2". Missing/non-numeric values sort last.
+            const ra = String(a.role_number || '');
+            const rb = String(b.role_number || '');
+            const na = /^\d+$/.test(ra) ? parseInt(ra, 10) : null;
+            const nb = /^\d+$/.test(rb) ? parseInt(rb, 10) : null;
+            if (na !== null && nb !== null) return na - nb;
+            if (na !== null) return -1;
+            if (nb !== null) return 1;
+            return ra.localeCompare(rb);
+        }
         if (sortBy === 'member_type') return a.member_type.localeCompare(b.member_type) || a.name.localeCompare(b.name);
         return 0;
     });

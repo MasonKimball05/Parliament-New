@@ -2307,3 +2307,90 @@ class ReviewExcusesQueryBudgetTests(QueryBudgetMixin, TestCase):
         body = response.content.decode()
         for event in self.events:
             self.assertIn(event.title, body)
+
+
+class ChapterMinutesListQueryBudgetTests(QueryBudgetMixin, TestCase):
+    """
+    `chapter_minutes_list` — reported live 09-16-26 via the dev-mode query
+    monitor: `officer/chapter_minutes_list.html`'s `m.created_by.get_display_name`
+    and `if m.event` each fired one query per row (11x + 7x on one page load),
+    because the list queryset carried no `select_related` on either FK at all.
+    Fixed with `.select_related('created_by', 'event')` +
+    `member_defer('created_by')`.
+    """
+
+    #: Measured 09-16-26, cold cache, after adding the select_related. This
+    #: page carries the full admin_base.html chrome (2FA device checks etc.),
+    #: which is where most of this comes from — the select_related fix is
+    #: what keeps it FLAT as rows are added, which is what the scaling test
+    #: below actually pins.
+    BUDGET = 29
+
+    def setUp(self):
+        self.officer = make_user('qb-cm-off', 'CM Officer')
+
+    def test_stays_within_budget(self):
+        from src.models import ChapterMinutes
+        from datetime import date, time
+
+        for i in range(5):
+            ChapterMinutes.objects.create(
+                title=f'Meeting {i}', date=date(2026, 1, i + 1), start_time=time(19, 0),
+                created_by=self.officer, status='draft',
+            )
+        self.assert_within_budget(self.officer, 'chapter_minutes_list', self.BUDGET)
+
+    def test_does_not_scale_with_minutes_count(self):
+        from src.models import ChapterMinutes, Event
+        from datetime import date, time, timedelta
+        from django.utils import timezone
+
+        def _seed(n, offset=0):
+            for i in range(n):
+                event = Event.objects.create(
+                    title=f'Linked Event {offset + i}', description='d',
+                    date_time=timezone.now() + timedelta(days=offset + i + 1),
+                    created_by=self.officer, is_active=True,
+                )
+                ChapterMinutes.objects.create(
+                    title=f'Meeting {offset + i}', date=date(2026, 1, 1), start_time=time(19, 0),
+                    created_by=self.officer, status='draft', event=event,
+                )
+
+        _seed(3)
+        before = len(self.measure(self.officer, 'chapter_minutes_list'))
+
+        _seed(10, offset=100)
+        after = len(self.measure(self.officer, 'chapter_minutes_list'))
+
+        self.assertEqual(
+            before, after,
+            f'Went from 3 to 13 chapter-minutes rows (each with a linked '
+            f'event) and the page went from {before} to {after} queries. '
+            f"created_by / event are no longer joined once for the whole "
+            f'list.',
+        )
+
+    def test_the_fixture_actually_renders_creator_and_event_names(self):
+        """
+        ⚠️ CONTROL. A budget that passes on a page not actually rendering
+        `created_by`/`event` would be measuring nothing about this bug.
+        """
+        from src.models import ChapterMinutes, Event
+        from datetime import timedelta
+        from django.utils import timezone
+
+        event = Event.objects.create(
+            title='Control Linked Event', description='d',
+            date_time=timezone.now() + timedelta(days=1),
+            created_by=self.officer, is_active=True,
+        )
+        ChapterMinutes.objects.create(
+            title='Control Meeting', date=timezone.localdate(), start_time='19:00',
+            created_by=self.officer, status='draft', event=event,
+        )
+        self.client.force_login(self.officer)
+        response = self.client.get(reverse('chapter_minutes_list'))
+        body = response.content.decode()
+        self.assertIn('Control Meeting', body)
+        self.assertIn(self.officer.get_display_name(), body)

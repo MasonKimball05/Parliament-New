@@ -69,9 +69,13 @@ def _linkable_events(limit=20, window_days=60):
 @officer_required
 def chapter_minutes_list(request):
     """List all chapter minutes (drafts and published) - excludes committee minutes"""
+    # select_related both FKs the list template reads per row — reported
+    # live 09-16-26 via the dev-mode query monitor: `m.created_by.get_display_name`
+    # and `if m.event` each fired one query per row (11x + 7x on one page
+    # load) with neither join in place.
     minutes_list = ChapterMinutes.objects.filter(
         committee__isnull=True
-    ).order_by('-date', '-start_time')
+    ).select_related('created_by', 'event').defer(*member_defer('created_by')).order_by('-date', '-start_time')
 
     # Get recent/upcoming events for the create modal
     events = _linkable_events()
@@ -148,25 +152,40 @@ def edit_chapter_minutes(request, minutes_id):
     """Main editor page for chapter minutes"""
     minutes = get_object_or_404(ChapterMinutes, id=minutes_id, committee__isnull=True)
 
-    # Get all active members for attendance (excluding advisors)
-    # Sort: non-pledges first (by last name), then pledges (by last name)
+    # Get all active members for attendance, INCLUDING advisors (09-16-26,
+    # Mason: an advisor has been given a roll number in the chapter and
+    # needs to be callable during roll call same as everyone else — see
+    # role_number below for why a plain member_type filter was never going
+    # to be the whole fix here).
+    # Sort: non-pledges first (by roll number), then pledges (by last name)
     def get_last_name(user):
         """Extract last name from full name for sorting"""
         parts = user.name.strip().split()
         return parts[-1].lower() if parts else ''
 
-    def get_user_id(user):
-        """Extract user id for sorting"""
-        return user.user_id
+    def get_roll_call_sort_key(user):
+        """
+        Sort non-pledges for roll call by role_number, numerically where
+        possible. role_number is a free-text CharField (help text: "assigned
+        at initiation"), not guaranteed numeric — but in practice it holds
+        the chapter's roll numbers, and a plain string sort would put "19"
+        before "2" (lexicographic), which is exactly wrong for reading a
+        roster out loud in order. Falls back to the raw string for anyone
+        whose role_number isn't a plain integer (e.g. blank, or an advisor
+        who was never assigned one), and sorts those to the end rather than
+        the front, since 0 would otherwise jump ahead of every real number.
+        """
+        rn = (user.role_number or '').strip()
+        if rn.isdigit():
+            return (0, int(rn))
+        return (1, rn)
 
-    all_members = ParliamentUser.objects.filter(
-        member_status='Active'
-    ).exclude(member_type='Advisor')
+    all_members = ParliamentUser.objects.filter(member_status='Active')
 
-    # Separate non-pledges and pledges, sort members by id and by last name for pledges
+    # Separate non-pledges and pledges, sort members by roll number and by last name for pledges
     non_pledges = sorted(
         [m for m in all_members if m.member_type != 'Pledge'],
-        key=get_user_id
+        key=get_roll_call_sort_key
     )
     pledges = sorted(
         [m for m in all_members if m.member_type == 'Pledge'],
@@ -265,6 +284,13 @@ def edit_chapter_minutes(request, minutes_id):
 
         entry = {
             'user_id': member.user_id,
+            # `user_id` stays the internal key (form field names, JS lookups
+            # already keyed on it) — `role_number` is the NEW field, added so
+            # the template can show the roll number a member actually
+            # answers to during roll call instead of the opaque user_id.
+            # See get_roll_call_sort_key's docstring above for why these two
+            # are not the same value post-v3.23.0.
+            'role_number': member.role_number or '',
             'name': member.get_display_name(),
             'member_type': member.member_type,
             'status': status,
