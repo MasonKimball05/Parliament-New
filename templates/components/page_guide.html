@@ -16,7 +16,7 @@
                         <h2 id="guide-title-{{ page_key }}" class="text-base font-bold text-white leading-tight">{{ guide_title }}</h2>
                     </div>
                 </div>
-                <button onclick="closePageGuide('{{ page_key }}')" class="text-white/60 hover:text-white transition flex-shrink-0 mt-0.5" aria-label="Close guide">
+                <button data-page-guide-close="{{ page_key }}" class="text-white/60 hover:text-white transition flex-shrink-0 mt-0.5" aria-label="Close guide">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                 </button>
             </div>
@@ -25,7 +25,7 @@
             {{ guide_body }}
         </div>
         <div class="px-5 pb-4">
-            <button onclick="closePageGuide('{{ page_key }}')" class="w-full bg-primary-600 text-white px-4 py-2.5 rounded-xl text-sm font-medium hover:bg-primary-700 active:scale-95 transition">
+            <button data-page-guide-close="{{ page_key }}" class="w-full bg-primary-600 text-white px-4 py-2.5 rounded-xl text-sm font-medium hover:bg-primary-700 active:scale-95 transition">
                 Got it
             </button>
         </div>
@@ -33,15 +33,27 @@
 </div>
 
 <script nonce="{{ request.csp_nonce }}">
-function closePageGuide(pageKey) {
-    var modal = document.getElementById('page-guide-modal-' + pageKey);
-    if (modal) modal.remove();
-    fetch('{% url "onboarding_page_visited" %}', {
-        method: 'POST',
-        headers: { 'X-CSRFToken': '{{ csrf_token }}', 'Content-Type': 'application/json' },
-        body: JSON.stringify({ page: pageKey }),
+(function() {
+    // CSP's script-src-attr has no 'unsafe-inline' (see src/middleware/security.py),
+    // so an onclick="" attribute is silently blocked on click — the button renders
+    // but does nothing. This component is included independently on 11 templates,
+    // so the close buttons above use a data attribute + this delegated listener
+    // instead of inline handlers. Scoped to this modal instance (not base.html's
+    // global listener) because closing here also has to remove the element from
+    // the DOM and record the page-visited ping, not just toggle a "hidden" class.
+    function closePageGuide(pageKey) {
+        var modal = document.getElementById('page-guide-modal-' + pageKey);
+        if (modal) modal.remove();
+        fetch('{% url "onboarding_page_visited" %}', {
+            method: 'POST',
+            headers: { 'X-CSRFToken': '{{ csrf_token }}', 'Content-Type': 'application/json' },
+            body: JSON.stringify({ page: pageKey }),
+        });
+    }
+    document.querySelectorAll('[data-page-guide-close="{{ page_key }}"]').forEach(function(btn) {
+        btn.addEventListener('click', function() { closePageGuide('{{ page_key }}'); });
     });
-}
+})();
 </script>
 {% endif %}
 {% endif %}

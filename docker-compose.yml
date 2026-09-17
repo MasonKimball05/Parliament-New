@@ -111,6 +111,80 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  # Celery worker — runs the tasks (auto open/close votes, reminder emails,
+  # the weekly weak-password audit, etc.). Added 09-16-26: this file built
+  # db/redis/web/nginx but never a worker or beat, so a `docker compose up`
+  # deployment of this file had Celery configured (REDIS_URL is set on `web`
+  # above) but nothing consuming the queue — same gap as docker-compose.dev.yml,
+  # just harder to notice here because the documented production path is the
+  # systemd units (`parliament-worker.service` / `parliament-beat.service`
+  # in CLAUDE.md's Deployment Protocol), not this compose file. If this file
+  # is ever the actual way Parliament is deployed rather than bare systemd,
+  # these two services are required for anything scheduled to run at all.
+  worker:
+    build: .
+    container_name: parliament-worker
+    command: celery -A Parliament worker -l INFO
+    volumes:
+      - .:/app
+    environment:
+      - DJANGO_SETTINGS_MODULE=Parliament.settings
+      - DEBUG=${DEBUG:-False}
+      - SECRET_KEY=${SECRET_KEY}
+      - DB_NAME=${DB_NAME:-parliament_db}
+      - DB_USER=${DB_USER:-parliament_user}
+      - DB_PASSWORD=${DB_PASSWORD:-change_this_password}
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_CONN_MAX_AGE=300
+      - REDIS_URL=redis://redis:6379/0
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+        reservations:
+          memory: 128M
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # Celery beat — fires the periodic tasks on schedule. Reads its schedule
+  # from the PeriodicTask table (django_celery_beat's DatabaseScheduler), so
+  # `manage.py migrate` and `manage.py setup_celery_schedules` must both have
+  # been run (once, via `web`) before this has anything to fire.
+  beat:
+    build: .
+    container_name: parliament-beat
+    command: celery -A Parliament beat -l INFO --scheduler django_celery_beat.schedulers:DatabaseScheduler
+    volumes:
+      - .:/app
+    environment:
+      - DJANGO_SETTINGS_MODULE=Parliament.settings
+      - DEBUG=${DEBUG:-False}
+      - SECRET_KEY=${SECRET_KEY}
+      - DB_NAME=${DB_NAME:-parliament_db}
+      - DB_USER=${DB_USER:-parliament_user}
+      - DB_PASSWORD=${DB_PASSWORD:-change_this_password}
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_CONN_MAX_AGE=300
+      - REDIS_URL=redis://redis:6379/0
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+        reservations:
+          memory: 64M
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
   # Nginx reverse proxy
   nginx:
     image: nginx:alpine

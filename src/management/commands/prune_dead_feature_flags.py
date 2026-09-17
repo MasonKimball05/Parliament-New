@@ -82,7 +82,18 @@ def _is_read_anywhere(name, repo_root):
     combined = '|'.join(patterns)
     try:
         result = subprocess.run(
-            ['grep', '-rlE', combined, str(repo_root / 'src'), str(repo_root / 'templates')],
+            # --exclude-dir=__pycache__: a compiled .pyc embeds a source
+            # file's string literals as bytecode constants, so a test
+            # fixture like "is_feature_enabled('calendar')" written into a
+            # test file's source survives into that file's compiled cache
+            # under a DIFFERENT filename (test_x.py -> test_x.cpython-
+            # 310.pyc) that the exclusion below does not recognise —
+            # found 09-16-26 when a new regression-test file for this exact
+            # command started tripping this same negative control. A
+            # compiled cache is a build artifact, never authored source, so
+            # it should never count as "referenced" regardless of filename.
+            ['grep', '-rlE', '--exclude-dir=__pycache__', combined,
+             str(repo_root / 'src'), str(repo_root / 'templates')],
             capture_output=True, text=True, timeout=30,
         )
     except (OSError, subprocess.SubprocessError):

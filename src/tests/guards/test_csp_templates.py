@@ -134,7 +134,6 @@ KNOWN_INLINE_HANDLER_OFFENDERS = frozenset({
     'committee/recruitment_dashboard.html',
     'committee/recruitment_event_detail.html',
     'components/_progress_item.html',
-    'components/page_guide.html',
     'components/profile_progress.html',
     'includes/confirm_modal.html',
     'kai/manage_commendations.html',
@@ -192,7 +191,7 @@ class NoInlineEventHandlerAttributesTests(SimpleTestCase):
         cannot silently stay stale once a fix lands.
         """
         self.assertEqual(
-            len(KNOWN_INLINE_HANDLER_OFFENDERS), 18,
+            len(KNOWN_INLINE_HANDLER_OFFENDERS), 17,
             'KNOWN_INLINE_HANDLER_OFFENDERS changed size. If you fixed one of '
             'these files, remove its entry — do not just update this number.',
         )

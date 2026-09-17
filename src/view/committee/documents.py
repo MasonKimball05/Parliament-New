@@ -69,7 +69,26 @@ def committee_documents(request, code):  # Changed from id to code
 
     # Check if user is VP (committee admin) or chair
     is_vp = committee.is_vp(user)
-    is_chair = committee.is_chair(user)
+    # `committee.is_chair(user)` also grants exec-board members chair-level
+    # access when `committee.is_exec_board` is set — `user_is_committee_chair`
+    # above does not (it's the raw `chairs` check `can_user_view()` needs, and
+    # changing THAT would change which documents are visible, not just how
+    # many queries it costs). The two answers are only guaranteed identical
+    # when `is_exec_board` is False, which is true for most committees this
+    # view serves — skip the second, otherwise-redundant chairs-table query
+    # in that common case; fall back to the real (memoizing) call when it
+    # isn't. Half of the "×2 duplicate query" residue v3.31.0 flagged and
+    # left for a follow-up.
+    if committee.is_exec_board:
+        is_chair = committee.is_chair(user)
+    else:
+        is_chair = user_is_committee_chair
+        # Prime is_chair()'s own memo with the answer we already have, so
+        # can_edit_committee_minutes() below — and anything else that calls
+        # committee.is_chair(user) later in this request — gets it for free
+        # instead of re-querying. Without this, skipping the call here just
+        # moves the "second" query to whichever caller happens to run next.
+        committee.prime_chair_memo(user, is_chair)
     can_delete = is_vp or is_chair
     can_edit_minutes = can_edit_committee_minutes(user, committee)
 
@@ -81,7 +100,9 @@ def committee_documents(request, code):  # Changed from id to code
     # permission gate as `committee_minutes_list` itself (member/chair/
     # officer/admin) — anyone who could see them on that page can see them
     # here.
-    can_view_minutes = is_committee_member_or_above(user, committee)
+    can_view_minutes = is_committee_member_or_above(
+        user, committee, is_committee_member=user_is_committee_member,
+    )
     unpublished_minutes = []
     if can_view_minutes:
         unpublished_minutes = list(

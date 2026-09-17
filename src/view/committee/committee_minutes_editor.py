@@ -21,9 +21,30 @@ from src.models import (
 from src.view.officer.chapter_minutes import generate_minutes_pdf_buffer
 
 
-def is_committee_member_or_above(user, committee):
-    """Check if user is a committee member, chair, officer, or admin"""
-    return (committee.is_member(user) or committee.is_chair(user)
+def is_committee_member_or_above(user, committee, is_committee_member=None):
+    """Check if user is a committee member, chair, officer, or admin.
+
+    `is_committee_member` lets a caller that already knows this fact for the
+    same (user, committee) pair this request — e.g. `committee_documents()`,
+    which computes it once for `can_user_view()`'s membership checks — skip
+    `committee.is_member()`'s own unmemoized `.filter(pk=...).exists()`
+    query. Same `can_edit_any=`-style idiom `can_edit_specific_minutes` and
+    `can_user_view` already use for this exact shape of problem (v3.31.0).
+    Defaults to `None` so every other call site is unaffected. Deliberately
+    does NOT take an equivalent `is_committee_chair` param: `committee.
+    is_chair()` also grants exec-board members chair-level access on an
+    `is_exec_board`-flagged committee, which a raw `chairs.filter(...)
+    .exists()` check does not — the two are only interchangeable when
+    `committee.is_exec_board` is False, and getting that wrong here would
+    silently narrow who counts as "above" a plain member on those
+    committees. `is_chair()` memoizes itself per (user, committee) already,
+    so a caller that has separately called it for the same pair this
+    request gets the cheap path for free without this function needing to
+    know that happened.
+    """
+    if is_committee_member is None:
+        is_committee_member = committee.is_member(user)
+    return (is_committee_member or committee.is_chair(user)
             or user.member_type == 'Officer' or user.is_admin)
 
 

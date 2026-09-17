@@ -138,6 +138,45 @@ class Committee(models.Model):
     def is_member(self, user):
         return self.members.filter(pk=user.pk).exists()
 
+    def prime_chair_memo(self, user, value):
+        """
+        Tell `is_chair()`'s per-request memo the answer for `user` on this
+        committee, without it re-deriving `value` from a query.
+
+        v3.31.0 flagged, and didn't fix, a residual redundancy on the
+        committee documents page: it computes a raw `self.chairs.filter(pk=
+        user.pk).exists()` for `can_user_view()` (which must stay raw — see
+        that view's own comment on why `is_chair()`'s exec-board-inclusive
+        answer would change document visibility, not just cost a query) and
+        then, when `is_exec_board` is False, `is_chair()`'s own logic is
+        PROVABLY the same query (see its body above) — so a caller in that
+        position can hand the already-known answer here instead of paying
+        for it twice. Anything reading `is_chair()` for the same (user,
+        committee) pair later in the same request — including a completely
+        different call site that has no idea this happened — gets the free
+        cached path.
+
+        ⚠️ For use ONLY when the caller has independently computed the
+        EXACT SAME fact `is_chair()` would compute — concretely, a raw
+        chairs-table membership check on a committee where `is_exec_board`
+        is False. Priming this with a value derived any other way (or on an
+        `is_exec_board`-flagged committee, where `is_chair()` also checks
+        `members`) poisons every later `is_chair()` call in this request
+        with a wrong answer that looks exactly like a right one.
+        """
+        memo = getattr(user, '_committee_chair_memo', None)
+        if memo is None:
+            memo = {}
+            try:
+                user._committee_chair_memo = memo
+            except AttributeError:
+                # Same "some user-like object refuses attributes" fallback
+                # is_chair() itself uses — nothing to prime, and correctness
+                # doesn't depend on this succeeding (is_chair() re-derives
+                # from scratch if its own memo setup hits this same case).
+                return
+        memo[self.pk] = value
+
     def attendance_eligible_members(self):
         """
         Active members expected to attend / mark attendance for this

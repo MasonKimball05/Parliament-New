@@ -178,6 +178,9 @@ from src.view.officer.manage_events import manage_events, create_event, edit_eve
 from src.view.officer.manage_members import add_member, edit_member, delete_member, initiate_pledges, get_all_roles, sync_officer_admins, get_admin_roles, bulk_import_members
 from src.view.officer.manage_roles import manage_roles, role_detail, add_role, delete_role, assign_role_member, unassign_role_member, get_assignable_members
 from src.view.officer.transitions import role_transitions, transfer_role, transition_checklist, toggle_checklist_item
+from src.view.officer.role_knowledge_base import (
+    role_knowledge_base, edit_role_knowledge_base, role_knowledge_base_history, role_knowledge_base_index,
+)
 from src.view.officer.set_member_house import set_member_house
 from src.view.officer.chapter_stats import chapter_stats
 from src.view.pledge_tasks import (
@@ -356,6 +359,7 @@ urlpatterns = [
     path('directory/export/', export_directory, name='export_directory'),
     path('directory/<str:user_id>/card/', profile_card_json, name='profile_card'),
     path('house-map/', house_map, name='house_map'),
+    path('role-knowledge-base/', role_knowledge_base_index, name='role_knowledge_base_index'),
     path('profile/', profile_view, name='profile'),
     path('preferences/', preferences_view, name='preferences'),
     # Developer mode toggle — gated on ADMIN_V2_USER_IDS inside the view.
@@ -605,6 +609,9 @@ urlpatterns = [
     path('officers/roles/<int:role_id>/assign/', assign_role_member, name='assign_role_member'),
     path('officers/roles/<int:role_id>/unassign/', unassign_role_member, name='unassign_role_member'),
     path('officers/roles/<int:role_id>/members/', get_assignable_members, name='get_assignable_members'),
+    path('officers/roles/<int:role_id>/knowledge/', role_knowledge_base, name='role_knowledge_base'),
+    path('officers/roles/<int:role_id>/knowledge/edit/', edit_role_knowledge_base, name='edit_role_knowledge_base'),
+    path('officers/roles/<int:role_id>/knowledge/history/', role_knowledge_base_history, name='role_knowledge_base_history'),
 
     # Role Transitions (Officer)
     path('officers/transitions/', role_transitions, name='role_transitions'),

@@ -59,7 +59,7 @@
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Role</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider hidden sm:table-cell">Code</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Current Holder(s)</th>
-                        <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider w-28">Action</th>
+                        <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Actions</th>
                     </tr>
                 </thead>
                 <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
@@ -109,11 +109,18 @@
                             {% endif %}
                         </td>
                         <td class="px-6 py-4 text-center">
-                            <button
-                                class="js-open-transfer-modal px-3 py-1.5 text-xs font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition shadow-sm"
-                                data-role-id="{{ data.role.id }}">
-                                Transfer
-                            </button>
+                            <div class="flex items-center justify-center gap-2">
+                                <a href="{% url 'role_knowledge_base' role_id=data.role.id %}"
+                                   title="Knowledge base"
+                                   class="px-3 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 rounded-lg transition shadow-sm">
+                                    Knowledge Base
+                                </a>
+                                <button
+                                    class="js-open-transfer-modal px-3 py-1.5 text-xs font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition shadow-sm"
+                                    data-role-id="{{ data.role.id }}">
+                                    Transfer
+                                </button>
+                            </div>
                         </td>
                     </tr>
                     {% empty %}

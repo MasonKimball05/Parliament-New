@@ -12,9 +12,21 @@
 #   docker compose -f docker-compose.dev.yml up --build
 #   docker compose -f docker-compose.dev.yml exec web python manage.py migrate
 #   docker compose -f docker-compose.dev.yml exec web python manage.py seed_feature_flags
+#   docker compose -f docker-compose.dev.yml exec web python manage.py setup_celery_schedules
 #
 # App will be at http://localhost:8000
 # No nginx — Django's dev server handles everything directly.
+#
+# `worker` and `beat` run the same image as `web` with a different command —
+# added 09-16-26, this compose file previously started db/redis/web only, so
+# periodic tasks (vote auto-open/close, reminder emails, the weekly
+# weak-password audit, etc.) silently never ran in local dev even with
+# REDIS_URL set: Django would happily queue a task and nothing was consuming
+# the queue, and `beat` (which reads schedules from the DB via
+# django_celery_beat) didn't exist to fire anything on a timer either.
+# `setup_celery_schedules` (above) must be run once — `beat` reads its
+# schedule from the DB (DatabaseScheduler), not from code, so a fresh DB has
+# no periodic tasks to fire until that command has been run.
 
 services:
 
@@ -60,6 +72,50 @@ services:
       - .env.dev
     environment:
       # Override anything in .env.dev that must be set for Docker networking
+      - DB_HOST=db
+      - DB_PORT=5432
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  worker:
+    build: .
+    container_name: parliament-worker-dev
+    command: celery -A Parliament worker -l INFO
+    volumes:
+      - .:/app
+    env_file:
+      - .env.dev
+    environment:
+      - DB_HOST=db
+      - DB_PORT=5432
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  beat:
+    build: .
+    container_name: parliament-beat-dev
+    # DatabaseScheduler reads periodic tasks from the PeriodicTask table
+    # (django_celery_beat), same as prod's parliament-beat.service — so this
+    # needs `manage.py migrate` (table must exist) and `manage.py
+    # setup_celery_schedules` (rows must exist) run once via `web`/`worker`
+    # before it has anything to fire. Safe to leave running otherwise; it
+    # just polls an empty table until then.
+    command: celery -A Parliament beat -l INFO --scheduler django_celery_beat.schedulers:DatabaseScheduler
+    volumes:
+      - .:/app
+    env_file:
+      - .env.dev
+    environment:
       - DB_HOST=db
       - DB_PORT=5432
       - REDIS_URL=redis://redis:6379/0

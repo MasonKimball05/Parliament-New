@@ -157,6 +157,18 @@ which predate this file and are more specific than their commit dates.
 | v3.29.27 | 09-08-26 § | `7263a91` | See `changelogs/v3.29.27.md`. |
 | v3.29.28 | 09-08-26 § | `79bdd96` | See `changelogs/v3.29.28.md`. |
 | v3.29.33 | 09-09-26 § | `aeadea3` | See `changelogs/v3.29.33.md`. |
+| v3.29.34 | 09-14-26 ¶ | `47b0d86` | See `changelogs/v3.29.34.md`. |
+| v3.29.35 | 09-14-26 ¶ | `47b0d86` | See `changelogs/v3.29.35.md`. |
+| v3.30.0 | 09-14-26 ¶ | `47b0d86` | See `changelogs/v3.30.0.md`. |
+| v3.31.0 | 09-15-26 ¶ | `c912791` | See `changelogs/v3.31.0.md`. |
+| v3.31.1 | 09-15-26 ¶ | `daf8dd4` | See `changelogs/v3.31.1.md`. |
+| v3.31.2 | 09-15-26 ¶ | `daf8dd4` | See `changelogs/v3.31.2.md`. |
+| v3.31.3 | 09-15-26 ¶ | `daf8dd4` | See `changelogs/v3.31.3.md`. |
+| v3.31.4 | 09-15-26 ¶ | `5fdc06b` | See `changelogs/v3.31.4.md`. |
+| v3.31.5 | 09-15-26 ¶ | `5fdc06b` | See `changelogs/v3.31.5.md`. |
+| v3.31.6 | 09-15-26 ¶ | `0eb8a29` | See `changelogs/v3.31.6.md`. |
+| v3.31.7 | 09-15-26 ¶ | `0eb8a29` | See `changelogs/v3.31.7.md`. |
+| v3.32.0 | 09-15-26 ¶ | `0eb8a29` | See `changelogs/v3.32.0.md`. **⚠️ Read `changelogs/v3.32.0.md`'s deploy note before assuming this is fully settled: it warns that any officer without an explicit `EducationMemberPermission` grant loses education-dashboard access the moment this is live. Confirming the code shipped is not the same question as confirming officers were granted access before anyone noticed being locked out — that second thing is worth a direct check with Mason, not an inference from this row.** |
 
 > **⚠️ 09-02-26 — code for the whole backlog above (v3.25.2 through
 > v3.28.8) was restarted into prod the same day, and Mason confirmed
@@ -212,6 +224,31 @@ which predate this file and are more specific than their commit dates.
 > mechanics. **If a live error resembling the 09-02 `form_type` one
 > resurfaces, that is new information and should be checked directly
 > against the server rather than assumed away by this note.**
+
+> **¶ Confirmed 09-16-26, dates derived — the fourth time, and the marker is
+> still the point.** Twelve rows (v3.29.34 → v3.32.0) sat at *not deployed*.
+> Mason confirmed directly, in chat on 09-16-26, that all of it — including
+> the quote-book mobile CSS/JS fix committed the same day as `e1b93de`,
+> which has no changelog and therefore no row of its own here — has been
+> committed and deployed and that only this ledger was out of date. He did
+> not give per-release dates and was not asked to reconstruct them from
+> memory, so — same convention as the §/‡/† blocks — each date here is
+> **the commit that added that release's changelog**, not an independently
+> observed deploy date.
+>
+> **The commit hashes, by contrast, are observed** — `scripts/stamp_ledger.py`
+> added all twelve rows in the same session, reading `git log
+> --diff-filter=A` directly. Nothing here was inferred; the script fixed
+> the Commit column and the missing rows, and left the Deployed column at
+> its honest default of `*not deployed*` until this confirmation moved it.
+>
+> ⚠️ **Read the two columns differently, same as always.** Deployed is
+> `≤ the date shown`, confirmed as a set on 09-16-26. Commit is exact. And
+> per the v3.32.0 row's own note above: "deployed" here answers "did the
+> code ship," not "did every officer who needs education-dashboard access
+> get an `EducationMemberPermission` grant before v3.32.0 went live" —
+> those are different facts, and only the first one is what this table
+> tracks.
 
 > **⚠️ Why v3.18.8 and v3.19.2 were missing (added 08-07-26).** Both were
 > committed and pushed on 08-06, both changelogs still said

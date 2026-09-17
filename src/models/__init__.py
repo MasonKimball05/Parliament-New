@@ -24,6 +24,8 @@ from src.models.users import (
 from src.models.transitions import (
     TransitionChecklistItem,
     TransitionChecklistStatus,
+    RoleKnowledgeBase,
+    RoleKnowledgeBaseRevision,
 )
 
 # Legislation
@@ -404,4 +406,6 @@ __all__ = [
     # Officer Transitions
     'TransitionChecklistItem',
     'TransitionChecklistStatus',
+    'RoleKnowledgeBase',
+    'RoleKnowledgeBaseRevision',
 ]

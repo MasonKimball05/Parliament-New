@@ -116,6 +116,20 @@ def commit_date(sha: str) -> str:
     return result.stdout.strip() or ''
 
 
+#: The standard "not yet committed" boilerplate wraps onto a second physical
+#: line — `**Committed & pushed:** *not yet* — uncommitted, per standing
+#: instruction\nnot to commit unless told.` — and the single-line regex below
+#: correctly stamps the first line but has no way to know the second line was
+#: part of the same sentence rather than real content. Found 09-16-26 after
+#: it left this exact orphan behind in 11 changelogs in one run (v3.29.35
+#: through v3.32.0). Matched narrowly — exactly this fragment, not "whatever
+#: comes next" — on purpose: a generic continuation-eater would also delete
+#: the legitimate multi-line `*Corrected …* —` notes this same field carries
+#: elsewhere (see the module docstring's own v3.19.5 example), which are real
+#: content, not a wrapped sentence fragment.
+_ORPHANED_CONTINUATION = re.compile(r'\nnot to commit unless told\.\n')
+
+
 def stamp_changelog(version: str, sha: str, date: str, dry_run: bool) -> str | None:
     """Rewrite the `**Committed & pushed:**` line. Returns a description, or None."""
     path = CHANGELOG_DIR / f'{version}.md'
@@ -127,9 +141,14 @@ def stamp_changelog(version: str, sha: str, date: str, dry_run: bool) -> str | N
     if not match or not needs_stamping(match.group(1)):
         return None
 
+    end = match.end()
+    orphan = _ORPHANED_CONTINUATION.match(text, end)
+    if orphan:
+        end = orphan.end() - 1  # keep the newline that already ended the stamped line
+
     if not dry_run:
         path.write_text(
-            text[:match.start()] + f'**Committed & pushed:** {date}, `{sha}`' + text[match.end():],
+            text[:match.start()] + f'**Committed & pushed:** {date}, `{sha}`' + text[end:],
             encoding='utf-8',
         )
     return f'{version}.md  →  {date}, {sha}'

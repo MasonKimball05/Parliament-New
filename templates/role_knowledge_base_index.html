@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block title %}Role Knowledge Base{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8 max-w-4xl">
+
+    <div class="mb-6">
+        <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Role Knowledge Base</h1>
+        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+            Procedures and notes left by past officers, organized by role. Pick a role to read what's there.
+        </p>
+    </div>
+
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden divide-y divide-gray-200 dark:divide-gray-700">
+        {% for data in roles_data %}
+        <a href="{% url 'role_knowledge_base' role_id=data.role.id %}"
+           class="flex items-center justify-between gap-4 p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+            <div class="min-w-0">
+                <p class="font-medium text-gray-900 dark:text-white">{{ data.role.name }}</p>
+                <p class="text-sm text-gray-500 dark:text-gray-400 truncate">
+                    {% if data.holders %}{{ data.holders|join:", " }}{% else %}Vacant{% endif %}
+                </p>
+            </div>
+            <span class="flex-shrink-0 text-xs px-2 py-1 rounded-full font-medium
+                         {% if data.has_content %}bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300
+                         {% else %}bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400{% endif %}">
+                {% if data.has_content %}Written{% else %}Empty{% endif %}
+            </span>
+        </a>
+        {% empty %}
+        <div class="p-8 text-center text-gray-500 dark:text-gray-400">
+            No roles have been created yet.
+        </div>
+        {% endfor %}
+    </div>
+
+</div>
+{% endblock %}

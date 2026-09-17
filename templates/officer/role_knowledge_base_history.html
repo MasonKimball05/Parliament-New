@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+
+{% block title %}Knowledge Base History — {{ role.name }}{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8 max-w-3xl">
+
+    <div class="mb-6 flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-900 dark:text-white">{{ role.name }} — Past Revisions</h1>
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                Every version of this page, newest first. Nothing here is ever deleted or overwritten.
+            </p>
+        </div>
+        <a href="{% url 'role_knowledge_base' role_id=role.id %}"
+           class="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition shadow-sm">
+            &larr; Current Page
+        </a>
+    </div>
+
+    {% if revisions %}
+    <div class="space-y-4">
+        {% for revision in revisions %}
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+            <p class="text-xs text-gray-400 dark:text-gray-500 mb-3 pb-3 border-b border-gray-100 dark:border-gray-700">
+                {% if forloop.first %}<span class="px-1.5 py-0.5 rounded bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 font-medium mr-1.5">Current</span>{% endif %}
+                {{ revision.edited_by.name|default:'a former officer' }} — {{ revision.created_at|date:'M j, Y \a\t g:i A' }}
+            </p>
+            <div class="prose prose-sm dark:prose-invert max-w-none text-gray-800 dark:text-gray-200">
+                {{ revision.content|linebreaks }}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-8 text-center">
+        <p class="text-sm text-gray-500 dark:text-gray-400">No revisions yet.</p>
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}

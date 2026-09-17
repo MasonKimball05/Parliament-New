@@ -1140,24 +1140,30 @@ class CommitteeDocumentsQueryBudgetTests(QueryBudgetMixin, TestCase):
       per-document, not something a single committee-level fact can
       answer.
 
-    Not fixed here, and deliberately out of scope for this pass: two
-    remaining `×2` duplicate-shape queries (committee membership, chair
-    status) come from this view separately calling `committee.is_vp()`,
-    `committee.is_chair()`, and `is_committee_member_or_above()` (via
-    `can_view_minutes`) — each re-deriving membership/chair status through
-    its own code path rather than reusing the two facts this class
-    computes. That's a small, pre-existing redundancy (2 queries instead
-    of 1 for each fact, not one per document), not the N+1 this class
-    exists to guard against — worth a follow-up, not worth blocking this
-    fix on.
+    ⚠️ **The `×2` duplicate-shape queries noted above (committee membership,
+    chair status) are fixed as of 09-16-26** — see
+    `src.tests.committees.test_committee_documents_chair_shortcut` for the
+    dedicated regression coverage (including the `is_exec_board` boundary a
+    naive "just reuse the flag" fix would have gotten quietly wrong).
+    `is_committee_member_or_above()` now takes an `is_committee_member=`
+    kwarg (same idiom as `can_edit_specific_minutes`'s `can_edit_any=`), and
+    `is_chair` reuses `user_is_committee_chair` directly — via new
+    `Committee.prime_chair_memo()`, so `can_edit_committee_minutes()`'s own
+    `is_chair()` call a few lines later gets the free cached path too,
+    rather than the second query just moving there — whenever
+    `committee.is_exec_board` is False, which is true for most committees
+    this view serves. `committee.is_vp()` was never actually part of this
+    redundancy (it queries `user.roles`, an unrelated fact) — the original
+    note was imprecise about that one.
     """
 
-    #: Measured 09-15-26, cold cache, on a fixture of 9 documents (3
-    #: published-to-chapter — an early return in `can_user_view` that never
-    #: touches membership — and 6 committee_only, which do) uploaded by 3
-    #: distinct members. Confirmed flat regardless of document count by
+    #: Re-measured 09-16-26 after the chair/membership dedup above: 39 → 37
+    #: on the same fixture (9 documents, 3 published-to-chapter — an early
+    #: return in `can_user_view` that never touches membership — and 6
+    #: committee_only, which do, uploaded by 3 distinct members). Confirmed
+    #: flat regardless of document count by
     #: `test_the_page_does_not_scale_with_document_count` below.
-    BUDGET = 39
+    BUDGET = 37
 
     def setUp(self):
         self.committee = Committee.objects.create(

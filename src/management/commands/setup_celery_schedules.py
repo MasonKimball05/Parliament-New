@@ -166,7 +166,7 @@ SCHEDULES = [
     },
 
     # -------------------------------------------------------------------------
-    # Weekly weak-password audit (v3.30.2) — Monday 3:35 AM CST = 09:35 UTC,
+    # Weekly weak-password audit (v3.31.0) — Monday 3:35 AM CST = 09:35 UTC,
     # right after the daily digest's slot so nightly housekeeping never
     # overlaps it. See src/weak_password_audit.py for why this checks
     # existing password hashes rather than only validating new ones.
