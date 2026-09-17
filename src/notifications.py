@@ -576,3 +576,74 @@ def send_pledge_welcome_email(user, temp_password):
         logger.error(f"Failed to send welcome email to pledge {user.username} ({user.email}): {e}")
         _flag_user_email(user, str(e))
         return False
+
+
+def notify_excuse_reviewed(excuse):
+    """
+    Notify a member that their attendance excuse has been approved or denied.
+
+    Added 09-16-26 at Mason's request. Called from
+    AttendanceExcuse.approve()/.deny() (src/models/events.py) rather than
+    from the review views directly — those two model methods are the only
+    two places that ever change an excuse's status (the officer review UI
+    and the admin bulk action both call them), so hooking in there covers
+    both without a second call site to keep in sync.
+
+    Best-effort in both halves, deliberately: an in-app Notification is
+    always attempted via create_notification() (which itself respects the
+    member's notification preferences — 'excuse_reviewed' isn't in
+    NOTIFICATION_PREF_MAP yet, so it defaults to sending), and the email is
+    skipped rather than attempted if the member has no address on file. A
+    failure in either half is logged and swallowed rather than raised — an
+    officer clicking "approve" must never see an error because the resulting
+    email happened to bounce.
+    """
+    from src.notification_service import create_notification
+
+    is_approved = excuse.status == 'approved'
+    verb = 'approved' if is_approved else 'denied'
+    event = excuse.event
+
+    title = f"Your excuse for {event.title} was {verb}"
+    message = (
+        f"Your excuse request for {event.title} "
+        f"({localtime(event.date_time).strftime('%B %d, %Y')}) was {verb}."
+    )
+    if excuse.review_notes:
+        message += f"\n\nOfficer notes: {excuse.review_notes}"
+
+    try:
+        create_notification(
+            recipient=excuse.user,
+            notification_type='excuse_reviewed',
+            title=title,
+            message=message,
+            link='/excuses/',
+            source_type='AttendanceExcuse',
+            source_id=excuse.pk,
+        )
+    except Exception as e:
+        logger.warning(f"[excuse] Failed to create in-app notification for {excuse.user.username}: {e}")
+
+    if not excuse.user.email:
+        return
+
+    try:
+        site_url = get_site_url()
+        display_name = excuse.user.get_display_name() if hasattr(excuse.user, 'get_display_name') else excuse.user.name
+        body = (
+            f"Hi {display_name},\n\n"
+            f"{message}\n\n"
+            f"View your excuses: {site_url}/excuses/\n\n"
+            "— Alpha Mu Parliament"
+        )
+        send_mail(
+            subject=f"[Parliament] {title}",
+            message=body,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[excuse.user.email],
+        )
+        logger.info(f"Excuse-reviewed email sent to {excuse.user.username} ({excuse.user.email}) — {verb}")
+    except Exception as e:
+        logger.error(f"Failed to send excuse-reviewed email to {excuse.user.username} ({excuse.user.email}): {e}")
+        _flag_user_email(excuse.user, str(e))

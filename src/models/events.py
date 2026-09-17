@@ -762,6 +762,8 @@ class AttendanceExcuse(models.Model):
             attendance.notes = f'Excused: {self.reason[:100]}'
             attendance.save()
 
+        self._notify_submitter()
+
     def deny(self, officer, notes=''):
         """Deny the excuse"""
         from django.utils import timezone
@@ -771,6 +773,28 @@ class AttendanceExcuse(models.Model):
         self.reviewed_at = timezone.now()
         self.review_notes = notes
         self.save()
+
+        self._notify_submitter()
+
+    def _notify_submitter(self):
+        """
+        Let the member who submitted this excuse know it's been reviewed —
+        in-app notification + email. Called from both approve() and deny()
+        rather than from the review views, so the officer review UI and the
+        admin bulk action (src/admin.py) both trigger it without duplicating
+        the call. Never lets a notification failure surface as an error on
+        the officer's approve/deny action — src.notifications.notify_excuse_reviewed
+        already swallows its own failures for the same reason; this is a
+        second, wider net in case something upstream of it goes wrong too.
+        """
+        try:
+            from src.notifications import notify_excuse_reviewed
+            notify_excuse_reviewed(self)
+        except Exception:
+            import logging
+            logging.getLogger(__name__).warning(
+                f'[excuse] notify_excuse_reviewed failed for excuse {self.pk}', exc_info=True
+            )
 
 
 class EventReminderLog(models.Model):
