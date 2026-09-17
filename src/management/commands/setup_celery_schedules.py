@@ -176,6 +176,17 @@ SCHEDULES = [
         'task': 'tasks.check_weak_passwords',
         'crontab': {'hour': '9', 'minute': '35', 'day_of_week': '1'},  # Monday 3:35 AM CST
     },
+
+    # -------------------------------------------------------------------------
+    # DB connection-pressure monitor (added 09-16-26 after a live incident —
+    # see src/tasks/db_health.py) — every 5 minutes, same cadence as the other
+    # "catch it before it becomes a page" checks above.
+    # -------------------------------------------------------------------------
+    {
+        'name': 'Monitor database connection pressure',
+        'task': 'tasks.monitor_db_connection_pressure',
+        'interval': {'every': 5, 'period': IntervalSchedule.MINUTES},
+    },
 ]
 
 

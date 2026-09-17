@@ -384,18 +384,118 @@ def send_daily_digest():
 
     digest_start = timezone.now()
     since = digest_start - timezone.timedelta(hours=24)
+    # Computed up front (used to live down in "COMPILE AND SEND") so flag()
+    # can attach a direct admin-v2 link to the findings worth acting on —
+    # "3 users quarantined" is a fact, "3 users quarantined — go here" is
+    # something you can actually do something with.
+    site_url = get_site_url()
 
     findings = []
     ok_results = []
     errors = []
 
-    def flag(severity, category, message):
+    def flag(severity, category, message, link=None):
+        if link:
+            message = f"{message} — {site_url}{link}"
         findings.append((severity, category, message))
         logger.warning(f"[digest] [{severity.upper()}] {category}: {message}")
 
     def ok(category, message):
         ok_results.append((category, message))
         logger.info(f"[digest] [OK] {category}: {message}")
+
+    # -------------------------------------------------------------------------
+    # ACTIVITY SNAPSHOT (last 24h) — added 09-16-26 at Mason's request: the
+    # digest was almost entirely silent unless something was flagged, which
+    # is good for signal-to-noise but tells you nothing about a day where
+    # nothing broke. This section reports plain counts of what happened
+    # regardless of whether anything needs attention — a free-text block
+    # like HONEYPOT ACTIVITY below, not `ok()` one-liners, so it reads as a
+    # narrative up top rather than getting buried among 30 terse check
+    # results at the bottom.
+    # -------------------------------------------------------------------------
+    activity_section = ''
+    try:
+        from src.models import LoginHistory, Vote, Legislation, Announcement, ServiceHoursSubmission, Event
+        from django.db.models import Sum as _Sum
+
+        logins_24h = LoginHistory.objects.filter(timestamp__gte=since)
+        logins_success = logins_24h.filter(status='success').count()
+        logins_failed = logins_24h.filter(status='failed').count()
+        logins_blocked = logins_24h.filter(status='blocked').count()
+        distinct_logins = logins_24h.filter(status='success').values('user').distinct().count()
+
+        votes_cast = Vote.objects.filter(cast_at__gte=since).count()
+        legislation_submitted = Legislation.objects.filter(created_at__gte=since).count()
+        announcements_posted = Announcement.objects.filter(posted_at__gte=since, is_active=True).count()
+        events_created = Event.objects.filter(created_at__gte=since, is_active=True).count()
+
+        service_hours_24h = ServiceHoursSubmission.objects.filter(submitted_at__gte=since)
+        service_submissions = service_hours_24h.count()
+        service_hours_sum = service_hours_24h.aggregate(total=_Sum('hours'))['total'] or 0
+
+        activity_section = (
+            f"\nACTIVITY SNAPSHOT (last 24h)\n-----------------------------\n"
+            f"Logins:              {logins_success} successful ({distinct_logins} distinct member(s)), "
+            f"{logins_failed} failed, {logins_blocked} blocked\n"
+            f"Votes cast:          {votes_cast}\n"
+            f"Legislation submitted: {legislation_submitted}\n"
+            f"Announcements posted: {announcements_posted}\n"
+            f"Events created:      {events_created}\n"
+            f"Service hours logged: {service_submissions} submission(s), {service_hours_sum} hour(s) total\n"
+        )
+    except Exception as exc:
+        errors.append(f"Activity snapshot: {exc}")
+        logger.error(f"[digest] Activity snapshot failed: {exc}")
+        activity_section = '\nACTIVITY SNAPSHOT\n------------------\n  (error collecting data — see logs)\n'
+
+    # -------------------------------------------------------------------------
+    # INFRASTRUCTURE / OPS HEALTH — added 09-16-26 alongside the activity
+    # snapshot, same reasoning: this is real operational visibility Mason
+    # asked for, not just "flag it if it's broken". Reuses
+    # src.tasks.db_health.get_connection_pressure() (the same query the
+    # 5-minute connection-pressure monitor uses — one source of truth for
+    # "how close to the ceiling are we") and
+    # src.middleware.performance.get_performance_summary() (the numbers
+    # already backing the admin-v2 dashboard's perf card). Both are
+    # READ-ONLY here — this section never writes an alert or a cooldown key,
+    # that's still the dedicated monitor task's job; this is just showing
+    # the same numbers in the morning report.
+    # -------------------------------------------------------------------------
+    infra_health_section = ''
+    try:
+        from src.tasks.db_health import get_connection_pressure
+        from src.middleware.performance import get_performance_summary
+
+        pressure = get_connection_pressure()
+        if pressure:
+            by_state = ', '.join(f'{state or "unknown"}={n}' for state, n in pressure['by_state'])
+            db_line = f"DB connections:      {pressure['current']}/{pressure['max_connections']} ({pressure['ratio']:.0%}) — {by_state}\n"
+        else:
+            # None on sqlite (dev/test) or if the query itself failed — either
+            # way there's nothing misleading to print, just say so plainly.
+            db_line = "DB connections:      n/a (sqlite, or Postgres unreachable)\n"
+
+        perf = get_performance_summary()
+        if perf['sampled_requests']:
+            perf_line = (
+                f"Request performance: {perf['total_requests']:,} request(s) in the last ~25h "
+                f"(rolling counter), avg {perf['avg_response_time_ms']}ms / "
+                f"{perf['avg_db_queries']} queries per request (estimated from a "
+                f"1-in-{perf['sample_rate']} sample), {perf['slow_requests']} slow "
+                f"request(s) sampled over 1s, max {perf['max_response_time_ms']}ms\n"
+            )
+        else:
+            perf_line = f"Request performance: {perf['total_requests']:,} request(s) in the last ~25h (no samples retained to estimate response time)\n"
+
+        infra_health_section = (
+            f"\nINFRASTRUCTURE / OPS HEALTH\n----------------------------\n"
+            f"{db_line}{perf_line}"
+        )
+    except Exception as exc:
+        errors.append(f"Infrastructure health section: {exc}")
+        logger.error(f"[digest] Infrastructure health section failed: {exc}")
+        infra_health_section = '\nINFRASTRUCTURE / OPS HEALTH\n----------------------------\n  (error collecting data — see logs)\n'
 
     # -------------------------------------------------------------------------
     # 1. USER ACCOUNT INTEGRITY
@@ -406,7 +506,7 @@ def send_daily_digest():
 
         no_password = ParliamentUser.objects.filter(is_active=True, member_status='Active', password='').count()
         if no_password:
-            flag('high', 'Accounts', f"{no_password} active user(s) have no password set")
+            flag('high', 'Accounts', f"{no_password} active user(s) have no password set", link='/admin-v2/users/')
         else:
             ok('Accounts', 'All active users have a password')
 
@@ -430,7 +530,7 @@ def send_daily_digest():
         old_quarantine = ParliamentUser.objects.filter(is_quarantined=True, is_active=True)
         if old_quarantine.exists():
             names = ', '.join(old_quarantine.values_list('username', flat=True)[:5])
-            flag('medium', 'Accounts', f"{old_quarantine.count()} user(s) currently quarantined: {names}")
+            flag('medium', 'Accounts', f"{old_quarantine.count()} user(s) currently quarantined: {names}", link='/admin-v2/security/quarantine/')
 
         admins = list(ParliamentUser.objects.filter(is_admin=True, is_active=True).values_list('username', flat=True))
         ok('Accounts', f"Admin accounts ({len(admins)}): {', '.join(admins) or 'none'}")
@@ -477,7 +577,7 @@ def send_daily_digest():
 
         multi_totp = TOTPDevice.objects.filter(confirmed=True).values('user').annotate(n=Count('id')).filter(n__gt=1)
         if multi_totp.exists():
-            flag('high', '2FA', f"{multi_totp.count()} user(s) have multiple confirmed TOTP devices — possible enrollment issue")
+            flag('high', '2FA', f"{multi_totp.count()} user(s) have multiple confirmed TOTP devices — possible enrollment issue", link='/admin-v2/two-factor/')
 
         orphan_totp = TOTPDevice.objects.filter(confirmed=True).exclude(user__is_active=True).count()
         if orphan_totp:
@@ -494,7 +594,7 @@ def send_daily_digest():
         admin_no_2fa = _PU.objects.filter(is_admin=True, is_active=True).exclude(pk__in=TOTPDevice.objects.filter(confirmed=True).values('user'))
         if admin_no_2fa.exists():
             names = ', '.join(admin_no_2fa.values_list('username', flat=True))
-            flag('high', '2FA', f"{admin_no_2fa.count()} admin account(s) have no 2FA device: {names}")
+            flag('high', '2FA', f"{admin_no_2fa.count()} admin account(s) have no 2FA device: {names}", link='/admin-v2/two-factor/')
 
         users_with_2fa = set(TOTPDevice.objects.filter(confirmed=True).values_list('user', flat=True))
         no_email_with_2fa = (
@@ -502,7 +602,7 @@ def send_daily_digest():
             _PU.objects.filter(is_active=True, member_status='Active', pk__in=users_with_2fa, email='')
         )
         if no_email_with_2fa.count():
-            flag('high', '2FA', f"{no_email_with_2fa.count()} user(s) have 2FA enabled but no email — self-service recovery unavailable")
+            flag('high', '2FA', f"{no_email_with_2fa.count()} user(s) have 2FA enabled but no email — self-service recovery unavailable", link='/admin-v2/two-factor/')
 
         ok('2FA', 'Device integrity checks complete')
 
@@ -654,15 +754,57 @@ def send_daily_digest():
         from django.utils.timezone import localtime as _localtime
         now = timezone.now()
 
-        stale_tasks = PeriodicTask.objects.filter(enabled=True).exclude(last_run_at=None).filter(last_run_at__lt=now - timezone.timedelta(hours=48))
-        for t in stale_tasks:
-            flag('high', 'Celery Beat', f"Task '{t.name}' is enabled but last ran at {_localtime(t.last_run_at).strftime('%Y-%m-%d %H:%M %Z')} — Beat may be down")
+        # ⚠️ 09-16-26 — this used to be a flat `last_run_at < now - 48h` window
+        # applied to every enabled task regardless of its own schedule. That's
+        # correct for a task that runs daily-or-more-often, and a permanent
+        # false positive for anything on a longer cadence: the two monthly
+        # tasks (day_of_month=1) below their last run every single day of the
+        # month except the first two, because "hasn't run in 48h" is simply
+        # true of a monthly task 28+ days a month. Fixed by asking each
+        # task's OWN schedule how overdue it actually is — celery's
+        # `schedule.remaining_estimate(last_run_at)` (available on both
+        # crontab and interval schedules via PeriodicTask.schedule) returns a
+        # negative timedelta once the next scheduled occurrence after
+        # last_run_at has passed, correctly accounting for the schedule's
+        # real cadence (verified against day_of_month=1: a task last run
+        # Aug 1 with a missed Sept 1 run reports ~-16 days; one that ran on
+        # time reports a large positive "not due yet"). OVERDUE_GRACE absorbs
+        # ordinary beat-tick jitter without weakening the signal — 2 hours
+        # overdue on ANY cadence, from a 1-minute vote-close task to a
+        # monthly prune, is a real "Beat may be down" signal, not noise.
+        OVERDUE_GRACE = timezone.timedelta(hours=2)
+
+        candidates = (
+            PeriodicTask.objects.filter(enabled=True)
+            .exclude(last_run_at=None)
+            .select_related('interval', 'crontab', 'solar', 'clocked')
+        )
+        for t in candidates:
+            try:
+                remaining = t.schedule.remaining_estimate(t.last_run_at)
+            except Exception as exc:
+                # A schedule that can't answer this question is itself worth
+                # knowing about — fail toward still flagging (using the old
+                # flat window as a conservative fallback) rather than
+                # silently dropping the task from the check. A health check
+                # that goes quiet on error is indistinguishable from one that
+                # found nothing wrong.
+                logger.error(f"[digest] Could not compute remaining_estimate for '{t.name}': {exc}")
+                if t.last_run_at < now - timezone.timedelta(hours=48):
+                    flag('high', 'Celery Beat', f"Task '{t.name}' is enabled but last ran at {_localtime(t.last_run_at).strftime('%Y-%m-%d %H:%M %Z')} — Beat may be down (schedule could not be evaluated: {exc})", link='/admin-v2/celery/')
+                continue
+
+            if remaining < -OVERDUE_GRACE:
+                overdue_by = -remaining
+                flag('high', 'Celery Beat', f"Task '{t.name}' is enabled but last ran at {_localtime(t.last_run_at).strftime('%Y-%m-%d %H:%M %Z')} — {overdue_by} overdue for its next scheduled run — Beat may be down", link='/admin-v2/celery/')
 
         never_run = PeriodicTask.objects.filter(enabled=True, last_run_at=None).count()
         if never_run:
-            flag('low', 'Celery Beat', f"{never_run} enabled periodic task(s) have never run — check Beat is running and schedules are seeded")
+            flag('low', 'Celery Beat', f"{never_run} enabled periodic task(s) have never run — check Beat is running and schedules are seeded", link='/admin-v2/celery/')
 
-        ok('Celery Beat', 'Beat health checks complete')
+        ran_last_24h = PeriodicTask.objects.filter(enabled=True, last_run_at__gte=since).count()
+        enabled_total = PeriodicTask.objects.filter(enabled=True).count()
+        ok('Celery Beat', f'Beat health checks complete — {ran_last_24h}/{enabled_total} enabled task(s) have run in the last 24h')
 
     except Exception as exc:
         errors.append(f"Celery Beat checks: {exc}")
@@ -702,7 +844,6 @@ def send_daily_digest():
     # -------------------------------------------------------------------------
     from django.utils.timezone import localtime
     digest_duration = (timezone.now() - digest_start).total_seconds()
-    site_url = get_site_url()
     email_to = get_security_alert_email()
 
     high   = [(s, c, m) for s, c, m in findings if s == 'high']
@@ -724,6 +865,8 @@ def send_daily_digest():
         f"Run at:   {localtime(digest_start).strftime('%H:%M %Z')}",
         f"Duration: {digest_duration:.1f}s",
         f"Status:   {status_line}",
+        activity_section,
+        infra_health_section,
         honeypot_section,
         _section('HIGH SEVERITY', high),
         _section('MEDIUM SEVERITY', medium),
