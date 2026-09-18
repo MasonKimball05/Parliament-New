@@ -102,9 +102,24 @@ def mark_all_notifications_read(request):
     unread = Notification.objects.filter(
         recipient=request.user, is_read=False
     )
-    # Record announcement views before bulk-updating
-    for notification in unread.filter(notification_type='announcement'):
-        _record_announcement_view(notification, request.user)
+    # Record announcement views before bulk-updating. Batch-fetch every
+    # referenced Announcement in one query (Announcement.objects.in_bulk)
+    # rather than one `Announcement.objects.get(id=...)` per notification —
+    # a member with a backlog of unread announcement notifications (e.g.
+    # after being away a while) fired that single-row SELECT once per
+    # notification on one "mark all read" click (caught by the dev-mode
+    # query monitor, 62x on a single request). ensure_target_audience_
+    # snapshots() is the same batched-vs-per-object shape this model
+    # already uses elsewhere (see its own docstring).
+    announcement_notifs = list(unread.filter(notification_type='announcement'))
+    if announcement_notifs:
+        source_ids = {n.source_id for n in announcement_notifs if n.source_id}
+        announcements_by_id = Announcement.objects.in_bulk(source_ids)
+        Announcement.ensure_target_audience_snapshots(announcements_by_id.values())
+        for notification in announcement_notifs:
+            announcement = announcements_by_id.get(notification.source_id)
+            if announcement is not None:
+                _record_announcement_view(notification, request.user, announcement=announcement)
     count = unread.update(is_read=True, read_at=timezone.now())
     if count > 0:
         _invalidate_notification_cache(request.user)
@@ -126,24 +141,34 @@ def delete_notification(request, notification_id):
         return JsonResponse({'success': False, 'error': 'Notification not found'}, status=404)
 
 
-def _record_announcement_view(notification, user):
-    """If the notification is for an announcement, record a UserAnnouncementView for stats."""
+def _record_announcement_view(notification, user, announcement=None):
+    """
+    If the notification is for an announcement, record a UserAnnouncementView
+    for stats.
+
+    `announcement` may be passed in by a caller that's already fetched it
+    (mark_all_notifications_read batches every referenced Announcement in
+    one query rather than calling this once per notification) — avoids
+    re-fetching a row the caller already has. mark_notification_read (a
+    single click, not a loop) still leaves this to fetch its own.
+    """
     if notification.notification_type != 'announcement' or not notification.source_id:
         return
-    try:
-        announcement = Announcement.objects.get(id=notification.source_id)
-        announcement.ensure_target_audience_snapshot()
-        UserAnnouncementView.objects.get_or_create(
-            user=user,
-            announcement=announcement,
-            defaults={
-                'view_source': 'site',
-                'dismissed': True,
-                'counted_in_target': announcement.is_in_target_audience(user),
-            },
-        )
-    except Announcement.DoesNotExist:
-        pass
+    if announcement is None:
+        try:
+            announcement = Announcement.objects.get(id=notification.source_id)
+        except Announcement.DoesNotExist:
+            return
+    announcement.ensure_target_audience_snapshot()
+    UserAnnouncementView.objects.get_or_create(
+        user=user,
+        announcement=announcement,
+        defaults={
+            'view_source': 'site',
+            'dismissed': True,
+            'counted_in_target': announcement.is_in_target_audience(user),
+        },
+    )
 
 
 def _time_ago(dt):

@@ -254,6 +254,13 @@
                         <p class="text-gray-500 dark:text-gray-400">Notifications when nominations open, voting opens, and results are published</p>
                     </label>
                 </div>
+                <div class="flex items-center">
+                    {{ form.notify_excuses }}
+                    <label for="{{ form.notify_excuses.id_for_label }}" class="ml-3 text-sm">
+                        <span class="font-medium text-gray-700 dark:text-gray-300">{{ form.notify_excuses.label }}</span>
+                        <p class="text-gray-500 dark:text-gray-400">When an officer approves or denies an excuse you submitted</p>
+                    </label>
+                </div>
                 <div class="border-t border-gray-100 dark:border-gray-700 pt-4">
                     <div class="flex items-center">
                         {{ form.show_announcement_popups }}

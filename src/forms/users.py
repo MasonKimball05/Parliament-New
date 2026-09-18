@@ -128,6 +128,8 @@ class UserPreferencesForm(forms.Form):
         widget=forms.CheckboxInput(attrs={"class": _CB}))
     notify_slating = forms.BooleanField(required=False, label="Officer Elections (Slating)",
         widget=forms.CheckboxInput(attrs={"class": _CB}))
+    notify_excuses = forms.BooleanField(required=False, label="Excuse Reviews",
+        widget=forms.CheckboxInput(attrs={"class": _CB}))
 
     # Push notification per-type preferences
     push_announcements = forms.BooleanField(required=False, label="Announcements",
@@ -184,6 +186,7 @@ class UserPreferencesForm(forms.Form):
                 'notify_legislation': instance.notify_legislation,
                 'notify_events': instance.notify_events,
                 'notify_slating': instance.notify_slating,
+                'notify_excuses': instance.notify_excuses,
                 'push_announcements': instance.push_announcements,
                 'push_legislation': instance.push_legislation,
                 'push_events': instance.push_events,
@@ -268,6 +271,7 @@ class UserPreferencesForm(forms.Form):
                 'legislation': self.cleaned_data['notify_legislation'],
                 'events': self.cleaned_data['notify_events'],
                 'slating': self.cleaned_data['notify_slating'],
+                'excuses': self.cleaned_data['notify_excuses'],
             },
             'push': {
                 'announcements': self.cleaned_data['push_announcements'],

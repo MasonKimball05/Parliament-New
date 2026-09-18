@@ -258,6 +258,25 @@ def transfer_role(request, role_id):
         }
     )
 
+    # Point the incoming holder at any notes a previous holder left, if
+    # there are any. Deliberately outside the transaction above (a
+    # notification failure must never roll back a real transfer) and
+    # skipped when the "incoming" holder already held the role (re-affirming
+    # the same person isn't a handoff, so there's no predecessor to point at).
+    # Wrapped here too, as a second net around notify_new_role_holder_of_
+    # knowledge_base()'s own internal handling — same "an officer must never
+    # see an error because a notification broke" reasoning already applied
+    # to AttendanceExcuse._notify_submitter().
+    if incoming_id != outgoing_id:
+        try:
+            from src.notifications import notify_new_role_holder_of_knowledge_base
+            notify_new_role_holder_of_knowledge_base(incoming, role)
+        except Exception:
+            logger.warning(
+                'Failed to notify %s about the knowledge base for role %s',
+                incoming.user_id, role.id, exc_info=True,
+            )
+
     logger.info(
         'User %s transferred role %s: %s',
         request.user.user_id, role.id, '; '.join(changes)

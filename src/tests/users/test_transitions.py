@@ -9,8 +9,8 @@ from django.test import TestCase, override_settings
 from django.urls import reverse
 
 from src.models import (
-    ParliamentUser, Role, RoleHistory,
-    TransitionChecklistItem, TransitionChecklistStatus,
+    Notification, ParliamentUser, Role, RoleHistory, RoleKnowledgeBase,
+    RoleKnowledgeBaseRevision, TransitionChecklistItem, TransitionChecklistStatus,
 )
 from src.utils.semester import current_semester, transition_semesters
 
@@ -132,6 +132,88 @@ class TransferRoleHistoryTests(TestCase):
         self.assertTrue(response.json()['success'])
         old = RoleHistory.objects.get(user=self.outgoing, role_name='President')
         self.assertNotEqual(old.end_semester, '')
+
+
+@override_settings(REQUIRE_2FA_FOR_ADMINS=False, REQUIRE_2FA_FOR_OFFICERS=False)
+class TransferNotifiesIncomingHolderOfKnowledgeBaseTests(TestCase):
+    """
+    09-17-26 — transfer_role() now points the incoming holder at any notes a
+    previous holder left in the Role Knowledge Base (v3.33.0). See
+    notify_new_role_holder_of_knowledge_base()'s own docstring
+    (src/notifications.py) for why this is deliberately silent when the
+    role has no content yet — most roles, today.
+    """
+
+    def setUp(self):
+        self.role = Role.objects.create(name='Treasurer', code='Treasurer', one_per_chapter=True)
+        self.officer = _make_user('9101', 'Olivia Officer', 'olivia-kb', member_type='Officer')
+        self.outgoing = _make_user('9102', 'Owen Outgoing', 'owen-kb', member_type='Officer')
+        self.incoming = _make_user('9103', 'Ivy Incoming', 'ivy-kb')
+        self.outgoing.roles.add(self.role)
+        self.client.force_login(self.officer)
+
+    def _transfer(self, **overrides):
+        payload = {'incoming_user_id': '9103', 'outgoing_user_id': '9102'}
+        payload.update(overrides)
+        return self.client.post(
+            reverse('transfer_role', kwargs={'role_id': self.role.id}),
+            data=json.dumps(payload), content_type='application/json',
+        )
+
+    def test_no_notification_when_the_role_has_no_knowledge_base_at_all(self):
+        response = self._transfer()
+        self.assertTrue(response.json()['success'])
+        self.assertFalse(
+            Notification.objects.filter(recipient=self.incoming, notification_type='role_kb_available').exists()
+        )
+
+    def test_no_notification_when_the_knowledge_base_has_zero_revisions(self):
+        RoleKnowledgeBase.objects.create(role=self.role)
+        self._transfer()
+        self.assertFalse(
+            Notification.objects.filter(recipient=self.incoming, notification_type='role_kb_available').exists()
+        )
+
+    def test_notifies_the_incoming_holder_when_notes_exist(self):
+        kb = RoleKnowledgeBase.objects.create(role=self.role)
+        RoleKnowledgeBaseRevision.objects.create(
+            knowledge_base=kb, content='Talk to the bank by the 1st of the semester.',
+        )
+        self._transfer()
+        notif = Notification.objects.get(recipient=self.incoming, notification_type='role_kb_available')
+        self.assertIn('Treasurer', notif.title)
+        self.assertEqual(notif.link, reverse('role_knowledge_base', kwargs={'role_id': self.role.id}))
+        self.assertEqual(notif.source_type, 'RoleKnowledgeBase')
+        self.assertEqual(notif.source_id, kb.pk)
+
+    def test_reaffirming_the_same_person_does_not_notify(self):
+        """incoming_user_id == outgoing_user_id — there is no predecessor to
+        point at, so this must not fire even when the role has notes."""
+        kb = RoleKnowledgeBase.objects.create(role=self.role)
+        RoleKnowledgeBaseRevision.objects.create(knowledge_base=kb, content='Notes.')
+        self.outgoing.roles.add(self.role)
+        self._transfer(incoming_user_id='9102', outgoing_user_id='9102')
+        self.assertFalse(
+            Notification.objects.filter(recipient=self.outgoing, notification_type='role_kb_available').exists()
+        )
+
+    def test_a_notification_failure_does_not_block_the_transfer(self):
+        """
+        The view wraps the notification call in its own try/except, as a
+        second net around notify_new_role_holder_of_knowledge_base()'s own
+        internal handling — same reasoning as AttendanceExcuse.
+        _notify_submitter()'s outer net for excuse-reviewed notifications.
+        """
+        from unittest import mock
+        kb = RoleKnowledgeBase.objects.create(role=self.role)
+        RoleKnowledgeBaseRevision.objects.create(knowledge_base=kb, content='Notes.')
+        with mock.patch(
+            'src.notifications.notify_new_role_holder_of_knowledge_base',
+            side_effect=RuntimeError('unexpected'),
+        ):
+            response = self._transfer()  # must not raise / must not 500
+        self.assertTrue(response.json()['success'])
+        self.assertTrue(self.incoming.roles.filter(pk=self.role.pk).exists())
 
 
 @override_settings(REQUIRE_2FA_FOR_ADMINS=False, REQUIRE_2FA_FOR_OFFICERS=False)

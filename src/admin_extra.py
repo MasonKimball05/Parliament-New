@@ -109,7 +109,16 @@ class AdminActionLogAdmin(ReadOnlyAdmin):
 
 
 @admin.register(PageVisit, site=admin_site)
-class PageVisitAdmin(ReadOnlyAdmin):
+class PageVisitAdmin(ViewDeleteAdmin):
+    # ViewDeleteAdmin, not ReadOnlyAdmin (09-18-26): a plain per-user visit
+    # counter, not an audit/institutional record, and it CASCADEs from
+    # ParliamentUser. Django's own delete-confirmation page blocks deleting
+    # a user entirely if ANY cascaded model's ModelAdmin.has_delete_
+    # permission() returns False for the request — so a departed member
+    # with page-visit rows could never be removed via /admin/ while this
+    # stayed ReadOnlyAdmin. No integrity/anonymity reason to withhold
+    # delete here (unlike Vote/SlatingVote/SlatingBallot, which stay
+    # ReadOnlyAdmin on purpose).
     list_display = ('user', 'path', 'count')
     search_fields = ('user__username', 'user__name', 'path')
 
@@ -391,7 +400,14 @@ class PledgeTaskQuestionAdmin(admin.ModelAdmin):
 
 
 @admin.register(PledgeQuizAnswer, site=admin_site)
-class PledgeQuizAnswerAdmin(ReadOnlyAdmin):
+class PledgeQuizAnswerAdmin(ViewDeleteAdmin):
+    # ViewDeleteAdmin, not ReadOnlyAdmin (09-18-26) — see PageVisitAdmin's
+    # comment above for why. A dropped pledge's quiz answers CASCADE from
+    # their ParliamentUser row; leaving this ReadOnlyAdmin made every
+    # pledge who'd ever submitted a quiz answer undeletable via /admin/
+    # ("Cannot delete parliament user ... doesn't have permission to
+    # delete ... Pledge Quiz Answer"). Not an anonymity/ballot-integrity
+    # case — this is one pledge's own answers, not a vote.
     list_display = ('question', 'pledge', 'submitted_at')
     search_fields = ('pledge__username', 'pledge__name', 'answer_text')
 

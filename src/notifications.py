@@ -591,12 +591,12 @@ def notify_excuse_reviewed(excuse):
 
     Best-effort in both halves, deliberately: an in-app Notification is
     always attempted via create_notification() (which itself respects the
-    member's notification preferences — 'excuse_reviewed' isn't in
-    NOTIFICATION_PREF_MAP yet, so it defaults to sending), and the email is
-    skipped rather than attempted if the member has no address on file. A
-    failure in either half is logged and swallowed rather than raised — an
-    officer clicking "approve" must never see an error because the resulting
-    email happened to bounce.
+    member's notification preferences — 'excuse_reviewed' maps to
+    'notify_excuses' in NOTIFICATION_PREF_MAP as of 09-17-26, defaulting to
+    on), and the email is skipped rather than attempted if the member has no
+    address on file. A failure in either half is logged and swallowed rather
+    than raised — an officer clicking "approve" must never see an error
+    because the resulting email happened to bounce.
     """
     from src.notification_service import create_notification
 
@@ -647,3 +647,58 @@ def notify_excuse_reviewed(excuse):
     except Exception as e:
         logger.error(f"Failed to send excuse-reviewed email to {excuse.user.username} ({excuse.user.email}): {e}")
         _flag_user_email(excuse.user, str(e))
+
+
+def notify_new_role_holder_of_knowledge_base(user, role):
+    """
+    Let a newly-assigned role holder know a Role Knowledge Base page exists
+    with notes a previous holder left, so the feature (v3.33.0) doesn't
+    depend on someone knowing to go looking for it.
+
+    Added 09-17-26. Called from transfer_role() (src/view/officer/
+    transitions.py) AFTER its `transaction.atomic()` block has committed —
+    never from inside it. A notification is not part of the transfer's
+    atomicity guarantee, and this function's own failure must never roll
+    back a real role assignment.
+
+    Deliberately silent — no notification at all, not even an empty-state
+    one — when the role has no knowledge base yet, or one with zero
+    revisions. "There's a page, but nobody's written anything" is not a
+    useful thing to be told, and this function would otherwise fire on
+    every single transfer of every role nobody has ever documented, which
+    today is most of them.
+    """
+    from src.models import RoleKnowledgeBase
+
+    try:
+        kb = (
+            RoleKnowledgeBase.objects.filter(role=role)
+            .prefetch_related('revisions')
+            .first()
+        )
+        if kb is None or kb.current_revision is None:
+            return
+    except Exception as e:
+        logger.warning(f"[role-kb] Could not check knowledge base for role {role.id}: {e}")
+        return
+
+    from src.notification_service import create_notification
+
+    try:
+        create_notification(
+            recipient=user,
+            notification_type='role_kb_available',
+            title=f'Notes are waiting for you on {role.name}',
+            message=(
+                f'A previous {role.name} left notes in the Role Knowledge Base — '
+                f'procedures, contacts, and things worth knowing before you get started.'
+            ),
+            link=reverse('role_knowledge_base', kwargs={'role_id': role.id}),
+            source_type='RoleKnowledgeBase',
+            source_id=kb.pk,
+        )
+    except Exception as e:
+        logger.warning(
+            f"[role-kb] Failed to notify {user.username} about the knowledge "
+            f"base for role {role.id}: {e}"
+        )

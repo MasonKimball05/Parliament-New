@@ -296,6 +296,91 @@ class RoleKnowledgeBaseIndexTests(TestCase):
             response, reverse('role_knowledge_base', args=[self.role_filled.id]),
         )
 
+    def test_search_matches_role_name(self):
+        self.client.force_login(self.plain_member)
+        response = self.client.get(reverse('role_knowledge_base_index'), {'q': 'filled'})
+        roles = [d['role'].name for d in response.context['roles_data']]
+        self.assertEqual(roles, ['Filled Role'])
+
+    def test_search_matches_a_holders_name(self):
+        self.client.force_login(self.plain_member)
+        response = self.client.get(reverse('role_knowledge_base_index'), {'q': self.holder.name})
+        roles = [d['role'].name for d in response.context['roles_data']]
+        self.assertEqual(roles, ['Filled Role'])
+
+    def test_search_matches_current_revision_content(self):
+        self.client.force_login(self.holder)
+        self.client.post(
+            reverse('edit_role_knowledge_base', args=[self.role_filled.id]),
+            {'content': 'Renew the storage unit lease every August.'},
+        )
+        response = self.client.get(reverse('role_knowledge_base_index'), {'q': 'storage unit'})
+        roles = [d['role'].name for d in response.context['roles_data']]
+        self.assertEqual(roles, ['Filled Role'])
+
+    def test_search_only_matches_the_current_revision_not_superseded_ones(self):
+        """A word that only ever appeared in an OLD revision must not surface
+        the role — the page only shows the current one, so matching against
+        history the visitor can't see on the page would be misleading."""
+        self.client.force_login(self.holder)
+        self.client.post(
+            reverse('edit_role_knowledge_base', args=[self.role_filled.id]),
+            {'content': 'The old vendor was Acme Supplies.'},
+        )
+        self.client.post(
+            reverse('edit_role_knowledge_base', args=[self.role_filled.id]),
+            {'content': 'Switched to a new vendor this year.'},
+        )
+        response = self.client.get(reverse('role_knowledge_base_index'), {'q': 'Acme'})
+        self.assertEqual(response.context['roles_data'], [])
+
+    def test_search_is_case_insensitive(self):
+        self.client.force_login(self.plain_member)
+        response = self.client.get(reverse('role_knowledge_base_index'), {'q': 'FILLED'})
+        roles = [d['role'].name for d in response.context['roles_data']]
+        self.assertEqual(roles, ['Filled Role'])
+
+    def test_search_with_no_matches_shows_the_empty_state(self):
+        self.client.force_login(self.plain_member)
+        response = self.client.get(reverse('role_knowledge_base_index'), {'q': 'nonexistent-xyz'})
+        self.assertEqual(response.context['roles_data'], [])
+        self.assertContains(response, 'No roles, holders, or notes match')
+
+    def test_blank_search_shows_everything(self):
+        self.client.force_login(self.plain_member)
+        response = self.client.get(reverse('role_knowledge_base_index'), {'q': ''})
+        roles = {d['role'].name for d in response.context['roles_data']}
+        self.assertEqual(roles, {'Filled Role', 'Vacant Role'})
+
+    def test_search_does_not_scale_with_role_or_revision_count(self):
+        """Same N+1 guard as the holder query below, extended to cover the
+        current-revision content lookup this search reads from — a query
+        per role, or per revision, here would defeat the whole point of the
+        bulk query in role_knowledge_base_index()."""
+        self.client.force_login(self.holder)
+        self.client.post(
+            reverse('edit_role_knowledge_base', args=[self.role_filled.id]),
+            {'content': 'Some notes.'},
+        )
+        self.client.get(reverse('role_knowledge_base_index'))  # warm-up
+
+        with CaptureQueriesContext(connection) as before:
+            self.client.get(reverse('role_knowledge_base_index'), {'q': 'notes'})
+        baseline = len(before.captured_queries)
+
+        for i in range(5):
+            role = Role.objects.create(name=f'Extra Role {i}', code=f'EXTRASEARCH{i}')
+            kb = RoleKnowledgeBase.objects.create(role=role)
+            for j in range(3):
+                RoleKnowledgeBaseRevision.objects.create(knowledge_base=kb, content=f'Revision {j}')
+
+        with CaptureQueriesContext(connection) as after:
+            self.client.get(reverse('role_knowledge_base_index'), {'q': 'notes'})
+        self.assertEqual(
+            len(after.captured_queries), baseline,
+            'adding roles/revisions changed the query count — the current-revision lookup is scaling',
+        )
+
     def test_the_holder_query_does_not_scale_with_role_count(self):
         """N+1 guard — role_transitions() already avoids a per-role holder
         query for the same reason; this page must not reintroduce it.

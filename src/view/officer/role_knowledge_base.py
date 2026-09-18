@@ -51,7 +51,21 @@ def role_knowledge_base_index(request):
     from an officer-only page; a plain member had no way to discover it.
 
     Deliberately open to any logged-in member, same as the pages it links to.
+
+    Supports `?q=` (09-17-26, added once the feature was expected to grow
+    past a handful of short pages) — a case-insensitive substring match
+    against the role's name, its current holders' names, and the CURRENT
+    revision's content only (not every past revision — matching against
+    history the page doesn't display would surface a role for a word a
+    visitor can't actually find once they click through). Filtered in
+    Python over the same small, already-fetched candidate set the rest of
+    this view uses (10 formal roles today — see the module docstring for
+    why this feature is scoped to just those), same tradeoff
+    `_linkable_events()` (chapter_minutes.py) makes for an identically
+    small candidate set.
     """
+    query = (request.GET.get('q') or '').strip()
+
     roles = list(Role.objects.all().order_by('name'))
 
     # One query for all holders instead of one per role — same N+1 shape
@@ -63,23 +77,54 @@ def role_knowledge_base_index(request):
     ):
         holders_by_role[row['roles']].append(row['name'])
 
-    # Which roles already have a knowledge base page written, in one query,
-    # so the list can say "written" vs "empty" without a query per role.
-    has_content_ids = set(
-        RoleKnowledgeBase.objects.filter(revisions__isnull=False)
-        .values_list('role_id', flat=True).distinct()
-    )
+    # Current revision content per role, in one query regardless of how many
+    # roles or revisions exist — same shape as the holders query above.
+    # RoleKnowledgeBaseRevision.Meta.ordering is (-created_at, -pk), and
+    # ordering primarily by knowledge_base_id groups each KB's revisions
+    # together in iteration order with the newest one first in each group,
+    # so keeping only the first row seen per knowledge_base_id gives the
+    # current revision without a second query or a Postgres-only
+    # `distinct(...)`. `role_by_kb_id` translates that back to a role id.
+    role_by_kb_id = dict(RoleKnowledgeBase.objects.values_list('pk', 'role_id'))
+    current_content_by_role = {}
+    if role_by_kb_id:
+        seen_kb_ids = set()
+        for row in (
+            RoleKnowledgeBaseRevision.objects
+            .filter(knowledge_base_id__in=role_by_kb_id.keys())
+            .order_by('knowledge_base_id', '-created_at', '-pk')
+            .values('knowledge_base_id', 'content')
+        ):
+            kb_id = row['knowledge_base_id']
+            if kb_id in seen_kb_ids:
+                continue
+            seen_kb_ids.add(kb_id)
+            current_content_by_role[role_by_kb_id[kb_id]] = row['content']
 
-    roles_data = [
-        {
+    has_content_ids = set(current_content_by_role.keys())
+
+    query_lower = query.lower()
+    roles_data = []
+    for role in roles:
+        if query_lower:
+            haystack = ' '.join([
+                role.name,
+                ' '.join(holders_by_role.get(role.id, [])),
+                current_content_by_role.get(role.id, ''),
+            ]).lower()
+            if query_lower not in haystack:
+                continue
+        roles_data.append({
             'role': role,
             'holders': holders_by_role.get(role.id, []),
             'has_content': role.id in has_content_ids,
-        }
-        for role in roles
-    ]
+        })
 
-    return render(request, 'role_knowledge_base_index.html', {'roles_data': roles_data})
+    return render(request, 'role_knowledge_base_index.html', {
+        'roles_data': roles_data,
+        'query': query,
+        'total_roles': len(roles),
+    })
 
 
 @login_required

@@ -138,3 +138,60 @@ class FailuresDoNotBlockTheReviewTests(TestCase):
             self.excuse.approve(self.officer, 'ok')  # must not raise
         self.excuse.refresh_from_db()
         self.assertEqual(self.excuse.status, 'approved')
+
+
+class NotificationPreferenceTests(TestCase):
+    """
+    09-17-26 follow-up — 'excuse_reviewed' is now wired into
+    NOTIFICATION_PREF_MAP as 'notify_excuses' (previously unmapped, so it
+    always sent regardless of preference). Defaults to on; a member can
+    turn it off without affecting the email half, which is a separate
+    channel with no preference gate of its own (matches every other
+    notification type in this codebase — see NOTIFICATION_PREF_MAP).
+    """
+
+    def setUp(self):
+        self.officer = make_officer('exc-pref-off')
+        self.member = make_member('exc-pref-1')
+        self.excuse = make_excuse(self.member)
+
+    def test_defaults_to_sending_when_the_member_has_no_preferences_row_at_all(self):
+        self.excuse.approve(self.officer, 'ok')
+        self.assertTrue(
+            Notification.objects.filter(recipient=self.member, notification_type='excuse_reviewed').exists()
+        )
+
+    def test_suppressed_when_the_member_turns_it_off(self):
+        # Mutate the SAME UserPreferences object `self.member` already has
+        # cached (auto-created by the post_save signal on ParliamentUser —
+        # see create_user_preferences in src/models/users.py). A separate
+        # UserPreferences.objects.get_or_create(user=self.member) call here
+        # would write to the DB correctly but leave self.member's own
+        # cached reverse relation stale, since Django's OneToOne reverse
+        # descriptor caches the object created at signal-time on `self.member`
+        # itself — a real trap, worth keeping the comment for.
+        self.member.preferences.prefs['notifications']['excuses'] = False
+        self.member.preferences.save()
+
+        self.excuse.approve(self.officer, 'ok')
+
+        self.assertFalse(
+            Notification.objects.filter(recipient=self.member, notification_type='excuse_reviewed').exists()
+        )
+        # The in-app preference does not gate the email — approving still
+        # emails the member either way.
+        self.assertEqual(len(mail.outbox), 1)
+
+    def test_sent_when_the_member_leaves_it_on(self):
+        self.member.preferences.prefs['notifications']['excuses'] = True
+        self.member.preferences.save()
+
+        self.excuse.deny(self.officer, 'no')
+
+        self.assertTrue(
+            Notification.objects.filter(recipient=self.member, notification_type='excuse_reviewed').exists()
+        )
+
+    def test_notification_pref_map_has_the_entry(self):
+        from src.notification_service import NOTIFICATION_PREF_MAP
+        self.assertEqual(NOTIFICATION_PREF_MAP.get('excuse_reviewed'), 'notify_excuses')

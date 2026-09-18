@@ -665,6 +665,7 @@ def _default_user_prefs():
             'legislation': True,
             'events': True,
             'slating': True,
+            'excuses': True,
         },
         'push': {
             'announcements': True,
@@ -686,7 +687,7 @@ class UserPreferences(models.Model):
             "menu":          { "vote": bool, "committees": bool, "chats": bool, "documents": bool,
                                "announcements": bool, "calendar": bool, "legislation": bool,
                                "excuses": bool, "search": bool, "roberts_rules": bool },
-            "notifications": { "announcements": bool, "legislation": bool, "events": bool, "slating": bool },
+            "notifications": { "announcements": bool, "legislation": bool, "events": bool, "slating": bool, "excuses": bool },
         }
 
     Adding a new preference requires only a default value here and a UI change — no schema migration.
@@ -824,6 +825,10 @@ class UserPreferences(models.Model):
     @property
     def notify_slating(self):
         return self._pref('notifications', 'slating', True)
+
+    @property
+    def notify_excuses(self):
+        return self._pref('notifications', 'excuses', True)
 
     # --- Push notification preferences ---
     @property

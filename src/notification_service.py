@@ -78,6 +78,9 @@ NOTIFICATION_PREF_MAP = {
     'slating_open': 'notify_slating',
     'slating_voting': 'notify_slating',
     'slating_results': 'notify_slating',
+    # Excuse review outcome (v3.33.0) — added 09-17-26, defaults to on via
+    # notify_excuses' own default (see UserPreferences._default_user_prefs).
+    'excuse_reviewed': 'notify_excuses',
 }
 
 

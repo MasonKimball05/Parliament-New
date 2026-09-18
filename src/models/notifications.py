@@ -13,6 +13,7 @@ class Notification(models.Model):
         ('chat_mention', 'Chat Mention'),
         ('security', 'Security Alert'),
         ('excuse_reviewed', 'Excuse Reviewed'),
+        ('role_kb_available', 'Knowledge Base Notes Available'),
     )
 
     recipient = models.ForeignKey(ParliamentUser, on_delete=models.CASCADE, related_name='notifications')

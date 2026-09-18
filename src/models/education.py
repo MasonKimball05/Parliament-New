@@ -374,6 +374,27 @@ class PledgeTaskQuestion(models.Model):
         return f'Q{self.display_order}: {self.question_text[:60]}'
 
 
+class PledgeQuizAnswerManager(models.Manager):
+    """
+    __str__() below reads `self.pledge` and `self.question.task.title` — a
+    two-FK-hop traversal. select_related here means any code that touches
+    `PledgeQuizAnswer.objects` gets that join for free, so `str(answer)`
+    never costs an extra query no matter who calls it.
+
+    This matters because the riskiest caller isn't application code at all:
+    Django's own delete-cascade collector (NestedObjects, used to build the
+    admin's "the following will also be deleted" list) fetches cascaded rows
+    through the model's `_base_manager` and calls `str()` on each one to
+    render that list — see `Meta.base_manager_name` below, which points the
+    collector at this manager. Confirmed 09-18-26: deleting a pledge with 5
+    quiz answers fired 5 single-row `SELECT ... FROM src_pledgetask WHERE
+    id = %s` queries — one per answer's `.question.task` — purely from
+    opening `/admin/.../delete/`, before anything was actually deleted.
+    """
+    def get_queryset(self):
+        return super().get_queryset().select_related('question__task', 'pledge')
+
+
 class PledgeQuizAnswer(models.Model):
     """
     A pledge's answer to a single PledgeTaskQuestion.
@@ -382,6 +403,8 @@ class PledgeQuizAnswer(models.Model):
     Submitting creates a PledgeTaskCompletion with status='pending' so
     the chair can review and mark it completed or incomplete.
     """
+    objects = PledgeQuizAnswerManager()
+
     question = models.ForeignKey(
         PledgeTaskQuestion,
         on_delete=models.CASCADE,
@@ -411,6 +434,11 @@ class PledgeQuizAnswer(models.Model):
         ordering = ['question__display_order']
         verbose_name = 'Pledge Quiz Answer'
         verbose_name_plural = 'Pledge Quiz Answers'
+        # Points Django's delete-cascade collector (NestedObjects) at the
+        # select_related-ing manager above — see PledgeQuizAnswerManager's
+        # docstring. Without this, base_manager defaults to a plain,
+        # un-joined Manager() regardless of what `objects` is set to.
+        base_manager_name = 'objects'
 
     def __str__(self):
         return f'{self.pledge} — Q{self.question.display_order} of {self.question.task.title}'
