@@ -27,6 +27,11 @@ from django.utils.html import format_html
 from django.db.models import Count, Q
 from django.utils import timezone
 from django.utils.timezone import localtime
+from django.contrib.admin.helpers import ACTION_CHECKBOX_NAME
+# Aliased — this module already defines its own `log_admin_action` below (a
+# @receiver on LogEntry's post_save, unrelated to this one) and importing it
+# unaliased would silently shadow that name.
+from .models import log_admin_action as record_admin_action
 
 logger = logging.getLogger('admin_actions')
 
@@ -181,6 +186,67 @@ def remove_profile_pictures(modeladmin, request, queryset):
 remove_profile_pictures.short_description = "Remove profile pictures (users will be notified)"
 
 
+def anonymize_members(modeladmin, request, queryset):
+    """
+    Admin action: scrub identity/contact info for the selected members
+    WITHOUT deleting their row — see ParliamentUser.anonymize()'s own
+    docstring for the full reasoning (the short version: this exists for
+    members with votes/ballots/slating records/etc. that block a hard
+    delete, and it means those records keep a real row to point at instead
+    of being cascade-deleted or orphaned).
+
+    Shows a confirmation page first, the same two-step shape Django's own
+    built-in "Delete selected" action uses (`django.contrib.admin.actions.
+    delete_selected`) — nothing happens on the first click. Mirrors that
+    action's own `request.POST.get('post')` marker rather than inventing a
+    differently-named one.
+    """
+    if request.POST.get('post') != 'yes':
+        return render(request, 'admin/anonymize_member_confirmation.html', {
+            **modeladmin.admin_site.each_context(request),
+            'title': 'Anonymize selected members?',
+            'queryset': queryset,
+            'already_anonymized': queryset.filter(is_anonymized=True),
+            'opts': modeladmin.model._meta,
+            'action_checkbox_name': ACTION_CHECKBOX_NAME,
+        })
+
+    anonymized_count = 0
+    skipped_count = 0
+    for member in queryset:
+        if member.is_anonymized:
+            skipped_count += 1
+            continue
+        original_repr = str(member)
+        original_user_id = member.pk
+        member.anonymize()
+        record_admin_action(
+            actor=request.user,
+            action='member_anonymized',
+            request=request,
+            target_user=member,
+            target_repr=original_repr,
+            detail=(
+                f'{request.user.get_display_name()} anonymized '
+                f'{original_repr} (user_id={original_user_id}). Row kept — '
+                f'votes, ballots, and other linked records are unaffected.'
+            ),
+        )
+        anonymized_count += 1
+        logger.info(f"Admin {request.user.username} anonymized member {original_user_id} ({original_repr})")
+
+    if anonymized_count:
+        messages.success(
+            request,
+            f"Anonymized {anonymized_count} member(s). Their votes, ballots, "
+            f"and other records are untouched — only identity/contact info "
+            f"was scrubbed.",
+        )
+    if skipped_count:
+        messages.info(request, f"{skipped_count} selected member(s) were already anonymized — skipped.")
+anonymize_members.short_description = "Anonymize selected members (scrub PII, keep the row)"
+
+
 # === MODEL ADMINS ===
 # === ROLE ADMIN ===
 
@@ -249,10 +315,10 @@ class TransitionChecklistStatusAdmin(admin.ModelAdmin):
 # request-shaped decorator on something that is not a view.
 @admin.register(ParliamentUser, site=admin_site)
 class ParliamentUserAdmin(admin.ModelAdmin):
-    list_display = ('name', 'user_id', 'role_number', 'email', 'member_type', 'is_admin', 'member_status', 'role_list', 'last_login_display', 'login_as_link')
+    list_display = ('name', 'user_id', 'role_number', 'email', 'member_type', 'is_admin', 'member_status', 'is_anonymized', 'role_list', 'last_login_display', 'login_as_link')
     search_fields = ('name', 'user_id', 'email', 'username', 'role_number')  # Enable autocomplete
     filter_horizontal = ('roles',)
-    list_filter = ('member_type', 'member_status', 'is_admin', 'roles', 'has_default_password', 'email_flagged', 'is_quarantined')
+    list_filter = ('member_type', 'member_status', 'is_admin', 'is_anonymized', 'roles', 'has_default_password', 'email_flagged', 'is_quarantined')
     list_per_page = 50
 
     def get_queryset(self, request):
@@ -355,7 +421,7 @@ class ParliamentUserAdmin(admin.ModelAdmin):
     last_login_display.short_description = 'Last Login'
     last_login_display.admin_order_field = 'last_login'
 
-    actions = [export_as_csv, remove_profile_pictures]
+    actions = [export_as_csv, remove_profile_pictures, anonymize_members]
 
     # ⚠️ v3.24.0 — THE "MIGRATE USER ID" ROUTE AND BUTTON WERE DELETED HERE, AND
     # THIS COMMENT IS THE REASON THEY MUST NOT COME BACK.

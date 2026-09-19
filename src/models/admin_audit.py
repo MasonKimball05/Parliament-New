@@ -26,6 +26,7 @@ class AdminActionLog(models.Model):
         ('blacklist_removed','IP Blacklist Removed'),
         ('quarantine_set',   'Account Quarantined'),
         ('quarantine_lifted','Quarantine Lifted'),
+        ('member_anonymized','Member Anonymized'),
         ('other',            'Other'),
     ]
 

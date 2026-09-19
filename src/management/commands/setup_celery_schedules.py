@@ -157,24 +157,46 @@ SCHEDULES = [
 
     # -------------------------------------------------------------------------
     # Daily digest — system audit + honeypot activity combined
-    # 3:30 AM CST = 09:30 UTC (after all cleanup tasks complete)
+    # 3:30 AM Central (after all cleanup tasks complete)
+    #
+    # ⚠️ 09-19-26 — this was `{'hour': '9', 'minute': '30'}` with a comment
+    # claiming "3:30 AM CST = 09:30 UTC", i.e. it assumed Celery evaluates
+    # this crontab in UTC. It doesn't: django_celery_beat's
+    # `CrontabSchedule.timezone` defaults to `settings.CELERY_TIMEZONE`,
+    # which Parliament sets to `TIME_ZONE` = 'America/Chicago' — so
+    # hour/minute here are already Central local time, no UTC conversion
+    # needed. The digest had actually been firing at 9:30 AM Central (not
+    # 3:30 AM) since this schedule was created. Caught 09-19-26 when a
+    # HIGH digest alert about the digest task itself being "5 hours
+    # overdue" turned out to mean exactly that: the real fire time was
+    # ~2:30 PM that day, 5 hours after the *actual* (mid-morning, not
+    # pre-dawn) schedule. Fixed to the intended 3:30 AM directly.
     # -------------------------------------------------------------------------
     {
         'name': 'Send daily site digest',
         'task': 'tasks.send_daily_digest',
-        'crontab': {'hour': '9', 'minute': '30'},  # 3:30 AM CST daily
+        'crontab': {'hour': '3', 'minute': '30'},  # 3:30 AM Central
     },
 
     # -------------------------------------------------------------------------
-    # Weekly weak-password audit (v3.31.0) — Monday 3:35 AM CST = 09:35 UTC,
-    # right after the daily digest's slot so nightly housekeeping never
-    # overlaps it. See src/weak_password_audit.py for why this checks
-    # existing password hashes rather than only validating new ones.
+    # Weekly weak-password audit (v3.31.0) — Monday 3:35 AM Central, right
+    # after the daily digest's slot so nightly housekeeping never overlaps
+    # it. See src/weak_password_audit.py for why this checks existing
+    # password hashes rather than only validating new ones.
+    #
+    # ⚠️ 09-19-26 — same fix as the daily digest above: this was
+    # `{'hour': '9', ...}` with a comment claiming "3:35 AM CST = 09:35
+    # UTC". CrontabSchedule.timezone is Central (see the digest entry's
+    # comment for why), so this was firing at 9:35 AM, not 3:35 AM — and
+    # once the digest above was corrected to 3:30 AM, this would have sat
+    # ~6 hours after it instead of 5 minutes, breaking the "right after
+    # the digest" intent this comment already documented. Fixed to 3:35
+    # AM Central so the two stay adjacent.
     # -------------------------------------------------------------------------
     {
         'name': 'Weekly weak-password audit',
         'task': 'tasks.check_weak_passwords',
-        'crontab': {'hour': '9', 'minute': '35', 'day_of_week': '1'},  # Monday 3:35 AM CST
+        'crontab': {'hour': '3', 'minute': '35', 'day_of_week': '1'},  # Monday 3:35 AM Central
     },
 
     # -------------------------------------------------------------------------

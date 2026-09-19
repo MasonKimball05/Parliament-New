@@ -263,6 +263,19 @@ class ParliamentUser(AbstractBaseUser):
     roles = models.ManyToManyField(Role, blank=True)
 
     member_status = models.CharField(max_length=20, choices=MEMBER_STATUS, default='Active')
+    is_anonymized = models.BooleanField(
+        default=False,
+        help_text=(
+            "Set by anonymize() (09-18-26) — this row's identity/contact fields "
+            "have been scrubbed and replaced with a 'Deleted User' placeholder. "
+            "The row itself is kept (never hard-deleted) so votes, ballots, "
+            "slating records, minutes, and everything else with a foreign key "
+            "to this member survive. Distinct from member_status='Removed', "
+            "which anonymize() also sets but which can be set on its own "
+            "without scrubbing anything — this flag is the one that means "
+            "'and their PII is gone too.'"
+        ),
+    )
     force_password_change = models.BooleanField(default=False, help_text='User must change password on next login')
     has_default_password = models.BooleanField(default=False, help_text='Password is still the system-assigned default — set False when user changes it')
     onboarding_complete = models.BooleanField(default=False, help_text='True once the user has completed the first-login onboarding wizard')
@@ -447,6 +460,108 @@ class ParliamentUser(AbstractBaseUser):
 
         return False
 
+    def anonymize(self):
+        """
+        Scrub this member's identity/contact info in place and mark them
+        removed — WITHOUT deleting the row.
+
+        Added 09-18-26 as the escape hatch for members Django's admin
+        refuses to hard-delete: `/admin/.../delete/` blocks deletion
+        entirely if cascading would touch a model registered read-only in
+        `/admin/`, and this codebase deliberately keeps several of those
+        locked down for ballot-integrity/anonymity reasons that have
+        nothing to do with any one member (Vote, CommitteeVote,
+        SlatingVote, SlatingBallot, SlatingApplicationResponse — see
+        Resources/CLAUDE.md's "Admin confidentiality boundary"). Hard-
+        deleting a member with that kind of history would either be
+        blocked by those, or — if forced some other way — would take the
+        chapter's own voting/slating history down with it. Anonymizing
+        instead leaves `user_id` (and therefore every one of the 150+ FK
+        columns that point at it) exactly where it is; only the columns
+        that say *who this was* change. Votes, ballots, slating records,
+        committee minutes, documents they authored, and everything else
+        keep pointing at this row, unaffected.
+
+        NOT for the plain pledge-departure case — a pledge whose only
+        related rows are things like PageVisit/PledgeQuizAnswer can just
+        be hard-deleted (see PageVisitAdmin/PledgeQuizAnswerAdmin, same
+        date). Reach for this when the member has the kind of history
+        that's worth keeping attached to a real, if now-nameless, row.
+
+        Idempotent — calling this twice re-applies the same scrub rather
+        than erroring, so nothing downstream needs to check
+        `is_anonymized` before calling it (the admin action does anyway,
+        to avoid a pointless second audit-log entry).
+
+        Every concrete field on this model is accounted for in exactly one
+        of `ANONYMIZE_CHARFIELDS_BLANKED`, `ANONYMIZE_EMAILFIELDS_CLEARED`,
+        `ANONYMIZE_JSONFIELDS_CLEARED`, the handful handled individually
+        below, or `ANONYMIZE_FIELDS_KEPT` (with a reason) — see
+        `EveryConcreteFieldIsClassifiedForAnonymizationTests` in
+        `src/tests/users/test_member_anonymization.py`, which fails the
+        build the day a new profile field is added and forgotten here.
+
+        Also deletes (not anonymizes) this member's own login-credential
+        rows — WebAuthnCredential, APIToken, PushSubscription,
+        CalendarSubscription, TwoFactorRequirement, and every registered
+        django-otp device. Those aren't institutional records; they exist
+        only to let THIS account log in, and `is_active=False` plus an
+        unusable password already block that, so removing them outright
+        is belt-and-suspenders, not data loss.
+        """
+        from django.db import transaction
+
+        for field in ANONYMIZE_CHARFIELDS_BLANKED:
+            setattr(self, field, '')
+        for field in ANONYMIZE_EMAILFIELDS_CLEARED:
+            setattr(self, field, None)
+        for field in ANONYMIZE_JSONFIELDS_CLEARED:
+            setattr(self, field, self._meta.get_field(field).get_default())
+
+        if self.profile_picture:
+            self.profile_picture.delete(save=False)
+        self.profile_picture = None
+
+        self.name = 'Deleted User'
+        self.username = f'deleted-{self.user_id}'
+        self.role_number = None
+        self.member_status = 'Removed'
+        self.is_active = False
+        self.is_admin = False
+        self.is_anonymized = True
+        self.set_unusable_password()
+
+        # Everything below mutates multiple rows — a mid-way failure (e.g. a
+        # credential table missing on a not-yet-migrated deploy) must not
+        # leave the member half-scrubbed with some credentials still live.
+        with transaction.atomic():
+            self.save()
+            self.roles.clear()
+            self._delete_login_credentials()
+
+    def _delete_login_credentials(self):
+        """
+        Remove every row that exists only to let THIS account authenticate.
+        Split out of anonymize() so a future caller wanting "just the
+        credentials gone, not a full anonymize" has somewhere to call —
+        not needed today, but this is exactly the kind of helper that gets
+        inlined once and then copy-pasted badly the second time it's
+        needed.
+        """
+        from django_otp import device_classes
+        from src.models.webauthn import WebAuthnCredential
+        from src.models.api import APIToken
+        from src.models.notifications import PushSubscription
+        from src.models_calendar_subscription import CalendarSubscription
+
+        WebAuthnCredential.objects.filter(user=self).delete()
+        APIToken.objects.filter(user=self).delete()
+        PushSubscription.objects.filter(user=self).delete()
+        CalendarSubscription.objects.filter(user=self).delete()
+        TwoFactorRequirement.objects.filter(user=self).delete()
+        for device_cls in device_classes():
+            device_cls.objects.filter(user=self).delete()
+
     def save(self, *args, **kwargs):
         if self.email:
             self.email = self.email.strip().lower()
@@ -457,6 +572,77 @@ class ParliamentUser(AbstractBaseUser):
         constraints = [
             models.UniqueConstraint(Lower('email'), name='uniq_parliament_user_email_lower'),
         ]
+
+
+# ── ParliamentUser.anonymize() field classification ─────────────────────────
+#
+# Every concrete field on ParliamentUser belongs in exactly one of the four
+# groups below. `EveryConcreteFieldIsClassifiedForAnonymizationTests`
+# (src/tests/users/test_member_anonymization.py) walks
+# `ParliamentUser._meta.get_fields()` and fails the build for any field that
+# isn't — the same "enumerate, don't special-case" shape as
+# MEMBER_DISPLAY_FIELDS below, applied to "what counts as this person's
+# identity" instead of "what a page needs to show it."
+
+#: Plain char/text profile fields blanked outright — contact info or a
+#: personal write-up with no meaning once the member is gone.
+ANONYMIZE_CHARFIELDS_BLANKED = (
+    'preferred_name', 'phone_number', 'about_me', 'instagram', 'twitter',
+    'linkedin', 'snapchat', 'facebook', 'house', 'email_flagged_reason',
+)
+
+#: Email fields cleared to None rather than ''. Both allow null; unlike
+#: `username` below, nothing about them needs a placeholder value.
+ANONYMIZE_EMAILFIELDS_CLEARED = ('email', 'other_email')
+
+#: JSONField profile fields reset to their own field default (a fresh list
+#: or dict — see get_default() in anonymize(), which avoids hardcoding [] or
+#: {} and drifting from whatever the field itself declares).
+ANONYMIZE_JSONFIELDS_CLEARED = (
+    'majors', 'minors', 'concentrations', 'custom_socials', 'initiation_chapters',
+)
+
+#: Fields anonymize() handles individually in its own body, because a plain
+#: blank/None isn't the right replacement: `name`/`username` get a
+#: placeholder rather than emptiness (a blank name would break every page
+#: that renders one), `role_number` and `profile_picture` need None plus
+#: (for the picture) an actual file deletion, `roles` is a M2M, `password`
+#: goes through set_unusable_password(), and `member_status`/`is_active`/
+#: `is_admin`/`is_anonymized` ARE the removal rather than PII cleanup.
+ANONYMIZE_FIELDS_SPECIAL = (
+    'name', 'username', 'role_number', 'profile_picture', 'roles',
+    'member_status', 'is_active', 'is_admin', 'is_anonymized', 'password',
+)
+
+#: Concrete fields anonymize() deliberately leaves alone, and why.
+ANONYMIZE_FIELDS_KEPT = {
+    'user_id': 'permanent surrogate key — see the block above this class',
+    'member_type': "institutional role history ('was an Officer') isn't identity",
+    'anonymous_vote': 'a voting-privacy preference; moot once removed, harmless to keep',
+    'allow_abstain': 'same as anonymous_vote',
+    # nosec B105 -- bandit reads these two dict keys as a hardcoded-credential
+    # pattern; they are ParliamentUser field names, not a credential value.
+    'force_password_change': 'moot once the account can no longer log in',  # nosec B105
+    'has_default_password': 'moot once the account can no longer log in',  # nosec B105
+    'onboarding_complete': 'checklist progress, not identity',
+    'onboarding_data': 'checklist progress, not identity',
+    'is_quarantined': 'security flag; irrelevant once removed, kept for audit context',
+    'email_flagged': 'about the now-cleared email; the reason text is scrubbed separately',
+    'email_flagged_at': 'a timestamp',
+    'backup_codes_acknowledged': 'not identity',
+    'profile_picture_removed_by_admin': 'moot once the picture itself is cleared',
+    'big_brother': (
+        'big/little lineage is chapter-family history some chapters keep even '
+        'for departed members — the same institutional-memory-over-convenience '
+        'call as Kai record retention. Deliberately NOT severed; revisit if '
+        'Mason wants it cut.'
+    ),
+    'pledge_class': 'a cohort label ("Spring 2024"), not personally identifying on its own',
+    'pledge_class_greek': 'same as pledge_class',
+    'graduation_year': 'a rough time period, not personally identifying on its own',
+    'graduation_semester': 'same as graduation_year',
+    'last_login': 'an audit timestamp, not identifying',
+}
 
 
 class RoleHistory(models.Model):

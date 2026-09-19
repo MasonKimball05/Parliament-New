@@ -1,0 +1,47 @@
+{% extends "admin/base_site.html" %}
+{% load i18n admin_urls %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+<a href="{% url 'admin:index' %}">Home</a>
+&rsaquo; <a href="{% url 'admin:app_list' app_label=opts.app_label %}">{{ opts.app_config.verbose_name }}</a>
+&rsaquo; <a href="{% url opts|admin_urlname:'changelist' %}">{{ opts.verbose_name_plural|capfirst }}</a>
+&rsaquo; Anonymize members
+</div>
+{% endblock %}
+
+{% block content %}
+<p>
+  Anonymizing scrubs a member's name, username, email, and other contact/
+  profile info, replacing them with a placeholder. It does <strong>not</strong>
+  delete the row — votes, ballots, slating records, meeting minutes,
+  documents they authored, and everything else with a foreign key to them
+  stay exactly as they are. Their login credentials (passkeys, 2FA devices,
+  API tokens, push subscriptions, calendar feed) are deleted outright, and
+  the account is deactivated.
+</p>
+<p><strong>This cannot be undone</strong> — the original name/email/etc. are
+  not stored anywhere once this runs.</p>
+
+<h2>Members to anonymize</h2>
+<ul>
+  {% for member in queryset %}
+    <li>
+      {{ member }} (user_id: {{ member.pk }})
+      {% if member.is_anonymized %}<strong> — already anonymized, will be skipped</strong>{% endif %}
+    </li>
+  {% endfor %}
+</ul>
+
+<form method="post">{% csrf_token %}
+<div>
+{% for member in queryset %}
+<input type="hidden" name="{{ action_checkbox_name }}" value="{{ member.pk }}">
+{% endfor %}
+<input type="hidden" name="action" value="anonymize_members">
+<input type="hidden" name="post" value="yes">
+<input type="submit" value="Yes, anonymize these members" class="default" style="background:#ba2121;">
+<a href="#" class="button cancel-link" onclick="window.history.back(); return false;">No, take me back</a>
+</div>
+</form>
+{% endblock %}
