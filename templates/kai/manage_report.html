@@ -142,9 +142,9 @@
               {% if kai_access.can_view_accused_identity %}
               <div class="flex items-center space-x-2 text-gray-700 dark:text-gray-300">
                 <div class="w-8 h-8 bg-primary-100 dark:bg-primary-900/50 rounded-full flex items-center justify-center">
-                  <span class="text-primary-600 dark:text-primary-400 font-semibold text-sm">{{ report.targeted_to.name|slice:":1"|upper }}</span>
+                  <span class="text-primary-600 dark:text-primary-400 font-semibold text-sm">{{ report.accused_display_name|slice:":1"|upper }}</span>
                 </div>
-                <span>{{ report.targeted_to.name }}</span>
+                <span>{{ report.accused_display_name }}</span>
               </div>
               {% else %}
               <span class="text-sm text-gray-400 dark:text-gray-500 italic">Redacted</span>
@@ -358,7 +358,7 @@
                   <div class="mt-3 flex items-center justify-between">
                     <p class="text-xs text-gray-500 dark:text-gray-400">
                       {% if report.targeted_to %}
-                      Current: <strong>{{ report.targeted_to.name }}</strong>
+                      Current: <strong>{{ report.accused_display_name }}</strong>
                       {% else %}
                       No accused person currently set
                       {% endif %}
@@ -399,7 +399,7 @@
                 </div>
                 {% endif %}
 
-                <form method="post" class="js-confirm-submit" data-confirm-msg="This will send an official notification email to {{ report.targeted_to.name }} informing them of this case. Are you sure you want to proceed?">
+                <form method="post" class="js-confirm-submit" data-confirm-msg="This will send an official notification email to {{ report.accused_display_name }} informing them of this case. Are you sure you want to proceed?">
                   {% csrf_token %}
                   <input type="hidden" name="action" value="notify_accused">
                   <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -439,11 +439,11 @@
                 <div class="min-w-0">
                   <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300">Notify Submitter</h3>
                   <p class="text-xs text-gray-500 dark:text-gray-400 mt-1 truncate">
-                    Send outcome to {{ report.submitted_by.name }}
+                    Send outcome to {{ report.submitter_display_name }}
                     {% if report.submitted_by.email %}({{ report.submitted_by.email }}){% endif %}
                   </p>
                 </div>
-                <form method="post" class="shrink-0 js-confirm-submit" data-confirm-msg="Send notification to {{ report.submitted_by.name }}?">
+                <form method="post" class="shrink-0 js-confirm-submit" data-confirm-msg="Send notification to {{ report.submitter_display_name }}?">
                   {% csrf_token %}
                   <input type="hidden" name="action" value="notify_submitter">
                   <button type="submit"
@@ -600,7 +600,7 @@
                     #{{ related.id }} - {{ related.title }}
                   </a>
                   <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                    {% if kai_access.can_view_submitter_identity %}{{ related.submitted_by.name }}{% else %}Anonymous{% endif %} • {{ related.submitted_at|date:"M d, Y" }}
+                    {% if kai_access.can_view_submitter_identity %}{{ related.submitter_display_name }}{% else %}Anonymous{% endif %} • {{ related.submitted_at|date:"M d, Y" }}
                   </p>
                 </div>
                 <form method="post" class="ml-2">
@@ -663,9 +663,9 @@
               {% if kai_access.can_view_submitter_identity %}
               <div class="flex items-center space-x-2 mt-1">
                 <div class="w-8 h-8 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center">
-                  <span class="text-gray-600 dark:text-gray-300 font-semibold text-sm">{{ report.submitted_by.name|slice:":1"|upper }}</span>
+                  <span class="text-gray-600 dark:text-gray-300 font-semibold text-sm">{{ report.submitter_display_name|slice:":1"|upper }}</span>
                 </div>
-                <span class="text-gray-800 dark:text-gray-200 font-medium">{{ report.submitted_by.name }}</span>
+                <span class="text-gray-800 dark:text-gray-200 font-medium">{{ report.submitter_display_name }}</span>
               </div>
               {% else %}
               <p class="text-gray-400 dark:text-gray-500 text-sm italic mt-1">Redacted</p>

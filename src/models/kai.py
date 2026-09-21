@@ -122,6 +122,24 @@ class KaiReport(models.Model):
         help_text="Optional: Specific person this report is directed to"
     )
 
+    # 09-21-26 — see the "Identity survives anonymization" block below
+    # `__str__`. Kept in sync with the live name on every save() while the
+    # party isn't anonymized; frozen at its last value once they are.
+    # Never read directly — use `submitter_display_name`/`accused_display_name`.
+    submitted_by_name_snapshot = models.CharField(
+        max_length=150, blank=True, default='',
+        help_text=(
+            "Submitter's display name as of the last time this report was "
+            "saved while their account was intact. Falls back to this once "
+            "ParliamentUser.anonymize() has scrubbed the live name. See "
+            "KaiReport.submitter_display_name."
+        ),
+    )
+    targeted_to_name_snapshot = models.CharField(
+        max_length=150, blank=True, default='',
+        help_text="Same as submitted_by_name_snapshot, for targeted_to. See accused_display_name.",
+    )
+
     # Status and Review
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
     reviewed_by = models.ForeignKey(
@@ -251,7 +269,67 @@ class KaiReport(models.Model):
         ]
 
     def __str__(self):
-        return f"{self.title} - {self.submitted_by.name} ({self.submitted_at.strftime('%Y-%m-%d')})"
+        return f"{self.title} - {self.submitter_display_name} ({self.submitted_at.strftime('%Y-%m-%d')})"
+
+    # ------------------------------------------------------------------
+    # Identity survives anonymization — 09-21-26.
+    #
+    # `ParliamentUser.anonymize()` (v3.34.0-in-progress, see Resources/
+    # CLAUDE.md's note on the interaction) scrubs `name` to 'Deleted User'
+    # on the USER row, in place — it never touches KaiReport. That is
+    # correct for the row (submitted_by/targeted_to stay pointed at the
+    # same user_id, per anonymize()'s whole design), but it means
+    # `report.submitted_by.name` reads 'Deleted User' forever afterward,
+    # for every reviewer authorized to see it — silently erasing "who
+    # brought this case" from a record this chapter keeps specifically so
+    # future officers can see what was decided and why (Resources/
+    # CLAUDE.md, "Kai records are RETAINED DELIBERATELY").
+    #
+    # The fix is a snapshot, not a "kept field" the way `big_brother`
+    # survives anonymize() untouched — a name has to be allowed to keep
+    # changing (a member's preferred name, a chair correcting who a report
+    # is directed to) right up until the moment it's gone for good, so a
+    # one-time capture at creation isn't enough. `save()` below re-syncs
+    # both snapshots to the live name on every save UNLESS that party is
+    # already anonymized — so each snapshot tracks reality for as long as
+    # there is a reality to track, and simply stops updating, frozen at
+    # its last live value, the moment there isn't. Display code should
+    # never read `submitted_by.name` / `targeted_to.name` directly — use
+    # `submitter_display_name` / `accused_display_name`, which choose
+    # between the live name and the frozen snapshot for you.
+    #
+    # A report created before this migration, whose party was already
+    # anonymized before 09-21-26, has no earlier snapshot to fall back to
+    # — the real name was already gone from the one place it lived. There
+    # is no way to recover it after the fact; this only prevents the loss
+    # for every case going forward and for every case whose parties are
+    # still intact today (migration 0047 backfills those).
+    # ------------------------------------------------------------------
+
+    @property
+    def submitter_display_name(self):
+        """
+        The submitter's name for display — robust to anonymize().
+
+        Callers must still gate on `can_view_submitter_identity` (and
+        recusal) before calling this at all; this only decides WHICH name
+        string to show once permission has already said yes. Mirrors
+        `accused_display_name`.
+        """
+        if not self.submitted_by_id:
+            return ''
+        if self.submitted_by.is_anonymized and self.submitted_by_name_snapshot:
+            return self.submitted_by_name_snapshot
+        return self.submitted_by.name
+
+    @property
+    def accused_display_name(self):
+        """The accused's name for display — robust to anonymize(). See submitter_display_name."""
+        if not self.targeted_to_id:
+            return ''
+        if self.targeted_to.is_anonymized and self.targeted_to_name_snapshot:
+            return self.targeted_to_name_snapshot
+        return self.targeted_to.name
 
     # ------------------------------------------------------------------
     # Recusal — v3.18.0. SEE THE MODEL BELOW AND `_case_access` IN THE VIEW.
@@ -351,6 +429,34 @@ class KaiReport(models.Model):
         return f'{prefix}{highest + 1:03d}'
 
     def save(self, *args, **kwargs):
+        # 09-21-26 — re-sync the display-name snapshots (see the "Identity
+        # survives anonymization" block above `__str__`) on EVERY save, not
+        # just the first. `targeted_to` in particular is routinely set or
+        # reassigned well after creation (see `manage_kai_report` in
+        # src/view/kai_reports.py), so a snapshot taken only at creation
+        # would stay blank for any report whose accused was named later —
+        # exactly the case this feature exists to cover. Deliberately
+        # skipped once a party is ALREADY anonymized, so a later unrelated
+        # save() (a status change, a chair note) can't clobber the frozen
+        # historical name with 'Deleted User'. `update_fields` is extended
+        # the same way case_number's assignment does below, so a caller
+        # doing a narrow `save(update_fields=[...])` doesn't silently drop
+        # this.
+        update_fields = kwargs.get('update_fields')
+        synced_fields = []
+        if self.submitted_by_id and not self.submitted_by.is_anonymized:
+            if self.submitted_by_name_snapshot != self.submitted_by.name:
+                self.submitted_by_name_snapshot = self.submitted_by.name
+                synced_fields.append('submitted_by_name_snapshot')
+        if self.targeted_to_id and not self.targeted_to.is_anonymized:
+            if self.targeted_to_name_snapshot != self.targeted_to.name:
+                self.targeted_to_name_snapshot = self.targeted_to.name
+                synced_fields.append('targeted_to_name_snapshot')
+        if synced_fields and update_fields is not None:
+            kwargs['update_fields'] = list(update_fields) + [
+                f for f in synced_fields if f not in update_fields
+            ]
+
         # Assign the case number on first save. `submitted_at` is auto_now_add,
         # so it is not populated until after the INSERT — use the current year
         # for a new row, which is the same thing for every row that is not

@@ -196,7 +196,7 @@
                   {{ report.title }}
                 </a>
                 <p class="text-xs text-gray-600 dark:text-gray-400 mt-1 truncate">
-                  By {{ report.submitted_by.name }}{% if report.targeted_to %} → {{ report.targeted_to.name }}{% endif %}
+                  By {{ report.submitter_display_name }}{% if report.targeted_to %} → {{ report.accused_display_name }}{% endif %}
                 </p>
                 <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">{{ report.submitted_at|date:"M d, Y" }}</p>
               </div>

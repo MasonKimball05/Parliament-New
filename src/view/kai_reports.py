@@ -673,8 +673,21 @@ def _redact_activity_log(entries, report, kai_access):
     show_accused = bool(kai_access.get('can_view_accused_identity'))
 
     # Resolved once, not per row.
-    submitter_name = report.submitted_by.name if report.submitted_by_id else ''
-    accused_name = report.targeted_to.name if report.targeted_to_id else ''
+    #
+    # ⚠️ 09-21-26 — MUST be the display-name property, not `.name` directly.
+    # This is the string the substring swap below searches `details` for, and
+    # `details` on a legacy (pre-v3.18.1) row was written with whatever the
+    # party's name WAS at the time. Once ParliamentUser.anonymize() scrubs
+    # `submitted_by.name`/`targeted_to.name` to 'Deleted User', a plain
+    # `.name` read here searches for a string that can never appear in that
+    # old text — so the substring swap silently stops matching and a
+    # reviewer without the matching identity flag would see the party's
+    # REAL name still sitting in `display_details`, unredacted. Using
+    # `submitter_display_name`/`accused_display_name` (KaiReport, src/models/
+    # kai.py) keeps this searching for the name that's actually in the text,
+    # via the frozen snapshot, even after the live name is gone.
+    submitter_name = report.submitter_display_name
+    accused_name = report.accused_display_name
 
     for entry in entries:
         # -- the actor ---------------------------------------------------
@@ -684,7 +697,18 @@ def _redact_activity_log(entries, report, kai_access):
             entry.display_actor = 'Anonymous'
         elif entry.user_id == accused_id and not show_accused:
             entry.display_actor = 'Redacted'
+        elif entry.user_id == submitter_id:
+            # 09-21-26: reuse the same display name computed above rather
+            # than `entry.user.name` — an authorized reviewer (show_submitter
+            # is True here) should still see who filed it after the
+            # submitter has been anonymized, not 'Deleted User'.
+            entry.display_actor = submitter_name or 'System'
+        elif entry.user_id == accused_id:
+            entry.display_actor = accused_name or 'System'
         else:
+            # A non-party actor (e.g. a Kai chair adding a note). Their own
+            # identity isn't part of this report's submitter/accused
+            # snapshot — same as before this change.
             entry.display_actor = entry.user.name if entry.user else 'System'
 
         # -- the details string ------------------------------------------
@@ -1288,8 +1312,8 @@ def _kai_csv_row(report, kai_access):
         report.id,
         report.title,
         report.get_category_display(),
-        report.submitted_by.name if kai_access['can_view_submitter_identity'] else '[Redacted]',
-        (report.targeted_to.name if report.targeted_to else '') if kai_access['can_view_accused_identity'] else '[Redacted]',
+        report.submitter_display_name if kai_access['can_view_submitter_identity'] else '[Redacted]',
+        report.accused_display_name if kai_access['can_view_accused_identity'] else '[Redacted]',
         localtime(report.submitted_at).strftime('%Y-%m-%d %H:%M:%S'),
         report.get_status_display(),
         report.get_deliberation_outcome_display(),

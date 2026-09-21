@@ -70,7 +70,7 @@
                     <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50">
                         <td class="px-6 py-4">
                             <div class="text-sm font-medium text-gray-900 dark:text-white">{{ report.title }}</div>
-                            {% if report.targeted_to %}<div class="text-sm text-gray-500 dark:text-gray-400">Regarding: {{ report.targeted_to.name }}</div>{% endif %}
+                            {% if report.targeted_to %}<div class="text-sm text-gray-500 dark:text-gray-400">Regarding: {{ report.accused_display_name }}</div>{% endif %}
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap">
                             <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
@@ -116,7 +116,7 @@
                     </span>
                 </div>
                 {% if report.targeted_to %}
-                <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">Regarding: {{ report.targeted_to.name }}</p>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">Regarding: {{ report.accused_display_name }}</p>
                 {% endif %}
                 <div class="flex flex-wrap items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
                     <span class="px-2 py-0.5 rounded-full

@@ -270,13 +270,13 @@
        fixing the activity feed in the same template. {% endcomment %}
     <div class="field-group">
       <span class="field-label">Submitted By:</span>
-      <span class="field-value">{% if kai_access.can_view_submitter_identity %}{{ report.submitted_by.name }}{% else %}Anonymous{% endif %}</span>
+      <span class="field-value">{% if kai_access.can_view_submitter_identity %}{{ report.submitter_display_name }}{% else %}Anonymous{% endif %}</span>
     </div>
 
     {% if report.targeted_to %}
     <div class="field-group">
       <span class="field-label">Directed To:</span>
-      <span class="field-value">{% if kai_access.can_view_accused_identity %}{{ report.targeted_to.name }}{% else %}Redacted{% endif %}</span>
+      <span class="field-value">{% if kai_access.can_view_accused_identity %}{{ report.accused_display_name }}{% else %}Redacted{% endif %}</span>
     </div>
     {% endif %}
 
@@ -334,8 +334,8 @@
              case's reporter is no less confidential than this one's. {% endcomment %}
           <strong>{{ related.display_number }}:</strong> {{ related.title }}<br>
           <span style="color: #6b7280; font-size: 13px;">
-            Submitted by {% if kai_access.can_view_submitter_identity %}{{ related.submitted_by.name }}{% else %}Anonymous{% endif %} on {{ related.submitted_at|date:"F d, Y" }}
-            {% if related.targeted_to %} → Directed to {% if kai_access.can_view_accused_identity %}{{ related.targeted_to.name }}{% else %}Redacted{% endif %}{% endif %}
+            Submitted by {% if kai_access.can_view_submitter_identity %}{{ related.submitter_display_name }}{% else %}Anonymous{% endif %} on {{ related.submitted_at|date:"F d, Y" }}
+            {% if related.targeted_to %} → Directed to {% if kai_access.can_view_accused_identity %}{{ related.accused_display_name }}{% else %}Redacted{% endif %}{% endif %}
           </span>
         </li>
         {% endfor %}

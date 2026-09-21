@@ -437,8 +437,8 @@
                   <p class="text-sm text-gray-600 dark:text-gray-400 mb-2">{{ report.description|truncatewords:30 }}</p>
                   {% endif %}
                   <div class="flex flex-wrap gap-3 text-xs text-gray-500 dark:text-gray-400">
-                    <span>{% if kai_access.can_view_submitter_identity and report.viewer_recusal != 'accused' %}{{ report.submitted_by.name }}{% else %}Anonymous{% endif %}</span>
-                    {% if report.targeted_to %}<span>→ {% if kai_access.can_view_accused_identity and report.viewer_recusal != 'accused' %}{{ report.targeted_to.name }}{% else %}Redacted{% endif %}</span>{% endif %}
+                    <span>{% if kai_access.can_view_submitter_identity and report.viewer_recusal != 'accused' %}{{ report.submitter_display_name }}{% else %}Anonymous{% endif %}</span>
+                    {% if report.targeted_to %}<span>→ {% if kai_access.can_view_accused_identity and report.viewer_recusal != 'accused' %}{{ report.accused_display_name }}{% else %}Redacted{% endif %}</span>{% endif %}
                     <span>{{ report.submitted_at|date:"M d, Y" }}</span>
                     {% if report.attachment %}<span>📎 Attachment</span>{% endif %}
                   </div>
