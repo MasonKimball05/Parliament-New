@@ -109,6 +109,11 @@
                 {% if row.task.description %}
                 <div class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{{ row.task.description|truncatechars:60 }}</div>
                 {% endif %}
+                {% if row.task.task_type == 'song' %}
+                <div class="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
+                  🎵 {% if row.task.song %}{{ row.task.song.title }}{% else %}<span class="text-amber-600 dark:text-amber-400">No song linked yet</span>{% endif %}
+                </div>
+                {% endif %}
                 {% if row.task.due_date %}
                 <div class="text-xs text-gray-400 dark:text-gray-500 mt-0.5">Due {{ row.task.due_date|date:"M j" }}</div>
                 {% endif %}
@@ -607,6 +612,15 @@ function toggleActivationFields(mode) {
     }
 }
 
+// 09-22-26 — Song link field in the Add Task modal, same idea as
+// toggleActivationFields (education_task_form.html has its own copy of both,
+// per that page's own comment on why this is duplicated rather than shared).
+function toggleSongField(taskType) {
+    const songField = document.getElementById('song-link-field');
+    if (!songField) return;
+    songField.classList.toggle('hidden', taskType !== 'song');
+}
+
 async function publishTask(committeeCode, taskPk, btn) {
     try {
         const data = await Parliament.post(
@@ -694,6 +708,11 @@ document.addEventListener('change', function(e) {
     const activation = e.target.closest('[data-action="toggle-activation"]');
     if (activation) {
         toggleActivationFields(activation.value);
+        return;
+    }
+    const taskType = e.target.closest('[data-action="toggle-task-type"]');
+    if (taskType) {
+        toggleSongField(taskType.value);
     }
 });
 

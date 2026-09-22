@@ -8,7 +8,7 @@ silently does nothing on the other — the same shape this codebase has
 recorded repeatedly as "a rule stated correctly and one call site left
 outside it". The server side is shared too, by `_apply_task_fields`.
 
-Expects: `TASK_TYPES`, `PHASE_CHOICES`, and optionally `task` (edit),
+Expects: `TASK_TYPES`, `PHASE_CHOICES`, `songs`, and optionally `task` (edit),
 `all_pledges` and `assigned_pks` (a set of pledge pks already assigned — if
 empty/absent, the task applies to every pledge).
 {% endcomment %}
@@ -26,7 +26,7 @@ empty/absent, the task applies to every pledge).
   <div class="grid grid-cols-2 gap-4">
     <div>
       <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Type</label>
-      <select name="task_type"
+      <select name="task_type" data-action="toggle-task-type"
         class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500">
         {% for val, label in TASK_TYPES %}
         <option value="{{ val }}" {% if task.task_type == val %}selected{% endif %}>{{ label }}</option>
@@ -42,6 +42,34 @@ empty/absent, the task applies to every pledge).
         {% endfor %}
       </select>
     </div>
+  </div>
+
+  <!-- Song link (v3.34.x, 09-22-26) — only meaningful for a Song-type task;
+       hidden otherwise and shown/hidden live by toggleSongField() as the
+       Type select above changes. Initial visibility is set server-side from
+       the saved type so an edit page doesn't flash the wrong state before
+       JS runs. -->
+  <div id="song-link-field" class="{% if task.task_type != 'song' %}hidden{% endif %}">
+    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Song</label>
+    {% if songs %}
+    <select name="song"
+      class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500">
+      <option value="">— Select a song —</option>
+      {% for song in songs %}
+      <option value="{{ song.pk }}" {% if task.song_id == song.pk %}selected{% endif %}>
+        {{ song.title }}{% if song.category %} ({{ song.category.name }}){% endif %}
+      </option>
+      {% endfor %}
+    </select>
+    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+      Pledges see this song's lyrics and audio example right on their task, in the
+      Songbook. <a href="{% url 'songbook' %}" target="_blank" class="text-primary-600 dark:text-primary-400 hover:underline">Add a new song</a> first if it isn't listed yet.
+    </p>
+    {% else %}
+    <p class="text-xs text-amber-600 dark:text-amber-400">
+      No songs in the Songbook yet. <a href="{% url 'songbook' %}" target="_blank" class="underline">Add one</a>, then come back to link it here.
+    </p>
+    {% endif %}
   </div>
 
   <div class="grid grid-cols-2 gap-4">

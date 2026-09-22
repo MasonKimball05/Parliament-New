@@ -290,6 +290,9 @@
                 {% elif item.task.task_type == 'milestone' %}
                   {% if item.completion.status == 'completed' %}Reached.
                   {% else %}A chair marks this once you reach it — nothing to submit.{% endif %}
+                {% elif item.task.task_type == 'song' %}
+                  {% if item.completion.status == 'completed' %}Learned — signed off.
+                  {% else %}Learn this song. Lyrics and an audio example are below.{% endif %}
                 {% else %}
                   {% if item.completion.status == 'completed' %}Done and signed off.
                   {% elif item.completion.status == 'incomplete' %}Marked incomplete — see your educator.
@@ -302,6 +305,48 @@
               {% if item.task.description %}
               <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">{{ item.task.description }}</p>
               {% endif %}
+
+              {% if item.task.task_type == 'song' %}
+              {% if item.task.song %}
+              <!-- 09-22-26 — Mason: pledges have to learn some of the
+                   fraternity's songs, so a Song task shows the lyrics and
+                   audio example right here, inline, rather than sending a
+                   pledge off to go find it in the Songbook themselves. -->
+              <div class="mt-2 bg-gray-50 dark:bg-gray-700/40 rounded-lg border border-gray-200 dark:border-gray-600 p-4">
+                <div class="flex items-center justify-between gap-2 mb-2">
+                  <span class="text-sm font-semibold text-gray-800 dark:text-gray-200">{{ item.task.song.title }}</span>
+                  {% if item.task.song.category %}
+                  <span class="text-xs px-2 py-0.5 rounded-full bg-{{ item.task.song.category.color }}-100 dark:bg-{{ item.task.song.category.color }}-900/50 text-{{ item.task.song.category.color }}-700 dark:text-{{ item.task.song.category.color }}-300">
+                    {{ item.task.song.category.name }}
+                  </span>
+                  {% endif %}
+                </div>
+
+                {% if item.task.song.audio_file %}
+                <div class="mb-3">
+                  <p class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Listen</p>
+                  <audio controls class="w-full" preload="metadata">
+                    <source src="{% url 'song_audio' item.task.song.pk %}" type="audio/mpeg">
+                    Your browser does not support the audio element.
+                  </audio>
+                </div>
+                {% endif %}
+
+                <p class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Lyrics</p>
+                <pre class="whitespace-pre-wrap font-sans text-sm text-gray-800 dark:text-gray-200 leading-relaxed max-h-64 overflow-y-auto">{{ item.task.song.lyrics }}</pre>
+
+                <a href="{% url 'song_detail' item.task.song.pk %}"
+                   class="inline-block mt-2 text-xs text-primary-600 dark:text-primary-400 hover:underline">
+                  Open in Songbook →
+                </a>
+              </div>
+              {% else %}
+              <p class="text-xs text-amber-600 dark:text-amber-400 mt-1 italic">
+                No song linked to this task yet — check with your educator.
+              </p>
+              {% endif %}
+              {% endif %}
+
               <div class="flex items-center gap-3 mt-1.5 flex-wrap">
                 {% if item.task.due_date %}
                 {% if item.overdue %}

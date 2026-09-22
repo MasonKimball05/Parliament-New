@@ -79,7 +79,11 @@ def my_pledge_tasks(request):
     ).filter(
         # Assigned to this pledge specifically, or assigned to nobody (= all pledges)
         Q(assigned_to__isnull=True) | Q(assigned_to=request.user)
-    ).distinct().order_by('display_order', 'due_date', 'title')
+    # 09-22-26 — `song__category`: a Song-type task renders its linked song's
+    # lyrics/audio and category badge right on this page (see my_tasks.html);
+    # without this it's one extra query per song-type task, same reasoning as
+    # `select_related('task')` on `completions` just below.
+    ).select_related('song', 'song__category').distinct().order_by('display_order', 'due_date', 'title')
 
     # ⚠️ `select_related('task')` as of v3.20.0. `my_tasks.html` asks each
     # completion for `has_score` / `score_display` / `score_percent`, and all

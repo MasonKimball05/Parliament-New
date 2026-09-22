@@ -18,6 +18,7 @@ class PledgeTask(models.Model):
         ('quiz', 'Quiz'),
         ('milestone', 'Milestone'),
         ('reading', 'Reading'),
+        ('song', 'Song'),
     ]
     PHASE_CHOICES = [
         ('all', 'All Phases'),
@@ -66,6 +67,30 @@ class PledgeTask(models.Model):
         related_name='assigned_pledge_tasks',
         limit_choices_to={'member_type': 'Pledge'},
         help_text='Specific pledges this task applies to. Leave empty to assign to all pledges.',
+    )
+
+    # 09-22-26 — Mason: pledges have to learn some of the fraternity's songs,
+    # so a Song-type task can point at the actual songbook entry rather than
+    # a chair re-typing the lyrics into `description` (which also drifts the
+    # moment someone fixes a lyric in the songbook itself and forgets the
+    # copy here). `on_delete=SET_NULL` rather than CASCADE deliberately — a
+    # song being removed from the songbook shouldn't take a pledge's task
+    # (and their completion history on it) down with it; the task just loses
+    # its lyrics/audio panel and becomes an ordinary checklist item.
+    #
+    # Nullable and not restricted to task_type='song' at the database level —
+    # the view (`_apply_task_fields`) only saves it for that type and clears
+    # it otherwise, same as `max_score` staying blank for an unscored task.
+    # A DB-level constraint would need a migration every time a new type is
+    # added that might also want a song reference (unlikely, but cheap to
+    # not paint into a corner).
+    song = models.ForeignKey(
+        'Song',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='pledge_tasks',
+        help_text="For a Song-type task: the songbook entry pledges should learn. "
+                  "Shown to them on My Tasks with lyrics and the audio example.",
     )
 
     # ── Activation ────────────────────────────────────────────────────────

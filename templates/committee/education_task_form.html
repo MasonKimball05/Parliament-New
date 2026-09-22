@@ -64,10 +64,24 @@ function toggleActivationFields(mode) {
         activatesAtInput.required = false;
     }
 }
+// 09-22-26 — Song link field, shown only for the Song task type. Same
+// show/hide-only shape as toggleActivationFields above (nothing here is
+// `required` — a Song task with no song picked yet is allowed, same as any
+// other unfinished draft).
+function toggleSongField(taskType) {
+    const songField = document.getElementById('song-link-field');
+    if (!songField) return;
+    songField.classList.toggle('hidden', taskType !== 'song');
+}
 document.addEventListener('change', function(e) {
     const activation = e.target.closest('[data-action="toggle-activation"]');
     if (activation) {
         toggleActivationFields(activation.value);
+        return;
+    }
+    const taskType = e.target.closest('[data-action="toggle-task-type"]');
+    if (taskType) {
+        toggleSongField(taskType.value);
     }
 });
 

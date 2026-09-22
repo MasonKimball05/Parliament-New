@@ -27,7 +27,7 @@ from src.models import (  # noqa: F401 PledgeQuizAnswer used in the quiz submiss
     Committee, ParliamentUser, PledgeTask, PledgeTaskCompletion,
     PledgePageRestriction, PledgeTaskQuestion, PledgeQuizAnswer,
     Event, EducationMeeting, EducationMeetingAttendance, EducationAbsenceRequest,
-    EducationMemberPermission,
+    EducationMemberPermission, Song,
 )
 from src.models.users import member_defer, member_prefetch
 
@@ -126,6 +126,29 @@ def _apply_task_fields(request, task):
     task.activates_at = activates_at
     if activation_mode == 'immediate':
         task.is_published = True
+
+    # 09-22-26 — Song-type tasks link to a real Songbook entry (title, lyrics,
+    # audio) instead of a chair re-typing lyrics into `description`. Only
+    # saved for task_type='song'; cleared otherwise so a task that gets
+    # switched away from Song doesn't carry a stale, invisible link (nothing
+    # renders it once task_type != 'song', but an unused FK sitting on a
+    # milestone task would be confusing to find later).
+    #
+    # ⚠️ NOT filtered on `is_active` here, deliberately — that's the FORM's
+    # job. `education_edit_task`'s `songs` context includes a task's own
+    # already-linked song even after a chorister soft-deletes it (see its
+    # comment), so its dropdown legitimately posts back that pk. Filtering
+    # to active-only here would silently clear the link the instant a chair
+    # saved ANY unrelated edit to a task whose song had since been
+    # deactivated — reproduced while writing this feature's tests. New
+    # links can only ever come from a rendered dropdown, and both dropdowns
+    # (add + edit) already restrict what a chair can newly pick from; this
+    # only has to not be stricter than they are.
+    task.song = None
+    if task_type == 'song':
+        song_pk = _parse_optional_positive_int(request.POST.get('song'))
+        if song_pk:
+            task.song = Song.objects.filter(pk=song_pk).first()
     return None
 
 
@@ -260,6 +283,11 @@ def education_home(request, code):
 
     tasks = (PledgeTask.objects.filter(is_active=True)
              # v3.17.3: created_by joined but never rendered by education.html
+             # 09-22-26: `song` joined too — the grid shows the linked song's
+             # title per row (song-type tasks), and My Tasks (pledge_tasks.py)
+             # renders lyrics/audio for it; without this, either page costs
+             # one extra query per song-type task.
+             .select_related('song')
              .prefetch_related(member_prefetch('assigned_to'))
              .order_by('display_order', 'due_date', 'title'))
     pledges = ParliamentUser.objects.filter(member_type='Pledge', is_active=True).order_by('name')
@@ -441,6 +469,8 @@ def education_home(request, code):
         'PHASE_CHOICES_SIMPLE': [('all', 'All'), ('1', 'Ph.1'), ('2', 'Ph.2'), ('3', 'Ph.3')],
         'all_pledges': pledges,
         'quiz_questions_map': quiz_questions_map,
+        # For the Add Task modal's song picker (task_type='song').
+        'songs': Song.objects.filter(is_active=True).select_related('category').order_by('title'),
     }
     return render(request, 'committee/education.html', context)
 
@@ -530,6 +560,13 @@ def education_edit_task(request, code, task_pk):
         'PHASE_CHOICES': PledgeTask.PHASE_CHOICES,
         'all_pledges': ParliamentUser.objects.filter(member_type='Pledge', is_active=True).order_by('name'),
         'assigned_pks': set(task.assigned_to.values_list('pk', flat=True)),
+        # Include the task's currently-linked song even if it's since been
+        # soft-deleted from the songbook — otherwise it silently vanishes
+        # from the dropdown and saving the form (without the chair touching
+        # this field at all) would clear a link they never meant to remove.
+        'songs': Song.objects.filter(
+            Q(is_active=True) | Q(pk=task.song_id)
+        ).select_related('category').order_by('title'),
     })
 
 
@@ -1331,6 +1368,7 @@ def education_duplicate_task(request, code, task_pk):
         activation_mode='manual',
         is_published=False,
         created_by=request.user,
+        song=original.song,
     )
     clone.assigned_to.set(original.assigned_to.all())
 
