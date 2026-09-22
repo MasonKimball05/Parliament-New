@@ -340,7 +340,77 @@ def education_home(request, code):
     )
     upcoming_meetings = [m for m in meetings_qs if m.event.date_time >= now]
     upcoming_meetings.sort(key=lambda m: m.event.date_time)
-    past_meetings = [m for m in meetings_qs if m.event.date_time < now][:10]
+    all_past_meetings = [m for m in meetings_qs if m.event.date_time < now]
+    past_meetings = all_past_meetings[:10]
+
+    # ── Points progress, so far (09-22-26, Mason's request) ────────────────
+    #
+    # "So far" means only what a pledge could actually have earned by now:
+    # a LIVE task they haven't finished yet still counts toward the max
+    # (they could still do it before it's due), but a task not yet live
+    # (draft/unpublished/timed-in-the-future) and a meeting that hasn't
+    # happened yet cannot have contributed a point either way, so both are
+    # excluded from max as well as earned — otherwise every pledge would
+    # be shown as further behind than they could possibly be.
+    #
+    # Mirrors the earned-points math already on the pledge's own page
+    # (`my_pledge_tasks`, src/view/pledge_tasks.py): 'completed' status
+    # only for tasks, `EARNS_POINTS` (present/late) only for attendance —
+    # same rules, so a pledge's own number and what a chair sees here
+    # always agree. `all_past_meetings` (unsliced) is used here rather
+    # than the 10-most-recent `past_meetings` above, which is a display
+    # cap for the "recent meetings" card, not a bound on what counts.
+    #
+    # Deliberately NOT filtered on `is_required` — `points` is documented
+    # on PledgeTask as "gamification / progress tracking", independent of
+    # the required flag, and pledge_tasks.py's own `task_points` doesn't
+    # filter on it either.
+    #
+    # A waived task still counts toward max (matches `pledge_summaries`'
+    # own `total` above, which counts a waived required task too) — it
+    # just can't be earned, so it costs the pledge percentage rather than
+    # silently shrinking the denominator.
+    live_task_points = {t.pk: t.points for t in tasks if t.is_live and t.points}
+    meeting_points_by_pk = {m.pk: m.points for m in all_past_meetings if m.points}
+    max_meeting_points = sum(meeting_points_by_pk.values())
+
+    # One query for every pledge's attendance across this committee's past
+    # meetings, grouped in Python — avoids a query per pledge or per
+    # meeting. `points_earned` (the model property) isn't used here on
+    # purpose: it reads `self.meeting.points`, which would cost a query per
+    # record without a select_related; `meeting_points_by_pk` already has
+    # that value from `all_past_meetings` above, so this only ever touches
+    # `record.meeting_id` (no query) and `record.status`.
+    attendance_by_pledge = {}
+    if meeting_points_by_pk:
+        for record in (
+            EducationMeetingAttendance.objects
+            .filter(meeting_id__in=meeting_points_by_pk, pledge__in=pledges)
+        ):
+            attendance_by_pledge.setdefault(record.pledge_id, []).append(record)
+
+    for ps in pledge_summaries:
+        pledge = ps['pledge']
+        applicable_task_pks = [
+            pk for pk in live_task_points
+            if not task_assigned_pks.get(pk) or pledge.pk in task_assigned_pks[pk]
+        ]
+        max_task_points = sum(live_task_points[pk] for pk in applicable_task_pks)
+        earned_task_points = sum(
+            live_task_points[pk] for pk in applicable_task_pks
+            if completion_map.get((pk, pledge.pk))
+            and completion_map[(pk, pledge.pk)].status == 'completed'
+        )
+        earned_meeting_points = sum(
+            meeting_points_by_pk.get(r.meeting_id, 0)
+            for r in attendance_by_pledge.get(pledge.pk, [])
+            if r.status in EducationMeetingAttendance.EARNS_POINTS
+        )
+        ps['points'] = earned_task_points + earned_meeting_points
+        ps['max_points'] = max_task_points + max_meeting_points
+        ps['points_percent'] = (
+            round(ps['points'] / ps['max_points'] * 100) if ps['max_points'] else None
+        )
 
     # Absence requests awaiting a decision (v3.21.0). Pending only: a decided
     # one is history and belongs on the meeting, not in the chair's queue.

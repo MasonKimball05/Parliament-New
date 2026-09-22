@@ -34,7 +34,7 @@
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
       <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
         <h2 class="text-lg font-bold text-gray-900 dark:text-white">Pledge Progress</h2>
-        <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Required tasks completed per pledge</p>
+        <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Required tasks completed, and points earned so far out of the max currently possible, per pledge</p>
       </div>
       <div class="divide-y divide-gray-100 dark:divide-gray-700">
         {% for ps in pledge_summaries %}
@@ -53,7 +53,16 @@
                 style="width: {{ ps.percent }}%"></div>
             </div>
           </div>
-          <span class="text-sm text-gray-600 dark:text-gray-400 shrink-0">{{ ps.completed }}/{{ ps.total }}</span>
+          <span class="text-sm text-gray-600 dark:text-gray-400 shrink-0">{{ ps.completed }}/{{ ps.total }} tasks</span>
+          {% comment %}
+          09-22-26 — points earned so far out of the max currently possible
+          (live tasks + meetings that have already happened; see the view's
+          comment above `live_task_points`). None when nothing live/past has
+          a point value yet, so a brand-new pledge class isn't shown "0/0".
+          {% endcomment %}
+          {% if ps.max_points %}
+          <span class="text-sm text-gray-500 dark:text-gray-500 shrink-0" title="Points earned so far, out of the max currently possible">{{ ps.points }}/{{ ps.max_points }} pts</span>
+          {% endif %}
         </div>
         {% endfor %}
       </div>
