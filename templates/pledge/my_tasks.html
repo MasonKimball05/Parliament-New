@@ -5,10 +5,25 @@
 {% block content %}
 <div class="min-h-screen bg-gray-50 dark:bg-gray-900">
 
+  {% if is_preview %}
+  <!-- 09-22-26 — "View as pledge" preview banner. This page is otherwise
+       byte-for-byte what {{ preview_pledge.name }} sees at /my-tasks/ (both
+       routes share `build_pledge_tasks_context`, see that function's
+       docstring) — the banner and the disabled actions below are the ONLY
+       differences, so a chair can trust what they're looking at is real. -->
+  <div class="sticky top-0 z-10 bg-amber-500 text-amber-950 px-4 py-2.5 text-sm font-semibold flex items-center justify-between gap-3 flex-wrap shadow">
+    <span>👁️ Previewing as {{ preview_pledge.name }} — read-only, nothing here can be changed or submitted.</span>
+    <a href="{% url 'education_pledge_detail' committee.code preview_pledge.pk %}"
+       class="text-xs px-3 py-1 rounded bg-amber-950/10 hover:bg-amber-950/20 font-semibold transition-colors">
+      ← Back to dashboard
+    </a>
+  </div>
+  {% endif %}
+
   <!-- Header -->
   <div class="bg-gradient-to-r from-primary-600 via-primary-700 to-primary-800 text-white py-8 shadow-lg">
     <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
-      <h1 class="text-3xl font-bold mb-1">My Tasks</h1>
+      <h1 class="text-3xl font-bold mb-1">{% if is_preview %}{{ preview_pledge.name }}'s Tasks{% else %}My Tasks{% endif %}</h1>
       <p class="text-primary-100 text-sm">Track your pledge education progress</p>
 
       {% if overdue_count %}
@@ -122,6 +137,10 @@
               </p>
               {% endif %}
             </div>
+            {% elif is_preview %}
+            <p class="text-xs text-gray-400 dark:text-gray-500 italic">
+              Absence requests are disabled in preview.
+            </p>
             {% else %}
             <details class="group">
               <summary class="text-xs text-primary-600 dark:text-primary-400 cursor-pointer hover:underline">
@@ -392,6 +411,8 @@
                   {% endif %}
                 {% elif item.completion and item.completion.status == 'pending' %}
                   <span class="text-xs text-amber-600 dark:text-amber-400 font-medium">⏳ Awaiting review</span>
+                {% elif is_preview %}
+                  <span class="text-xs text-gray-400 dark:text-gray-500 italic">Quiz-taking disabled in preview.</span>
                 {% else %}
                   <a href="{% url 'pledge_take_quiz' item.task.pk %}"
                      class="inline-block text-xs px-3 py-1 rounded bg-primary-600 hover:bg-primary-700 text-white font-semibold transition-colors">

@@ -88,7 +88,7 @@ from src.view.committee.education import (
     education_add_quiz_question, education_edit_quiz_question, education_delete_quiz_question,
     education_quiz_submissions,
     education_manage_quiz_questions,
-    education_pledge_detail, education_duplicate_task,
+    education_pledge_detail, education_duplicate_task, education_preview_pledge_tasks,
     education_quiz_analysis, education_mark_answer, education_review_absence,
     education_add_meeting, education_edit_meeting, education_delete_meeting,
     education_meeting_attendance,
@@ -913,6 +913,7 @@ urlpatterns = [
 
     # Education meetings (v3.20.0)
     path('committee/<str:code>/education/pledge/<str:pledge_pk>/', education_pledge_detail, name='education_pledge_detail'),
+    path('committee/<str:code>/education/preview/<str:pledge_pk>/', education_preview_pledge_tasks, name='education_preview_pledge_tasks'),
     path('committee/<str:code>/education/tasks/<int:task_pk>/duplicate/', education_duplicate_task, name='education_duplicate_task'),
     path('committee/<str:code>/education/tasks/<int:task_pk>/analysis/', education_quiz_analysis, name='education_quiz_analysis'),
     path('committee/<str:code>/education/tasks/<int:task_pk>/answers/<int:answer_pk>/mark/', education_mark_answer, name='education_mark_answer'),

@@ -63,6 +63,18 @@
           {% if ps.max_points %}
           <span class="text-sm text-gray-500 dark:text-gray-500 shrink-0" title="Points earned so far, out of the max currently possible">{{ ps.points }}/{{ ps.max_points }} pts</span>
           {% endif %}
+          {% comment %}
+          09-22-26 — Mason: a way for whoever manages the dashboard to see
+          exactly what this pledge's own My Tasks page looks like, without
+          impersonating them. Opens the read-only preview
+          (`education_preview_pledge_tasks`) — see that view's docstring for
+          why it isn't just `login_as_view`.
+          {% endcomment %}
+          <a href="{% url 'education_preview_pledge_tasks' committee.code ps.pledge.pk %}"
+             class="text-xs px-2.5 py-1 rounded border border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:text-primary-600 hover:border-primary-300 dark:hover:text-primary-400 transition-colors shrink-0"
+             title="Preview what {{ ps.pledge.name }} sees on their own tasks page">
+            View as pledge
+          </a>
         </div>
         {% endfor %}
       </div>

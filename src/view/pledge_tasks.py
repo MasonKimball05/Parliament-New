@@ -65,6 +65,31 @@ def my_pledge_tasks(request):
     if not request.user.is_pledge:
         return redirect('home')
 
+    context = build_pledge_tasks_context(request.user)
+    return render(request, 'pledge/my_tasks.html', context)
+
+
+def build_pledge_tasks_context(pledge):
+    """
+    Everything `my_tasks.html` needs, for a given pledge.
+
+    ⚠️ SPLIT OUT OF `my_pledge_tasks` (09-22-26) so the education dashboard's
+    "View as pledge" preview (`education_preview_pledge_tasks`,
+    src/view/committee/education.py) can render the EXACT same page a chair
+    is asking about, rather than a second, hand-maintained approximation of
+    it. Two copies of this math would drift the first time someone added a
+    field to one and not the other — the shape this codebase has recorded
+    repeatedly as "a rule stated correctly, then one call site left outside
+    it" (see e.g. `_apply_task_fields`'s own docstring for the same reasoning
+    on the chair side).
+
+    Takes a `ParliamentUser` directly rather than a request — the preview
+    caller has no session belonging to the pledge being previewed, and never
+    should (this function makes no assumption about who is asking; access
+    control is entirely the caller's job — `my_pledge_tasks` checks
+    `is_pledge`, `education_preview_pledge_tasks` checks education committee
+    access. Neither check lives here).
+    """
     from django.db.models import Q
     from django.utils import timezone
     now = timezone.now()
@@ -78,7 +103,7 @@ def my_pledge_tasks(request):
         Q(activation_mode='timed', activates_at__lte=now)
     ).filter(
         # Assigned to this pledge specifically, or assigned to nobody (= all pledges)
-        Q(assigned_to__isnull=True) | Q(assigned_to=request.user)
+        Q(assigned_to__isnull=True) | Q(assigned_to=pledge)
     # 09-22-26 — `song__category`: a Song-type task renders its linked song's
     # lyrics/audio and category badge right on this page (see my_tasks.html);
     # without this it's one extra query per song-type task, same reasoning as
@@ -92,7 +117,7 @@ def my_pledge_tasks(request):
     # **11 × src_pledgetask**, an N+1 the scoring feature introduced on the
     # page it was built for.
     completions = PledgeTaskCompletion.objects.filter(
-        task__in=tasks, pledge=request.user
+        task__in=tasks, pledge=pledge
     ).select_related('task')
     completion_map = {c.task_id: c for c in completions}
 
@@ -154,7 +179,7 @@ def my_pledge_tasks(request):
     # per past meeting on the pledge's own page.
     my_attendance = list(
         EducationMeetingAttendance.objects
-        .filter(pledge=request.user)
+        .filter(pledge=pledge)
         .select_related('meeting', 'meeting__event')
         .order_by('-meeting__event__date_time')
     )
@@ -193,7 +218,7 @@ def my_pledge_tasks(request):
     # offering the form again.
     absence_requests = {
         req.meeting_id: req
-        for req in EducationAbsenceRequest.objects.filter(pledge=request.user)
+        for req in EducationAbsenceRequest.objects.filter(pledge=pledge)
     }
 
     for meeting in upcoming_meetings:
@@ -214,7 +239,7 @@ def my_pledge_tasks(request):
         'task_points': task_points,
         'total_points': task_points + attendance_points,
     }
-    return render(request, 'pledge/my_tasks.html', context)
+    return context
 
 
 @login_required

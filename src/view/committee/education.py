@@ -30,6 +30,7 @@ from src.models import (  # noqa: F401 PledgeQuizAnswer used in the quiz submiss
     EducationMemberPermission, Song,
 )
 from src.models.users import member_defer, member_prefetch
+from src.view.pledge_tasks import build_pledge_tasks_context
 
 
 def _parse_non_negative_int(value, default=0):
@@ -1324,6 +1325,48 @@ def education_pledge_detail(request, code, pledge_pk):
         'task_points': task_points,
         'total_points': task_points + attendance_points,
     })
+
+
+@login_required
+@require_page_enabled('committee_home')
+def education_preview_pledge_tasks(request, code, pledge_pk):
+    """
+    "View as pledge" (09-22-26, Mason's request) — renders the EXACT page a
+    given pledge sees at `my_pledge_tasks`, for anyone with education
+    committee access, without touching sessions or logging anyone in.
+
+    ⚠️ DELIBERATELY NOT `login_as_view` — that mechanism swaps the caller's
+    session for the target user's (`@staff_member_required`, its own feature
+    flag, security logging) because it grants a real, full-access session as
+    someone else. This is read-only and narrower: a chair wants to see what a
+    pledge's task list looks like, not to act as that pledge. Reusing
+    `login_as_view` for this would mean either loosening it to a wider
+    audience than "become anyone" should ever have, or bolting a "read-only
+    mode" onto a mechanism whose whole design is a real session swap — worse
+    either way than a page that renders the same template with fetched
+    context and no session change at all.
+
+    Shares `build_pledge_tasks_context` with the pledge's own page (see that
+    function's docstring) — same tasks, same points, same everything, always,
+    with no second copy of the math to drift.
+
+    `my_tasks.html` is told `is_preview=True` and hides/disables the two
+    actions that would otherwise mutate data as this pledge (asking to be
+    excused from a meeting, taking a quiz) — a chair clicking around a
+    preview must not be able to accidentally file a request or submit
+    answers on a pledge's behalf.
+    """
+    committee, access = _education_committee_or_404(code, request.user)
+    pledge = get_object_or_404(ParliamentUser, pk=pledge_pk, member_type='Pledge')
+
+    context = build_pledge_tasks_context(pledge)
+    context.update({
+        'committee': committee,
+        'access': access,
+        'is_preview': True,
+        'preview_pledge': pledge,
+    })
+    return render(request, 'pledge/my_tasks.html', context)
 
 
 @login_required
