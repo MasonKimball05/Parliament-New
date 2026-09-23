@@ -77,10 +77,15 @@ class ModalPairsAreBalancedTests(SimpleTestCase):
         """
         The page the component was extracted from. If it drifts back to a
         hand-rolled shell, the overflow bug comes with it.
+
+        4, not the original 3 — 09-23-26 added a fourth modal (Adjust
+        Points) through the same shared component, so this only needs to
+        move in step with a real, deliberate addition, not be treated as a
+        ratchet nothing may cross.
         """
         body = (Path(settings.BASE_DIR) / 'templates' / 'committee' / 'education.html').read_text(encoding='utf-8')
-        self.assertEqual(body.count(OPEN_INCLUDE), 3)
-        self.assertEqual(body.count(CLOSE_INCLUDE), 3)
+        self.assertEqual(body.count(OPEN_INCLUDE), 4)
+        self.assertEqual(body.count(CLOSE_INCLUDE), 4)
 
     def test_the_shell_still_scrolls(self):
         """

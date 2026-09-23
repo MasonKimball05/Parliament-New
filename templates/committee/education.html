@@ -60,8 +60,31 @@
           comment above `live_task_points`). None when nothing live/past has
           a point value yet, so a brand-new pledge class isn't shown "0/0".
           {% endcomment %}
-          {% if ps.max_points %}
-          <span class="text-sm text-gray-500 dark:text-gray-500 shrink-0" title="Points earned so far, out of the max currently possible">{{ ps.points }}/{{ ps.max_points }} pts</span>
+          {% if ps.max_points or ps.points %}
+          {% comment %}
+          09-23-26 — condition widened from `ps.max_points` alone: once a
+          manual adjustment can move `points` without moving `max_points`
+          (e.g. a bonus with no matching max bump), a pledge with adjusted
+          points but a max of 0 would otherwise show nothing at all.
+          {% endcomment %}
+          <span class="text-sm text-gray-500 dark:text-gray-500 shrink-0{% if ps.has_adjustments %} border-b border-dotted border-gray-400{% endif %}"
+                title="{% if ps.has_adjustments %}Includes a manual adjustment — see Adjust Points for the log. {% endif %}Points earned so far, out of the max currently possible">{{ ps.points }}/{{ ps.max_points }} pts</span>
+          {% endif %}
+          {% if is_chair %}
+          {% comment %}
+          09-23-26 — `data-action`, not `onclick`. Every other control on
+          this page was rewritten off inline handlers in v3.31.1 because
+          prod's CSP (`script-src 'self' 'nonce-…'`, no 'unsafe-inline')
+          blocks them outright and silently — see the big comment above the
+          delegated listeners near the bottom of this file. New controls go
+          through the same listener, not a fresh inline attribute.
+          {% endcomment %}
+          <button type="button" data-action="open-adjust-points"
+            data-pledge-pk="{{ ps.pledge.pk }}" data-pledge-name="{{ ps.pledge.name }}"
+            class="text-xs px-2.5 py-1 rounded border border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:text-primary-600 hover:border-primary-300 dark:hover:text-primary-400 transition-colors shrink-0"
+            title="Manually adjust {{ ps.pledge.name }}'s points">
+            Adjust
+          </button>
           {% endif %}
           {% comment %}
           09-22-26 — Mason: a way for whoever manages the dashboard to see
@@ -511,6 +534,48 @@
 {% include "components/modal_close.html" with modal_id="add-task-modal" submit_label="Add Task" form_id="add-task-form" %}
 {% endif %}
 
+<!-- ── Adjust Points Modal (09-23-26) ──────────────────────────────────
+     One SHARED modal for every pledge row, not one per pledge — opening it
+     via `openAdjustPointsModal(pledgePk, pledgeName)` fills in the hidden
+     pledge id, the name in the title, and the history list for that pledge
+     from `ADJUSTMENTS_HISTORY` (below), rather than rendering N modals for
+     N pledges up front. -->
+{% if is_chair %}
+{% include "components/modal_open.html" with modal_id="adjust-points-modal" title="Adjust Points" subtitle="Manually add, remove, or otherwise change this pledge's points." %}
+    <form id="adjust-points-form">
+      <input type="hidden" id="adjust-points-pledge-pk" name="pledge_pk">
+      <p class="text-sm font-medium text-gray-900 dark:text-white mb-4" id="adjust-points-pledge-name"></p>
+
+      <div class="grid grid-cols-2 gap-4 mb-4">
+        <div>
+          <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Current points</label>
+          <input type="number" name="current_delta" id="adjust-current-delta" value="0" step="1"
+            class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white text-sm">
+          <p class="text-xs text-gray-400 mt-1">e.g. 5 or -3</p>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Max points</label>
+          <input type="number" name="max_delta" id="adjust-max-delta" value="0" step="1"
+            class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white text-sm">
+          <p class="text-xs text-gray-400 mt-1">e.g. 5 or -3</p>
+        </div>
+      </div>
+
+      <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Reason <span class="text-gray-400">(optional)</span></label>
+      <textarea name="reason" id="adjust-points-reason" rows="2" maxlength="200"
+        class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white text-sm mb-1"
+        placeholder="e.g. Bonus for helping with recruitment, or a correction for a grading mistake"></textarea>
+      <p id="adjust-points-error" class="text-xs text-red-600 dark:text-red-400 mb-4 hidden"></p>
+
+      <div id="adjust-points-history" class="border-t border-gray-100 dark:border-gray-700 pt-3 mt-2">
+        <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-2">Adjustment history</p>
+        <div id="adjust-points-history-list" class="space-y-2 max-h-40 overflow-y-auto"></div>
+        <p id="adjust-points-history-empty" class="text-xs text-gray-400 hidden">No adjustments yet.</p>
+      </div>
+    </form>
+{% include "components/modal_close.html" with modal_id="adjust-points-modal" submit_label="Save Adjustment" form_id="adjust-points-form" %}
+{% endif %}
+
 <script nonce="{{ request.csp_nonce }}">
 // ⚠️ v3.20.0 / v3.20.1 — EVERY CONTROL ON THIS PAGE USED TO RETURN 403 AND SAY
 // NOTHING. The page read the CSRF token from `document.cookie`, and
@@ -593,6 +658,90 @@ async function deleteRestriction(committeeCode, restrictionPk) {
         if (data.deleted) {
             document.getElementById(`restriction-row-${restrictionPk}`)?.remove();
         }
+    } catch (e) { /* reported by the helper */ }
+}
+
+// ── Adjust Points (09-23-26) ────────────────────────────────────────────
+//
+// `ADJUSTMENTS_HISTORY` is `{pledge_pk: [ {id, current_delta, max_delta,
+// reason, created_by, created_at}, ... ]}`, built once server-side
+// (`_script_safe_json` in education.py — see its docstring for why this is
+// NOT the bare `|safe` filter: `reason` is free-text chair input and could
+// otherwise break out of this script block). Read once here rather than
+// re-fetched from the DOM on every modal open.
+const ADJUSTMENTS_HISTORY = {{ adjustments_history_json|safe }};
+
+function renderAdjustmentHistory(pledgePk) {
+    const list = document.getElementById('adjust-points-history-list');
+    const empty = document.getElementById('adjust-points-history-empty');
+    const entries = ADJUSTMENTS_HISTORY[pledgePk] || [];
+    list.innerHTML = '';
+    empty.classList.toggle('hidden', entries.length > 0);
+    for (const entry of entries) {
+        const bits = [];
+        if (entry.current_delta) bits.push(`${entry.current_delta > 0 ? '+' : ''}${entry.current_delta} current`);
+        if (entry.max_delta) bits.push(`${entry.max_delta > 0 ? '+' : ''}${entry.max_delta} max`);
+        const row = document.createElement('div');
+        row.className = 'flex items-start justify-between gap-2 text-xs bg-gray-50 dark:bg-gray-700/50 rounded px-2 py-1.5';
+        row.innerHTML = `
+            <div class="min-w-0">
+                <span class="font-medium text-gray-700 dark:text-gray-200">${bits.join(', ') || 'no change'}</span>
+                <span class="text-gray-400"> — ${entry.created_by}, ${entry.created_at}</span>
+                ${entry.reason ? `<div class="text-gray-500 dark:text-gray-400 truncate">${entry.reason}</div>` : ''}
+            </div>
+            <button type="button" data-action="delete-adjustment" data-adjustment-id="${entry.id}"
+                class="text-gray-400 hover:text-red-600 shrink-0" title="Remove this adjustment">&#10005;</button>
+        `;
+        list.appendChild(row);
+    }
+}
+
+function openAdjustPointsModal(pledgePk, pledgeName) {
+    document.getElementById('adjust-points-pledge-pk').value = pledgePk;
+    document.getElementById('adjust-points-pledge-name').textContent = pledgeName;
+    document.getElementById('adjust-current-delta').value = 0;
+    document.getElementById('adjust-max-delta').value = 0;
+    document.getElementById('adjust-points-reason').value = '';
+    const errorEl = document.getElementById('adjust-points-error');
+    errorEl.classList.add('hidden');
+    errorEl.textContent = '';
+    renderAdjustmentHistory(pledgePk);
+    document.getElementById('adjust-points-modal').classList.remove('hidden');
+}
+
+async function submitPointsAdjustment(event) {
+    event.preventDefault();
+    const form = event.target;
+    const pledgePk = document.getElementById('adjust-points-pledge-pk').value;
+    const data = new FormData(form);
+    const errorEl = document.getElementById('adjust-points-error');
+    errorEl.classList.add('hidden');
+    try {
+        // `quiet: true` — this form shows its own inline error (below) right
+        // next to the fields the chair just filled in, so a toast on top of
+        // that would just say the same thing twice.
+        await Parliament.post(`/committee/${COMMITTEE_CODE}/education/points/${pledgePk}/adjust/`, data, {quiet: true});
+        // A reload is the simplest way to keep every number on the page
+        // (this pledge's points/max, and anyone glancing at the grid)
+        // consistent with what the adjustment just changed, matching
+        // `submitNewRestriction`'s approach for the same kind of
+        // cross-cutting update.
+        window.location.reload();
+    } catch (e) {
+        // Parliament.post already surfaced a toast for network/server errors.
+        // A 400 (e.g. all-zero submission) also lands here — show its
+        // message inline since the modal stays open and the toast alone is
+        // easy to miss against a form full of inputs.
+        errorEl.textContent = (e && e.message) || 'Could not save this adjustment.';
+        errorEl.classList.remove('hidden');
+    }
+}
+
+async function deleteAdjustment(adjustmentId) {
+    if (!confirm('Remove this adjustment?')) return;
+    try {
+        await Parliament.post(`/committee/${COMMITTEE_CODE}/education/points/adjustments/${adjustmentId}/delete/`);
+        window.location.reload();
     } catch (e) { /* reported by the helper */ }
 }
 
@@ -708,6 +857,12 @@ document.addEventListener('click', function(e) {
         case 'delete-restriction':
             deleteRestriction(COMMITTEE_CODE, el.dataset.restrictionPk);
             break;
+        case 'open-adjust-points':
+            openAdjustPointsModal(el.dataset.pledgePk, el.dataset.pledgeName);
+            break;
+        case 'delete-adjustment':
+            deleteAdjustment(el.dataset.adjustmentId);
+            break;
     }
 });
 
@@ -731,6 +886,10 @@ document.addEventListener('change', function(e) {
 document.addEventListener('submit', function(e) {
     if (e.target && e.target.id === 'add-restriction-form') {
         submitNewRestriction(e);
+        return;
+    }
+    if (e.target && e.target.id === 'adjust-points-form') {
+        submitPointsAdjustment(e);
     }
 });
 </script>

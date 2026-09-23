@@ -50,7 +50,7 @@ SECTIONS = {
     ],
     'Pledge Education': [
         'PledgeTask', 'PledgeTaskQuestion', 'PledgeTaskCompletion',
-        'PledgeQuizAnswer', 'PledgePageRestriction',
+        'PledgeQuizAnswer', 'PledgePageRestriction', 'PledgePointAdjustment',
     ],
     # v3.16.2: the 'Kai Committee' section was removed along with the Kai admin
     # registrations. Kai (judicial/disciplinary) case data is confidential and

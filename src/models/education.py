@@ -714,6 +714,84 @@ class EducationMemberPermission(models.Model):
         return f'{self.committee.name} — {self.user.name}'
 
 
+class PledgePointAdjustment(models.Model):
+    """
+    A manual adjustment to a pledge's education points — current (earned so
+    far) or max, or both — recorded as an append-only log rather than an
+    editable running total.
+
+    09-23-26 — Mason: "can we... adjust the amount of points a person has
+    manually? add, remove, or otherwise adjust... whether current or max."
+    The dashboard's points are otherwise entirely derived (task + meeting
+    points, computed fresh every request in `education_home` — see that
+    view's "Points progress, so far" block) with nothing to directly edit.
+    A single mutable "adjustment total" field on the pledge would work for
+    the number but destroy the "why" the moment a second chair changes it —
+    nobody could tell +10 apart from +6 then +4 by two different people for
+    two different reasons. An append-only log keeps every adjustment
+    attributable, timestamped and reasoned; undoing one is deleting the row
+    (`education_delete_point_adjustment`) rather than reverse-engineering
+    what a shared total used to be.
+
+    Scoped to a specific committee, not global to the pledge — the model
+    already treats points as committee-scoped (`education_home` sums a
+    pledge's task/meeting points for the one committee whose dashboard is
+    open), so an adjustment recorded here should not silently apply to a
+    different education committee's view of the same pledge.
+
+    `current_delta` and `max_delta` are independent — a chair can adjust
+    either, both, or neither-but-that's-a-no-op (the view rejects an
+    all-zero submission rather than writing a reason-only row with no
+    number attached to it).
+    """
+    committee = models.ForeignKey(
+        'Committee',
+        on_delete=models.CASCADE,
+        related_name='pledge_point_adjustments',
+        limit_choices_to={'is_education_committee': True},
+    )
+    pledge = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='point_adjustments',
+        limit_choices_to={'member_type': 'Pledge'},
+    )
+    #: Change to points earned so far. Positive adds, negative removes.
+    current_delta = models.SmallIntegerField(
+        default=0,
+        help_text='Change to points earned so far. Positive to add, negative to remove.',
+    )
+    #: Change to the max points currently possible. Positive adds, negative removes.
+    max_delta = models.SmallIntegerField(
+        default=0,
+        help_text='Change to the max points currently possible. Positive to add, negative to remove.',
+    )
+    reason = models.CharField(
+        max_length=200, blank=True,
+        help_text='Optional note for why this adjustment was made — shown in the history log.',
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        on_delete=models.SET_NULL,
+        related_name='created_point_adjustments',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Pledge Point Adjustment'
+        verbose_name_plural = 'Pledge Point Adjustments'
+
+    def __str__(self):
+        bits = []
+        if self.current_delta:
+            bits.append(f'{self.current_delta:+d} current')
+        if self.max_delta:
+            bits.append(f'{self.max_delta:+d} max')
+        return f'{self.pledge} — {", ".join(bits) or "no change"}'
+
+
 class EducationAbsenceRequest(models.Model):
     """
     A pledge asking to be excused from an education meeting.

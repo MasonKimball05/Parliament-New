@@ -11,6 +11,8 @@ Provides:
   - POST committee/<code>/education/tasks/<task_pk>/questions/<question_pk>/edit/ → edit a quiz question (v3.31.6)
   - POST committee/<code>/education/restrictions/update/                  → create/update PledgePageRestriction
   - POST committee/<code>/education/restrictions/<restriction_pk>/delete/ → remove PledgePageRestriction
+  - POST committee/<code>/education/points/<pledge_pk>/adjust/            → manual point adjustment (v3.34.0)
+  - POST committee/<code>/education/points/adjustments/<adjustment_pk>/delete/ → remove one adjustment (v3.34.0)
 """
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse, Http404
@@ -27,7 +29,7 @@ from src.models import (  # noqa: F401 PledgeQuizAnswer used in the quiz submiss
     Committee, ParliamentUser, PledgeTask, PledgeTaskCompletion,
     PledgePageRestriction, PledgeTaskQuestion, PledgeQuizAnswer,
     Event, EducationMeeting, EducationMeetingAttendance, EducationAbsenceRequest,
-    EducationMemberPermission, Song,
+    EducationMemberPermission, Song, PledgePointAdjustment,
 )
 from src.models.users import member_defer, member_prefetch
 from src.view.pledge_tasks import build_pledge_tasks_context
@@ -37,6 +39,21 @@ def _parse_non_negative_int(value, default=0):
     """Parse a POST field as a non-negative integer, returning default on bad input."""
     try:
         return max(0, int(value or default))
+    except (ValueError, TypeError):
+        return default
+
+
+def _parse_signed_int(value, default=0):
+    """
+    Parse a POST field as a signed integer (positive or negative), returning
+    `default` on bad input.
+
+    Distinct from `_parse_non_negative_int` on purpose — a point adjustment
+    must be able to remove points as well as add them, so 0 is not clamped
+    to be the floor the way it is for `PledgeTask.points`.
+    """
+    try:
+        return int(value or default)
     except (ValueError, TypeError):
         return default
 
@@ -58,6 +75,23 @@ def _parse_optional_positive_int(value):
     except (TypeError, ValueError):
         return None
     return parsed if parsed > 0 else None
+
+
+def _script_safe_json(data):
+    """
+    json.dumps that is safe to render inside a <script> block with |safe.
+
+    Same fix as `src/view/quote_book.py::_script_safe_json` (the 07-09-26
+    roles_json XSS finding) and needed here for the same reason: an
+    adjustment's `reason` is free-text chair input, embedded into
+    `education.html`'s script block for the Adjust Points modal's history
+    panel. Python's json.dumps does not escape '<', so a reason containing
+    '</script>' would otherwise terminate the script tag early — stored XSS
+    via the reason field. Escaping '<' as \\u003c is valid JSON and
+    neutralizes both '</script>' and '<!--' breakouts.
+    """
+    import json
+    return json.dumps(data).replace('<', '\\u003c')
 
 
 def _apply_task_fields(request, task):
@@ -441,6 +475,53 @@ def education_home(request, code):
             round(ps['points'] / ps['max_points'] * 100) if ps['max_points'] else None
         )
 
+    # ── Manual point adjustments (09-23-26, Mason's request) ────────────────
+    #
+    # "Add, remove, or otherwise adjust... whether current or max." Everything
+    # above this point is derived — there was nothing to directly edit. This
+    # folds `PledgePointAdjustment` rows (an append-only audit log, not an
+    # editable total — see that model's docstring for why) into the same
+    # `ps['points']`/`ps['max_points']` this page already renders, so a
+    # manual correction reads identically to an earned point everywhere else
+    # on the page and matches what the pledge's own My Tasks total will show
+    # once that page is updated to read the same adjustments (open item,
+    # tracked below — not built yet).
+    adjustments = list(
+        PledgePointAdjustment.objects
+        .filter(committee=committee, pledge__in=pledges)
+        .select_related('created_by')
+        .defer(*member_defer('created_by'))
+        .order_by('-created_at')
+    )
+    adjustments_by_pledge = {}
+    for adj in adjustments:
+        adjustments_by_pledge.setdefault(adj.pledge_id, []).append(adj)
+
+    # One small JSON payload for the shared "Adjust Points" modal's history
+    # panel, built once here rather than an AJAX round trip per pledge every
+    # time a chair opens the modal — there are at most a few dozen pledges
+    # and a handful of adjustments each, so this stays small.
+    adjustments_history = {}
+    for ps in pledge_summaries:
+        pledge_adjustments = adjustments_by_pledge.get(ps['pledge'].pk, [])
+        ps['points'] += sum(a.current_delta for a in pledge_adjustments)
+        ps['max_points'] += sum(a.max_delta for a in pledge_adjustments)
+        ps['points_percent'] = (
+            round(ps['points'] / ps['max_points'] * 100) if ps['max_points'] else None
+        )
+        ps['has_adjustments'] = bool(pledge_adjustments)
+        adjustments_history[str(ps['pledge'].pk)] = [
+            {
+                'id': a.pk,
+                'current_delta': a.current_delta,
+                'max_delta': a.max_delta,
+                'reason': a.reason,
+                'created_by': a.created_by.name if a.created_by else 'Deleted user',
+                'created_at': timezone.localtime(a.created_at).strftime('%-m/%-d/%y %-I:%M %p'),
+            }
+            for a in pledge_adjustments
+        ]
+
     # Absence requests awaiting a decision (v3.21.0). Pending only: a decided
     # one is history and belongs on the meeting, not in the chair's queue.
     pending_absences = list(
@@ -472,8 +553,92 @@ def education_home(request, code):
         'quiz_questions_map': quiz_questions_map,
         # For the Add Task modal's song picker (task_type='song').
         'songs': Song.objects.filter(is_active=True).select_related('category').order_by('title'),
+        # For the shared "Adjust Points" modal's history panel — see
+        # `_script_safe_json`'s docstring for why this isn't rendered with
+        # the bare `|safe` filter.
+        'adjustments_history_json': _script_safe_json(adjustments_history),
     }
     return render(request, 'committee/education.html', context)
+
+
+@login_required
+@require_page_enabled('committee_home')
+@require_POST
+def education_adjust_points(request, code, pledge_pk):
+    """
+    Record a manual point adjustment for one pledge.
+
+    09-23-26 — Mason: "can we... adjust the amount of points a person has
+    manually? Add, remove, or otherwise adjust... whether it be current or
+    maximum." Writes a new `PledgePointAdjustment` row rather than editing a
+    running total — see that model's docstring for why an append-only log
+    was chosen over a single mutable field.
+
+    Gated on `can_manage_tasks`, the same permission that already covers
+    creating/editing tasks and their point values — this is the same kind
+    of authority over a pledge's point total, just applied directly instead
+    of through a task.
+
+    Rejects an all-zero submission: a reason with no number attached is not
+    an adjustment, and silently accepting one would let the button be used
+    to leave a note with no visible effect on the page it's attached to —
+    confusing the moment someone later wonders why a pledge's total didn't
+    move despite an entry existing for them.
+    """
+    committee, access = _education_committee_or_404(code, request.user)
+    denied = _require_education_permission(access, 'can_manage_tasks')
+    if denied:
+        return denied
+
+    pledge = get_object_or_404(ParliamentUser, pk=pledge_pk, member_type='Pledge')
+
+    current_delta = _parse_signed_int(request.POST.get('current_delta'))
+    max_delta = _parse_signed_int(request.POST.get('max_delta'))
+    if current_delta == 0 and max_delta == 0:
+        return JsonResponse(
+            {'error': 'Enter a nonzero amount to adjust current or max points by.'},
+            status=400,
+        )
+
+    reason = (request.POST.get('reason') or '').strip()[:200]
+
+    adjustment = PledgePointAdjustment.objects.create(
+        committee=committee,
+        pledge=pledge,
+        current_delta=current_delta,
+        max_delta=max_delta,
+        reason=reason,
+        created_by=request.user,
+    )
+    return JsonResponse({
+        'id': adjustment.pk,
+        'current_delta': adjustment.current_delta,
+        'max_delta': adjustment.max_delta,
+        'reason': adjustment.reason,
+        'created_by': request.user.name,
+    })
+
+
+@login_required
+@require_page_enabled('committee_home')
+@require_POST
+def education_delete_point_adjustment(request, code, adjustment_pk):
+    """
+    Remove one point adjustment — how a chair corrects a mistake, since the
+    log itself is append-only (see `PledgePointAdjustment`'s docstring).
+
+    Scoped to `committee=committee` in the lookup, not just `pk=` — a chair
+    of a different education committee cannot delete this one's adjustment
+    row by guessing or incrementing an id in the request.
+    """
+    committee, access = _education_committee_or_404(code, request.user)
+    denied = _require_education_permission(access, 'can_manage_tasks')
+    if denied:
+        return denied
+
+    adjustment = get_object_or_404(PledgePointAdjustment, pk=adjustment_pk, committee=committee)
+    adjustment.delete()
+    return JsonResponse({'deleted': True})
 
 
 @login_required

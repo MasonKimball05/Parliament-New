@@ -92,6 +92,7 @@ from src.view.committee.education import (
     education_quiz_analysis, education_mark_answer, education_review_absence,
     education_add_meeting, education_edit_meeting, education_delete_meeting,
     education_meeting_attendance,
+    education_adjust_points, education_delete_point_adjustment,
 )
 from src.view.chat import (
     chat_index, channel_chat, get_channel_messages, send_channel_message,
@@ -904,6 +905,11 @@ urlpatterns = [
     path('committee/<str:code>/education/tasks/<int:task_pk>/publish/', education_toggle_task_published, name='education_toggle_task_published'),
     path('committee/<str:code>/education/restrictions/update/', education_update_page_restriction, name='education_update_page_restriction'),
     path('committee/<str:code>/education/restrictions/<int:restriction_pk>/delete/', education_delete_page_restriction, name='education_delete_page_restriction'),
+    # Manual point adjustments (v3.34.0) — `pledge_pk` is `str`, not `int`,
+    # matching `education_toggle_completion` above: ParliamentUser's pk is
+    # the `user_id` surrogate string key ('P-XXXXXX'), not an integer.
+    path('committee/<str:code>/education/points/<str:pledge_pk>/adjust/', education_adjust_points, name='education_adjust_points'),
+    path('committee/<str:code>/education/points/adjustments/<int:adjustment_pk>/delete/', education_delete_point_adjustment, name='education_delete_point_adjustment'),
     # Quiz question management
     path('committee/<str:code>/education/tasks/<int:task_pk>/questions/', education_manage_quiz_questions, name='education_manage_quiz_questions'),
     path('committee/<str:code>/education/tasks/<int:task_pk>/questions/add/', education_add_quiz_question, name='education_add_quiz_question'),

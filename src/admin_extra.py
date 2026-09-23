@@ -42,7 +42,7 @@ from .models import (
     CommitteeMinutes, ChapterFolder, MinutesSection, MinutesMotion,
     # education (pledge program)
     PledgeTask, PledgePageRestriction, PledgeTaskCompletion, PledgeTaskQuestion,
-    PledgeQuizAnswer,
+    PledgeQuizAnswer, PledgePointAdjustment,
     # events
     EventReminderLog, EventReminderRecipient, EventSignup, EventCheckinWindow,
     # guide
@@ -397,6 +397,26 @@ class PledgeTaskCompletionAdmin(admin.ModelAdmin):
 class PledgeTaskQuestionAdmin(admin.ModelAdmin):
     list_display = ('task', 'question_text', 'display_order')
     search_fields = ('question_text',)
+
+
+@admin.register(PledgePointAdjustment, site=admin_site)
+class PledgePointAdjustmentAdmin(admin.ModelAdmin):
+    # ViewDeleteAdmin, not a plain ModelAdmin (mirrors PledgeQuizAnswerAdmin
+    # above, same reason): this is an append-only audit log by design — the
+    # dashboard's own delete action is how a chair corrects a mistake, and
+    # an admin who could edit a row here would defeat the "why" this model
+    # exists to preserve. Deletion stays available so a dropped pledge's
+    # rows don't block their own ParliamentUser row from being removed.
+    list_display = ('pledge', 'committee', 'current_delta', 'max_delta', 'reason', 'created_by', 'created_at')
+    list_filter = ('committee',)
+    search_fields = ('pledge__username', 'pledge__name', 'reason')
+    readonly_fields = [f.name for f in PledgePointAdjustment._meta.fields]
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
 
 
 @admin.register(PledgeQuizAnswer, site=admin_site)
