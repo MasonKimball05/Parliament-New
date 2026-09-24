@@ -444,7 +444,7 @@
     </div>
 
     <!-- Kai Reports (Kai committee chairs/admins only) -->
-    {% if committee.is_kai_committee and is_chair or committee.is_kai_committee and user.is_admin %}
+    {% if committee.is_kai_committee and kai_access.can_view_report_list %}
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-6 transition-colors duration-200">
         <div class="flex justify-between items-center mb-4">
             <div>
@@ -454,9 +454,11 @@
                 {% endif %}
             </div>
             <div class="flex items-center gap-2">
+                {% if kai_access.is_full_access and not kai_access.is_break_glass %}{# chair only — matches manage_kai_permissions' own gate (09-24-26) #}
                 <a href="{% url 'manage_kai_permissions' committee.code %}" class="text-xs border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 px-3 py-1.5 rounded hover:bg-gray-50 dark:hover:bg-gray-700 transition">
                     Member Perms
                 </a>
+                {% endif %}
                 <a href="{% url 'view_kai_reports' %}" class="text-xs bg-primary-600 text-white px-3 py-1.5 rounded hover:bg-primary-700">
                     View All
                 </a>

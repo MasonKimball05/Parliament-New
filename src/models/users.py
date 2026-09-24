@@ -401,11 +401,21 @@ class ParliamentUser(AbstractBaseUser):
 
     @property
     def can_access_kai(self):
-        """Check if user is a chair of the Kai (conduct) committee"""
+        """
+        True if this user may open the Kai review list (`view_kai_reports`).
+
+        ⚠️ 09-24-26 — delegates to `_get_kai_access(...)['can_view_report_list']`.
+        It used `Committee.is_chair()`, so members granted access through
+        `KaiMemberPermission` never saw the Kai nav link, while exec-board
+        members of a Kai committee flagged `is_exec_board` did (v3.18.1's
+        `_is_kai_chair` note). Admins get nothing here unless they hold a real
+        grant or an active break-glass — same as the page itself.
+        """
         try:
             from src.models.committees import Committee
+            from src.view.kai_reports import _get_kai_access
             kai = Committee.objects.get(is_kai_committee=True)
-            return kai.is_chair(self)
+            return bool(_get_kai_access(self, kai)['can_view_report_list'])
         except Exception:
             return False
 

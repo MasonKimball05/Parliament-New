@@ -2963,7 +2963,14 @@ def _is_recused_from(report, user):
 
 def _can_appoint_standins(user, committee):
     """
-    Only the head of Kai — or a site admin — may appoint a stand-in.
+    Only the head of Kai may appoint a stand-in.
+
+    ⚠️ 09-24-26 — `user.is_admin` REMOVED. A stand-in receives a snapshot of a
+    seat's permissions on a live case, and `appoint_kai_standin` never
+    consults `_get_kai_access` — so a site admin with no Kai grant could POST
+    an appointment (themselves included, if eligible) and read the case. That
+    is the v3.18.2 admin bypass by another door. Mason 09-24-26: admins must
+    not reach Kai data.
 
     Deliberately NOT a `KaiMemberPermission` flag. Appointment hands another
     member access to a specific case, so it is a delegation of authority rather
@@ -2974,7 +2981,7 @@ def _can_appoint_standins(user, committee):
     snapshot of a seat's permissions on a live case), so it is the last place
     the `is_exec_board` shortcut belongs. See `_is_kai_chair`.
     """
-    return bool(user.is_admin or _is_kai_chair(user, committee))
+    return bool(_is_kai_chair(user, committee))
 
 
 def _sync_recusals(report, committee):

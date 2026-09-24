@@ -306,7 +306,7 @@
     </div>
 
     <!-- Kai Reports Section (Only for Kai Committee Chairs) -->
-    {% if committee.code == 'KAI' and is_chair or committee.code == 'KAI' and user.is_admin %}
+    {% if committee.is_kai_committee and kai_access.can_view_report_list %}
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mt-6 transition-colors duration-200">
         <div class="flex justify-between items-center mb-4">
             <div>

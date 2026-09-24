@@ -682,7 +682,7 @@ function renderAdjustmentHistory(pledgePk) {
         if (entry.current_delta) bits.push(`${entry.current_delta > 0 ? '+' : ''}${entry.current_delta} current`);
         if (entry.max_delta) bits.push(`${entry.max_delta > 0 ? '+' : ''}${entry.max_delta} max`);
         // ⚠️ 09-24-26 — built with createElement/textContent, NOT innerHTML.
-        // `_script_safe_json` only stops `reason` breaking out of the <script>
+        // `_script_safe_json` only stops `reason` breaking out of the script
         // block; once parsed it is a plain string again, and interpolating it
         // into innerHTML was stored HTML injection (chair-typed `reason`, and
         // `created_by` name, rendered as markup for every other chair).

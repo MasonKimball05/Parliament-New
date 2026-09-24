@@ -61,13 +61,12 @@ def user_kai_dashboard(request):
         status='pending'
     )  # v3.17.3: select_related('report') removed — the template never reads it
 
-    # Check if user is Kai chair (to show admin link)
-    is_kai_chair = False
-    try:
-        kai_committee = Committee.objects.get(is_kai_committee=True)
-        is_kai_chair = kai_committee.is_chair(user)
-    except Committee.DoesNotExist:
-        pass
+    # Link to the review dashboard. ⚠️ 09-24-26 — was `kai_committee.is_chair(user)`,
+    # which hid the link from every `KaiMemberPermission` grantee (and showed it
+    # to exec-board members via `Committee.is_chair`'s shortcut). Now the same
+    # predicate the list page enforces. Admins get it only with a real grant
+    # or an active break-glass.
+    can_view_kai_reports = user.can_access_kai
 
     # v3.18.0 — cases this member is STANDING IN on (bylaws §§ vi-ix).
     #
@@ -87,7 +86,7 @@ def user_kai_dashboard(request):
         'submitted_reports': submitted_reports,
         'accused_reports': accused_reports,
         'pending_closures': pending_closures,
-        'is_kai_chair': is_kai_chair,
+        'can_view_kai_reports': can_view_kai_reports,
         'standin_recusals': standin_recusals,
     }
 

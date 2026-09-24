@@ -19,8 +19,23 @@ KAI_PERM_FIELDS = [
 
 
 def _require_kai_chair(request, committee):
-    """Return True if user may manage Kai permissions, otherwise redirect."""
-    return committee.is_chair(request.user) or request.user.is_admin
+    """
+    True if the user may manage Kai member permissions: an actual Kai chair.
+
+    ⚠️ 09-24-26 — NO LONGER `committee.is_chair(user) or user.is_admin`.
+    Both halves were admin/exec paths INTO Kai: this page grants
+    `can_view_report_details` and both identity flags, so anyone who can open
+    it can grant themselves the whole module. v3.16.2 unregistered
+    `KaiMemberPermissionAdmin` for exactly this reason ("an admin could grant
+    themselves submitter/accused identity visibility") and v3.18.2 removed
+    `is_admin` from `_get_kai_access` — this in-app page kept both edges.
+    `Committee.is_chair()` also carries the `is_exec_board` shortcut that
+    v3.18.1's `_is_kai_chair` exists to avoid. Mason 09-24-26: admins must not
+    be able to reach Kai data. Recovery if no chair exists is to assign a
+    chair on the committee, or `manage.py kai_break_glass` for case access.
+    """
+    from src.view.kai_reports import _is_kai_chair
+    return _is_kai_chair(request.user, committee)
 
 
 def _serialize_kai_perm(perm):
@@ -88,8 +103,11 @@ def update_kai_member_permission(request, code, user_id):
     except ParliamentUser.DoesNotExist:
         return JsonResponse({'error': 'User not found'}, status=404)
 
-    # Chairs already have full access — don't create redundant permission rows
-    if committee.is_chair(member):
+    # Chairs already have full access — don't create redundant permission rows.
+    # 09-24-26: `_is_kai_chair`, not `committee.is_chair` — the latter's
+    # exec-board shortcut refused grants to members who do NOT have full access.
+    from src.view.kai_reports import _is_kai_chair
+    if _is_kai_chair(member, committee):
         return JsonResponse({'error': 'Chairs always have full access; no explicit permission needed'}, status=400)
 
     defaults = {field: request.POST.get(field) == 'true' for field in KAI_PERM_FIELDS}
