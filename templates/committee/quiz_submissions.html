@@ -85,7 +85,7 @@
              cycling instead: from "pending", BOTH buttons marked the pledge
              passed. The view now honours `set_status`; do not remove those
              hidden inputs. -->
-        {% if row.submitted and is_chair %}
+        {% if row.submitted and access.can_grade_submissions %}
         <div class="flex items-center gap-2 flex-wrap justify-end">
           {% if task.is_scored %}
           <!-- Score entry. Posted alongside the status so one click records
@@ -101,7 +101,7 @@
                    value="{{ row.completion.score|default_if_none:'' }}"
                    class="w-16 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-2 py-1 text-xs focus:ring-2 focus:ring-primary-500">
             <span class="text-xs text-gray-500 dark:text-gray-400">/ {{ task.max_score }}</span>
-            <button type="submit" class="text-xs px-2 py-1 rounded bg-primary-100 hover:bg-primary-200 text-primary-700 dark:bg-primary-900/30 dark:hover:bg-primary-800/40 dark:text-primary-400 transition-colors">Save score + pass</button>
+            <button type="submit" class="text-xs px-2 py-1 rounded bg-primary-100 hover:bg-primary-200 text-primary-700 dark:bg-primary-900/30 dark:hover:bg-primary-800/40 dark:text-primary-400 transition-colors">Save score</button>
           </form>
           {% endif %}
           <form method="post" action="{% url 'education_toggle_completion' committee.code task.pk row.pledge.pk %}">
@@ -133,7 +133,7 @@
           verdict can ignore these and nothing breaks; the breakdown just says
           how many are unmarked.
           {% endcomment %}
-          {% if pair.answer_pk and is_chair %}
+          {% if pair.answer_pk and access.can_grade_submissions %}
           {% comment %}
           The endpoint is rendered per row by `{% url %}` rather than built in
           JavaScript. The first draft reversed one URL and string-replaced the

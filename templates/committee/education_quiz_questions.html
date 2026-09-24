@@ -45,7 +45,7 @@
               </p>
               {% endif %}
             </div>
-            {% if is_chair %}
+            {% if access.can_manage_tasks %}
             <div class="shrink-0 flex items-center gap-1">
               <button type="button" data-action="edit-question" data-question-pk="{{ question.pk }}"
                 class="text-xs text-gray-400 hover:text-primary-600 px-2 py-1 rounded hover:bg-primary-50 dark:hover:bg-primary-900/20 transition">
@@ -59,7 +59,7 @@
             {% endif %}
           </div>
 
-          {% if is_chair %}
+          {% if access.can_manage_tasks %}
           {% comment %}
           ⚠️ v3.31.6 — Mason: "for quizzes you cannot edit the questions after
           making them." Add and Delete existed; a typo meant deleting and
@@ -113,14 +113,14 @@
       {% else %}
       <div class="p-8 text-center">
         <p class="text-gray-500 dark:text-gray-400 text-sm">No questions yet.
-          {% if is_chair %}Add the first one below.{% endif %}
+          {% if access.can_manage_tasks %}Add the first one below.{% endif %}
         </p>
       </div>
       {% endif %}
     </div>
 
     <!-- ── Add question ────────────────────────────────────────────────── -->
-    {% if is_chair %}
+    {% if access.can_manage_tasks %}
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
       <h2 class="text-base font-bold text-gray-900 dark:text-white mb-4">Add a question</h2>
       <form id="add-question-form" class="space-y-4">
@@ -155,7 +155,7 @@
   </div>
 </div>
 
-{% if is_chair %}
+{% if access.can_manage_tasks %}
 <script nonce="{{ request.csp_nonce }}">
 // Same fetch-plus-JSON pattern as education.html — see the comment there for
 // the full CSP trace (no inline onclick=/onsubmit=, delegated listeners,

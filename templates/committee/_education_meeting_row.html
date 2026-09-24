@@ -1,7 +1,7 @@
 {% comment %}
 One meeting row on the education dashboard (v3.20.0).
 
-Expects: meeting, upcoming (bool), committee, is_chair.
+Expects: meeting, upcoming (bool), committee, access (from _get_education_access).
 
 Kept as an include rather than duplicated for upcoming/past, so the two lists
 cannot drift apart — this codebase has repeatedly recorded the cost of a rule
@@ -52,7 +52,7 @@ applied in one place and not its twin.
          class="text-xs px-3 py-1 rounded bg-primary-100 hover:bg-primary-200 text-primary-700 dark:bg-primary-900/30 dark:hover:bg-primary-800/40 dark:text-primary-400 font-semibold transition-colors">
         Take attendance
       </a>
-      {% if is_chair %}
+      {% if access.can_manage_tasks %}
       {% comment %}
       v3.20.1 — Edit, not Delete. Delete moved onto the edit page so that the
       safe way to correct a meeting is the one on the row, and the destructive

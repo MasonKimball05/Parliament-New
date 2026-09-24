@@ -43,6 +43,16 @@ def _parse_non_negative_int(value, default=0):
         return default
 
 
+#: Largest |delta| one manual point adjustment may carry (09-24-26).
+#: `PledgePointAdjustment.current_delta`/`max_delta` are SmallIntegerFields
+#: (±32767). Without a bound, an out-of-range value raised
+#: NumericValueOutOfRange on PostgreSQL — a 500 instead of the view's clean
+#: 400 — while SQLite (which does not enforce the width) let tests pass.
+#: 1000 is far above any real task/meeting point value in this program and
+#: well inside the column.
+POINT_ADJUSTMENT_LIMIT = 1000
+
+
 def _parse_signed_int(value, default=0):
     """
     Parse a POST field as a signed integer (positive or negative), returning
@@ -557,6 +567,7 @@ def education_home(request, code):
         # `_script_safe_json`'s docstring for why this isn't rendered with
         # the bare `|safe` filter.
         'adjustments_history_json': _script_safe_json(adjustments_history),
+        'POINT_ADJUSTMENT_LIMIT': POINT_ADJUSTMENT_LIMIT,
     }
     return render(request, 'committee/education.html', context)
 
@@ -597,6 +608,12 @@ def education_adjust_points(request, code, pledge_pk):
     if current_delta == 0 and max_delta == 0:
         return JsonResponse(
             {'error': 'Enter a nonzero amount to adjust current or max points by.'},
+            status=400,
+        )
+
+    if abs(current_delta) > POINT_ADJUSTMENT_LIMIT or abs(max_delta) > POINT_ADJUSTMENT_LIMIT:
+        return JsonResponse(
+            {'error': f'Adjustments are limited to ±{POINT_ADJUSTMENT_LIMIT} points at a time.'},
             status=400,
         )
 
@@ -722,6 +739,7 @@ def education_edit_task(request, code, task_pk):
         'committee': committee,
         'task': task,
         'is_chair': access['is_chair'],
+        'access': access,
         'TASK_TYPES': PledgeTask.TASK_TYPES,
         'PHASE_CHOICES': PledgeTask.PHASE_CHOICES,
         'all_pledges': ParliamentUser.objects.filter(member_type='Pledge', is_active=True).order_by('name'),
@@ -1070,6 +1088,7 @@ def education_manage_quiz_questions(request, code, task_pk):
         'committee': committee,
         'task': task,
         'is_chair': access['is_chair'],
+        'access': access,
         'questions': questions,
         # Set only by the redirect `education_add_task` sends a brand-new quiz
         # through (v3.31.6) — confirms the task itself saved before asking the
@@ -1299,6 +1318,7 @@ def education_edit_meeting(request, code, meeting_pk):
         'committee': committee,
         'meeting': meeting,
         'is_chair': is_chair,
+        'access': access,
         'tasks': PledgeTask.objects.filter(is_active=True).order_by('display_order', 'title'),
         'assigned_homework_pks': set(meeting.homework.values_list('pk', flat=True)),
         'MEETING_TYPES': EducationMeeting.MEETING_TYPES,

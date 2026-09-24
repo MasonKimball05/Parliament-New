@@ -23,7 +23,7 @@
         {% include "committee/_education_task_fields.html" %}
 
         <div class="flex items-center justify-between gap-2 mt-6 pt-6 border-t border-gray-100 dark:border-gray-700">
-          {% if is_chair %}
+          {% if access.can_manage_tasks %}
           <!-- Delete lives here, next to the thing it deletes, mirroring the
                meeting edit page (v3.20.1). -->
           <button type="button" id="delete-task-trigger"
@@ -85,7 +85,7 @@ document.addEventListener('change', function(e) {
     }
 });
 
-{% if is_chair %}
+{% if access.can_manage_tasks %}
 // ⚠️ Same CSP trace as education_meeting_form.html / education.html — no
 // inline onclick=/onsubmit=, delegated listeners only.
 document.getElementById('delete-task-trigger')?.addEventListener('click', function() {
@@ -99,7 +99,7 @@ document.getElementById('delete-task-form')?.addEventListener('submit', function
 {% endif %}
 </script>
 
-{% if is_chair %}
+{% if access.can_manage_tasks %}
 <form method="post" id="delete-task-form" class="hidden"
       action="{% url 'education_delete_task' committee.code task.pk %}">
   {% csrf_token %}

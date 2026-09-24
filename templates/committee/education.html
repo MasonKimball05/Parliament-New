@@ -15,7 +15,7 @@
           <p class="text-primary-100 text-sm mt-1">{{ pledges|length }} pledge{{ pledges|length|pluralize }} · {{ tasks|length }} task{{ tasks|length|pluralize }}</p>
         </div>
         <div class="flex items-center gap-3 flex-wrap">
-          {% if is_chair %}
+          {% if access.can_manage_tasks %}
           <button type="button" data-modal-open="add-task-modal"
             class="bg-white/20 hover:bg-white/30 text-white text-sm font-semibold px-4 py-2 rounded-lg transition">
             + Add Task
@@ -70,7 +70,7 @@
           <span class="text-sm text-gray-500 dark:text-gray-500 shrink-0{% if ps.has_adjustments %} border-b border-dotted border-gray-400{% endif %}"
                 title="{% if ps.has_adjustments %}Includes a manual adjustment — see Adjust Points for the log. {% endif %}Points earned so far, out of the max currently possible">{{ ps.points }}/{{ ps.max_points }} pts</span>
           {% endif %}
-          {% if is_chair %}
+          {% if access.can_manage_tasks %}
           {% comment %}
           09-23-26 — `data-action`, not `onclick`. Every other control on
           this page was rewritten off inline handlers in v3.31.1 because
@@ -125,7 +125,7 @@
                    title="Everything about {{ pledge.name }}">{{ pledge.name|truncatechars:12 }}</a>
               </th>
               {% endfor %}
-              {% if is_chair %}
+              {% if access.can_manage_tasks %}
               <th class="px-3 py-3 border-b border-gray-200 dark:border-gray-700"></th>
               {% endif %}
             </tr>
@@ -160,7 +160,7 @@
                 {% if status == 'live' %}
                 <span class="inline-block mt-1 text-xs font-medium text-green-600 dark:text-green-400">● Live</span>
                 {% elif status == 'draft' %}
-                {% if is_chair %}
+                {% if access.can_manage_tasks %}
                 <button type="button" data-action="publish-task" data-task-pk="{{ row.task.pk }}"
                   data-published="false"
                   class="inline-block mt-1 text-xs font-medium text-gray-400 dark:text-gray-500 hover:text-green-600 dark:hover:text-green-400 transition"
@@ -229,7 +229,7 @@
                 {% endif %}
               </td>
               {% endfor %}
-              {% if is_chair %}
+              {% if access.can_manage_tasks %}
               <td class="px-3 py-3 text-center whitespace-nowrap">
                 <a href="{% url 'education_edit_task' committee.code row.task.pk %}"
                   class="opacity-0 group-hover:opacity-100 transition text-gray-400 hover:text-primary-600 text-xs px-2 py-1 rounded hover:bg-primary-50 dark:hover:bg-primary-900/20"
@@ -260,7 +260,7 @@
     {% else %}
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-12 text-center">
       <p class="text-gray-500 dark:text-gray-400 text-sm">No tasks yet.
-        {% if is_chair %}Click "Add Task" to create the first one.{% endif %}
+        {% if access.can_manage_tasks %}Click "Add Task" to create the first one.{% endif %}
       </p>
     </div>
     {% endif %}
@@ -323,7 +323,7 @@
             Meetings appear on the chapter calendar for everyone. Attendance is taken for pledges only.
           </p>
         </div>
-        {% if is_chair %}
+        {% if access.can_manage_tasks %}
         <button type="button" data-modal-open="addMeetingModal"
           class="px-3 py-1.5 text-sm font-semibold bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition">
           + Add Meeting
@@ -343,14 +343,14 @@
       {% else %}
       <div class="p-8 text-center">
         <p class="text-gray-500 dark:text-gray-400 text-sm">No meetings scheduled.
-          {% if is_chair %}Click "Add Meeting" to schedule one.{% endif %}
+          {% if access.can_manage_tasks %}Click "Add Meeting" to schedule one.{% endif %}
         </p>
       </div>
       {% endif %}
     </div>
 
     <!-- ── Pledge Page Access ────────────────────────────────────────── -->
-    {% if is_chair %}
+    {% if access.can_manage_tasks %}
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
       <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
         <div class="flex items-start justify-between gap-4">
@@ -453,7 +453,7 @@
 </div>
 
 <!-- ── Add Restriction Modal ────────────────────────────────────────── -->
-{% if is_chair %}
+{% if access.can_manage_tasks %}
 {% include "components/modal_open.html" with modal_id="add-restriction-modal" title="Restrict a Page" %}
     <form id="add-restriction-form">
       {% csrf_token %}
@@ -493,7 +493,7 @@
 {% endif %}
 
 <!-- ── Add Meeting Modal (v3.20.0) ──────────────────────────────────── -->
-{% if is_chair %}
+{% if access.can_manage_tasks %}
 {% include "components/modal_open.html" with modal_id="addMeetingModal" title="Add Education Meeting" subtitle="This creates a calendar event the whole chapter can see. Attendance is taken for pledges only." %}
     <form id="add-meeting-form" method="post" action="{% url 'education_add_meeting' code=committee.code %}">
       {% csrf_token %}
@@ -510,7 +510,7 @@
 {% endif %}
 
 <!-- ── Add Task Modal ──────────────────────────────────────────────── -->
-{% if is_chair %}
+{% if access.can_manage_tasks %}
 <!-- ⚠️ v3.20.0 — `max-h`/`overflow-y-auto` on the panel and `overflow-y-auto`
      on the backdrop. Without them this modal is taller than the viewport (it
      has title, description, type, phase, points, display order, scored-out-of,
@@ -540,7 +540,7 @@
      pledge id, the name in the title, and the history list for that pledge
      from `ADJUSTMENTS_HISTORY` (below), rather than rendering N modals for
      N pledges up front. -->
-{% if is_chair %}
+{% if access.can_manage_tasks %}
 {% include "components/modal_open.html" with modal_id="adjust-points-modal" title="Adjust Points" subtitle="Manually add, remove, or otherwise change this pledge's points." %}
     <form id="adjust-points-form">
       <input type="hidden" id="adjust-points-pledge-pk" name="pledge_pk">
@@ -549,13 +549,13 @@
       <div class="grid grid-cols-2 gap-4 mb-4">
         <div>
           <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Current points</label>
-          <input type="number" name="current_delta" id="adjust-current-delta" value="0" step="1"
+          <input type="number" name="current_delta" id="adjust-current-delta" value="0" step="1" min="-{{ POINT_ADJUSTMENT_LIMIT }}" max="{{ POINT_ADJUSTMENT_LIMIT }}"
             class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white text-sm">
           <p class="text-xs text-gray-400 mt-1">e.g. 5 or -3</p>
         </div>
         <div>
           <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Max points</label>
-          <input type="number" name="max_delta" id="adjust-max-delta" value="0" step="1"
+          <input type="number" name="max_delta" id="adjust-max-delta" value="0" step="1" min="-{{ POINT_ADJUSTMENT_LIMIT }}" max="{{ POINT_ADJUSTMENT_LIMIT }}"
             class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white text-sm">
           <p class="text-xs text-gray-400 mt-1">e.g. 5 or -3</p>
         </div>
@@ -681,17 +681,40 @@ function renderAdjustmentHistory(pledgePk) {
         const bits = [];
         if (entry.current_delta) bits.push(`${entry.current_delta > 0 ? '+' : ''}${entry.current_delta} current`);
         if (entry.max_delta) bits.push(`${entry.max_delta > 0 ? '+' : ''}${entry.max_delta} max`);
+        // ⚠️ 09-24-26 — built with createElement/textContent, NOT innerHTML.
+        // `_script_safe_json` only stops `reason` breaking out of the <script>
+        // block; once parsed it is a plain string again, and interpolating it
+        // into innerHTML was stored HTML injection (chair-typed `reason`, and
+        // `created_by` name, rendered as markup for every other chair).
+        // Guarded by src/tests/guards/test_education_template_access.py.
         const row = document.createElement('div');
         row.className = 'flex items-start justify-between gap-2 text-xs bg-gray-50 dark:bg-gray-700/50 rounded px-2 py-1.5';
-        row.innerHTML = `
-            <div class="min-w-0">
-                <span class="font-medium text-gray-700 dark:text-gray-200">${bits.join(', ') || 'no change'}</span>
-                <span class="text-gray-400"> — ${entry.created_by}, ${entry.created_at}</span>
-                ${entry.reason ? `<div class="text-gray-500 dark:text-gray-400 truncate">${entry.reason}</div>` : ''}
-            </div>
-            <button type="button" data-action="delete-adjustment" data-adjustment-id="${entry.id}"
-                class="text-gray-400 hover:text-red-600 shrink-0" title="Remove this adjustment">&#10005;</button>
-        `;
+
+        const body = document.createElement('div');
+        body.className = 'min-w-0';
+        const summary = document.createElement('span');
+        summary.className = 'font-medium text-gray-700 dark:text-gray-200';
+        summary.textContent = bits.join(', ') || 'no change';
+        const meta = document.createElement('span');
+        meta.className = 'text-gray-400';
+        meta.textContent = ` — ${entry.created_by}, ${entry.created_at}`;
+        body.append(summary, meta);
+        if (entry.reason) {
+            const reason = document.createElement('div');
+            reason.className = 'text-gray-500 dark:text-gray-400 truncate';
+            reason.textContent = entry.reason;
+            body.appendChild(reason);
+        }
+
+        const del = document.createElement('button');
+        del.type = 'button';
+        del.dataset.action = 'delete-adjustment';
+        del.dataset.adjustmentId = String(entry.id);
+        del.className = 'text-gray-400 hover:text-red-600 shrink-0';
+        del.title = 'Remove this adjustment';
+        del.textContent = '\u2715';
+
+        row.append(body, del);
         list.appendChild(row);
     }
 }

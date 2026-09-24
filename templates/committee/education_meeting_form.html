@@ -23,7 +23,7 @@
         {% include "committee/_education_meeting_fields.html" %}
 
         <div class="flex items-center justify-between gap-2 mt-6 pt-6 border-t border-gray-100 dark:border-gray-700">
-          {% if is_chair %}
+          {% if access.can_manage_tasks %}
           <!-- Delete lives here, next to the thing it deletes, and says what
                goes with it. v3.20.0 made delete the ONLY way to correct a
                meeting, which meant a mistyped time cost the attendance — the
@@ -48,7 +48,7 @@
         </div>
       </form>
 
-      {% if is_chair %}
+      {% if access.can_manage_tasks %}
       <form method="post" id="delete-meeting-form"
             action="{% url 'education_delete_meeting' committee.code meeting.pk %}">
         {% csrf_token %}
@@ -58,7 +58,7 @@
   </div>
 </div>
 
-{% if is_chair %}
+{% if access.can_manage_tasks %}
 <script nonce="{{ request.csp_nonce }}">
 // ⚠️ v3.31.1 — both the trigger button and the confirm-on-submit were inline
 // onclick=/onsubmit= attributes, silently blocked in prod by CSP's
