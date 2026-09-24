@@ -225,6 +225,7 @@ from src.models.cnb import (
     Resolution,
     ResolutionAmendment,
     ResolutionCollaborator,
+    ResolutionNote,
 )
 
 # Education / Pledge Tracker
@@ -387,6 +388,7 @@ __all__ = [
     'Resolution',
     'ResolutionAmendment',
     'ResolutionCollaborator',
+    'ResolutionNote',
     # Feature Flags
     'FeatureFlag',
     'PageToggle',

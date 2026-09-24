@@ -1,0 +1,111 @@
+{% comment %}
+Sticky notes for the people working on a resolution (09-24-26). Never part of
+the resolution text and never on the print/PDF view. Rendered only when
+`can_use_notes` (CNB holders + collaborators) — see ResolutionNote.
+
+Plain forms, no JS: edit uses <details> to reveal the form, so there is
+nothing here for CSP to block. `next` sends each POST back to this page.
+
+Expects: resolution, resolution_notes, open_note_count, note_color_choices,
+note_max_length, can_delete_any_note, user, request.
+{% endcomment %}
+<div id="notes" class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+    <div class="px-5 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between gap-2">
+        <div>
+            <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                Working Notes
+                {% if open_note_count %}<span class="ml-1 text-xs font-medium px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">{{ open_note_count }} open</span>{% endif %}
+            </h3>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Only the C&amp;B chair and collaborators see these. They are never added to the resolution.</p>
+        </div>
+    </div>
+
+    <!-- Add a note -->
+    <form method="post" action="{% url 'cnb_add_resolution_note' resolution_id=resolution.pk %}" class="px-5 py-4 space-y-2 border-b border-gray-100 dark:border-gray-700">
+        {% csrf_token %}
+        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+        <label for="new-note-body" class="sr-only">New note</label>
+        <textarea id="new-note-body" name="body" rows="2" maxlength="{{ note_max_length }}" required
+                  placeholder="Add a note for the group…"
+                  class="w-full text-sm px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500"></textarea>
+        <div class="flex items-center justify-between gap-2">
+            <fieldset class="flex items-center gap-1.5">
+                <legend class="sr-only">Note color</legend>
+                {% for value, label in note_color_choices %}
+                <label class="cursor-pointer" title="{{ label }}">
+                    <input type="radio" name="color" value="{{ value }}" class="sr-only peer" {% if forloop.first %}checked{% endif %}>
+                    <span class="block w-5 h-5 rounded-full border-2 border-gray-300 dark:border-gray-600 peer-checked:ring-2
+                        {% if value == 'blue' %}bg-blue-100{% elif value == 'green' %}bg-green-100{% elif value == 'purple' %}bg-purple-100{% else %}bg-yellow-100{% endif %}"></span>
+                </label>
+                {% endfor %}
+            </fieldset>
+            <button type="submit" class="text-xs px-3 py-1.5 rounded-lg font-semibold text-white bg-primary-600 hover:bg-primary-700 transition-colors">Add note</button>
+        </div>
+    </form>
+
+    {% if resolution_notes %}
+    <ul class="p-4 space-y-3 max-h-96 overflow-y-auto">
+        {% for note in resolution_notes %}
+        <li class="rounded-lg p-3 shadow-sm border
+            {% if note.color == 'blue' %}bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-800
+            {% elif note.color == 'green' %}bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800
+            {% elif note.color == 'purple' %}bg-purple-50 border-purple-200 dark:bg-purple-900/20 dark:border-purple-800
+            {% else %}bg-yellow-50 border-yellow-200 dark:bg-yellow-900/20 dark:border-yellow-800{% endif %}
+            {% if note.is_done %}opacity-60{% endif %}">
+            <p class="text-sm text-gray-800 dark:text-gray-100 whitespace-pre-line break-words {% if note.is_done %}line-through{% endif %}">{{ note.body }}</p>
+
+            <div class="mt-2 text-xs text-gray-500 dark:text-gray-400 space-y-0.5">
+                <p><span class="font-medium text-gray-700 dark:text-gray-300">{{ note.created_by.name|default:"Deleted user" }}</span> · {{ note.created_at|date:"M j, g:i A" }}</p>
+                {% if note.edited_at %}
+                <p>Edited by {{ note.edited_by.name|default:"deleted user" }} · {{ note.edited_at|date:"M j, g:i A" }}</p>
+                {% endif %}
+                {% if note.is_done %}
+                <p class="text-green-700 dark:text-green-400">✓ Done — {{ note.done_by.name|default:"deleted user" }} · {{ note.done_at|date:"M j, g:i A" }}</p>
+                {% endif %}
+            </div>
+
+            <div class="mt-2 flex flex-wrap items-center gap-3 text-xs">
+                <form method="post" action="{% url 'cnb_toggle_resolution_note_done' resolution_id=resolution.pk note_id=note.pk %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                    <button type="submit" class="font-medium text-green-700 dark:text-green-400 hover:underline">{% if note.is_done %}Reopen{% else %}Mark done{% endif %}</button>
+                </form>
+            </div>
+
+            <details class="mt-2">
+                <summary class="text-xs font-medium text-primary-600 dark:text-primary-400 cursor-pointer select-none">Edit{% if can_delete_any_note or note.created_by_id == user.pk %} / delete{% endif %}</summary>
+                <form method="post" action="{% url 'cnb_edit_resolution_note' resolution_id=resolution.pk note_id=note.pk %}" class="mt-2 space-y-2">
+                    {% csrf_token %}
+                    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                    <label for="note-body-{{ note.pk }}" class="sr-only">Edit note</label>
+                    <textarea id="note-body-{{ note.pk }}" name="body" rows="3" maxlength="{{ note_max_length }}" required
+                              class="w-full text-sm px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500">{{ note.body }}</textarea>
+                    <div class="flex items-center justify-between gap-2">
+                        <fieldset class="flex items-center gap-1.5">
+                            <legend class="sr-only">Note color</legend>
+                            {% for value, label in note_color_choices %}
+                            <label class="cursor-pointer" title="{{ label }}">
+                                <input type="radio" name="color" value="{{ value }}" class="sr-only peer" {% if value == note.color %}checked{% endif %}>
+                                <span class="block w-4 h-4 rounded-full border-2 border-gray-300 dark:border-gray-600 peer-checked:ring-2
+                                    {% if value == 'blue' %}bg-blue-100{% elif value == 'green' %}bg-green-100{% elif value == 'purple' %}bg-purple-100{% else %}bg-yellow-100{% endif %}"></span>
+                            </label>
+                            {% endfor %}
+                        </fieldset>
+                        <button type="submit" class="text-xs px-3 py-1 rounded-lg font-semibold text-white bg-primary-600 hover:bg-primary-700 transition-colors">Save</button>
+                    </div>
+                </form>
+                {% if can_delete_any_note or note.created_by_id == user.pk %}
+                <form method="post" class="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700" action="{% url 'cnb_delete_resolution_note' resolution_id=resolution.pk note_id=note.pk %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                    <button type="submit" class="text-xs font-medium text-red-600 dark:text-red-400 hover:underline">Delete this note</button>
+                </form>
+                {% endif %}
+            </details>
+        </li>
+        {% endfor %}
+    </ul>
+    {% else %}
+    <p class="px-5 py-4 text-sm text-gray-400 dark:text-gray-500 italic">No notes yet.</p>
+    {% endif %}
+</div>

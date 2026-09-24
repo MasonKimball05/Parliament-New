@@ -537,3 +537,78 @@ class ResolutionCollaborator(models.Model):
 
     def __str__(self):
         return f'{self.user} on "{self.resolution.title}" ({self.role})'
+
+
+class ResolutionNote(models.Model):
+    """
+    A sticky note on a resolution for the people working on it — never part
+    of the resolution text, never on the print/PDF view.
+
+    09-24-26 — Mason: "a way for people who are working on a resolution to
+    make notes ... off to the side ... without that being added to the
+    resolution ... it says who put what note (or edited a note) like a sticky
+    note ... where there can be multiple to work through ... like Word's
+    comments but not tied to a part of the page."
+
+    WHO: the working group — CNB permission holders plus anyone listed as a
+    `ResolutionCollaborator` (viewer or editor). See `user_can_use_notes`.
+    Resolutions themselves are readable by every member; notes are not.
+
+    Everyone in the working group sees every note and may add, edit or tick
+    one off; each of those records who and when. Deleting is limited to the
+    note's author or a CNB holder, so one collaborator cannot quietly remove
+    another's note — ticking it off as done is the ordinary way to clear it.
+    """
+    COLOR_CHOICES = [
+        ('yellow', 'Yellow'),
+        ('blue', 'Blue'),
+        ('green', 'Green'),
+        ('purple', 'Purple'),
+    ]
+    MAX_LENGTH = 2000
+
+    resolution = models.ForeignKey(
+        Resolution, on_delete=models.CASCADE, related_name='notes'
+    )
+    body = models.TextField(max_length=MAX_LENGTH)
+    color = models.CharField(max_length=10, choices=COLOR_CHOICES, default='yellow')
+
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='resolution_notes_created',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    edited_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='resolution_notes_edited',
+    )
+    edited_at = models.DateTimeField(null=True, blank=True)
+
+    is_done = models.BooleanField(default=False)
+    done_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='resolution_notes_done',
+    )
+    done_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        # Open notes first, newest first within each group.
+        ordering = ['is_done', '-created_at']
+        verbose_name = 'Resolution Note'
+        verbose_name_plural = 'Resolution Notes'
+
+    def __str__(self):
+        return f'Note on "{self.resolution.title}" by {self.created_by or "deleted user"}'
+
+    @staticmethod
+    def user_can_use_notes(user, resolution):
+        """CNB holders and any collaborator on this resolution."""
+        if not user.is_authenticated:
+            return False
+        if user.has_cnb_permission:
+            return True
+        return resolution.collaborators.filter(user=user).exists()
+
+    def user_can_delete(self, user):
+        return user.has_cnb_permission or (self.created_by_id is not None and self.created_by_id == user.pk)

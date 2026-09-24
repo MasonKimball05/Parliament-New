@@ -24,6 +24,7 @@ from src.models.users import member_defer
 from src.models import (
     GoverningDocument, Article, Section, Resolution, ResolutionAmendment,
     ResolutionCollaborator, ParliamentUser,
+    ResolutionNote,
 )
 
 
@@ -635,6 +636,30 @@ def toggle_article_active(request, article_id):
 
 # ── Resolution builder ────────────────────────────────────────────────────────
 
+def _notes_context(user, resolution):
+    """
+    Sticky notes for the working group (09-24-26, see `ResolutionNote`).
+    Empty for everyone else — the panel is not rendered and no query for the
+    notes themselves is made.
+    """
+    if not ResolutionNote.user_can_use_notes(user, resolution):
+        return {'can_use_notes': False, 'resolution_notes': []}
+    notes = list(
+        resolution.notes
+        .select_related('created_by', 'edited_by', 'done_by')
+        .defer(*member_defer('created_by', 'edited_by', 'done_by'))
+    )
+    return {
+        'can_use_notes': True,
+        'resolution_notes': notes,
+        'open_note_count': sum(1 for n in notes if not n.is_done),
+        'note_color_choices': ResolutionNote.COLOR_CHOICES,
+        'note_max_length': ResolutionNote.MAX_LENGTH,
+        # Mirrors ResolutionNote.user_can_delete for the per-note Delete button.
+        'can_delete_any_note': user.has_cnb_permission,
+    }
+
+
 @login_required
 def resolution_list(request):
     """List all resolutions — readable by any authenticated member."""
@@ -694,6 +719,7 @@ def resolution_detail(request, resolution_id):
         'is_cnb': is_cnb,
         'members': members,
     }
+    context.update(_notes_context(request.user, resolution))
     return render(request, 'cnb/resolution_detail.html', context)
 
 
@@ -788,6 +814,7 @@ def edit_resolution(request, resolution_id):
 
     ref_docs = GoverningDocument.enabled().prefetch_related('articles__sections')  # v3.19.1: per-document flags
     context = {'resolution': resolution, 'action': 'Edit', 'ref_docs': ref_docs}
+    context.update(_notes_context(request.user, resolution))
     return render(request, 'cnb/resolution_form.html', context)
 
 

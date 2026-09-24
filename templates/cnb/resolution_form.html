@@ -190,6 +190,12 @@
             </div>
         </form>
 
+        {% if action == 'Edit' and resolution and can_use_notes %}
+        <div class="mt-8">
+            {% include "cnb/_resolution_notes.html" %}
+        </div>
+        {% endif %}
+
         {% if action == 'Edit' and resolution %}
         <!-- ── Section Amendments ───────────────────────────────────────── -->
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden mt-8">

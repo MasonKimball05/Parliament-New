@@ -269,6 +269,10 @@ from src.view.officer.cnb import (
     add_collaborator, remove_collaborator, resolution_print,
     add_section, add_article, add_partial_suspension, remove_partial_suspension,
 )
+from src.view.officer.cnb_notes import (
+    add_resolution_note, edit_resolution_note,
+    toggle_resolution_note_done, delete_resolution_note,
+)
 from src.view.view_document import (
     view_legislation_document, view_chapter_document,
     view_committee_document, view_passed_legislation_document,
@@ -688,6 +692,11 @@ urlpatterns = [
     path('cnb/resolutions/<int:resolution_id>/collaborators/add/', add_collaborator, name='cnb_add_collaborator'),
     path('cnb/resolutions/<int:resolution_id>/collaborators/<int:collaborator_id>/remove/', remove_collaborator, name='cnb_remove_collaborator'),
     path('cnb/resolutions/<int:resolution_id>/print/', resolution_print, name='cnb_resolution_print'),
+    # Sticky notes for the working group (09-24-26) — never part of the resolution.
+    path('cnb/resolutions/<int:resolution_id>/notes/add/', add_resolution_note, name='cnb_add_resolution_note'),
+    path('cnb/resolutions/<int:resolution_id>/notes/<int:note_id>/edit/', edit_resolution_note, name='cnb_edit_resolution_note'),
+    path('cnb/resolutions/<int:resolution_id>/notes/<int:note_id>/done/', toggle_resolution_note_done, name='cnb_toggle_resolution_note_done'),
+    path('cnb/resolutions/<int:resolution_id>/notes/<int:note_id>/delete/', delete_resolution_note, name='cnb_delete_resolution_note'),
     path('cnb/api/section/<int:section_id>/', section_context_api, name='cnb_section_api'),
     path('cnb/article/<int:article_id>/section/add/', add_section, name='cnb_add_section'),
     path('cnb/document/<str:doc_type>/article/add/', add_article, name='cnb_add_article'),

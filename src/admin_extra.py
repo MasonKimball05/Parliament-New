@@ -35,7 +35,7 @@ from .models import (
     ChatChannelPermission, ChatNotificationPreference,
     # cnb (governing documents)
     GoverningDocument, Article, Section, Resolution, ResolutionAmendment,
-    ResolutionCollaborator,
+    ResolutionCollaborator, ResolutionNote,
     # committees
     CommitteePermissions, CommitteeLegislation, CommitteeVote,
     # documents / minutes
@@ -292,6 +292,18 @@ class ResolutionCollaboratorAdmin(admin.ModelAdmin):
     list_display = ('resolution', 'user', 'role', 'added_by', 'added_at')
     list_filter = ('role',)
     search_fields = ('resolution__title', 'user__username', 'user__name')
+
+
+@admin.register(ResolutionNote, site=admin_site)
+class ResolutionNoteAdmin(admin.ModelAdmin):
+    # 09-24-26 — working notes on a resolution. Not confidential in the Kai
+    # sense (the resolution itself is readable by every member), so a normal
+    # registration; read-only fields keep the "who wrote / edited / ticked it"
+    # trail honest.
+    list_display = ('resolution', 'created_by', 'created_at', 'is_done', 'edited_by', 'edited_at')
+    list_filter = ('is_done', 'color')
+    search_fields = ('resolution__title', 'body')
+    readonly_fields = ('created_by', 'created_at', 'edited_by', 'edited_at', 'done_by', 'done_at')
 
 
 @admin.register(ResolutionSectionImpact, site=admin_site)
