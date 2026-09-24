@@ -245,7 +245,9 @@
 {% endif %}
 
 {% if resolution.resolved_text %}
-<p class="resolved-clause">Therefore, be it resolved, {{ resolution.resolved_text }}</p>
+{% for clause in resolution.resolved_clauses %}
+<p class="resolved-clause">{% if clause.prefix %}{{ clause.prefix }} {% endif %}{{ clause.text }}</p>
+{% endfor %}
 {% endif %}
 
 <!-- Section II — Body -->

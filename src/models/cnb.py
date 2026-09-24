@@ -333,6 +333,37 @@ class Resolution(models.Model):
     def __str__(self):
         return f'{self.title} [{self.get_status_display()}]'
 
+    #: Lines that already carry their own resolving wording — not prefixed
+    #: again, so text typed before 09-24-26 (when the prefix was written by
+    #: hand on the second clause) renders unchanged instead of doubled.
+    _RESOLVED_OPENERS = ('therefore', 'be it further resolved', 'be it resolved', 'resolved')
+
+    @property
+    def resolved_clauses(self):
+        """
+        `resolved_text` split into one clause per non-blank line, each as
+        `{'prefix': str, 'text': str}` (`prefix` is '' when the line already
+        opens with its own "Therefore…"/"Resolved…" wording).
+
+        ⚠️ 09-24-26 — Mason: two resolved clauses rendered on ONE line in the
+        Preview PDF. Both templates put the whole field inside a single <p>,
+        so the newline between clauses collapsed to a space. Whereas clauses
+        have always been split per line; this makes resolved clauses match.
+        """
+        clauses = []
+        for line in (self.resolved_text or '').splitlines():
+            text = line.strip()
+            if not text:
+                continue
+            if text.lower().startswith(self._RESOLVED_OPENERS):
+                prefix = ''
+            elif not clauses:
+                prefix = 'Therefore, be it resolved,'
+            else:
+                prefix = 'Therefore, be it further resolved,'
+            clauses.append({'prefix': prefix, 'text': text})
+        return clauses
+
     def apply_amendments(self, applied_by):
         """
         When a resolution passes: update each targeted section with the proposed text.

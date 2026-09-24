@@ -108,7 +108,11 @@
                             {% endif %}
 
                             {% if resolution.resolved_text %}
-                            <p style="font-family: 'Times New Roman', Times, serif;"><strong>Therefore, be it resolved,</strong> {{ resolution.resolved_text }}</p>
+                            <div class="space-y-2" style="font-family: 'Times New Roman', Times, serif;">
+                                {% for clause in resolution.resolved_clauses %}
+                                <p>{% if clause.prefix %}<strong>{{ clause.prefix }}</strong> {% endif %}{{ clause.text }}</p>
+                                {% endfor %}
+                            </div>
                             {% endif %}
 
                             {% if not resolution.whereas_clauses and not resolution.resolved_text %}
