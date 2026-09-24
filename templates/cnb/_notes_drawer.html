@@ -1,0 +1,141 @@
+{% comment %}
+Quick notes drawer (09-24-26). Opened by any element with `data-notes-open`
+(the Notes button in the page header, the floating button, and the margin
+sticky notes); `data-anchor` preselects where a new note is pinned.
+
+Mason: "add a quick note or view the most recent notes so the user does not
+need to scroll down every time."
+
+Lives OUTSIDE every other form, so its own forms are valid on the Edit page.
+Script carries the CSP nonce (test_csp_templates).
+
+Expects: resolution, recent_notes, open_note_count, note_color_choices,
+note_anchor_choices, note_max_length, can_use_notes, request.
+Optional: fab_offset (e.g. "5.5rem") to sit above another floating button.
+{% endcomment %}
+{% if can_use_notes %}
+<button type="button" data-notes-open
+        class="fixed right-6 z-30 inline-flex items-center gap-2 bg-yellow-100 hover:bg-yellow-200 text-gray-800 pl-4 pr-5 py-3 rounded-full shadow-xl text-sm font-semibold transition-colors border border-yellow-200"
+        style="bottom: {{ fab_offset|default:'1.5rem' }};">
+    <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+    </svg>
+    Notes{% if open_note_count %} ({{ open_note_count }}){% endif %}
+</button>
+
+<div id="notesBackdrop" class="hidden fixed inset-0 bg-black/30 z-40"></div>
+
+<div id="notesDrawer" aria-hidden="true" role="dialog" aria-label="Working notes"
+     style="transform: translateX(100%); transition: transform 0.3s ease;"
+     class="fixed top-0 right-0 h-full w-full sm:w-[480px] bg-white dark:bg-gray-900 shadow-2xl z-50 flex flex-col">
+
+    <div class="flex items-center justify-between px-5 py-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 flex-shrink-0">
+        <div>
+            <h2 class="text-base font-bold text-gray-900 dark:text-gray-100">Working Notes</h2>
+            <p class="text-xs text-gray-500 dark:text-gray-400">Only the C&amp;B chair and collaborators see these. Never added to the resolution.</p>
+        </div>
+        <button type="button" data-notes-close class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 p-1 rounded-lg" aria-label="Close notes">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+        </button>
+    </div>
+
+    <div class="flex-1 overflow-y-auto">
+        <!-- Quick add -->
+        <form method="post" action="{% url 'cnb_add_resolution_note' resolution_id=resolution.pk %}" class="px-5 py-4 space-y-3 border-b border-gray-100 dark:border-gray-700">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{{ request.get_full_path }}">
+            <label for="quick-note-body" class="sr-only">New note</label>
+            <textarea id="quick-note-body" name="body" rows="3" maxlength="{{ note_max_length }}" required
+                      placeholder="Quick note for the group…"
+                      class="w-full text-sm px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500"></textarea>
+            {% include "cnb/_note_anchor_select.html" with select_id="quick-note-anchor" selected="" %}
+            <div class="flex items-center justify-between gap-2">
+                <fieldset class="flex items-center gap-1.5">
+                    <legend class="sr-only">Note color</legend>
+                    {% for value, label in note_color_choices %}
+                    <label class="cursor-pointer" title="{{ label }}">
+                        <input type="radio" name="color" value="{{ value }}" class="sr-only peer" {% if forloop.first %}checked{% endif %}>
+                        <span class="block w-5 h-5 rounded-full border-2 border-gray-300 dark:border-gray-600 peer-checked:ring-2
+                            {% if value == 'blue' %}bg-blue-100{% elif value == 'green' %}bg-green-100{% elif value == 'purple' %}bg-purple-100{% else %}bg-yellow-100{% endif %}"></span>
+                    </label>
+                    {% endfor %}
+                </fieldset>
+                <button type="submit" class="text-xs px-3 py-1.5 rounded-lg font-semibold text-white bg-primary-600 hover:bg-primary-700 transition-colors">Add note</button>
+            </div>
+        </form>
+
+        <!-- Most recent -->
+        <div class="px-5 py-4">
+            <div class="flex items-center justify-between mb-3">
+                <h3 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Recent</h3>
+                <a href="#notes" data-notes-close class="text-xs font-medium text-primary-600 dark:text-primary-400 hover:underline">See all notes</a>
+            </div>
+            {% if recent_notes %}
+            <ul class="space-y-3">
+                {% for note in recent_notes %}
+                <li class="rounded-lg p-3 border
+                    {% if note.color == 'blue' %}bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-800
+                    {% elif note.color == 'green' %}bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800
+                    {% elif note.color == 'purple' %}bg-purple-50 border-purple-200 dark:bg-purple-900/20 dark:border-purple-800
+                    {% else %}bg-yellow-50 border-yellow-200 dark:bg-yellow-900/20 dark:border-yellow-800{% endif %}
+                    {% if note.is_done %}opacity-60{% endif %}">
+                    <p class="text-sm text-gray-800 dark:text-gray-100 whitespace-pre-line break-words {% if note.is_done %}line-through{% endif %}">{{ note.body }}</p>
+                    <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+                        <span class="font-medium text-gray-700 dark:text-gray-300">{{ note.created_by.name|default:"Deleted user" }}</span> · {{ note.created_at|date:"M j, g:i A" }}
+                        {% if note.anchor %} · 📌 {{ note.get_anchor_display }}{% endif %}
+                    </p>
+                    <form method="post" action="{% url 'cnb_toggle_resolution_note_done' resolution_id=resolution.pk note_id=note.pk %}" class="mt-1.5">
+                        {% csrf_token %}
+                        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                        <button type="submit" class="text-xs font-medium text-green-700 dark:text-green-400 hover:underline">{% if note.is_done %}Reopen{% else %}Mark done{% endif %}</button>
+                    </form>
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <p class="text-sm text-gray-400 dark:text-gray-500 italic">No notes yet.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script nonce="{{ request.csp_nonce }}">
+(function () {
+    var drawer = document.getElementById('notesDrawer');
+    var backdrop = document.getElementById('notesBackdrop');
+    if (!drawer || !backdrop) return;
+    var anchorSelect = document.getElementById('quick-note-anchor');
+    var body = document.getElementById('quick-note-body');
+
+    function openNotes(anchor) {
+        if (anchorSelect) anchorSelect.value = anchor || '';
+        drawer.style.transform = 'translateX(0)';
+        drawer.setAttribute('aria-hidden', 'false');
+        backdrop.classList.remove('hidden');
+        setTimeout(function () { if (body) body.focus(); }, 150);
+    }
+    function closeNotes() {
+        drawer.style.transform = 'translateX(100%)';
+        drawer.setAttribute('aria-hidden', 'true');
+        backdrop.classList.add('hidden');
+    }
+
+    document.addEventListener('click', function (e) {
+        var opener = e.target.closest('[data-notes-open]');
+        if (opener) {
+            e.preventDefault();
+            openNotes(opener.getAttribute('data-anchor'));
+            return;
+        }
+        // "See all notes" closes the drawer and lets the #notes jump happen.
+        if (e.target.closest('[data-notes-close]')) closeNotes();
+    });
+    backdrop.addEventListener('click', closeNotes);
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && drawer.getAttribute('aria-hidden') === 'false') closeNotes();
+    });
+})();
+</script>
+{% endif %}

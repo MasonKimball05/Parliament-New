@@ -164,3 +164,75 @@ class ResolutionNotesTests(TestCase):
         r = self._c(self.cnb).get(reverse('cnb_edit_resolution', args=[self.resolution.pk]))
         self.assertEqual(r.status_code, 200)
         self.assertIn('visible on edit page', r.content.decode())
+
+
+class PinnedNotesAndDrawerTests(TestCase):
+    """
+    09-24-26 follow-up — pin a note beside a part of the resolution (tablet and
+    desktop margins) and a quick-notes drawer reachable from the page header.
+    """
+    def setUp(self):
+        self.cnb = make_user('PN-CNB', name='Chair Person', is_admin=True)
+        self.viewer = make_user('PN-VW', name='Vera Viewer')
+        self.outsider = make_user('PN-OUT', name='Oscar Outsider')
+        self.resolution = Resolution.objects.create(
+            title='Board size', resolved_text='the board shrink.',
+            resolution_body='Article 1 text', created_by=self.cnb,
+        )
+        ResolutionCollaborator.objects.create(resolution=self.resolution, user=self.viewer, role='viewer')
+        self.detail = reverse('cnb_resolution_detail', args=[self.resolution.pk])
+        self.add_url = reverse('cnb_add_resolution_note', args=[self.resolution.pk])
+
+    def _c(self, user):
+        c = Client(); c.force_login(user); return c
+
+    def test_a_note_can_be_pinned_and_unpinned(self):
+        self._c(self.cnb).post(self.add_url, {'body': 'fix Art. 1', 'anchor': 'body'})
+        note = ResolutionNote.objects.get()
+        self.assertEqual(note.anchor, 'body')
+        edit = reverse('cnb_edit_resolution_note', args=[self.resolution.pk, note.pk])
+        self._c(self.viewer).post(edit, {'body': 'fix Art. 1', 'anchor': ''})
+        note.refresh_from_db()
+        self.assertEqual(note.anchor, '')
+        self.assertEqual(note.edited_by, self.viewer)   # moving a pin is an edit
+
+    def test_an_unknown_anchor_is_ignored(self):
+        self._c(self.cnb).post(self.add_url, {'body': 'x', 'anchor': 'nonsense'})
+        self.assertEqual(ResolutionNote.objects.get().anchor, '')
+
+    def test_an_edit_without_an_anchor_field_keeps_the_pin(self):
+        note = ResolutionNote.objects.create(resolution=self.resolution, body='x', anchor='resolved', created_by=self.cnb)
+        self._c(self.cnb).post(
+            reverse('cnb_edit_resolution_note', args=[self.resolution.pk, note.pk]), {'body': 'y'},
+        )
+        note.refresh_from_db()
+        self.assertEqual(note.anchor, 'resolved')
+
+    def test_pinned_open_notes_reach_the_margin_and_done_ones_do_not(self):
+        ResolutionNote.objects.create(resolution=self.resolution, body='OPEN-PIN', anchor='body', created_by=self.cnb)
+        ResolutionNote.objects.create(resolution=self.resolution, body='DONE-PIN', anchor='body',
+                                      is_done=True, created_by=self.cnb)
+        r = self._c(self.viewer).get(self.detail)
+        pinned = r.context['pinned_notes']
+        self.assertEqual([n.body for n in pinned['body']], ['OPEN-PIN'])
+        self.assertIn('aria-label="Notes pinned here"', r.content.decode())
+
+    def test_the_edit_page_merges_preamble_and_resolved_pins(self):
+        ResolutionNote.objects.create(resolution=self.resolution, body='P', anchor='preamble', created_by=self.cnb)
+        ResolutionNote.objects.create(resolution=self.resolution, body='R', anchor='resolved', created_by=self.cnb)
+        r = self._c(self.cnb).get(reverse('cnb_edit_resolution', args=[self.resolution.pk]))
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(sorted(n.body for n in r.context['pinned_notes']['preamble_and_resolved']), ['P', 'R'])
+
+    def test_the_header_button_and_drawer_render_for_the_working_group(self):
+        html = self._c(self.viewer).get(self.detail).content.decode()
+        self.assertIn('id="notesDrawer"', html)
+        self.assertIn('data-notes-open', html)
+
+    def test_outsiders_get_no_drawer_no_margin_and_no_pinned_text(self):
+        ResolutionNote.objects.create(resolution=self.resolution, body='SECRET-PIN', anchor='body', created_by=self.cnb)
+        html = self._c(self.outsider).get(self.detail).content.decode()
+        self.assertNotIn('notesDrawer', html)
+        self.assertNotIn('data-notes-open', html)
+        self.assertNotIn('SECRET-PIN', html)
+        self.assertNotIn('Notes pinned here', html)

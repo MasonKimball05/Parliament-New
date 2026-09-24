@@ -649,9 +649,20 @@ def _notes_context(user, resolution):
         .select_related('created_by', 'edited_by', 'done_by')
         .defer(*member_defer('created_by', 'edited_by', 'done_by'))
     )
+    # Open notes grouped by pin, for the tablet/desktop margins. Done notes
+    # stay in the list/drawer only — a ticked-off sticky note comes off the page.
+    pinned = {a: [] for a, _ in ResolutionNote.ANCHOR_CHOICES}
+    for n in notes:
+        if n.anchor and not n.is_done:
+            pinned[n.anchor].append(n)
+    # The Edit page puts the whereas AND resolved fields in one card.
+    pinned['preamble_and_resolved'] = pinned['preamble'] + pinned['resolved']
     return {
         'can_use_notes': True,
         'resolution_notes': notes,
+        'recent_notes': notes[:5],
+        'pinned_notes': pinned,
+        'note_anchor_choices': ResolutionNote.ANCHOR_CHOICES,
         'open_note_count': sum(1 for n in notes if not n.is_done),
         'note_color_choices': ResolutionNote.COLOR_CHOICES,
         'note_max_length': ResolutionNote.MAX_LENGTH,

@@ -42,6 +42,15 @@
                         </svg>
                         Print / PDF
                     </a>
+                    {% if can_use_notes %}
+                    <button type="button" data-notes-open
+                            class="inline-flex items-center gap-2 bg-white/15 hover:bg-white/25 text-white px-3 py-2 rounded-lg text-sm font-medium border border-white/20 transition-colors">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                        </svg>
+                        Notes{% if open_note_count %} ({{ open_note_count }}){% endif %}
+                    </button>
+                    {% endif %}
                     {% if can_edit %}
                     <a href="{% url 'cnb_edit_resolution' resolution_id=resolution.pk %}"
                        class="inline-flex items-center gap-2 bg-white/20 hover:bg-white/30 text-white px-3 py-2 rounded-lg text-sm font-medium border border-white/30 transition-colors">
@@ -70,7 +79,11 @@
                     <div class="px-6 py-5 space-y-6 text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
 
                         <!-- Document header -->
-                        <div class="text-center space-y-1 pb-4 border-b border-gray-100 dark:border-gray-700">
+                        <!-- 09-24-26: each part of the text is a row with a sticky-note margin
+                             (cnb/_note_margin.html — tablet/desktop only, renders nothing
+                             unless can_use_notes). -->
+                        <div class="flex flex-col md:flex-row md:items-start gap-4">
+                        <div class="flex-1 min-w-0 text-center space-y-1 pb-4 border-b border-gray-100 dark:border-gray-700">
                             <p class="font-bold text-gray-900 dark:text-gray-100 uppercase text-xs tracking-widest">The Samford Chapter, the Alpha Mu of Beta Theta Pi</p>
                             <p class="text-gray-500 dark:text-gray-400 text-xs">A Resolution of the Chapter</p>
                             {% if resolution.vote_date %}
@@ -87,9 +100,13 @@
                             </p>
                             {% endif %}
                         </div>
+                        {% include "cnb/_note_margin.html" with anchor="header" notes=pinned_notes.header %}
+                        </div>
 
                         <!-- Section I — Preamble -->
                         <div class="space-y-3">
+                        <div class="flex flex-col md:flex-row md:items-start gap-4">
+                        <div class="flex-1 min-w-0 space-y-3">
                             <p class="font-semibold text-gray-900 dark:text-gray-100 uppercase tracking-wide text-xs">Section I — Preamble</p>
                             <p class="font-bold text-gray-900 dark:text-gray-100">
                                 <span class="font-normal text-gray-500 dark:text-gray-400">TITLE:</span>
@@ -107,6 +124,16 @@
                             </div>
                             {% endif %}
 
+                            {% if not resolution.whereas_clauses and not resolution.resolved_text %}
+                            <p class="text-gray-400 dark:text-gray-600 italic text-xs">No preamble text added yet.</p>
+                            {% endif %}
+                        </div>
+                        {% include "cnb/_note_margin.html" with anchor="preamble" notes=pinned_notes.preamble %}
+                        </div>
+
+                        {% if resolution.resolved_text or pinned_notes.resolved %}
+                        <div class="flex flex-col md:flex-row md:items-start gap-4">
+                        <div class="flex-1 min-w-0">
                             {% if resolution.resolved_text %}
                             <div class="space-y-2" style="font-family: 'Times New Roman', Times, serif;">
                                 {% for clause in resolution.resolved_clauses %}
@@ -114,25 +141,31 @@
                                 {% endfor %}
                             </div>
                             {% endif %}
-
-                            {% if not resolution.whereas_clauses and not resolution.resolved_text %}
-                            <p class="text-gray-400 dark:text-gray-600 italic text-xs">No preamble text added yet.</p>
-                            {% endif %}
+                        </div>
+                        {% include "cnb/_note_margin.html" with anchor="resolved" notes=pinned_notes.resolved %}
+                        </div>
+                        {% endif %}
                         </div>
 
                         <!-- Section II — Body -->
-                        {% if resolution.resolution_body %}
-                        <div class="space-y-2">
+                        {% if resolution.resolution_body or pinned_notes.body %}
+                        <div class="flex flex-col md:flex-row md:items-start gap-4">
+                        <div class="flex-1 min-w-0 space-y-2">
                             <p class="font-semibold text-gray-900 dark:text-gray-100 uppercase tracking-wide text-xs">Section II — Body of the Resolution</p>
                             <div class="whitespace-pre-wrap cnb-linkify" style="font-family: 'Times New Roman', Times, serif;">{{ resolution.resolution_body }}</div>
+                        </div>
+                        {% include "cnb/_note_margin.html" with anchor="body" notes=pinned_notes.body %}
                         </div>
                         {% endif %}
 
                         <!-- Section III — Conclusion -->
-                        {% if resolution.additional_notes %}
-                        <div class="space-y-2">
+                        {% if resolution.additional_notes or pinned_notes.conclusion %}
+                        <div class="flex flex-col md:flex-row md:items-start gap-4">
+                        <div class="flex-1 min-w-0 space-y-2">
                             <p class="font-semibold text-gray-900 dark:text-gray-100 uppercase tracking-wide text-xs">Section III — Conclusion and Certification</p>
                             <div class="whitespace-pre-wrap cnb-linkify" style="font-family: 'Times New Roman', Times, serif;">{{ resolution.additional_notes }}</div>
+                        </div>
+                        {% include "cnb/_note_margin.html" with anchor="conclusion" notes=pinned_notes.conclusion %}
                         </div>
                         {% endif %}
 
@@ -140,7 +173,8 @@
                 </div>
 
                 <!-- Section Amendments (tracked changes) -->
-                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+                <div class="flex flex-col md:flex-row md:items-start gap-4">
+                <div class="flex-1 min-w-0 bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
                     <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
                         <h2 class="text-base font-semibold text-gray-900 dark:text-gray-100">
                             Tracked Section Amendments
@@ -261,6 +295,8 @@
                         {% endif %}
                     </div>
                     {% endif %}
+                </div>
+                {% include "cnb/_note_margin.html" with anchor="amendments" notes=pinned_notes.amendments %}
                 </div>
 
             </div>
@@ -1010,4 +1046,5 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 
+{% include "cnb/_notes_drawer.html" %}
 {% endblock %}

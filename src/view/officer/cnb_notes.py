@@ -26,6 +26,7 @@ from django.views.decorators.http import require_POST
 from src.models import Resolution, ResolutionNote
 
 _COLORS = {c for c, _ in ResolutionNote.COLOR_CHOICES}
+_ANCHORS = {a for a, _ in ResolutionNote.ANCHOR_CHOICES}
 
 
 def _resolution_for_notes(request, resolution_id):
@@ -56,6 +57,14 @@ def _clean_body(request):
     return body
 
 
+def _clean_anchor(request, default=''):
+    """'' (not pinned) or one of ANCHOR_CHOICES; anything else keeps `default`."""
+    if 'anchor' not in request.POST:
+        return default
+    anchor = request.POST.get('anchor', '')
+    return anchor if (anchor == '' or anchor in _ANCHORS) else default
+
+
 def _clean_color(request, default='yellow'):
     color = request.POST.get('color', default)
     return color if color in _COLORS else default
@@ -69,7 +78,7 @@ def add_resolution_note(request, resolution_id):
     if body is not None:
         ResolutionNote.objects.create(
             resolution=resolution, body=body, color=_clean_color(request),
-            created_by=request.user,
+            anchor=_clean_anchor(request), created_by=request.user,
         )
     return _back(request, resolution)
 
@@ -82,10 +91,11 @@ def edit_resolution_note(request, resolution_id, note_id):
     body = _clean_body(request)
     if body is not None:
         color = _clean_color(request, default=note.color)
-        if body != note.body or color != note.color:
-            note.body, note.color = body, color
+        anchor = _clean_anchor(request, default=note.anchor)
+        if (body, color, anchor) != (note.body, note.color, note.anchor):
+            note.body, note.color, note.anchor = body, color, anchor
             note.edited_by, note.edited_at = request.user, timezone.now()
-            note.save(update_fields=['body', 'color', 'edited_by', 'edited_at'])
+            note.save(update_fields=['body', 'color', 'anchor', 'edited_by', 'edited_at'])
     return _back(request, resolution)
 
 

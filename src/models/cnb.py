@@ -567,9 +567,24 @@ class ResolutionNote(models.Model):
     ]
     MAX_LENGTH = 2000
 
+    #: Optional pin: which part of the resolution a note sits beside, as a
+    #: sticky note in the margin on tablet/desktop (09-24-26, Mason's
+    #: follow-up). Blank = not pinned, lives only in the notes list/drawer.
+    #: These are page regions, not text offsets — they survive any edit to
+    #: the resolution's wording.
+    ANCHOR_CHOICES = [
+        ('header', 'Header'),
+        ('preamble', 'Section I — Preamble'),
+        ('resolved', 'Resolved clauses'),
+        ('body', 'Section II — Body'),
+        ('conclusion', 'Section III — Conclusion'),
+        ('amendments', 'Tracked amendments'),
+    ]
+
     resolution = models.ForeignKey(
         Resolution, on_delete=models.CASCADE, related_name='notes'
     )
+    anchor = models.CharField(max_length=20, choices=ANCHOR_CHOICES, blank=True, default='')
     body = models.TextField(max_length=MAX_LENGTH)
     color = models.CharField(max_length=10, choices=COLOR_CHOICES, default='yellow')
 

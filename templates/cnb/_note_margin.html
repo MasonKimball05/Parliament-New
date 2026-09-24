@@ -1,0 +1,29 @@
+{% comment %}
+Sticky-note margin beside one part of a resolution (09-24-26). Tablet and up
+only (`hidden md:block`) — on a phone the notes live in the drawer and the
+Working Notes list, which always show every note, pinned or not.
+
+Read-only on purpose: on the Edit page this sits INSIDE the main <form>, and a
+nested form is invalid HTML. Clicking a note or "+ Pin a note" opens the notes
+drawer (outside every form), where the actions are.
+
+Expects: anchor (one of ResolutionNote.ANCHOR_CHOICES), notes (open notes
+pinned there), can_use_notes.
+{% endcomment %}
+{% if can_use_notes %}
+<aside class="hidden md:block w-44 flex-shrink-0 space-y-3" aria-label="Notes pinned here">
+    {% for note in notes %}
+    <button type="button" data-notes-open data-anchor="{{ anchor }}" title="Open notes"
+            class="block w-full text-left p-2.5 rounded shadow-md hover:shadow-lg transition-shadow
+                {% if note.color == 'blue' %}bg-blue-100{% elif note.color == 'green' %}bg-green-100{% elif note.color == 'purple' %}bg-purple-100{% else %}bg-yellow-100{% endif %}"
+            style="transform: rotate({% if forloop.counter|divisibleby:2 %}1.2{% else %}-1.2{% endif %}deg);">
+        <span class="block text-xs text-gray-800 whitespace-pre-line break-words overflow-hidden" style="max-height: 7.5rem;">{{ note.body }}</span>
+        <span class="block mt-1.5 text-xs text-gray-500">— {{ note.created_by.name|default:"Deleted user" }}</span>
+    </button>
+    {% endfor %}
+    <button type="button" data-notes-open data-anchor="{{ anchor }}"
+            class="w-full text-xs text-gray-400 dark:text-gray-500 bg-white dark:bg-gray-800 hover:text-primary-600 dark:hover:text-primary-400 border border-dashed border-gray-300 dark:border-gray-600 rounded py-1.5 transition-colors">
+        + Pin a note
+    </button>
+</aside>
+{% endif %}

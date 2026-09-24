@@ -7,7 +7,7 @@
 
     <div class="bg-gradient-to-r from-primary-600 via-primary-700 to-primary-800 text-white py-8 shadow-lg relative overflow-hidden">
         <div class="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-gold-400 via-gold-500 to-gold-400 opacity-80"></div>
-        <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+        <div class="{% if can_use_notes %}max-w-5xl{% else %}max-w-4xl{% endif %} mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
             <a href="{% url 'constitution_bylaws' %}?tab=manage" class="text-primary-200 hover:text-white text-sm flex items-center gap-1 mb-2">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
@@ -17,6 +17,15 @@
             <div class="flex items-center justify-between gap-4">
                 <h1 class="text-3xl font-bold">{{ action }} Resolution</h1>
                 <div class="flex items-center gap-2 flex-shrink-0">
+                    {% if can_use_notes %}
+                    <button type="button" data-notes-open
+                            class="inline-flex items-center gap-2 bg-white/20 hover:bg-white/30 border border-white/30 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                        </svg>
+                        Notes{% if open_note_count %} ({{ open_note_count }}){% endif %}
+                    </button>
+                    {% endif %}
                     {% if action == 'Edit' and resolution %}
                     <a href="{% url 'cnb_resolution_print' resolution.id %}" target="_blank"
                        class="inline-flex items-center gap-2 bg-white/20 hover:bg-white/30 border border-white/30 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors"
@@ -42,13 +51,14 @@
         </div>
     </div>
 
-    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div class="{% if can_use_notes %}max-w-5xl{% else %}max-w-4xl{% endif %} mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
         <form method="post" class="space-y-8">
             {% csrf_token %}
 
             <!-- ── Header ─────────────────────────────────────────────────── -->
-            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+            <div class="flex flex-col md:flex-row md:items-start gap-4">
+            <div class="flex-1 min-w-0 bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
                 <div class="px-6 py-3 bg-gray-50 dark:bg-gray-700/50 border-b border-gray-100 dark:border-gray-700">
                     <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Header</p>
                 </div>
@@ -86,9 +96,12 @@
                     </div>
                 </div>
             </div>
+            {% include "cnb/_note_margin.html" with anchor="header" notes=pinned_notes.header %}
+            </div>
 
             <!-- ── Section I — Preamble ───────────────────────────────────── -->
-            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+            <div class="flex flex-col md:flex-row md:items-start gap-4">
+            <div class="flex-1 min-w-0 bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
                 <div class="px-6 py-3 bg-gray-50 dark:bg-gray-700/50 border-b border-gray-100 dark:border-gray-700">
                     <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Section I — Preamble</p>
                 </div>
@@ -128,9 +141,12 @@
                     </div>
                 </div>
             </div>
+            {% include "cnb/_note_margin.html" with anchor="preamble" notes=pinned_notes.preamble_and_resolved %}
+            </div>
 
             <!-- ── Section II — Body ─────────────────────────────────────── -->
-            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+            <div class="flex flex-col md:flex-row md:items-start gap-4">
+            <div class="flex-1 min-w-0 bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
                 <div class="px-6 py-3 bg-gray-50 dark:bg-gray-700/50 border-b border-gray-100 dark:border-gray-700">
                     <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Section II — Body of the Resolution</p>
                 </div>
@@ -149,9 +165,12 @@
                     <p class="text-xs text-gray-500 dark:text-gray-400">Full text of proposed amendments. Use the <strong>C&B Reference</strong> button to look up and insert cited sections.</p>
                 </div>
             </div>
+            {% include "cnb/_note_margin.html" with anchor="body" notes=pinned_notes.body %}
+            </div>
 
             <!-- ── Section III — Conclusion Notes ───────────────────────── -->
-            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+            <div class="flex flex-col md:flex-row md:items-start gap-4">
+            <div class="flex-1 min-w-0 bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
                 <div class="px-6 py-3 bg-gray-50 dark:bg-gray-700/50 border-b border-gray-100 dark:border-gray-700">
                     <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Section III — Conclusion Notes <span class="font-normal normal-case">(optional)</span></p>
                 </div>
@@ -166,6 +185,8 @@
                     </div>
                     <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Numbered conclusion clauses (effective date, IFC notes, etc.). The certification block is generated automatically in the print view.</p>
                 </div>
+            </div>
+            {% include "cnb/_note_margin.html" with anchor="conclusion" notes=pinned_notes.conclusion %}
             </div>
 
             <div class="flex justify-end gap-3 pb-2">
@@ -198,7 +219,8 @@
 
         {% if action == 'Edit' and resolution %}
         <!-- ── Section Amendments ───────────────────────────────────────── -->
-        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden mt-8">
+        <div class="flex flex-col md:flex-row md:items-start gap-4 mt-8">
+        <div class="flex-1 min-w-0 bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
             <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
                 <h2 class="text-base font-semibold text-gray-900 dark:text-gray-100">
                     Tracked Section Amendments
@@ -297,6 +319,8 @@
                 <button type="button" class="js-open-amendment-modal text-primary-600 dark:text-primary-400 underline ml-1">Add one</button>
             </div>
             {% endif %}
+        </div>
+        {% include "cnb/_note_margin.html" with anchor="amendments" notes=pinned_notes.amendments %}
         </div>
         {% endif %}
 
@@ -1277,4 +1301,5 @@ window._isDirty = false;
 </script>
 {% endif %}
 
+{% if ref_docs %}{% include "cnb/_notes_drawer.html" with fab_offset="5.5rem" %}{% else %}{% include "cnb/_notes_drawer.html" %}{% endif %}
 {% endblock %}
