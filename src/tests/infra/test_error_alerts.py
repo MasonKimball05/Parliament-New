@@ -89,3 +89,84 @@ class ErrorAlertHandlerTests(TestCase):
         with mock.patch.object(self.handler, 'handleError') as he:
             self.handler.emit(_record())   # must not raise
             he.assert_called_once()
+
+
+class ErrorAlertPathScrubbingTests(TestCase):
+    """
+    09-25-26 (auto-run finding) — tokens live in some PATHS, not just query
+    strings: calendar feed, password-reset confirm, 2FA-recovery confirm,
+    email-change confirm, event check-in. The alert must name the route
+    pattern, never the concrete path.
+    """
+    TOKEN = 'LiveBearerToken_abcdef1234567890'
+
+    def setUp(self):
+        cache.clear()
+        self.handler = ErrorAlertHandler()
+        patcher = mock.patch('src.tasks.email.send_email.delay')
+        self.send = patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def _emit_for(self, path, **kw):
+        from django.urls import resolve
+        rec = _record(path=path, **kw)
+        rec.request.resolver_match = resolve(path)
+        with override_settings(ERROR_ALERT_EMAIL='maintainer@example.com'):
+            self.handler.emit(rec)
+        subject, body = self.send.call_args[0][0], self.send.call_args[0][1]
+        return subject, body
+
+    def test_token_routes_report_the_pattern_not_the_token(self):
+        from django.urls import reverse
+        paths = [
+            reverse('calendar_subscription_feed', args=[self.TOKEN]),
+            reverse('password_reset_confirm', args=['MTIz', self.TOKEN]),
+            reverse('two_factor_recovery_confirm', args=['MTIz', self.TOKEN]),
+        ]
+        for i, path in enumerate(paths):
+            cache.clear()
+            self.send.reset_mock()
+            exc = type(f'RouteError{i}', (Exception,), {})('boom')
+            subject, body = self._emit_for(path, exc=exc)
+            self.assertNotIn(self.TOKEN, subject, path)
+            self.assertNotIn(self.TOKEN, body, path)
+            self.assertIn('<', subject, 'expected the route pattern, e.g. <str:token>')
+
+    def test_unresolved_paths_keep_only_the_first_segment(self):
+        rec = _record(path=f'/calendar/feed/{self.TOKEN}/')
+        # no resolver_match (404 / middleware error)
+        with override_settings(ERROR_ALERT_EMAIL='maintainer@example.com'):
+            self.handler.emit(rec)
+        subject, body = self.send.call_args[0][0], self.send.call_args[0][1]
+        self.assertNotIn(self.TOKEN, subject + body)
+        self.assertIn('/calendar/…/', subject)
+
+    def test_kai_permission_routes_redact_the_message(self):
+        rec = _record(path='/committee/KAI/kai-permissions/', exc=ValueError('grant for John Doe'))
+        with override_settings(ERROR_ALERT_EMAIL='maintainer@example.com'):
+            self.handler.emit(rec)
+        body = self.send.call_args[0][1]
+        self.assertNotIn('John Doe', body)
+        self.assertIn('[redacted — Kai path]', body)
+
+    def test_when_line_is_filled_in(self):
+        with override_settings(ERROR_ALERT_EMAIL='maintainer@example.com'):
+            self.handler.emit(_record())
+        body = self.send.call_args[0][1]
+        when = [l for l in body.splitlines() if l.startswith('When:')][0]
+        self.assertRegex(when, r'When:\s+\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} UTC')
+
+    def test_suppressed_repeats_are_reported_in_the_next_alert(self):
+        with override_settings(ERROR_ALERT_EMAIL='maintainer@example.com'):
+            for _ in range(4):
+                self.handler.emit(_record())
+            self.assertEqual(self.send.call_count, 1)
+            self.assertNotIn('were not emailed', self.send.call_args[0][1])
+            # Window expires; the next occurrence reports the 3 that were held back.
+            cache.delete('error_alert:sent_this_hour')
+            from src.error_alerts import _signature
+            sig = _signature(_record().exc_info)
+            cache.delete(f'error_alert:count:{sig}')
+            self.handler.emit(_record())
+        self.assertEqual(self.send.call_count, 2)
+        self.assertIn('3 earlier occurrence(s)', self.send.call_args[0][1])

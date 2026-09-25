@@ -252,6 +252,23 @@ class GoverningDocumentAdmin(admin.ModelAdmin):
     inlines = [ArticleInline]
 
 
+_SECTION_HISTORY_FIELDS = ('content', 'title', 'is_active')
+
+
+def _record_admin_section_revision(section, user):
+    """
+    09-25-26 (auto-run finding) — admin saves bypassed `Section.record_revision`,
+    so an edit here overwrote governing text with no history and `?as_of=` was
+    wrong for it. Record the DB copy (the outgoing text) when a tracked field
+    changed. `direct_edit` + a note, so no new choice/migration.
+    """
+    if not section.pk:
+        return
+    old = Section.objects.filter(pk=section.pk).first()
+    if old and any(getattr(old, f) != getattr(section, f) for f in _SECTION_HISTORY_FIELDS):
+        old.record_revision('direct_edit', by=user, note='Edited in the Django admin')
+
+
 class SectionInline(admin.TabularInline):
     model = Section
     extra = 0
@@ -265,12 +282,24 @@ class ArticleAdmin(admin.ModelAdmin):
     search_fields = ('title', 'number')
     inlines = [SectionInline]
 
+    def save_formset(self, request, form, formset, change):
+        if formset.model is Section:
+            for f in formset.forms:
+                if f.instance.pk and f.has_changed() and not (formset.can_delete and formset._should_delete_form(f)):
+                    _record_admin_section_revision(f.instance, request.user)
+        super().save_formset(request, form, formset, change)
+
 
 @admin.register(Section, site=admin_site)
 class SectionAdmin(admin.ModelAdmin):
     list_display = ('article', 'number', 'title', 'display_order', 'is_active', 'amendment_protected')
     list_filter = ('is_active', 'amendment_protected')
     search_fields = ('title', 'number', 'content')
+
+    def save_model(self, request, obj, form, change):
+        if change:
+            _record_admin_section_revision(obj, request.user)
+        super().save_model(request, obj, form, change)
 
 
 @admin.register(Resolution, site=admin_site)
@@ -343,6 +372,13 @@ class SectionRevisionAdmin(admin.ModelAdmin):
         return False
 
     def has_change_permission(self, request, obj=None):
+        return False
+
+    # 09-25-26 (auto-run finding) — the model is documented append-only; an
+    # admin who could delete a past version would be erasing the record. This
+    # also means the admin refuses to delete a Section that has history (the
+    # cascade would remove it) — deactivate the section instead.
+    def has_delete_permission(self, request, obj=None):
         return False
 
 
@@ -948,3 +984,26 @@ class WebAuthnCredentialAdmin(ViewDeleteAdmin):
     exclude = ('credential_id', 'public_key')
     list_display = ('user', 'name', 'aaguid', 'sign_count', 'created_at', 'last_used_at')
     search_fields = ('user__username', 'user__name', 'name')
+
+
+# ─────────────────────────────────────────────── role knowledge base (09-25-26)
+# Was unregistered (open since the 09-17-26 auto-run). The pages are an open
+# wiki readable by every member (see src/view/officer/role_knowledge_base.py),
+# so nothing here is confidential. READ-ONLY: revisions are append-only
+# institutional memory; editing happens in the app, which writes a new
+# revision rather than overwriting one.
+from .models import RoleKnowledgeBase, RoleKnowledgeBaseRevision  # noqa: E402
+
+
+@admin.register(RoleKnowledgeBase, site=admin_site)
+class RoleKnowledgeBaseAdmin(ReadOnlyAdmin):
+    list_display = ('role', 'created_at')
+    search_fields = ('role__name',)
+
+
+@admin.register(RoleKnowledgeBaseRevision, site=admin_site)
+class RoleKnowledgeBaseRevisionAdmin(ReadOnlyAdmin):
+    list_display = ('knowledge_base', 'edited_by', 'created_at')
+    list_filter = ('created_at',)
+    search_fields = ('knowledge_base__role__name', 'content', 'edited_by__name')
+    list_select_related = ('knowledge_base__role', 'edited_by')

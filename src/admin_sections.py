@@ -22,6 +22,7 @@ SECTIONS = {
     'Members & Roles': [
         'ParliamentUser', 'Role', 'RoleHistory', 'UserPreferences',
         'TwoFactorRequirement', 'TransitionChecklistItem', 'TransitionChecklistStatus',
+        'RoleKnowledgeBase', 'RoleKnowledgeBaseRevision',
     ],
     'Voting & Legislation': [
         'Legislation', 'Vote', 'Attendance', 'AttendanceExcuse', 'PassedResolution',

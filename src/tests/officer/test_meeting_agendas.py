@@ -96,3 +96,33 @@ class MeetingAgendaTests(TestCase):
         a = self._create()
         self.assertEqual(self.oc.get(reverse('edit_agenda', args=[a.pk])).status_code, 200)
         self.assertEqual(self.oc.get(reverse('agenda_list')).status_code, 200)
+
+
+class MeetingAgendaInputValidationTests(TestCase):
+    """09-25-26 (auto-run finding) — malformed date/time/event were a 500."""
+    def setUp(self):
+        self.officer = make_user('AGV-OFF', member_type='Officer')
+        self.oc = Client(); self.oc.force_login(self.officer)
+        self.day = (timezone.localdate() + datetime.timedelta(days=3)).isoformat()
+
+    def test_malformed_date_or_time_is_a_form_error_not_a_500(self):
+        for data in ({'date': '2026-13-45', 'start_time': '19:00'},
+                     {'date': 'tomorrow', 'start_time': '19:00'},
+                     {'date': self.day, 'start_time': '25:99'}):
+            r = self.oc.post(reverse('create_agenda'), {'title': 'Meeting', **data})
+            self.assertEqual(r.status_code, 302, data)
+            self.assertRedirects(r, reverse('agenda_list'), fetch_redirect_response=False)
+        self.assertFalse(MeetingAgenda.objects.exists())
+
+    def test_a_non_numeric_event_id_is_ignored(self):
+        r = self.oc.post(reverse('create_agenda'), {'title': 'Meeting', 'date': self.day,
+                                                    'start_time': '19:00', 'event': 'abc'})
+        self.assertEqual(r.status_code, 302)
+        self.assertIsNone(MeetingAgenda.objects.get().event)
+
+    def test_start_minutes_twice_still_makes_one_draft(self):
+        self.oc.post(reverse('create_agenda'), {'title': 'Meeting', 'date': self.day, 'start_time': '19:00'})
+        a = MeetingAgenda.objects.get()
+        self.oc.post(reverse('start_minutes_from_agenda', args=[a.pk]))
+        self.oc.post(reverse('start_minutes_from_agenda', args=[a.pk]))
+        self.assertEqual(ChapterMinutes.objects.count(), 1)

@@ -113,3 +113,79 @@ class SectionHistoryTests(TestCase):
         self.assertEqual(r.status_code, 404)
         r = self._c(self.chair).get(reverse('cnb_section_history', args=[foreword_or_bylaws.pk]))
         self.assertEqual(r.status_code, 200)
+
+
+class SectionHistoryGapTests(TestCase):
+    """
+    09-25-26 (auto-run finding) — two write paths skipped `record_revision()`:
+    the section activate/deactivate toggle and saves through the Django admin.
+    The toggle gap made `?as_of=` show a section as inactive BEFORE the ruling
+    that deactivated it.
+    """
+    def setUp(self):
+        call_command('seed_cnb_documents', stdout=StringIO())
+        self.chair = ParliamentUser.objects.create(user_id='SG-1', username='sg1', name='CNB Chair',
+                                                   member_type='Officer', member_status='Active', is_admin=True)
+        self.section = _sec('bylaws', 'IV', '2')
+        self.c = Client(); self.c.force_login(self.chair)
+
+    def _toggle(self, **data):
+        return self.c.post(reverse('cnb_toggle_section', args=[self.section.pk]), data)
+
+    def test_deactivating_records_the_active_version_with_the_reason(self):
+        self._toggle(reason='IFC ruling 2026-3')
+        rev = SectionRevision.objects.get(section=self.section)
+        self.assertTrue(rev.was_active)
+        self.assertEqual((rev.source, rev.replaced_by), ('direct_edit', self.chair))
+        self.assertIn('IFC ruling 2026-3', rev.note)
+        self.section.refresh_from_db()
+        self.assertFalse(self.section.is_active)
+
+    def test_reactivating_records_the_inactive_version(self):
+        self._toggle(reason='ruling')
+        self._toggle()
+        revs = list(SectionRevision.objects.filter(section=self.section).order_by('pk'))
+        self.assertEqual([r.was_active for r in revs], [True, False])
+        self.assertEqual(revs[1].note, 'Reactivated')
+
+    def test_a_refused_deactivation_records_nothing(self):
+        self._toggle()          # no reason → refused
+        self.assertFalse(SectionRevision.objects.exists())
+
+    def test_as_of_before_a_deactivation_shows_the_section_active(self):
+        from src.view.cnb_history import apply_as_of
+        # Seeded "today" in the test DB; real sections predate tracking (NULL).
+        Section.objects.filter(pk=self.section.pk).update(created_at=None)
+        self._toggle(reason='ruling')
+        SectionRevision.objects.filter(section=self.section).update(
+            replaced_at=timezone.now() - datetime.timedelta(days=10))
+        docs = list(GoverningDocument.objects.filter(doc_type='bylaws')
+                    .prefetch_related('articles__sections__revisions'))
+        apply_as_of(docs, timezone.now() - datetime.timedelta(days=20))
+        sec = [s for a in docs[0].articles.all() for s in a.sections.all() if s.pk == self.section.pk][0]
+        self.assertTrue(sec.is_active)
+
+    def _admin_request(self):
+        from django.test import RequestFactory
+        req = RequestFactory().post('/')
+        req.user = self.chair
+        return req
+
+    def test_a_django_admin_edit_records_the_outgoing_text(self):
+        from src.admin import admin_site
+        original = self.section.content
+        model_admin = admin_site._registry[Section]
+        self.section.content = 'EDITED IN ADMIN'
+        model_admin.save_model(self._admin_request(), self.section, form=None, change=True)
+        rev = SectionRevision.objects.get(section=self.section)
+        self.assertEqual((rev.content, rev.replaced_by), (original, self.chair))
+        self.assertIn('Django admin', rev.note)
+
+    def test_an_unchanged_admin_save_records_nothing(self):
+        from src.admin import admin_site
+        admin_site._registry[Section].save_model(self._admin_request(), self.section, form=None, change=True)
+        self.assertFalse(SectionRevision.objects.exists())
+
+    def test_revisions_cannot_be_deleted_in_the_admin(self):
+        from src.admin import admin_site
+        self.assertFalse(admin_site._registry[SectionRevision].has_delete_permission(self._admin_request()))

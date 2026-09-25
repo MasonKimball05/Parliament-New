@@ -519,6 +519,10 @@ def toggle_section_active(request, section_id):
         if not reason:
             messages.error(request, 'A reason is required to deactivate a section.')
             return redirect('cnb_manage_document', doc_type=section.article.document.doc_type)
+        # 09-25-26 (auto-run finding) — a status change is history too: without
+        # this, `?as_of=` for a date before the ruling showed the section as
+        # already inactive. `direct_edit` + a note, so no new choice/migration.
+        section.record_revision('direct_edit', by=request.user, note=f'Deactivated: {reason}')
         section.is_active = False
         section.deactivation_reason = reason
         section.deactivated_by = request.user
@@ -526,6 +530,7 @@ def toggle_section_active(request, section_id):
         section.save(update_fields=['is_active', 'deactivation_reason', 'deactivated_by', 'deactivated_at'])
         messages.warning(request, f'{section.full_identifier} deactivated.')
     else:
+        section.record_revision('direct_edit', by=request.user, note='Reactivated')
         section.is_active = True
         section.deactivation_reason = ''
         section.deactivated_by = None

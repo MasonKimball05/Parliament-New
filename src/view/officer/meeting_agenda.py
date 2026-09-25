@@ -9,6 +9,8 @@ back (no JS, nothing for CSP to block).
 Behind feature flag `meeting_agendas` (seeded enabled; turn it off at
 /admin-v2/ to hide the whole feature).
 """
+import datetime
+
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
@@ -28,6 +30,14 @@ from src.view.officer.chapter_minutes import _linkable_events
 FLAG = 'meeting_agendas'
 MAX_TITLE = 200
 MAX_NOTES = 4000
+
+
+def _parse(fn, value):
+    """`fn(value.strip())`, or None for a blank or malformed value."""
+    try:
+        return fn((value or '').strip()) if (value or '').strip() else None
+    except (TypeError, ValueError):
+        return None
 
 
 def _is_officer(user):
@@ -78,14 +88,18 @@ def agenda_detail(request, agenda_id):
 @require_POST
 def create_agenda(request):
     title = (request.POST.get('title') or '').strip()[:MAX_TITLE]
-    date = request.POST.get('date') or ''
-    start_time = request.POST.get('start_time') or ''
+    # 09-25-26 (auto-run finding) — date/time/event were passed to .create()
+    # raw, so a malformed value raised ValidationError/ValueError → 500 (and,
+    # since v3.35.0, an alert email). Parse them and reuse the form error.
+    date = _parse(datetime.date.fromisoformat, request.POST.get('date'))
+    start_time = _parse(datetime.time.fromisoformat, request.POST.get('start_time'))
     if not (title and date and start_time):
-        messages.error(request, 'Title, date and start time are required.')
+        messages.error(request, 'Title, a valid date and a valid start time are required.')
         return redirect('agenda_list')
     event = None
-    if request.POST.get('event'):
-        event = Event.objects.filter(pk=request.POST.get('event')).first()
+    event_id = _parse(int, request.POST.get('event'))
+    if event_id:
+        event = Event.objects.filter(pk=event_id).first()
     with transaction.atomic():
         agenda = MeetingAgenda.objects.create(title=title, date=date, start_time=start_time,
                                               event=event, created_by=request.user)
@@ -195,10 +209,14 @@ def start_minutes_from_agenda(request, agenda_id):
     the existing minutes editor. Idempotent: a second click opens the same
     minutes rather than making another.
     """
-    agenda = get_object_or_404(MeetingAgenda.objects.select_related('minutes'), pk=agenda_id)
-    if agenda.minutes_id:
-        return redirect('edit_chapter_minutes', minutes_id=agenda.minutes_id)
+    get_object_or_404(MeetingAgenda, pk=agenda_id)
     with transaction.atomic():
+        # 09-25-26 (auto-run finding) — lock the row before the idempotency
+        # check. Unlocked, a double-click could pass `if agenda.minutes_id`
+        # twice and create two drafts, one orphaned.
+        agenda = MeetingAgenda.objects.select_for_update().get(pk=agenda_id)
+        if agenda.minutes_id:
+            return redirect('edit_chapter_minutes', minutes_id=agenda.minutes_id)
         minutes = ChapterMinutes.objects.create(
             title=agenda.title, date=agenda.date, start_time=agenda.start_time,
             event=agenda.event, created_by=request.user, status='draft',

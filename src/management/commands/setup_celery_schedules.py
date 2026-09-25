@@ -50,7 +50,7 @@ SCHEDULES = [
     {
         'name': 'Notify expired vote receipts',
         'task': 'tasks.notify_expired_vote_receipts',
-        'crontab': {'hour': '9', 'minute': '15'},  # 3:15 AM CST daily
+        'crontab': {'hour': '3', 'minute': '15'},  # 3:15 AM Central daily
     },
 
     # -------------------------------------------------------------------------
@@ -108,51 +108,58 @@ SCHEDULES = [
     },
 
     # -------------------------------------------------------------------------
-    # Housekeeping — daily tasks (3:00–3:30 AM CST = 09:00–09:30 UTC)
+    # Housekeeping — daily tasks (3:00–3:14 AM Central)
+    #
+    # ⚠️ 09-25-26 — these were `'hour': '9'` with comments assuming Celery
+    # reads crontabs in UTC. It doesn't (CrontabSchedule.timezone defaults to
+    # CELERY_TIMEZONE = America/Chicago — see the digest entry below), so they
+    # ran at ~9 AM Central, AFTER the 3:30 AM digest that is meant to report
+    # on them. Same fix as the 09-19-26 digest/weekly entries. Existing rows
+    # need `setup_celery_schedules --reset` (get_or_create skips them).
     # -------------------------------------------------------------------------
     {
         'name': 'Cleanup expired user sessions',
         'task': 'tasks.cleanup_expired_sessions',
-        'crontab': {'hour': '9', 'minute': '0'},   # 3:00 AM CST daily
+        'crontab': {'hour': '3', 'minute': '0'},   # 3:00 AM Central daily
     },
     {
         'name': 'Prune expired login lockouts',
         'task': 'tasks.prune_expired_login_lockouts',
-        'crontab': {'hour': '9', 'minute': '5'},   # 3:05 AM CST daily
+        'crontab': {'hour': '3', 'minute': '5'},   # 3:05 AM Central daily
     },
     {
         'name': 'Expire stale IP blacklist entries',
         'task': 'tasks.expire_stale_ip_blacklist_entries',
-        'crontab': {'hour': '9', 'minute': '10'},  # 3:10 AM CST daily
+        'crontab': {'hour': '3', 'minute': '10'},  # 3:10 AM Central daily
     },
     {
         'name': 'Auto-release expired quarantines',
         'task': 'tasks.release_expired_quarantines',
-        'crontab': {'hour': '9', 'minute': '11'},  # 3:11 AM CST daily
+        'crontab': {'hour': '3', 'minute': '11'},  # 3:11 AM Central daily
     },
     {
         'name': 'Prune expired chat permissions',
         'task': 'tasks.prune_expired_chat_permissions',
-        'crontab': {'hour': '9', 'minute': '12'},  # 3:12 AM CST daily
+        'crontab': {'hour': '3', 'minute': '12'},  # 3:12 AM Central daily
     },
     {
         'name': 'Notify expiring API tokens',
         'task': 'tasks.notify_expiring_api_tokens',
-        'crontab': {'hour': '9', 'minute': '14'},  # 3:14 AM CST daily
+        'crontab': {'hour': '3', 'minute': '14'},  # 3:14 AM Central daily
     },
 
     # -------------------------------------------------------------------------
-    # Housekeeping — monthly tasks (1st of month, 3:15 AM CST = 09:15 UTC)
+    # Housekeeping — monthly tasks (1st of month, 3:15 AM Central)
     # -------------------------------------------------------------------------
     {
         'name': 'Prune stale push subscriptions',
         'task': 'tasks.prune_stale_push_subscriptions',
-        'crontab': {'hour': '9', 'minute': '15', 'day_of_month': '1'},
+        'crontab': {'hour': '3', 'minute': '15', 'day_of_month': '1'},
     },
     {
         'name': 'Prune API access logs (90 days)',
         'task': 'tasks.cleanup_api_access_logs',
-        'crontab': {'hour': '9', 'minute': '20', 'day_of_month': '1'},  # 3:20 AM CST, 1st of month
+        'crontab': {'hour': '3', 'minute': '20', 'day_of_month': '1'},  # 3:20 AM Central, 1st of month
     },
 
     # -------------------------------------------------------------------------
