@@ -392,7 +392,12 @@ def login_view(request):
             attempts_so_far = MAX_LOGIN_ATTEMPTS - remaining
             if attempts_so_far >= 2:
                 try:
-                    from django.contrib.auth import get_user_model
+                    # ⚠️ 09-25-26 — NO function-local `from django.contrib.auth import
+                    # get_user_model` here. An import anywhere inside a function makes
+                    # the name LOCAL for the whole function, so the email-login lookup
+                    # ~140 lines up (`User = get_user_model()`) raised UnboundLocalError
+                    # and 500'd every login typed as an email address. It is imported
+                    # at module level. Guarded by test_login_with_email_address.
                     User = get_user_model()
                     target_user = User.objects.filter(username=username).first()
                     if target_user:
