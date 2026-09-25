@@ -630,10 +630,10 @@ ANONYMIZE_FIELDS_KEPT = {
     'member_type': "institutional role history ('was an Officer') isn't identity",
     'anonymous_vote': 'a voting-privacy preference; moot once removed, harmless to keep',
     'allow_abstain': 'same as anonymous_vote',
-    # nosec B105 -- bandit reads these two dict keys as a hardcoded-credential
-    # pattern; they are ParliamentUser field names, not a credential value.
-    'force_password_change': 'moot once the account can no longer log in',  # nosec B105
-    'has_default_password': 'moot once the account can no longer log in',  # nosec B105
+    # bandit reads the two password-named keys below as hardcoded credentials;
+    # they are ParliamentUser field names, not a credential value.
+    'force_password_change': 'moot once the account can no longer log in',  # nosec B105 # field name, not a credential
+    'has_default_password': 'moot once the account can no longer log in',  # nosec B105 # field name, not a credential
     'onboarding_complete': 'checklist progress, not identity',
     'onboarding_data': 'checklist progress, not identity',
     'is_quarantined': 'security flag; irrelevant once removed, kept for audit context',

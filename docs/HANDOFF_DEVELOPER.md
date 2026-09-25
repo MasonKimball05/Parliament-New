@@ -1,6 +1,6 @@
 # Parliament — Developer Handoff Guide
 
-**Last updated:** May 2026 (v2.26.0)
+**Last updated:** 09-25-26 (v3.35.0). Sections marked *(09-25-26)* were added or rewritten then; the rest dates from May 2026 and is still accurate unless noted.
 **Author:** Mason Kimball
 **Live site:** https://am-parliament.org
 **Repository:** https://github.com/MasonKimball05/Parliament-New
@@ -19,11 +19,15 @@ This document is written for whoever is taking over maintenance of Parliament. I
 6. [Database Backups](#database-backups)
 7. [Codebase Architecture](#codebase-architecture)
 8. [Key Gotchas](#key-gotchas)
+   - [Standing design rules — read before changing](#standing-design-rules--read-before-changing) *(09-25-26)*
 9. [Feature Flags](#feature-flags)
 10. [Management Commands](#management-commands)
 11. [Third-Party Services](#third-party-services)
 12. [When Things Break](#when-things-break)
 13. [Accounts & Access](#accounts--access)
+14. [Releases, changelogs & the deploy ledger](#releases-changelogs--the-deploy-ledger) *(09-25-26)*
+15. [Tests, CI and error alerts](#tests-ci-and-error-alerts) *(09-25-26)*
+16. [Constitution & Bylaws tooling](#constitution--bylaws-tooling) *(09-25-26)*
 
 ---
 
@@ -141,17 +145,17 @@ This has caused "site has no styling" incidents where `curl` returned 200 but br
 
 ### CSS rebuild (Tailwind)
 
-If you change Tailwind classes in templates, you need to rebuild the CSS before deploying:
+*(Rewritten 09-25-26.)* `static/css/tailwind.css` is **prebuilt and checked in**. A Tailwind class that isn't in that file does nothing in production — no error, no failing test. (`md:flex`, for example, was not compiled for months.)
 
 ```bash
-# On your local machine
-./build_css.sh
-
-# Then commit the updated staticfiles/css/output.css (or whatever the output is)
-git add static/
-git commit -m "Rebuild CSS"
-git push
+# One-time: download the pinned standalone CLI (no npm) — see build_css.sh's header
+# for the macOS / Linux URLs (Tailwind v3.4.17).
+./build_css.sh                       # rebuilds tailwind.css AND updates static/vendor/.integrity.json
+make check-css TAILWIND=./tailwindcss   # optional: confirms nothing is missing
+git add static/css/tailwind.css static/vendor/.integrity.json
 ```
+
+CI runs the same check (`css` job, `scripts/check_css_fresh.py`): it builds fresh and **fails if the committed file is missing any class in use**. If CI says "run ./build_css.sh", that's why. After deploying a rebuilt CSS: `collectstatic`, then purge Cloudflare (above).
 
 ---
 
@@ -293,18 +297,14 @@ Both chapter minutes and committee minutes use the same template: `templates/off
 
 Not `parliament.service`. Wrong service name = silent failure.
 
-### 6. Feature flags that are seeded but do nothing
+### 6. Feature flags fail OPEN in Python and CLOSED in templates *(rewritten 09-25-26)*
 
-Four feature flags are in the database and show up in the admin panel, but no view code checks them:
+- `FeatureFlag.is_feature_enabled('x')` with **no row** returns **True** (unless `x` is in `FeatureFlag.DISABLED_BY_DEFAULT`).
+- `{% if feature_flags.x %}` with no row is **False** — the context processor only includes enabled rows.
 
-| Flag | Status |
-|------|--------|
-| `attendance_tracking` | No-op — all attendance views always active |
-| `calendar_subscriptions` | No-op — feature partially built |
-| `global_search` | No-op — search always active |
-| `kai_reports` | No-op — KAI always active |
+So a feature gated in both places, whose flag was never seeded, has working endpoints and an invisible button. Always add new flags to `seed_feature_flags.py`; `src/tests/activity/test_feature_flag_seeding.py` fails if a template uses an unseeded flag. **Unpassed governance** (e.g. the C&B Foreword, `cnb_foreword`) must be in `DISABLED_BY_DEFAULT` so it fails closed.
 
-Toggling these in the admin panel has no effect. Either enforce them or remove them to avoid confusing future admins.
+As of 09-25-26, four seeded flags gate nothing: `calendar`, `chapter_documents`, `chat_channels`, `committee_documents` (older `seed_admin_v2.py` rows). Toggling them does nothing. `manage.py prune_dead_feature_flags` exists for removing them once decided.
 
 ### 7. Login-as-user is under `/staff/`, not `/admin/`
 
@@ -328,10 +328,12 @@ The feature flag system is managed via the Admin v2 dashboard (`/admin-v2/`). Fl
 | `slating` | Officer slating and elections |
 | `service_hours` | Service hours submission and tracking |
 | `house_map` | House map feature |
-| `attendance_tracking` | **No-op** (see Gotchas) |
-| `calendar_subscriptions` | **No-op** (see Gotchas) |
-| `global_search` | **No-op** (see Gotchas) |
-| `kai_reports` | **No-op** (see Gotchas) |
+| `attendance_tracking` | Attendance views |
+| `calendar_subscriptions` | iCal/webcal feed endpoints (the button is `ical_export` — both must be on) |
+| `global_search` | Site search |
+| `kai_reports` | The whole Kai module |
+
+*(09-25-26: the four rows above were marked "no-op" in May; all are wired now. The authoritative list is `seed_feature_flags.py`.)*
 
 Page toggles (individual URL enable/disable) are also managed in Admin v2.
 
@@ -361,6 +363,12 @@ python manage.py <command>
 | `process_scheduled_announcements` | Send any scheduled announcements that are due |
 | `execute_scheduled_transitions` | Run any pending slating transitions |
 | `import_from_exportable` | Import data from a `data_backup.json` export |
+| `preflight` | *(09-25-26 row)* Prod self-check: env, Celery schedules/heartbeat, media gating, ledger. Run before/after deploys; exits non-zero on problems |
+| `setup_celery_schedules` | Register Celery beat schedules (run before restarting `parliament-beat`) |
+| `seed_cnb_documents [--only doc:ART:SEC --force]` | Seed/refresh C&B text from `src/management/data/cnb_data.py`. Never overwrites edited text unless `--force`; scope `--force` with `--only` |
+| `check_cnb_references [--strict]` | Report C&B cross-references pointing to missing/mismatched sections |
+| `kai_break_glass` | Time-boxed, audited emergency Kai access for an admin (admins have **no** Kai access otherwise) |
+| `scrub_action_logs` | Remove Kai identities from `logs/django_actions.log*` |
 
 ---
 
@@ -452,3 +460,51 @@ Officers can impersonate any member via `/staff/login-as/<user_id>/`. An amber b
 ---
 
 *For officer/admin feature usage (not technical), see [OFFICER_GUIDE.md](OFFICER_GUIDE.md).*
+
+---
+
+## Standing design rules — read before changing
+
+*(09-25-26.)* These are decisions, not accidents. Each was made deliberately after something went wrong or a real risk was found; the changelog named in brackets has the full reasoning. Don't "fix" them without reading that first.
+
+1. **Admin is an operational role, not judicial access** (v3.16.2, v3.18.2, v3.34.1). A Django admin/superuser gets **no** Kai access: all seven Kai models are unregistered from `/admin/`, `_get_kai_access` ignores `is_admin`, the Kai permissions page and stand-in appointments are **Kai chair only**. The only admin path in is `manage.py kai_break_glass` (time-boxed, audited, banner shown). New Kai surfaces must use `_get_kai_access` and the flags it returns.
+2. **Anonymity leaks through joins, not just columns** (v3.16.2). When redacting, ask what the redacted view can be *joined* against — a timestamp, a sequence, a row order. Anonymous poll CSVs drop timestamps *and shuffle rows*; `SlatingVote.voted_at` is excluded from admin. See `docs/CONFIDENTIALITY_MATRIX.md`.
+3. **Kai records are retained and submissions are attributable** (07-31-26). No retention/destruction policy for Kai; `KaiReport.submitted_by` is required. The promise is that **the accused never learns who reported them** — re-verify that whenever accused-facing templates change.
+4. **`user_id` is a permanent surrogate key; `role_number` is the roll number** (v3.23.0). Never change a `user_id` after creation (150+ FK columns hold it). Pledges get `P-XXXXXX` ids; routes use `<str:...>`.
+5. **`exportable_media/` is public by design** (07-31-26); uploaded files go to `MEDIA_ROOT` behind `serve_media` (login-gated).
+6. **The bug-tracker admin is pinned to user id 73** on purpose (07-22-26) to prevent accidental privilege grants.
+7. **Tests must not touch real state**: cache is isolated per test (v3.19.7/8) and, since 09-25-26, logs go to a temp dir (`TEST_LOG_DIR` to keep them).
+8. **A migration test must use the historical model** (`state.apps.get_model(...)`) for its target state, never `src.models` (09-25-26 — three tests broke when a later migration added a column).
+
+---
+
+## Releases, changelogs & the deploy ledger
+
+*(09-25-26.)*
+
+- Every release has `changelogs/vX.Y.Z.md`. Minor (`Y`) for features, patch (`Z`) for fixes; about one changelog per day.
+- **`changelogs/DEPLOYED.md` is the only source of truth for "is it live."** Commit dates are not deploy dates. After committing, run `make stamp-ledger` (fills in commit hashes; adds rows marked *not deployed*), commit that as a follow-up, and fill in the **Deployed** column by hand after deploying.
+- `src.W003` (a system check) and `src/tests/infra/test_stamp_ledger.py` flag an unstamped ledger — that's the reminder, not a bug.
+- Deploy order when a release has them: `pip install -r requirements.txt` → `migrate` → seeders named in the changelog → `collectstatic` + Cloudflare purge (static changes) → `setup_celery_schedules` + restart `parliament-worker`/`parliament-beat` (task changes) → `sudo systemctl restart parliament-gunicorn.service` (always; it runs Daphne).
+
+---
+
+## Tests, CI and error alerts
+
+*(09-25-26.)*
+
+- **Run tests:** `DB_BACKEND=sqlite python manage.py test --parallel 6 src.tests.<package>` for a fast loop; `make test` for everything (~2,800 tests). CI runs the suite on PostgreSQL — SQLite doesn't enforce column widths, so some bugs only show in CI.
+- **Keep main green.** A suite that's "red except the known ones" teaches people to ignore red. If a test is wrong, fix the test and say why in the commit.
+- **Guard tests** (`src/tests/guards/`) enforce project rules: CSP nonces on inline scripts, query budgets per page (`test_query_budgets.py` — a ceiling is a *measured* number; if you raise one, write down what the new queries are), `# nosec` hygiene, hardcoded URLs, reachable pages, etc. Read the failure message — it usually says exactly what to do.
+- **CI jobs:** `test`, `css` (see CSS rebuild), `lint`, `security` (bandit + pip-audit).
+- **Error alerts:** unhandled 500s email `ERROR_ALERT_EMAIL` (default `SECURITY_ALERT_EMAIL`) via `src/error_alerts.py` — scrubbed (no POST/cookies/headers/local variables; exception message dropped on `/kai/` paths), one email per distinct error per hour, max 10/hour. Off under `DEBUG`; set `ERROR_ALERTS_ENABLED=False` to disable. Needs the Celery worker running.
+
+---
+
+## Constitution & Bylaws tooling
+
+*(09-25-26.)*
+
+- **Source text:** `src/management/data/cnb_data.py`, matching the August 2025 PDF in `exportable_media/legislation_docs/`. When the chapter adopts a new printed version, diff it section-by-section against the data (headings *and* text), don't trust the file header.
+- **Resolutions** amend sections; passing one applies the text. Every change to a section — resolution, direct edit in the C&B manager, forced import — saves the outgoing text as a `SectionRevision`. Members can see each section's **History**, and the viewer has **"View as of"** a date.
+- **Cross-references:** `check_cnb_references` (and a panel on the C&B Manage tab) lists references to sections that don't exist or that point at a different topic than the sentence describes. Valid references are links in the viewer. **Fixing the wording takes a resolution** — the tool only finds problems.

@@ -330,3 +330,83 @@ class MinutesMotion(models.Model):
         if self.author:
             return self.author.get_display_name()
         return self.author_text or 'Unknown'
+
+
+class MeetingAgenda(models.Model):
+    """
+    The agenda for a chapter meeting (09-25-26 — "meeting mode", first slice).
+
+    Mason picked the idea "a live chapter-meeting mode: agenda → motions →
+    votes → auto-drafted minutes". This slice is the foundation: officers build
+    the agenda (starting from the standard order of business), publish it so
+    members can read it before the meeting, and one click turns it into a
+    `ChapterMinutes` draft — a header per agenda item with its presenter and
+    notes already filled in — opened in the existing minutes editor.
+
+    Deliberately NOT here yet (next slices): a live speaker queue, launching
+    motions/votes from an agenda item during the meeting.
+    """
+    STATUS_CHOICES = [
+        ('draft', 'Draft'),
+        ('published', 'Published'),
+    ]
+    title = models.CharField(max_length=200)
+    date = models.DateField()
+    start_time = models.TimeField()
+    event = models.ForeignKey('Event', on_delete=models.SET_NULL, null=True, blank=True, related_name='agendas')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
+    created_by = models.ForeignKey('ParliamentUser', on_delete=models.SET_NULL, null=True, related_name='created_agendas')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    minutes = models.OneToOneField(
+        ChapterMinutes, on_delete=models.SET_NULL, null=True, blank=True, related_name='agenda',
+        help_text='The minutes draft started from this agenda, once there is one.',
+    )
+
+    class Meta:
+        ordering = ['-date', '-start_time']
+        verbose_name = 'Meeting Agenda'
+
+    def __str__(self):
+        return f'{self.title} — {self.date}'
+
+
+class AgendaItem(models.Model):
+    ITEM_TYPES = [
+        ('call_to_order', 'Call to Order'),
+        ('roll_call', 'Roll Call'),
+        ('approve_minutes', 'Approval of Previous Minutes'),
+        ('officer_reports', 'Officer Reports'),
+        ('committee_reports', 'Committee Reports'),
+        ('old_business', 'Old Business'),
+        ('new_business', 'New Business'),
+        ('announcements', 'Announcements'),
+        ('adjournment', 'Adjournment'),
+        ('custom', 'Other'),
+    ]
+    #: Robert's Rules standard order of business, used for a new agenda.
+    STANDARD_ORDER = [
+        'call_to_order', 'roll_call', 'approve_minutes', 'officer_reports',
+        'committee_reports', 'old_business', 'new_business', 'announcements', 'adjournment',
+    ]
+
+    agenda = models.ForeignKey(MeetingAgenda, on_delete=models.CASCADE, related_name='items')
+    order = models.PositiveIntegerField(default=0)
+    item_type = models.CharField(max_length=30, choices=ITEM_TYPES, default='custom')
+    title = models.CharField(max_length=200)
+    presenter = models.ForeignKey('ParliamentUser', on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
+    presenter_text = models.CharField(max_length=200, blank=True, help_text='Typed name if not a member (e.g. a guest or advisor)')
+    notes = models.TextField(blank=True)
+    duration_minutes = models.PositiveIntegerField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['order', 'pk']
+
+    def __str__(self):
+        return f'{self.agenda} — {self.order}. {self.title}'
+
+    @property
+    def presenter_display(self):
+        if self.presenter:
+            return self.presenter.get_display_name()
+        return self.presenter_text

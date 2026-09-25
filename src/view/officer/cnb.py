@@ -20,6 +20,8 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from src.decorators import cnb_required
+from src.cnb_crossrefs import Structure as CnbStructure, check as check_crossrefs
+from src.view.cnb_history import apply_as_of, parse_as_of
 from src.models.users import member_defer
 from src.models import (
     GoverningDocument, Article, Section, Resolution, ResolutionAmendment,
@@ -44,7 +46,18 @@ def cnb_viewer(request):
     # keeps querying every row, because a document has to be editable before it
     # can be turned on. Ordering now comes from Meta (v3.19.1) instead of from
     # whatever the database happened to return.
-    documents = GoverningDocument.enabled().prefetch_related('articles__sections')
+    # 09-25-26 — `?as_of=YYYY-MM-DD` shows the documents as they read at the
+    # end of that day (src/view/cnb_history.py). Revisions are prefetched only
+    # when asked for, so the normal page pays nothing extra.
+    as_of = parse_as_of(request.GET.get('as_of'))
+    prefetch = 'articles__sections__revisions' if as_of else 'articles__sections'
+    documents = list(GoverningDocument.enabled().prefetch_related(prefetch))
+    if as_of:
+        apply_as_of(documents, as_of)
+    # 09-25-26: built from the same prefetched objects — no extra queries.
+    # Lets the viewer link "Article VII, Section 1 of the Bylaws" to its
+    # section, and leave references to non-existent sections unlinked.
+    cnb_structure = CnbStructure.from_documents(documents)
     # v3.17.3: `created_by` was joined and never read by cnb/viewer.html.
     #
     # v3.17.5: `prefetch_related('amendments')` REMOVED and replaced with a
@@ -63,10 +76,15 @@ def cnb_viewer(request):
     is_cnb = request.user.has_cnb_permission
 
     protected_sections = []
+    crossref_findings = []
     if is_cnb:
         protected_sections = list(
             Section.objects.filter(amendment_protected=True).select_related('article__document')
         )
+        # 09-25-26 — cross-reference problems in the live text (src/cnb_crossrefs.py),
+        # shown on the Manage tab. Every document, enabled or not: the chair
+        # edits before publishing.
+        crossref_findings = check_crossrefs(CnbStructure.from_db())
 
     active_tab = request.GET.get('tab', 'document')
     if active_tab not in ('document', 'resolutions', 'manage'):
@@ -86,6 +104,9 @@ def cnb_viewer(request):
             pending_count=Count('pk', filter=Q(status='pending')),
         ),
         'protected_sections': protected_sections,
+        'cnb_structure': cnb_structure,
+        'crossref_findings': crossref_findings,
+        'as_of': as_of,
     }
     return render(request, 'cnb/viewer.html', context)
 
@@ -431,7 +452,6 @@ def cnb_dashboard(request):
     protected_sections = Section.objects.filter(amendment_protected=True).select_related(
         'article__document'
     )
-
     context = {
         'documents': documents,
         'resolutions': resolutions,
@@ -472,8 +492,13 @@ def edit_section(request, section_id):
         if not new_content:
             messages.error(request, 'Section content cannot be empty.')
         else:
+            new_title = request.POST.get('title', section.title).strip()
+            if (new_content, new_title) != (section.content, section.title):
+                # 09-25-26 — a direct edit changes governing text outside the
+                # resolution process; keep what it replaced (SectionRevision).
+                section.record_revision('direct_edit', by=request.user)
             section.content = new_content
-            section.title = request.POST.get('title', section.title).strip()
+            section.title = new_title
             section.save(update_fields=['content', 'title'])
             messages.success(request, f'{section.full_identifier} updated.')
             return redirect('cnb_manage_document', doc_type=section.article.document.doc_type)

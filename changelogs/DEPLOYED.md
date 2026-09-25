@@ -169,6 +169,9 @@ which predate this file and are more specific than their commit dates.
 | v3.31.6 | 09-15-26 ¶ | `0eb8a29` | See `changelogs/v3.31.6.md`. |
 | v3.31.7 | 09-15-26 ¶ | `0eb8a29` | See `changelogs/v3.31.7.md`. |
 | v3.32.0 | 09-15-26 ¶ | `0eb8a29` | See `changelogs/v3.32.0.md`. **⚠️ Read `changelogs/v3.32.0.md`'s deploy note before assuming this is fully settled: it warns that any officer without an explicit `EducationMemberPermission` grant loses education-dashboard access the moment this is live. Confirming the code shipped is not the same question as confirming officers were granted access before anyone noticed being locked out — that second thing is worth a direct check with Mason, not an inference from this row.** |
+| v3.33.0 | *not deployed* | `c5dc5dd` | See `changelogs/v3.33.0.md`. |
+| v3.34.0 | *not deployed* | `3ec50ba` | See `changelogs/v3.34.0.md`. |
+| v3.34.1 | *not deployed* | `d0b7a98` | See `changelogs/v3.34.1.md`. |
 
 > **⚠️ 09-02-26 — code for the whole backlog above (v3.25.2 through
 > v3.28.8) was restarted into prod the same day, and Mason confirmed

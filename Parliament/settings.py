@@ -127,6 +127,23 @@ LOGGING = {
     },
 }
 
+# ⚠️ 09-25-26 — unhandled 500s email a human (src/error_alerts.py). Scrubbed
+# (no POST/cookies/headers/locals; message dropped on Kai paths) and rate
+# limited. Off under DEBUG and in test runs; ERROR_ALERTS_ENABLED=False to
+# disable in prod.
+if (not DEBUG
+        and os.getenv('ERROR_ALERTS_ENABLED', 'True') == 'True'
+        and 'test' not in __import__('sys').argv):
+    LOGGING['handlers']['error_alerts'] = {
+        'level': 'ERROR',
+        'class': 'src.error_alerts.ErrorAlertHandler',
+    }
+    # Attach ONLY the alert handler and keep propagating, so the existing
+    # file/console logging of django.request (404 warnings included) through
+    # the 'django' logger is unchanged. The handler's own level is ERROR.
+    _req = LOGGING['loggers'].setdefault('django.request', {'handlers': [], 'propagate': True})
+    _req['handlers'] = list(_req.get('handlers', [])) + ['error_alerts']
+
 INSTALLED_APPS = [
     'daphne',                # Must be first — overrides runserver with ASGI handler
     'django.contrib.admin',
@@ -430,6 +447,9 @@ EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '')
 EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
 DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'noreply@am-parliament.org')
 SECURITY_ALERT_EMAIL = os.getenv('SECURITY_ALERT_EMAIL', os.getenv('DEFAULT_FROM_EMAIL', 'noreply@am-parliament.org'))
+# 09-25-26 — where unhandled-500 alerts go (src/error_alerts.py). Defaults to
+# SECURITY_ALERT_EMAIL. Set ERROR_ALERTS_ENABLED=False to turn alerts off.
+ERROR_ALERT_EMAIL = os.getenv('ERROR_ALERT_EMAIL', '')
 SITE_URL = os.getenv('SITE_URL', 'https://am-parliament.org')
 
 # Anymail (Brevo) Configuration - used when EMAIL_BACKEND is anymail.backends.brevo.EmailBackend
@@ -595,6 +615,19 @@ import sys as _sys
 if 'test' in _sys.argv or os.getenv('PYTEST_CURRENT_TEST'):
     CELERY_TASK_ALWAYS_EAGER = True
     CELERY_TASK_EAGER_PROPAGATES = True
+
+    # ⚠️ 09-25-26 — A TEST RUN MUST NOT WRITE TO THE REAL LOG FILE EITHER.
+    # Same principle as the cache block below. The `file` handler pointed at
+    # `logs/django_actions.log`, so every suite run appended test noise to the
+    # developer's (or server's) real action log, and once that file passed
+    # 10 MB the run tried to ROTATE it — renaming the operator's logs mid-test.
+    # Tests always log to a throwaway temp dir (set TEST_LOG_DIR to keep them).
+    # NOT keyed on LOG_DIR: `.env` sets LOG_DIR for the app, so a check on it
+    # never fired — the first draft of this block did exactly that.
+    import tempfile as _tempfile
+    LOGGING['handlers']['file']['filename'] = os.path.join(
+        os.getenv('TEST_LOG_DIR') or _tempfile.mkdtemp(prefix='parliament-test-logs-'),
+        'django_actions.log')
 
     # ⚠️ v3.19.8 — A TEST RUN MUST NEVER TOUCH THE REAL CACHE, AND UNTIL NOW
     # NOTHING SAID SO. This block set Celery to eager and said nothing about

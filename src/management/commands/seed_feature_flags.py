@@ -27,6 +27,17 @@ class Command(BaseCommand):
                 'is_enabled': True,
             },
             {
+                # 09-25-26 — meeting agendas (src/view/officer/meeting_agenda.py).
+                'name': 'meeting_agendas',
+                'display_name': 'Meeting Agendas',
+                'description': (
+                    'Officers build chapter-meeting agendas, publish them for '
+                    'members, and start the minutes from them.'
+                ),
+                'category': 'features',
+                'is_enabled': True,
+            },
+            {
                 # v3.16.2: this flag gates the Subscribe button in
                 # templates/calendar.html ({% if feature_flags.ical_export %}).
                 # It was only ever defined in seed_admin_v2.py, so installs

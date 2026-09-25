@@ -1,0 +1,36 @@
+{% comment %}Agenda item fields, shared by add and edit. Expects: item (or None), prefix, item_types, members.{% endcomment %}
+<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+    <div>
+        <label for="ai-type-{{ prefix }}" class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Type</label>
+        <select id="ai-type-{{ prefix }}" name="item_type" class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg">
+            {% for value, label in item_types %}<option value="{{ value }}" {% if item and item.item_type == value or not item and value == 'custom' %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+    </div>
+    <div>
+        <label for="ai-title-{{ prefix }}" class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Title</label>
+        <input id="ai-title-{{ prefix }}" name="title" maxlength="200" value="{{ item.title|default:'' }}" placeholder="Defaults to the type"
+               class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg">
+    </div>
+    <div>
+        <label for="ai-presenter-{{ prefix }}" class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Presenter</label>
+        <select id="ai-presenter-{{ prefix }}" name="presenter" class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg">
+            <option value="">— None —</option>
+            {% for m in members %}<option value="{{ m.pk }}" {% if item and item.presenter_id == m.pk %}selected{% endif %}>{{ m.get_display_name }}</option>{% endfor %}
+        </select>
+    </div>
+    <div>
+        <label for="ai-ptext-{{ prefix }}" class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">…or presenter name <span class="text-gray-400">(guest, advisor)</span></label>
+        <input id="ai-ptext-{{ prefix }}" name="presenter_text" maxlength="200" value="{{ item.presenter_text|default:'' }}"
+               class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg">
+    </div>
+    <div>
+        <label for="ai-dur-{{ prefix }}" class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Minutes allotted</label>
+        <input id="ai-dur-{{ prefix }}" type="number" min="1" max="600" name="duration_minutes" value="{{ item.duration_minutes|default:'' }}"
+               class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg">
+    </div>
+    <div class="md:col-span-2">
+        <label for="ai-notes-{{ prefix }}" class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Notes</label>
+        <textarea id="ai-notes-{{ prefix }}" name="notes" rows="2" maxlength="4000"
+                  class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg">{{ item.notes|default:'' }}</textarea>
+    </div>
+</div>

@@ -233,10 +233,36 @@ class Section(models.Model):
         help_text='Auto-filled: which resolution triggered the protection and when'
     )
 
+    #: 09-25-26 — when this section first existed in the app. NULL = it
+    #: predates tracking (everything seeded before this release). Used by the
+    #: "as of a date" view to hide sections added after that date.
+    created_at = models.DateTimeField(null=True, blank=True, editable=False)
+
     class Meta:
         ordering = ['article', 'display_order']
         unique_together = ('article', 'number')
         verbose_name = 'Section'
+
+    def save(self, *args, **kwargs):
+        if self._state.adding and self.created_at is None:
+            from django.utils import timezone
+            self.created_at = timezone.now()
+        super().save(*args, **kwargs)
+
+    def record_revision(self, source, by=None, resolution=None, note=''):
+        """
+        Save the text that is ABOUT TO BE REPLACED as a SectionRevision
+        (09-25-26). Call immediately before overwriting content/title/is_active.
+        Placeholder text from the seeder is not history and is skipped.
+        """
+        if not self.pk or (self.content or '').startswith('PLACEHOLDER'):
+            return None
+        from django.utils import timezone
+        return SectionRevision.objects.create(
+            section=self, title=self.title or '', content=self.content or '',
+            was_active=self.is_active, replaced_at=timezone.now(),
+            replaced_by=by, source=source, resolution=resolution, note=note[:300],
+        )
 
     @property
     def full_identifier(self):
@@ -375,6 +401,8 @@ class Resolution(models.Model):
         from django.utils import timezone
         for amendment in self.amendments.all():
             section = amendment.section
+            # 09-25-26 — keep the outgoing text (SectionRevision).
+            section.record_revision('resolution', by=applied_by, resolution=self)
             whole_section_delete = (amendment.amendment_type == 'deletion' and not amendment.scope_note and not amendment.proposed_text)
             if whole_section_delete:
                 # Whole-section deletion: clear content and suspend
@@ -499,6 +527,57 @@ class ResolutionAmendment(models.Model):
 
     def __str__(self):
         return f'{self.resolution.title} → {self.section}'
+
+
+class SectionRevision(models.Model):
+    """
+    A past version of a Section: the text that was in force UNTIL `replaced_at`
+    (09-25-26).
+
+    WHY: "what did Bylaws III §2 say last spring, and what changed it?" had no
+    answer. `ResolutionAmendment.original_text_snapshot` is taken when an
+    amendment is DRAFTED (not when it is applied), and direct edits in the C&B
+    manager and forced imports overwrote text with no record at all. Precedent
+    depends on knowing what the rule WAS — the same reasoning that keeps Kai
+    records.
+
+    Written by `Section.record_revision()` immediately before every overwrite:
+    `Resolution.apply_amendments` (source='resolution'), `edit_section`
+    ('direct_edit') and `seed_cnb_documents` ('import'). Migration 0053
+    backfilled one row per already-applied amendment from its snapshot
+    ('backfill' — approximate, see `note`).
+
+    Append-only. Nothing in the app edits or deletes these.
+    """
+    SOURCE_CHOICES = [
+        ('resolution', 'Resolution passed'),
+        ('direct_edit', 'Direct edit in the C&B manager'),
+        ('import', 'Document import'),
+        ('backfill', 'Reconstructed from an earlier resolution'),
+    ]
+
+    section = models.ForeignKey(Section, on_delete=models.CASCADE, related_name='revisions')
+    title = models.CharField(max_length=255, blank=True)
+    content = models.TextField(blank=True)
+    was_active = models.BooleanField(default=True)
+    replaced_at = models.DateTimeField(db_index=True)
+    replaced_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='+',
+    )
+    source = models.CharField(max_length=20, choices=SOURCE_CHOICES)
+    resolution = models.ForeignKey(
+        'Resolution', on_delete=models.SET_NULL, null=True, blank=True, related_name='section_revisions',
+    )
+    note = models.CharField(max_length=300, blank=True)
+
+    class Meta:
+        ordering = ['-replaced_at', '-pk']
+        verbose_name = 'Section Revision'
+        verbose_name_plural = 'Section Revisions'
+
+    def __str__(self):
+        return f'{self.section} (until {self.replaced_at:%Y-%m-%d})'
 
 
 class ResolutionCollaborator(models.Model):

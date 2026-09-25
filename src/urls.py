@@ -269,6 +269,11 @@ from src.view.officer.cnb import (
     add_collaborator, remove_collaborator, resolution_print,
     add_section, add_article, add_partial_suspension, remove_partial_suspension,
 )
+from src.view.cnb_history import section_history as cnb_section_history
+from src.view.officer.meeting_agenda import (
+    agenda_list, agenda_detail, create_agenda, edit_agenda, add_agenda_item,
+    update_agenda_item, set_agenda_status, start_minutes_from_agenda,
+)
 from src.view.officer.cnb_notes import (
     add_resolution_note, edit_resolution_note,
     toggle_resolution_note_done, delete_resolution_note,
@@ -351,6 +356,7 @@ urlpatterns = [
     path('logout/', logout_view, name='logout'),
     path('roberts-rules/', roberts_rules, name='roberts_rules'),
     path('constitution-bylaws/', cnb_viewer, name='constitution_bylaws'),
+    path('constitution-bylaws/section/<int:section_id>/history/', cnb_section_history, name='cnb_section_history'),
     path('reference-document/<str:doc_slug>/', view_reference_document, name='view_reference_document'),
 
     # Password Reset URLs
@@ -570,6 +576,15 @@ urlpatterns = [
 
     # Chapter Minutes (Officer)
     path('officers/minutes/', chapter_minutes_list, name='chapter_minutes_list'),
+    # Meeting agendas (09-25-26) — members read published ones; officers build them.
+    path('meetings/agendas/', agenda_list, name='agenda_list'),
+    path('meetings/agendas/<int:agenda_id>/', agenda_detail, name='agenda_detail'),
+    path('officers/agendas/create/', create_agenda, name='create_agenda'),
+    path('officers/agendas/<int:agenda_id>/edit/', edit_agenda, name='edit_agenda'),
+    path('officers/agendas/<int:agenda_id>/items/add/', add_agenda_item, name='add_agenda_item'),
+    path('officers/agendas/<int:agenda_id>/items/<int:item_id>/', update_agenda_item, name='update_agenda_item'),
+    path('officers/agendas/<int:agenda_id>/status/', set_agenda_status, name='set_agenda_status'),
+    path('officers/agendas/<int:agenda_id>/start-minutes/', start_minutes_from_agenda, name='start_minutes_from_agenda'),
     path('officers/minutes/create/', create_chapter_minutes, name='create_chapter_minutes'),
     path('officers/minutes/<int:minutes_id>/edit/', edit_chapter_minutes, name='edit_chapter_minutes'),
     path('officers/minutes/<int:minutes_id>/save/', save_minutes_data, name='save_minutes_data'),

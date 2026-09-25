@@ -35,7 +35,8 @@ from .models import (
     ChatChannelPermission, ChatNotificationPreference,
     # cnb (governing documents)
     GoverningDocument, Article, Section, Resolution, ResolutionAmendment,
-    ResolutionCollaborator, ResolutionNote,
+    ResolutionCollaborator, ResolutionNote, SectionRevision,
+    MeetingAgenda, AgendaItem,
     # committees
     CommitteePermissions, CommitteeLegislation, CommitteeVote,
     # documents / minutes
@@ -304,6 +305,45 @@ class ResolutionNoteAdmin(admin.ModelAdmin):
     list_filter = ('is_done', 'color')
     search_fields = ('resolution__title', 'body')
     readonly_fields = ('created_by', 'created_at', 'edited_by', 'edited_at', 'done_by', 'done_at')
+
+
+class AgendaItemInline(admin.TabularInline):
+    model = AgendaItem
+    extra = 0
+    fields = ('order', 'item_type', 'title', 'presenter', 'presenter_text', 'duration_minutes')
+    raw_id_fields = ('presenter',)
+
+
+@admin.register(MeetingAgenda, site=admin_site)
+class MeetingAgendaAdmin(admin.ModelAdmin):
+    # 09-25-26 — meeting agendas; managed in the app at /meetings/agendas/.
+    list_display = ('title', 'date', 'status', 'event', 'minutes', 'created_by')
+    list_filter = ('status',)
+    search_fields = ('title',)
+    raw_id_fields = ('event', 'minutes', 'created_by')
+    inlines = [AgendaItemInline]
+
+
+@admin.register(AgendaItem, site=admin_site)
+class AgendaItemAdmin(admin.ModelAdmin):
+    list_display = ('agenda', 'order', 'item_type', 'title')
+    list_filter = ('item_type',)
+    raw_id_fields = ('agenda', 'presenter')
+
+
+@admin.register(SectionRevision, site=admin_site)
+class SectionRevisionAdmin(admin.ModelAdmin):
+    # 09-25-26 — append-only history of governing text. Read-only: an admin
+    # who could edit a past version would be rewriting the record.
+    list_display = ('section', 'replaced_at', 'source', 'resolution', 'replaced_by')
+    list_filter = ('source',)
+    search_fields = ('content', 'title')
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
 
 
 @admin.register(ResolutionSectionImpact, site=admin_site)

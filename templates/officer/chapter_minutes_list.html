@@ -10,6 +10,10 @@
             <h2 class="text-3xl font-bold text-gray-900 dark:text-white">Chapter Minutes</h2>
             <p class="text-gray-600 dark:text-gray-400 mt-1">Record and manage chapter meeting minutes</p>
         </div>
+        <div class="flex flex-wrap items-center gap-2">
+        {% if feature_flags.meeting_agendas %}
+        <a href="{% url 'agenda_list' %}" class="border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 font-medium py-2.5 px-5 rounded-lg transition">Agendas</a>
+        {% endif %}
         <button type="button" id="js-open-create-modal"
                 class="bg-primary-600 hover:bg-primary-700 text-white font-medium py-2.5 px-6 rounded-lg transition flex items-center gap-2">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -17,6 +21,7 @@
             </svg>
             New Minutes
         </button>
+        </div>
     </div>
 
     <!-- Minutes List -->

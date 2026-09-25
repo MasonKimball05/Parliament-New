@@ -85,6 +85,31 @@ jobs:
         pip install black
         black --check . --exclude '(.venv|staticfiles|migrations)'
 
+  css:
+    # 09-25-26 — static/css/tailwind.css is prebuilt and checked in. A class
+    # added to a template without rebuilding silently does nothing in prod.
+    # Build fresh with the pinned CLI and fail if the committed file lacks any
+    # class in use. See scripts/check_css_fresh.py.
+    name: Tailwind CSS is up to date
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.13'
+
+    - name: Download Tailwind standalone CLI (pinned, same as build_css.sh)
+      run: |
+        curl -sSL -o tailwindcss https://github.com/tailwindlabs/tailwindcss/releases/download/v3.4.17/tailwindcss-linux-x64
+        chmod +x tailwindcss
+
+    - name: Compare committed CSS with a fresh build
+      run: python scripts/check_css_fresh.py ./tailwindcss
+
   lint:
     name: Code Quality
     runs-on: ubuntu-latest

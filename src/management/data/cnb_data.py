@@ -2,6 +2,27 @@
 Constitution & Bylaws seed data for Alpha Mu Chapter of Beta Theta Pi.
 Sourced from: Constitution_and_Bylaws_of_the_Samford_Chapter_Jan_26_Approved_Document.pdf
 Last amended: January 26, 2025.
+
+⚠️ 09-25-26 — BROUGHT UP TO THE AUGUST 2025 DOCUMENT
+(`exportable_media/legislation_docs/Constitution and Bylaws of the Samford
+Chapter - August 2025.pdf`). This file was built from the January 2025 text and
+never updated, so the importer — and every install seeded from it, prod
+included — was missing what the chapter adopted after January. A section-by-
+section diff (headings AND text) against the August 2025 PDF found:
+  * Bylaws Art. III §5 "Sweethearts" — absent entirely. ADDED.
+  * Constitution Art. II §3 "Membership Procedures" — item 3 (the
+    non-discrimination statement) absent. UPDATED.
+  * Bylaws Art. IV §2 "Budget" — items 1(a)-(c) (Executive Board budget
+    meetings) absent. UPDATED.
+  * Bylaws Art. VII §10 c.i.2-3 — shortened relative to BOTH PDFs (the
+    cross-references and the stated amendment path were dropped). RESTORED.
+Everything else matched. Text is verbatim from the PDF, source typos included
+("shall take occur", "who meets", "passing the all") — this is governing text,
+so corrections belong in a resolution, not here.
+
+⚠️ `seed_cnb_documents` CREATES missing sections but will NOT overwrite a
+section whose text has been edited — so on an existing install it adds
+§5 but leaves the three updated sections alone. See that command's `--only`.
 """
 
 DOCUMENTS = [
@@ -139,7 +160,16 @@ DOCUMENTS = [
                             'the chapter\'s pre-initiation rituals.\n'
                             '2. Membership rights are equal for all members, regardless of race, color, creed, religion, age, '
                             'disability, ethnic orientation, sexual orientation, national origin, or position within the '
-                            'fraternity or chapter.'
+                            'fraternity or chapter.\n'
+                            '3. Additionally, in accordance with applicable federal and state laws, such as Titles VI and VII of the '
+                            'Civil Rights Act of 1964, Title IX of the Education Amendments of 1972, the Age Discrimination in '
+                            'Employment Act, and the Americans with Disabilities Act and ADA Amendments, the University does not '
+                            'unlawfully discriminate on the basis of sex, gender, race, color, national origin, age, disability, '
+                            'genetic information, veteran status, religion, or any other protected status under federal, state or '
+                            'local law applicable to the University, in its education policies, programs, and activities, in its '
+                            'admissions policies, in employment policies and practices, and all other areas of the University. As a '
+                            'faith-based institution, the University is exempted from certain laws and regulations concerning '
+                            'discrimination.'
                         ),
                     },
                     {
@@ -999,6 +1029,41 @@ DOCUMENTS = [
                             '   f. Pairing incoming members with a mentor in the same subject.'
                         ),
                     },
+                    {
+                        # Added to the source in the August 2025 document; absent
+                        # from this file until 09-25-26 (see module docstring).
+                        'number': '5',
+                        'title': 'Sweethearts',
+                        'content': (
+                            '1. A non-member position titled \'Sweetheart\' shall be established. Eligibility is limited to '
+                            'female individuals who meets the following requirements:\n'
+                            '   a. The individual shall not be in a romantic relationship with an Active Member\n'
+                            '   b. The individual must be in good standing with Samford University\n'
+                            '   c. The individual must have shown interest in this fraternal chapter prior to election, either by '
+                            'completing an interest form (as distributed by the Vice President of Administration) or by attending '
+                            'chapter-hosted events\n'
+                            '   d. To be eligible, an individual must not have previously served as Sweetheart two (2), or more, '
+                            'times (i.e., they may not run if they have already held the position two (2) times).\n'
+                            '2. Elections to the position shall take occur during the Fall term and individuals elected by the '
+                            'chapter shall assume this office until the end of the following Spring term.\n'
+                            '   a. Elections for this position must take place during a regular chapter meeting\n'
+                            '   b. Candidates may be permitted to briefly attend the meeting to introduce themselves and explain '
+                            'why they would benefit the chapter in this role\n'
+                            '   c. Following all candidates\' presentations and their departure the Vice President of '
+                            'Administration shall organize a vote where the chapter may select up to three (3) of the candidates '
+                            'to serve the position of Sweetheart\n'
+                            '3. The process for removal of a Sweetheart is as follows;\n'
+                            '   a. Should a Sweetheart be referred to the Kai Committee three (3) times for minor offenses or one '
+                            '(1) time for a major offense the Kai Committee shall initiate a removal review\n'
+                            '   b. If the Kai Committee recommends removal the following procedures apply:\n'
+                            '      i. The chair of the Kai Committee shall present the charges and any relevant case history to '
+                            'the chapter\n'
+                            '      ii. A chapter discussion shall take place\n'
+                            '      iii. A vote shall be conducted. Should 60% or more vote in favor of removal, the Sweetheart is '
+                            'removed. If the vote fails, the Kai Committee may reconvene to consider other sanctions, taking '
+                            'chapter input into account'
+                        ),
+                    },
                 ],
             },
             {
@@ -1024,6 +1089,12 @@ DOCUMENTS = [
                         'title': 'Budget',
                         'content': (
                             '1. The VP of Finance shall prepare a budget in collaboration with the Finance Committee and President.\n'
+                            '   a. All members of the current Executive Board must meet with the Finance Committee during the '
+                            'drafting of the budget for the next term.\n'
+                            '   b. This meeting is to be used to discuss planned events and intended expenditures of the next '
+                            'term.\n'
+                            '   c. Failure by any member to meet with the Finance Committee may result in Kai Committee sanctions '
+                            'and the potential of the drafted budget not reflecting intended budgeting of said member.\n'
                             '2. The budget must be approved by the Finance Advisor and Chapter Counselor prior to it being voted upon by the chapter.\n'
                             '3. The chapter must have a budget approved by a simple majority vote for each semester prior to the final '
                             'chapter of the preceding term.'
@@ -1425,9 +1496,14 @@ DOCUMENTS = [
                             'committee. This veto is only viable while the amendment is being passed by the committee, this being prior '
                             'to the amendment being brought to the Executive Board or to the chapter.\n'
                             '      2) When an amendment passes the committee, the amendment then follows the path of all proposed '
-                            'amendments as defined in the bylaws.\n'
+                            'amendments as defined in the bylaws (See Article VI of the Bylaws for amendments to the Bylaws. See '
+                            'Article VII of the Constitution for amendments to the Constitution).\n'
                             '      3) No amendments or changes to the Constitution or Bylaws can be made by the committee without the '
-                            'amendment passing all requirements laid out in the bylaws.\n'
+                            'amendment passing the all requirements laid out in the bylaws; these current requirements being that '
+                            'the amendment is first brought to the executive board for initial passing, should it pass there it is '
+                            'brought to the chapter where a supermajority vote, where a quorum is present, is required to pass the '
+                            'amendment. Should the amendment not pass the executive board it can still be brought to the chapter '
+                            'through the special meeting process\n'
                             '   ii. The Executive Board can petition the committee to make or draft an amendment at any point.\n'
                             '   iii. The chapter or any individual members can petition the committee to make, draft, or revise an '
                             'amendment at any point.\n'

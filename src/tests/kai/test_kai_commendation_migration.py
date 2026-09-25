@@ -41,6 +41,20 @@ class Kai0030RenameMigrationTests(TransactionTestCase):
         # migration we just ran.
         executor.loader.build_graph()
 
+    def _user_at_0029(self, **fields):
+        """
+        Create a user with the model AS IT WAS at 0029.
+
+        ⚠️ 09-25-26 — these tests used `src.models.ParliamentUser` (today's
+        model) against a schema rolled back to 0029. Once `0046` added
+        `is_anonymized`, every INSERT named a column 0029 doesn't have
+        (`no such column: is_anonymized`) — the test broke, not the migration.
+        A migration test must use the historical model for its target state.
+        """
+        state = MigrationExecutor(connection).loader.project_state(('src', '0029_kai_accommodations'))
+        User = state.apps.get_model('src', 'ParliamentUser')
+        return User.objects.create(password='!', **fields)
+
     def setUp(self):
         # Roll every other app's migrations back to nothing changes here;
         # only move `src` around. Start from a clean slate at 0029 so this
@@ -54,10 +68,7 @@ class Kai0030RenameMigrationTests(TransactionTestCase):
         executor.migrate(executor.loader.graph.leaf_nodes())
 
     def test_forward_migration_preserves_data_under_new_names(self):
-        from src.models import ParliamentUser
-        ParliamentUser.objects.create_user(
-            user_id='P-MIGTEST1', name='Migration Submitter', username='migtest1',
-            member_type='Member')
+        self._user_at_0029(user_id='P-MIGTEST1', name='Migration Submitter', username='migtest1', member_type='Member')
 
         with connection.cursor() as c:
             c.execute("""
@@ -132,10 +143,7 @@ class Kai0030RenameMigrationTests(TransactionTestCase):
         self.assertEqual(field.form_type, 'commendation')  # was 'accommodation'
 
     def test_status_relabeling_covers_every_old_value(self):
-        from src.models import ParliamentUser
-        ParliamentUser.objects.create_user(
-            user_id='P-MIGTEST2', name='Migration Submitter 2', username='migtest2',
-            member_type='Member')
+        self._user_at_0029(user_id='P-MIGTEST2', name='Migration Submitter 2', username='migtest2', member_type='Member')
 
         with connection.cursor() as c:
             old_statuses = ['pending', 'in_review', 'approved', 'denied', 'closed']
@@ -170,10 +178,7 @@ class Kai0030RenameMigrationTests(TransactionTestCase):
             self.assertEqual(rows[f'Row {i}'], expected[old_status], old_status)
 
     def test_backward_migration_restores_old_names_and_values(self):
-        from src.models import ParliamentUser
-        ParliamentUser.objects.create_user(
-            user_id='P-MIGTEST3', name='Migration Submitter 3', username='migtest3',
-            member_type='Member')
+        self._user_at_0029(user_id='P-MIGTEST3', name='Migration Submitter 3', username='migtest3', member_type='Member')
 
         with connection.cursor() as c:
             c.execute("""

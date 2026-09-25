@@ -54,6 +54,8 @@ from src.models.documents import (
     ChapterMinutes,
     MinutesSection,
     MinutesMotion,
+    MeetingAgenda,
+    AgendaItem,
 )
 
 # Announcements
@@ -226,6 +228,7 @@ from src.models.cnb import (
     ResolutionAmendment,
     ResolutionCollaborator,
     ResolutionNote,
+    SectionRevision,
 )
 
 # Education / Pledge Tracker
@@ -276,6 +279,8 @@ __all__ = [
     'ChapterMinutes',
     'MinutesSection',
     'MinutesMotion',
+    'MeetingAgenda',
+    'AgendaItem',
     # Announcements
     'Announcement',
     'UserAnnouncementView',
@@ -389,6 +394,7 @@ __all__ = [
     'ResolutionAmendment',
     'ResolutionCollaborator',
     'ResolutionNote',
+    'SectionRevision',
     # Feature Flags
     'FeatureFlag',
     'PageToggle',

@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}Meeting Agendas - Parliament{% endblock %}
+
+{% block content %}
+{% comment %}09-25-26 — src/view/officer/meeting_agenda.py. Members see published agendas; officers see all and can create.{% endcomment %}
+<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+    <div>
+        <h1 class="text-3xl font-bold text-gray-900 dark:text-white">Meeting Agendas</h1>
+        <p class="text-gray-600 dark:text-gray-400 mt-1">What's on the table at chapter meetings.</p>
+    </div>
+
+    {% if is_officer %}
+    <details class="bg-white dark:bg-gray-800 rounded-xl shadow-sm">
+        <summary class="px-6 py-4 cursor-pointer select-none font-semibold text-primary-600 dark:text-primary-400">+ New agenda</summary>
+        <form method="post" action="{% url 'create_agenda' %}" class="px-6 pb-6 space-y-4">
+            {% csrf_token %}
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="md:col-span-2">
+                    <label for="agenda-title" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Title</label>
+                    <input id="agenda-title" name="title" required maxlength="200" placeholder="Chapter Meeting"
+                           class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg">
+                </div>
+                <div>
+                    <label for="agenda-date" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Date</label>
+                    <input id="agenda-date" type="date" name="date" required class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg">
+                </div>
+                <div>
+                    <label for="agenda-time" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Start time</label>
+                    <input id="agenda-time" type="time" name="start_time" required class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg">
+                </div>
+                <div class="md:col-span-2">
+                    <label for="agenda-event" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Calendar event <span class="text-gray-400">(optional)</span></label>
+                    <select id="agenda-event" name="event" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg">
+                        <option value="">— None —</option>
+                        {% for e in events %}<option value="{{ e.pk }}">{{ e.title }} — {{ e.date_time|date:"M j, g:i A" }}</option>{% endfor %}
+                    </select>
+                </div>
+            </div>
+            <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                <input type="checkbox" name="standard_order" checked> Start with the standard order of business
+            </label>
+            <button type="submit" class="bg-primary-600 hover:bg-primary-700 text-white font-medium py-2 px-5 rounded-lg">Create agenda</button>
+        </form>
+    </details>
+    {% endif %}
+
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700"><h2 class="font-semibold text-gray-900 dark:text-gray-100">Upcoming</h2></div>
+        <div class="divide-y divide-gray-100 dark:divide-gray-700">
+            {% for a in upcoming %}
+            <a href="{% if is_officer %}{% url 'edit_agenda' a.pk %}{% else %}{% url 'agenda_detail' a.pk %}{% endif %}" class="block px-6 py-4 hover:bg-gray-50 dark:hover:bg-gray-700">
+                <p class="font-medium text-gray-900 dark:text-gray-100">{{ a.title }}
+                    {% if a.status == 'draft' %}<span class="ml-2 px-2 py-0.5 text-xs font-semibold rounded-full bg-yellow-100 dark:bg-yellow-900/50 text-yellow-800 dark:text-yellow-300">Draft</span>{% endif %}
+                </p>
+                <p class="text-sm text-gray-500 dark:text-gray-400">{{ a.date|date:"l, F j" }} · {{ a.start_time|time:"g:i A" }}</p>
+            </a>
+            {% empty %}
+            <p class="px-6 py-4 text-sm text-gray-400 dark:text-gray-500 italic">No upcoming agendas yet.</p>
+            {% endfor %}
+        </div>
+    </div>
+
+    {% if past %}
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700"><h2 class="font-semibold text-gray-900 dark:text-gray-100">Past</h2></div>
+        <div class="divide-y divide-gray-100 dark:divide-gray-700">
+            {% for a in past %}
+            <a href="{% if is_officer %}{% url 'edit_agenda' a.pk %}{% else %}{% url 'agenda_detail' a.pk %}{% endif %}" class="block px-6 py-3 hover:bg-gray-50 dark:hover:bg-gray-700">
+                <p class="text-sm text-gray-900 dark:text-gray-100">{{ a.title }} <span class="text-gray-500 dark:text-gray-400">· {{ a.date|date:"M j, Y" }}</span>
+                    {% if a.minutes_id %}<span class="ml-2 text-xs text-green-700 dark:text-green-400">minutes started</span>{% endif %}</p>
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

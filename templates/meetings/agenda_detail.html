@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}{{ agenda.title }} - Agenda - Parliament{% endblock %}
+
+{% block content %}
+{% comment %}09-25-26 — read-only agenda. Members reach this only when published.{% endcomment %}
+<div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <a href="{% url 'agenda_list' %}" class="text-sm text-primary-600 dark:text-primary-400 hover:underline">← All agendas</a>
+    <h1 class="text-3xl font-bold text-gray-900 dark:text-white mt-2">{{ agenda.title }}</h1>
+    <p class="text-gray-600 dark:text-gray-400">{{ agenda.date|date:"l, F j, Y" }} · {{ agenda.start_time|time:"g:i A" }}{% if agenda.event %} · {{ agenda.event.location }}{% endif %}</p>
+    {% if is_officer %}<a href="{% url 'edit_agenda' agenda.pk %}" class="inline-block mt-2 text-sm text-primary-600 dark:text-primary-400 hover:underline">Edit agenda</a>{% endif %}
+
+    <ol class="mt-6 bg-white dark:bg-gray-800 rounded-xl shadow-sm divide-y divide-gray-100 dark:divide-gray-700">
+        {% for item in items %}
+        <li class="px-6 py-4">
+            <div class="flex items-start justify-between gap-4">
+                <p class="font-medium text-gray-900 dark:text-gray-100">{{ forloop.counter }}. {{ item.title }}</p>
+                {% if item.duration_minutes %}<span class="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0">{{ item.duration_minutes }} min</span>{% endif %}
+            </div>
+            {% if item.presenter_display %}<p class="text-sm text-gray-500 dark:text-gray-400">{{ item.presenter_display }}</p>{% endif %}
+            {% if item.notes %}<p class="mt-1 text-sm text-gray-700 dark:text-gray-300 whitespace-pre-line">{{ item.notes }}</p>{% endif %}
+        </li>
+        {% empty %}
+        <li class="px-6 py-4 text-sm text-gray-400 italic">No items yet.</li>
+        {% endfor %}
+    </ol>
+</div>
+{% endblock %}

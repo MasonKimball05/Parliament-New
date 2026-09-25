@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load cnb_tags %}
 
 {% block title %}Constitution & Bylaws - Parliament{% endblock %}
 
@@ -83,6 +84,22 @@
             </p>
         </div>
         {% else %}
+
+        {% comment %}09-25-26 — "as of a date" (src/view/cnb_history.py). Plain GET form, no JS.{% endcomment %}
+        <form method="get" class="flex flex-wrap items-center gap-2 mb-4 text-sm">
+            <input type="hidden" name="tab" value="document">
+            <label for="cnb-as-of" class="text-gray-600 dark:text-gray-400">View as of</label>
+            <input type="date" id="cnb-as-of" name="as_of" value="{% if as_of %}{{ as_of|date:'Y-m-d' }}{% endif %}" max="{% now 'Y-m-d' %}"
+                   class="px-2 py-1 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg text-sm">
+            <button type="submit" class="px-3 py-1 rounded-lg bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium">Go</button>
+            {% if as_of %}<a href="?tab=document" class="text-primary-600 dark:text-primary-400 hover:underline">Back to current text</a>{% endif %}
+        </form>
+        {% if as_of %}
+        <div class="mb-6 px-4 py-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 text-sm text-blue-800 dark:text-blue-300">
+            <strong>Historical view:</strong> the Constitution &amp; Bylaws as they read at the end of {{ as_of|date:"F j, Y" }} — <em>not</em> the current text.
+            Sections added after that date are hidden. Section text is versioned from 09-25-26 onward and from every resolution that passed before then; article titles are not versioned.
+        </div>
+        {% endif %}
 
         <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
 
@@ -188,7 +205,7 @@
                         {% endif %}
 
                         <div class="divide-y divide-gray-100 dark:divide-gray-700">
-                            {% for section in article.sections.all %}
+                            {% for section in article.sections.all %}{% if not section.as_of_hidden %}
                             <div id="{{ doc.doc_type }}-art-{{ article.number }}-sec-{{ section.number }}"
                                  class="px-6 py-5 {% if not section.is_active %}opacity-60{% endif %}">
                                 <div class="flex items-start justify-between gap-4 mb-2">
@@ -196,6 +213,8 @@
                                         § {{ section.number }}{% if section.title %} — {{ section.title }}{% endif %}
                                     </span>
                                     <div class="flex items-center gap-2 flex-shrink-0">
+                                        {% if section.as_of_changed %}<span class="px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-xs font-medium" title="This section has changed since the date you're viewing">Changed since</span>{% endif %}
+                                        <a href="{% url 'cnb_section_history' section_id=section.pk %}" class="text-xs text-gray-400 hover:text-primary-600 dark:hover:text-primary-400" title="Every version of this section">History</a>
                                         {% if section.amendment_protected %}
                                         <span title="Protected until {{ section.protected_until }}"
                                               class="flex items-center gap-1 px-2 py-0.5 rounded-full bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 text-xs font-medium">
@@ -226,7 +245,7 @@
                                 </p>
                                 {% endif %}
 
-                                <p class="cnb-linkify text-gray-700 dark:text-gray-300 text-sm leading-relaxed whitespace-pre-wrap">{{ section.content }}</p>
+                                <p class="cnb-linkify text-gray-700 dark:text-gray-300 text-sm leading-relaxed whitespace-pre-wrap">{% cnb_linked section.content doc.doc_type cnb_structure %}</p>
 
                                 {% if section.partial_suspensions %}
                                 <div class="mt-3 space-y-1.5">
@@ -251,7 +270,7 @@
                                 </p>
                                 {% endif %}
                             </div>
-                            {% empty %}
+                            {% endif %}{% empty %}
                             <div class="px-6 py-4 text-sm text-gray-400 dark:text-gray-600 italic">No sections added yet.</div>
                             {% endfor %}
                         </div>
@@ -381,6 +400,28 @@
             </div>
             {% endif %}
         </div>
+
+        <!-- Cross-reference problems (09-25-26, src/cnb_crossrefs.py) -->
+        {% if crossref_findings %}
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+            <div class="px-6 py-4 border-b border-red-100 dark:border-red-900/30 bg-red-50 dark:bg-red-900/20">
+                <h2 class="text-base font-semibold text-red-700 dark:text-red-400">Cross-reference problems ({{ crossref_findings|length }})</h2>
+                <p class="text-xs text-gray-600 dark:text-gray-400 mt-1">References in the C&amp;B text that point to a section that doesn't exist, or (heuristic) to a different topic than the sentence describes. Fixing the wording takes a resolution.</p>
+            </div>
+            <div class="divide-y divide-gray-100 dark:divide-gray-700">
+                {% for f in crossref_findings %}
+                <div class="px-6 py-3">
+                    <p class="text-sm text-gray-900 dark:text-gray-100">
+                        <span class="text-xs font-semibold uppercase {% if f.level == 'error' %}text-red-600 dark:text-red-400{% else %}text-amber-600 dark:text-amber-400{% endif %}">{{ f.level }}</span>
+                        · <a href="?tab=document#{{ f.source_anchor }}" class="font-medium hover:underline">{{ f.source }}</a>
+                        · <span class="italic">"{{ f.ref_text }}"</span>
+                    </p>
+                    <p class="text-xs text-gray-600 dark:text-gray-400 mt-0.5">{{ f.message }}</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
 
         <!-- Protected sections -->
         {% if protected_sections %}

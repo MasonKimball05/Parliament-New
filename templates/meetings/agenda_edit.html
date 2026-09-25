@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}Edit Agenda — {{ agenda.title }} - Parliament{% endblock %}
+
+{% block content %}
+{% comment %}
+09-25-26 — officer agenda editor (src/view/officer/meeting_agenda.py). Plain
+POST forms, no JS: reorder with ↑/↓, edit in a <details> drawer.
+{% endcomment %}
+<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+    <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+        <div>
+            <a href="{% url 'agenda_list' %}" class="text-sm text-primary-600 dark:text-primary-400 hover:underline">← All agendas</a>
+            <h1 class="text-3xl font-bold text-gray-900 dark:text-white mt-2">{{ agenda.title }}</h1>
+            <p class="text-gray-600 dark:text-gray-400">{{ agenda.date|date:"l, F j, Y" }} · {{ agenda.start_time|time:"g:i A" }}
+                · <span class="font-medium">{{ agenda.get_status_display }}</span></p>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+            <a href="{% url 'agenda_detail' agenda.pk %}" class="px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700">Preview</a>
+            <form method="post" action="{% url 'set_agenda_status' agenda.pk %}">
+                {% csrf_token %}
+                {% if agenda.status == 'draft' %}
+                <input type="hidden" name="status" value="published">
+                <button type="submit" class="px-3 py-2 text-sm rounded-lg bg-green-600 hover:bg-green-700 text-white font-medium">Publish to members</button>
+                {% else %}
+                <input type="hidden" name="status" value="draft">
+                <button type="submit" class="px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300">Unpublish</button>
+                {% endif %}
+            </form>
+            <form method="post" action="{% url 'start_minutes_from_agenda' agenda.pk %}">
+                {% csrf_token %}
+                <button type="submit" class="px-3 py-2 text-sm rounded-lg bg-primary-600 hover:bg-primary-700 text-white font-medium">
+                    {% if agenda.minutes_id %}Open minutes{% else %}Start minutes from agenda{% endif %}
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <ol class="bg-white dark:bg-gray-800 rounded-xl shadow-sm divide-y divide-gray-100 dark:divide-gray-700">
+        {% for item in items %}
+        <li class="px-6 py-4">
+            <div class="flex items-start justify-between gap-4">
+                <div class="min-w-0">
+                    <p class="font-medium text-gray-900 dark:text-gray-100">{{ forloop.counter }}. {{ item.title }}</p>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">{{ item.get_item_type_display }}{% if item.presenter_display %} · {{ item.presenter_display }}{% endif %}{% if item.duration_minutes %} · {{ item.duration_minutes }} min{% endif %}</p>
+                    {% if item.notes %}<p class="mt-1 text-sm text-gray-700 dark:text-gray-300 whitespace-pre-line">{{ item.notes }}</p>{% endif %}
+                </div>
+                <div class="flex items-center gap-1 flex-shrink-0">
+                    {% if not forloop.first %}
+                    <form method="post" action="{% url 'update_agenda_item' agenda.pk item.pk %}">{% csrf_token %}<input type="hidden" name="action" value="up"><button type="submit" class="px-2 py-1 text-sm text-gray-500 hover:text-primary-600" title="Move up" aria-label="Move up">↑</button></form>
+                    {% endif %}
+                    {% if not forloop.last %}
+                    <form method="post" action="{% url 'update_agenda_item' agenda.pk item.pk %}">{% csrf_token %}<input type="hidden" name="action" value="down"><button type="submit" class="px-2 py-1 text-sm text-gray-500 hover:text-primary-600" title="Move down" aria-label="Move down">↓</button></form>
+                    {% endif %}
+                </div>
+            </div>
+            <details class="mt-2">
+                <summary class="text-xs font-medium text-primary-600 dark:text-primary-400 cursor-pointer select-none">Edit / remove</summary>
+                <form method="post" action="{% url 'update_agenda_item' agenda.pk item.pk %}" class="mt-3 space-y-3">
+                    {% csrf_token %}
+                    {% include "meetings/_agenda_item_fields.html" with item=item prefix=item.pk %}
+                    <div class="flex items-center justify-between">
+                        <button type="submit" name="action" value="save" class="px-3 py-1.5 text-sm rounded-lg bg-primary-600 hover:bg-primary-700 text-white">Save</button>
+                        <button type="submit" name="action" value="delete" class="text-sm text-red-600 dark:text-red-400 hover:underline">Remove item</button>
+                    </div>
+                </form>
+            </details>
+        </li>
+        {% empty %}
+        <li class="px-6 py-4 text-sm text-gray-400 italic">No items yet — add one below.</li>
+        {% endfor %}
+    </ol>
+
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
+        <h2 class="font-semibold text-gray-900 dark:text-gray-100 mb-3">Add an item</h2>
+        <form method="post" action="{% url 'add_agenda_item' agenda.pk %}" class="space-y-3">
+            {% csrf_token %}
+            {% include "meetings/_agenda_item_fields.html" with item=None prefix="new" %}
+            <button type="submit" class="px-4 py-2 text-sm rounded-lg bg-primary-600 hover:bg-primary-700 text-white font-medium">Add item</button>
+        </form>
+    </div>
+</div>
+{% endblock %}

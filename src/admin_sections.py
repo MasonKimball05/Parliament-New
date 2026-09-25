@@ -58,11 +58,11 @@ SECTIONS = {
     # section or register Kai models here.
     'Governing Documents (CNB)': [
         'GoverningDocument', 'Article', 'Section', 'Resolution',
-        'ResolutionAmendment', 'ResolutionCollaborator', 'ResolutionNote', 'ResolutionSectionImpact',
+        'ResolutionAmendment', 'ResolutionCollaborator', 'ResolutionNote', 'SectionRevision', 'ResolutionSectionImpact',
     ],
     'Documents & Minutes': [
         'ChapterFolder', 'CommitteeDocument', 'DocumentVersion', 'DocumentTag',
-        'ChapterMinutes', 'MinutesSection', 'MinutesMotion',
+        'ChapterMinutes', 'MinutesSection', 'MinutesMotion', 'MeetingAgenda', 'AgendaItem',
     ],
     'Announcements & Polls': [
         'Announcement', 'UserAnnouncementView', 'AnnouncementEmailLog',

@@ -117,3 +117,7 @@ data_backup.json
 
 # Per-module test baseline logs (scripts/test_baseline.sh)
 .test-baseline/
+
+# Tailwind standalone CLI binary (downloaded per build_css.sh header; never commit)
+/tailwindcss
+/tailwindcss-*

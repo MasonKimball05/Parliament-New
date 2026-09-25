@@ -10,7 +10,7 @@
 #                    written until the commit exists (see scripts/stamp_ledger.py).
 #                    CHECK=1 reports without changing anything.
 
-.PHONY: test-fast test check hooks stamp-ledger
+.PHONY: test-fast test check hooks stamp-ledger check-css
 
 test-fast:
 	DB_BACKEND=sqlite python3 manage.py test src -v 1
@@ -27,3 +27,8 @@ hooks:
 
 stamp-ledger:
 	@python3 scripts/stamp_ledger.py
+
+# 09-25-26 — fail if static/css/tailwind.css is missing classes in use.
+# TAILWIND=path/to/tailwindcss (default ./tailwindcss; see build_css.sh header).
+check-css:
+	python3 scripts/check_css_fresh.py $${TAILWIND:-./tailwindcss}

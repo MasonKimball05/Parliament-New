@@ -16,6 +16,19 @@ Options:
                which is no longer the PLACEHOLDER string, and (v3.19.1) the
                preamble of a PROSE-ONLY document, whose preamble IS its content.
     --force    Overwrite content even if it has been edited. Use with caution.
+    --only     (09-25-26) Limit section create/update to the listed sections,
+               e.g. --only bylaws:IV:2,constitution:II:3. Combine with --force
+               to replace just those sections' text from cnb_data.py without
+               touching any other edited (e.g. resolution-amended) section.
+               Documents and articles are still get_or_create'd, never updated,
+               unless --update is also given.
+
+    Bringing an existing install up to the August 2025 text (09-25-26):
+        python manage.py seed_cnb_documents          # creates Bylaws III §5
+        python manage.py seed_cnb_documents --force \
+            --only constitution:II:3,bylaws:IV:2,bylaws:VII:10
+    CHECK THOSE THREE ON PROD FIRST — if any was amended through a resolution
+    after August 2025, --force would replace the amendment with this text.
 
 v3.19.1 — the Foreword is the first prose-only document: no articles, whole text
 in `preamble`. It is seeded ahead of the chapter vote and stays invisible to
@@ -46,11 +59,26 @@ class Command(BaseCommand):
             action='store_true',
             help='Overwrite ALL section content, including sections that have been edited beyond the placeholder',
         )
+        parser.add_argument(
+            '--only',
+            default='',
+            help='Comma-separated doc:article:section keys to limit sections to, e.g. bylaws:IV:2,constitution:II:3',
+        )
 
     @transaction.atomic
     def handle(self, *args, **options):
         update = options['update']
         force = options['force']
+        only = {k.strip() for k in (options.get('only') or '').split(',') if k.strip()}
+        if only:
+            known = {
+                f"{d['doc_type']}:{a['number']}:{sec['number']}"
+                for d in DOCUMENTS for a in d.get('articles', []) for sec in a.get('sections', [])
+            }
+            unknown = sorted(only - known)
+            if unknown:
+                from django.core.management.base import CommandError
+                raise CommandError(f'--only: not in cnb_data.py: {", ".join(unknown)}')
 
         self.stdout.write(self.style.MIGRATE_HEADING('Seeding Constitution & Bylaws documents...\n'))
 
@@ -149,6 +177,8 @@ class Command(BaseCommand):
                     skipped_articles += 1
 
                 for sec_order, section_data in enumerate(article_data.get('sections', []), start=1):
+                    if only and f"{doc_type}:{article_data['number']}:{section_data['number']}" not in only:
+                        continue
                     section, created = Section.objects.get_or_create(
                         article=article,
                         number=section_data['number'],
@@ -172,6 +202,9 @@ class Command(BaseCommand):
                             section.title = section_data.get('title', section.title)
                             section.display_order = sec_order
                             if force or content_is_placeholder:
+                                if section.content != section_data['content']:
+                                    # 09-25-26 — keep the replaced text (skips placeholders).
+                                    section.record_revision('import', note='seed_cnb_documents --force')
                                 section.content = section_data['content']
                             section.save()
                             total_sections += 1

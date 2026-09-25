@@ -438,7 +438,13 @@ class ActivityLogQueryBudgetTests(QueryBudgetMixin, TestCase):
     #: nothing; see `changelogs/v3.29.35.md`), one more cold-cache
     #: `src_featureflag` lookup, same shape every other `@require_feature_flag`
     #: view already pays.
-    BUDGET = 39
+    #: v3.35.0 (09-25-26): 39 → 40 — `ParliamentUser.can_access_kai` (the
+    #: admin-bar Kai link) now resolves real Kai access via `_get_kai_access`
+    #: instead of `Committee.is_chair()`, so a member granted
+    #: `KaiMemberPermission` sees the link (v3.34.1). That adds the one
+    #: `src_kaimemberpermission` lookup. Constant per page, not per row —
+    #: measured with a query-shape probe, no N+1.
+    BUDGET = 40
 
     def setUp(self):
         from src.models import ActivityLog
@@ -1457,7 +1463,10 @@ class EducationDashboardQueryBudgetTests(QueryBudgetMixin, TestCase):
     #: authenticated page in this suite pays on a cold cache. Compare
     #: `home` at 41 and `activity_logs` at 38. What matters is that it is
     #: FLAT, which `test_it_does_not_scale_with_the_pledge_roster` pins.
-    BUDGET = 37
+    #: v3.35.0 (09-25-26): 37 → 39, two constant queries, measured with a
+    #: query-shape probe (no N+1): `PledgePointAdjustment` for the manual
+    #: points log (v3.34.0) and `Song` for the Add Task song picker (09-22-26).
+    BUDGET = 39
 
     def setUp(self):
         from django.utils import timezone as tz
