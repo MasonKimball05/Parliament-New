@@ -43,16 +43,24 @@ The workflow **reports**. It only **blocks** a merge once it is a required check
 
 - **Name:** `Protect main`. **Enforcement status:** Active.
 - **Target branches:** Add target → *Include default branch*.
-- **Bypass list:** leave it **empty** if you're willing to merge through PRs. If you add yourself, your own merges also skip the checks.
+- **Bypass list:** add the **Repository admin** role (that's you). Why is under "Direct pushes" below.
 - Rules:
   - ✅ **Restrict deletions**
   - ✅ **Block force pushes**
-  - ✅ **Require status checks to pass**, then add **`Block multi-chapter merges`**. Optionally also add `Run Tests`.
-  - ✅ **Require a pull request before merging** *(optional, see below)*
+  - ✅ **Require status checks to pass**, then add **`Block multi-chapter merges`**.
+  - ☐ **Require a pull request before merging** is optional (see below).
 
 Then create a label called **`multi-chapter-release`** under Issues → Labels.
 
-**About "Require a pull request":** today you push straight to `main`. If you turn this on, every change to `main` goes through a PR, including your normal fixes. That's the strongest protection, but it changes your workflow. If you leave it off, direct pushes are still allowed, and the pre-push hook plus the push alarm are what protect you. Pick whichever you'll actually live with.
+**Direct pushes vs. the required check.** A required status check also applies to direct pushes: GitHub rejects a push to `main` whose commit hasn't already passed the check. Today you push straight to `main`, so you have two choices:
+
+- **Keep pushing directly (recommended):** keep Repository admin in the bypass list.
+  - Your normal `git push` to main keeps working.
+  - For direct pushes, the **pre-push hook** is what stops multi-chapter work, and the workflow's push alarm catches anything that slips past it.
+  - A PR from `multi-chapter` into `main` still shows the check failing, and GitHub makes you tick an explicit *"bypass rules"* box to merge anyway. It can't happen by accident.
+- **Strictest:** leave the bypass list empty and turn on *Require a pull request*.
+  - Nothing reaches `main` except through a PR that passed the guard, including your everyday fixes.
+  - It's safer, but every fix becomes a PR.
 
 Optionally, add a second ruleset for `multi-chapter` with **Block force pushes** and **Restrict deletions**, so months of work can't be lost with one command.
 
