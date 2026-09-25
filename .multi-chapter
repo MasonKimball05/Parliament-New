@@ -1,0 +1,8 @@
+This file marks the multi-chapter development line (branch `multi-chapter`).
+
+It must NEVER exist on `main`. The pre-push hook (scripts/pre-push.sh) and
+.github/workflows/protect-main.yml both refuse main commits that contain it.
+
+Delete it only in the final, deliberate `multi-chapter -> main` release PR
+(together with the `multi-chapter-release` label).
+See docs/MULTI_CHAPTER_BRANCHING.md.
