@@ -158,7 +158,7 @@ def bug_tracker(request):
     resolved_count = BugReport.objects.filter(status='resolved').count()
 
     # Check if user can manage bugs (user_id 73)
-    can_manage = str(request.user.user_id) == '73'
+    can_manage = is_platform_owner(request.user)
 
     context = {
         'bug_reports': bug_reports,
@@ -187,7 +187,7 @@ def bug_report_detail(request, bug_id):
         return redirect('bug_tracker')
 
     # Check if user can manage bugs (user_id 73)
-    can_manage = str(request.user.user_id) == '73'
+    can_manage = is_platform_owner(request.user)
 
     return render(request, 'bug_report_detail.html', {
         'bug_report': bug_report,
@@ -197,6 +197,7 @@ def bug_report_detail(request, bug_id):
 
 # Bug Report Admin - Only accessible by user_id 73
 from src.decorators import bug_admin_required
+from src.permissions import is_platform_owner
 
 
 @bug_admin_required

@@ -52,6 +52,8 @@ class SrcConfig(AppConfig):
         # so they are always written stale — five releases running. See
         # src/checks_ledger.py, and note it says nothing about DEPLOYMENT.
         import src.checks_ledger  # noqa: F401  (registers a system check)
+        # 09-25-26 — src.W004: another chapter's deployment still pinned to '73'.
+        import src.checks_platform  # noqa: F401  (registers a system check)
 
         from django.db.models.signals import post_migrate
         post_migrate.connect(_set_committee_flags, sender=self)

@@ -11,7 +11,7 @@ from src.constants import MemberType
 # and because everything defined in THIS module must call `_gate`
 # (test_every_authz_decorator_routes_through_the_gate_helper) — which a
 # pure predicate cannot honestly do. See that module's docstring.
-from src.permissions import user_is_officer_or_chair, user_is_vpp
+from src.permissions import is_platform_owner, user_is_officer_or_chair, user_is_vpp
 from src.dev_mode import record_permission
 
 # Set up the logger to capture function call logs
@@ -183,14 +183,14 @@ def cnb_required(view_func):
 
 
 def bug_admin_required(view_func):
-    """Restrict access to the designated bug-tracker admin (user_id 73)."""
+    """Restrict access to the pinned platform owner (`is_platform_owner`)."""
     @wraps(view_func)
     def wrapper(request, *args, **kwargs):
         if not request.user.is_authenticated:
             return redirect('login')
-        # Hardcoded single user id is intentional — see CLAUDE.md.
-        if not _gate('bug_admin_required', str(request.user.user_id) == '73',
-                     'hardcoded user_id 73 (intentional)'):
+        # Single pinned account is intentional — see CLAUDE.md / is_platform_owner.
+        if not _gate('bug_admin_required', is_platform_owner(request.user),
+                     'pinned platform owner (intentional)'):
             messages.error(request, 'You do not have permission to access this page.')
             return redirect('bug_tracker')
         return view_func(request, *args, **kwargs)
@@ -199,7 +199,7 @@ def bug_admin_required(view_func):
 
 def feedback_admin_required(view_func):
     """
-    Restrict access to the designated feedback/support admin (user_id 73).
+    Restrict access to the pinned platform owner (`is_platform_owner`).
 
     Same hardcoded-single-admin design as `bug_admin_required`, intentionally
     NOT backed by a Role/SiteSetting — see CLAUDE.md's note on that decorator
@@ -212,8 +212,8 @@ def feedback_admin_required(view_func):
     def wrapper(request, *args, **kwargs):
         if not request.user.is_authenticated:
             return redirect('login')
-        if not _gate('feedback_admin_required', str(request.user.user_id) == '73',
-                     'hardcoded user_id 73 (intentional)'):
+        if not _gate('feedback_admin_required', is_platform_owner(request.user),
+                     'pinned platform owner (intentional)'):
             messages.error(request, 'You do not have permission to access this page.')
             return redirect('feedback_tracker')
         return view_func(request, *args, **kwargs)

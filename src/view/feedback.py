@@ -24,6 +24,7 @@ from django.utils.html import strip_tags
 from src.models import FeedbackRequest, ActivityLog
 from src.models.users import member_defer
 from src.decorators import feedback_admin_required
+from src.permissions import is_platform_owner
 
 
 @login_required
@@ -178,7 +179,7 @@ def feedback_tracker(request):
     in_progress_count = idea_base.filter(status__in=['acknowledged', 'in_progress']).count()
     resolved_count = idea_base.filter(status='resolved').count()
 
-    can_manage = str(request.user.user_id) == '73'
+    can_manage = is_platform_owner(request.user)
 
     context = {
         'feedback_requests': ideas,
@@ -213,7 +214,7 @@ def feedback_request_detail(request, feedback_id):
         messages.error(request, 'Submission not found.')
         return redirect('feedback_tracker')
 
-    can_manage = str(request.user.user_id) == '73'
+    can_manage = is_platform_owner(request.user)
     is_owner = feedback.submitted_by_id == request.user.pk
 
     if feedback.request_type == 'support_ticket' and not (is_owner or can_manage):

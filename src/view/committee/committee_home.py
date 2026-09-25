@@ -12,6 +12,7 @@ from src.constants import MemberType, MemberStatus
 from datetime import timedelta
 from src.feature_flag_decorators import require_page_enabled, require_feature_flag
 from src.models.users import member_defer
+from src.permissions import is_platform_owner
 
 @login_required
 @require_page_enabled('committee_home')
@@ -35,7 +36,7 @@ def committee_home(request, code):
 
     # Special test server access for Slating Committee
     is_test_slating_admin = False
-    if committee.is_slating_committee and settings.DEBUG and user.user_id == '73':
+    if committee.is_slating_committee and settings.DEBUG and is_platform_owner(user):
         has_access = True
         is_test_slating_admin = True
 

@@ -69,3 +69,25 @@ def user_is_vpp(user):
     if user.is_admin:
         return True
     return user.roles.filter(code__iexact='VPP').exists()
+
+
+def is_platform_owner(user):
+    """
+    True only for the single pinned platform-owner account (09-25-26).
+
+    Replaces every literal `user_id == '73'`. Pinned by id on purpose — there
+    is no role or flag an admin could hand to someone else. With more than one
+    chapter a bare id is not enough ('73' is a different person in another
+    chapter's database), so the id comes from settings per deployment, and
+    PLATFORM_OWNER_EMAIL, when set, must match as well. See settings.py.
+    """
+    from django.conf import settings
+    if not getattr(user, 'is_authenticated', False):
+        return False
+    owner_id = getattr(settings, 'PLATFORM_OWNER_USER_ID', '') or ''
+    if not owner_id or str(user.user_id) != owner_id:
+        return False
+    owner_email = (getattr(settings, 'PLATFORM_OWNER_EMAIL', '') or '').lower()
+    if owner_email and (getattr(user, 'email', '') or '').lower() != owner_email:
+        return False
+    return True

@@ -78,18 +78,79 @@
 3. **Pilot chapter** as its own deployment (option C). Write down everything that was painful.
 4. **Tenancy (A or B),** if the pilot says it's worth it.
 
+## Decisions so far (Mason, 09-25-26)
+
+- **Scope: Beta Theta Pi chapters only**, for now. Kai, the songs, the exec roles and the houses can stay as shared Beta concepts, configurable per chapter where needed.
+- **One person belongs to exactly one chapter.** A **transfer** is requested by the member (or the old chapter) and must be **approved by the receiving chapter**, which can also decline.
+  - This needs both chapters in one system, which **rules out option C (separate deployments)** as the end state.
+  - C can still be a short pilot, but a transfer between two separate deployments would be an export and re-import, not a button.
+- **The platform-owner pin is one account, not "user 73".** ✅ Done: `is_platform_owner()`, `PLATFORM_OWNER_USER_ID` / `PLATFORM_OWNER_EMAIL`, and the `src.W004` check.
+- **Still open:** A versus B, and the operator-visibility model. Proposed below.
+
+## A versus B: what running each looks like
+
+| | A. Shared schema, `chapter` FK | B. Schema per chapter (`django-tenants`) |
+|---|---|---|
+| **New chapter** | Insert a `Chapter` row, then run a seeding command | Create a tenant (a new Postgres schema), which runs **every migration** into it; then seed |
+| **Deploying a release** | `migrate` once | `migrate_schemas`: every migration × every chapter. Fine at 10 chapters, slow at 200 |
+| **Local dev and tests** | SQLite still works; the pre-push hook is unchanged | Postgres required locally and in the hook, and tests are slower (schema setup) |
+| **Where users live** | One `ParliamentUser` table with a `chapter` FK | Either per schema (a transfer copies the person between schemas), or in the shared schema with a chapter FK. The shared-schema version is a hybrid that brings back A's filtering for users |
+| **Transfer** | Change `user.chapter` after approval. Their old votes and attendance stay with the old chapter by FK | Copy the account into the new schema, deactivate the old one, and keep a link. Two histories, one person |
+| **Isolation** | A forgotten `.filter(chapter=…)` leaks data. Needs scoped managers plus a guard test that enumerates every query path | Enforced by Postgres: a query simply cannot see another chapter's tables |
+| **Kai** | Leak-prone. 34 "the one" lookups become "the one for this chapter" | Isolated automatically; lookups stay as they are |
+| **Cross-chapter features** (transfers, province and national dashboards) | Easy, one query | Harder: loop over schemas, or copy data into the shared schema |
+| **Backups and restores** | One database. Restoring a single chapter is awkward | Per-schema `pg_dump -n` makes a one-chapter restore easy |
+| **Hosting** | One app, one database | Same, plus wildcard DNS/TLS for subdomains; A needs this too if you use subdomains |
+
+**With your answer to (3), I now lean toward A, done carefully.** Transfers make users and cross-chapter awareness first-class, and that is A's strength and B's awkward spot. The isolation risk in A is real but manageable with three pieces:
+
+1. A `ChapterScopedManager` that **raises** when it is queried with no chapter in context. Forgetting the filter then crashes a test instead of leaking data.
+2. A guard test that enumerates every ROOT model and fails if it lacks the manager. This is the same "enumerate the population" pattern as `test_singleton_rows`.
+3. Keeping Kai on its own chapter-checked access path (`_get_kai_access` already exists), plus a cross-chapter Kai test in the style of the admin confidentiality tests.
+
+## Transfer design (sketch)
+
+- **`ChapterTransfer`** fields: `member`, `from_chapter`, `to_chapter`, `requested_by`, `status` (pending / approved / declined / cancelled), `reason`, decision fields (`decided_by`, `decided_at`, `note`).
+- **Who can request:** the member, or an officer of the old chapter. **Who approves:** an officer of the receiving chapter (probably the President or the VP handling membership). Declining needs a note.
+- **On approval, in one transaction:**
+  - move the membership;
+  - end the member's roles and committee seats in the old chapter;
+  - write an `ActivityLog` entry in **both** chapters.
+  - **Nothing historical moves:** votes, attendance, service hours and Kai records stay with the chapter where they happened.
+- **Kai:** the receiving chapter **never** sees the old chapter's Kai records about the member. This fits the confidentiality boundary. Whether the old chapter may attach a note, and whether an open Kai case blocks a transfer, is a decision for later.
+- **Rules to decide:**
+  - Can a pledge transfer?
+  - Can a member with dues or fines outstanding transfer?
+  - Should a request expire after N days?
+
+## Operator (you) visibility: what similar products do
+
+Products like this (multi-tenant software holding sensitive member data: HR systems, school platforms, church management software) usually settle on these rules:
+
+- **Default: the operator sees metadata, not content.** You would see:
+  - that a chapter exists, its member *count*, its storage and activity volume;
+  - system health and error rates;
+  - billing, if you ever charge.
+  You would not see a chapter's members, votes, minutes or Kai data just by being the host.
+- **Support access is granted per incident and time-limited.** A chapter admin clicks "Grant support access for 24h", or you request it and they approve. Everything you do during that window is logged and **visible to that chapter's admins**. You already have this pattern in `KaiBreakGlassGrant`; this generalises it.
+- **Impersonation is off by default.** If it exists, it needs the chapter's approval, shows a visible banner, and appears in the chapter's own audit log. You have impersonation today, so it would need re-scoping.
+- **Kai is never included in support access.** Access to Kai data stays with in-app grants, exactly as the admin confidentiality boundary says today.
+- **A written data-handling policy** ("what the operator can and can't see") shown to chapters at signup. It is cheap to write, and it's what convinces a skeptical chapter President.
+- **Per-chapter data export and deletion.** A chapter can download its data, and deleting a chapter removes it. That is standard, and it makes trust easier.
+- **Platform-level roles kept separate from chapter roles.** `is_platform_owner` is yours; a chapter's "admin" means admin *of that chapter* only. Django `/admin/` becomes platform-only, and chapter admins use in-app screens.
+
+Everything in this list matches how Parliament already treats confidentiality. The same boundary moves up one level, from admin-versus-Kai to operator-versus-chapter.
+
 ## Things that become newly risky with more than one chapter
 
 - **Hardcoded user id `'73'`.** This covers `bug_admin_required`, the feedback admin, `PROTECTED_ADMIN_USER_ID` in `manage_members.py`, and three `home*.html` templates.
   - These are intentional, and CLAUDE.md says not to re-flag them. **But once there is a second chapter they become a real problem:** that chapter's own member `73` would pass every one of those checks.
-  - The pin-by-id intent can be kept by reading the id from a setting per deployment, e.g. `PLATFORM_ADMIN_USER_ID`, with `'73'` as the default for Alpha Mu. **Not changed yet — your call.**
+  - ✅ **Fixed 09-25-26:** everything goes through `src.permissions.is_platform_owner()` and `{% if user|is_platform_owner %}`. The id comes from `PLATFORM_OWNER_USER_ID` (default `'73'`), and an optional `PLATFORM_OWNER_EMAIL` second factor must also match. `src.W004` warns when a deployment with its own `CHAPTER_DOMAIN` is still on the default. A guard test forbids the `user_id == '73'` literal from coming back.
 - **Bug and feedback reports fall back to your personal email** (`bug_report.py:351`, `feedback.py:367`). That is fine for Alpha Mu, but another chapter's bug reports would reach you.
 - **Timezone.** `TIME_ZONE` is Central, and five places hard-code `America/Chicago` directly, as do the 3 AM crontabs.
 
-## Decisions needed from you
+## Decisions still needed
 
-1. **Hosting model:** are you the platform host for many chapters, or is this a codebase other chapters deploy themselves? That decides A/B versus C.
-2. **Beta only, or any Greek organisation?** Kai, the songs, the exec roles and the houses are Beta concepts. "Beta chapters only" keeps the scope sane.
-3. **Can one person belong to more than one chapter,** for transfers or alumni? This matters a lot for A versus B.
-4. **Platform operator versus chapter admin:** what can you, as host, see in another chapter? The admin confidentiality rule suggests "nothing Kai", enforced the same way it is today.
-5. **The `'73'` pins:** should they move to a per-deployment setting?
+1. **A versus B.** I lean A, given single membership plus transfers; see the table above.
+2. **The operator-visibility model.** Adopt the proposal above as written, or adjust it.
+3. **Transfer rules:** pledges, outstanding dues, request expiry, and whether an open Kai case blocks a transfer.

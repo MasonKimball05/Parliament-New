@@ -245,7 +245,7 @@ TEMPLATES = [
                 'src.context_processors.two_factor_status',
             ],
             # `{% chapter "field" %}` everywhere, emails included (src/chapter.py).
-            'builtins': ['src.templatetags.chapter_tags'],
+            'builtins': ['src.templatetags.chapter_tags', 'src.templatetags.platform_tags'],
         },
     },
 ]
@@ -280,6 +280,24 @@ CHAPTER = {
     'motto': os.getenv('CHAPTER_MOTTO', 'Virtue Stands Alone'),
     'school_email_domain': os.getenv('CHAPTER_SCHOOL_EMAIL_DOMAIN', 'samford.edu'),
 }
+
+# Platform owner (09-25-26). The bug tracker, feedback board, protected-admin
+# flag and a few test-server shortcuts are pinned to ONE account by id, on
+# purpose (no role to mis-assign — see CLAUDE.md). They used to compare against
+# the literal '73', which is Mason's id in THIS chapter's database — in another
+# chapter's database, '73' is somebody else. Read it through
+# `src.permissions.is_platform_owner(user)` / `{% if user|is_platform_owner %}`.
+#   PLATFORM_OWNER_USER_ID  the pinned user_id. Default '73' (the original chapter).
+#                           Set it EMPTY to pin nobody.
+#   PLATFORM_OWNER_EMAIL    optional second factor: when set, the account's
+#                           email must also match (case-insensitive), so a
+#                           database where '73' is a different person still
+#                           grants nothing.
+# src.W004 warns when a deployment with its own CHAPTER_DOMAIN is still on the '73' default.
+PLATFORM_OWNER_USER_ID = os.getenv('PLATFORM_OWNER_USER_ID', '73').strip()
+PLATFORM_OWNER_EMAIL = os.getenv('PLATFORM_OWNER_EMAIL', '').strip()
+PLATFORM_OWNER_USER_ID_IS_DEFAULT = 'PLATFORM_OWNER_USER_ID' not in os.environ
+CHAPTER_IS_DEFAULT = 'CHAPTER_DOMAIN' not in os.environ
 
 # Database.
 # DB_BACKEND=sqlite gives a zero-config local database (replaces the old

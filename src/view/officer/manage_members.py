@@ -17,6 +17,7 @@ from src.forms import AddMemberForm, EditMemberForm
 from src.decorators import officer_required
 from src.notification_service import notify_users
 from src.notifications import send_pledge_welcome_email
+from src.permissions import is_platform_owner
 
 logger = logging.getLogger(__name__)
 
@@ -521,8 +522,8 @@ def get_admin_roles(request):
     })
 
 
-# Protected user ID that can never have admin removed
-PROTECTED_ADMIN_USER_ID = '73'
+# The platform owner can never have admin removed by the officer sync.
+# 09-25-26 — was PROTECTED_ADMIN_USER_ID = '73'; see is_platform_owner.
 
 
 @login_required
@@ -590,8 +591,8 @@ def sync_officer_admins(request):
             if admin_user.user_id in users_with_admin_role_ids:
                 continue
 
-            # Protect user ID 73
-            if admin_user.user_id == PROTECTED_ADMIN_USER_ID:
+            # Protect the platform owner
+            if is_platform_owner(admin_user):
                 results['protected'].append({
                     'user_id': admin_user.user_id,
                     'name': admin_user.name,

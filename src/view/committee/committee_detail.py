@@ -6,6 +6,7 @@ from django.db.models import Q
 from src.models import Committee, CommitteePermissions, ParliamentUser, KaiReport, SlatingPeriod
 from src.constants import MemberType, MemberStatus
 from src.models.users import member_defer
+from src.permissions import is_platform_owner
 
 @login_required
 def committee_detail(request, code):
@@ -31,7 +32,7 @@ def committee_detail(request, code):
 
     # Special test server access for Slating Committee
     is_test_slating_admin = False
-    if committee.is_slating_committee and settings.DEBUG and user.user_id == '73':
+    if committee.is_slating_committee and settings.DEBUG and is_platform_owner(user):
         has_access = True
         is_test_slating_admin = True
 

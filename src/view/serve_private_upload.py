@@ -63,6 +63,7 @@ from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404
 
 from src.feature_flag_decorators import require_feature_flag
+from src.permissions import is_platform_owner
 
 from ..decorators import log_function_call
 from ..permissions import user_is_officer_or_chair, user_is_vpp
@@ -446,7 +447,7 @@ def serve_service_hours_response_file(request, response_id):
 # the reporter's screen, which is frequently another page of this application
 # with someone else's data on it.
 #
-# `bug_admin_required` hardcodes `user_id == '73'` and CLAUDE.md records that as
+# `bug_admin_required` pins one account (`is_platform_owner`) and CLAUDE.md records that as
 # INTENTIONAL — this view re-uses that rule and does not question it.
 
 
@@ -460,7 +461,7 @@ def serve_bug_report_screenshot(request, report_id):
     user = request.user
 
     is_reporter = report.submitted_by_id == user.pk
-    is_bug_admin = str(user.user_id) == '73'  # see `bug_admin_required`
+    is_bug_admin = is_platform_owner(user)  # see `bug_admin_required`
     if not (is_reporter or is_bug_admin):
         raise Http404('File not found')
     return _stream_private_file(report.screenshot)
@@ -475,7 +476,7 @@ def serve_bug_report_screenshot(request, report_id):
 # seen by anyone browsing the public ideas board (`feedback_tracker`) — the
 # SAME predicate that page's detail view uses. A support ticket's attachment
 # is private, same rule as a bug screenshot: submitter or the feedback admin
-# only. `feedback_admin_required` hardcodes `user_id == '73'`, same
+# only. `feedback_admin_required` pins the same account, same
 # intentional single-admin design as `bug_admin_required` — see CLAUDE.md.
 
 
@@ -488,7 +489,7 @@ def serve_feedback_attachment(request, feedback_id):
     feedback = get_object_or_404(FeedbackRequest, id=feedback_id)
     user = request.user
 
-    is_admin = str(user.user_id) == '73'  # see `feedback_admin_required`
+    is_admin = is_platform_owner(user)  # see `feedback_admin_required`
     if feedback.request_type == 'feature_idea':
         # Public board — any logged-in member may read it, same as the page.
         allowed = True

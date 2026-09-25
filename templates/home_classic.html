@@ -505,7 +505,7 @@
 
         <!-- Admin Panel Cards - Only for Admins -->
         {% if user.is_admin %}
-        {% if user.user_id == '73' %}
+        {% if user|is_platform_owner %}
         <!-- Two-card layout for user 73: Django Admin + Admin-v2 -->
         <div class="grid grid-cols-2 gap-3">
             <a href="/admin/" class="block bg-gradient-to-br from-red-600 to-red-700 rounded-xl shadow-sm hover:shadow-md transition-shadow p-4 group text-white min-w-0">
