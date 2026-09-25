@@ -249,7 +249,7 @@
     // Canonical seal artwork per Resources/CLAUDE.md — always referenced via
     // the static template tag, never /exportable_media/ (that path is
     // login-gated and breaks for sessionless fetches).
-    var sealUrl = '{% static "images/am-coat-of-arms.png" %}';
+    var sealUrl = '{% chapter "crest_url" %}';
     addPage(
         '<div class="book-cover-page">' +
         '<h1>The Quote Book</h1>' +

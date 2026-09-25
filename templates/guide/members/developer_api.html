@@ -249,7 +249,7 @@
 
                 <div class="bg-gray-900 dark:bg-gray-950 rounded-lg p-4">
                     <p class="text-xs text-gray-400 mb-2 font-mono uppercase tracking-wide">Example curl request</p>
-                    <code class="text-green-400 font-mono text-sm break-all">curl -H "Authorization: Token &lt;your-token&gt;" https://am-parliament.org/api/v1/members/me/</code>
+                    <code class="text-green-400 font-mono text-sm break-all">curl -H "Authorization: Token &lt;your-token&gt;" {% chapter "site_url" %}/api/v1/members/me/</code>
                 </div>
 
                 <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
@@ -320,7 +320,7 @@
 import requests
 
 TOKEN = os.environ["PARLIAMENT_TOKEN"]
-BASE  = "https://am-parliament.org/api/v1"
+BASE  = "{% chapter "site_url" %}/api/v1"
 
 headers = {"Authorization": f"Token {TOKEN}"}
 
@@ -345,7 +345,7 @@ for event in events.json():
                     </h3>
                     <div class="bg-gray-900 dark:bg-gray-950 rounded-lg p-4">
                         <pre class="text-sm font-mono text-green-400 whitespace-pre overflow-x-auto">const TOKEN = process.env.PARLIAMENT_TOKEN;
-const BASE  = "https://am-parliament.org/api/v1";
+const BASE  = "{% chapter "site_url" %}/api/v1";
 
 const headers = { "Authorization": `Token ${TOKEN}` };
 
@@ -369,7 +369,7 @@ console.log(records);</pre>
 # Source your token from a file or set it in the environment
 # export PARLIAMENT_TOKEN="your-token-here"
 
-BASE="https://am-parliament.org/api/v1"
+BASE="{% chapter "site_url" %}/api/v1"
 AUTH="Authorization: Token $PARLIAMENT_TOKEN"
 
 # Pretty-print active legislation
@@ -396,7 +396,7 @@ echo "Saved to upcoming_events.json"</pre>
                             </li>
                             <li class="flex items-start gap-2">
                                 <span class="w-5 h-5 bg-indigo-100 dark:bg-indigo-900/50 rounded-full flex items-center justify-center text-xs font-bold text-indigo-600 dark:text-indigo-400 flex-shrink-0 mt-0.5">2</span>
-                                Enter a URL such as <code class="font-mono text-xs bg-gray-100 dark:bg-gray-600 px-1 rounded">https://am-parliament.org/api/v1/members/me/</code>
+                                Enter a URL such as <code class="font-mono text-xs bg-gray-100 dark:bg-gray-600 px-1 rounded">{% chapter "site_url" %}/api/v1/members/me/</code>
                             </li>
                             <li class="flex items-start gap-2">
                                 <span class="w-5 h-5 bg-indigo-100 dark:bg-indigo-900/50 rounded-full flex items-center justify-center text-xs font-bold text-indigo-600 dark:text-indigo-400 flex-shrink-0 mt-0.5">3</span>

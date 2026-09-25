@@ -16,7 +16,7 @@
                     Constitution & Bylaws
                 </a>
                 <h1 class="text-3xl font-bold">Chapter Resolutions</h1>
-                <p class="text-primary-100 text-sm mt-1">Official resolutions of Alpha Mu Chapter</p>
+                <p class="text-primary-100 text-sm mt-1">Official resolutions of {% chapter "chapter_name" %} Chapter</p>
             </div>
             {% if user.has_cnb_permission %}
             <a href="{% url 'cnb_create_resolution' %}"

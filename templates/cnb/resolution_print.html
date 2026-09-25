@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ resolution.title }} — Alpha Mu of Beta Theta Pi</title>
+    <title>{{ resolution.title }} — {% chapter "chapter_name" %} of {% chapter "fraternity" %}</title>
     <style>
         /* ── Base ─────────────────────────────────────────── */
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -214,7 +214,7 @@
 
 <!-- Document header -->
 <div class="doc-header">
-    <p class="chapter-name">The Samford Chapter, the Alpha Mu of Beta Theta Pi</p>
+    <p class="chapter-name">{% chapter "formal_name" %}</p>
     <p class="subtitle">A Resolution of the Chapter</p>
     {% if resolution.vote_date %}
     <p class="meta">{{ resolution.vote_date|date:"F j, Y" }}</p>
@@ -267,8 +267,8 @@
 <div class="cert-block">
     <p><strong>Certification of Passage</strong></p>
     <p>
-        The undersigned hereby certify that the foregoing Resolution was duly adopted by the Samford Chapter,
-        the Alpha Mu of Beta Theta Pi at a meeting held on _________________, {{ resolution.vote_date|date:"Y"|default:"_____" }},
+        The undersigned hereby certify that the foregoing Resolution was duly adopted by the {% chapter "school_short" %} Chapter,
+        the {% chapter "chapter_name" %} of {% chapter "fraternity" %} at a meeting held on _________________, {{ resolution.vote_date|date:"Y"|default:"_____" }},
         at which a quorum was present, and that the vote was as follows:
     </p>
     <p class="cert-vote-row">
@@ -281,13 +281,13 @@
 
     <div class="sig-grid">
         <div>
-            <div class="sig-line">President, Alpha Mu of Beta Theta Pi</div>
+            <div class="sig-line">President, {% chapter "chapter_name" %} of {% chapter "fraternity" %}</div>
             <div class="sig-date">
                 <div class="sig-date-line">Date</div>
             </div>
         </div>
         <div>
-            <div class="sig-line">Secretary, Alpha Mu of Beta Theta Pi</div>
+            <div class="sig-line">Secretary, {% chapter "chapter_name" %} of {% chapter "fraternity" %}</div>
             <div class="sig-date">
                 <div class="sig-date-line">Date</div>
             </div>
@@ -300,6 +300,8 @@
 </div>
 
 <script nonce="{{ request.csp_nonce }}">
+    // Chapter wording for amendment descriptions (src/chapter.py) — was a literal.
+    var CHAPTER_FORMAL = '{% chapter "school_short" as chapter_short_js %}{{ chapter_short_js|escapejs }} Chapter, the {% chapter "chapter_name" as chapter_name_js %}{{ chapter_name_js|escapejs }} of {% chapter "fraternity" as chapter_frat_js %}{{ chapter_frat_js|escapejs }}';
 document.addEventListener('DOMContentLoaded', function() {
     var printBtn = document.getElementById('js-print-btn');
     if (printBtn) printBtn.addEventListener('click', function() { window.print(); });
@@ -427,11 +429,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
             var desc;
             if (a.type === 'addition') {
-                desc = 'The following shall be added to ' + art + ' of the ' + a.docType + ' of the Samford Chapter, the Alpha Mu of Beta Theta Pi, under ' + sec + scope + ':';
+                desc = 'The following shall be added to ' + art + ' of the ' + a.docType + ' of the ' + CHAPTER_FORMAL + ', under ' + sec + scope + ':';
             } else if (a.type === 'deletion') {
-                desc = 'The following shall be deleted from ' + sec + ' of ' + art + ' of the ' + a.docType + ' of the Samford Chapter, the Alpha Mu of Beta Theta Pi' + scope + ':';
+                desc = 'The following shall be deleted from ' + sec + ' of ' + art + ' of the ' + a.docType + ' of the ' + CHAPTER_FORMAL + '' + scope + ':';
             } else {
-                desc = 'The following change shall be made to ' + sec + ' of ' + art + ' of the ' + a.docType + ' of the Samford Chapter, the Alpha Mu of Beta Theta Pi' + scope + ':';
+                desc = 'The following change shall be made to ' + sec + ' of ' + art + ' of the ' + a.docType + ' of the ' + CHAPTER_FORMAL + '' + scope + ':';
             }
 
             var diffHTML = (a.original || a.proposed) ? renderDiffHTML(a) : '';

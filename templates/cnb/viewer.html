@@ -13,7 +13,7 @@
             <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
                     <h1 class="text-3xl font-bold mb-1">Constitution & Bylaws</h1>
-                    <p class="text-primary-100 text-sm">Alpha Mu Chapter · Beta Theta Pi · Samford University</p>
+                    <p class="text-primary-100 text-sm">{% chapter "chapter_name" %} Chapter · {% chapter "fraternity" %} · {% chapter "school" %}</p>
                 </div>
                 <div class="flex items-center gap-2 self-start flex-shrink-0">
                     <a href="{% url 'cnb_document_pdf' %}" target="_blank"

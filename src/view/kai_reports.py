@@ -19,6 +19,8 @@ from src.decorators import log_function_call
 from src.feature_flag_decorators import require_feature_flag
 from src.utils.file_validation import validate_uploaded_file
 from src.models.users import member_defer
+from src.chapter import get_chapter
+from django.utils.html import escape as _esc
 
 logger = logging.getLogger('src')
 
@@ -1858,7 +1860,7 @@ Notified at: {notify_time}
         <p style="color: #718096; font-size: 12px; margin-bottom: 0;">
             If you have any questions, please contact the Kai Committee chair(s).<br>
             Notified at: {notify_time}<br>
-            Kai Committee &bull; Beta Theta Pi - Samford Chapter
+            Kai Committee &bull; {_esc(get_chapter().school_chapter_name)}
         </p>
     </div>
 
@@ -2066,7 +2068,7 @@ Notified at: {notify_time}
                     text_message = f"""
 Dear {report.targeted_to.name},
 
-This is an official notification from the Kai Committee of Beta Theta Pi.
+This is an official notification from the Kai Committee of {get_chapter().fraternity}.
 
 A report has been filed with the Kai Committee that involves you. The details are as follows:
 
@@ -2082,7 +2084,7 @@ If you have any questions or concerns, please contact the Kai Committee chair(s)
 This notification was sent on {localtime(timezone.now()).strftime('%B %d, %Y at %I:%M %p %Z')}.
 
 Kai Committee
-Beta Theta Pi - Samford Chapter
+{get_chapter().school_chapter_name}
                     """
 
                     # Build tracking pixel URL
@@ -2111,7 +2113,7 @@ Beta Theta Pi - Samford Chapter
     <div style="background: #ffffff; padding: 30px; border: 1px solid #e2e8f0; border-top: none;">
         <p style="margin-top: 0;">Dear <strong>{report.targeted_to.name}</strong>,</p>
 
-        <p>This is an official notification from the Kai Committee of Beta Theta Pi.</p>
+        <p>This is an official notification from the Kai Committee of {_esc(get_chapter().fraternity)}.</p>
 
         <p>A report has been filed with the Kai Committee that involves you. The details are as follows:</p>
 
@@ -2136,7 +2138,7 @@ Beta Theta Pi - Samford Chapter
 
         <p style="color: #718096; font-size: 12px; margin-bottom: 0;">
             This notification was sent on {localtime(timezone.now()).strftime('%B %d, %Y at %I:%M %p %Z')}.<br>
-            Kai Committee &bull; Beta Theta Pi - Samford Chapter
+            Kai Committee &bull; {_esc(get_chapter().school_chapter_name)}
         </p>
     </div>
 

@@ -51,7 +51,7 @@
                     <p class="text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap">{{ submission.message }}</p>
                 </div>
                 <div class="flex flex-col gap-2 flex-shrink-0">
-                    <a href="mailto:{{ submission.email }}?subject=Re: Your message to Beta Theta Pi Alpha Mu"
+                    <a href="mailto:{{ submission.email }}?subject=Re: Your message to {% chapter "fraternity" %} {% chapter "chapter_name" %}"
                        class="inline-flex items-center gap-1 text-xs text-white bg-primary-600 hover:bg-primary-700 px-3 py-1.5 rounded-lg transition-colors">
                         Reply
                     </a>

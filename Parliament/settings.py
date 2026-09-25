@@ -244,9 +244,42 @@ TEMPLATES = [
                 'src.context_processors.impersonation',
                 'src.context_processors.two_factor_status',
             ],
+            # `{% chapter "field" %}` everywhere, emails included (src/chapter.py).
+            'builtins': ['src.templatetags.chapter_tags'],
         },
     },
 ]
+
+# ---------------------------------------------------------------------------
+# Chapter identity (multi-chapter phase 1, 09-25-26)
+# ---------------------------------------------------------------------------
+# Everything that names THIS chapter — fraternity, chapter, school, domain,
+# crest, colours, motto — lives here, once, instead of as literals scattered
+# through Python and templates. Read it with `src.chapter.get_chapter()` in
+# Python and `{% chapter "field" %}` in templates (a builtin tag, so it works
+# in emails rendered with render_to_string too — no request, no {% load %}).
+#
+# Defaults are Alpha Mu's, so a deployment with no CHAPTER_* env vars behaves
+# exactly as before. Another chapter's deployment sets the env vars. When the
+# app becomes truly multi-tenant, `get_chapter(request)` resolves the tenant
+# instead of reading settings — the call sites do not change.
+# Field meanings: see src/chapter.py.
+CHAPTER_DOMAIN = os.getenv('CHAPTER_DOMAIN', 'am-parliament.org')
+CHAPTER = {
+    'fraternity': os.getenv('CHAPTER_FRATERNITY', 'Beta Theta Pi'),
+    'chapter_name': os.getenv('CHAPTER_NAME', 'Alpha Mu'),
+    'school': os.getenv('CHAPTER_SCHOOL', 'Samford University'),
+    'school_short': os.getenv('CHAPTER_SCHOOL_SHORT', 'Samford'),
+    'city': os.getenv('CHAPTER_CITY', 'Birmingham'),
+    'state': os.getenv('CHAPTER_STATE', 'Alabama'),
+    'site_name': os.getenv('CHAPTER_SITE_NAME', 'Alpha Mu Parliament'),
+    'domain': CHAPTER_DOMAIN,
+    'crest': os.getenv('CHAPTER_CREST', 'images/am-coat-of-arms.png'),
+    'primary_color': os.getenv('CHAPTER_PRIMARY_COLOR', '#003DA5'),
+    'secondary_color': os.getenv('CHAPTER_SECONDARY_COLOR', '#FFC72C'),
+    'motto': os.getenv('CHAPTER_MOTTO', 'Virtue Stands Alone'),
+    'school_email_domain': os.getenv('CHAPTER_SCHOOL_EMAIL_DOMAIN', 'samford.edu'),
+}
 
 # Database.
 # DB_BACKEND=sqlite gives a zero-config local database (replaces the old
@@ -313,7 +346,7 @@ CSRF_FAILURE_VIEW = 'src.view.csrf_failure.csrf_failure'
 # Trusted origins for CSRF. Always include the site's own origin so that
 # Cloudflare (or any proxy) stripping the Referer header doesn't cause CSRF
 # failures — Django checks CSRF_TRUSTED_ORIGINS before falling back to Referer.
-_site_url = os.getenv('SITE_URL', 'https://am-parliament.org')
+_site_url = os.getenv('SITE_URL', f'https://{CHAPTER_DOMAIN}')
 _csrf_env  = [o for o in os.getenv('CSRF_TRUSTED_ORIGINS', '').split(',') if o]
 CSRF_TRUSTED_ORIGINS = list({_site_url, *_csrf_env})
 del _site_url, _csrf_env
@@ -445,12 +478,12 @@ EMAIL_PORT = int(os.getenv('EMAIL_PORT', '587'))
 EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', 'True') == 'True'
 EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '')
 EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
-DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'noreply@am-parliament.org')
-SECURITY_ALERT_EMAIL = os.getenv('SECURITY_ALERT_EMAIL', os.getenv('DEFAULT_FROM_EMAIL', 'noreply@am-parliament.org'))
+DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', f'noreply@{CHAPTER_DOMAIN}')
+SECURITY_ALERT_EMAIL = os.getenv('SECURITY_ALERT_EMAIL', DEFAULT_FROM_EMAIL)
 # 09-25-26 — where unhandled-500 alerts go (src/error_alerts.py). Defaults to
 # SECURITY_ALERT_EMAIL. Set ERROR_ALERTS_ENABLED=False to turn alerts off.
 ERROR_ALERT_EMAIL = os.getenv('ERROR_ALERT_EMAIL', '')
-SITE_URL = os.getenv('SITE_URL', 'https://am-parliament.org')
+SITE_URL = os.getenv('SITE_URL', f'https://{CHAPTER_DOMAIN}')
 
 # Anymail (Brevo) Configuration - used when EMAIL_BACKEND is anymail.backends.brevo.EmailBackend
 ANYMAIL = {
@@ -499,7 +532,7 @@ if _vapid_private_b64:
 
     VAPID_PUBLIC_KEY = _vapid_public_b64  # Raw base64url — used by the subscribe JS
     VAPID_CLAIMS = {
-        'sub': f'mailto:{os.getenv("DEFAULT_FROM_EMAIL", "noreply@am-parliament.org")}',
+        'sub': f'mailto:{DEFAULT_FROM_EMAIL}',
     }
 else:
     VAPID_PRIVATE_KEY = ''

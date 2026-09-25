@@ -84,7 +84,7 @@
                              unless can_use_notes). -->
                         <div class="flex flex-col md:flex-row md:items-start gap-4">
                         <div class="flex-1 min-w-0 text-center space-y-1 pb-4 border-b border-gray-100 dark:border-gray-700">
-                            <p class="font-bold text-gray-900 dark:text-gray-100 uppercase text-xs tracking-widest">The Samford Chapter, the Alpha Mu of Beta Theta Pi</p>
+                            <p class="font-bold text-gray-900 dark:text-gray-100 uppercase text-xs tracking-widest">{% chapter "formal_name" %}</p>
                             <p class="text-gray-500 dark:text-gray-400 text-xs">A Resolution of the Chapter</p>
                             {% if resolution.vote_date %}
                             <p class="text-gray-500 dark:text-gray-400 text-xs">{{ resolution.vote_date|date:"F j, Y" }}</p>

@@ -4,8 +4,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Chapter Songbook — Beta Theta Pi Alpha Mu</title>
-    <link rel="icon" type="image/png" href="{% static 'images/am-coat-of-arms.png' %}">
+    <title>Chapter Songbook — {% chapter "fraternity" %} {% chapter "chapter_name" %}</title>
+    <link rel="icon" type="image/png" href="{% chapter "crest_url" %}">
 
     <script nonce="{{ request.csp_nonce }}">
         (function() {
@@ -31,7 +31,7 @@
                 </svg>
             </a>
             <span class="font-semibold text-gray-900 dark:text-white truncate">Chapter Songbook</span>
-            <span class="hidden sm:inline text-xs text-gray-400 dark:text-gray-500">Beta Theta Pi · Alpha Mu</span>
+            <span class="hidden sm:inline text-xs text-gray-400 dark:text-gray-500">{% chapter "fraternity" %} · {% chapter "chapter_name" %}</span>
         </div>
         <button id="theme-toggle" type="button" aria-label="Toggle dark mode"
                 class="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors shrink-0">
@@ -136,7 +136,7 @@
 
 <!-- ── Footer ─────────────────────────────────────────────────────────────── -->
 <footer class="mt-16 border-t border-gray-200 dark:border-gray-800 py-6 text-center text-xs text-gray-400 dark:text-gray-500">
-    Beta Theta Pi · Alpha Mu at Samford University
+    {% chapter "fraternity" %} · {% chapter "chapter_name" %} at {% chapter "school" %}
 </footer>
 
 <script nonce="{{ request.csp_nonce }}">

@@ -8,6 +8,7 @@ from django.conf import settings
 from django.utils import timezone
 from django.utils.timezone import localtime
 import logging
+from src.chapter import get_chapter
 
 logger = logging.getLogger('admin_actions')
 
@@ -19,7 +20,7 @@ def get_security_alert_email():
 
 def get_site_url():
     """Get the site URL from settings"""
-    return getattr(settings, 'SITE_URL', 'https://am-parliament.org').rstrip('/')
+    return get_chapter().site_url.rstrip('/')
 
 
 def send_security_alert(event_type, severity, details, ip_address=None, user=None, force_send=False):
@@ -641,7 +642,7 @@ def notify_user_security_event(user, subject, body, ip_address=None):
                 f'{body}{ip_line}\n\n'
                 f'If you did not expect this, please contact an officer or log in to review '
                 f'your account security at {site_url}/preferences/.\n\n'
-                '— Alpha Mu Parliament'
+                f'{get_chapter().signoff}'
             ),
             from_email=settings.DEFAULT_FROM_EMAIL,
             recipient_list=[user.email],

@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ song.title }} — Chapter Songbook</title>
-    <link rel="icon" type="image/png" href="{% static 'images/am-coat-of-arms.png' %}">
+    <link rel="icon" type="image/png" href="{% chapter "crest_url" %}">
 
     <script nonce="{{ request.csp_nonce }}">
         (function() {
@@ -81,7 +81,7 @@
 
 <!-- ── Footer ─────────────────────────────────────────────────────────────── -->
 <footer class="mt-16 border-t border-gray-200 dark:border-gray-800 py-6 text-center text-xs text-gray-400 dark:text-gray-500">
-    Beta Theta Pi · Alpha Mu at Samford University
+    {% chapter "fraternity" %} · {% chapter "chapter_name" %} at {% chapter "school" %}
 </footer>
 
 <script nonce="{{ request.csp_nonce }}">

@@ -15,6 +15,8 @@ from django.core.mail import send_mail
 from django.conf import settings
 from django.utils import timezone
 import logging
+from src.chapter import get_chapter
+from django.utils.html import escape as _esc
 
 logger = logging.getLogger(__name__)
 
@@ -70,7 +72,7 @@ def _send_email_confirmation(request, user, new_email):
                 f"{confirm_url}\n\n"
                 f"This link expires in 24 hours. If you did not request this change, "
                 f"you can safely ignore this email — your current address will remain unchanged.\n\n"
-                f"— Alpha Mu Parliament"
+                f"{get_chapter().signoff}"
             ),
             html_message=_render_confirmation_email(user, new_email, confirm_url),
             from_email=settings.DEFAULT_FROM_EMAIL,
@@ -225,7 +227,7 @@ def _render_confirmation_email(user, new_email, confirm_url):
 <body>
     <div class="header">
         <h1 style="margin: 0; font-size: 24px;">&#9993; Confirm Email Change</h1>
-        <p style="margin: 8px 0 0 0; opacity: 0.9;">Alpha Mu Parliament</p>
+        <p style="margin: 8px 0 0 0; opacity: 0.9;">{_esc(get_chapter().site_name)}</p>
     </div>
     <div class="content">
         <p>Hi {display_name},</p>
@@ -244,8 +246,8 @@ def _render_confirmation_email(user, new_email, confirm_url):
         </p>
     </div>
     <div class="footer">
-        <p>This is an automated email from the Alpha Mu Parliament system.</p>
-        <p><a href="{site_url}" style="color: #3b82f6;">Alpha Mu Parliament</a></p>
+        <p>This is an automated email from the {_esc(get_chapter().site_name)} system.</p>
+        <p><a href="{site_url}" style="color: #3b82f6;">{_esc(get_chapter().site_name)}</a></p>
     </div>
 </body>
 </html>"""

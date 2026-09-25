@@ -12,6 +12,8 @@ from django.utils import timezone
 from django.utils.timezone import localtime
 from src.models import ParliamentUser, Announcement, UserAnnouncementView, AnnouncementEmailLog, AnnouncementEmailRecipient
 import logging
+from src.chapter import get_chapter
+from django.utils.html import escape as _esc
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +50,7 @@ def _flag_user_email(user, error_message):
 
 def get_site_url():
     """Get the site URL from settings"""
-    return getattr(settings, 'SITE_URL', 'https://am-parliament.org').rstrip('/')
+    return get_chapter().site_url.rstrip('/')
 
 
 def send_announcement_notification(announcement, initiated_by=None):
@@ -525,7 +527,7 @@ def send_pledge_welcome_email(user, temp_password):
 
   <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 24px 0;">
   <p style="color: #9ca3af; font-size: 12px;">
-    Parliament &mdash; Alpha Mu Chapter, Beta Theta Pi<br>
+    Parliament &mdash; {_esc(get_chapter().chapter_name)} Chapter, {_esc(get_chapter().fraternity)}<br>
     <a href="{site_url}" style="color: #9ca3af;">{site_url}</a>
   </p>
 
@@ -635,7 +637,7 @@ def notify_excuse_reviewed(excuse):
             f"Hi {display_name},\n\n"
             f"{message}\n\n"
             f"View your excuses: {site_url}/excuses/\n\n"
-            "— Alpha Mu Parliament"
+            f"{get_chapter().signoff}"
         )
         send_mail(
             subject=f"[Parliament] {title}",

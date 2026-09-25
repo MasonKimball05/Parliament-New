@@ -63,7 +63,7 @@
 <body>
     <div class="header">
         <h1 style="margin: 0; font-size: 24px;">🔐 2FA Re-enrollment Request</h1>
-        <p style="margin: 8px 0 0 0; opacity: 0.9;">Alpha Mu Parliament</p>
+        <p style="margin: 8px 0 0 0; opacity: 0.9;">{% chapter "site_name" %}</p>
     </div>
 
     <div class="content">
@@ -91,9 +91,9 @@
     </div>
 
     <div class="footer">
-        <p>This is an automated security email from the Alpha Mu Parliament system.</p>
+        <p>This is an automated security email from the {% chapter "site_name" %} system.</p>
         <p>
-            <a href="{{ site_url }}" style="color: #3b82f6;">Alpha Mu Parliament</a>
+            <a href="{{ site_url }}" style="color: #3b82f6;">{% chapter "site_name" %}</a>
         </p>
     </div>
 </body>

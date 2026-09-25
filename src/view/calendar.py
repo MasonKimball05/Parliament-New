@@ -17,6 +17,7 @@ import pytz
 from src.models.users import member_defer
 from src.utils.visibility import visible_to_q
 from src.decorators import officer_required
+from src.chapter import get_chapter
 
 #: v3.18.4 — how many future events to load in order to show the five soonest
 #: VISIBLE ones. See the note at the `all_upcoming` queryset for why bounding
@@ -443,7 +444,7 @@ def export_calendar_ical(request):
 
     # Create iCal calendar
     cal = Calendar()
-    cal.add('prodid', '-//Parliament Chapter Calendar//am-parliament.org//')
+    cal.add('prodid', get_chapter().calendar_prodid)
     cal.add('version', '2.0')
     cal.add('x-wr-calname', 'Chapter Events')
     cal.add('x-wr-caldesc', 'Upcoming chapter events and meetings')
@@ -467,7 +468,7 @@ def export_calendar_ical(request):
             ical_event.add('location', event.location)
 
         # Add unique identifier
-        ical_event.add('uid', f'event-{event.id}@am-parliament.org')
+        ical_event.add('uid', get_chapter().calendar_uid(event.id))
         ical_event.add('dtstamp', timezone.now())
 
         cal.add_component(ical_event)
@@ -500,7 +501,7 @@ def export_event_ical(request, event_id):
 
     # Create iCal calendar
     cal = Calendar()
-    cal.add('prodid', '-//Parliament Chapter Calendar//am-parliament.org//')
+    cal.add('prodid', get_chapter().calendar_prodid)
     cal.add('version', '2.0')
 
     # Create the event
@@ -521,7 +522,7 @@ def export_event_ical(request, event_id):
         ical_event.add('location', event.location)
 
     # Add unique identifier
-    ical_event.add('uid', f'event-{event.id}@am-parliament.org')
+    ical_event.add('uid', get_chapter().calendar_uid(event.id))
     ical_event.add('dtstamp', timezone.now())
 
     cal.add_component(ical_event)
@@ -594,7 +595,7 @@ def calendar_subscription_feed(request, token):
 
     # Create iCal calendar
     cal = Calendar()
-    cal.add('prodid', '-//Parliament Chapter Calendar//am-parliament.org//')
+    cal.add('prodid', get_chapter().calendar_prodid)
     cal.add('version', '2.0')
     cal.add('x-wr-calname', f'Chapter Events - {user.get_display_name()}')
     cal.add('x-wr-caldesc', 'Personal chapter events calendar - automatically updated')
@@ -639,7 +640,7 @@ def calendar_subscription_feed(request, token):
             ical_event.add('location', event.location)
 
         # Add unique identifier - IMPORTANT: Must be consistent for updates
-        ical_event.add('uid', f'event-{event.id}@am-parliament.org')
+        ical_event.add('uid', get_chapter().calendar_uid(event.id))
 
         # Use event's updated timestamp if available, otherwise creation time
         ical_event.add('dtstamp', event.created_at)

@@ -44,6 +44,7 @@ from src.notifications import send_announcement_notification
 from src.notification_service import notify_all_active_members
 from src.models.users import member_defer
 from src.kai_audit import exclude_kai_logs, redact_kai_logs
+from src.chapter import get_chapter
 
 
 _raw_allowed_ids = os.environ.get('ADMIN_V2_USER_IDS', os.environ.get('ADMIN_V2_USER_ID', ''))
@@ -2416,7 +2417,7 @@ def _build_test_announcement_context(user, site_url, tracking_url, include_test_
         def __init__(self):
             self.id = 0
             self.title = "Test Announcement - Email System Check"
-            self.content = """This is a TEST email from the Alpha Mu Parliament system.
+            self.content = f"""This is a TEST email from the {get_chapter().site_name} system.
 
 If you are receiving this email, it means the announcement email system is working correctly!
 
@@ -2490,7 +2491,7 @@ def send_test_announcement_email(request):
     include_test_poll = request.POST.get('include_test_poll') == 'on'
 
     # Get site URL
-    site_url = getattr(settings, 'SITE_URL', 'https://am-parliament.org').rstrip('/')
+    site_url = get_chapter().site_url.rstrip('/')
 
     # Generate tracking URL (will be a test/invalid one)
     tracking_url = f"{site_url}/track/announcement/0/user/{user.user_id}/"
@@ -2619,7 +2620,7 @@ def preview_test_email(request):
     include_test_poll = request.GET.get('include_test_poll') in ('1', 'true', 'on')
 
     # Get site URL
-    site_url = getattr(settings, 'SITE_URL', 'https://am-parliament.org').rstrip('/')
+    site_url = get_chapter().site_url.rstrip('/')
 
     # Generate tracking URL (will be a test/invalid one)
     tracking_url = f"{site_url}/track/announcement/0/user/{user.user_id}/"

@@ -42,6 +42,7 @@ from src.models.webauthn import WebAuthnCredential
 from src.utils.security_utils import get_client_ip, run_post_auth_pipeline
 from src.auth_backends import AUTH_BACKEND_PATH
 from src.models.users import member_defer
+from src.chapter import get_chapter
 
 logger = logging.getLogger(__name__)
 security_logger = logging.getLogger('security')
@@ -98,7 +99,7 @@ def _rp_config(request=None):
         origin = f'{scheme}://{request.get_host()}'
         rp_id = request.get_host().split(':')[0]  # strip port
     else:
-        site_url = getattr(settings, 'SITE_URL', 'https://am-parliament.org')
+        site_url = get_chapter().site_url
         parsed = urlparse(site_url)
         rp_id = parsed.hostname
         origin = f'{parsed.scheme}://{parsed.netloc}'

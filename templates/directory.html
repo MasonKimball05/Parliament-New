@@ -896,7 +896,7 @@ function _renderProfile(d) {
     // list; a pledge with an empty list gets no "Initiated at" row at all.
     const initChapters = (d.initiation_chapters && d.initiation_chapters.length)
         ? d.initiation_chapters
-        : (d.member_type === 'Pledge' ? [] : [{ school: 'Samford University', chapter: 'Alpha Mu' }]);
+        : (d.member_type === 'Pledge' ? [] : [{ school: '{% chapter "school" as chapter_school_js %}{{ chapter_school_js|escapejs }}', chapter: '{% chapter "chapter_name" as chapter_name_js %}{{ chapter_name_js|escapejs }}' }]);
     if (initChapters.length) {
         const initLabels = initChapters.map(c => {
             const glyphs = c.chapter.trim().split(/\s+/).map(w => GREEK_GLYPHS[w.toLowerCase()] || '').join('');

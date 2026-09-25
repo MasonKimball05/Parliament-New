@@ -357,7 +357,7 @@
     <!-- Initiation Chapters -->
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-6">
         <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-1">Initiation Chapters</h2>
-        <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Where this member was initiated. Empty defaults to Alpha Mu — Samford University. Add multiple for dual-chapter members.</p>
+        <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Where this member was initiated. Empty defaults to {% chapter "chapter_name" %} — {% chapter "school" %}. Add multiple for dual-chapter members.</p>
 
         {% with chapters=target.initiation_chapters %}
         {% if chapters %}
@@ -383,7 +383,7 @@
             {% endfor %}
         </ul>
         {% else %}
-        <p class="text-sm text-gray-400 italic mb-4">Defaulting to Alpha Mu — Samford University.</p>
+        <p class="text-sm text-gray-400 italic mb-4">Defaulting to {% chapter "chapter_name" %} — {% chapter "school" %}.</p>
         {% endif %}
         {% endwith %}
 
