@@ -6,9 +6,9 @@ name: Django CI/CD
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ main, develop, multi-chapter, 'multi-chapter/**' ]
   pull_request:
-    branches: [ main, develop ]
+    branches: [ main, develop, multi-chapter ]
 
 jobs:
   test:

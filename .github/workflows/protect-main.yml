@@ -1,0 +1,80 @@
+name: Protect main
+
+# 09-25-26 — multi-chapter support is being built on the long-lived
+# `multi-chapter` branch (plus `multi-chapter/*` feature branches). It must not
+# reach `main` mid-development: prod deploys are `git pull` of main.
+#
+# Two signals, either one blocks:
+#   1. the PR's source branch is `multi-chapter` or `multi-chapter/*`;
+#   2. the code being merged contains the marker file `.multi-chapter`, which
+#      exists ONLY on the multi-chapter line. This catches the work however it
+#      travels — renamed branch, cherry-picks onto another branch, a local
+#      merge pushed straight to main.
+# Shipping the work on purpose = delete `.multi-chapter` in the final PR AND
+# add the label `multi-chapter-release`.
+#
+# `pull_request_target` is deliberate: it runs THIS file as it exists on main,
+# so a branch cannot edit the guard to get itself through. It never checks out
+# or executes PR code — it only reads one path through the API — so it is safe.
+#
+# On direct pushes to main it can't prevent anything (the push already
+# happened) but fails loudly so you know before you `git pull` on the server.
+# The local pre-push hook (scripts/pre-push.sh) is what stops that push.
+#
+# Blocks PR merges only once "Block multi-chapter merges" is a REQUIRED status
+# check in the `main` ruleset. See docs/MULTI_CHAPTER_BRANCHING.md.
+
+on:
+  pull_request_target:
+    branches: [ main ]
+    types: [ opened, synchronize, reopened, labeled, unlabeled, edited ]
+  push:
+    branches: [ main ]
+
+permissions:
+  contents: read
+
+jobs:
+  block-multi-chapter:
+    name: Block multi-chapter merges
+    runs-on: ubuntu-latest
+    steps:
+      - name: Refuse multi-chapter work on main
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          EVENT: ${{ github.event_name }}
+          HEAD_REF: ${{ github.head_ref }}
+          SHA: ${{ github.event_name == 'push' && github.sha || github.event.pull_request.head.sha }}
+          RELEASE_LABEL: ${{ contains(github.event.pull_request.labels.*.name, 'multi-chapter-release') }}
+        run: |
+          set -u
+          blocked=""
+          case "${HEAD_REF:-}" in
+            multi-chapter|multi-chapter/*) blocked="source branch '$HEAD_REF' is multi-chapter work" ;;
+          esac
+          status=$(curl -s -o /dev/null -w '%{http_code}' \
+            -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/$REPO/contents/.multi-chapter?ref=$SHA")
+          if [ "$status" = "200" ]; then
+            blocked="${blocked:+$blocked; }commit $SHA contains the .multi-chapter marker file"
+          elif [ "$status" != "404" ]; then
+            echo "::error::Could not check for the marker (HTTP $status) — failing closed."
+            exit 1
+          fi
+          if [ -z "$blocked" ]; then
+            echo "No multi-chapter work detected."
+            exit 0
+          fi
+          if [ "$EVENT" = "pull_request_target" ] && [ "$RELEASE_LABEL" = "true" ] \
+             && [ "$status" = "404" ]; then
+            echo "Release label present and marker removed — allowing: $blocked"
+            exit 0
+          fi
+          echo "::error::Multi-chapter work must not reach main: $blocked."
+          if [ "$EVENT" = "push" ]; then
+            echo "::error::This was a DIRECT PUSH to main. Do NOT git pull on the server; revert on main first."
+          else
+            echo "To ship it deliberately: delete .multi-chapter in this PR and add the 'multi-chapter-release' label."
+          fi
+          exit 1

@@ -28,6 +28,31 @@ set -uo pipefail
 cd "$(git rev-parse --show-toplevel)"
 
 # ---------------------------------------------------------------------------
+# Multi-chapter guard (09-25-26) — runs FIRST, before the Django lookup, so it
+# holds even on a machine where the test suite can't run.
+# ---------------------------------------------------------------------------
+# Multi-chapter support is built on the `multi-chapter` branch, which carries a
+# marker file `.multi-chapter` that exists nowhere else. Refuse any push that
+# would put a commit containing that marker onto main — including a local
+# `git merge multi-chapter` pushed straight to main, which no GitHub PR rule
+# can catch. Shipping it deliberately = delete the marker in the release merge.
+# `.github/workflows/protect-main.yml` is the server-side half.
+_zero=0000000000000000000000000000000000000000
+while read -r _lref _lsha _rref _rsha; do
+  [ "$_rref" = "refs/heads/main" ] || continue
+  [ "$_lsha" = "$_zero" ] && continue
+  if git cat-file -e "$_lsha:.multi-chapter" 2>/dev/null; then
+    echo ""
+    echo "[pre-push] ✗ REFUSED — this push to main contains the .multi-chapter marker."
+    echo "[pre-push]   Multi-chapter work lives on the 'multi-chapter' branch until it ships."
+    echo "[pre-push]   If you merged it into main by accident:  git reset --hard origin/main"
+    echo "[pre-push]   (after checking nothing else is lost). See docs/MULTI_CHAPTER_BRANCHING.md."
+    echo ""
+    exit 1
+  fi
+done
+
+# ---------------------------------------------------------------------------
 # Find an interpreter that can actually import Django.
 # ---------------------------------------------------------------------------
 # ⚠️ v3.19.9 — THE FIRST VERSION OF THIS HOOK CALLED BARE `python3` AND BLOCKED
