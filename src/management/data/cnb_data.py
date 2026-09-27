@@ -23,6 +23,15 @@ so corrections belong in a resolution, not here.
 ⚠️ `seed_cnb_documents` CREATES missing sections but will NOT overwrite a
 section whose text has been edited — so on an existing install it adds
 §5 but leaves the three updated sections alone. See that command's `--only`.
+
+⚠️ 09-27-26 — FOUR CROSS-REFERENCES CORRECTED, at Mason's direction (the
+`check_cnb_references` findings). Wording only; no rule changed:
+  * Constitution V §1 3(a): "Article VII, Section 1 (a) (vi-x)" → "… of the
+    Bylaws" (the Constitution has no Article VII; vi-x is the Kai recusal chain).
+  * Bylaws VI §2 3(g): Kai operations "Article VI, Section 1 (a)" → "Article VII".
+  * Bylaws VII §10 c.i.2: Bylaws amendments "Article VI" → "Article X"; the
+    Constitution's "Article VII" → "Article VI".
+Existing databases get the same edit from migration 0055_fix_cnb_cross_references.
 """
 
 DOCUMENTS = [
@@ -394,7 +403,7 @@ DOCUMENTS = [
                             'are only considered by the committee when he is present or if he officially delegates the EVP to act in '
                             'his place on that committee.\n'
                             '   a. For the Kai Committee the President, or his delegate, may only be an active voting member should '
-                            'the requirements of Article VII, Section 1 (a) (vi-x) be met.'
+                            'the requirements of Article VII, Section 1 (a) (vi-x) of the Bylaws be met.'
                         ),
                     },
                     {
@@ -1216,7 +1225,7 @@ DOCUMENTS = [
                             '   e. Ensure Tailgates are applied for and properly planned and executed.\n'
                             '   f. Ensure rules are kept.\n'
                             '   g. Kai Committee — ensures that brothers are maintaining the rules of the college and Beta Theta Pi, also a '
-                            'system to reward brothers for good behavior. Operations of the Kai Committee can be found in Article VI, '
+                            'system to reward brothers for good behavior. Operations of the Kai Committee can be found in Article VII, '
                             'Section 1 (a) of the Bylaws of the Samford Chapter, the Alpha Mu of Beta Theta Pi.\n\n'
                             '4. Vice President of Recruitment\n'
                             '   a. Recruit PNMs to fraternity during the spring and fall.\n'
@@ -1496,8 +1505,8 @@ DOCUMENTS = [
                             'committee. This veto is only viable while the amendment is being passed by the committee, this being prior '
                             'to the amendment being brought to the Executive Board or to the chapter.\n'
                             '      2) When an amendment passes the committee, the amendment then follows the path of all proposed '
-                            'amendments as defined in the bylaws (See Article VI of the Bylaws for amendments to the Bylaws. See '
-                            'Article VII of the Constitution for amendments to the Constitution).\n'
+                            'amendments as defined in the bylaws (See Article X of the Bylaws for amendments to the Bylaws. See '
+                            'Article VI of the Constitution for amendments to the Constitution).\n'
                             '      3) No amendments or changes to the Constitution or Bylaws can be made by the committee without the '
                             'amendment passing the all requirements laid out in the bylaws; these current requirements being that '
                             'the amendment is first brought to the executive board for initial passing, should it pass there it is '

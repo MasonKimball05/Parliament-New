@@ -1,7 +1,7 @@
 """
 09-25-26 — C&B cross-reference checker (src/cnb_crossrefs.py).
 
-Pins the four problems found in the August 2025 text, the linking, and that
+Pinned the four problems found in the August 2025 text (all corrected 09-27-26), the linking, and that
 the chair sees the findings. Fixing the WORDING is a chapter resolution; when
 one passes, update KNOWN_PROBLEMS here (a shrinking list, like KNOWN_ORPHANS).
 
@@ -17,13 +17,10 @@ from django.urls import reverse
 from src.cnb_crossrefs import Structure, check, find_references, link_references
 from src.models import ParliamentUser
 
-#: (level, source, reference text) — present in the seeded August 2025 text.
-KNOWN_PROBLEMS = {
-    ('error', 'Constitution V §1', 'Article VII, Section 1'),
-    ('error', 'Bylaws VII §10', 'Article VII of the Constitution'),
-    ('warning', 'Bylaws VII §10', 'Article VI of the Bylaws'),
-    ('warning', 'Bylaws VI §2', 'Article VI, Section 1 (a) of the Bylaws'),
-}
+#: (level, source, reference text) — present in the seeded text.
+#: 09-27-26: all four August 2025 findings corrected (seed text + migration
+#: 0055_fix_cnb_cross_references). Empty now — a new finding is a new problem.
+KNOWN_PROBLEMS = set()
 
 
 def _structure(docs):
@@ -77,7 +74,19 @@ class SeededDocumentTests(TestCase):
                          'If a resolution fixed one of these, remove it from KNOWN_PROBLEMS. '
                          'If a new one appeared, a section was renumbered or a reference mistyped.')
 
+    def _break_a_reference(self):
+        # 09-27-26: the seeded text is clean now, so plant one bad reference
+        # to keep exercising the failure paths.
+        from src.models import Section
+        s = Section.objects.get(article__document__doc_type='constitution', article__number='V', number='1')
+        s.content += '\n4. See Article IX, Section 9 of the Constitution.'
+        s.save()
+
+    def test_command_strict_passes_on_the_clean_seed(self):
+        call_command('check_cnb_references', '--strict', stdout=StringIO())
+
     def test_command_strict_fails_on_errors(self):
+        self._break_a_reference()
         out = StringIO()
         with self.assertRaises(CommandError):
             call_command('check_cnb_references', '--strict', stdout=out)
@@ -87,8 +96,9 @@ class SeededDocumentTests(TestCase):
         chair = ParliamentUser.objects.create(user_id='XR-1', username='xr1', name='CNB Chair',
                                               member_type='Officer', member_status='Active', is_admin=True)
         c = Client(); c.force_login(chair)
+        self._break_a_reference()
         html = c.get(reverse('constitution_bylaws'), {'tab': 'manage'}).content.decode()
-        self.assertIn('Cross-reference problems (4)', html)
+        self.assertIn('Cross-reference problems (1)', html)
 
     def test_the_viewer_links_valid_references_to_their_section(self):
         member = ParliamentUser.objects.create(user_id='XR-2', username='xr2', name='Member',
