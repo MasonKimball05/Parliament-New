@@ -59,6 +59,21 @@ COMMAND_INJECTION_PATTERNS = [
 ]
 
 
+def _is_owner_session(request):
+    """True when this request carries the platform owner's authenticated session.
+
+    Same single-account pin as `bug_admin_required` (src/decorators.py) —
+    deliberately an id, not a role an admin could hand out. Only called once an
+    IP is already known to be blacklisted, so the common path pays nothing.
+    On the `multi-chapter` branch this is `src.permissions.is_platform_owner`;
+    swap the body when main is merged in (the guard test there forbids the
+    literal).
+    """
+    user = getattr(request, 'user', None)
+    return bool(user is not None and user.is_authenticated
+                and str(user.user_id) == '73')
+
+
 class ForcePasswordChangeMiddleware:
     """
     Middleware to force users to change password if force_password_change flag is set.
@@ -500,6 +515,22 @@ class InputSanitizationMiddleware:
                 except Exception:
                     is_blacklisted = False
                 cache.set(blacklist_cache_key, is_blacklisted, 300)
+            if is_blacklisted and _is_owner_session(request):
+                # 09-27-26 — Mason's own logged-in session is never locked out
+                # by the IP blacklist. His sentinel project probed /.env and
+                # /.git/config from his home network, the honeypot banned that
+                # IP (correctly — it cannot tell his tool from a scanner), and
+                # the platform owner was locked out of the platform. Only his
+                # account, by his call ("Myself only"): every other member on a
+                # banned IP is still blocked. The ban itself is untouched —
+                # anonymous requests from this IP, including /login/ and the
+                # honeypot URLs, are still refused — so this only helps a
+                # session that is ALREADY logged in. Logged, never silent.
+                logger.warning(
+                    f"BLACKLISTED_IP_OWNER_BYPASS: {ip_address} {request.method} {request.path} "
+                    f"(platform owner session; IP remains blacklisted for everyone else)"
+                )
+                is_blacklisted = False
             if is_blacklisted:
                 logger.warning(
                     f"BLACKLISTED_IP_BLOCKED: {ip_address} attempted {request.method} {request.path}"
