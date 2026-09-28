@@ -4,7 +4,7 @@ v3.31.7 — two related requests from Mason about grading quizzes.
 1. From `committee/EDUCATION/education/pledge/<pk>/` (the per-pledge detail
    page): *"can you make it for quizzes I can click on it and it shows the
    work they did and the answers so they can be 'graded'?"* The grading UI
-   already existed on `education_quiz_submissions` (`quiz_submissions.html`)
+   already existed on `education_quiz_submissions` (`education_quiz_submissions.html`)
    — per-question right/wrong marking, score entry, pass/incomplete — it was
    just never linked to from the one page a VPE actually opens to check on a
    specific pledge. Fixed with a "View answers →" link on each quiz-type

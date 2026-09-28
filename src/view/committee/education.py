@@ -569,7 +569,7 @@ def education_home(request, code):
         'adjustments_history_json': _script_safe_json(adjustments_history),
         'POINT_ADJUSTMENT_LIMIT': POINT_ADJUSTMENT_LIMIT,
     }
-    return render(request, 'committee/education.html', context)
+    return render(request, 'committee/education_dashboard.html', context)
 
 
 @login_required
@@ -769,7 +769,7 @@ def education_toggle_completion(request, code, task_pk, pledge_pk):
     * **`set_status=<status>`** — set that status explicitly.
 
     ⚠️ v3.20.0 — THE SECOND MODE IS NEW AND IT WAS A LIVE BUG.
-    `quiz_submissions.html` has posted `<input type="hidden" name="set_status">`
+    `education_quiz_submissions.html` has posted `<input type="hidden" name="set_status">`
     since it was written, with buttons labelled *Mark completed* and *Mark
     incomplete*. This view never read the field. So on the grading page both
     buttons did the same thing — from `pending`, *Mark incomplete* marked the
@@ -1161,7 +1161,7 @@ def education_quiz_submissions(request, code, task_pk):
             'qa_pairs': qa_pairs,
         })
 
-    return render(request, 'committee/quiz_submissions.html', {
+    return render(request, 'committee/education_quiz_submissions.html', {
         'committee': committee,
         'task': task,
         'questions': questions,
