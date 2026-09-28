@@ -115,7 +115,7 @@ INLINE_HANDLER_RE = re.compile(r'<[a-zA-Z][^>]*\b(?:onclick|onchange|onsubmit)\s
 
 #: ⚠️ RATCHET — may only shrink. These templates had a real onclick=/onchange=/
 #: onsubmit= attribute as of v3.31.1 and were NOT touched by that release
-#: (which fixed committee/education.html, committee/education_meeting_form.html,
+#: (which fixed committee/education_dashboard.html, committee/education_meeting_form.html,
 #: and components/modal_open.html + modal_close.html — the files implicated in
 #: Mason's actual bug report). Each entry here is silently broken in prod
 #: right now in exactly the same way, for the same reason, and is a real
@@ -129,7 +129,7 @@ INLINE_HANDLER_RE = re.compile(r'<[a-zA-Z][^>]*\b(?:onclick|onchange|onsubmit)\s
 KNOWN_INLINE_HANDLER_OFFENDERS = frozenset({
     'admin_v2/notifications/logs.html',
     'base.html',
-    'committee/candidate_list.html',
+    'committee/recruitment_candidate_list.html',
     'committee/documents.html',
     'committee/recruitment_dashboard.html',
     'committee/recruitment_event_detail.html',

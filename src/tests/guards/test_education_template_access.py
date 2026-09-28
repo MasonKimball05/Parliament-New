@@ -20,12 +20,12 @@ from django.conf import settings
 from django.test import SimpleTestCase
 
 EDUCATION_TEMPLATES = [
-    'committee/education.html',
+    'committee/education_dashboard.html',
     'committee/_education_meeting_row.html',
     'committee/education_task_form.html',
     'committee/education_quiz_questions.html',
     'committee/education_meeting_form.html',
-    'committee/quiz_submissions.html',
+    'committee/education_quiz_submissions.html',
 ]
 
 IS_CHAIR_IN_TAG = re.compile(r'\{%\s*(?:if|elif)\b[^%]*\bis_chair\b[^%]*%\}')
@@ -53,7 +53,7 @@ class EducationTemplatesGateOnAccessTests(SimpleTestCase):
 
 class AdjustmentHistoryDoesNotUseInnerHtmlTests(SimpleTestCase):
     def test_render_adjustment_history_builds_rows_without_innerhtml_interpolation(self):
-        src = _read('committee/education.html')
+        src = _read('committee/education_dashboard.html')
         start = src.index('function renderAdjustmentHistory')
         end = src.index('function openAdjustPointsModal', start)
         body = src[start:end]

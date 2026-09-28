@@ -748,7 +748,7 @@ def _candidate_list_legacy(request, code):
                set(committee.members.values_list('pk', flat=True))
     ).order_by('name')
 
-    return render(request, 'committee/candidate_list.html', {
+    return render(request, 'committee/recruitment_candidate_list.html', {
         'committee': committee,
         'candidates': candidates,
         'status_choices': RecruitmentCandidate.STATUS_CHOICES,
@@ -789,7 +789,7 @@ def create_candidate(request, code):
 
         if not name:
             messages.error(request, 'Name is required.')
-            return render(request, 'committee/candidate_form.html', {
+            return render(request, 'committee/recruitment_candidate_form.html', {
                 'committee': committee, 'post': request.POST,
                 'status_choices': RecruitmentCandidate.STATUS_CHOICES,
                 'committee_members': committee_members,
@@ -845,7 +845,7 @@ def create_candidate(request, code):
         messages.success(request, f'Candidate "{name}" added.')
         return redirect('candidate_list', code=code)
 
-    return render(request, 'committee/candidate_form.html', {
+    return render(request, 'committee/recruitment_candidate_form.html', {
         'committee': committee,
         'post': {
             'name': '', 'email': '', 'phone': '', 'status': 'prospect',
@@ -887,7 +887,7 @@ def edit_candidate(request, code, candidate_id):
 
         if not name:
             messages.error(request, 'Name is required.')
-            return render(request, 'committee/candidate_form.html', {
+            return render(request, 'committee/recruitment_candidate_form.html', {
                 'committee': committee, 'candidate': candidate, 'post': request.POST,
                 'status_choices': RecruitmentCandidate.STATUS_CHOICES,
                 'committee_members': committee_members,
@@ -931,7 +931,7 @@ def edit_candidate(request, code, candidate_id):
         messages.success(request, f'Candidate "{name}" updated.')
         return redirect('candidate_list', code=code)
 
-    return render(request, 'committee/candidate_form.html', {
+    return render(request, 'committee/recruitment_candidate_form.html', {
         'committee': committee,
         'candidate': candidate,
         'post': {
