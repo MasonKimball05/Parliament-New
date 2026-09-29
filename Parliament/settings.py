@@ -460,6 +460,11 @@ SECURITY_ALERT_EMAIL = os.getenv('SECURITY_ALERT_EMAIL', os.getenv('DEFAULT_FROM
 # 09-25-26 — where unhandled-500 alerts go (src/error_alerts.py). Defaults to
 # SECURITY_ALERT_EMAIL. Set ERROR_ALERTS_ENABLED=False to turn alerts off.
 ERROR_ALERT_EMAIL = os.getenv('ERROR_ALERT_EMAIL', '')
+# v3.35.3 — where bug reports and support tickets go (src/view/bug_report.py,
+# src/view/feedback.py). Until now this setting was never defined, so both
+# views always fell back to a personal address hard-coded in this PUBLIC repo.
+# Empty = SECURITY_ALERT_EMAIL, the same fallback ERROR_ALERT_EMAIL uses.
+BUG_REPORT_EMAIL = os.getenv('BUG_REPORT_EMAIL', '')
 SITE_URL = os.getenv('SITE_URL', 'https://am-parliament.org')
 
 # Anymail (Brevo) Configuration - used when EMAIL_BACKEND is anymail.backends.brevo.EmailBackend

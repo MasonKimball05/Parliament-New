@@ -35,8 +35,7 @@ class SiteMonitorHoneypotTests(TestCase):
         self.assertFalse(HoneypotAccess.objects.filter(ip_address=ip).exists())
 
     def test_monitor_gets_a_plain_404_on_trap_paths_and_is_not_banned(self):
-        # (Not /admin/backup/: Django admin's catch-all answers it first.)
-        for path in ('/.env', '/.git/config', '/.git/HEAD', '/wp-login.php'):
+        for path in ('/.env', '/.git/config', '/.git/HEAD', '/wp-login.php', '/admin/backup/'):
             with self.subTest(path=path):
                 r = self._get(path, TOKEN)
                 self.assertEqual(r.status_code, 404)

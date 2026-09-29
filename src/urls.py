@@ -761,6 +761,10 @@ urlpatterns = [
     path('legislation/<int:legislation_id>/submit-new-version/', submit_new_version, name='submit_new_version'),
 
     # Admin Pages
+    # v3.35.3 — the admin/backup/ honeypot MUST come before `admin/`. It sat
+    # with the other honeypots below, where Django admin's catch-all answered
+    # it first (302 to the admin login), so it never fired.
+    path('admin/backup/', honeypot_admin_backup, name='honeypot_backup'),
     path('admin/', admin.site.urls),
     path('staff/login-as/<str:user_id>/', login_as_user, name='login-as'),
     path('staff/return-to-original/', return_to_original_user, name='return_to_original_user'),
@@ -1242,7 +1246,7 @@ urlpatterns = [
     path('phpmyadmin/', honeypot_phpmyadmin, name='honeypot_phpmyadmin'),
     path('phpmyadmin/<path:path>', honeypot_phpmyadmin, name='honeypot_phpmyadmin_path'),
     path('.env', honeypot_env, name='honeypot_env'),
-    path('admin/backup/', honeypot_admin_backup, name='honeypot_backup'),
+    # (admin/backup/ is registered above `admin/` — see the Admin Pages block.)
     path('api/v1/users/export/', honeypot_api_export, name='honeypot_api_export'),
     path('xmlrpc.php', honeypot_xmlrpc, name='honeypot_xmlrpc'),
     path('config.php', honeypot_config, name='honeypot_config'),

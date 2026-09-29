@@ -364,7 +364,10 @@ def send_feedback_notification(feedback, request):
 
         # Same admin/recipient as bug reports — one inbox, one person to
         # reach, per BugReport's precedent. Deliberately not a new setting.
-        admin_email = getattr(settings, 'BUG_REPORT_EMAIL', 'mason.kimball@icloud.com')
+        # v3.35.3: BUG_REPORT_EMAIL, else SECURITY_ALERT_EMAIL (settings.py).
+        # This used to fall back to a personal address hard-coded here.
+        admin_email = (getattr(settings, 'BUG_REPORT_EMAIL', '')
+                       or getattr(settings, 'SECURITY_ALERT_EMAIL', ''))
 
         logger.info(f"[FEEDBACK EMAIL] Sending support ticket notification for #{feedback.id} to {admin_email}")
 
