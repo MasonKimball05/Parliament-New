@@ -507,18 +507,15 @@ def download_committee_document_version(request, code, document_id, version_id):
     return FileResponse(open(file_path, 'rb'), as_attachment=True, filename=filename)
 
 
-# Mapping of document slugs to their details
-REFERENCE_DOCUMENTS = {
-    'constitution-bylaws': {
-        'path': 'legislation_docs/Constitution and Bylaws of the Samford Chapter - August 2025.pdf',
-        'title': 'Constitution & Bylaws of the Samford Chapter',
-        'description': 'The official Constitution and Bylaws of the Samford Chapter of Beta Theta Pi',
-        'back_url_name': 'constitution_bylaws',
-    },
+# Fraternity-wide reference documents: the same PDFs for every chapter.
+# The chapter's OWN documents (its ratified C&B PDF) come from chapter content —
+# `<CHAPTER_CONTENT_DIR>/reference_documents.json`, see src/chapter_content.py —
+# and are merged in by get_reference_documents() (multi-chapter, 09-28-26).
+FRATERNITY_REFERENCE_DOCUMENTS = {
     'code-of-beta': {
         'path': 'legislation_docs/Code-of-Beta-Theta-Pi_44th-Edition_10.18.2022.pdf',
-        'title': 'Code of Beta Theta Pi (44th Edition)',
-        'description': 'The governing document of Beta Theta Pi Fraternity',
+        'title': 'Code of {fraternity} (44th Edition)',
+        'description': 'The governing document of {fraternity} Fraternity',
         'back_url_name': 'constitution_bylaws',
     },
     'kai-binder': {
@@ -541,16 +538,45 @@ REFERENCE_DOCUMENTS = {
     },
 }
 
+# Defaults for a chapter document that doesn't give its own title/description.
+_CHAPTER_DOC_DEFAULTS = {
+    'constitution-bylaws': {
+        'title': 'Constitution & Bylaws of the {school_short} Chapter',
+        'description': 'The official Constitution and Bylaws of the {school_short} Chapter of {fraternity}',
+        'back_url_name': 'constitution_bylaws',
+    },
+}
+
+
+def get_reference_documents():
+    """Fraternity-wide documents plus this chapter's own, with names filled in."""
+    from src.chapter import get_chapter
+    from src.chapter_content import load_reference_documents
+    chapter = get_chapter()
+    names = {'fraternity': chapter.fraternity, 'school_short': chapter.school_short,
+             'chapter_name': chapter.chapter_name}
+    docs = {slug: dict(d) for slug, d in FRATERNITY_REFERENCE_DOCUMENTS.items()}
+    for slug, d in load_reference_documents().items():
+        base = _CHAPTER_DOC_DEFAULTS.get(slug, {'title': slug.replace('-', ' ').title(),
+                                                'description': '',
+                                                'back_url_name': 'constitution_bylaws'})
+        docs[slug] = {**base, **d}
+    for d in docs.values():
+        d['title'] = d['title'].format(**names)
+        d['description'] = d['description'].format(**names)
+    return docs
+
 
 @login_required
 def view_reference_document(request, doc_slug):
     """View for displaying reference documents (constitution, bylaws, etc.) in an embedded viewer"""
     from django.http import Http404
 
-    if doc_slug not in REFERENCE_DOCUMENTS:
+    documents = get_reference_documents()
+    if doc_slug not in documents:
         raise Http404("Document not found")
 
-    doc_info = REFERENCE_DOCUMENTS[doc_slug]
+    doc_info = documents[doc_slug]
     file_path = doc_info['path']
 
     # Use relative URL - works on any host without localhost issues

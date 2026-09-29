@@ -25,6 +25,10 @@ use {% chapter %}; landing fallback text is a per-chapter template override
 (chapter_content/<chapter>/templates/landing/) -> 100 / 11.
 09-27-26 (slice 2c, cont.): the unrouted archive pages (Alpha Mu content) moved to
 chapter_content/alpha_mu/templates/archive/ -> 91 / 7.
+09-28-26 (slice 3a): the chapter's C&B PDF is chapter content
+(chapter_content/<chapter>/reference_documents.json); seed_resolutions names
+the chapter from config and refuses on other chapters; the unrouted static
+constitution_bylaws.html moved to the archive -> 66 / 4.
 Files under chapter_content/ are deliberately NOT scanned: that directory is
 where one chapter's own text is supposed to live.
 
@@ -43,12 +47,9 @@ SKIP = ('src/tests/', 'migrations', 'src/chapter.py', 'static/vendor/', '__pycac
 
 KNOWN = {
     'Parliament/settings.py': 9,
-    'src/management/commands/seed_resolutions.py': 2,
     'src/management/commands/update_song_lyrics.py': 55,
     'src/models/cnb.py': 1,
     'src/view/songbook.py': 1,
-    'src/view/view_document.py': 5,
-    'templates/constitution_bylaws.html': 18,
 }
 
 

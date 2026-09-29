@@ -32,6 +32,11 @@ from src.models import (
 
 # ── Public document viewer ────────────────────────────────────────────────────
 
+def _chapter_reference_slugs():
+    from src.chapter_content import load_reference_documents
+    return set(load_reference_documents())
+
+
 @login_required
 def cnb_viewer(request):
     """
@@ -107,6 +112,9 @@ def cnb_viewer(request):
         'cnb_structure': cnb_structure,
         'crossref_findings': crossref_findings,
         'as_of': as_of,
+        # 09-28-26 (multi-chapter): the ratified-PDF link only when this
+        # chapter's content provides one (chapter_content/<chapter>/reference_documents.json).
+        'has_official_cnb_pdf': 'constitution-bylaws' in _chapter_reference_slugs(),
     }
     return render(request, 'cnb/viewer.html', context)
 

@@ -69,14 +69,14 @@
    - Migrated: emails, Kai letters, calendar feed identifiers (unchanged values), the crest image (38 places) and its alt text (26), motto, school-email hints, C&B and resolution wording, songbook headings, and the developer API examples.
    - A guard test, `test_chapter_identity_literals`, counts the literals left per file. The counts can only go down.
 2. **Chapter content into the database or config.** This is what's left in the guard's list:
-   - ✅ **C&B text, slice 2b, done 09-27-26 (uncommitted):**
+   - ✅ **C&B text, slice 2b, done 09-27-26:**
      - The C&B text is now chapter content in `chapter_content/<chapter>/cnb.json` or `cnb.py`, chosen by `CHAPTER_CONTENT_DIR`. Alpha Mu's file is `chapter_content/alpha_mu/cnb.py`, moved from `src/management/data/cnb_data.py`.
      - `src/chapter_content.py` loads and validates it. Every problem is listed, and nothing is written if validation fails.
      - A `.py` source is only accepted from inside the repo's `chapter_content/`, because loading one executes it.
      - `seed_cnb_documents --source <file.json>` imports another file.
      - New `export_cnb_documents` writes the database's current C&B as importable JSON. It round-trips, including deactivated sections.
      - Guard: 192 lines in 16 files → 132 in 15.
-   - ✅ **Landing and Robert's Rules, slice 2c, done 09-27-26 (uncommitted, migration `0056`):**
+   - ✅ **Landing and Robert's Rules, slice 2c, done 09-27-26 (migration `0056`):**
      - **Identity uses `{% chapter %}`** in `landing.html`, the landing editor's placeholder and the Robert's Rules headings.
      - **Per-chapter template overrides.** `TEMPLATES['DIRS']` is now `[CHAPTER_CONTENT_DIR/templates, templates/]`, so a chapter overrides a content partial by placing a file with the same name in its own directory.
      - **Landing fallback text.** The fallback shown while the editor's fields are empty lives in `templates/landing/_default_*.html` (generic wording in the chapter's name). The editor's reset-to-default presets live in `_editor_default_*.html`. Alpha Mu's verbatim text is kept in `chapter_content/alpha_mu/templates/landing/`, so nothing changes for Alpha Mu.
@@ -86,9 +86,15 @@
    - ✅ **Archive pages: chapter-specific and hidden (Mason, 09-27-26).** The six `templates/archive/*.html` pages moved to `chapter_content/alpha_mu/templates/archive/`, so no other chapter can load them.
      - They were never reachable anyway: `src/view/archive/` has not been routed since v3.0.0.
      - Literals: 100 lines → 91, in 7 files.
+   - ✅ **Leftover literals, slice 3a, done 09-28-26:**
+     - The chapter's ratified C&B PDF is chapter content: `chapter_content/<chapter>/reference_documents.json`, loaded and validated by `load_reference_documents()`. Paths must stay inside `MEDIA_ROOT`.
+     - Fraternity-wide PDFs (the Code, the Kai binder, Trial by Chapter, Robert's Rules) stay in `view_document.py`. A chapter without its own C&B PDF gets a 404 for that slug, and `/constitution-bylaws/` hides the "Official PDF" link.
+     - `seed_resolutions` names the chapter from config, and refuses to run on another chapter, because it seeds the original chapter's real resolution history.
+     - The old static `constitution_bylaws.html` and its unrouted view: the template moved to `chapter_content/alpha_mu/templates/archive/`, and the view was deleted.
+     - Literals: 91 lines → 66, in 4 files. What's left is the settings defaults (9), the song lyrics (55), the songbook PDF name (1) and one `help_text` in `models/cnb.py` (1). The last one is left alone because changing it needs a migration.
    - Songs.
    - Default roles, committees and houses as editable data.
-   - ✅ **Slice 2a, done 09-27-26 (uncommitted):**
+   - ✅ **Slice 2a, done 09-27-26:**
      - **PWA.** `manifest.json`, the service worker and the offline page are now rendered by `src/view/pwa.py`, at `/manifest.webmanifest` and `/service-worker.js`.
        - The offline page is embedded in the worker, so there is no offline URL.
        - The static copies were removed.

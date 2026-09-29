@@ -21,6 +21,15 @@ pointing `--source` at an arbitrary .py file gets an error, not an import.
 
 Every load is validated (`validate_cnb_documents`) before anything touches the
 database, and every problem is reported at once rather than the first one.
+
+Reference documents (09-28-26)
+------------------------------
+`load_reference_documents()` reads `<CHAPTER_CONTENT_DIR>/reference_documents.json`,
+the chapter's OWN reference PDFs (today: its ratified C&B PDF), as
+`{"<slug>": {"path": "<path under MEDIA_ROOT>", "title": ..., "description": ...}}`.
+`title`/`description` are optional. A missing file means the chapter has none,
+not an error. Fraternity-wide documents (the Code, the Kai binder …) are listed
+in `src/view/view_document.py`, not here.
 """
 import json
 import runpy
@@ -154,4 +163,39 @@ def validate_cnb_documents(docs, label='C&B source'):
                     problems.append(f'{sw}: is_active must be true or false')
     if problems:
         raise ChapterContentError(f'{label}: {len(problems)} problem(s):\n  - ' + '\n  - '.join(problems))
+    return docs
+
+
+REFERENCE_DOC_KEYS = {'path', 'title', 'description'}
+_SLUG = __import__('re').compile(r'^[a-z0-9][a-z0-9-]*$')
+
+
+def load_reference_documents():
+    """This chapter's own reference documents; {} when it has none. See module docstring."""
+    path = content_dir() / 'reference_documents.json'
+    if not path.is_file():
+        return {}
+    try:
+        docs = json.loads(path.read_text(encoding='utf-8'))
+    except json.JSONDecodeError as e:
+        raise ChapterContentError(f'{path}: not valid JSON ({e})') from e
+    problems = []
+    if not isinstance(docs, dict):
+        raise ChapterContentError(f'{path}: expected an object of slug -> document')
+    for slug, d in docs.items():
+        if not _SLUG.match(str(slug)):
+            problems.append(f'{slug!r}: slug must be lowercase letters, digits and hyphens')
+        if not isinstance(d, dict):
+            problems.append(f'{slug}: not an object')
+            continue
+        for key in sorted(set(d) - REFERENCE_DOC_KEYS):
+            problems.append(f'{slug}: unknown key {key!r}')
+        p = str(d.get('path') or '')
+        if not p.strip():
+            problems.append(f'{slug}: path is required')
+        elif p.startswith('/') or '..' in Path(p).parts:
+            # Joined onto MEDIA_ROOT/MEDIA_URL by the viewer — keep it inside.
+            problems.append(f'{slug}: path must be relative to MEDIA_ROOT, without ".."')
+    if problems:
+        raise ChapterContentError(f'{path}: {len(problems)} problem(s):\n  - ' + '\n  - '.join(problems))
     return docs

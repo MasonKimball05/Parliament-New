@@ -142,6 +142,7 @@
                             </svg>
                             View Document PDF
                         </a>
+{% if has_official_cnb_pdf %}
                         <a href="{% url 'view_reference_document' 'constitution-bylaws' %}"
                            class="flex items-center gap-2 text-sm text-green-600 dark:text-green-400 hover:underline"
                            title="The historical document as originally ratified — not automatically updated by later resolutions">
@@ -150,6 +151,7 @@
                             </svg>
                             Official PDF
                         </a>
+                        {% endif %}
                     </div>
                 </div>
             </div>

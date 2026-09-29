@@ -260,7 +260,6 @@ from src.view.reopen_legislation import reopen_legislation
 from src.view.submit_new_version import submit_new_version
 from src.view.login_as_view import login_as_view, login_as_user, return_to_original_user
 from src.view.roberts_rules import roberts_rules
-from src.view.constitution_bylaws import constitution_bylaws
 from src.view.officer.cnb import (
     cnb_viewer, cnb_document_pdf,
     manage_document, edit_section, toggle_section_active, toggle_article_active,

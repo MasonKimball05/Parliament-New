@@ -1,4 +1,5 @@
-from django.core.management.base import BaseCommand
+from django.conf import settings
+from django.core.management.base import BaseCommand, CommandError
 from django.utils import timezone
 from src.models import PassedResolution, ResolutionSectionImpact, ParliamentUser
 from datetime import date
@@ -8,6 +9,15 @@ class Command(BaseCommand):
     help = 'Seeds initial passed resolutions from hardcoded template data'
 
     def handle(self, *args, **kwargs):
+        # 09-28-26 (multi-chapter): these are the ORIGINAL chapter's own
+        # resolutions — real dates, real section impacts. Seeding them into
+        # another chapter's database would invent history it never had.
+        if not getattr(settings, 'CHAPTER_IS_DEFAULT', True):
+            raise CommandError(
+                "seed_resolutions seeds the original chapter's resolution history and "
+                "is not meant for other chapters. Record resolutions in the app instead.")
+        from src.chapter import get_chapter
+        chapter_name = get_chapter().chapter_name
         self.stdout.write('Seeding initial passed resolutions...')
 
         # Get the first admin user to set as creator
@@ -20,10 +30,10 @@ class Command(BaseCommand):
         resolution1, created = PassedResolution.objects.get_or_create(
             title='Constitution and Bylaws',
             defaults={
-                'description': 'Official adoption of the Alpha Mu Chapter Constitution and Bylaws, establishing the governance framework for the chapter.',
+                'description': f'Official adoption of the {chapter_name} Chapter Constitution and Bylaws, establishing the governance framework for the chapter.',
                 'date_passed': date(2025, 1, 26),
                 'border_color': 'green',
-                'impact_summary': 'Establishes the complete governance framework for the Alpha Mu Chapter.',
+                'impact_summary': f'Establishes the complete governance framework for the {chapter_name} Chapter.',
                 'display_order': 1,
                 'is_active': True,
                 'created_by': creator,
