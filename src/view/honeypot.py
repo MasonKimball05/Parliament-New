@@ -191,10 +191,20 @@ def log_and_block_honeypot_access(request, endpoint):
         try:
             from src.models import IPBlacklist
             if not IPBlacklist.objects.filter(ip_address=ip_address, is_active=True).exists():
+                from datetime import timedelta
+                from django.utils import timezone
                 IPBlacklist.objects.create(
                     ip_address=ip_address,
                     reason=f'Honeypot trigger: {endpoint}',
                     added_by=None,  # auto-added, no admin user
+                    # v3.35.2 — honeypot bans EXPIRE, matching the cache ban
+                    # and the "banned for 24 hours" log line below. Until now
+                    # no `expires_at` was set, so every honeypot ban was
+                    # permanent (`tasks.expire_stale_ip_blacklist_entries`
+                    # skips rows with no expiry). On a shared address — campus
+                    # NAT, carrier CGNAT — one scanner locked out everyone
+                    # behind it for good. A repeat hit after expiry re-bans.
+                    expires_at=timezone.now() + timedelta(seconds=HONEYPOT_BAN_DURATION),
                 )
             # Invalidate the middleware's cached blacklist result so it re-checks immediately
             cache.delete(f'ip_blacklisted_{ip_key}')
