@@ -1,5 +1,14 @@
 """
 Constitution & Bylaws seed data for Alpha Mu Chapter of Beta Theta Pi.
+
+⚠️ 09-27-26 (multi-chapter phase 2) — MOVED from src/management/data/cnb_data.py.
+This is CHAPTER CONTENT, not application code: each chapter has its own
+`chapter_content/<chapter>/` directory and `settings.CHAPTER_CONTENT_DIR`
+points at the one this deployment uses. `seed_cnb_documents` reads
+`cnb.json` or `cnb.py` from there (src/chapter_content.py loads and
+validates it). A new chapter normally supplies `cnb.json` — start from
+`manage.py export_cnb_documents`. A `.py` source is only accepted from inside
+the repo's chapter_content/ directory, because loading it executes it.
 Sourced from: Constitution_and_Bylaws_of_the_Samford_Chapter_Jan_26_Approved_Document.pdf
 Last amended: January 26, 2025.
 

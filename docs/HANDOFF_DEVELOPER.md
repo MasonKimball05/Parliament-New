@@ -365,7 +365,7 @@ python manage.py <command>
 | `import_from_exportable` | Import data from a `data_backup.json` export |
 | `preflight` | *(09-25-26 row)* Prod self-check: env, Celery schedules/heartbeat, media gating, ledger. Run before/after deploys; exits non-zero on problems |
 | `setup_celery_schedules` | Register Celery beat schedules (run before restarting `parliament-beat`) |
-| `seed_cnb_documents [--only doc:ART:SEC --force]` | Seed/refresh C&B text from `src/management/data/cnb_data.py`. Never overwrites edited text unless `--force`; scope `--force` with `--only` |
+| `seed_cnb_documents [--only doc:ART:SEC --force]` | Seed/refresh C&B text from `chapter_content/alpha_mu/cnb.py`. Never overwrites edited text unless `--force`; scope `--force` with `--only` |
 | `check_cnb_references [--strict]` | Report C&B cross-references pointing to missing/mismatched sections |
 | `kai_break_glass` | Time-boxed, audited emergency Kai access for an admin (admins have **no** Kai access otherwise) |
 | `scrub_action_logs` | Remove Kai identities from `logs/django_actions.log*` |
@@ -505,6 +505,6 @@ Officers can impersonate any member via `/staff/login-as/<user_id>/`. An amber b
 
 *(09-25-26.)*
 
-- **Source text:** `src/management/data/cnb_data.py`, matching the August 2025 PDF in `exportable_media/legislation_docs/`. When the chapter adopts a new printed version, diff it section-by-section against the data (headings *and* text), don't trust the file header.
+- **Source text:** `chapter_content/alpha_mu/cnb.py`, matching the August 2025 PDF in `exportable_media/legislation_docs/`. When the chapter adopts a new printed version, diff it section-by-section against the data (headings *and* text), don't trust the file header.
 - **Resolutions** amend sections; passing one applies the text. Every change to a section — resolution, direct edit in the C&B manager, forced import — saves the outgoing text as a `SectionRevision`. Members can see each section's **History**, and the viewer has **"View as of"** a date.
 - **Cross-references:** `check_cnb_references` (and a panel on the C&B Manage tab) lists references to sections that don't exist or that point at a different topic than the sentence describes. Valid references are links in the viewer. **Fixing the wording takes a resolution** — the tool only finds problems.

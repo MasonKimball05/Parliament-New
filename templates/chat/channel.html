@@ -1680,9 +1680,9 @@ function _pmRenderProfile(d) {
             return _pmEsc(l.name) + rn;
         }).join(', '));
     }
-    // The Alpha Mu default only applies once a member has actually been
+    // The home-chapter default only applies once a member has actually been
     // initiated — a pledge with no initiation_chapters entries has not been
-    // initiated anywhere yet and must not show "Initiated at: Alpha Mu"
+    // initiated anywhere yet and must not show "Initiated at: <this chapter>"
     // automatically.
     const initChapters = (d.initiation_chapters && d.initiation_chapters.length)
         ? d.initiation_chapters

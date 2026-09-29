@@ -145,3 +145,20 @@ class WeakPasswordRejectedAtEveryUserChosenSetPathTests(TestCase):
         self.assertEqual(response.status_code, 200)  # form error, not redirect-to-complete
         user.refresh_from_db()
         self.assertTrue(user.check_password('Old-Genuinely-Strong-Pass-9!'))
+
+
+class KnownWeakPasswordsFollowTheChapterTests(TestCase):
+    """09-27-26 — multi-chapter phase 2: the '<Fraternity>1!' guesses come from
+    settings.CHAPTER instead of a hard-coded 'BetaThetaPi1!'."""
+
+    def test_default_chapter_still_rejects_the_beta_guesses(self):
+        for weak in ('BetaThetaPi1!', 'betathetapi123!'):
+            with self.assertRaises(ValidationError, msg=weak):
+                KnownWeakPasswordValidator().validate(weak)
+
+    def test_another_fraternity_gets_its_own_name_guesses(self):
+        from django.conf import settings
+        with override_settings(CHAPTER={**settings.CHAPTER, 'fraternity': 'Sigma Chi'}):
+            with self.assertRaises(ValidationError):
+                KnownWeakPasswordValidator().validate('SigmaChi123!')
+            KnownWeakPasswordValidator().validate('BetaThetaPi1!')  # not this chapter's name

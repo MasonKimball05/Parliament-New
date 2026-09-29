@@ -10,7 +10,7 @@
     <!-- Favicon & PWA -->
     <link rel="icon" type="image/png" href="{% chapter "crest_url" %}">
     <link rel="apple-touch-icon" href="{% chapter "crest_url" %}">
-    <link rel="manifest" href="{% static 'manifest.json' %}">
+    <link rel="manifest" href="{% url 'web_manifest' %}">
     <meta name="theme-color" content="{% chapter "primary_color" %}">
 
     <!-- Tailwind CSS (self-hosted, no CDN) -->

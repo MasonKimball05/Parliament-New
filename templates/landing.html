@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Beta Theta Pi — Alpha Mu at Samford University</title>
+    <title>{% chapter "long_name" %}</title>
 
     <link rel="icon" type="image/png" href="{% chapter "crest_url" %}">
     <link rel="apple-touch-icon" href="{% chapter "crest_url" %}">
@@ -13,7 +13,7 @@
     {% if content.meta_description %}
     <meta name="description" content="{{ content.meta_description }}">
     {% endif %}
-    <meta property="og:title"       content="Beta Theta Pi — Alpha Mu at Samford University">
+    <meta property="og:title"       content="{% chapter "long_name" %}">
     <meta property="og:type"        content="website">
     <meta property="og:url"         content="{{ request.build_absolute_uri }}">
     {% if content.meta_description %}
@@ -56,9 +56,9 @@
     {% endif %}
     <div class="max-w-5xl mx-auto px-5 sm:px-8 h-16 flex items-center justify-between">
         <a href="/" class="flex items-center gap-3">
-            <img src="{% chapter "crest_url" %}" alt="Beta Theta Pi coat of arms"
+            <img src="{% chapter "crest_url" %}" alt="{% chapter "fraternity" %} coat of arms"
                  class="w-8 h-8 rounded-full object-contain bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-0.5">
-            <span class="font-semibold text-gray-900 dark:text-white">Beta Theta Pi</span>
+            <span class="font-semibold text-gray-900 dark:text-white">{% chapter "fraternity" %}</span>
         </a>
 
         <nav class="flex items-center gap-1">
@@ -100,14 +100,14 @@
 <!-- ── Hero ───────────────────────────────────────────────────────────────── -->
 <section id="hero-section" class="pt-32 pb-20 px-5 sm:px-8 text-center">
     <div class="max-w-2xl mx-auto">
-        <img src="{% chapter "crest_url" %}" alt="Beta Theta Pi coat of arms"
+        <img src="{% chapter "crest_url" %}" alt="{% chapter "fraternity" %} coat of arms"
              class="w-40 h-40 mx-auto mb-8 drop-shadow-md">
 
         <h1 class="text-4xl sm:text-5xl font-bold tracking-tight text-gray-900 dark:text-white">
-            Beta Theta Pi
+            {% chapter "fraternity" %}
         </h1>
         <p class="mt-3 text-lg text-gray-500 dark:text-gray-400 font-medium">
-            Alpha Mu &mdash; Samford University
+            {% chapter "chapter_name" %} &mdash; {% chapter "school" %}
         </p>
 
         <p class="mt-6 text-base sm:text-lg text-gray-600 dark:text-gray-400 leading-relaxed max-w-xl mx-auto">
@@ -145,20 +145,7 @@
                     {{ content.who_we_are_html|safe }}
                 </div>
                 {% else %}
-                <p class="text-gray-600 dark:text-gray-400 leading-relaxed">
-                    Beta Theta Pi's Alpha Mu chapter calls Samford University in Birmingham, Alabama home.
-                    We are a men's fraternity grounded in the ideals of the <em>Men of Principle</em>
-                    — a commitment to intellectual growth, genuine friendship, and moral character.
-                </p>
-                <p class="mt-4 text-gray-600 dark:text-gray-400 leading-relaxed">
-                    Our chapter brings together students from across Samford with a shared belief that
-                    fraternity, at its best, makes men better — as students, as leaders, and as members
-                    of their communities.
-                </p>
-                <p class="mt-4 text-gray-600 dark:text-gray-400 leading-relaxed">
-                    Refounded in 2022 on the principles of Beta Theta Pi, the Alpha Mu chapter already carries a
-                    legacy of scholarship, service, and brotherhood that has attracted and shaped Samford men.
-                </p>
+                {% include "landing/_default_who_we_are.html" %}
                 {% endif %}
             </div>
 
@@ -170,44 +157,7 @@
                     {{ content.what_we_believe_html|safe }}
                 </div>
                 {% else %}
-                <div class="space-y-5">
-                    <div class="flex gap-4">
-                        <div class="mt-0.5 w-5 h-5 flex-shrink-0 text-primary-500 dark:text-primary-400">
-                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                        </div>
-                        <div>
-                            <p class="font-medium text-gray-900 dark:text-white text-sm">Scholarship</p>
-                            <p class="text-gray-500 dark:text-gray-400 text-sm mt-0.5 leading-relaxed">We hold one another to high academic standards and celebrate intellectual curiosity and growth.</p>
-                        </div>
-                    </div>
-                    <div class="flex gap-4">
-                        <div class="mt-0.5 w-5 h-5 flex-shrink-0 text-primary-500 dark:text-primary-400">
-                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                        </div>
-                        <div>
-                            <p class="font-medium text-gray-900 dark:text-white text-sm">Friendship</p>
-                            <p class="text-gray-500 dark:text-gray-400 text-sm mt-0.5 leading-relaxed">The bonds formed in Alpha Mu extend well beyond Samford — lifelong friendships built on trust and shared experience.</p>
-                        </div>
-                    </div>
-                    <div class="flex gap-4">
-                        <div class="mt-0.5 w-5 h-5 flex-shrink-0 text-primary-500 dark:text-primary-400">
-                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                        </div>
-                        <div>
-                            <p class="font-medium text-gray-900 dark:text-white text-sm">Integrity</p>
-                            <p class="text-gray-500 dark:text-gray-400 text-sm mt-0.5 leading-relaxed">We are men of principle — honest, accountable, and committed to doing right even when no one is watching.</p>
-                        </div>
-                    </div>
-                    <div class="flex gap-4">
-                        <div class="mt-0.5 w-5 h-5 flex-shrink-0 text-primary-500 dark:text-primary-400">
-                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                        </div>
-                        <div>
-                            <p class="font-medium text-gray-900 dark:text-white text-sm">Service</p>
-                            <p class="text-gray-500 dark:text-gray-400 text-sm mt-0.5 leading-relaxed">We invest in the Samford campus, Birmingham community, and causes larger than ourselves.</p>
-                        </div>
-                    </div>
-                </div>
+                {% include "landing/_default_values.html" %}
                 {% endif %}
             </div>
         </div>
@@ -217,7 +167,7 @@
         <div class="mt-14 p-6 bg-gray-50 dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800">
             <h3 class="font-semibold text-gray-900 dark:text-white mb-2 text-sm">About Parliament</h3>
             <p class="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
-                Parliament is Alpha Mu's internal member portal — used by brothers to manage chapter business,
+                Parliament is {% chapter "chapter_name" %}'s internal member portal — used by brothers to manage chapter business,
                 track attendance, vote on legislation, and stay connected. If you're a current member,
                 <a href="/login/" class="text-primary-600 dark:text-primary-400 hover:underline">sign in here</a>.
                 Recruitment inquiries should be directed to our officers.
@@ -294,7 +244,7 @@
             <div>
                 <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-5">Get in Touch</h2>
                 <p class="text-gray-600 dark:text-gray-400 leading-relaxed text-sm">
-                    Interested in learning more about Beta Theta Pi at Samford?
+                    Interested in learning more about {% chapter "fraternity" %} at {% chapter "school_short" %}?
                     We'd love to hear from you.
                 </p>
 
@@ -413,9 +363,9 @@
 <footer class="border-t border-gray-200 dark:border-gray-800 py-8 px-5 sm:px-8">
     <div class="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-gray-400 dark:text-gray-600">
         <div class="flex items-center gap-2.5">
-            <img src="{% chapter "crest_url" %}" alt="Beta Theta Pi"
+            <img src="{% chapter "crest_url" %}" alt="{% chapter "fraternity" %}"
                  class="w-6 h-6 rounded-full object-contain bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-0.5 opacity-60">
-            <span>Beta Theta Pi &bull; Alpha Mu &bull; Samford University</span>
+            <span>{% chapter "fraternity" %} &bull; {% chapter "chapter_name" %} &bull; {% chapter "school" %}</span>
         </div>
         <div class="flex items-center gap-5 flex-wrap justify-center">
             {% for link in social_links %}<a href="{{ link.url }}" target="_blank" rel="noopener noreferrer" class="hover:text-gray-600 dark:hover:text-gray-400 transition-colors text-xs">{{ link.label }}</a>{% endfor %}

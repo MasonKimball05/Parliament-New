@@ -216,10 +216,20 @@ STORAGES = {
     'staticfiles': {'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage'},
 }
 
+# Chapter CONTENT (multi-chapter phase 2, 09-27-26): governing-document text,
+# landing-page fallback text and other per-chapter files live in
+# chapter_content/<chapter>/, not in code. Read data files through
+# src/chapter_content.py. Default: the original chapter's directory.
+CHAPTER_CONTENT_DIR = Path(os.getenv('CHAPTER_CONTENT_DIR', BASE_DIR / 'chapter_content' / 'alpha_mu'))
+
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [BASE_DIR / 'templates'],
+        # CHAPTER_CONTENT_DIR/templates comes FIRST: a chapter overrides a
+        # template (e.g. landing/_default_who_we_are.html) by placing a file
+        # with the same name there. Only chapter CONTENT partials should be
+        # overridden this way — overriding an app page forks it from updates.
+        'DIRS': [CHAPTER_CONTENT_DIR / 'templates', BASE_DIR / 'templates'],
         # APP_DIRS must be False when a custom 'loaders' list is defined.
         # app_directories.Loader inside the cached.Loader provides the same behavior —
         # it searches each installed app's templates/ folder (including django.contrib.admin).
@@ -279,6 +289,10 @@ CHAPTER = {
     'secondary_color': os.getenv('CHAPTER_SECONDARY_COLOR', '#FFC72C'),
     'motto': os.getenv('CHAPTER_MOTTO', 'Virtue Stands Alone'),
     'school_email_domain': os.getenv('CHAPTER_SCHOOL_EMAIL_DOMAIN', 'samford.edu'),
+    # Pledge classes (src/pledge_classes.py): the founding class is the first
+    # semester in the registry; lettering (Alpha, Beta, ...) starts with the next.
+    'founding_year': int(os.getenv('CHAPTER_FOUNDING_YEAR', '2022')),
+    'founding_semester': os.getenv('CHAPTER_FOUNDING_SEMESTER', 'Fall'),
 }
 
 # Platform owner (09-25-26). The bug tracker, feedback board, protected-admin

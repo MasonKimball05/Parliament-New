@@ -1,10 +1,12 @@
 """
 Management command to seed the Constitution & Bylaws document structure.
 
-Creates GoverningDocument, Article, and Section records from the data file at
-src/management/data/cnb_data.py. Sections are seeded with PLACEHOLDER text —
-after running, edit each section via the C&B Manager (/officers/cnb/) or Django
-admin to enter the actual document text.
+Creates GoverningDocument, Article, and Section records from THIS CHAPTER's
+C&B source: `<CHAPTER_CONTENT_DIR>/cnb.json` or `cnb.py` (09-27-26, multi-chapter
+phase 2 — was the hardcoded src/management/data/cnb_data.py; the original chapter's text is
+now chapter_content/alpha_mu/cnb.py). Loaded and validated by
+src/chapter_content.py before anything is written. After seeding, edit
+sections via the C&B Manager (/officers/cnb/).
 
 Usage:
     python manage.py seed_cnb_documents
@@ -16,9 +18,11 @@ Options:
                which is no longer the PLACEHOLDER string, and (v3.19.1) the
                preamble of a PROSE-ONLY document, whose preamble IS its content.
     --force    Overwrite content even if it has been edited. Use with caution.
+    --source   (09-27-26) Import from this file instead of the chapter's own
+               (a .json file; see export_cnb_documents).
     --only     (09-25-26) Limit section create/update to the listed sections,
                e.g. --only bylaws:IV:2,constitution:II:3. Combine with --force
-               to replace just those sections' text from cnb_data.py without
+               to replace just those sections' text from the source without
                touching any other edited (e.g. resolution-amended) section.
                Documents and articles are still get_or_create'd, never updated,
                unless --update is also given.
@@ -36,17 +40,17 @@ members until the `cnb_foreword` feature flag is enabled. Seeding it does NOT
 publish it; run `seed_feature_flags` too, then toggle the flag when it passes.
 """
 
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 
-from src.management.data.cnb_data import DOCUMENTS
+from src.chapter_content import ChapterContentError, load_cnb_documents
 from src.models import GoverningDocument, Article, Section
 
 PLACEHOLDER_PREFIX = 'PLACEHOLDER'
 
 
 class Command(BaseCommand):
-    help = 'Seed the Constitution & Bylaws document structure from cnb_data.py'
+    help = "Seed the Constitution & Bylaws from this chapter's C&B source (chapter_content/)"
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -60,6 +64,11 @@ class Command(BaseCommand):
             help='Overwrite ALL section content, including sections that have been edited beyond the placeholder',
         )
         parser.add_argument(
+            '--source',
+            default='',
+            help='C&B file to import instead of <CHAPTER_CONTENT_DIR>/cnb.json|cnb.py (use .json)',
+        )
+        parser.add_argument(
             '--only',
             default='',
             help='Comma-separated doc:article:section keys to limit sections to, e.g. bylaws:IV:2,constitution:II:3',
@@ -70,6 +79,10 @@ class Command(BaseCommand):
         update = options['update']
         force = options['force']
         only = {k.strip() for k in (options.get('only') or '').split(',') if k.strip()}
+        try:
+            DOCUMENTS = load_cnb_documents(options.get('source') or None)
+        except ChapterContentError as e:
+            raise CommandError(str(e)) from e
         if only:
             known = {
                 f"{d['doc_type']}:{a['number']}:{sec['number']}"
@@ -77,8 +90,7 @@ class Command(BaseCommand):
             }
             unknown = sorted(only - known)
             if unknown:
-                from django.core.management.base import CommandError
-                raise CommandError(f'--only: not in cnb_data.py: {", ".join(unknown)}')
+                raise CommandError(f'--only: not in the C&B source: {", ".join(unknown)}')
 
         self.stdout.write(self.style.MIGRATE_HEADING('Seeding Constitution & Bylaws documents...\n'))
 
@@ -186,6 +198,9 @@ class Command(BaseCommand):
                             'title': section_data.get('title', ''),
                             'content': section_data['content'],
                             'display_order': sec_order,
+                            # 09-27-26: an exported source carries sections a
+                            # ruling deactivated; they arrive deactivated.
+                            'is_active': section_data.get('is_active', True),
                         },
                     )
 

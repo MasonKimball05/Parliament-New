@@ -91,7 +91,7 @@ ALLOWED_FILE_TYPES = {
 # Parliament never executes an upload; it serves uploads back to members from
 # its own origin. `.php` and `.exe` were never reachable here. `.html` and
 # `.svg` were: a file served with `Content-Type: text/html` from
-# am-parliament.org is a page on am-parliament.org, with the session cookie of
+# this site's domain is a page on this site's domain, with the session cookie of
 # whoever opened it, and CSP's `script-src 'self'` will happily load a second
 # uploaded file as its script. Two of the three most dangerous extensions for
 # this codebase were missing while `.jsp` — for a server that has never run

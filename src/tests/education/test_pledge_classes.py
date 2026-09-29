@@ -151,3 +151,30 @@ class DirectoryBadgeApiTests(TestCase):
         m.save()
         resp = self.client.get(reverse('profile_card', kwargs={'user_id': 'pcu'}))
         self.assertIsNone(resp.json()['pledge_class_badge'])
+
+
+class PledgeClassFoundingFromChapterConfigTests(TestCase):
+    """09-27-26 — multi-chapter phase 2: the founding semester comes from
+    settings.CHAPTER (founding_year / founding_semester), not a constant."""
+
+    def test_default_is_alpha_mus_fall_2022(self):
+        classes = pc.all_classes(date(2023, 3, 1))
+        self.assertEqual([c['label'] for c in classes], ['Fall 2022', 'Spring 2023'])
+        self.assertEqual(classes[1]['greek'], 'Alpha')
+
+    def test_a_spring_founded_chapter_letters_from_the_next_fall(self):
+        from django.conf import settings
+        from django.test import override_settings
+        cfg = {**settings.CHAPTER, 'founding_year': 2019, 'founding_semester': 'Spring'}
+        with override_settings(CHAPTER=cfg):
+            classes = pc.all_classes(date(2020, 3, 1))
+        self.assertEqual([c['label'] for c in classes], ['Spring 2019', 'Fall 2019', 'Spring 2020'])
+        self.assertEqual([c['greek'] for c in classes], ['Founder', 'Alpha', 'Beta'])
+        self.assertTrue(classes[0]['is_founders'])
+
+    def test_a_bad_founding_semester_is_an_error(self):
+        from django.conf import settings
+        from django.test import override_settings
+        with override_settings(CHAPTER={**settings.CHAPTER, 'founding_semester': 'Autumn'}):
+            with self.assertRaises(ValueError):
+                pc.all_classes(date(2023, 3, 1))

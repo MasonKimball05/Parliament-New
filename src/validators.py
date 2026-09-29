@@ -57,17 +57,29 @@ COMMON_WEAK_PASSWORDS = [
     'Chapter123!',
     'Chapter1234!',
     # App/org-specific guesses — see /Users/masonkimball/Documents/Claude/Resources/CLAUDE.md
-    # for why "Beta Theta Pi" and "Parliament" are the two names an attacker
-    # (or a bored member) would try first for this specific app.
-    'BetaThetaPi1!',
-    'BetaThetaPi123!',
+    # for why the fraternity's name and "Parliament" are the two names an
+    # attacker (or a bored member) would try first for this specific app.
+    # The fraternity-name pair is derived from the chapter config — see
+    # known_weak_passwords() below (multi-chapter phase 2, 09-27-26).
     'Parliament1!',
     'Parliament123!',
 ]
 
-# Precomputed lowercase set for O(1) lookups — built once at import time,
-# not per-validation-call.
-_COMMON_WEAK_PASSWORDS_LOWER = frozenset(p.lower() for p in COMMON_WEAK_PASSWORDS)
+
+def _org_guesses():
+    """'<Fraternity>1!' / '<Fraternity>123!' with the spaces removed."""
+    from src.chapter import get_chapter
+    name = ''.join(get_chapter().fraternity.split())
+    return [f'{name}1!', f'{name}123!'] if name else []
+
+
+def known_weak_passwords():
+    """COMMON_WEAK_PASSWORDS plus the chapter-derived guesses, in order."""
+    return COMMON_WEAK_PASSWORDS + _org_guesses()
+
+
+def _known_weak_lower():
+    return frozenset(p.lower() for p in known_weak_passwords())
 
 
 class CustomPasswordValidator:
@@ -130,7 +142,7 @@ class KnownWeakPasswordValidator:
     """
 
     def validate(self, password, user=None):
-        if password.lower() in _COMMON_WEAK_PASSWORDS_LOWER:
+        if password.lower() in _known_weak_lower():
             raise ValidationError(
                 _(
                     'This password is a commonly used one that shows up in nearly every '

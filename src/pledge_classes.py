@@ -1,12 +1,15 @@
 """
 v3.15.0 — canonical pledge-class registry (Mason's idea, 07-19-26).
 
-One deterministic source of truth for Alpha Mu's pledge classes:
+One deterministic source of truth for the chapter's pledge classes:
 
-- **Fall 2022 = Founders** (no Greek letter; keeps the gold badge).
-- The lettered sequence starts **Spring 2023 = Alpha**, then one class per
-  semester: Fall 2023 = Beta, Spring 2024 = Gamma, ... After Omega the
-  sequence doubles: Alpha Alpha, Alpha Beta, ...
+- **The founding semester = Founders** (no Greek letter; keeps the gold
+  badge). It comes from the chapter config — `get_chapter().founding_semester`
+  / `.founding_year` (CHAPTER_FOUNDING_SEMESTER / CHAPTER_FOUNDING_YEAR env
+  vars; the default is Fall 2022). Multi-chapter phase 2, 09-27-26.
+- The lettered sequence starts the NEXT semester (Spring 2023 = Alpha with
+  the defaults), then one class per semester: Fall 2023 = Beta, Spring 2024 =
+  Gamma, ... After Omega the sequence doubles: Alpha Alpha, Alpha Beta, ...
 - Every class gets a **stable, unique, clearly-distinct badge color** from
   CLASS_PALETTE below. The palette was generated once by farthest-point
   sampling in CIELAB space (each color placed as far as possible from all
@@ -34,7 +37,13 @@ GREEK_LETTERS = [
     'Sigma', 'Tau', 'Upsilon', 'Phi', 'Chi', 'Psi', 'Omega',
 ]
 
-FOUNDING_YEAR = 2022  # Fall 2022 = Founders
+def _founding():
+    """(semester, year) of the founding class, from the chapter config."""
+    from src.chapter import get_chapter
+    chapter = get_chapter()
+    return chapter.founding_semester, int(chapter.founding_year)
+
+
 FOUNDERS_GREEK = 'Founder'  # matches the existing directory gold-badge check
 
 # Farthest-point palette (see module docstring). White text is readable on
@@ -81,14 +90,15 @@ def _current_semester(today=None):
 
 
 def all_classes(today=None):
-    """Every class from Fall 2022 through the current semester, in order.
+    """Every class from the founding semester through the current one, in order.
 
     Returns a list of dicts: {'label': 'Spring 2023', 'greek': 'Alpha',
     'index': 1, 'hue': 137, 'is_founders': False}.
     """
     season, year = _current_semester(today)
     classes = []
-    idx, s, y = 0, 'Fall', FOUNDING_YEAR
+    s, y = _founding()
+    idx = 0
     while (y, s == 'Fall') <= (year, season == 'Fall'):
         if s == 'Fall' and y == year and season == 'Spring':
             break  # don't include this year's fall before July

@@ -2,18 +2,16 @@
 Push notification subscription management.
 
 Endpoints:
-  GET  /service-worker.js  — serve the SW with Service-Worker-Allowed: / header
+  (GET /service-worker.js moved to src/view/pwa.py, 09-27-26)
   POST /push/subscribe/    — save a new PushSubscription for the logged-in user
   POST /push/unsubscribe/  — delete the subscription matching the given endpoint
 """
 
 import json
 import logging
-import os
 
-from django.conf import settings as django_settings
 from django.contrib.auth.decorators import login_required
-from django.http import HttpResponse, JsonResponse
+from django.http import JsonResponse
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_protect
 from django.views.decorators.http import require_POST
@@ -21,28 +19,6 @@ from django.views.decorators.http import require_POST
 from src.models import PushSubscription
 
 logger = logging.getLogger('src')
-
-
-def service_worker(request):
-    """
-    Serve the service worker JS from the root path so the browser grants it
-    scope over the entire site.
-
-    A SW at /static/js/service-worker.js can only control pages under
-    /static/js/ — useless for push. Serving it here at /service-worker.js
-    with `Service-Worker-Allowed: /` gives it full-site scope.
-    """
-    sw_path = os.path.join(django_settings.BASE_DIR, 'static', 'js', 'service-worker.js')
-    try:
-        with open(sw_path, 'r') as f:
-            content = f.read()
-    except FileNotFoundError:
-        return HttpResponse('// service-worker.js not found', content_type='application/javascript', status=404)
-
-    response = HttpResponse(content, content_type='application/javascript')
-    response['Service-Worker-Allowed'] = '/'
-    response['Cache-Control'] = 'no-cache'
-    return response
 
 
 @login_required

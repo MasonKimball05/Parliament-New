@@ -9,7 +9,7 @@ fire a cron MAILTO alert.
     python manage.py preflight                    # full check, exit 1 on failure
     python manage.py preflight --strict           # warnings also fail
     python manage.py preflight --email-on-fail    # email SECURITY_ALERT_EMAIL on failure
-    python manage.py preflight --live-url https://am-parliament.org
+    python manage.py preflight --live-url https://<CHAPTER_DOMAIN>
                                                   # ALSO probe the real site's /media/
                                                   # through nginx+Cloudflare (the
                                                   # v3.14.1 leak was at the nginx
@@ -84,7 +84,7 @@ class Command(CheckEnvCommand):
         )
         parser.add_argument(
             '--live-url', default='',
-            help='Base URL of the live site (e.g. https://am-parliament.org). '
+            help='Base URL of the live site (e.g. https://<CHAPTER_DOMAIN>). '
                  'If given, also probes /media/ through the real nginx/Cloudflare '
                  'stack — the layer where the v3.14.1 leak actually lived.',
         )

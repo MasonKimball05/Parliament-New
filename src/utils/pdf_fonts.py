@@ -8,7 +8,7 @@ in those fonts and silently renders as a missing-glyph box, with no error
 raised anywhere in the pipeline.
 
 v3.29.21 — found via the chapter motto, "Ἀρετή Μονάζει", quoted in the
-Foreword's preamble (`src/management/data/cnb_data.py`) and rendered by
+Foreword's preamble (`chapter_content/alpha_mu/cnb.py`) and rendered by
 `generate_cnb_document_pdf_buffer` (`src/view/officer/cnb.py`) using
 Times-Roman throughout, per the "Times New Roman convention" fixed in
 v3.29.8. Confirmed directly: neither ReportLab's own bundled fallback font

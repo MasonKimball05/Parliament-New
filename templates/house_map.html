@@ -510,10 +510,10 @@
                 return esc(l.name) + rn;
             }).join(', '));
         }
-        // The Alpha Mu default only applies once a member has actually been
+        // The home-chapter default only applies once a member has actually been
         // initiated — a pledge with no initiation_chapters entries has not
         // been initiated anywhere yet and must not show "Initiated at:
-        // Alpha Mu" automatically.
+        // <this chapter>" automatically.
         const initChapters = (d.initiation_chapters && d.initiation_chapters.length)
             ? d.initiation_chapters
             : (d.member_type === 'Pledge' ? [] : [{ school: '{% chapter "school" as chapter_school_js %}{{ chapter_school_js|escapejs }}', chapter: '{% chapter "chapter_name" as chapter_name_js %}{{ chapter_name_js|escapejs }}' }]);

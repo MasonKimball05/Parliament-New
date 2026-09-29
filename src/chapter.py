@@ -45,6 +45,8 @@ class ChapterIdentity:
     secondary_color: str       # '#FFC72C'
     motto: str                 # 'Virtue Stands Alone'
     school_email_domain: str   # 'samford.edu' — hint on email forms
+    founding_year: int         # 2022 — the founding pledge class's year
+    founding_semester: str     # 'Fall' or 'Spring' — the founding class's semester
 
     # --- derived -----------------------------------------------------------
     @property
@@ -122,4 +124,7 @@ def get_chapter(request=None):
     unknown = set(cfg) - FIELD_NAMES
     if unknown:
         raise ValueError(f'settings.CHAPTER has unknown keys: {sorted(unknown)}')
+    if cfg.get('founding_semester', 'Fall') not in ('Fall', 'Spring'):
+        raise ValueError("settings.CHAPTER['founding_semester'] must be 'Fall' or 'Spring', "
+                         f"not {cfg.get('founding_semester')!r}")
     return _from_settings(tuple(sorted(cfg.items())))

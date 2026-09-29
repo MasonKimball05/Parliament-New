@@ -152,7 +152,7 @@
                     <p class="mb-4 dark:text-gray-300">A quorum is the minimum number of voting members who must be present at a meeting for business to be legally transacted.</p>
 
                     <div class="bg-primary-50 dark:bg-primary-900/20 border-l-4 border-primary-500 dark:border-primary-400 p-4 mb-4 transition-colors duration-200">
-                        <p class="text-sm font-semibold text-primary-900 dark:text-primary-300 mb-2">🔗 Alpha Mu Chapter Requirement</p>
+                        <p class="text-sm font-semibold text-primary-900 dark:text-primary-300 mb-2">🔗 {% chapter "chapter_name" %} Chapter Requirement</p>
                         <p class="text-sm text-gray-700 dark:text-gray-300">According to our <a href="{% url 'constitution_bylaws' %}#const-meetings" class="text-primary-600 dark:text-primary-400 hover:underline dark:hover:text-primary-300 transition-colors duration-200">Constitution Article IV, Section 3</a>, quorum is defined as a <strong>simple majority of Active Members</strong>.</p>
                     </div>
 
@@ -248,7 +248,7 @@
                     <p class="mb-4 dark:text-gray-300">A special meeting is a meeting called at a time other than the regular meeting schedule to address specific urgent or important business.</p>
 
                     <div class="bg-primary-50 dark:bg-primary-900/20 border-l-4 border-primary-500 dark:border-primary-400 p-4 mb-4 transition-colors duration-200">
-                        <p class="text-sm font-semibold text-primary-900 dark:text-primary-300 mb-2">🔗 Alpha Mu Chapter Requirements</p>
+                        <p class="text-sm font-semibold text-primary-900 dark:text-primary-300 mb-2">🔗 {% chapter "chapter_name" %} Chapter Requirements</p>
                         <p class="text-sm text-gray-700 dark:text-gray-300">According to our <a href="{% url 'constitution_bylaws' %}#const-meetings" class="text-primary-600 dark:text-primary-400 hover:underline dark:hover:text-primary-300 transition-colors duration-200">Constitution Article IV, Section 2</a>:</p>
                         <ul class="list-disc pl-6 mt-2 text-sm text-gray-700 dark:text-gray-300 space-y-1">
                             <li>Special meetings require <strong>4 hours advance notice</strong></li>
@@ -639,7 +639,7 @@
                     <p class="mb-4 dark:text-gray-300">These motions allow an assembly to revisit and potentially reverse previous decisions.</p>
 
                     <div class="bg-primary-50 dark:bg-primary-900/20 border-l-4 border-primary-500 dark:border-primary-400 p-4 mb-6 transition-colors duration-200">
-                        <p class="text-sm font-semibold text-primary-900 dark:text-primary-300 mb-2">🔗 Alpha Mu Chapter Protection Periods</p>
+                        <p class="text-sm font-semibold text-primary-900 dark:text-primary-300 mb-2">🔗 {% chapter "chapter_name" %} Chapter Protection Periods</p>
                         <p class="text-sm text-gray-700 dark:text-gray-300">Our <a href="{% url 'constitution_bylaws' %}#const-amendments" class="text-primary-600 dark:text-primary-400 hover:underline dark:hover:text-primary-300 transition-colors duration-200">Constitution and Bylaws</a> establish "protection periods" for failed amendments:</p>
                         <ul class="list-disc pl-6 mt-2 text-sm text-gray-700 dark:text-gray-300 space-y-1">
                             <li><strong class="dark:text-gray-100">Constitution amendments:</strong> Cannot be reintroduced for 15 chapter meetings after failure</li>
@@ -861,7 +861,7 @@
                     <p class="mb-4 dark:text-gray-300">Secret ballots protect voter privacy and prevent coercion, commonly used for elections, sensitive motions, and membership decisions.</p>
 
                     <div class="bg-primary-50 dark:bg-primary-900/20 border-l-4 border-primary-500 dark:border-primary-400 p-4 mb-6 transition-colors duration-200">
-                        <p class="text-sm font-semibold text-primary-900 dark:text-primary-300 mb-2">🔗 Alpha Mu Chapter Requirements</p>
+                        <p class="text-sm font-semibold text-primary-900 dark:text-primary-300 mb-2">🔗 {% chapter "chapter_name" %} Chapter Requirements</p>
                         <p class="text-sm text-gray-700 dark:text-gray-300">Our Constitution and Bylaws require secret ballots for:</p>
                         <ul class="list-disc pl-6 mt-2 text-sm text-gray-700 dark:text-gray-300 space-y-1">
                             <li><strong class="dark:text-gray-100">Officer Elections:</strong> All Executive Board positions (Article IV, Section 5)</li>
@@ -1289,7 +1289,7 @@
                     </div>
 
                     <div class="bg-yellow-50 dark:bg-yellow-900/20 border-l-4 border-yellow-500 dark:border-yellow-400 p-4 transition-colors duration-200 mt-6">
-                        <p class="text-sm font-semibold text-yellow-900 mb-2">📋 Alpha Mu Standing Committees</p>
+                        <p class="text-sm font-semibold text-yellow-900 mb-2">📋 {% chapter "chapter_name" %} Standing Committees</p>
                         <p class="text-sm text-gray-700 dark:text-gray-300">Our chapter maintains 11 standing committees as defined in <a href="{% url 'constitution_bylaws' %}#const-committees" class="text-primary-600 dark:text-primary-400 hover:underline dark:hover:text-primary-300 transition-colors duration-200">Constitution Article V</a>.</p>
                     </div>
 
@@ -1479,7 +1479,7 @@
                     <h3 class="text-lg font-semibold mt-6 mb-2 dark:text-gray-100">Sample Minute Entry</h3>
                     <div class="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg mb-4 text-sm font-mono transition-colors duration-200">
                         <p class="mb-2 dark:text-gray-300"><strong>MINUTES OF THE REGULAR MEETING</strong></p>
-                        <p class="mb-2 dark:text-gray-300">Alpha Mu Chapter of Beta Theta Pi</p>
+                        <p class="mb-2 dark:text-gray-300">{% chapter "full_name" %}</p>
                         <p class="mb-2 dark:text-gray-300">November 15, 2025, 6:00 PM, Chapter Room</p>
                         <p class="mb-4 dark:text-gray-300">President John Smith presiding. Secretary Michael Johnson recording. Quorum present (45 of 60 members).</p>
 
@@ -1522,7 +1522,7 @@
                     <p class="mb-4 dark:text-gray-300">An executive session is a meeting, or portion of a meeting, held in secret with limited attendance for discussion of sensitive matters.</p>
 
                     <div class="bg-primary-50 dark:bg-primary-900/20 border-l-4 border-primary-500 dark:border-primary-400 p-4 mb-6 transition-colors duration-200">
-                        <p class="text-sm font-semibold text-primary-900 dark:text-primary-300 mb-2">🔗 Alpha Mu Chapter Practice</p>
+                        <p class="text-sm font-semibold text-primary-900 dark:text-primary-300 mb-2">🔗 {% chapter "chapter_name" %} Chapter Practice</p>
                         <p class="text-sm text-gray-700 dark:text-gray-300">Our <a href="{% url 'constitution_bylaws' %}#const-meetings" class="text-primary-600 dark:text-primary-400 hover:underline dark:hover:text-primary-300 transition-colors duration-200">Constitution Article IV, Section 4</a> states: "Meetings are closed to the public unless there are specific matters that permit non-members or non-pledges to attend."</p>
                         <ul class="list-disc pl-6 mt-2 text-sm text-gray-700 dark:text-gray-300 space-y-1">
                             <li>Most chapter meetings are already "closed" (members-only)</li>
@@ -1658,7 +1658,7 @@
                     <p class="mb-4 dark:text-gray-300">Amending governing documents (constitution, bylaws) is different from amending ordinary motions. These procedures protect the organization's fundamental rules from hasty changes.</p>
 
                     <div class="bg-primary-50 dark:bg-primary-900/20 border-l-4 border-primary-500 dark:border-primary-400 p-4 mb-6 transition-colors duration-200">
-                        <p class="text-sm font-semibold text-primary-900 dark:text-primary-300 mb-2">🔗 Alpha Mu Chapter Requirements</p>
+                        <p class="text-sm font-semibold text-primary-900 dark:text-primary-300 mb-2">🔗 {% chapter "chapter_name" %} Chapter Requirements</p>
                         <p class="text-sm text-gray-700 dark:text-gray-300 mb-3">Our <a href="{% url 'constitution_bylaws' %}" class="text-primary-600 dark:text-primary-400 hover:underline dark:hover:text-primary-300 transition-colors duration-200">Constitution and Bylaws</a> establish specific amendment procedures:</p>
 
                         <div class="bg-white p-3 rounded mb-2 dark:bg-gray-800">
@@ -1684,7 +1684,7 @@
                             </ol>
                         </div>
 
-                        <p class="text-xs text-gray-600 dark:text-gray-300 mt-2 italic">Both are subordinate to the Code of Beta Theta Pi, IFC, Samford University, and applicable laws.</p>
+                        <p class="text-xs text-gray-600 dark:text-gray-300 mt-2 italic">Both are subordinate to the Code of {% chapter "fraternity" %}, IFC, {% chapter "school" %}, and applicable laws.</p>
                     </div>
 
                     <h3 class="text-lg font-semibold mt-6 mb-2 dark:text-gray-100">General Principles for Amending Bylaws</h3>
@@ -1724,12 +1724,12 @@
                             </thead>
                             <tbody>
                                 <tr>
-                                    <td class="border border-gray-300 dark:border-gray-600 px-4 py-2 dark:text-gray-300">Constitution (Alpha Mu)</td>
+                                    <td class="border border-gray-300 dark:border-gray-600 px-4 py-2 dark:text-gray-300">Constitution ({% chapter "chapter_name" %})</td>
                                     <td class="border border-gray-300 dark:border-gray-600 px-4 py-2 font-semibold dark:text-gray-100">2/3 supermajority</td>
                                     <td class="border border-gray-300 dark:border-gray-600 px-4 py-2 dark:text-gray-300">Yes (via Executive Board process)</td>
                                 </tr>
                                 <tr class="bg-gray-50 dark:bg-gray-700">
-                                    <td class="border border-gray-300 dark:border-gray-600 px-4 py-2 dark:text-gray-300">Bylaws (Alpha Mu)</td>
+                                    <td class="border border-gray-300 dark:border-gray-600 px-4 py-2 dark:text-gray-300">Bylaws ({% chapter "chapter_name" %})</td>
                                     <td class="border border-gray-300 dark:border-gray-600 px-4 py-2 font-semibold dark:text-gray-100">Simple majority</td>
                                     <td class="border border-gray-300 dark:border-gray-600 px-4 py-2 dark:text-gray-300">Yes (via Executive Board process)</td>
                                 </tr>

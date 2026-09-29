@@ -335,7 +335,7 @@ class KaiReport(models.Model):
     # Recusal — v3.18.0. SEE THE MODEL BELOW AND `_case_access` IN THE VIEW.
     #
     # The chapter bylaws (Chapter on the Kai Committee, § vi, seeded in
-    # `src/management/data/cnb_data.py`) require that "only the accused must
+    # `chapter_content/alpha_mu/cnb.py`) require that "only the accused must
     # temporarily recuse their seat for their trial." Until v3.18.0 the app
     # implemented no part of that: `_get_kai_access()` takes a user and a
     # committee and never sees the report, so a Kai member who was the accused
@@ -1059,7 +1059,7 @@ class KaiRecusal(models.Model):
 
     v3.18.0 — WHY THIS EXISTS
     -------------------------
-    The chapter bylaws (§ vi, seeded in `src/management/data/cnb_data.py`):
+    The chapter bylaws (§ vi, seeded in `chapter_content/alpha_mu/cnb.py`):
 
         "Should members of the Kai Committee be recused from their duties, the
          head of Kai shall appoint suitable replacement(s) for the position.

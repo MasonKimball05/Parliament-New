@@ -58,6 +58,12 @@ def _template_files():
         if rel.startswith(EXEMPT_PREFIXES):
             continue
         yield rel, path.read_text(errors='replace')
+    # 09-27-26 (multi-chapter): per-chapter template overrides are rendered
+    # exactly like templates/ (they come first in TEMPLATES DIRS), so they get
+    # the same checks. Every chapter's directory, not just this deployment's.
+    content_root = settings.BASE_DIR / 'chapter_content'
+    for path in sorted(content_root.glob('*/templates/**/*.html')):
+        yield str(path.relative_to(settings.BASE_DIR)), path.read_text(errors='replace')
 
 
 class CspTemplateTests(SimpleTestCase):

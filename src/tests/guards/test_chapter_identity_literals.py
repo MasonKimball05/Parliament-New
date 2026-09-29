@@ -11,11 +11,22 @@ am-coat-of-arms). The counts in KNOWN may only go DOWN:
     the same commit, so the list never hides room for new literals.
 
 What is left in KNOWN is mostly chapter CONTENT rather than identity — the
-C&B text (cnb_data.py, constitution_bylaws.html), song lyrics, the landing
+old static C&B page (constitution_bylaws.html), song lyrics, the landing
 page and archive pages, Robert's Rules annotations — which belongs in the
-database per chapter (phase 2), plus static files that cannot run template
-tags (manifest.json, service-worker.js, offline.html), comments, and the
-settings defaults themselves.
+database per chapter (phase 2), plus the settings defaults themselves.
+
+09-27-26 (phase 2, slice 2a): 213 lines / 29 files -> 192 / 16. The PWA
+files are now rendered by src/view/pwa.py, pledge-class founding comes from
+settings.CHAPTER, and the leftover comments were reworded.
+09-27-26 (slice 2b): the C&B seed text moved to chapter_content/alpha_mu/cnb.py
+(per-chapter content, loaded by src/chapter_content.py) -> 132 / 15.
+09-27-26 (slice 2c): landing page + editor presets + Robert's Rules headings
+use {% chapter %}; landing fallback text is a per-chapter template override
+(chapter_content/<chapter>/templates/landing/) -> 100 / 11.
+09-27-26 (slice 2c, cont.): the unrouted archive pages (Alpha Mu content) moved to
+chapter_content/alpha_mu/templates/archive/ -> 91 / 7.
+Files under chapter_content/ are deliberately NOT scanned: that directory is
+where one chapter's own text is supposed to live.
 
 Run with: python manage.py test src.tests.guards.test_chapter_identity_literals
 """
@@ -32,34 +43,12 @@ SKIP = ('src/tests/', 'migrations', 'src/chapter.py', 'static/vendor/', '__pycac
 
 KNOWN = {
     'Parliament/settings.py': 9,
-    'src/management/commands/preflight.py': 2,
     'src/management/commands/seed_resolutions.py': 2,
     'src/management/commands/update_song_lyrics.py': 55,
-    'src/management/data/cnb_data.py': 60,
     'src/models/cnb.py': 1,
-    'src/models/landing.py': 1,
-    'src/models/users.py': 1,
-    'src/pledge_classes.py': 1,
-    'src/utils/file_validation.py': 1,
-    'src/validators.py': 1,
     'src/view/songbook.py': 1,
     'src/view/view_document.py': 5,
-    'static/js/service-worker.js': 1,
-    'static/manifest.json': 5,
-    'static/offline.html': 1,
-    'templates/archive/academic_standards_detail.html': 5,
-    'templates/archive/advisors_detail.html': 2,
-    'templates/archive/committee_details.html': 1,
-    'templates/archive/officer_duties_detail.html': 1,
-    'templates/chat/channel.html': 2,
     'templates/constitution_bylaws.html': 18,
-    'templates/directory.html': 2,
-    'templates/house_map.html': 2,
-    'templates/landing.html': 17,
-    'templates/officer/edit_landing_page.html': 3,
-    'templates/profile.html': 1,
-    'templates/quote_book/book.html': 1,
-    'templates/roberts_rules.html': 11,
 }
 
 

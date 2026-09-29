@@ -30,12 +30,10 @@
 </head>
 <body>
 <main>
-  <img src="/static/images/am-coat-of-arms.png" alt="">
+  <img src="{% chapter "crest_url" %}" alt="">
   <h1>You're offline</h1>
   <p>Parliament needs an internet connection. Check your connection and try again — nothing you submitted was lost if you saw this page instead of a confirmation.</p>
-  <!-- No JS: CSP-safe even if static files ever get the app's CSP header.
-       href="/home/" re-attempts a real navigation (SW serves this page again
-       if still offline). -->
+  {# No JS: CSP-safe. href="/home/" re-attempts a real navigation (the service worker serves this page again if still offline). Rendered into the worker by src/view/pwa.py — it is never served at a URL of its own. #}
   <a class="retry" href="/home/">Try again</a>
 </main>
 </body>

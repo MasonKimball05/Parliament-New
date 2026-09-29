@@ -49,7 +49,7 @@ import logging
 
 from django.utils import timezone
 
-from src.validators import COMMON_WEAK_PASSWORDS
+from src.validators import known_weak_passwords
 
 logger = logging.getLogger(__name__)
 
@@ -81,7 +81,7 @@ def _default_reset_password_guess(user):
 
 def _candidates_for(user):
     """Build the bounded per-user candidate list described in the module docstring."""
-    candidates = list(COMMON_WEAK_PASSWORDS)
+    candidates = list(known_weak_passwords())
     if getattr(user, 'has_default_password', False):
         guess = _default_reset_password_guess(user)
         if guess:

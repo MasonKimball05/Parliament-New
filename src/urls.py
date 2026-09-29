@@ -205,7 +205,8 @@ from src.view.vote_view import (
     vote_view, vote_tally_json, open_legislation_now, verify_vote_receipt,
     cast_vote, mark_attendance_quick, upload_chapter_legislation,
 )
-from src.view.push_notifications import push_subscribe, push_unsubscribe, service_worker
+from src.view.push_notifications import push_subscribe, push_unsubscribe
+from src.view.pwa import service_worker, web_manifest
 from src.view.two_factor import (
     two_factor_setup, two_factor_qrcode, two_factor_verify,
     two_factor_disable, two_factor_dismiss, two_factor_forget_device,
@@ -728,6 +729,7 @@ urlpatterns = [
     path('vote/open-now/<int:legislation_id>/', open_legislation_now, name='open_legislation_now'),
     path('vote/verify-receipt/', verify_vote_receipt, name='verify_vote_receipt'),
     path('service-worker.js', service_worker, name='service_worker'),
+    path('manifest.webmanifest', web_manifest, name='web_manifest'),
     path('push/subscribe/', push_subscribe, name='push_subscribe'),
     path('push/unsubscribe/', push_unsubscribe, name='push_unsubscribe'),
     path('vote/end/<int:legislation_id>/', end_vote, name='end_vote'),

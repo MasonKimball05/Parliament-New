@@ -145,6 +145,13 @@ class ResolutionSectionImpact(models.Model):
         return None
 
 
+def default_contact_location():
+    """'<school>, <city>, <state>' for a new LandingPageContent row (src/chapter.py)."""
+    from src.chapter import get_chapter
+    c = get_chapter()
+    return ', '.join(p for p in (c.school, c.location) if p)
+
+
 class LandingPageContent(SingletonRow, models.Model):
     """
     Singleton model for officer-editable landing page content.
@@ -201,7 +208,10 @@ class LandingPageContent(SingletonRow, models.Model):
     # ── Contact section ───────────────────────────────────────────────────────
     contact_location = models.CharField(
         max_length=200, blank=True,
-        default='Samford University, Birmingham, AL'
+        # 09-27-26 (multi-chapter phase 2): from the chapter config, not a
+        # literal. Only affects a NEW singleton row; an existing chapter's
+        # saved value is untouched.
+        default=default_contact_location,
     )
     contact_address = models.CharField(max_length=200, blank=True)
     contact_phone   = models.CharField(max_length=30, blank=True)

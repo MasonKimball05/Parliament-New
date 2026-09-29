@@ -237,7 +237,7 @@
                         <span class="normal-case font-normal text-gray-400 ml-1">(recommended ≤ 160 characters)</span>
                     </label>
                     <textarea name="meta_description" rows="2" maxlength="300"
-                              placeholder="e.g. Beta Theta Pi Alpha Mu — a men's fraternity at Samford University built on scholarship, friendship, and integrity."
+                              placeholder="e.g. {% chapter "fraternity" %} {% chapter "chapter_name" %} — a men's fraternity at {% chapter "school" %} built on scholarship, friendship, and integrity."
                               class="w-full px-3.5 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 transition resize-none">{{ content.meta_description }}</textarea>
                 </div>
                 <div>
@@ -659,8 +659,11 @@
 <script nonce="{{ request.csp_nonce }}">
     // ── Defaults ──────────────────────────────────────────────────────────────
     const DEFAULTS = {
-        wwa: `<p>Beta Theta Pi's Alpha Mu chapter calls Samford University in Birmingham, Alabama home. We are a men's fraternity grounded in the ideals of the <em>Men of Principle</em> — a commitment to intellectual growth, genuine friendship, and moral character.</p><p>Our chapter brings together students from across Samford with a shared belief that fraternity, at its best, makes men better — as students, as leaders, and as members of their communities.</p>`,
-        bel: `<ul><li><strong>Scholarship</strong> — We hold one another to high academic standards.</li><li><strong>Friendship</strong> — Lifelong bonds built on trust and shared experience.</li><li><strong>Integrity</strong> — Honest, accountable, committed to doing right.</li><li><strong>Service</strong> — Investing in Samford, Birmingham, and beyond.</li></ul>`,
+        // 09-27-26 — the reset-to-default text is per-chapter content: the
+        // generic version is templates/landing/_editor_default_*.html and a
+        // chapter overrides it in chapter_content/<chapter>/templates/landing/.
+        wwa: '{% filter escapejs %}{% include "landing/_editor_default_who_we_are.html" %}{% endfilter %}',
+        bel: '{% filter escapejs %}{% include "landing/_editor_default_values.html" %}{% endfilter %}',
         his: '',
     };
 

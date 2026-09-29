@@ -325,7 +325,7 @@ class ParliamentUser(AbstractBaseUser):
     # Custom social handles: list of {"platform": str, "handle": str} dicts
     custom_socials = models.JSONField(default=list, blank=True)
     # Initiation chapters: list of {"school": str, "chapter": str} dicts
-    # If empty, defaults to display "Alpha Mu — Samford University"
+    # If empty, defaults to display "<chapter_name> — <school>" (src/chapter.py)
     initiation_chapters = models.JSONField(default=list, blank=True)
 
     # House — fixed choices, assigned by officers/historian chair only

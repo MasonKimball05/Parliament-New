@@ -3,7 +3,7 @@ Recusal — a Kai member cannot act on a case they are a party to.
 
 WHAT WENT WRONG (found 07-31-26, fixed v3.18.0)
 ------------------------------------------------
-The chapter bylaws (§ vi, seeded in `src/management/data/cnb_data.py`):
+The chapter bylaws (§ vi, seeded in `chapter_content/alpha_mu/cnb.py`):
 
     "Should members of the Kai Committee be recused from their duties, the head
      of Kai shall appoint suitable replacement(s) for the position. However,
