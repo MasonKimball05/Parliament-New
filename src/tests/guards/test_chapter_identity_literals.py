@@ -29,6 +29,8 @@ chapter_content/alpha_mu/templates/archive/ -> 91 / 7.
 (chapter_content/<chapter>/reference_documents.json); seed_resolutions names
 the chapter from config and refuses on other chapters; the unrouted static
 constitution_bylaws.html moved to the archive -> 66 / 4.
+09-28-26 (slice 3d): the default song lyrics moved to fraternity_content/
+beta_theta_pi/songs.json (shared by every chapter) -> 11 / 3.
 Files under chapter_content/ are deliberately NOT scanned: that directory is
 where one chapter's own text is supposed to live.
 
@@ -47,7 +49,6 @@ SKIP = ('src/tests/', 'migrations', 'src/chapter.py', 'static/vendor/', '__pycac
 
 KNOWN = {
     'Parliament/settings.py': 9,
-    'src/management/commands/update_song_lyrics.py': 55,
     'src/models/cnb.py': 1,
     'src/view/songbook.py': 1,
 }

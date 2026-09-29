@@ -221,6 +221,9 @@ STORAGES = {
 # chapter_content/<chapter>/, not in code. Read data files through
 # src/chapter_content.py. Default: the original chapter's directory.
 CHAPTER_CONTENT_DIR = Path(os.getenv('CHAPTER_CONTENT_DIR', BASE_DIR / 'chapter_content' / 'alpha_mu'))
+# Fraternity-wide content (09-28-26): the same for every chapter of the
+# fraternity, e.g. the default songbook. Read through src/fraternity_content.py.
+FRATERNITY_CONTENT_DIR = Path(os.getenv('FRATERNITY_CONTENT_DIR', BASE_DIR / 'fraternity_content' / 'beta_theta_pi'))
 
 TEMPLATES = [
     {

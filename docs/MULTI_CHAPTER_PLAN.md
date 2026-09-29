@@ -93,8 +93,19 @@
      - The old static `constitution_bylaws.html` and its unrouted view: the template moved to `chapter_content/alpha_mu/templates/archive/`, and the view was deleted.
      - Literals: 91 lines → 66, in 4 files. What's left is the settings defaults (9), the song lyrics (55), the songbook PDF name (1) and one `help_text` in `models/cnb.py` (1). The last one is left alone because changing it needs a migration.
    - ✅ **Template-override guard, slice 3b, done 09-28-26:** `test_chapter_template_overrides` fails if a file in `chapter_content/*/templates/` shadows an app template that isn't on its `OVERRIDABLE` list (today: `landing/_default_*.html` and `landing/_editor_default_*.html`). So a chapter can't quietly fork `base.html` or `two_factor/verify.html`.
-   - Songs.
-   - Default roles, committees and houses as editable data.
+   - ✅ **Songs, slice 3d, done 09-28-26.** Mason: *"The ones in the songbook are default for everyone, but each chapter can have their own songs."*
+     - The default lyrics moved out of `update_song_lyrics.py` (a 1,000-line dict) into **fraternity** content: `fraternity_content/beta_theta_pi/songs.json`, with categories. `FRATERNITY_CONTENT_DIR` selects it, and `src/fraternity_content.py` loads and validates it.
+     - New `seed_default_songs` gives a new chapter the default songbook. It creates missing categories and songs, and never edits or deletes an existing song. It skips the 4 songs whose lyrics are still placeholders.
+     - A chapter's own songs are ordinary Song rows added in the app (`/songbook/` → Add song), which already existed.
+     - New `export_songs` writes the songbook back out in the same format.
+     - Songs the old category map didn't cover are filed under "Other" (17 of 54). They're correct in Alpha Mu's database. Running `export_songs -o fraternity_content/beta_theta_pi/songs.json` on prod refreshes the file with the real categories.
+     - Literals: 66 lines → 11, in 3 files. What's left is the settings defaults, the songbook PDF name and one `help_text`.
+   - **Houses: shared, no change (Mason, 09-28-26).** They're named for the fraternity's founders, *"they will (should) be the same everywhere"*. They stay as `ParliamentUser.HOUSE_CHOICES`.
+   - **Roles and committees (looked at 09-28-26): already data, with code-keyed defaults.**
+     - Both are database rows. Roles are created and edited in the app (`manage_roles`), committees in the admin.
+     - `Role.DEFAULT_ROLES` and `Committee.DEFAULT_COMMITTEES` are the fraternity's standard exec structure, with nothing chapter-specific. `restore_committees_and_roles` bootstraps them for a new chapter.
+     - The constraint is that code keys on their **codes** (`KAI`, `EXEC`, `EDUCATION`, `VPP`, `VPE`, …, about 14 references). So a chapter can rename or add committees and roles, but must keep those codes.
+     - Suggested next step, not built: a system check that warns when a required code is missing, pointing at `restore_committees_and_roles`. That would catch a new chapter that deleted "Kai Committee".
    - ✅ **Slice 2a, done 09-27-26:**
      - **PWA.** `manifest.json`, the service worker and the offline page are now rendered by `src/view/pwa.py`, at `/manifest.webmanifest` and `/service-worker.js`.
        - The offline page is embedded in the worker, so there is no offline URL.

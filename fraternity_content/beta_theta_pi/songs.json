@@ -1,0 +1,307 @@
+{
+  "source": "Songs of Beta Theta Pi Fraternity (Beta Tunes), Revised 2005",
+  "categories": [
+    {
+      "name": "Hymns",
+      "color": "blue",
+      "display_order": 1
+    },
+    {
+      "name": "Sweetheart Songs",
+      "color": "pink",
+      "display_order": 2
+    },
+    {
+      "name": "Brotherhood Songs",
+      "color": "green",
+      "display_order": 3
+    },
+    {
+      "name": "Wooglin Songs",
+      "color": "purple",
+      "display_order": 4
+    },
+    {
+      "name": "Drinking Songs",
+      "color": "yellow",
+      "display_order": 5
+    },
+    {
+      "name": "Other",
+      "color": "gray",
+      "display_order": 99
+    }
+  ],
+  "songs": [
+    {
+      "title": "The Alumni's Return",
+      "category": "Brotherhood Songs",
+      "lyrics": "We are singing again in the dear Old Hall\nOf Beta Theta Pi.\nWhere oft we met to sing these songs\nIn golden days gone by.\n\nCHORUS\nSinging to-night, we are singing to-night,\nSinging in the dear Old Hall,\nSinging to-night, we are singing to-night,\nSinging in the dear Old Hall.\n\nThe altar's light burns as bright to-night\nAs e'er it burned of yore;\nA refuge from life's battle edge,\nA home when toil is o'er.\n\nCHORUS\n\nAs we sing to-night in the mystic light\nOur sorrows quickly fly;\nAnd each brother's heart is bound anew\nIn Beta Theta Pi.\n\nCHORUS\n\nAnd when these happy hours are gone,\nOur meetings here are o'er,\nEach brother's heart shall feel new strength,\nFor \"the battle of life\" once more.\n\nCHORUS"
+    },
+    {
+      "title": "As Betas Now We Meet",
+      "category": "Hymns",
+      "lyrics": "As Betas now we meet, a brother new to greet\nBy grasp of hand, by grasp of hand;\nOh! may our sacred fire kindle a new desire,\nAnd true Greek love inspire for all our band.\n\nOur splendid shield he bears, the wreath of old he wears\nAnd diamond bright, and diamond bright,\nOh! may he ever gain pure and unsullied fame\nFor Beta's glorious name for truth and right."
+    },
+    {
+      "title": "The Banquet Hall",
+      "category": "Brotherhood Songs",
+      "lyrics": "Hark! Hark! give heed to Wooglin's call:\nThrice welcome to the banquet hall!\nThe feast is spread, the wine is poured (wine is poured),\nCome, gather 'round the festal board.\n\nCHORUS\nAnd drink, drink, drink, drink, drink your nectar rare!\nDrink, drink, drink, drink, banish all your care!\nIn rare old Wine of Thirty-Nine,\nPledge: Grand old Beta, yours and mine!\n\nBefore this joyous night is gone,\nBefore our last good song is sung,\nAnd while the lamps are growing dim (growing dim),\nWe'll strike our glasses brim to brim.\n\nCHORUS"
+    },
+    {
+      "title": "Behold the Mystic Symbol",
+      "category": "Other",
+      "lyrics": "Thus heart to heart and hand to hand,\nEach other's joy and grief to share;\nBehold how Beta brothers stand,\nAnd read our mystic symbol there.\n\nHaste thee, oh Theta's golden age\nOf cultured thought and lettered brain;\nHail bloodless conqueror and sage,\nMonarch of mind, forever reign.\n\nBehold at last the symbol mete\nThat binds our hearts with mystic tie;\nThus Wooglin's legend stands complete,\nBeta to Theta linked with Pi."
+    },
+    {
+      "title": "The Beta Chorus",
+      "category": "Other",
+      "lyrics": "Come, brothers, swell the Beta chorus,\nLift your voices loud in song,\nSinging praise to good old Wooglin,\nWake the echoes loud and long!\n\nAnd then we'll send the echoes to the heavens,\nWhere Beta stars are in the sky -\nThen sing Phi Kai Phi, for Beta Theta Pi,\nThat the diamond's ray may light our way forever!"
+    },
+    {
+      "title": "Beta Day",
+      "category": "Brotherhood Songs",
+      "lyrics": "Beta Day is dawning\nYou can see it in the sky,\nIt is bursting forth with friendship\nFor all Betas, You and I;\nSing forth my Beta Brothers,\nLet your voices rise on high,\nFor Beta Theta Pi!\n\nCHORUS\nYes, oh yes, we are all Betas,\nYes, oh yes, we are all Betas,\nYes, we are all loyal Betas,\nWe are linked in Phi Kai Phi.\n\nWe started out in Oxford,\nWhere they met beneath the elm,\nThrough the years we've passed the cup around\nTo build the dragon's realm,\nThe kindred love and friendship\nThat has grown along the way,\nInspires this Beta Day.\n\nCHORUS\n\nWe have trod the porch at Mackinac\nAnd Wooglin on the Lake\nWe have sung our songs at Bigwin\nStrong fraternal bonds to make,\nAnd now we gather once again,\nWith hand gripped firm in hand,\nWe are the Beta Band.\n\nCHORUS\n\nThen gather round my Brothers,\nOn this glorious Beta Day,\nLive again old Wooglin's kindships\nThat can never fade away;\nOh greet your Beta Brothers\nAnd renew those Beta ties,\nSing again your Phi Kai Phi's\n\nCHORUS"
+    },
+    {
+      "title": "Beta Doxology",
+      "category": "Hymns",
+      "lyrics": "Bless now, O God on high,\nBless Beta Theta Pi;\nLet naught of wrong\nSully our mystic gem,\nLet not the wreath be dim;\nThen shall praise be to Him\nTo whom our song."
+    },
+    {
+      "title": "The Beta Goodnight",
+      "category": "Other",
+      "lyrics": "And now it's growing late,\nAnd we'll have to say adieu\nWe'd love to hesitate,\nStay and sing some more to you.\n\nNow close your drowsy eyes,\nAs we end this little theme.\nWe'll see you by and by,\nIn the Beta land of dreams."
+    },
+    {
+      "title": "Beta Hymn",
+      "category": "Hymns",
+      "lyrics": "To Beta now our praises sing,\nWe lift our hearts in loyalty\nTo God who with us binds our hearts,\neach brother's love shall ne'er depart\nWe all are bound, our song to thee,\nIn friendship's bond, fidelity.\n\nTo Wooglin's port we sound our cry,\nOur Beta bond which shall not die\nAs cycles move we see afar\nOur grand and glorious Beta stars\nOur cause defend, our purpose high\nTo Beta Theta linked with Pi.\n\nAs ages past and now today,\nForever trust and thus we pray\nThat He who knows all hearts within,\nShall add each day His chosen men,\nThose who would walk in Beta's light,\nAnd Pledge to Beta Theta Pi."
+    },
+    {
+      "title": "Beta Lullaby",
+      "category": "Sweetheart Songs",
+      "lyrics": "I'm gonna rock-a-bye my baby to a Beta lullaby\nAnd bring her up on Beta lore and Beta Theta Pi,\nAnd when the dragon moon is shinin'\nAnd those stars are in the sky\nYou can always hear me pinin'\nFor those carefree days gone by.\n\nI'm gonna occupy those old porch chairs and\nsing to Phi Kai Phi\nWhile the Beta stars are shinin' in the sky\nthe Beta sky,\nAnd when that ev'nin' sun goes down\nWe're gonna pass the lovin' cup around,\nAnd rock-a-by my baby to a Beta lullaby\n\nRock-a-by baby the sandman is nigh,\nRock-a-by, rock-a-by, rock-a-by, ra-da,\nShh shh baby's asleep."
+    },
+    {
+      "title": "The Beta Marseillaise",
+      "category": "Other",
+      "lyrics": "Ye sons of Beta, raise your voices,\nJoin one and all to swell the song.\nWhile ev'ry loyal heart rejoices\nThe sounding chorus to prolong,\nThe sounding chorus to prolong,\nIn grateful praise your voices blending\nTo her whose radiant badge we bear,\nAnd in whose mystic rites we share,\nWorthy our grateful praise unending.\n\nCHORUS\nTo Beta Theta Pi, a chorus ringing high,\nA song, a song, full loud and long,\nTo Beta Theta Pi.\n\nExtol in song fair Beta's glory,\nHer noble aims, her purpose high.\nLet brothers young, and brothers hoary,\nGive praise to Beta Theta Pi,\nGive praise to Beta Theta Pi!\nHer tender love and care untiring,\nThe peerless honor of her name;\nThe splendor of her spotless fame,\nIn ev'ry heart her song inspiring.\n\nCHORUS"
+    },
+    {
+      "title": "The Beta Postscript",
+      "category": "Brotherhood Songs",
+      "lyrics": "Oh, when our sons to college go, to college go,\nAnd We'll look them squarely in the eye, in the eye,\nAnd say: \"My boy, the only Greek you'll have to know\nIs Beta, Beta Theta Pi!\"\n\nOh! the Betas! yes, the Betas,\nThere is nothing else so great as\nThe fraternity your father joined in days of yore.\n\nAdieu, adieu, my son, adieu, adieu, adieu!\nFor now it's plainly up to you, up to You,\nTo learn your Greek so well that you, my boy, and I\nMay know our Beta Theta Pi."
+    },
+    {
+      "title": "Beta Praise",
+      "category": "Other",
+      "lyrics": "Brothers are we in Beta Theta Pi;\nMay kindred love between us ever be;\nAs life shall pass we hail our pledge to thee,\nIn Beta be our pride in Phi Kai Phi.\n\nAs Wooglin watches o'er his chosen men,\nMay Beta Spirit fill our hearts within.\nWhen morning breaks, and earth's vain shadows fly,\nLift Wooglin's banner high, in Phi Kai Phi.\n\nBlest be our cause in Brother and in Pledge;\nBlest be this Chapter, keep her in Thy praise;\nMay Beta's Spirit always be our tie,\nMay Beta's light shine in Phi Kai Phi."
+    },
+    {
+      "title": "Beta Rose",
+      "category": "Sweetheart Songs",
+      "lyrics": "Queen of all the flowers that bloom,\nRuler of my heart.\nLet us make a promise true,\nNever more to part\n\nCHORUS\nBeta Rose, crimson rose,\nWhen you smile at me,\nStars do sparkle in the sky,\nYet, not as bright as thee.\n\nIn a tree, I hear a bird,\nSinging loud and clear,\nIn my heart, I hear a song,\nBeta Rose my dear.\n\nCHORUS\n\nBeta rose, crimson rose,\nTill eternity,\nMay we wander hand in hand,\nIn love and purity."
+    },
+    {
+      "title": "The Beta Shrine",
+      "category": "Brotherhood Songs",
+      "lyrics": "We come with heart and voice united,\nWith one accord our song we raise,\nAnd wake the loud and sounding chorus,\nSinging our fair old Beta's praise.\nHere where we meet in bonds fraternal,\nHere, where our sacred memories twine,\nWe bring with joy our choicest laurels\nTo lay, fair Beta, on thy shrine.\n\nCHORUS\nThen sing to Beta, fair old Beta!\nThen sing and raise the chorus high!\nThen hail! to Beta, fair old Beta!\nHail, hail, to Beta Theta Pi!\n\nO Beta, thou art ever glorious,\nThy bonds are sweet, thy service joy!\nThe brightness of thy radiant image\nYears shall not dim or time destroy.\nNow, now to thee we bring our praises,\nWhile we around thy altar bow;\nOur loyal trust, our hearts' devotion,\nOur love and faith we pledge thee now."
+    },
+    {
+      "title": "The Beta Stars",
+      "category": "Brotherhood Songs",
+      "lyrics": "When stars are hiding, and the moon is nowhere\nin the sky;\nAnd clouds are riding, and there's no light to guide\nyou by;\nIf you're a Beta, all along the way, the Beta stars\nwill make your darkness day;\nFor light or darkness, shine the stars of Beta Theta Pi."
+    },
+    {
+      "title": "Beta Sweetheart",
+      "category": "Sweetheart Songs",
+      "lyrics": "How would you like to be a Beta sweetheart?\nHow would you like to wear a Beta pin?\nHow would you like to gaze upon the diamond,\nGem of gems that ne'er grows dim?\n\nHow would you like to share a Beta friendship,\nFriendship that will last through life?\nHow would you like to love a Beta always?\nAnd how would you like to be a Beta wife?"
+    },
+    {
+      "title": "Beta Sweetheart Song",
+      "category": "Sweetheart Songs",
+      "lyrics": "My Beta sweetheart\nYou will always be.\nSoft as the starlight\nKissing the sea bewitching me.\n\nWe'll go on together\nBut if we may part.\nYou'll remain forever\nDeep within my heart.\n\nSo wear this pin, my darling\nIt keeps my love only for you\nMy Beta sweetheart\nYou will always be\nYou will always be."
+    },
+    {
+      "title": "Beta's Emblems",
+      "category": "Brotherhood Songs",
+      "lyrics": "On Beta's night ev'ry heart is light,\nBanished is care and sorrow;\nWe'll hear no sigh till the morn's grey eye\nFresh toil for itself doth borrow.\n\nCHORUS\nThen lift the song! Let it loud and long\nRise to Beta ever glorious!\nStainless and bright is her shield of light;\nHer motto is: \"Aye victorious.\"\n\nThen strong are we in our mystic three\nWhose emblems stand before us;\nFor truth and right we shout tonight,\nLet each Beta join the chorus.\n\nCHORUS\n\nTrusting we stand, heart to heart, hand to hand,\nThe banner of truth waving o'er us;\nTo mutual need we give mutual heed,\nAnd our pledge is ever before us.\n\nCHORUS"
+    },
+    {
+      "title": "Crew Song",
+      "category": "Other",
+      "lyrics": "Heigh Ho, anybody home?\nNo drink, nor food, nor money have I none.\nStill I will be merry anyhow\nSince I joined the Beta Crew!\n\nHeigh Ho, anybody home?"
+    },
+    {
+      "title": "The Crow Song",
+      "category": "Drinking Songs",
+      "lyrics": "Three hungry Greeks went forth one day,\nVive la Theta Pi!\nThree hungry Greeks went forth one day,\nVive la Theta Pi!\nThree hungry Greeks went forth one day\nTo where old Wooglin holds his sway\nAnd they all filled their lungs and cried:\nPhi-Kai-Phi! Vive la Theta Pi!\nAnd they all filled their lungs and cried:\nVive la Theta Pi!\n\nSaid one grim Greek unto his mates,\nVive la Theta Pi!\nSaid one grim Greek unto his mates,\nVive la Theta Pi!\nSaid one grim Greek unto his mates,\n'Tis here there live two potentates,\nAnd they all filled their lungs and cried:\nPhi-Kai-Phi! Vive la Theta Pi!\nAnd they all filled their lungs and cried:\nVive la Theta Pi!\n\nThey call them Wooglin and his dog,\nVive la Theta Pi!\nThey call them Wooglin and his dog,\nVive la Theta Pi!\nThey call them Wooglin and his dog,\nThe canine's fat as any hog,\nAnd they all filled their lungs and cried:\nPhi-Kai-Phi! Vive la Theta Pi!\nAnd they all filled their lungs and cried:\nVive la Theta Pi!\n\nIf Wooglin comes forth with his beast,\nVive la Theta Pi!\nIf Wooglin comes forth with his beast,\nVive la Theta Pi!\nIf Wooglin comes forth with his beast,\nWe'll kill the pup and have a feast,\nAnd they all filled their lungs and cried:\nPhi-Kai-Phi! Vive la Theta Pi!\nAnd they all filled their lungs and cried:\nVive la Theta Pi!\n\nThen here's to Beta Theta Pi,\nVive la Theta Pi!\nThen here's to Beta Theta Pi,\nVive la Theta Pi!\nThen here's to Beta Theta Pi,\nFill up your lungs and give the cry!\nAnd they all filled their lungs and cried:\nPhi-Kai-Phi! Vive la Theta Pi!\nAnd they all filled their lungs and cried:\nVive la Theta Pi!"
+    },
+    {
+      "title": "Draw the Mystic Circle 'Round",
+      "category": "Other",
+      "lyrics": "Then draw the mystic circle 'round,\nHearts and voices blending;\nLet us pledge each other now\nFriendship never ending.\n\nThen chase away till coming day\nThe thought that we must sever,\nAnd pledge to Beta Theta Pi\nFidelity forever."
+    },
+    {
+      "title": "For The Staunchest",
+      "category": "Brotherhood Songs",
+      "lyrics": "For the staunchest band of brothers,\nRaise you hands on high\nTest your strength against all others,\nBeta Theta Pi\n\nCHORUS\nHail the fairest; Hail O Beta;\nHail in Phi Kai Phi\nNow the clan to us the closest;\nBeta Theta Pi\n\nWhen our college days are over\nWe will toast on high\nOur fraternity beloved,\nBeta Theta Pi.\n\nCHORUS"
+    },
+    {
+      "title": "The Froggie Song",
+      "category": "Other",
+      "lyrics": "A little frog sat on the well,\non the well,\nHe said that here he'd like to dwell,\nhe'd like to dwell,\nAnd so the chapter let him in,\nand made a Beta Beta out of him.\n\nAnother frog sat on the well,\non the well,\nHe sang with fire in his eye,\noh, in his eye,\nSaid he, I am a chapter man,\nIn dear old Beta Beta Theta Pi.\n\nJim Dumps he leads a sorry life,\nsorry life,\nHe has the meanest kind of wife,\noh, kind of wife,\nHis children would always get the croup,\nand they would cry like Billy Roup.\n\nAt last quite driven to despair,\nto despair,\nJim Dumps got up and tore his hair,\nhe tore his hair,\nUntil his wife brought home some force to him,\nthe force that made him Sunny Jim.\n\nThe Dean she leads a dirty life,\ndirty life,\nShe eats potatoes with her knife,\noh, with her knife,\nAnd when she takes her semi-annual scrub,\nshe leaves a ring around the tub –\nThe dirty Dean."
+    },
+    {
+      "title": "Gemma Nostra",
+      "category": "Hymns",
+      "lyrics": "Gemma nostra candeat, obscurata nunquam,\nAtque sertus conserat, caritatis unquam.\n\nCHORUS\nSalve! Beta Theta Pi, tu regina pura;\nCara tu meo cordi, cara, cara, cura.\n\nStella quisquay scintillet,\nSunt omnes aequales,\nNunc adsint si quillibet,\nInternos sodales.\n\nCHORUS\n\nInter fratres veritas,\nHonor amicitia,\nFides, virtus jus et fas,\nOmnes sint notitia.\n\nCHORUS"
+    },
+    {
+      "title": "I Took My Girl Out Walking",
+      "category": "Drinking Songs",
+      "lyrics": "I took my girl out walking late last Saturday night,\nI took my girl out walking the moon was shining bright.\nI asked her if she'd marry me and what do you think\nshe said\nShe said she would not marry me if the whole wide world\nwere dead.\n\nCHORUS\nThat's why I do like I do like I do, my darling,\nDo like I do like I do, my darling,\nDo like I do like I do, my darling,\nDo like I do like I do.\n\nLast night I went to see her happy as could be,\nTonight she's out with another she cares no more for me;\nSo here's to a bottle of whiskey sparkling and so clear,\nIt's not as sweet as a young maid's kiss but a darn sight\nmore sincere.\n\nCHORUS\n\nOh you must be a Beta, a Beta Theta Pi,\nFor if you are a Beta you'll be one till you die;\nSo sing your songs of Wooglin boys and raise your\nvoices high\nFor you must know the best of all is found in Phi Kai Phi.\n\nCHORUS"
+    },
+    {
+      "title": "In an Old Fashioned Garden",
+      "category": "Sweetheart Songs",
+      "lyrics": "In an old fashioned garden I found you\nAnd lovely old flowers were there;\nWith their beauty and fragrance around you\nBut none could with you compare\n\nAs we stood in the twilight together\nEach blossom our love did disclose;\nOf each flower a part\nYou're the flower of my heart\nAnd I called you my Beta Rose."
+    },
+    {
+      "title": "In the Old Porch Chairs",
+      "category": "Brotherhood Songs",
+      "lyrics": "When the shades of evening gather down around you,\nString your old guitar and strum a tune or two;\nThere's your Alma Mater — \"finest of the fine.\"\nThere's fair Beta — Beta, yours and mine.\n\nWhen the pipes are glowing in the old porch chairs,\nPlink your mandolin and plunk your chapter airs;\nThere's the \"absent member\" — she for whom you pine;\nThere's fair Beta - Beta, yours and mine."
+    },
+    {
+      "title": "The Jolly Greeks",
+      "category": "Drinking Songs",
+      "lyrics": "Barbarians we to college came,\nSwedele dum bum;\nBut soon we learned to hate that name,\nSwedele dum bum.\nFor slowly passed the unpleasant weeks,\nSwedele tchu hirasa,\nUntil we joined the Jolly Greeks\nSwedele dum bum.\n\nCHORUS\nLitoria, Litoria, swedele we tchu hirasa!\nLitoria, Litoria swedele dum bum!\n\nThe tutors made us grub and dig,\nSwedele dum bum;\nThe lessons tough, and deep and big,\nSwedele dum bum.\nBut when we tasted college sweets,\nSwedele tchu hirasa,\nWas when we joined the Jolly Greeks,\nSwedele dum bum.\n\nCHORUS"
+    },
+    {
+      "title": "Let All Stand Together",
+      "category": "Hymns",
+      "lyrics": "Let all stand together — a band of true men\nVive la Theta Pi!\nAnd help one another with hand, mouth and pen,\nVive la Theta Pi!\n\nCHORUS\nVive la, vive la, vive la va\nVive la, vive la, vive la va\nVive la va, hop sa sa,\nVive la Theta Pi!\n\nWe'll merit the trust that our brothers repose,\nVive la Theta Pi!\nAnd sooner will die than betray to their foes,\nVive la Theta Pi!\n\nCHORUS\n\nThus honor shall come to the badge that we wear,\nVive la Theta Pi!\nAnd every true Beta that honor shall share,\nVive la Theta Pi!\n\nCHORUS"
+    },
+    {
+      "title": "The Loving Cup",
+      "category": "Hymns",
+      "lyrics": "Oh, start the loving cup around,\nNor pass a brother by;\nWe all drink from the same canteen\nIn Beta Theta Pi.\nOh, you and I can ne'er grow old\nWhile this fair cup is nigh;\nHere's life and strength,\nHere's health and wealth,\nHere's all in Phi-Kai-Phi.\n\nOh, start the loving cup around,\nIt speaks of other days;\nWe see the milestones backward run\nWhen on this cup we gaze.\nOur grip grows strong,\nBold comes our song\nWhen this fair cup we raise,\nSo pass the loving cup around\nAnd drink in Beta's praise.\n\nOh, start the loving cup around,\nIt holds a something clear,\n'Tis brimming with a potion that\nWill fill you with good cheer.\nCome drink with me\nAnd bid your ills\nForth-with to disappear;\nWe'll never in this world let fall\nThe cup we all hold here."
+    },
+    {
+      "title": "Marching Along",
+      "category": "Other",
+      "lyrics": "Dreary the man who spurns his comrades,\nStumbling along his lonely way;\nHappier he who joins his brothers'\nSinging a Beta lay!\n\nCHORUS\nMarching along in Beta Theta Pi,\nMarching along, we'll rend the air with song'\nStrong in the might of our bond fraternal,\nFriend of the right and the foe of the wrong!\nFollowing paths old Wooglin blazed for us,\nTill we arrive at thy shrine on high,\nSinging again Mother of Men,\nHail to thee, Beta Theta Pi!\n\nSo in the night of care and sorrow,\nMurky with clouds that shroud our way,\nWe will invoke a brighter morrow,\nSinging a Beta lay!\n\nCHORUS"
+    },
+    {
+      "title": "My Beta Girl",
+      "category": "Sweetheart Songs",
+      "lyrics": "Night, and the fireside glowing,\nCasting its spell over me;\nSitting there idly dreaming,\nThinking of one dear to me;\nSeems that I see her there in the soft glow,\nThe sweetest of all I know.\n\nCHORUS\nSweetheart of mine, my Beta girl,\nFairest of all, my Beta girl;\nEyes blue as skies of Beta blue,\nCheeks like the rose of Beta hue;\nTender and true, a pal to all;\nWorthy of Beta's name;\nYou are my light, my diamond so bright,\nMy sweetheart, my Beta girl!\n\nAnd then when I start dreaming,\nDreams bring back memories to me;\nMem'ries like moon-beams gleaming,\nShadows of my love to see;\nShe wears my diamond, my three stars of gold,\nAnd this tells the story old.\n\nCHORUS"
+    },
+    {
+      "title": "Parting Song",
+      "category": "Hymns",
+      "lyrics": "And now let hand grip into hand,\nAnd eye look into eye,\nAs breaks the leal and loving band\nOf Beta Theta Pi;\nOf Beta Theta Pi, my boys,\nOf Beta Theta Pi;\nAs breaks the leal and loving band\nOf Beta Theta Pi.\n\nThe outside world is wrapped in sleep,\nNo barbaros is nigh,\nAs we these midnight vigils keep\nOf Beta Theta Pi;\nOf Beta Theta Pi, my boys,\nOf Beta Theta Pi;\nAs we these midnight vigils keep\nOf Beta Theta Pi.\n\nAnd now let hand grip into hand\nAnd eye look into eye,\nAs love flows free from heart to heart\nin Beta Theta Pi;\nIn Beta Theta Pi, my boys,\nIn Beta Theta Pi;\nAs love flows free from heart to heart\nIn Beta Theta Pi."
+    },
+    {
+      "title": "Serenade Song",
+      "category": "Other",
+      "lyrics": "And now it's growing late,\nAnd it's time to say adieu,\nWe like to hesitate, stay and sing some more with you,\nSo close your drowsy eyes\nAs we end this little theme,\nWe'll see you bye and bye in the Beta land of dreams."
+    },
+    {
+      "title": "She Wears My Beta Pin",
+      "category": "Other",
+      "lyrics": "Oh, she wears my Beta pin, yes, she wears my Beta pin;\nShe has a right to wear my Beta pin.\nStars that light the Beta skies, lend their lustre to her eyes,\nOf course she has a right to wear my pin, my Beta pin.\n\nWhen she wears my Beta pin, when she wears my Beta pin,\nThe Diamond's rarest hues flame from within;\nO'er her heart the Shield of Gold tells a story very old,\nYou know she has a right to wear my pin, my Beta pin."
+    },
+    {
+      "title": "The Sons of the Dragon",
+      "category": "Wooglin Songs",
+      "lyrics": "The dragon is lord of the beasts of the wold\nAnd the ruler of birds of the air;\nAnd Wooglin of old found him dauntless and bold,\nAs the guard of his secret lair.\nOur pride and our dream is to keep him supreme\nAnd we pledge him with hands raised high:\nWe're the sons of the dragon, and forevermore\nWe are guarding Beta Theta Pi!\n\nThe sons of the dragon are valiant and brave,\nEver ready to enter the fray;\nOh, what can assail or what can prevail\n'Gainst the strength of the dragon's sway!\nAnd strong in our might we go forward to fight\nWith the shout of our battle cry:\nWe're the sons of the dragon, and forevermore\nWe are guarding Beta Theta Pi!"
+    },
+    {
+      "title": "Sweetheart Song",
+      "category": "Other",
+      "lyrics": "Just put her in a corner,\nAnd hold her tight like this,\nJust put your arms around her waist,\nAnd on her lips a kiss, if she'll let you;\nAnd it she starts to murmur,\nAnd if she starts to cry,\nJust tell her it's the sacred seals, of\nBeta Theta Pi.\n\nHer eyes are blue as Beta skies,\nHer cheeks are like a rose,\nShe's different from all other girls,\nHow I love her no one knows;\nAnd in my fondest memories,\nNever shall we part,\nFor she is my dear one, and I am her dear one,\nShe's my sweetheart in Phi Kai Phi."
+    },
+    {
+      "title": "There's a Scene",
+      "category": "Brotherhood Songs",
+      "lyrics": "There's a scene where brothers greet,\nWhere true kindred hearts do meet\nAt an altar sending love's sweet incense high,\nWhere is found without alloy,\nPurest store of earthly joy;\n'Tis within the halls of Beta Theta Pi.\n\nCHORUS\nCheer! Cheer! Cheer! With hearts rejoicing!\nBrightly sparkles ev'ry eye;\nAnd our bosoms feel the glow\nNone but brothers' hearts may know,\nWhile we sing the songs of Beta Theta Pi.\n\nFriendship gave our order birth,\nPure and lasting as the earth;\nStrong devotion to our motto gave us life;\nWith the help of brothers dear,\nAnd of God, we've naught to fear,\nAs we mingle in the din of earthly strife.\n\nCHORUS\n\nYes, and Beta girls there are,\nPure and lovely, passing fair,\nWho with brightest smiles enliven all our way;\nMay our brothers ever prove\nWorthy of such noble love,\nLong as time shall last or earth shall have a day.\n\nCHORUS"
+    },
+    {
+      "title": "Ti-de-i-de-o",
+      "category": "Drinking Songs",
+      "lyrics": "Ti-de-i-de-o, ti-de-i-de-o, de-i, de-i, de-i, de-i-de-o\nAll the others take their hats off to us, boom,\nBoom, boom,\nWe are the people so they say, so they say\nLive on the shady side of Easy Street\nAnd this is our night to shine, mm, mm, mm\n\nCome along ye children, come along we say,\nBoom boom, boom,\nCome along the stars are shining bright,\nBright, bright, bright\nHop in our boat and we'll all take a float\nFor we're all out to have a good time, mm, mm, mm\n\nWe are the people, people, we are the people, people,\nWe are the people so they say, so they say;\nWe wear the diamond, we wear the diamond,\nWe wear the diamond and three stars.\n\nOh, you must be a Beta Theta Pi or you won't go\nto Wooglin when you die, and why, cause,\nWe are the people, people, we are the people, people,\nWe are the people so they say, so they say;\nWe wear the diamond, we wear the diamond,\nWe wear the diamond and three stars.\n\nDe ump, de ump, de ump, jump, jump, jump, ish posh,\nice posh, i\nIce rosh a nice rosh, riff, raff, do faff, fang dang\na yellow bucket,\nRing dang doodle won't you kai, bo"
+    },
+    {
+      "title": "To the Pledge",
+      "category": "Wooglin Songs",
+      "lyrics": "The three bright stars are yours, my boy,\nYou're pledged to Beta's band;\nGuard well your shield from life's alloy!\n'Tis Wooglin's stern command.\n\nAnd if old Wooglin sees you live\nA life his praise can win,\nYou'll have the best that life can give,\nYou'll wear the Beta pin.\n\nAnd when our circle folds you in,\nOur Mysteries you'll know:\nYou'll feel the bond that makes us kin,\nThat sets our hearts aglow.\n\nSo steer your path towards Wooglin's den,\nAnd with us sing his praise,\nUntil he makes you blest of men\nFor all your span of days."
+    },
+    {
+      "title": "We Are the People",
+      "category": "Other",
+      "lyrics": "Ti-de-i-de-o, ti-de-i-de-o, de-i, de-i, de-i, de-i-de-o\nAll the others take their hats off to us, boom,\nBoom, boom,\nWe are the people so they say, so they say\nLive on the shady side of Easy Street\nAnd this is our night to shine, mm, mm, mm\n\nCome along ye children, come along we say,\nBoom boom, boom,\nCome along the stars are shining bright,\nBright, bright, bright\nHop in our boat and we'll all take a float\nFor we're all out to have a good time, mm, mm, mm\n\nWe are the people, people, we are the people, people,\nWe are the people so they say, so they say;\nWe wear the diamond, we wear the diamond,\nWe wear the diamond and three stars.\n\nOh, you must be a Beta Theta Pi or you won't go\nto Wooglin when you die, and why, cause,\nWe are the people, people, we are the people, people,\nWe are the people so they say, so they say;\nWe wear the diamond, we wear the diamond,\nWe wear the diamond and three stars."
+    },
+    {
+      "title": "We Gather Again",
+      "category": "Hymns",
+      "lyrics": "There's a legend among us, you know, brother,\nThat Wooglin only reigns\nWith those in these regions below, brother,\nWho value the force of brains.\nAnd he will not crown your brow, brother,\nUnless in the battle's strife\nBy winning each victory now, brother,\nYou win in a bright way thro' life.\n\nCHORUS\nSo, linked in our mystical chains brother,\nWe'll raise our fair banner on high;\nAnd be true to old Wooglin, who reigns, brother,\nIn Beta Theta Pi\n\n'Tis not by the fortunes of fate, brother,\nThat lasting fame is won;\nThey only are victors great, brother,\nWho win ev'ry step they run.\nThen keep our motto in view, brother,\nAnd ever with lofty aim\nBe fearless and pure, and true, brother,\nAnd Wooglin will guard your fame.\n\nCHORUS"
+    },
+    {
+      "title": "Wooglin Forever!",
+      "category": "Wooglin Songs",
+      "lyrics": "We are coming from the East, boys, we're coming\nfrom the West,\nShouting \"Old Wooglin forever,\"\nAnd the boys of sunny Southland are coming with\nthe rest,\nShouting \"Old Wooglin forever!\"\n\nCHORUS\nWooglin forever! hurrah, boys, hurrah!\nLong beam our Diamond and bright shine our Stars!\nFor we'll gather at the shrine, boys, we'll gather once\nagain,\nShouting \"Old Wooglin forever!\"\n\nHere's a health to \"Pater' Knox boys, and them of thirty-\nnine,\nShouting \"Old Wooglin forever!\nAnd the sons that follow after them in long illustrious\nline,\nShouting \"Old Wooglin forever!\n\nCHORUS\n\nOur hearts and hands to Beta men, wherever they\nmay roam,\nLight be their footsteps and ever\nA kindly thought for us, boys, who still remain\nat home,\nShouting \"Old Wooglin forever!\"\n\nCHORUS"
+    },
+    {
+      "title": "Wooglin Gives Us the Reason Why",
+      "category": "Other",
+      "lyrics": "Sittin' in that hallowed hall, in eighteen thirty nine.\nEight men founded a fraternity, the greatest of all time.\nOne man named John Reily Knox, looked into their eyes.\nHe said \"Brothers won't you sing with me?\"\nAnd this is what they cried:\n\nCHORUS\nBeta Theta Pi\nWooglin gives us the reason why.\nBeta Theta Pi,\nAnd still we all marched on.\n\nOne day we will be the best, is what he said back then.\nBoy, if he could see us now, the stars would shine again.\nListen son, I'm passing down, the spirit that I know.\nSo throughout all your college days,\nYour brotherhood will grow.\n\nCHORUS\n\nIf you're wander'in down that path alone,\nJust look up to the sky.\nNo brother ever walks alone,\nthose stars will be your guide.\nMy dear son come at my side,\nLet hand grip into hand.\nThe dragon is our sovreign guide,\nAnd ruler of this land.\n\nCHORUS"
+    },
+    {
+      "title": "Wooglin to the Pledge",
+      "category": "Wooglin Songs",
+      "lyrics": "Come, smoke a friendly pipe with me\nAnd drink my loyal ale,\nCome, tilt a chair and loaf awhile\nAgainst my fireside rail.\nYou'll feel a kind of something warm\nYour marrow thro' and thro';\nYou'll feel a whole lot better off\nWhen you're a Beta, too!\n\nCHORUS\nHurrah! hurrah! come, drink of a Beta brew!\nIt's up to you to pledge anew, and join our jolly crew!\nHurrah! hurrah! come, drink of a Beta brew!\nIt's up to you to pledge anew, and join our jolly crew!\n\nDip in my old tobacco pouch\nIt holds the best, by far!\nTake all you want, take all I have\nYes, take my last cigar.\nAnd when a Beta offers you his hand You may be sure\nHis heart is in the bargain, too,\nAnd all he has is yours.\n\nCHORUS"
+    },
+    {
+      "title": "You're the Girl of a Beta's Dreams",
+      "category": "Other",
+      "lyrics": "Most days run along very much the same,\nEach is filled with its joy and regret;\nBut the day that you came, and I first knew your name,\nIt's the day I can never forget.\n\nLike an old romance where things come by chance,\nIs the way that you came to me;\nAnd I found delight in your smile so bright,\nAnd you showed me what love could be.\n\nYour eyes, your hair, and your face so fair,\nLike an old masters painting it seems.\nThere is no one like you, there is no love to true;\nYou're the girl of a Beta's dreams."
+    },
+    {
+      "title": "Thus Heart to Heart",
+      "category": "Hymns",
+      "lyrics": "Thus heart to heart and hand to hand,\nEach other's joy and grief to share;\nBehold how Beta brothers stand,\nAnd read our mystic symbol there.\n\nHaste thee, oh Theta's golden age\nOf cultured thought and lettered brain;\nHail bloodless conqueror and sage,\nMonarch of mind, forever reign.\n\nBehold at last the symbol mete\nThat binds our hearts with mystic tie;\nThus Wooglin's legend stands complete,\nBeta to Theta linked with Pi."
+    },
+    {
+      "title": "My Beta Sweetheart",
+      "category": "Other",
+      "lyrics": "My Beta sweetheart\nYou will always be.\nSoft as the starlight\nKissing the sea bewitching me.\n\nWe'll go on together\nBut if we may part.\nYou'll remain forever\nDeep within my heart.\n\nSo wear this pin, my darling\nIt keeps my love only for you\nMy Beta sweetheart\nYou will always be\nYou will always be."
+    },
+    {
+      "title": "Good Betas Sing Forever",
+      "category": "Drinking Songs",
+      "lyrics": "[Lyrics not available in this edition]"
+    },
+    {
+      "title": "Ring the Bells of Old Miami",
+      "category": "Drinking Songs",
+      "lyrics": "[Lyrics not available in this edition]"
+    },
+    {
+      "title": "We'll Always Hang Together",
+      "category": "Drinking Songs",
+      "lyrics": "[Lyrics not available in this edition]"
+    },
+    {
+      "title": "I Love You, (Only You) Beta Girl",
+      "category": "Sweetheart Songs",
+      "lyrics": "[Lyrics not available - uses My Beta Girl melody]"
+    },
+    {
+      "title": "My Beta Girl (You're the Only Girl)",
+      "category": "Other",
+      "lyrics": "Night, and the fireside glowing,\nCasting its spell over me;\nSitting there idly dreaming,\nThinking of one dear to me;\nSeems that I see her there in the soft glow,\nThe sweetest of all I know.\n\nCHORUS\nSweetheart of mine, my Beta girl,\nFairest of all, my Beta girl;\nEyes blue as skies of Beta blue,\nCheeks like the rose of Beta hue;\nTender and true, a pal to all;\nWorthy of Beta's name;\nYou are my light, my diamond so bright,\nMy sweetheart, my Beta girl!\n\nAnd then when I start dreaming,\nDreams bring back memories to me;\nMem'ries like moon-beams gleaming,\nShadows of my love to see;\nShe wears my diamond, my three stars of gold,\nAnd this tells the story old.\n\nCHORUS"
+    }
+  ]
+}
