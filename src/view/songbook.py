@@ -23,8 +23,11 @@ def can_manage_songs(user):
     """Check if user can add/edit/delete songs"""
     if user.is_admin or user.member_type in ['Officer', 'Chair']:
         return True
-    # Check if user has the Chorister role
-    return user.roles.filter(code='Chorister').exists()
+    # Check if user has the Chorister role. v3.35.3: its CODE is 'CHOIR'
+    # (created by manage_categories below, name 'Chorister'). This compared
+    # against the name, so an assigned Chorister who was a plain Member could
+    # never add or edit a song.
+    return user.roles.filter(code='CHOIR').exists()
 
 
 @login_required

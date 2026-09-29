@@ -599,7 +599,7 @@ def calendar_subscription_feed(request, token):
     cal.add('version', '2.0')
     cal.add('x-wr-calname', f'Chapter Events - {user.get_display_name()}')
     cal.add('x-wr-caldesc', 'Personal chapter events calendar - automatically updated')
-    cal.add('x-wr-timezone', 'America/Chicago')
+    cal.add('x-wr-timezone', settings.TIME_ZONE)  # the chapter's zone (multi-chapter 3e)
     # Suggest a 1-hour refresh to subscribing clients.
     #
     # v3.17.3: these were raw 'PT1H' strings. That produces correct output on

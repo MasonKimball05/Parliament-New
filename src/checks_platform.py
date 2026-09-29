@@ -51,4 +51,41 @@ def chapter_config_is_valid(app_configs, **kwargs):
                  "founding_semester must be exactly 'Fall' or 'Spring'.",
             id='src.E001',
         )]
+    # 09-29-26 (slice 3e) — the chapter's reference_documents.json is read on
+    # every C&B viewer and reference-PDF request, and a bad one 500s ALL of
+    # them (the fraternity PDFs too). Same failure class, same check.
+    from src.chapter_content import ChapterContentError, load_reference_documents
+    try:
+        load_reference_documents()
+    except ChapterContentError as e:
+        return [CheckError(
+            f'The chapter content is invalid, so the C&B page and every reference-PDF page would fail: {e}',
+            hint='Fix <CHAPTER_CONTENT_DIR>/reference_documents.json (see src/chapter_content.py).',
+            id='src.E001',
+        )]
     return []
+
+
+@register()
+def chapter_structure(app_configs, **kwargs):
+    """src.W006 (09-29-26) — the roles/committees the code depends on exist.
+
+    See src/chapter_structure.py. A warning, not an error: a chapter mid-setup
+    runs `check` before it has seeded anything, and an officer changeover can
+    leave a flag briefly unset. Schema errors are left to src.W002.
+    """
+    from django.db.utils import DatabaseError
+    from src.chapter_structure import structure_problems
+    try:
+        problems = structure_problems()
+    except DatabaseError:
+        return []
+    if not problems:
+        return []
+    return [CheckWarning(
+        'Roles/committees the code depends on are missing or ambiguous:\n  - ' + '\n  - '.join(problems),
+        hint='Renaming roles and committees is fine; their codes and flags are what the code uses. '
+             'Restore missing defaults with `manage.py restore_committees_and_roles --skip-existing`, '
+             'and set committee flags in the admin (exactly one committee per flag).',
+        id='src.W006',
+    )]

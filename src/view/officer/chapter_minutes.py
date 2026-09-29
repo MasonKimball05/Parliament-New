@@ -7,7 +7,6 @@ import io
 import json
 import re
 from datetime import date
-from zoneinfo import ZoneInfo
 
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import render, redirect, get_object_or_404
@@ -1255,9 +1254,10 @@ def generate_minutes_pdf_buffer(minutes):
         f"Minutes recorded by: {minutes.created_by.get_display_name()}",
         style_footer
     ))
-    central_time = timezone.now().astimezone(ZoneInfo('America/Chicago'))
+    # Chapter's own TIME_ZONE (multi-chapter 3e; was a hard-coded America/Chicago + 'CT').
+    local_time = timezone.localtime()
     elements.append(Paragraph(
-        f"Downloaded: {central_time.strftime('%B %d, %Y at %I:%M %p')} CT",
+        f"Downloaded: {local_time.strftime('%B %d, %Y at %I:%M %p %Z')}",
         style_footer
     ))
 

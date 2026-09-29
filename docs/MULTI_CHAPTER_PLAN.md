@@ -105,7 +105,12 @@
      - Both are database rows. Roles are created and edited in the app (`manage_roles`), committees in the admin.
      - `Role.DEFAULT_ROLES` and `Committee.DEFAULT_COMMITTEES` are the fraternity's standard exec structure, with nothing chapter-specific. `restore_committees_and_roles` bootstraps them for a new chapter.
      - The constraint is that code keys on their **codes** (`KAI`, `EXEC`, `EDUCATION`, `VPP`, `VPE`, …, about 14 references). So a chapter can rename or add committees and roles, but must keep those codes.
-     - Suggested next step, not built: a system check that warns when a required code is missing, pointing at `restore_committees_and_roles`. That would catch a new chapter that deleted "Kai Committee".
+     - ✅ **Slice 3e, done 09-29-26: the required-structure check.** The audit found that committees are looked up by **flag** (`Committee.objects.get(is_kai_committee=True)` and friends, ~20 places), not by code, and roles by **code** (10 codes: the 9 exec roles for the exec-board sync, plus `VPP`, `VPR`, `CNB` and `President` in specific features). `KAI` itself is only compared by code in `apps.COMMITTEE_FLAG_DEFAULTS`.
+       - `src/chapter_structure.py` registers them, with what breaks without each.
+       - **`src.W006`** (in `checks_platform.py`) warns when a required role code is missing, when a special-committee flag (exec, Kai, chapter, recruitment, education) is on zero committees or on more than one (`.get()` would 500), or when the `EXEC` code is gone (templates link to it). It is silent on an empty database. Slating is exempt: each slating period makes its own flagged committee.
+       - Guard `test_required_role_codes` fails if new code looks up a role code that isn't registered. **It found a real bug on its first run:** `can_manage_songs` checked `code='Chorister'` (the role's *name*; its code is `CHOIR`), so an assigned Chorister who was a plain Member couldn't manage songs. Fixed here and on main (v3.35.3).
+       - **Not changed, worth knowing:** `restore_committees_and_roles` matches committees and roles by **id**, and without `--skip-existing` it overwrites the code and name of whatever row has ids 1–11 (committees) or 1–10 (roles). Safe on a fresh database, destructive on one whose ids differ. And the `CHAPTER` committee isn't in `DEFAULT_COMMITTEES`, so a new chapter must create it (W006 says so).
+     - ✅ **Also in 3e:** `reference_documents.json` is validated at startup (`src.E001`), including `title`/`description` types and `{placeholder}`s, so a bad file is a `check` error rather than a 500 on every reference-PDF page. And the four hard-coded `America/Chicago` uses (C&B PDF ×2, minutes PDF, calendar feed `X-WR-TIMEZONE`) follow `TIME_ZONE`; the PDFs now print the zone abbreviation (`CDT`/`CST`) instead of a literal `CT`. Guard: `test_no_hardcoded_timezone`.
    - ✅ **Slice 2a, done 09-27-26:**
      - **PWA.** `manifest.json`, the service worker and the offline page are now rendered by `src/view/pwa.py`, at `/manifest.webmanifest` and `/service-worker.js`.
        - The offline page is embedded in the worker, so there is no offline URL.
@@ -191,7 +196,7 @@ Everything in this list matches how Parliament already treats confidentiality. T
   - These are intentional, and CLAUDE.md says not to re-flag them. **But once there is a second chapter they become a real problem:** that chapter's own member `73` would pass every one of those checks.
   - ✅ **Fixed 09-25-26:** everything goes through `src.permissions.is_platform_owner()` and `{% if user|is_platform_owner %}`. The id comes from `PLATFORM_OWNER_USER_ID` (default `'73'`), and an optional `PLATFORM_OWNER_EMAIL` second factor must also match. `src.W004` warns when a deployment with its own `CHAPTER_DOMAIN` is still on the default. A guard test forbids the `user_id == '73'` literal from coming back.
 - **Bug and feedback reports fall back to your personal email** (`bug_report.py:351`, `feedback.py:367`). That is fine for Alpha Mu, but another chapter's bug reports would reach you.
-- **Timezone.** `TIME_ZONE` is Central, and five places hard-code `America/Chicago` directly, as do the 3 AM crontabs.
+- **Timezone.** ✅ Code follows `TIME_ZONE` since slice 3e. Still Central-only: the 3 AM Celery crontabs run in `CELERY_TIMEZONE`, which is one value per deployment (fine for option C; one schedule for all chapters under A or B).
 
 ## Decisions still needed
 

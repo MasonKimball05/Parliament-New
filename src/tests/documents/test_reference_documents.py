@@ -74,6 +74,30 @@ class ReferenceDocumentsTests(TestCase):
                 with self.assertRaises(ChapterContentError):
                     load_reference_documents()
 
+    def test_loader_rejects_titles_that_would_500_the_page(self):
+        # 09-29-26 (slice 3e): get_reference_documents() .format()s these.
+        for bad in ({'x': {'path': 'a.pdf', 'title': 5}},
+                    {'x': {'path': 'a.pdf', 'title': 'Bylaws {2025}'}},
+                    {'x': {'path': 'a.pdf', 'description': 'The {chapter} rules'}},
+                    {'x': {'path': 'a.pdf', 'title': 'unbalanced {'}}):
+            self._write(bad)
+            with self.subTest(bad=bad), override_settings(CHAPTER_CONTENT_DIR=self.empty_chapter):
+                with self.assertRaises(ChapterContentError):
+                    load_reference_documents()
+        self._write({'x': {'path': 'a.pdf', 'title': 'Bylaws {{2025}} of {school_short}'}})
+        with override_settings(CHAPTER_CONTENT_DIR=self.empty_chapter):
+            self.assertEqual(get_reference_documents()['x']['title'], 'Bylaws {2025} of Samford')
+
+    def test_bad_file_is_a_startup_error_not_a_500(self):
+        # 09-29-26 (slice 3e): src.E001 now also loads reference_documents.json.
+        from src.checks_platform import chapter_config_is_valid
+        with override_settings(CHAPTER_CONTENT_DIR=self.empty_chapter):
+            self.assertEqual(chapter_config_is_valid(None), [])   # no file: fine
+            (self.empty_chapter / 'reference_documents.json').write_text('{not json')
+            errors = chapter_config_is_valid(None)
+        self.assertEqual([e.id for e in errors], ['src.E001'])
+        self.assertIn('reference-PDF', errors[0].msg)
+
     def test_chapter_title_override(self):
         self._write({'constitution-bylaws': {'path': 'legislation_docs/x.pdf', 'title': 'Our Charter'}})
         with override_settings(CHAPTER_CONTENT_DIR=self.empty_chapter):

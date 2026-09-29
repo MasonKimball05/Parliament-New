@@ -9,7 +9,6 @@ Access control:
 import datetime
 import io
 import re
-from zoneinfo import ZoneInfo
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
@@ -337,9 +336,10 @@ def generate_cnb_document_pdf_buffer():
     ))
     elements.append(Paragraph('Constitution &amp; Bylaws', style_cover_title))
     elements.append(HRFlowable(width='40%', thickness=1, color=HexColor('#1e3a5f'), hAlign='CENTER'))
-    generated = timezone.now().astimezone(ZoneInfo('America/Chicago'))
+    # Chapter's own TIME_ZONE (multi-chapter 3e; was a hard-coded America/Chicago + 'CT').
+    generated = timezone.localtime()
     elements.append(Paragraph(
-        f"Compiled from Parliament &mdash; current as of {generated.strftime('%B %d, %Y at %I:%M %p')} CT",
+        f"Compiled from Parliament &mdash; current as of {generated.strftime('%B %d, %Y at %I:%M %p %Z')}",
         style_cover_meta,
     ))
     included_titles = ', '.join(d.get_doc_type_display() for d in documents) or 'None'
@@ -428,7 +428,7 @@ def cnb_document_pdf(request):
     member can view it — same audience as the Document tab itself.
     """
     buf = generate_cnb_document_pdf_buffer()
-    generated = timezone.now().astimezone(ZoneInfo('America/Chicago'))
+    generated = timezone.localtime()
     file_name = f"Constitution_and_Bylaws_{generated.strftime('%Y-%m-%d')}.pdf"
     response = HttpResponse(buf.read(), content_type='application/pdf')
     response['Content-Disposition'] = f'inline; filename="{file_name}"'

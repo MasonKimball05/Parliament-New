@@ -190,6 +190,19 @@ def load_reference_documents():
             continue
         for key in sorted(set(d) - REFERENCE_DOC_KEYS):
             problems.append(f'{slug}: unknown key {key!r}')
+        for key in ('title', 'description'):
+            if key not in d:
+                continue
+            if not isinstance(d[key], str):
+                problems.append(f'{slug}: {key} must be a string')
+                continue
+            # get_reference_documents() runs .format(fraternity=, school_short=,
+            # chapter_name=) on these; a stray brace would 500 every page.
+            try:
+                d[key].format(fraternity='', school_short='', chapter_name='')
+            except (KeyError, IndexError, ValueError, AttributeError) as e:
+                problems.append(f'{slug}: {key} has a bad {{placeholder}} ({e!r}); '
+                                'allowed: {fraternity} {school_short} {chapter_name}, literal braces as {{ }}')
         p = str(d.get('path') or '')
         if not p.strip():
             problems.append(f'{slug}: path is required')
