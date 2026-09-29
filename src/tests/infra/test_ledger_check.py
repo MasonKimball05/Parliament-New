@@ -42,11 +42,25 @@ from django.test import SimpleTestCase
 from src import checks_ledger
 
 
+# 09-28-26 — variables that tell git WHICH repository to use. Inherited from a
+# git hook (the pre-push hook runs this suite), they override `-C <repo>`, and
+# these helpers then `init`/`commit` into the developer's real repository — which
+# is exactly what happened from a linked worktree. Never pass them through.
+_GIT_LOCATION_VARS = frozenset({
+    'GIT_DIR', 'GIT_WORK_TREE', 'GIT_INDEX_FILE', 'GIT_COMMON_DIR', 'GIT_PREFIX',
+    'GIT_OBJECT_DIRECTORY', 'GIT_ALTERNATE_OBJECT_DIRECTORIES',
+})
+
+
+def _clean_env():
+    return {k: v for k, v in os.environ.items() if k not in _GIT_LOCATION_VARS}
+
+
 def _git(repo, *args):
     subprocess.run(
         ['git', '-C', repo, *args],
         capture_output=True, text=True, check=True,
-        env={**os.environ, 'GIT_OPTIONAL_LOCKS': '0',
+        env={**_clean_env(), 'GIT_OPTIONAL_LOCKS': '0',
              'GIT_AUTHOR_NAME': 'T', 'GIT_AUTHOR_EMAIL': 't@example.com',
              'GIT_COMMITTER_NAME': 'T', 'GIT_COMMITTER_EMAIL': 't@example.com'},
     )
@@ -91,7 +105,7 @@ class LedgerCheckTests(SimpleTestCase):
         _git(self.repo, 'commit', '-q', '-m', message)
         result = subprocess.run(
             ['git', '-C', self.repo, 'rev-parse', '--short', 'HEAD'],
-            capture_output=True, text=True, check=True)
+            capture_output=True, text=True, check=True, env=_clean_env())
         return result.stdout.strip()
 
     def _run(self):
@@ -403,7 +417,7 @@ class TheDeployedColumnIsGatedWhereItsEvidenceLivesTests(SimpleTestCase):
 
         head = subprocess.run(
             ['git', 'rev-parse', '--short', 'HEAD'],
-            capture_output=True, text=True, check=False,
+            capture_output=True, text=True, check=False, env=_clean_env(),
             cwd=os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))),
         ).stdout.strip()
         if not head:

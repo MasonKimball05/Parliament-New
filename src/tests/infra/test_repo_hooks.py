@@ -78,8 +78,18 @@ def _hooks_dir():
     configured = out.stdout.strip()
     if configured:
         return configured if os.path.isabs(configured) else os.path.join(_REPO_ROOT, configured)
-    git_dir = _git_dir()
-    return os.path.join(git_dir, 'hooks') if git_dir else None
+    # 09-28-26 — `--git-path hooks`, not `<git-dir>/hooks`: in a linked
+    # worktree `--git-dir` is `.git/worktrees/<name>`, which has no hooks —
+    # they live in the COMMON dir, and this is the form git itself resolves.
+    out = subprocess.run(
+        ['git', 'rev-parse', '--git-path', 'hooks'],
+        cwd=_REPO_ROOT, capture_output=True, text=True, timeout=30,
+        env={**os.environ, 'GIT_OPTIONAL_LOCKS': '0'},
+    )
+    if out.returncode != 0 or not out.stdout.strip():
+        return None
+    path = out.stdout.strip()
+    return path if os.path.isabs(path) else os.path.join(_REPO_ROOT, path)
 
 
 class ThePrePushHookIsInstalledTests(SimpleTestCase):

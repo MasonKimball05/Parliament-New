@@ -76,6 +76,22 @@ _NOT_YET = ('not yet', 'not committed', 'uncommitted', 'pending commit')
 _GIT_TIMEOUT_SECONDS = 10
 
 
+#: 09-28-26 — variables that tell git WHICH repository to use. This check is
+#: about `settings.BASE_DIR`'s repository, and `-C <repo_root>` is how it says
+#: so; an inherited GIT_DIR (every git hook gets one, and in a linked worktree
+#: it is absolute) overrides `-C` and points the check at some other repo.
+_GIT_LOCATION_VARS = frozenset({
+    'GIT_DIR', 'GIT_WORK_TREE', 'GIT_INDEX_FILE', 'GIT_COMMON_DIR', 'GIT_PREFIX',
+    'GIT_OBJECT_DIRECTORY', 'GIT_ALTERNATE_OBJECT_DIRECTORIES',
+})
+
+
+def _git_env():
+    env = {k: v for k, v in os.environ.items() if k not in _GIT_LOCATION_VARS}
+    env['GIT_OPTIONAL_LOCKS'] = '0'
+    return env
+
+
 def _repo_is_shallow(repo_root):
     """
     True when this checkout has truncated history, so `--diff-filter=A` lies.
@@ -88,6 +104,7 @@ def _repo_is_shallow(repo_root):
         result = subprocess.run(
             ['git', '-C', repo_root, 'rev-parse', '--is-shallow-repository'],
             capture_output=True, text=True, timeout=10, check=False,
+            env=_git_env(),
         )
     except (OSError, subprocess.SubprocessError):
         return True
@@ -115,7 +132,7 @@ def _git_added_changelogs(repo_root):
             # `GIT_OPTIONAL_LOCKS=0` — CLAUDE.md 07-09-26: read-only git
             # commands otherwise refresh the index and take `index.lock`, which
             # a sandboxed or read-only checkout may not be able to remove.
-            env={**os.environ, 'GIT_OPTIONAL_LOCKS': '0'},
+            env=_git_env(),
         )
     except (OSError, subprocess.SubprocessError):
         # No git binary, no permission, timeout. Not this guard's business.

@@ -27,6 +27,18 @@ set -uo pipefail
 
 cd "$(git rev-parse --show-toplevel)"
 
+# ⚠️ 09-28-26 — git EXPORTS its repository-location variables to hooks, and in
+# a LINKED WORKTREE (e.g. ~/Documents/GitHub/Parliament-main) GIT_DIR is an
+# absolute path. Every `git -C <tmpdir> …` a test runs then ignores `-C` and
+# acts on THIS repository instead: the ledger-check tests' throwaway
+# `git init` / `git commit` set `core.bare = true` on the real repo and put
+# nine commits named "c" on the real `main`, replacing the worktree's index
+# with a four-file tree. The push only failed because those commits made the
+# ledger tests see the wrong sha. Unset them: after the `cd` above, git finds
+# the repository from the working directory, as it does in a terminal.
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_PREFIX \
+      GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES
+
 # ---------------------------------------------------------------------------
 # Multi-chapter guard (09-25-26) — runs FIRST, before the Django lookup, so it
 # holds even on a machine where the test suite can't run.
