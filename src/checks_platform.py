@@ -85,7 +85,7 @@ def chapter_structure(app_configs, **kwargs):
     return [CheckWarning(
         'Roles/committees the code depends on are missing or ambiguous:\n  - ' + '\n  - '.join(problems),
         hint='Renaming roles and committees is fine; their codes and flags are what the code uses. '
-             'Restore missing defaults with `manage.py restore_committees_and_roles --skip-existing`, '
+             'Create missing defaults with `manage.py restore_committees_and_roles` (matches by code; --dry-run first), '
              'and set committee flags in the admin (exactly one committee per flag).',
         id='src.W006',
     )]

@@ -109,7 +109,11 @@
        - `src/chapter_structure.py` registers them, with what breaks without each.
        - **`src.W006`** (in `checks_platform.py`) warns when a required role code is missing, when a special-committee flag (exec, Kai, chapter, recruitment, education) is on zero committees or on more than one (`.get()` would 500), or when the `EXEC` code is gone (templates link to it). It is silent on an empty database. Slating is exempt: each slating period makes its own flagged committee.
        - Guard `test_required_role_codes` fails if new code looks up a role code that isn't registered. **It found a real bug on its first run:** `can_manage_songs` checked `code='Chorister'` (the role's *name*; its code is `CHOIR`), so an assigned Chorister who was a plain Member couldn't manage songs. Fixed here and on main (v3.35.3).
-       - **Not changed, worth knowing:** `restore_committees_and_roles` matches committees and roles by **id**, and without `--skip-existing` it overwrites the code and name of whatever row has ids 1–11 (committees) or 1–10 (roles). Safe on a fresh database, destructive on one whose ids differ. And the `CHAPTER` committee isn't in `DEFAULT_COMMITTEES`, so a new chapter must create it (W006 says so).
+       - ✅ **Slice 3f, done 09-29-26: `restore_committees_and_roles` matches by code.** It used to `get_or_create(id=n)` and overwrite the code and name of whatever row had ids 1–11 (committees) or 1–10 (roles), which renamed unrelated rows on any database whose ids differ. It also swallowed per-row errors inside one atomic block, which poisons the transaction on PostgreSQL.
+         - Now: existing codes are left alone (renaming is allowed), missing ones are created with database ids, and a name already taken by another code is reported as a conflict instead of being overwritten. Each row gets its own savepoint.
+         - Special flags are set only on committees this run created, and only if no committee holds the flag yet. New `--dry-run` and `--reset-names` options. At the end it prints whatever `src.W006` would still report.
+         - Tests: `test_restore_committees_and_roles` (8); 5 fail and 1 errors against the old command.
+         - Still true: the `CHAPTER` committee isn't in `DEFAULT_COMMITTEES`, so a new chapter creates it by hand (W006 and the command's summary both say so).
      - ✅ **Also in 3e:** `reference_documents.json` is validated at startup (`src.E001`), including `title`/`description` types and `{placeholder}`s, so a bad file is a `check` error rather than a 500 on every reference-PDF page. And the four hard-coded `America/Chicago` uses (C&B PDF ×2, minutes PDF, calendar feed `X-WR-TIMEZONE`) follow `TIME_ZONE`; the PDFs now print the zone abbreviation (`CDT`/`CST`) instead of a literal `CT`. Guard: `test_no_hardcoded_timezone`.
    - ✅ **Slice 2a, done 09-27-26:**
      - **PWA.** `manifest.json`, the service worker and the offline page are now rendered by `src/view/pwa.py`, at `/manifest.webmanifest` and `/service-worker.js`.
@@ -124,8 +128,8 @@
      - Classes between the founders and the first letter get no letter.
      - Badge colors still follow the class index, so they don't change.
      - A malformed anchor is a `src.E001` startup error.
-3. **Pilot chapter** as its own deployment (option C). Write down everything that was painful.
-4. **Tenancy (A or B),** if the pilot says it's worth it.
+3. **Pilot chapter** as its own deployment (option C). Write down everything that was painful. *(Optional now that A is decided: the pilot can be the second chapter on the shared schema instead.)*
+4. **Tenancy: A, shared schema with a `chapter` FK. Decided by Mason 09-29-26.** See "Phase 4 plan" below.
 
 ## Decisions so far (Mason, 09-25-26)
 
@@ -151,7 +155,7 @@
 | **Backups and restores** | One database. Restoring a single chapter is awkward | Per-schema `pg_dump -n` makes a one-chapter restore easy |
 | **Hosting** | One app, one database | Same, plus wildcard DNS/TLS for subdomains; A needs this too if you use subdomains |
 
-**With your answer to (3), I now lean toward A, done carefully.** Transfers make users and cross-chapter awareness first-class, and that is A's strength and B's awkward spot. The isolation risk in A is real but manageable with three pieces:
+**Decided 09-29-26: A (Mason: "let's do shared").** The reasoning that led there: Transfers make users and cross-chapter awareness first-class, and that is A's strength and B's awkward spot. The isolation risk in A is real but manageable with three pieces:
 
 1. A `ChapterScopedManager` that **raises** when it is queried with no chapter in context. Forgetting the filter then crashes a test instead of leaking data.
 2. A guard test that enumerates every ROOT model and fails if it lacks the manager. This is the same "enumerate the population" pattern as `test_singleton_rows`.
@@ -198,8 +202,25 @@ Everything in this list matches how Parliament already treats confidentiality. T
 - **Bug and feedback reports fall back to your personal email** (`bug_report.py:351`, `feedback.py:367`). That is fine for Alpha Mu, but another chapter's bug reports would reach you.
 - **Timezone.** ✅ Code follows `TIME_ZONE` since slice 3e. Still Central-only: the 3 AM Celery crontabs run in `CELERY_TIMEZONE`, which is one value per deployment (fine for option C; one schedule for all chapters under A or B).
 
-## Decisions still needed
+## Phase 4 plan: shared schema (A), decided 09-29-26
 
-1. **A versus B.** I lean A, given single membership plus transfers; see the table above.
-2. **The operator-visibility model.** Adopt the proposal above as written, or adjust it.
-3. **Transfer rules:** pledges, outstanding dues, request expiry, and whether an open Kai case blocks a transfer.
+**Measured 09-29-26:** 149 models in `src`, 117 with a foreign key or M2M to `ParliamentUser`, and 2 singletons (`SiteSetting`, `LandingPageContent`). The work is mostly classification and migrations, not new features. Each step ships on its own, and nothing changes for Alpha Mu until step 4d.
+
+- **4a. `Chapter` model.** It holds the fields `ChapterIdentity` holds today, plus domain, timezone and content dir. A data migration creates Alpha Mu from `settings.CHAPTER`, and `get_chapter()` reads the database row, falling back to settings. No other model changes.
+- **4b. Current chapter.** A middleware sets `request.chapter`, and a contextvar holds it for code with no request. Management commands take `--chapter`. Celery tasks carry the chapter id in their arguments.
+- **4c. Classify every model** into one of three lists, with a guard test that enumerates all 149 and fails on any model in none of them (the same "enumerate the population" pattern as `test_singleton_rows`):
+  - **ROOT:** gets a `chapter` FK. Likely: `ParliamentUser`, `Committee`, `Role`, `Legislation`, `Event`, `Announcement`, `Song`/`SongCategory`, `KaiReport` and its templates/permissions, `SlatingPeriod`, the singletons, and `FeatureFlag`.
+  - **CHILD:** scoped through its parent's FK, e.g. `Vote` through `Legislation`, or `KaiReportActivity` through `KaiReport`. No column; the guard checks that the path to a ROOT exists.
+  - **GLOBAL:** platform-wide on purpose, e.g. `IPBlacklist`, `HoneypotAccess`, CSP reports, `APIToken`?, and the bug tracker (platform owner's).
+- **4d. `ChapterScopedManager`** on every ROOT model. It **raises** when queried with no current chapter, so a forgotten filter fails a test instead of leaking data. `.for_chapter(c)` is for explicit use, and `.unscoped()` is for platform code and is grep-able. Migrations go in batches: nullable FK → backfill Alpha Mu → `NOT NULL`.
+- **4e. Uniqueness per chapter.** `Committee.code/name` and `Role.code/name` become unique per chapter. Usernames and emails stay **globally** unique, because one person is in exactly one chapter and logs in once.
+- **4f. Kai cross-chapter tests,** in the style of the admin confidentiality tests. Chapter B's Kai members see nothing of chapter A's, including search, CSV export, activity logs and file serving.
+- **4g. Django `/admin/` becomes platform-only.** Chapter admins use in-app screens, per the operator-visibility proposal above.
+- **4h. Transfers** (`ChapterTransfer`, see the sketch above), once 4a–4f are in.
+
+**Decisions this plan still needs from Mason:**
+1. **How a request finds its chapter.** Proposal: authenticated requests use `request.user.chapter` (one person, one chapter, so no chapter picker), and anonymous pages (landing, public songbook, login) use the host, e.g. `<chapter>.parliament…` or a chapter's own domain.
+2. **Feature flags and site settings.** Per chapter (proposed: each chapter turns pages on and off) or platform-wide?
+3. **Default songbook.** Proposed: one shared set of fraternity songs (GLOBAL), plus per-chapter songs (ROOT), rather than copying the default songs into every chapter.
+4. **The operator-visibility model.** Adopt the proposal above as written, or adjust it.
+5. **Transfer rules:** pledges, outstanding dues, request expiry, and whether an open Kai case blocks a transfer.
