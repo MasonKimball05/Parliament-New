@@ -92,6 +92,7 @@
      - `seed_resolutions` names the chapter from config, and refuses to run on another chapter, because it seeds the original chapter's real resolution history.
      - The old static `constitution_bylaws.html` and its unrouted view: the template moved to `chapter_content/alpha_mu/templates/archive/`, and the view was deleted.
      - Literals: 91 lines → 66, in 4 files. What's left is the settings defaults (9), the song lyrics (55), the songbook PDF name (1) and one `help_text` in `models/cnb.py` (1). The last one is left alone because changing it needs a migration.
+   - ✅ **Template-override guard, slice 3b, done 09-28-26:** `test_chapter_template_overrides` fails if a file in `chapter_content/*/templates/` shadows an app template that isn't on its `OVERRIDABLE` list (today: `landing/_default_*.html` and `landing/_editor_default_*.html`). So a chapter can't quietly fork `base.html` or `two_factor/verify.html`.
    - Songs.
    - Default roles, committees and houses as editable data.
    - ✅ **Slice 2a, done 09-27-26:**

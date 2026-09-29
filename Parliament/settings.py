@@ -227,8 +227,9 @@ TEMPLATES = [
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
         # CHAPTER_CONTENT_DIR/templates comes FIRST: a chapter overrides a
         # template (e.g. landing/_default_who_we_are.html) by placing a file
-        # with the same name there. Only chapter CONTENT partials should be
+        # with the same name there. Only chapter CONTENT partials may be
         # overridden this way — overriding an app page forks it from updates.
+        # Enforced by src/tests/guards/test_chapter_template_overrides.py.
         'DIRS': [CHAPTER_CONTENT_DIR / 'templates', BASE_DIR / 'templates'],
         # APP_DIRS must be False when a custom 'loaders' list is defined.
         # app_directories.Loader inside the cached.Loader provides the same behavior —
