@@ -52,6 +52,9 @@ class SrcConfig(AppConfig):
         # so they are always written stale — five releases running. See
         # src/checks_ledger.py, and note it says nothing about DEPLOYMENT.
         import src.checks_ledger  # noqa: F401  (registers a system check)
+        # v3.35.3 — warns (src.W005) when SITE_MONITOR_TOKEN is set but too
+        # short to be honoured. See src/site_monitor.py.
+        import src.checks_site_monitor  # noqa: F401  (registers a system check)
 
         from django.db.models.signals import post_migrate
         post_migrate.connect(_set_committee_flags, sender=self)
