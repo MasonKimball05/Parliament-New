@@ -12,7 +12,7 @@ import colorsys
 import math
 from datetime import date
 
-from django.test import TestCase, Client
+from django.test import TestCase, Client, override_settings
 from django.urls import reverse
 
 from src.models import ParliamentUser
@@ -178,3 +178,53 @@ class PledgeClassFoundingFromChapterConfigTests(TestCase):
         with override_settings(CHAPTER={**settings.CHAPTER, 'founding_semester': 'Autumn'}):
             with self.assertRaises(ValueError):
                 pc.all_classes(date(2023, 3, 1))
+
+
+class LetteringAnchorTests(TestCase):
+    """09-28-26 — CHAPTER['lettering_anchor'] for chapters whose lettering
+    doesn't start the semester after founding."""
+    TODAY = date(2026, 9, 28)
+
+    def _classes(self, **cfg):
+        from django.conf import settings
+        with override_settings(CHAPTER={**settings.CHAPTER, **cfg}):
+            return {c['label']: c['greek'] for c in pc.all_classes(self.TODAY)}
+
+    def test_default_anchor_is_unchanged(self):
+        default = self._classes()
+        explicit = self._classes(lettering_anchor='Spring 2023 = Alpha')
+        self.assertEqual(default, explicit)
+        self.assertEqual(default['Spring 2023'], 'Alpha')
+
+    def test_anchor_shifts_the_sequence(self):
+        c = self._classes(lettering_anchor='Fall 2023 = Xi')
+        self.assertEqual(c['Fall 2022'], 'Founder')
+        self.assertEqual(c['Fall 2023'], 'Xi')
+        self.assertEqual(c['Spring 2024'], 'Omicron')
+        self.assertEqual(c['Spring 2023'], 'Nu')
+
+    def test_classes_before_lettering_began_have_no_letter(self):
+        c = self._classes(lettering_anchor='Fall 2024 = Alpha')
+        self.assertEqual(c['Spring 2023'], '')
+        self.assertEqual(c['Spring 2024'], '')
+        self.assertEqual(c['Fall 2024'], 'Alpha')
+        self.assertEqual(c['Spring 2025'], 'Beta')
+
+    def test_doubled_names_parse_both_ways(self):
+        self.assertEqual(pc._greek_position('Alpha Beta'), 25)
+        self.assertEqual(pc._greek_for_position(25), 'Alpha Beta')
+        c = self._classes(lettering_anchor='spring 2023 = omega')
+        self.assertEqual(c['Fall 2023'], 'Alpha Alpha')
+
+    def test_colors_follow_the_index_not_the_letter(self):
+        from django.conf import settings
+        with override_settings(CHAPTER={**settings.CHAPTER, 'lettering_anchor': 'Fall 2023 = Xi'}):
+            shifted = [c['color'] for c in pc.all_classes(self.TODAY)]
+        self.assertEqual(shifted, [c['color'] for c in pc.all_classes(self.TODAY)])
+
+    def test_malformed_anchor_is_a_startup_error(self):
+        from django.conf import settings
+        from src.checks_platform import chapter_config_is_valid
+        for bad in ('Alpha', 'Summer 2023 = Alpha', 'Fall 2023 = Alfa', 'Fall 23 = Alpha'):
+            with self.subTest(bad=bad), override_settings(CHAPTER={**settings.CHAPTER, 'lettering_anchor': bad}):
+                self.assertEqual([e.id for e in chapter_config_is_valid(None)], ['src.E001'])

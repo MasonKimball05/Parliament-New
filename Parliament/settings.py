@@ -294,6 +294,10 @@ CHAPTER = {
     # semester in the registry; lettering (Alpha, Beta, ...) starts with the next.
     'founding_year': int(os.getenv('CHAPTER_FOUNDING_YEAR', '2022')),
     'founding_semester': os.getenv('CHAPTER_FOUNDING_SEMESTER', 'Fall'),
+    # Optional: which class got which letter, for a chapter whose lettering does
+    # not start the semester after its founding (e.g. 'Fall 2010 = Xi'). Empty
+    # = the default, first class after the founders is Alpha.
+    'lettering_anchor': os.getenv('CHAPTER_LETTERING_ANCHOR', ''),
 }
 
 # Platform owner (09-25-26). The bug tracker, feedback board, protected-admin

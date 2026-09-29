@@ -47,6 +47,7 @@ class ChapterIdentity:
     school_email_domain: str   # 'samford.edu' — hint on email forms
     founding_year: int         # 2022 — the founding pledge class's year
     founding_semester: str     # 'Fall' or 'Spring' — the founding class's semester
+    lettering_anchor: str = ''  # optional, e.g. 'Spring 2023 = Alpha' (src/pledge_classes.py)
 
     # --- derived -----------------------------------------------------------
     @property
@@ -127,4 +128,7 @@ def get_chapter(request=None):
     if cfg.get('founding_semester', 'Fall') not in ('Fall', 'Spring'):
         raise ValueError("settings.CHAPTER['founding_semester'] must be 'Fall' or 'Spring', "
                          f"not {cfg.get('founding_semester')!r}")
+    if cfg.get('lettering_anchor'):
+        from src.pledge_classes import parse_lettering_anchor
+        parse_lettering_anchor(cfg['lettering_anchor'])  # raises ValueError if malformed
     return _from_settings(tuple(sorted(cfg.items())))

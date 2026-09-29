@@ -103,7 +103,11 @@
      - **Weak passwords.** The known-weak list derives the fraternity-name guesses from the chapter.
      - **Comments.** Leftover comments were reworded.
      - **Guard.** 213 lines in 29 files → 192 in 16.
-   - **Open in pledge classes:** an older chapter's real lettering may not start the semester after its founding. If that matters, add an anchor such as "Spring 2023 = Alpha" to the chapter config.
+   - ✅ **Pledge-class lettering anchor, slice 3c, done 09-28-26:**
+     - Optional `CHAPTER_LETTERING_ANCHOR`, e.g. `Fall 2010 = Xi`. It pins one class to its letter, and every other class is counted from it.
+     - Classes between the founders and the first letter get no letter.
+     - Badge colors still follow the class index, so they don't change.
+     - A malformed anchor is a `src.E001` startup error.
 3. **Pilot chapter** as its own deployment (option C). Write down everything that was painful.
 4. **Tenancy (A or B),** if the pilot says it's worth it.
 

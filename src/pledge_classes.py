@@ -10,6 +10,11 @@ One deterministic source of truth for the chapter's pledge classes:
 - The lettered sequence starts the NEXT semester (Spring 2023 = Alpha with
   the defaults), then one class per semester: Fall 2023 = Beta, Spring 2024 =
   Gamma, ... After Omega the sequence doubles: Alpha Alpha, Alpha Beta, ...
+- 09-28-26 (multi-chapter): a chapter whose real lettering doesn't start the
+  semester after its founding sets `CHAPTER_LETTERING_ANCHOR`, e.g.
+  'Fall 2010 = Xi'. Every class is then counted from that one, one letter per
+  semester; classes between the founders and the first letter get no letter
+  (''). Colors are unaffected: they follow the class INDEX, not the letter.
 - Every class gets a **stable, unique, clearly-distinct badge color** from
   CLASS_PALETTE below. The palette was generated once by farthest-point
   sampling in CIELAB space (each color placed as far as possible from all
@@ -75,6 +80,55 @@ def color_for_index(idx):
     return CLASS_PALETTE[pos % len(CLASS_PALETTE)]
 
 
+def _greek_position(name):
+    """Inverse of _greek_for_position: 'Alpha' -> 0, 'Omega' -> 23, 'Alpha Alpha' -> 24."""
+    parts = [p.capitalize() for p in (name or '').split()]
+    if len(parts) == 1 and parts[0] in GREEK_LETTERS:
+        return GREEK_LETTERS.index(parts[0])
+    if len(parts) == 2 and all(p in GREEK_LETTERS for p in parts):
+        return (GREEK_LETTERS.index(parts[0]) + 1) * len(GREEK_LETTERS) + GREEK_LETTERS.index(parts[1])
+    raise ValueError(f'{name!r} is not a Greek class name (one or two letters, e.g. "Xi" or "Alpha Beta")')
+
+
+def parse_lettering_anchor(text):
+    """'Spring 2023 = Alpha' -> ('Spring', 2023, 0). Raises ValueError if malformed.
+
+    Multi-chapter, 09-28-26: an older chapter's real lettering may not start the
+    semester after its founding. The anchor pins one class to its letter and
+    every other class is counted from it, one letter per semester.
+    """
+    import re
+    m = re.match(r'^\s*(fall|spring)\s+(\d{4})\s*=\s*([A-Za-z]+(?:\s+[A-Za-z]+)?)\s*$', text or '', re.I)
+    if not m:
+        raise ValueError(f"lettering anchor must look like 'Spring 2023 = Alpha', not {text!r}")
+    return m.group(1).capitalize(), int(m.group(2)), _greek_position(m.group(3))
+
+
+def _semesters_between(start, end):
+    """Semesters from start (season, year) to end (season, year); may be negative."""
+    (s0, y0), (s1, y1) = start, end
+    return (y1 - y0) * 2 + (s1 == 'Fall') - (s0 == 'Fall')
+
+
+def _anchor():
+    """(index of the anchored class, its lettered position). Default: index 1 = Alpha."""
+    from src.chapter import get_chapter
+    text = getattr(get_chapter(), 'lettering_anchor', '')
+    if not text:
+        return 1, 0
+    season, year, pos = parse_lettering_anchor(text)
+    return _semesters_between(_founding(), (season, year)), pos
+
+
+def _greek_for_index(idx, anchor):
+    """Greek name for class index idx (0 = founders); '' before lettering began."""
+    if idx == 0:
+        return FOUNDERS_GREEK
+    anchor_idx, anchor_pos = anchor
+    pos = anchor_pos + (idx - anchor_idx)
+    return _greek_for_position(pos) if pos >= 0 else ''
+
+
 def _greek_for_position(pos):
     """0-based position in the LETTERED sequence (0 = Alpha = Spring 2023)."""
     n = len(GREEK_LETTERS)
@@ -98,13 +152,14 @@ def all_classes(today=None):
     season, year = _current_semester(today)
     classes = []
     s, y = _founding()
+    anchor = _anchor()
     idx = 0
     while (y, s == 'Fall') <= (year, season == 'Fall'):
         if s == 'Fall' and y == year and season == 'Spring':
             break  # don't include this year's fall before July
         classes.append({
             'label': f'{s} {y}',
-            'greek': FOUNDERS_GREEK if idx == 0 else _greek_for_position(idx - 1),
+            'greek': _greek_for_index(idx, anchor),
             'index': idx,
             'color': color_for_index(idx),
             'is_founders': idx == 0,
