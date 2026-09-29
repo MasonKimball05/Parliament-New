@@ -101,3 +101,38 @@ class ServiceWorkerTests(TestCase):
         # the old chapter's literals, and nothing would notice.
         for rel in ('static/manifest.json', 'static/js/service-worker.js', 'static/offline.html'):
             self.assertFalse((settings.BASE_DIR / rel).exists(), rel)
+
+
+class PwaAssetsReachableMidTwoFactorTests(TestCase):
+    """09-28-26 — the module docstring's promise, pinned.
+
+    A member with a confirmed TOTP device who has passed the password step but
+    not the TOTP step is "mid-2FA". base.html (extended by two_factor/verify.html)
+    registers the worker for every authenticated page, so these two URLs must
+    not 302 to the verify page for that session. They carry no member data.
+    """
+
+    def setUp(self):
+        from django_otp.plugins.otp_totp.models import TOTPDevice
+        from src.models import ParliamentUser
+        self.user = ParliamentUser.objects.create_user(
+            user_id='pwa2fa1', name='PWA Mid 2FA', username='pwa2fa', member_type='Member')
+        self.user.set_password('testpass123')
+        self.user.save()
+        TOTPDevice.objects.create(user=self.user, name='default', confirmed=True)
+        self.client.force_login(self.user)
+
+    def test_the_session_really_is_mid_2fa(self):
+        # Control: an ordinary page IS held at the verify step, so the two
+        # assertions below are about the exemption, not a missing enforcement.
+        r = self.client.get(reverse('home'))
+        self.assertEqual(r.status_code, 302)
+        self.assertIn('/accounts/two-factor/verify/', r['Location'])
+
+    def test_service_worker_is_served(self):
+        r = self.client.get('/service-worker.js')
+        self.assertEqual(r.status_code, 200)
+
+    def test_manifest_is_served(self):
+        r = self.client.get(reverse('web_manifest'))
+        self.assertEqual(r.status_code, 200)

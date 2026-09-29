@@ -60,3 +60,29 @@ class ChapterIdentityTests(SimpleTestCase):
         html = render_to_string('emails/event_reminder.html', {'site_url': 'x'})
         self.assertIn('Gamma Delta Parliament', html)
         self.assertNotIn('Alpha Mu', html)
+
+
+class ChapterConfigSystemCheckTests(SimpleTestCase):
+    """09-28-26 — src.E001: a bad settings.CHAPTER is a startup error, not a
+    site-wide 500 (including the 500 page) that `manage.py check` misses."""
+
+    def _run(self):
+        from src.checks_platform import chapter_config_is_valid
+        return chapter_config_is_valid(None)
+
+    def test_default_config_is_clean(self):
+        self.assertEqual(self._run(), [])
+
+    def test_lowercase_founding_semester_is_an_error(self):
+        from django.conf import settings
+        with override_settings(CHAPTER={**settings.CHAPTER, 'founding_semester': 'fall'}):
+            errors = self._run()
+        self.assertEqual([e.id for e in errors], ['src.E001'])
+        self.assertIn('founding_semester', errors[0].msg)
+
+    def test_unknown_key_is_an_error(self):
+        from django.conf import settings
+        with override_settings(CHAPTER={**settings.CHAPTER, 'chapter_nmae': 'Typo'}):
+            errors = self._run()
+        self.assertEqual([e.id for e in errors], ['src.E001'])
+        self.assertIn('unknown keys', errors[0].msg)

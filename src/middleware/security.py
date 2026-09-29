@@ -62,16 +62,15 @@ COMMAND_INJECTION_PATTERNS = [
 def _is_owner_session(request):
     """True when this request carries the platform owner's authenticated session.
 
-    Same single-account pin as `bug_admin_required` (src/decorators.py) —
-    deliberately an id, not a role an admin could hand out. Only called once an
-    IP is already known to be blacklisted, so the common path pays nothing.
-    On the `multi-chapter` branch this is `src.permissions.is_platform_owner`;
-    swap the body when main is merged in (the guard test there forbids the
-    literal).
+    Same single-account pin as `bug_admin_required` — deliberately one
+    account, not a role an admin could hand out. On `multi-chapter` that pin is
+    `src.permissions.is_platform_owner` (PLATFORM_OWNER_USER_ID, plus
+    PLATFORM_OWNER_EMAIL when set), which replaced main's hardcoded-id
+    literal at the 09-28-26 merge. Only called once an IP is already known to
+    be blacklisted, so the common path pays nothing.
     """
-    user = getattr(request, 'user', None)
-    return bool(user is not None and user.is_authenticated
-                and str(user.user_id) == '73')
+    from src.permissions import is_platform_owner
+    return is_platform_owner(getattr(request, 'user', None))
 
 
 class ForcePasswordChangeMiddleware:

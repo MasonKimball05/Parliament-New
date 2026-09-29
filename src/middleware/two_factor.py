@@ -77,6 +77,13 @@ class Enforce2FAMiddleware:
             # (07-22 auth security sweep, Finding A.)
             '/api/v1/',
             '/api/health-check/',  # liveness probe — must never require a second factor
+            # 09-28-26 — PWA assets (src/view/pwa.py) are public, chapter-level
+            # content with no member data. base.html registers the worker for
+            # every authenticated page INCLUDING two_factor/verify.html, so
+            # without these a mid-2FA session's registration 302'd to the
+            # verify page ("script behind a redirect") and failed silently.
+            '/service-worker.js',
+            '/manifest.webmanifest',
         ]
 
         # Check if current path is exempt
