@@ -69,15 +69,21 @@ def series_events(root):
     return Event.objects.filter(Q(pk=root.pk) | Q(parent_event_id=root.pk))
 
 
-def affected_events(event, scope, now=None):
-    """Queryset of the events a change with `scope` applies to (always includes `event`)."""
+def affected_events(event, scope, now=None, pivot=None):
+    """Queryset of the events a change with `scope` applies to (always includes `event`).
+
+    `pivot` is where "following" starts; default `event.date_time`. An edit
+    passes the time the event had BEFORE the form moved it: after a +8 day
+    move, `event.date_time` would skip the next weekly occurrence, and after a
+    -7 day move it would pull in the previous one.
+    """
     from src.models import Event
     root = series_root(event)
     if scope == SCOPE_THIS or root is None:
         return Event.objects.filter(pk=event.pk)
     qs = series_events(root).filter(attendance_finalized=False)
     if scope == SCOPE_FOLLOWING:
-        qs = qs.filter(date_time__gte=event.date_time)
+        qs = qs.filter(date_time__gte=event.date_time if pivot is None else pivot)
     else:  # SCOPE_ALL
         qs = qs.filter(Q(date_time__gte=now or timezone.now()) | Q(pk=event.pk))
     return qs | Event.objects.filter(pk=event.pk)
@@ -106,7 +112,7 @@ def apply_series_edit(event, before, changed_fields, scope, now=None):
     if not copy and not delta and not deadline_changed:
         return 0
 
-    others = list(affected_events(event, scope, now).exclude(pk=event.pk).distinct())
+    others = list(affected_events(event, scope, now, pivot=before['date_time']).exclude(pk=event.pk).distinct())
     for other in others:
         for f in copy:
             setattr(other, f, getattr(event, f))

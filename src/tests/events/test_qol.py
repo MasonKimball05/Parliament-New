@@ -55,9 +55,11 @@ class CalendarApiAddToCalendarTests(TestCase):
             created_by=self.user)
 
     def test_api_payload_includes_links(self):
-        now = timezone.now()
+        # Ask for the event's own month: it is "tomorrow", which is next month
+        # on the last day of a month (this failed every month-end).
+        when = timezone.localtime(self.event.date_time)
         resp = self.client.get(reverse('calendar_data_api'),
-                               {'year': now.year, 'month': now.month})
+                               {'year': when.year, 'month': when.month})
         self.assertEqual(resp.status_code, 200)
         body = resp.content.decode()
         self.assertIn('google_url', body)
