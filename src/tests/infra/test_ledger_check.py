@@ -227,6 +227,56 @@ class LedgerCheckTests(SimpleTestCase):
         self.assertIn('deadbee', messages)
         self.assertIn(sha, messages)
 
+    # -- v3.37.0: legitimate disagreements -------------------------------
+
+    def test_a_changelog_marked_as_added_later_is_accepted(self):
+        """v3.29.10/11, v3.33.0: the file was written after the release shipped."""
+        _git(self.repo, 'commit', '-q', '--allow-empty', '-m', 'the release')
+        release = subprocess.run(['git', '-C', self.repo, 'rev-parse', '--short', 'HEAD'],
+                                 capture_output=True, text=True, check=True, env=_clean_env()).stdout.strip()
+        self._write('v2.0.0.md', f'**Committed & pushed:** 01-01-26, `{release}`\n')
+        self._ledger(f'| v2.0.0 | *not deployed* | `{release}` | x |\n')
+        added = self._commit('changelog, written later')
+        self.assertIn(release, self._messages())            # without the marker: reported
+        path = os.path.join(self.repo, 'changelogs', 'v2.0.0.md')
+        with open(path, 'a', encoding='utf-8') as fh:
+            fh.write(f'**Changelog added later in:** `{added}`\n')
+        self._commit('mark it')
+        self.assertEqual(self._run(), [])                   # with it: accepted
+
+    def test_a_wrong_added_later_sha_is_reported(self):
+        self._write('v2.0.0.md', '**Committed & pushed:** 01-01-26, `deadbee`\n'
+                                 '**Changelog added later in:** `cafe123`\n')
+        self._ledger('| v2.0.0 | *not deployed* | `deadbee` | x |\n')
+        sha = self._commit()
+        messages = self._messages()
+        self.assertIn('cafe123', messages)
+        self.assertIn(sha, messages)
+
+    def test_a_rebased_copy_of_the_release_commit_is_accepted(self):
+        """multi-chapter's rebase turned main's `314b118` into `5be7010`: same diff."""
+        self._write('base.md', 'x')
+        self._commit('base')
+        _git(self.repo, 'branch', 'side')
+        self._write('v2.0.0.md', '**Committed & pushed:** *not yet*\n')
+        self._ledger('| v2.0.0 | *not deployed* | *uncommitted* | x |\n')
+        release = self._commit('release')
+        self._write('v2.0.0.md', f'**Committed & pushed:** 01-01-26, `{release}`\n')
+        self._ledger(f'| v2.0.0 | *not deployed* | `{release}` | x |\n')
+        self._commit('stamp')
+        # Replay both onto `side`: new shas, identical diffs.
+        stamp = subprocess.run(['git', '-C', self.repo, 'rev-parse', 'HEAD'],
+                               capture_output=True, text=True, check=True, env=_clean_env()).stdout.strip()
+        _git(self.repo, 'checkout', '-q', 'side')
+        self._write('side.md', 'the branch moved on')   # so the replays get new parents
+        self._commit('side work')
+        _git(self.repo, 'cherry-pick', release, stamp)
+        added_here = subprocess.run(
+            ['git', '-C', self.repo, 'log', '--diff-filter=A', '--format=%h', '--', 'changelogs/v2.0.0.md'],
+            capture_output=True, text=True, check=True, env=_clean_env()).stdout.strip()
+        self.assertNotEqual(added_here, release)   # the premise: git disagrees
+        self.assertEqual(self._run(), [])
+
     # -- never break a deploy --------------------------------------------
 
     def test_a_directory_that_is_not_a_repository_is_silent(self):

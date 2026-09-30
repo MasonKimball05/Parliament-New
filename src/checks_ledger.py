@@ -63,6 +63,17 @@ _COMMITTED_LINE = re.compile(
     re.IGNORECASE | re.MULTILINE,
 )
 
+#: v3.37.0 — `**Changelog added later in:** `47b0d86`` marks a changelog
+#: written AFTER its release shipped (v3.29.10/11 were reconstructed ten days
+#: late; v3.33.0's file landed two days after its code). For those, the commit
+#: that added the file is not the release commit, and the Committed line
+#: correctly names the release. The marker states which commit added the file,
+#: and the check verifies THAT claim instead, so it still catches a typo.
+_ADDED_LATER_LINE = re.compile(
+    r'^\*\*Changelog added later in:?\*\*[^\n]*?`([0-9a-f]{7,40})`',
+    re.IGNORECASE | re.MULTILINE,
+)
+
 #: A short or long sha appearing in that line or in a DEPLOYED.md row, e.g.
 #: `` `aef4f73` ``. Matched loosely because the surrounding prose varies.
 _SHA = re.compile(r'`([0-9a-f]{7,40})`')
@@ -154,6 +165,33 @@ def _git_added_changelogs(repo_root):
             # as it now stands".
             added.setdefault(line.strip(), current_sha)
     return added
+
+
+def _same_change(repo_root, recorded, added):
+    """True when `recorded` is a rebased/cherry-picked copy of `added`.
+
+    v3.37.0: `multi-chapter` was rebased on 09-29-26, so main's v3.35.1 commit
+    `314b118` exists there as `5be7010`: same change, different sha. `git
+    patch-id` hashes the diff itself, so equal ids mean the recorded commit IS
+    the release, just under its other name. A copy-pasted sha from an older
+    release has a different diff and is still reported. Any git failure →
+    False (report), never an exception.
+    """
+    def patch_id(sha):
+        try:
+            show = subprocess.run(['git', '-C', repo_root, 'show', '--format=', sha],
+                                  capture_output=True, timeout=_GIT_TIMEOUT_SECONDS,
+                                  check=False, env=_git_env())
+            if show.returncode != 0 or not show.stdout:
+                return None
+            pid = subprocess.run(['git', '-C', repo_root, 'patch-id', '--stable'],
+                                 input=show.stdout, capture_output=True,
+                                 timeout=_GIT_TIMEOUT_SECONDS, check=False, env=_git_env())
+            return pid.stdout.split()[0] if pid.returncode == 0 and pid.stdout else None
+        except (OSError, subprocess.SubprocessError):
+            return None
+    a, b = patch_id(recorded), patch_id(added)
+    return a is not None and a == b
 
 
 def _deployed_rows(deployed_path):
@@ -323,8 +361,17 @@ def release_ledger_matches_git(app_configs, **kwargs):
             value = claim.group('value')
             recorded = _SHA.search(value)
             if recorded:
-                if not (recorded.group(1).startswith(sha)
-                        or sha.startswith(recorded.group(1))):
+                def _matches(candidate):
+                    return candidate.startswith(sha) or sha.startswith(candidate)
+                later = _ADDED_LATER_LINE.search(text)
+                if _matches(recorded.group(1)):
+                    pass
+                elif later:
+                    # Written after the release: check the "added later in" claim instead.
+                    if not _matches(later.group(1)):
+                        wrong_sha.append(
+                            f'{version} says its changelog was added in `{later.group(1)}`, git says `{sha}`')
+                elif not _same_change(repo_root, recorded.group(1), sha):
                     wrong_sha.append(
                         f'{version} says `{recorded.group(1)}`, git says `{sha}`')
             elif _says_not_yet(value):
