@@ -5,7 +5,7 @@ v3.20.0 — where JavaScript is allowed to get the CSRF token from.
 so **JavaScript can never read the `csrftoken` cookie**. Three templates read it
 from `document.cookie` anyway:
 
-* `committee/education.html` — `const CSRF = document.cookie.match(…) || ''`,
+* `committee/education_dashboard.html` — `const CSRF = document.cookie.match(…) || ''`,
   so every fetch on the education dashboard sent `X-CSRFToken: ''` and Django
   answered 403. Delete Task, the completion grid, the publish toggle and both
   page-restriction endpoints **have never worked from the browser.** Each

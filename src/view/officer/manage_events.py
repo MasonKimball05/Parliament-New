@@ -2,7 +2,7 @@ from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.utils import timezone
-from django.db import models
+from django.db import models, transaction
 from django.db.models import Count, Q
 from django.core.paginator import Paginator
 from django.contrib import messages
@@ -82,7 +82,16 @@ def manage_events(request):
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
 
+    # v3.36.0: the series header links to bulk edit/delete, anchored on the
+    # series' next upcoming event (past and finalized ones aren't bulk-edited).
+    series_next = None
+    if series_id and parent_event is not None:
+        series_next = (Event.objects.filter(models.Q(pk=parent_event.pk) | models.Q(parent_event_id=parent_event.pk))
+                       .filter(date_time__gte=now, attendance_finalized=False)
+                       .order_by('date_time').first())
+
     context = {
+        'series_next': series_next,
         'events': page_obj,  # Now a page object instead of queryset
         'page_obj': page_obj,
         'current_time': now,
@@ -181,6 +190,16 @@ def generate_recurring_events(parent_event, max_occurrences=52):
             created_by=parent_event.created_by,
             parent_event=parent_event,
             is_recurring=False,  # Child events are not recurring themselves
+            # v3.36.0 — these were never copied, so every occurrence of a
+            # recurring COMMITTEE meeting was a chapter-wide event (attendance,
+            # excuses and reminders covered everyone), and sign-up settings
+            # applied to the first occurrence only. rsvp_email_enabled stays
+            # off: one announcement email per occurrence would be spam.
+            committee=parent_event.committee,
+            requires_signup=parent_event.requires_signup,
+            max_signups=parent_event.max_signups,
+            signups_open=parent_event.signups_open,
+            allow_waitlist=parent_event.allow_waitlist,
             reminder_1_enabled=parent_event.reminder_1_enabled,
             reminder_1_hours_before=parent_event.reminder_1_hours_before,
             reminder_1_email_enabled=parent_event.reminder_1_email_enabled,
@@ -225,33 +244,71 @@ def create_event(request):
 @login_required
 @officer_required
 def edit_event(request, event_id):
-    """View for officers to edit an existing event"""
+    """View for officers to edit an existing event.
+
+    v3.36.0: an event in a recurring series can be edited for this event only,
+    this and following events, or all upcoming events. See src/event_series.py.
+    """
+    from src.event_series import (
+        SCOPE_THIS, apply_series_edit, clean_scope, scope_counts,
+    )
     event = get_object_or_404(Event, pk=event_id)
+    counts = scope_counts(event)
 
     if request.method == 'POST':
+        scope = clean_scope(request.POST.get('scope')) if counts else SCOPE_THIS
+        # Captured before the ModelForm writes the posted values onto `event`.
+        before = {'date_time': event.date_time, 'excuse_deadline': event.excuse_deadline}
         form = EventForm(request.POST, instance=event)
         if form.is_valid():
-            form.save()
-            messages.success(request, f'Event "{event.title}" updated successfully.')
+            with transaction.atomic():
+                form.save()
+                others = apply_series_edit(event, before, set(form.changed_data), scope)
+            if others:
+                messages.success(request, f'Event "{event.title}" and {others} other event(s) in the series updated.')
+            else:
+                messages.success(request, f'Event "{event.title}" updated successfully.')
             return redirect('manage_events')
     else:
+        scope = clean_scope(request.GET.get('scope')) if counts else SCOPE_THIS
         form = EventForm(instance=event)
 
-    return render(request, 'officer/edit_event.html', {'form': form, 'event': event})
+    return render(request, 'officer/edit_event.html', {
+        'form': form, 'event': event, 'scope_counts': counts, 'scope': scope,
+    })
 
 @login_required
 @officer_required
 def delete_event(request, event_id):
-    """View for officers to delete an event"""
+    """View for officers to delete an event.
+
+    v3.36.0: an event in a recurring series can be deleted alone, with the
+    following events, or with all upcoming events. Deleting the series' first
+    (root) event no longer cascades into the rest; see src/event_series.py.
+    """
+    from src.event_series import (
+        SCOPE_THIS, clean_scope, delete_series_events, scope_counts,
+    )
     event = get_object_or_404(Event, pk=event_id)
+    counts = scope_counts(event)
 
     if request.method == 'POST':
+        scope = clean_scope(request.POST.get('scope')) if counts else SCOPE_THIS
         title = event.title
-        event.delete()
-        messages.success(request, f'Event "{title}" deleted successfully.')
+        deleted, kept = delete_series_events(event, scope)
+        if deleted > 1:
+            msg = f'Deleted {deleted} events from the "{title}" series.'
+        else:
+            msg = f'Event "{title}" deleted successfully.'
+        if kept:
+            msg += f' {kept} event(s) with finalized attendance were kept.'
+        messages.success(request, msg)
         return redirect('manage_events')
 
-    return render(request, 'officer/delete_event.html', {'event': event})
+    scope = clean_scope(request.GET.get('scope')) if counts else SCOPE_THIS
+    return render(request, 'officer/delete_event.html', {
+        'event': event, 'scope_counts': counts, 'scope': scope,
+    })
 
 
 # 1x1 transparent GIF — same constant/approach as

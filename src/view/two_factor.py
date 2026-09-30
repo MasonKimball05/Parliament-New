@@ -336,9 +336,12 @@ def two_factor_verify(request):
         messages.error(request, 'Two-Factor Authentication is not set up for your account.')
         return redirect('two_factor_setup')
 
+    from src.next_url import safe_next
+    next_url = safe_next(request)   # v3.37.0: set by Enforce2FAMiddleware
+
     # Check if already verified
     if request.user.is_verified():
-        return redirect('home')
+        return redirect(next_url or 'home')
 
     if request.method == 'POST':
         token = request.POST.get('token', '').strip().upper()
@@ -379,7 +382,7 @@ def two_factor_verify(request):
             cache.delete(f'2fa_failures_{request.user.pk}')
             if not token or len(token) != 8:  # Only show generic success for TOTP
                 messages.success(request, 'Two-Factor Authentication verified successfully!')
-            response = redirect('home')
+            response = redirect(next_url or 'home')
             # Set remember cookie if requested (only for TOTP, not backup codes)
             remember = request.POST.get('remember_device') == 'on'
             if remember and totp_device and len(token) != 8:

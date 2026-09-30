@@ -7,7 +7,7 @@ the education committee records what a pledge did:
 
 1. **Scoring.** A task can carry a `max_score`; a chair records what each pledge
    earned. Informational — it does not decide pass/fail.
-2. **The `set_status` bug.** `quiz_submissions.html` has posted a `set_status`
+2. **The `set_status` bug.** `education_quiz_submissions.html` has posted a `set_status`
    hidden field since it was written and `education_toggle_completion` never
    read it, so on the grading page *Mark Incomplete* on a pending pledge marked
    him **passed**.
@@ -157,7 +157,7 @@ class SetStatusIsHonouredTests(EducationFixtureMixin, TestCase):
     """
     ⚠️ REGRESSION TEST FOR A LIVE GRADING BUG (v3.20.0).
 
-    `quiz_submissions.html` posts `set_status`; the view ignored it and cycled
+    `education_quiz_submissions.html` posts `set_status`; the view ignored it and cycled
     `pending → completed → incomplete → pending` instead. So on the grading
     page, *Mark Incomplete* on a pledge whose quiz was pending marked him
     **passed** — the two buttons were indistinguishable, and the failure mode
@@ -481,7 +481,7 @@ class EducationPagesRenderTests(EducationFixtureMixin, TestCase):
     """
     ⚠️ REGRESSION TESTS FOR A 500 NOBODY HAD SEEN, AND IT EXPLAINS THE OTHER BUG.
 
-    `quiz_submissions.html` referenced `committee.committee_code` in four
+    `education_quiz_submissions.html` referenced `committee.committee_code` in four
     `{% url %}` tags. `Committee` has no such attribute — it is `code` — and a
     missing template variable resolves to the empty string, so every one of
     those reversed as `{% url 'education_home' '' %}` and raised

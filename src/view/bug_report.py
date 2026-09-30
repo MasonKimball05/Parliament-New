@@ -348,8 +348,10 @@ def send_bug_report_notification(bug_report, request):
             logger.warning("[BUG REPORT EMAIL] No email credentials configured - skipping email notification")
             return
 
-        # Get admin email (you can configure this in settings)
-        admin_email = getattr(settings, 'BUG_REPORT_EMAIL', 'mason.kimball@icloud.com')
+        # v3.35.3: BUG_REPORT_EMAIL, else SECURITY_ALERT_EMAIL (settings.py).
+        # This used to fall back to a personal address hard-coded here.
+        admin_email = (getattr(settings, 'BUG_REPORT_EMAIL', '')
+                       or getattr(settings, 'SECURITY_ALERT_EMAIL', ''))
 
         logger.info(f"[BUG REPORT EMAIL] Sending notification for bug #{bug_report.id} to {admin_email}")
 

@@ -101,6 +101,50 @@ class FeatureFlagSeedingTests(unittest.TestCase):
         )
 
 
+
+# ---------------------------------------------------------------------------
+# v3.37.0 (09-30-26) — the REVERSE direction: every seeded flag gates something.
+#
+# The 07-25-26 audit found 16 flags that showed up as admin toggles but were
+# read nowhere, some with security-sounding names (`anonymous_voting`,
+# `login_as_user`) that a future officer could reasonably believe did
+# something. v3.26.0 and v3.29.35 wired or pruned all of them (by hand, twice).
+# This keeps it that way: a seeded name must appear as a quoted string
+# literal somewhere in src/ or templates/ outside the seeders themselves (a
+# decorator argument, an is_feature_enabled() call, or a mapping such as
+# models/cnb.py's doc-type → flag table), or as `feature_flags.<name>` in a
+# template.
+
+SRC_DIR = REPO_ROOT / 'src'
+#: Files that mention flag names without gating anything.
+NOT_A_READER = ('seed_feature_flags.py', 'seed_admin_v2.py', 'prune_dead_feature_flags.py')
+
+
+def flag_is_read(name):
+    quoted = re.compile(r"""['"]%s['"]""" % re.escape(name))
+    for path in SRC_DIR.rglob('*.py'):
+        rel = path.relative_to(SRC_DIR).as_posix()
+        if rel.startswith(('tests/', 'migrations/')) or path.name in NOT_A_READER or ' ' in path.name:
+            continue
+        if quoted.search(path.read_text(errors='ignore')):
+            return True
+    return name in template_flag_refs()
+
+
+class SeededFlagsAreReadTests(unittest.TestCase):
+    def test_every_seeded_flag_gates_something(self):
+        dead = sorted(n for n in seeded_flag_names() if not flag_is_read(n))
+        self.assertEqual(dead, [], (
+            'These flags are seeded (so they show up as toggles in the admin) but '
+            'nothing reads them, so flipping one does nothing. Wire each one to '
+            'the code it should gate (require_feature_flag / is_feature_enabled / '
+            '{% if feature_flags.x %}), or remove it from seed_feature_flags.py.'))
+
+    def test_detector_sees_a_known_reader(self):
+        # 'cnb_foreword' is read only through models/cnb.py's mapping table.
+        self.assertTrue(flag_is_read('cnb_foreword'))
+        self.assertFalse(flag_is_read('definitely_not_a_flag_xyz'))
+
 if __name__ == '__main__':
     refs = template_flag_refs()
     seeded = seeded_flag_names()

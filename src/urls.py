@@ -333,6 +333,7 @@ from src.view.songbook import (
 from src.view.public_songbook import public_songbook_list, public_song_detail
 from src.view.csp_report import csp_report
 from src.view.csrf_token import csrf_token_refresh
+from src.view.site_monitor import static_asset_fingerprints
 from src.view.honeypot import (
     honeypot_wp_admin, honeypot_wp_login, honeypot_phpmyadmin, honeypot_env,
     honeypot_admin_backup, honeypot_api_export, honeypot_xmlrpc, honeypot_config,
@@ -762,6 +763,10 @@ urlpatterns = [
     path('legislation/<int:legislation_id>/submit-new-version/', submit_new_version, name='submit_new_version'),
 
     # Admin Pages
+    # v3.35.3 — the admin/backup/ honeypot MUST come before `admin/`. It sat
+    # with the other honeypots below, where Django admin's catch-all answered
+    # it first (302 to the admin login), so it never fired.
+    path('admin/backup/', honeypot_admin_backup, name='honeypot_backup'),
     path('admin/', admin.site.urls),
     path('staff/login-as/<str:user_id>/', login_as_user, name='login-as'),
     path('staff/return-to-original/', return_to_original_user, name='return_to_original_user'),
@@ -1142,6 +1147,9 @@ urlpatterns = [
 
     # Health Check API
     path('api/health-check/', health_check, name='health_check'),
+    # v3.37.0 — origin-side static fingerprints for go-sentinel's Cloudflare stale-asset check.
+    # Token-gated; a plain 404 otherwise. See src/view/site_monitor.py.
+    path('site-monitor/static-assets/', static_asset_fingerprints, name='site_monitor_static_assets'),
 
     # Debug Panel API (Admin + Maintenance Mode only)
     path('api/debug/request/', debug_request_info, name='debug_request_info'),
@@ -1243,7 +1251,7 @@ urlpatterns = [
     path('phpmyadmin/', honeypot_phpmyadmin, name='honeypot_phpmyadmin'),
     path('phpmyadmin/<path:path>', honeypot_phpmyadmin, name='honeypot_phpmyadmin_path'),
     path('.env', honeypot_env, name='honeypot_env'),
-    path('admin/backup/', honeypot_admin_backup, name='honeypot_backup'),
+    # (admin/backup/ is registered above `admin/` — see the Admin Pages block.)
     path('api/v1/users/export/', honeypot_api_export, name='honeypot_api_export'),
     path('xmlrpc.php', honeypot_xmlrpc, name='honeypot_xmlrpc'),
     path('config.php', honeypot_config, name='honeypot_config'),

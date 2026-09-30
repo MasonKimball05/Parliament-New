@@ -205,7 +205,7 @@
                 },
             };
 
-            const completeResp = await fetch('{% url "passkey_authenticate_complete" %}', {
+            const completeResp = await fetch('{% url "passkey_authenticate_complete" %}' + window.location.search, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

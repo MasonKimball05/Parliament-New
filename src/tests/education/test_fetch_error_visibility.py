@@ -45,7 +45,7 @@ from pathlib import Path
 from django.conf import settings
 from django.test import SimpleTestCase
 
-#: Measured 08-19-26, after converting `committee/education.html` (6 handlers)
+#: Measured 08-19-26, after converting `committee/education_dashboard.html` (6 handlers)
 #: and `admin_v2/csp_violations.html` (1). **Lower this when you convert one.**
 #: It must never rise: a new silently-swallowed failure is the defect this
 #: module exists to stop.
@@ -54,7 +54,7 @@ KNOWN_SWALLOWING_HANDLERS = 12
 #: Templates converted to `Parliament.post`, which must stay converted. These
 #: are the two that were provably broken in production.
 CONVERTED = (
-    'committee/education.html',
+    'committee/education_dashboard.html',
     'admin_v2/csp_violations.html',
 )
 

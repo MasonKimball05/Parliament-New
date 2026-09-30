@@ -173,7 +173,7 @@ if (_switchBtn) { _switchBtn.addEventListener('click', switchToBackup); }
                     userHandle: assertion.response.userHandle ? bufToBase64url(assertion.response.userHandle) : null,
                 },
             };
-            var completeResp = await fetch('{% url "passkey_authenticate_complete" %}', {
+            var completeResp = await fetch('{% url "passkey_authenticate_complete" %}' + window.location.search, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
                 body: JSON.stringify(payload),

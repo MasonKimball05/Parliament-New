@@ -70,9 +70,19 @@
                     {% endif %}
                 </p>
             </div>
-            <a href="{% url 'manage_events' %}" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition text-sm">
+<div class="flex flex-wrap gap-2">
+                {% if series_next %}
+                <a href="{% url 'edit_event' series_next.pk %}?scope=all" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition text-sm">
+                    Edit series
+                </a>
+                <a href="{% url 'delete_event' series_next.pk %}?scope=all" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition text-sm">
+                    Delete upcoming
+                </a>
+                {% endif %}
+                <a href="{% url 'manage_events' %}" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition text-sm">
                 ← Back to All Events
             </a>
+            </div>
         </div>
     </div>
     {% endif %}

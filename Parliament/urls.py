@@ -48,7 +48,11 @@ def custom_403(request, exception=None):
 handler404 = custom_404
 handler403 = custom_403
 
+from src.view.honeypot import honeypot_admin_backup  # noqa: E402
+
 urlpatterns = [
+    # v3.35.3 — before `admin/`, or Django admin's catch-all answers it (see src/urls.py).
+    path('admin/backup/', honeypot_admin_backup),
     path('admin/', admin.site.urls),
     path('accounts/login/', login_view, name='admin_login_redirect'),
     path('', include('src.urls')),

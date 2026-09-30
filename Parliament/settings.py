@@ -416,6 +416,16 @@ BEHIND_CLOUDFLARE = os.getenv('BEHIND_CLOUDFLARE', 'False') == 'True'
 # backstop for when that is not in place, not a replacement for it.
 CLOUDFLARE_VERIFY_ORIGIN = os.getenv('CLOUDFLARE_VERIFY_ORIGIN', 'False') == 'True'
 
+# v3.35.3 (09-29-26) — the platform owner's external uptime/exposure monitor
+# (go-sentinel) probes trap paths such as /.env and /.git/config to prove they
+# are not public. Without this the honeypot bans whatever machine runs it
+# (it did, 09-27-26). A request carrying `X-Site-Monitor-Token: <this value>`
+# gets an honest 404 from the honeypot instead: no ban, no log row, no alert.
+# It grants NOTHING else — no auth, no blacklist bypass, no rate-limit bypass.
+# Empty (the default) = off. Must be at least 32 characters or it is ignored
+# (src.W005). Generate: python -c "import secrets; print(secrets.token_urlsafe(32))"
+SITE_MONITOR_TOKEN = os.getenv('SITE_MONITOR_TOKEN', '')
+
 # Security Headers
 # X-XSS-Protection is deprecated; we rely on CSP instead.
 # (InputSanitizationMiddleware sets 'X-XSS-Protection: 0' explicitly.
@@ -523,6 +533,11 @@ SECURITY_ALERT_EMAIL = os.getenv('SECURITY_ALERT_EMAIL', DEFAULT_FROM_EMAIL)
 # 09-25-26 — where unhandled-500 alerts go (src/error_alerts.py). Defaults to
 # SECURITY_ALERT_EMAIL. Set ERROR_ALERTS_ENABLED=False to turn alerts off.
 ERROR_ALERT_EMAIL = os.getenv('ERROR_ALERT_EMAIL', '')
+# v3.35.3 — where bug reports and support tickets go (src/view/bug_report.py,
+# src/view/feedback.py). Until now this setting was never defined, so both
+# views always fell back to a personal address hard-coded in this PUBLIC repo.
+# Empty = SECURITY_ALERT_EMAIL, the same fallback ERROR_ALERT_EMAIL uses.
+BUG_REPORT_EMAIL = os.getenv('BUG_REPORT_EMAIL', '')
 SITE_URL = os.getenv('SITE_URL', f'https://{CHAPTER_DOMAIN}')
 
 # Anymail (Brevo) Configuration - used when EMAIL_BACKEND is anymail.backends.brevo.EmailBackend

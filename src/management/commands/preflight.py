@@ -34,6 +34,7 @@ import sys
 
 from django.conf import settings
 
+from src.checks_ledger import _git_env
 from src.management.commands.check_env import Command as CheckEnvCommand
 
 #: Phrases a Deployed cell uses to mean "not live". Separate from
@@ -490,7 +491,8 @@ class Command(CheckEnvCommand):
                 in_tree = subprocess.run(
                     ['git', '-C', repo_root, 'merge-base', '--is-ancestor', sha, 'HEAD'],
                     capture_output=True, timeout=10, check=False,
-                    env={**os.environ, 'GIT_OPTIONAL_LOCKS': '0'},
+                    # 09-28-26: without an inherited GIT_DIR (see checks_ledger._git_env).
+                    env=_git_env(),
                 ).returncode == 0
             except (OSError, subprocess.SubprocessError):
                 self.warn('Deploy ledger stamped',

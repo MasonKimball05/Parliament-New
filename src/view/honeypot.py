@@ -3,7 +3,7 @@ Honeypot (poison pill) views for Parliament.
 These are fake endpoints that real users would never access.
 Any access to these endpoints is suspicious and triggers immediate action.
 """
-from django.http import HttpResponse, HttpResponseForbidden
+from django.http import Http404, HttpResponse, HttpResponseForbidden
 from django.views.decorators.csrf import csrf_exempt
 from django.core.cache import cache
 from django.conf import settings
@@ -12,6 +12,7 @@ from src.security_notifications import alert_honeypot_triggered
 from src.geo_utils import get_ip_geo
 from src.utils.security_utils import MISSING_IP_SENTINEL
 from src.utils.security_utils import get_client_ip as _get_client_ip
+from src.site_monitor import HEADER_META_KEY as MONITOR_HEADER, is_site_monitor_request
 import logging
 import json
 import threading
@@ -72,6 +73,15 @@ def log_and_block_honeypot_access(request, endpoint):
     # longer reaches a column that has a type.
     ip_address = get_client_ip(request)
     ip_key = ip_address or MISSING_IP_SENTINEL
+
+    # v3.35.3 — the owner's site monitor (go-sentinel) probes trap paths to
+    # prove they are NOT public. It gets the site's ordinary 404: no ban, no
+    # HoneypotAccess row, no alert. Checked FIRST so an earlier cache ban
+    # cannot hand it a fake `.env` body (which it would report as a leak).
+    # The token grants nothing else — see src/site_monitor.py.
+    if is_site_monitor_request(request):
+        logger.info(f"Site monitor probe on {endpoint} from {ip_key}: answered 404, not banned.")
+        raise Http404()
 
     # Fast path: honeypot-ban cache key set on first hit (24h TTL).
     ban_key = f'honeypot_ban_{ip_key}'
@@ -152,9 +162,12 @@ def log_and_block_honeypot_access(request, endpoint):
             request_body=request_body,
             action_taken='blocked',
             additional_data={
+                # MONITOR_HEADER is redacted too (v3.35.3): if the server's token
+                # is unset or too short, a monitor request lands here, and its
+                # secret must not end up in the admin's honeypot log.
                 'headers': {
                     k: v for k, v in request.META.items()
-                    if k.startswith('HTTP_') and k not in ['HTTP_COOKIE', 'HTTP_AUTHORIZATION']
+                    if k.startswith('HTTP_') and k not in ['HTTP_COOKIE', 'HTTP_AUTHORIZATION', MONITOR_HEADER]
                 }
             }
         )

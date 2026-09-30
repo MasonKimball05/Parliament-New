@@ -71,6 +71,9 @@ Two things worth keeping:
 
         <form method="post">
             {% csrf_token %}
+            <div class="mb-6">
+                {% include 'officer/_series_scope.html' with verb='Delete' %}
+            </div>
             <div class="flex justify-end space-x-3">
                 <a href="{% url 'manage_events' %}" class="bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 text-gray-800 dark:text-gray-200 font-medium py-2 px-4 rounded-lg transition">
                     Cancel

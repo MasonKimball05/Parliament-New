@@ -83,7 +83,7 @@ class ModalPairsAreBalancedTests(SimpleTestCase):
         move in step with a real, deliberate addition, not be treated as a
         ratchet nothing may cross.
         """
-        body = (Path(settings.BASE_DIR) / 'templates' / 'committee' / 'education.html').read_text(encoding='utf-8')
+        body = (Path(settings.BASE_DIR) / 'templates' / 'committee' / 'education_dashboard.html').read_text(encoding='utf-8')
         self.assertEqual(body.count(OPEN_INCLUDE), 4)
         self.assertEqual(body.count(CLOSE_INCLUDE), 4)
 

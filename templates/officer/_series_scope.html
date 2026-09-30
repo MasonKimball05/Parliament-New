@@ -1,0 +1,33 @@
+{% comment %}
+v3.36.0: recurring-series scope picker, shared by edit_event.html and
+delete_event.html. Needs scope_counts ({this, following, all}), scope, and
+verb ("Apply" or "Delete"). See src/event_series.py for the rules.
+{% endcomment %}
+{% if scope_counts %}
+<fieldset class="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-700 rounded-lg p-4">
+    <legend class="text-sm font-semibold text-indigo-900 dark:text-indigo-100 px-1">This event is part of a recurring series</legend>
+    <div class="space-y-2 mt-2">
+        <label class="flex items-start gap-2 text-sm text-gray-800 dark:text-gray-200">
+            <input type="radio" name="scope" value="this" class="mt-1" {% if scope == 'this' %}checked{% endif %}>
+            <span><span class="font-medium">This event only</span></span>
+        </label>
+        <label class="flex items-start gap-2 text-sm text-gray-800 dark:text-gray-200">
+            <input type="radio" name="scope" value="following" class="mt-1" {% if scope == 'following' %}checked{% endif %}>
+            <span><span class="font-medium">This and following events</span>
+                <span class="text-gray-500 dark:text-gray-400">({{ scope_counts.following }} event{{ scope_counts.following|pluralize }})</span></span>
+        </label>
+        <label class="flex items-start gap-2 text-sm text-gray-800 dark:text-gray-200">
+            <input type="radio" name="scope" value="all" class="mt-1" {% if scope == 'all' %}checked{% endif %}>
+            <span><span class="font-medium">All upcoming events in the series</span>
+                <span class="text-gray-500 dark:text-gray-400">({{ scope_counts.all }} event{{ scope_counts.all|pluralize }})</span></span>
+        </label>
+    </div>
+    <p class="mt-3 text-xs text-gray-600 dark:text-gray-400">
+        {% if verb == 'Delete' %}
+            Past events and events with finalized attendance are kept. Deleting the first event no longer deletes the whole series.
+        {% else %}
+            Only the fields you change are copied to the other events. A new date or time moves each of them by the same amount. Events with finalized attendance are left unchanged, and the repeat pattern itself isn't changed here.
+        {% endif %}
+    </p>
+</fieldset>
+{% endif %}

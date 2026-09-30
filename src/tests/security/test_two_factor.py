@@ -519,7 +519,8 @@ class TwoFactorMiddlewareTestCase(TestCase):
 
         response = self.middleware(request)
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(response.url, reverse('two_factor_verify'))
+        # v3.37.0: the page they were going to rides along as ?next=.
+        self.assertEqual(response.url, reverse('two_factor_verify') + '?next=/home/')
 
 
 class TwoFactorUserRequiresMethodTestCase(TestCase):
