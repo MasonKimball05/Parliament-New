@@ -333,6 +333,7 @@ from src.view.songbook import (
 from src.view.public_songbook import public_songbook_list, public_song_detail
 from src.view.csp_report import csp_report
 from src.view.csrf_token import csrf_token_refresh
+from src.view.site_monitor import static_asset_fingerprints
 from src.view.honeypot import (
     honeypot_wp_admin, honeypot_wp_login, honeypot_phpmyadmin, honeypot_env,
     honeypot_admin_backup, honeypot_api_export, honeypot_xmlrpc, honeypot_config,
@@ -1145,6 +1146,9 @@ urlpatterns = [
 
     # Health Check API
     path('api/health-check/', health_check, name='health_check'),
+    # v3.37.0 — origin-side static fingerprints for go-sentinel's Cloudflare stale-asset check.
+    # Token-gated; a plain 404 otherwise. See src/view/site_monitor.py.
+    path('site-monitor/static-assets/', static_asset_fingerprints, name='site_monitor_static_assets'),
 
     # Debug Panel API (Admin + Maintenance Mode only)
     path('api/debug/request/', debug_request_info, name='debug_request_info'),
