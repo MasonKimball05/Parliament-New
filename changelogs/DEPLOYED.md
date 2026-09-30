@@ -179,7 +179,7 @@ which predate this file and are more specific than their commit dates.
 | v3.36.0 | *not deployed* | `7230b8b` | See `changelogs/v3.36.0.md`. |
 | v3.37.0 | *not deployed* | `e10b044`, `77a8182`, `1e2a443` | See `changelogs/v3.37.0.md`. |
 | v3.37.1 | *not deployed* | `b685bc7` | See `changelogs/v3.37.1.md`. |
-| v3.38.0 | *not deployed* | *uncommitted* | See `changelogs/v3.38.0.md`. |
+| v3.38.0 | *not deployed* | `4100131` | See `changelogs/v3.38.0.md`. |
 
 > **⚠️ 09-02-26 — code for the whole backlog above (v3.25.2 through
 > v3.28.8) was restarted into prod the same day, and Mason confirmed
