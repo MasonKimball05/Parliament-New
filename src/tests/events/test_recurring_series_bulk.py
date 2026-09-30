@@ -152,6 +152,34 @@ class BulkEditTests(SeriesFixture):
             self.assertEqual(e.date_time, originals[e.pk][0] + timedelta(hours=1))
             self.assertEqual(e.excuse_deadline, originals[e.pk][1] + timedelta(hours=1))
 
+    def test_following_pivots_on_the_time_before_the_move(self):
+        # v3.37.1: "following" used the event's NEW time, so a move of a week
+        # or more skipped the next occurrence (later) or dragged in the
+        # previous one (earlier).
+        target = self.upcoming[1]
+        originals = {e.pk: e.date_time for e in self.occ}
+        self.client.post(reverse('edit_event', args=[target.pk]),
+                         post_data(target, date_time=_dt(target.date_time + timedelta(days=8)),
+                                   excuse_deadline=_dt(target.excuse_deadline + timedelta(days=8)),
+                                   scope='following'))
+        self.reload()
+        self.assertEqual(self.upcoming[0].date_time, originals[self.upcoming[0].pk])
+        for e in self.upcoming[1:]:
+            self.assertEqual(e.date_time, originals[e.pk] + timedelta(days=8))
+
+    def test_following_moved_earlier_leaves_earlier_events_alone(self):
+        target = self.upcoming[2]
+        originals = {e.pk: e.date_time for e in self.occ}
+        self.client.post(reverse('edit_event', args=[target.pk]),
+                         post_data(target, date_time=_dt(target.date_time - timedelta(days=7)),
+                                   excuse_deadline=_dt(target.excuse_deadline - timedelta(days=7)),
+                                   scope='following'))
+        self.reload()
+        for e in self.upcoming[:2]:
+            self.assertEqual(e.date_time, originals[e.pk])
+        for e in self.upcoming[2:]:
+            self.assertEqual(e.date_time, originals[e.pk] - timedelta(days=7))
+
     def test_excuse_deadline_keeps_its_distance_before_each_event(self):
         target = self.upcoming[0]
         self.client.post(reverse('edit_event', args=[target.pk]),
