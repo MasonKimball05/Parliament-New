@@ -1,0 +1,32 @@
+# Parliament: weekly backup restore drill (v3.38.0, 09-30-26).
+# Restores the newest dump from /var/backups/parliament into a throwaway
+# database, checks it, drops it, and emails SECURITY_ALERT_EMAIL on failure.
+# See src/management/commands/verify_backup.py.
+#
+# Runs as root for the same reason parliament-backup does: the nightly backup
+# writes the directory 0700 and each dump 0600 as root.
+#
+# Install (as root, one time):
+#   sudo -u postgres psql -c "ALTER ROLE <DB_USER> CREATEDB;"
+#   cp parliament-backup-verify.service parliament-backup-verify.timer /etc/systemd/system/
+#   systemctl daemon-reload && systemctl enable --now parliament-backup-verify.timer
+#   systemctl start parliament-backup-verify.service   # run one drill now
+#   journalctl -u parliament-backup-verify -n 30       # read the result
+[Unit]
+Description=Parliament backup restore drill
+After=postgresql.service
+Requires=postgresql.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/var/www/Parliament-New
+# /usr/bin for pg_restore / createdb / dropdb (the venv only has Python).
+Environment="PATH=/var/www/Parliament-New/venv/bin:/usr/bin:/bin"
+Environment="DJANGO_SETTINGS_MODULE=Parliament.settings"
+EnvironmentFile=/var/www/Parliament-New/.env
+ExecStart=/var/www/Parliament-New/venv/bin/python manage.py verify_backup
+NoNewPrivileges=true
+PrivateTmp=true
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=parliament-backup-verify
