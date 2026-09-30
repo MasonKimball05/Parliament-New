@@ -200,7 +200,8 @@ def profile_view(request):
                         response_data['email_pending'] = True
                         response_data['email_pending_address'] = pending_email
                     return JsonResponse(response_data)
-                messages.info(request, "No changes were made.")
+                if not pending_email:   # v3.37.0: the "link sent" message already said what happened
+                    messages.info(request, "No changes were made.")
 
             return redirect('profile')
 

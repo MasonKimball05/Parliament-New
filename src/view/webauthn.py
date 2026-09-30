@@ -315,7 +315,11 @@ def passkey_authenticate_complete(request):
 
     logger.info(f'Passkey authentication successful for {user.username} (credential: "{db_cred.name}")')
 
-    return JsonResponse({'ok': True, 'redirect': '/'})
+    # v3.37.0: honour ?next= (the login and verify pages append their own query
+    # string to this URL), like the password login does. It used to be '/'
+    # always, so signing in with a passkey from a deep link lost the link.
+    from src.next_url import safe_next
+    return JsonResponse({'ok': True, 'redirect': safe_next(request) or '/'})
 
 
 # ── Re-authentication (sensitive-action confirmation) ─────────────────────────

@@ -139,7 +139,12 @@ class Enforce2FAMiddleware:
                 elif self._check_remember_cookie(request):
                     pass  # auto-verified via cookie — fall through
                 else:
-                    return redirect('two_factor_verify')
+                    # v3.37.0: carry the page they were going to, so the verify
+                    # step can send them there (it used to always go home, which
+                    # silently dropped deep links such as the email-change link).
+                    from django.urls import reverse
+                    from src.next_url import with_next
+                    return redirect(with_next(reverse('two_factor_verify'), request))
 
         return self.get_response(request)
 
