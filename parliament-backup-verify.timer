@@ -1,0 +1,10 @@
+[Unit]
+Description=Run the Parliament backup restore drill weekly (Sunday 04:30, after the 03:30 backup)
+
+[Timer]
+OnCalendar=Sun *-*-* 04:30:00
+Persistent=true
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target
