@@ -1,6 +1,9 @@
 # Re-export shim — preserves all existing `from src.models import X` import sites.
 # All model classes are defined in sub-modules; this file simply re-exports them.
 
+# Chapters (multi-chapter phase 4a)
+from src.models.chapter import Chapter  # noqa: F401
+
 # Users
 from src.models.users import (
     MEMBER_DISPLAY_FIELDS,

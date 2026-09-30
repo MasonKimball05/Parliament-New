@@ -1007,3 +1007,17 @@ class RoleKnowledgeBaseRevisionAdmin(ReadOnlyAdmin):
     list_filter = ('created_at',)
     search_fields = ('knowledge_base__role__name', 'content', 'edited_by__name')
     list_select_related = ('knowledge_base__role', 'edited_by')
+
+
+# Multi-chapter step 4a (09-29-26). READ-ONLY on purpose: in 4a the site still
+# reads its identity from settings.CHAPTER, and this row must match it
+# (src.W007). Editing it here would do nothing today and would silently
+# change the site on the day step 4b switches to the table. Change CHAPTER_*
+# in .env, then run `manage.py sync_chapter_from_settings`.
+from .models import Chapter  # noqa: E402
+
+
+@admin.register(Chapter, site=admin_site)
+class ChapterAdmin(ReadOnlyAdmin):
+    list_display = ('chapter_name', 'school_short', 'domain', 'is_default', 'is_active')
+    search_fields = ('chapter_name', 'school', 'domain', 'slug')

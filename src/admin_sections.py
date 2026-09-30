@@ -102,7 +102,7 @@ SECTIONS = {
         'SongCategory', 'Song',
     ],
     'Site Config': [
-        'FeatureFlag', 'PageToggle', 'ScheduledMaintenance', 'BugReport',
+        'Chapter', 'FeatureFlag', 'PageToggle', 'ScheduledMaintenance', 'BugReport',
         'FeedbackRequest',
     ],
 }

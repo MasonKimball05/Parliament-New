@@ -206,7 +206,12 @@ Everything in this list matches how Parliament already treats confidentiality. T
 
 **Measured 09-29-26:** 149 models in `src`, 117 with a foreign key or M2M to `ParliamentUser`, and 2 singletons (`SiteSetting`, `LandingPageContent`). The work is mostly classification and migrations, not new features. Each step ships on its own, and nothing changes for Alpha Mu until step 4d.
 
-- **4a. `Chapter` model.** It holds the fields `ChapterIdentity` holds today, plus domain, timezone and content dir. A data migration creates Alpha Mu from `settings.CHAPTER`, and `get_chapter()` reads the database row, falling back to settings. No other model changes.
+- ✅ **4a. `Chapter` model, done 09-29-26 (migration `0057_chapter`).**
+  - **The table:** `src/models/chapter.py`, with the same identity fields as `ChapterIdentity` (a test pins them), plus `slug`, `is_default` (a DB constraint allows only one) and `is_active`. `Chapter.objects.default()` returns the default row.
+  - **Seeding:** the migration creates this deployment's row from its own `settings.CHAPTER`; for Alpha Mu that's slug `alpha-mu`.
+  - **Changed from the original plan:** `get_chapter()` still reads settings. The switch moves to 4b, together with finding the chapter from the request, because a lookup only matters once there can be more than one row. Switching earlier would also have broken every test that overrides `settings.CHAPTER`.
+  - **Keeping the two in step:** `src.W007` warns when the row and settings drift, and `manage.py sync_chapter_from_settings [--dry-run]` fixes it. The admin view is read-only, so the row can't be edited into a state that 4b would silently adopt.
+  - **Not added yet:** timezone and content-dir columns. They come with 4b, when they'd actually be read.
 - **4b. Current chapter.** A middleware sets `request.chapter`, and a contextvar holds it for code with no request. Management commands take `--chapter`. Celery tasks carry the chapter id in their arguments.
 - **4c. Classify every model** into one of three lists, with a guard test that enumerates all 149 and fails on any model in none of them (the same "enumerate the population" pattern as `test_singleton_rows`):
   - **ROOT:** gets a `chapter` FK. Likely: `ParliamentUser`, `Committee`, `Role`, `Legislation`, `Event`, `Announcement`, `Song`/`SongCategory`, `KaiReport` and its templates/permissions, `SlatingPeriod`, the singletons, and `FeatureFlag`.

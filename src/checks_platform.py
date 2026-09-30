@@ -89,3 +89,33 @@ def chapter_structure(app_configs, **kwargs):
              'and set committee flags in the admin (exactly one committee per flag).',
         id='src.W006',
     )]
+
+
+@register()
+def chapter_row_matches_settings(app_configs, **kwargs):
+    """src.W007 (multi-chapter 4a, 09-29-26) — the Chapter table matches settings.CHAPTER.
+
+    In step 4a get_chapter() still reads settings; the table is what step 4b
+    will switch to. If the two drift apart now, 4b would silently change the
+    site's name, domain or crest on the day it ships.
+    """
+    from django.db.utils import DatabaseError
+    try:
+        from src.models import Chapter
+        if not Chapter.objects.exists():
+            return []   # fresh DB before migrate, or a DB migrate hasn't seeded
+        row = Chapter.objects.default()
+        if row is None:
+            problem = 'there are Chapter rows but none is marked is_default'
+        else:
+            drift = row.drift_from_settings()
+            if not drift:
+                return []
+            problem = 'the default chapter differs from settings.CHAPTER in: ' + ', '.join(sorted(drift))
+    except (DatabaseError, ValueError):
+        return []   # schema errors are src.W002's; a bad settings.CHAPTER is src.E001's
+    return [CheckWarning(
+        f'Chapter table out of sync: {problem}.',
+        hint='Run `manage.py sync_chapter_from_settings` (use --dry-run to see the differences).',
+        id='src.W007',
+    )]
