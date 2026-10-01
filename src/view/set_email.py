@@ -16,6 +16,7 @@ from django.conf import settings
 from django.utils import timezone
 import logging
 from src.chapter import get_chapter
+from src.next_url import safe_next
 from django.utils.html import escape as _esc
 
 logger = logging.getLogger(__name__)
@@ -23,6 +24,16 @@ logger = logging.getLogger(__name__)
 
 def _is_ajax(request):
     return request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+
+
+def _safe_referer(request, fallback='home'):
+    """The Referer as a redirect target, but only if it's same-site — else `fallback`.
+
+    These post-action redirects send the user back where they came from, but a
+    raw `Referer` is an off-site value when the member arrived from an external
+    link, so it goes through the same validator every `?next=` path uses
+    (`src/next_url.safe_next`) rather than being trusted directly."""
+    return safe_next(request, request.META.get('HTTP_REFERER', '')) or fallback
 
 
 _RATE_LIMIT = 3          # max verification emails per window
@@ -104,7 +115,7 @@ def set_email(request):
         if _is_ajax(request):
             return JsonResponse({'success': False, 'message': 'Please provide an email address.'}, status=400)
         messages.error(request, 'Please provide an email address.')
-        return redirect(request.META.get('HTTP_REFERER', 'home'))
+        return redirect(_safe_referer(request))
 
     user = request.user
 
@@ -121,7 +132,7 @@ def set_email(request):
         if _is_ajax(request):
             return JsonResponse({'success': True, 'message': f'Email address set to {new_email}.'})
         messages.success(request, f'Email address set to {new_email}.')
-        return redirect(request.META.get('HTTP_REFERER', 'home'))
+        return redirect(_safe_referer(request))
 
     # -------------------------------------------------------------------------
     # Changing an existing email — require confirmation
@@ -132,7 +143,7 @@ def set_email(request):
         if _is_ajax(request):
             return JsonResponse({'success': False, 'message': 'That is already your current email address.'})
         messages.info(request, 'That is already your current email address.')
-        return redirect(request.META.get('HTTP_REFERER', 'home'))
+        return redirect(_safe_referer(request))
 
     # Check the new address isn't already taken by another user
     from src.models import ParliamentUser
@@ -140,7 +151,7 @@ def set_email(request):
         if _is_ajax(request):
             return JsonResponse({'success': False, 'message': 'That email address is already in use by another account.'}, status=409)
         messages.error(request, 'That email address is already in use by another account.')
-        return redirect(request.META.get('HTTP_REFERER', 'home'))
+        return redirect(_safe_referer(request))
 
     result = _send_email_confirmation(request, user, new_email)
     if result.get('error'):
@@ -155,7 +166,7 @@ def set_email(request):
         if _is_ajax(request):
             return JsonResponse({'success': True, 'message': msg})
         messages.success(request, msg)
-    return redirect(request.META.get('HTTP_REFERER', 'home'))
+    return redirect(_safe_referer(request))
 
 
 @login_required

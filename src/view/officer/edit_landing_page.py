@@ -6,7 +6,6 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
-from django.views.decorators.csrf import csrf_exempt
 from src.decorators import officer_or_advisor_required
 from src.feature_flag_decorators import require_page_enabled
 from src.models import (
