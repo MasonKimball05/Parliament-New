@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+
+{% block title %}Confirm 2FA Recovery{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8 max-w-md">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 transition-colors duration-200">
+        <div class="text-center mb-6">
+            <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Set Up a New Authenticator</h1>
+        </div>
+
+        <div class="bg-yellow-50 dark:bg-yellow-900/30 border-l-4 border-yellow-500 p-4 mb-6 rounded">
+            <p class="text-sm text-yellow-800 dark:text-yellow-200">
+                Continuing removes your current authenticator and backup codes.
+                You will set up a new authenticator on the next page.
+            </p>
+        </div>
+
+        <form method="post">
+            {% csrf_token %}
+            <button
+                type="submit"
+                class="block w-full text-center bg-primary-600 text-white px-6 py-3 rounded-lg hover:bg-primary-700 transition-colors font-semibold"
+            >
+                Remove and Set Up New Authenticator
+            </button>
+        </form>
+
+        <p class="text-xs text-gray-500 dark:text-gray-400 mt-4 text-center">
+            This link works once. If you did not request it, close this page and contact an administrator.
+        </p>
+    </div>
+</div>
+{% endblock %}

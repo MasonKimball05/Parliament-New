@@ -157,6 +157,17 @@ class Command(BaseCommand):
     # ------------------------------------------------------------------
 
     def _compare(self, scratch, min_ratio):
+        # v3.38.2: a database error here (the copy has no django_migrations
+        # table, or can't be connected to) is a failed drill, so it must
+        # raise DrillFailed. A bare psycopg2.Error skipped the alert.
+        import psycopg2
+        try:
+            return self._compare_counts(scratch, min_ratio)
+        except psycopg2.Error as e:
+            raise DrillFailed('Restored, but the copy could not be checked: '
+                              f'{type(e).__name__}: {str(e).strip()[:300]}')
+
+    def _compare_counts(self, scratch, min_ratio):
         import psycopg2
         copy = psycopg2.connect(dbname=scratch, user=self.db.get('USER') or None,
                                 password=self.db.get('PASSWORD') or None,

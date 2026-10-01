@@ -615,7 +615,10 @@ def warmup_announcement_email(request, announcement_id):
         linked_documents = list(announcement.linked_documents.all())
 
         for user in list(active_to_email) + list(extra_to_email):
-            tracking_url = f"{site_url}/track/announcement/{announcement.id}/user/{user.user_id}/"
+            from src.utils.tracking_sig import ANNOUNCEMENT, signed_pixel_url
+            tracking_url = signed_pixel_url(
+                f"{site_url}/track/announcement/{announcement.id}/user/{user.user_id}/",
+                ANNOUNCEMENT, announcement.id, user.user_id)
             html_message = render_to_string('emails/announcement_notification.html', {
                 'announcement': announcement,
                 'site_url': site_url,
@@ -781,6 +784,11 @@ def track_email_view(request, announcement_id, user_id):
     PIXEL_GIF = base64.b64decode(
         'R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'
     )
+
+    # v3.38.2: only a URL we signed records anything (src/utils/tracking_sig.py).
+    from src.utils.tracking_sig import ANNOUNCEMENT, pixel_request_is_signed
+    if not pixel_request_is_signed(request, ANNOUNCEMENT, announcement_id, user_id):
+        return HttpResponse(PIXEL_GIF, content_type='image/gif')
 
     try:
         announcement = Announcement.objects.get(id=announcement_id)

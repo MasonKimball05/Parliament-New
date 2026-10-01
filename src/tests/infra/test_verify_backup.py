@@ -155,6 +155,20 @@ class RestoreTests(DrillTestBase):
         self.assertEqual(run.call_args_list[0].kwargs['env']['PGPASSWORD'], 'pw')
 
     @mock.patch('src.management.commands.verify_backup.subprocess.run')
+    def test_database_error_while_checking_the_copy_is_a_failed_drill(self, run):
+        # v3.38.2: a psycopg2.Error (no django_migrations in the copy, or the
+        # copy can't be connected to) escaped as a traceback with no alert.
+        import psycopg2
+        self.dump('parliament_db_x.dump')
+        run.side_effect = lambda cmd, **kw: done(stdout=TOC if '--list' in cmd else '')
+        with mock.patch.object(vb.Command, '_compare_counts',
+                               side_effect=psycopg2.ProgrammingError('relation "django_migrations" does not exist')):
+            with self.assertRaisesMessage(CommandError, 'could not be checked'):
+                self.call()
+        self.assertEqual(self.alert.call_args.args[:2], ('BACKUP_VERIFY_FAILED', 'critical'))
+        self.assertEqual(run.call_args_list[-1].args[0][0], 'dropdb')
+
+    @mock.patch('src.management.commands.verify_backup.subprocess.run')
     def test_createdb_permission_error_explains_the_fix(self, run):
         self.dump('parliament_db_x.dump')
 
@@ -179,3 +193,11 @@ class InstallFilesTests(SimpleTestCase):
         self.assertIn(':/usr/bin', unit)
         self.assertIn('manage.py verify_backup', unit)
         self.assertTrue((root / 'parliament-backup-verify.timer').is_file())
+
+    def test_service_talks_to_postgres_not_pgbouncer(self):
+        # v3.38.2: pgbouncer only lists the app database, so createdb and the
+        # scratch database need the real port. The override must come AFTER
+        # EnvironmentFile or .env wins.
+        root = Path(__file__).resolve().parents[3]
+        unit = (root / 'parliament-backup-verify.service').read_text()
+        self.assertLess(unit.index('EnvironmentFile='), unit.index('Environment="DB_PORT=5432"'))

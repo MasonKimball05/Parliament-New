@@ -219,10 +219,15 @@ class LegislationViewSet(APILoggingMixin, viewsets.ReadOnlyModelViewSet):
     required_scope = 'legislation:read'
 
     def get_queryset(self):
+        # v3.38.2: a bill is hidden until `available_at` from everyone but its
+        # author, the same rule vote_view and passed_legislation apply. The
+        # API used to list scheduled bills (title and description) early.
         return (
             Legislation.objects
             .exclude(status='removed')
             .filter(is_active=True)
+            .filter(models.Q(available_at__lte=timezone.now())
+                    | models.Q(posted_by=self.request.user))
             .select_related('posted_by').defer(*member_defer('posted_by'))
             .prefetch_related(member_prefetch('co_authors'))
             .order_by('-created_at')

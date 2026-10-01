@@ -60,6 +60,24 @@
 
   <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
 
+    {% if my_big %}
+    <!-- v3.39.0 — shown once the education committee has revealed his big.
+         Never for a draft: `build_pledge_tasks_context` only reads revealed
+         pairings. -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm px-6 py-5 border-l-4 border-primary-500">
+      <p class="text-xs uppercase tracking-wide text-primary-600 dark:text-primary-400 font-semibold">Your Big Brother</p>
+      <p class="text-2xl font-bold text-gray-900 dark:text-white leading-tight mt-1">{{ my_big.get_display_name }}</p>
+      <div class="mt-2 flex items-center gap-x-4 gap-y-1 flex-wrap text-sm text-gray-500 dark:text-gray-400">
+        {% if my_big.pledge_class %}<span>{{ my_big.pledge_class }}{% if my_big.pledge_class_greek %} ({{ my_big.pledge_class_greek }}){% endif %}</span>{% endif %}
+        {% if my_big.house %}<span>House: {{ my_big.get_house_display }}</span>{% endif %}
+        {% if my_big.role_number %}<span>#{{ my_big.role_number }}</span>{% endif %}
+      </div>
+      {% if my_big_revealed_at %}
+      <p class="text-xs text-gray-400 dark:text-gray-500 mt-2">Revealed {{ my_big_revealed_at|date:"M j, Y" }}</p>
+      {% endif %}
+    </div>
+    {% endif %}
+
     <!-- Points summary (v3.20.0) — tasks and meeting attendance in one place,
          each labelled, because a single combined number leaves a pledge unable
          to tell which half he is behind on. -->

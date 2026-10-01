@@ -65,6 +65,14 @@ def my_pledge_tasks(request):
     if not request.user.is_pledge:
         return redirect('home')
 
+    # v3.39.0 — apply any timed big reveal that is due before building the
+    # page, so a pledge opening My Tasks right after his reveal time sees it
+    # even if the every-minute beat job hasn't run yet. Not done in
+    # `build_pledge_tasks_context`: the chair's read-only preview must not
+    # write anything.
+    from src.big_reveal import reveal_due_bigs
+    reveal_due_bigs()
+
     context = build_pledge_tasks_context(request.user)
     return render(request, 'pledge/my_tasks.html', context)
 
@@ -224,7 +232,22 @@ def build_pledge_tasks_context(pledge):
     for meeting in upcoming_meetings:
         meeting.my_absence_request = absence_requests.get(meeting.pk)
 
+    # ── Big brother (v3.39.0) ─────────────────────────────────────────────
+    # ⚠️ REVEALED ONLY. An unrevealed `PledgeBigAssignment` is the education
+    # committee's secret until the ritual, and this function also renders the
+    # chair-side "View as pledge" preview, which any education permission can
+    # open — so the filter here is what keeps a draft off both pages.
+    from src.models import PledgeBigAssignment
+    big_assignment = (
+        PledgeBigAssignment.objects
+        .filter(pledge=pledge, revealed_at__isnull=False)
+        .select_related('big')
+        .first()
+    )
+
     context = {
+        'my_big': big_assignment.big if big_assignment else None,
+        'my_big_revealed_at': big_assignment.revealed_at if big_assignment else None,
         'phase_groups': phase_groups,
         'attendance_history': my_attendance,
         'missed_count': len(missed_meetings),

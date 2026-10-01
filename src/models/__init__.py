@@ -246,6 +246,7 @@ from src.models.education import (
     EducationAbsenceRequest,
     EducationMemberPermission,
     PledgePointAdjustment,
+    PledgeBigAssignment,
 )
 
 # Feature Flags (defined in separate module)

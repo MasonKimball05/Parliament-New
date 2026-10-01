@@ -304,9 +304,11 @@ def send_event_reminder_pushes():
                             users_email_opted_out += 1
                             email_status = 'skipped_opted_out'
                         else:
-                            tracking_url = (
+                            from src.utils.tracking_sig import EVENT_REMINDER, signed_pixel_url
+                            tracking_url = signed_pixel_url(
                                 f'{site_url}/track/event-reminder/'
-                                f'{reminder_log.id}/user/{user.user_id}/'
+                                f'{reminder_log.id}/user/{user.user_id}/',
+                                EVENT_REMINDER, reminder_log.id, user.user_id,
                             )
                             try:
                                 html_message = render_to_string('emails/event_reminder.html', {

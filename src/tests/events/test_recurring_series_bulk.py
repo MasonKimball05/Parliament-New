@@ -244,6 +244,18 @@ class BulkDeleteTests(SeriesFixture):
         self.assertEqual(new_root.recurrence_type, 'weekly')
         self.assertEqual(Event.objects.filter(parent_event=new_root).count(), 4)
 
+    def test_following_from_the_root_ends_the_series_at_its_last_survivor(self):
+        # v3.38.2: the survivors were re-read through a queryset keyed on the
+        # deleted root, which matched nothing, so the end date was never set.
+        keep = self.upcoming[1]
+        Event.objects.filter(pk=keep.pk).update(attendance_finalized=True)
+        self.client.post(reverse('delete_event', args=[self.root.pk]), {'scope': 'following'})
+        self.assertEqual(set(Event.objects.values_list('pk', flat=True)), {self.past.pk, keep.pk})
+        new_root = Event.objects.get(pk=self.past.pk)
+        self.assertTrue(new_root.is_recurring)
+        self.assertEqual(Event.objects.get(pk=keep.pk).parent_event_id, new_root.pk)
+        self.assertEqual(new_root.recurrence_end_date, timezone.localtime(keep.date_time).date())
+
     def test_non_series_delete_unchanged(self):
         lone = Event.objects.create(title='Social', description='x', date_time=timezone.now(),
                                     created_by=self.officer)

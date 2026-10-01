@@ -433,7 +433,6 @@ def edit_period(request, period_id):
                 ).order_by('name'))
 
                 # Build per-position applicant markers and already-slated set
-                import json as _json
 
                 # Who is already on the slate in any capacity
                 slated_user_ids = []
@@ -457,7 +456,9 @@ def edit_period(request, period_id):
                             entries.append({'id': app.applicant.user_id, 'tier': tier})
                     pos_applicants[str(pos.id)] = entries
 
-                write_in_js_data = _json.dumps({
+                # Rendered into a <script> with |safe, and it carries member names.
+                from src.utils.script_json import script_safe_json
+                write_in_js_data = script_safe_json({
                     'pos_applicants': pos_applicants,
                     'slated_ids': slated_user_ids,
                     'members': [{'id': m.user_id, 'name': m.name} for m in active_members],

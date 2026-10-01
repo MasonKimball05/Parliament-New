@@ -1207,7 +1207,7 @@ def view_kai_reports(request):
         monthly_data = {}
         recent_activities = []
 
-    import json as _json
+    from src.utils.script_json import script_safe_json
     context = {
         'reports': reports,
         'status_filter': status_filter,
@@ -1229,8 +1229,8 @@ def view_kai_reports(request):
         'pending_count': counts['pending'],
         'reviewed_count': counts['reviewed'],
         'archived_count': counts['archived'],
-        'category_data': _json.dumps(category_data),
-        'monthly_data': _json.dumps(monthly_data),
+        'category_data': script_safe_json(category_data),
+        'monthly_data': script_safe_json(monthly_data),
         'outcome_pending': outcome_pending,
         'outcome_heard': outcome_heard,
         'outcome_thrown_out': outcome_thrown_out,
@@ -1825,9 +1825,10 @@ Notified at: {notify_time}
                         """
 
                         # Build tracking pixel URL
-                        tracking_url = request.build_absolute_uri(
+                        from src.utils.tracking_sig import KAI_SUBMITTER, signed_pixel_url
+                        tracking_url = signed_pixel_url(request.build_absolute_uri(
                             reverse('track_kai_submitter_email', kwargs={'report_id': report.id})
-                        )
+                        ), KAI_SUBMITTER, report.id)
 
                         escaped_notes = escape(report.committee_notes or 'No additional notes provided.').replace('\n', '<br>')
 
@@ -2088,9 +2089,10 @@ Kai Committee
                     """
 
                     # Build tracking pixel URL
-                    tracking_url = request.build_absolute_uri(
+                    from src.utils.tracking_sig import KAI_ACCUSED, signed_pixel_url
+                    tracking_url = signed_pixel_url(request.build_absolute_uri(
                         reverse('track_kai_accused_email', kwargs={'report_id': report.id})
-                    )
+                    ), KAI_ACCUSED, report.id)
 
                     # Escape notification message for HTML
                     from django.utils.html import escape
@@ -2856,6 +2858,11 @@ def track_kai_accused_email_view(request, report_id):
         'R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'
     )
 
+    # v3.38.2: only a URL we signed records anything (src/utils/tracking_sig.py).
+    from src.utils.tracking_sig import KAI_ACCUSED, pixel_request_is_signed
+    if not pixel_request_is_signed(request, KAI_ACCUSED, report_id):
+        return HttpResponse(PIXEL_GIF, content_type='image/gif')
+
     try:
         report = KaiReport.objects.get(id=report_id)
         logger.info(f"Kai email tracking pixel accessed for report {report_id}")
@@ -2902,6 +2909,11 @@ def track_kai_submitter_email_view(request, report_id):
     PIXEL_GIF = base64.b64decode(
         'R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'
     )
+
+    # v3.38.2: only a URL we signed records anything (src/utils/tracking_sig.py).
+    from src.utils.tracking_sig import KAI_SUBMITTER, pixel_request_is_signed
+    if not pixel_request_is_signed(request, KAI_SUBMITTER, report_id):
+        return HttpResponse(PIXEL_GIF, content_type='image/gif')
 
     try:
         report = KaiReport.objects.get(id=report_id)

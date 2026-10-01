@@ -2,8 +2,9 @@
 Self-service 2FA recovery flow.
 
 Allows a logged-in user (password authenticated, but no working TOTP) to
-request a re-enrollment link via email. The link is time-limited (1 hour)
-and invalidated after use by deleting the TOTP device.
+request a re-enrollment link via email. The link is time-limited and works
+ONCE: the token is bound to the member's current 2FA devices and last login,
+and using it changes both (v3.38.2 — see TwoFactorRecoveryTokenGenerator).
 
 Flow:
   1. User on /accounts/two-factor/verify/ clicks "Lost your authenticator?"
@@ -11,7 +12,13 @@ Flow:
   3. POST /accounts/two-factor/recovery/        → sends email, shows confirmation
   4. User clicks link in email
   5. GET  /accounts/two-factor/recovery-confirm/<uidb64>/<token>/
-     → validates token, deletes TOTP + backup devices, redirects to setup
+     → validates token, shows a "remove my authenticator" confirmation page
+  6. POST (same URL)
+     → validates token again, deletes TOTP + backup devices, redirects to setup
+
+The wipe is on POST only (v3.38.2): mail clients and link scanners fetch the
+URLs in a message, and a GET that deletes someone's 2FA is a GET a scanner
+performs for them.
 """
 import logging
 
@@ -38,20 +45,38 @@ logger = logging.getLogger(__name__)
 security_logger = logging.getLogger('security')
 
 
+def _device_state(user):
+    """The ids of `user`'s TOTP and static (backup-code) devices, as a string."""
+    totp = sorted(TOTPDevice.objects.filter(user=user).values_list('pk', flat=True))
+    static = sorted(StaticDevice.objects.filter(user=user).values_list('pk', flat=True))
+    return f't{totp}s{static}'
+
+
 class TwoFactorRecoveryTokenGenerator(PasswordResetTokenGenerator):
     """
-    Short-lived HMAC token for 2FA re-enrollment.
-    Expires after 1 hour. Distinct from password reset tokens via the
-    '2fa_recovery' domain suffix in the hash value.
+    Short-lived HMAC token for 2FA re-enrollment. Distinct from password reset
+    tokens via the '2fa_recovery' domain suffix in the hash value. Lifetime is
+    settings.PASSWORD_RESET_TIMEOUT (the base class reads nothing else).
+
+    v3.38.2 — SINGLE USE. The hash used to be pk + password + last_login, and
+    the only thing that changed after use was last_login, via `auth_login` in
+    the confirm view. That view skipped `auth_login` when the browser was
+    already signed in as the member, which is the NORMAL flow (the request
+    page is @login_required). So the link stayed valid until it expired: a
+    replay from any other browser wiped the member's NEW authenticator and
+    signed that browser in as them. The hash now also covers the member's
+    device ids, which the wipe and the re-enrolment both change, and the
+    confirm view always calls `auth_login`.
+    See src/tests/security/test_two_factor_recovery.py.
     """
-    timeout = 3600  # 1 hour
 
     def _make_hash_value(self, user, timestamp):
         login_timestamp = (
             '' if user.last_login is None
             else user.last_login.replace(microsecond=0, tzinfo=None)
         )
-        return f'{user.pk}{user.password}{login_timestamp}{timestamp}2fa_recovery'
+        return (f'{user.pk}{user.password}{login_timestamp}{timestamp}'
+                f'{_device_state(user)}2fa_recovery')
 
 
 _recovery_token = TwoFactorRecoveryTokenGenerator()
@@ -97,7 +122,7 @@ def two_factor_recovery_request(request):
                 f'Someone (hopefully you) requested a 2FA re-enrollment link for your Parliament account.\n\n'
                 f'Click the link below to remove your current authenticator and set up a new one:\n'
                 f'{recovery_url}\n\n'
-                f'This link expires in 1 hour and can only be used once.\n\n'
+                f'This link expires in 30 minutes and can only be used once.\n\n'
                 f'If you did not request this, your account may be at risk — contact an administrator immediately.\n\n'
                 f'Parliament'
             )
@@ -142,8 +167,9 @@ def two_factor_recovery_request(request):
 
 def two_factor_recovery_confirm(request, uidb64, token):
     """
-    Validates the recovery token, wipes all 2FA devices for the user,
-    and redirects to the 2FA setup page.
+    GET:  validates the recovery token and shows a confirmation page.
+    POST: validates it again, wipes all 2FA devices for the user, signs them
+          in and redirects to the 2FA setup page.
 
     No login_required — the user may be opening the link from a different
     browser or device. The uidb64 identifies the user; the HMAC token
@@ -157,6 +183,10 @@ def two_factor_recovery_confirm(request, uidb64, token):
 
     if not _recovery_token.check_token(user, token):
         return render(request, 'two_factor/recovery_confirm_invalid.html', status=400)
+
+    if request.method != 'POST':
+        # Nothing is changed by opening the link (see the module docstring).
+        return render(request, 'two_factor/recovery_confirm.html')
 
     # Token is valid — wipe all 2FA devices so the user can re-enroll
     totp_deleted = TOTPDevice.objects.filter(user=user).delete()[0]
@@ -201,11 +231,12 @@ def two_factor_recovery_confirm(request, uidb64, token):
         object_type='TOTPDevice',
     )
 
-    # Log user in (they may be coming from a fresh browser tab via email)
+    # Sign the user in (they may be coming from a fresh browser tab via email).
+    # ALWAYS, even when this browser is already signed in as them: login()
+    # moves last_login, which is half of what makes the token single-use.
     from django.contrib.auth import login as auth_login
-    if not request.user.is_authenticated or request.user.pk != user.pk:
-        # Specify the backend so Django doesn't complain about multiple backends
-        user.backend = AUTH_BACKEND_PATH
-        auth_login(request, user)
+    # Specify the backend so Django doesn't complain about multiple backends
+    user.backend = AUTH_BACKEND_PATH
+    auth_login(request, user)
 
     return redirect('two_factor_setup')

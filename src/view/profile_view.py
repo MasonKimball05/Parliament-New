@@ -224,14 +224,20 @@ def profile_view(request):
             user.facebook = request.POST.get('facebook', '').strip().lstrip('@')
             new_other_email = request.POST.get('other_email', '').strip()
             user.other_email = new_other_email if new_other_email else None
-            big_bro_id = request.POST.get('big_brother', '').strip()
-            if big_bro_id:
-                try:
-                    user.big_brother = ParliamentUser.objects.get(user_id=big_bro_id)
-                except ParliamentUser.DoesNotExist:
-                    pass
-            else:
-                user.big_brother = None
+            # v3.39.0 — once the education committee has revealed his big,
+            # the pledge (and later the brother) can't change it here; the
+            # field isn't rendered, so an absent value must not clear it
+            # either. Education and the admin-v2 profile editor still can.
+            from src.big_reveal import profile_big_is_locked
+            if not profile_big_is_locked(user):
+                big_bro_id = request.POST.get('big_brother', '').strip()
+                if big_bro_id:
+                    try:
+                        user.big_brother = ParliamentUser.objects.get(user_id=big_bro_id)
+                    except ParliamentUser.DoesNotExist:
+                        pass
+                else:
+                    user.big_brother = None
             user.save(update_fields=[
                 'about_me', 'pledge_class', 'pledge_class_greek',
                 'graduation_semester', 'graduation_year',
@@ -493,6 +499,7 @@ def profile_view(request):
 
     from src.models import RoleHistory
     role_histories = RoleHistory.objects.filter(user=user)
+    from src.big_reveal import profile_big_is_locked
     eligible_big_bros = (
         ParliamentUser.objects
         .exclude(user_id=user.user_id)
@@ -540,6 +547,7 @@ def profile_view(request):
         'show_passkey_nudge': show_passkey_nudge,
         'role_histories': role_histories,
         'eligible_big_bros': eligible_big_bros,
+        'big_locked': profile_big_is_locked(user),
         'academic_sections': academic_sections,
         'recent_logins': recent_logins,
         'failed_login_count_30d': failed_login_count_30d,

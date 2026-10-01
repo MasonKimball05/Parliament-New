@@ -33,6 +33,14 @@ SCHEDULES = [
         'task': 'tasks.notify_available_legislation',
         'interval': {'every': 1, 'period': IntervalSchedule.MINUTES},
     },
+    # v3.39.0 — timed pledge big reveals. Every minute because a reveal is
+    # timed to a ritual; My Tasks and the education dashboard also apply due
+    # reveals on load, so a stopped beat delays the profile, not the pledge.
+    {
+        'name': 'Reveal due pledge bigs',
+        'task': 'tasks.reveal_due_bigs',
+        'interval': {'every': 1, 'period': IntervalSchedule.MINUTES},
+    },
     {
         'name': 'Auto open/close committee votes',
         'task': 'tasks.auto_open_close_committee_votes',

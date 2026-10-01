@@ -24,6 +24,11 @@ WorkingDirectory=/var/www/Parliament-New
 Environment="PATH=/var/www/Parliament-New/venv/bin:/usr/bin:/bin"
 Environment="DJANGO_SETTINGS_MODULE=Parliament.settings"
 EnvironmentFile=/var/www/Parliament-New/.env
+# v3.38.2 — straight to Postgres, not pgbouncer. If .env points DB_PORT at
+# pgbouncer (6432), createdb/dropdb and the scratch database are not reachable:
+# pgbouncer.ini lists only the application database. This line comes after
+# EnvironmentFile, so it wins. Change it if Postgres is not on 5432.
+Environment="DB_PORT=5432"
 ExecStart=/var/www/Parliament-New/venv/bin/python manage.py verify_backup
 NoNewPrivileges=true
 PrivateTmp=true

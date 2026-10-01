@@ -13,6 +13,8 @@ Provides:
   - POST committee/<code>/education/restrictions/<restriction_pk>/delete/ → remove PledgePageRestriction
   - POST committee/<code>/education/points/<pledge_pk>/adjust/            → manual point adjustment (v3.34.0)
   - POST committee/<code>/education/points/adjustments/<adjustment_pk>/delete/ → remove one adjustment (v3.34.0)
+  - POST committee/<code>/education/bigs/<pledge_pk>/set|reveal|unreveal|delete/ → pledge bigs (v3.39.0)
+  - POST committee/<code>/education/bigs/reveal-all/                      → reveal every draft (v3.39.0)
 """
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse, Http404
@@ -29,7 +31,7 @@ from src.models import (  # noqa: F401 PledgeQuizAnswer used in the quiz submiss
     Committee, ParliamentUser, PledgeTask, PledgeTaskCompletion,
     PledgePageRestriction, PledgeTaskQuestion, PledgeQuizAnswer,
     Event, EducationMeeting, EducationMeetingAttendance, EducationAbsenceRequest,
-    EducationMemberPermission, Song, PledgePointAdjustment,
+    EducationMemberPermission, Song, PledgePointAdjustment, PledgeBigAssignment,
 )
 from src.models.users import member_defer, member_prefetch
 from src.view.pledge_tasks import build_pledge_tasks_context
@@ -323,6 +325,11 @@ def education_home(request, code):
     committee, access = _education_committee_or_404(code, request.user)
     is_chair = access['is_chair']
 
+    # v3.39.0 — backstop for the every-minute beat job, so a timed big reveal
+    # is never shown here as "pending" after its time has passed.
+    from src.big_reveal import reveal_due_bigs
+    reveal_due_bigs()
+
     phases = ['all', '1', '2', '3']
     phase_labels = {'all': 'All Phases', '1': 'Phase 1', '2': 'Phase 2', '3': 'Phase 3'}
 
@@ -541,10 +548,31 @@ def education_home(request, code):
         .order_by('meeting__event__date_time')
     )
 
+    # ── Pledge bigs (v3.39.0) ────────────────────────────────────────────
+    # Drafts are only for `can_manage_tasks` (Mason, 10-01-26), so nothing is
+    # even queried for anyone else.
+    big_rows, big_candidates, unrevealed_big_count = [], [], 0
+    if access['can_manage_tasks']:
+        from src.big_reveal import eligible_bigs
+        assignments = {
+            a.pledge_id: a
+            for a in PledgeBigAssignment.objects
+            .filter(pledge__in=pledges)
+            .select_related('big')
+            .defer(*member_defer('big'))
+        }
+        big_rows = [{'pledge': p, 'assignment': assignments.get(p.pk)} for p in pledges]
+        unrevealed_big_count = sum(1 for a in assignments.values() if not a.is_revealed)
+        big_candidates = list(eligible_bigs().only('user_id', 'name', 'preferred_name'))
+
     context = {
         'committee': committee,
         'tasks': tasks,
         'task_rows': task_rows,
+        'big_rows': big_rows,
+        'big_candidates': big_candidates,
+        'unrevealed_big_count': unrevealed_big_count,
+        'BIG_REVEAL_MODES': PledgeBigAssignment.REVEAL_MODES,
         'pending_absences': pending_absences,
         'upcoming_meetings': upcoming_meetings,
         'past_meetings': past_meetings,
@@ -1879,3 +1907,164 @@ def education_review_absence(request, code, request_pk):
         )
 
     return redirect('education_home', code=code)
+
+
+# ── Pledge bigs (v3.39.0, 10-01-26) ─────────────────────────────────────────
+#
+# Mason: "add a feature to the education dashboard to be able to set pledge
+# bigs as well as a function to just set it vs when it goes live." A pairing
+# is a draft (`PledgeBigAssignment`, visible only here) until it is revealed,
+# by hand or at a set time; revealing copies it to the pledge's profile.
+# See `src/big_reveal.py`.
+#
+# ⚠️ EVERY VIEW HERE REQUIRES `can_manage_tasks`, INCLUDING SEEING DRAFTS
+# (Mason, 10-01-26). The dashboard only renders the section for that
+# permission; the views check it again rather than trusting the template.
+
+def _bigs_redirect(code):
+    return redirect(reverse('education_home', kwargs={'code': code}) + '#bigs')
+
+
+def _big_view_setup(request, code, pledge_pk):
+    """(committee, pledge, assignment_or_None, denied_response_or_None)."""
+    committee, access = _education_committee_or_404(code, request.user)
+    denied = _require_education_permission(access, 'can_manage_tasks')
+    if denied:
+        return committee, None, None, denied
+    pledge = get_object_or_404(ParliamentUser, pk=pledge_pk, member_type='Pledge')
+    assignment = (PledgeBigAssignment.objects
+                  .select_related('pledge', 'big')
+                  .filter(pledge=pledge).first())
+    return committee, pledge, assignment, None
+
+
+@login_required
+@require_page_enabled('committee_home')
+@require_POST
+def education_set_big(request, code, pledge_pk):
+    """Create or update a pledge's big pairing (draft, or timed reveal)."""
+    from django.contrib import messages
+    from django.utils.dateparse import parse_datetime
+    from src.big_reveal import eligible_bigs, change_big
+
+    committee, pledge, assignment, denied = _big_view_setup(request, code, pledge_pk)
+    if denied:
+        return denied
+
+    big = eligible_bigs().filter(pk=(request.POST.get('big') or '').strip()).first()
+    if big is None or big.pk == pledge.pk:
+        messages.error(request, f'Pick an active brother as {pledge.name}\'s big.')
+        return _bigs_redirect(code)
+
+    reveal_mode = request.POST.get('reveal_mode', 'manual')
+    if reveal_mode not in {m for m, _ in PledgeBigAssignment.REVEAL_MODES}:
+        reveal_mode = 'manual'
+    reveals_at = None
+    if reveal_mode == 'timed':
+        reveals_at = parse_datetime((request.POST.get('reveals_at') or '').strip())
+        if reveals_at is None:
+            messages.error(request, 'Pick a date and time for a timed reveal.')
+            return _bigs_redirect(code)
+        if timezone.is_naive(reveals_at):
+            reveals_at = timezone.make_aware(reveals_at)
+
+    if assignment is None:
+        PledgeBigAssignment.objects.create(
+            committee=committee, pledge=pledge, big=big,
+            reveal_mode=reveal_mode, reveals_at=reveals_at,
+            created_by=request.user,
+        )
+        messages.success(request, f'Big set for {pledge.name}. Not visible outside this dashboard until revealed.')
+        return _bigs_redirect(code)
+
+    if assignment.big_id != big.pk:
+        change_big(assignment, big)
+    if not assignment.is_revealed:
+        assignment.reveal_mode = reveal_mode
+        assignment.reveals_at = reveals_at
+        assignment.save(update_fields=['reveal_mode', 'reveals_at', 'updated_at'])
+    messages.success(request, f'Updated {pledge.name}\'s big.')
+    return _bigs_redirect(code)
+
+
+@login_required
+@require_page_enabled('committee_home')
+@require_POST
+def education_reveal_big(request, code, pledge_pk):
+    """Reveal one pairing now."""
+    from django.contrib import messages
+    from src.big_reveal import reveal
+
+    _, pledge, assignment, denied = _big_view_setup(request, code, pledge_pk)
+    if denied:
+        return denied
+    if assignment is None:
+        raise Http404
+    if reveal(assignment):
+        messages.success(request, f'{pledge.name}\'s big is now live.')
+    return _bigs_redirect(code)
+
+
+@login_required
+@require_page_enabled('committee_home')
+@require_POST
+def education_unreveal_big(request, code, pledge_pk):
+    """Take a revealed pairing back to a draft (e.g. revealed by mistake)."""
+    from django.contrib import messages
+    from src.big_reveal import unreveal
+
+    _, pledge, assignment, denied = _big_view_setup(request, code, pledge_pk)
+    if denied:
+        return denied
+    if assignment is None:
+        raise Http404
+    if assignment.is_revealed:
+        unreveal(assignment)
+        # Back to a manual draft, so a passed timed reveal doesn't immediately
+        # re-reveal it on the next beat tick.
+        assignment.reveal_mode = 'manual'
+        assignment.save(update_fields=['reveal_mode', 'updated_at'])
+        messages.success(request, f'{pledge.name}\'s big is hidden again (back to draft).')
+    return _bigs_redirect(code)
+
+
+@login_required
+@require_page_enabled('committee_home')
+@require_POST
+def education_delete_big(request, code, pledge_pk):
+    """Remove a pairing. A revealed one is un-revealed first."""
+    from django.contrib import messages
+    from src.big_reveal import unreveal
+
+    _, pledge, assignment, denied = _big_view_setup(request, code, pledge_pk)
+    if denied:
+        return denied
+    if assignment is None:
+        raise Http404
+    with transaction.atomic():
+        if assignment.is_revealed:
+            unreveal(assignment)
+        assignment.delete()
+    messages.success(request, f'Removed {pledge.name}\'s big.')
+    return _bigs_redirect(code)
+
+
+@login_required
+@require_page_enabled('committee_home')
+@require_POST
+def education_reveal_all_bigs(request, code):
+    """Reveal every unrevealed pairing at once (after the ritual)."""
+    from django.contrib import messages
+    from src.big_reveal import reveal
+
+    committee, access = _education_committee_or_404(code, request.user)
+    denied = _require_education_permission(access, 'can_manage_tasks')
+    if denied:
+        return denied
+    pending = (PledgeBigAssignment.objects
+               .filter(revealed_at__isnull=True, pledge__member_type='Pledge',
+                       pledge__is_active=True)
+               .select_related('pledge', 'big'))
+    count = sum(1 for a in pending if reveal(a))
+    messages.success(request, f'Revealed {count} big{"s" if count != 1 else ""}.')
+    return _bigs_redirect(code)

@@ -1466,7 +1466,11 @@ class EducationDashboardQueryBudgetTests(QueryBudgetMixin, TestCase):
     #: v3.35.0 (09-25-26): 37 → 39, two constant queries, measured with a
     #: query-shape probe (no N+1): `PledgePointAdjustment` for the manual
     #: points log (v3.34.0) and `Song` for the Add Task song picker (09-22-26).
-    BUDGET = 39
+    #: v3.39.0 (10-01-26): 39 → 42, three constant queries for the Bigs card:
+    #: the due-reveal check (`reveal_due_bigs`), the pledges' pairings, and the
+    #: big picker's candidate list. None is per pledge, and the scaling test
+    #: below still passes.
+    BUDGET = 42
 
     def setUp(self):
         from django.utils import timezone as tz
