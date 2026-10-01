@@ -54,6 +54,17 @@ CLASS_PALETTE = [
 
 FOUNDERS_COLOR = "#ffd700"  # gold — rendered as the existing gradient badge
 
+# The original 1800s chapter founders (roll numbers 1–43), kept for the
+# record. They sit outside the semester sequence entirely — no index, never
+# selectable in the class dropdown — and are recognized by their stored class
+# text (mark_original_founders sets pledge_class; the greek is left alone).
+# Beta Blue; still clears the palette's ΔE > 10 margin.
+ORIGINAL_FOUNDERS_LABEL = 'Original Founders'
+ORIGINAL_FOUNDERS_GREEK = 'Original Founder'
+ORIGINAL_FOUNDERS_COLOR = "#003da5"  # Beta Blue
+ORIGINAL_FOUNDERS_ROLLS = range(1, 44)  # roll #1–#43
+_ORIGINAL_FOUNDERS_NAMES = ('original founder', 'original founders')
+
 
 def color_for_index(idx):
     """Stable badge color for a 0-based class index (0 = Founders = gold)."""
@@ -170,12 +181,21 @@ def apply_to_fields(pledge_class_text, pledge_class_greek_text, today=None):
     return pc, greek
 
 
+def is_original_founder(pledge_class, pledge_class_greek=None):
+    """True if either stored field marks the member as an 1800s founder."""
+    return any((t or '').strip().lower() in _ORIGINAL_FOUNDERS_NAMES
+               for t in (pledge_class, pledge_class_greek))
+
+
 def badge_context(pledge_class, pledge_class_greek=None, today=None):
     """Directory-badge info for a stored (class, greek) pair, or None.
 
     Trusts an explicit 'Founder' greek (legacy data) even if the semester
     text doesn't parse; otherwise resolves via normalize().
     """
+    if is_original_founder(pledge_class, pledge_class_greek):
+        return {'greek': ORIGINAL_FOUNDERS_GREEK,
+                'color': ORIGINAL_FOUNDERS_COLOR, 'is_founders': False}
     if (pledge_class_greek or '').strip().lower() in ('founder', 'founders'):
         return {'greek': FOUNDERS_GREEK, 'color': FOUNDERS_COLOR,
                 'is_founders': True}

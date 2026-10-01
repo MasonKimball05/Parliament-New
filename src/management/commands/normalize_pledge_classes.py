@@ -16,7 +16,7 @@ untouched and listed at the end for manual review.
 from django.core.management.base import BaseCommand
 
 from src.models import ParliamentUser
-from src.pledge_classes import normalize
+from src.pledge_classes import is_original_founder, normalize
 
 
 class Command(BaseCommand):
@@ -34,6 +34,8 @@ class Command(BaseCommand):
         members = ParliamentUser.objects.exclude(
             pledge_class='').exclude(pledge_class__isnull=True)
         for m in members:
+            if is_original_founder(m.pledge_class, m.pledge_class_greek):
+                continue  # 1800s founders sit outside the sequence on purpose
             # Resolve from the semester text, or fall back to the greek text.
             c = normalize(m.pledge_class) or normalize(m.pledge_class_greek)
             if c is None:
