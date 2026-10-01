@@ -119,6 +119,16 @@ def all_classes(today=None):
     return classes
 
 
+def current_class(today=None):
+    """The class a pledge added today belongs to (v3.39.1, 10-01-26).
+
+    The newest class in the registry: Spring from January, and the upcoming
+    Fall from July (the same boundary the dropdowns use), so a pledge added
+    over the summer for fall recruitment lands in the fall class.
+    """
+    return all_classes(today)[-1]
+
+
 def class_by_label(label, today=None):
     label = (label or '').strip().lower()
     for c in all_classes(today):
