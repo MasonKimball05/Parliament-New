@@ -208,6 +208,53 @@ class StampLedgerCreatesMissingRowsTests(SimpleTestCase):
         )
 
 
+class StampLedgerReadsEveryCommittedSpellingTests(SimpleTestCase):
+    """
+    10-01-26: v3.37.1 and v3.38.0 were written `**Committed:** *not yet*`.
+    `src.W003` reads that spelling (its `_COMMITTED_LINE` makes "& pushed"
+    optional), but this tool only matched `**Committed & pushed:**`, so the
+    check fired and the tool said "Nothing to do" — the hook's auto-stamp could
+    not clear its own gate. The tool must accept everything the check accepts.
+    """
+
+    def setUp(self):
+        self.script = _load_script()
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.script.CHANGELOG_DIR = Path(self.tmp.name)
+
+    def _stamp(self, line):
+        path = Path(self.tmp.name) / 'v9.9.9.md'
+        path.write_text(f'# v9.9.9\n\n{line}\n**Deployed:** *not yet*.\n', encoding='utf-8')
+        result = self.script.stamp_changelog('v9.9.9', 'abc1234', '10-01-26', dry_run=False)
+        return result, path.read_text(encoding='utf-8')
+
+    def test_the_short_committed_spelling_is_stamped(self):
+        result, text = self._stamp('**Committed:** *not yet*')
+        self.assertIsNotNone(result)
+        self.assertIn('**Committed:** 10-01-26, `abc1234`', text)
+        self.assertNotIn('not yet*\n**Deployed', text)
+
+    def test_the_long_spelling_still_works(self):
+        result, text = self._stamp('**Committed & pushed:** *not yet*')
+        self.assertIsNotNone(result)
+        self.assertIn('**Committed & pushed:** 10-01-26, `abc1234`', text)
+
+    def test_a_line_that_names_a_commit_is_left_alone(self):
+        line = '**Committed:** 09-29-26, `7230b8b`. **Pushed:** *not yet*.'
+        result, text = self._stamp(line)
+        self.assertIsNone(result)
+        self.assertIn(line, text)
+
+    def test_the_tool_and_the_check_agree_on_the_pattern(self):
+        from src import checks_ledger
+        for line in ('**Committed:** *not yet*', '**Committed & pushed:** *not yet*',
+                     '**committed & pushed:** *not yet*', '**Committed&pushed:** *not yet*'):
+            with self.subTest(line=line):
+                self.assertIsNotNone(checks_ledger._COMMITTED_LINE.search(line))
+                self.assertIsNotNone(self.script._COMMITTED_LINE.search(line))
+
+
 class TheRealLedgerIsStampedTests(SimpleTestCase):
     """
     The end-to-end assertion: run the real script in report-only mode against

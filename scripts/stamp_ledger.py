@@ -116,6 +116,14 @@ def commit_date(sha: str) -> str:
     return result.stdout.strip() or ''
 
 
+#: Mirrors `src/checks_ledger.py::_COMMITTED_LINE` (plus a `label` group so the
+#: line keeps the spelling it was written with).
+_COMMITTED_LINE = re.compile(
+    r'^(?P<label>\*\*Committed(?:\s*&\s*pushed)?:?\*\*)(?P<value>.*)$',
+    re.IGNORECASE | re.MULTILINE,
+)
+
+
 #: The standard "not yet committed" boilerplate wraps onto a second physical
 #: line — `**Committed & pushed:** *not yet* — uncommitted, per standing
 #: instruction\nnot to commit unless told.` — and the single-line regex below
@@ -137,8 +145,13 @@ def stamp_changelog(version: str, sha: str, date: str, dry_run: bool) -> str | N
         return None
     text = path.read_text(encoding='utf-8')
 
-    match = re.search(r'^\*\*Committed & pushed:\*\*(.*)$', text, re.MULTILINE)
-    if not match or not needs_stamping(match.group(1)):
+    # Same pattern as `src/checks_ledger.py::_COMMITTED_LINE`. Until 10-01-26
+    # this only matched `**Committed & pushed:**`, while the check also reads
+    # `**Committed:**` — so v3.37.1 and v3.38.0 (written that way) tripped
+    # src.W003 and this tool reported "Nothing to do". A tool narrower than
+    # the check it exists to satisfy is the 08-23-26 bug again.
+    match = _COMMITTED_LINE.search(text)
+    if not match or not needs_stamping(match.group('value')):
         return None
 
     end = match.end()
@@ -148,7 +161,7 @@ def stamp_changelog(version: str, sha: str, date: str, dry_run: bool) -> str | N
 
     if not dry_run:
         path.write_text(
-            text[:match.start()] + f'**Committed & pushed:** {date}, `{sha}`' + text[end:],
+            text[:match.start()] + f"{match.group('label')} {date}, `{sha}`" + text[end:],
             encoding='utf-8',
         )
     return f'{version}.md  →  {date}, {sha}'
