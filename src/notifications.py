@@ -254,7 +254,10 @@ def send_announcement_notification(announcement, initiated_by=None):
 
             try:
                 # Generate user-specific tracking URL
-                tracking_url = f"{site_url}/track/announcement/{announcement.id}/user/{user.user_id}/"
+                from src.utils.tracking_sig import ANNOUNCEMENT, signed_pixel_url
+                tracking_url = signed_pixel_url(
+                    f"{site_url}/track/announcement/{announcement.id}/user/{user.user_id}/",
+                    ANNOUNCEMENT, announcement.id, user.user_id)
 
                 # Create HTML email with tracking pixel
                 html_message = render_to_string('emails/announcement_notification.html', {

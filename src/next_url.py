@@ -13,10 +13,18 @@ from django.utils.http import url_has_allowed_host_and_scheme
 
 
 def safe_next(request, value=None):
-    """`value` (default: ?next=) if it's a same-site URL, else ''."""
+    """`value` (default: ?next=) if it's a same-site PATH, else ''.
+
+    Must start with one `/` (v3.38.2). A bare word such as `logout` is a
+    valid relative URL, but `redirect()` tries it as a route NAME first: it
+    sent the member to /logout/, and any other word was a NoReverseMatch 500
+    straight after a successful 2FA.
+    """
     if value is None:
         value = request.GET.get('next', '')
-    if value and url_has_allowed_host_and_scheme(
+    if not value.startswith('/') or value.startswith(('//', '/\\')):
+        return ''
+    if url_has_allowed_host_and_scheme(
             value, allowed_hosts={request.get_host()}, require_https=request.is_secure()):
         return value
     return ''

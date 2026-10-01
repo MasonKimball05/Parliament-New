@@ -155,19 +155,22 @@ def delete_series_events(event, scope, now=None):
                 later = series.filter(date_time__gte=event.date_time if scope == SCOPE_FOLLOWING
                                       else (now or timezone.now()))
                 kept_finalized = later.filter(attendance_finalized=True).exclude(pk=event.pk).count()
-            survivors = series.exclude(pk__in=doomed_ids).order_by('date_time', 'pk')
-            if root.pk in doomed_ids and survivors.exists():
-                new_root = survivors.first()
+            # A list, not a queryset: `series` is keyed on the OLD root's pk,
+            # so after the promotion below it would match nothing (v3.38.2 —
+            # the end date was never trimmed when the root itself was deleted).
+            survivors = list(series.exclude(pk__in=doomed_ids).order_by('date_time', 'pk'))
+            if root.pk in doomed_ids and survivors:
+                new_root = survivors[0]
                 for f in RECURRENCE_FIELDS:
                     setattr(new_root, f, getattr(root, f))
                 new_root.is_recurring = True
                 new_root.parent_event = None
                 new_root.save(update_fields=list(RECURRENCE_FIELDS) + ['is_recurring', 'parent_event'])
-                survivors.exclude(pk=new_root.pk).update(parent_event=new_root)
+                Event.objects.filter(pk__in=[e.pk for e in survivors[1:]]).update(parent_event=new_root)
                 root = new_root
             if scope == SCOPE_FOLLOWING and root.pk not in doomed_ids:
-                # The series now ends before the split point.
-                last = survivors.order_by('-date_time').first()
+                # The series now ends at its last surviving event.
+                last = max(survivors, key=lambda e: e.date_time, default=None)
                 if last is not None:
                     root.recurrence_end_date = timezone.localtime(last.date_time).date()
                     root.save(update_fields=['recurrence_end_date'])

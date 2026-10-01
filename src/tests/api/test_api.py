@@ -391,6 +391,26 @@ class LegislationAPITestCase(APITestBase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()['title'], 'Test Bill')
 
+    def test_scheduled_bill_is_hidden_until_available_except_from_its_author(self):
+        # v3.38.2: the web pages hide a bill until available_at; the API listed it.
+        scheduled = Legislation.objects.create(
+            title='Scheduled Bill', description='Not released yet', posted_by=self.user,
+            available_at=timezone.now() + timezone.timedelta(days=3),
+            document='test.pdf', status='draft', is_active=True,
+        )
+        other = _make_user('1002', 'Bob Member', 'bob')
+        other_token = _make_token(other)
+
+        for path in ('/api/v1/legislation/', '/api/v1/legislation/active/'):
+            titles = [l['title'] for l in _results(self.client.get(path, **_token_header(other_token)))]
+            self.assertNotIn('Scheduled Bill', titles, path)
+        detail = self.client.get(f'/api/v1/legislation/{scheduled.id}/', **_token_header(other_token))
+        self.assertEqual(detail.status_code, 404)
+
+        # The author still sees their own scheduled bill.
+        titles = [l['title'] for l in _results(self.client.get('/api/v1/legislation/', **_token_header(self.token)))]
+        self.assertIn('Scheduled Bill', titles)
+
 
 # ---------------------------------------------------------------------------
 # Committees

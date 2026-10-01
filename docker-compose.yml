@@ -10,7 +10,7 @@ services:
     environment:
       POSTGRES_DB: ${DB_NAME:-parliament_db}
       POSTGRES_USER: ${DB_USER:-parliament_user}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-change_this_password}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
       # PostgreSQL memory optimization
       POSTGRES_INITDB_ARGS: "-E UTF8 --lc-collate=C --lc-ctype=C"
     command: >
@@ -33,8 +33,10 @@ services:
           memory: 256M  # Limit PostgreSQL to 256MB RAM
         reservations:
           memory: 128M
-    ports:
-      - "5432:5432"
+    # v3.38.2 — no `ports:`. "5432:5432" published Postgres on every interface
+    # (Docker's published ports bypass ufw), next to a default password. The
+    # other containers reach it at `db:5432` over the compose network. For a
+    # local psql, use `docker compose exec db psql -U <user> <db>`.
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-parliament_user}"]
       interval: 10s
@@ -93,7 +95,7 @@ services:
       - SECRET_KEY=${SECRET_KEY}
       - DB_NAME=${DB_NAME:-parliament_db}
       - DB_USER=${DB_USER:-parliament_user}
-      - DB_PASSWORD=${DB_PASSWORD:-change_this_password}
+      - DB_PASSWORD=${DB_PASSWORD:?Set DB_PASSWORD in .env}
       - DB_HOST=db
       - DB_PORT=5432
       - DB_CONN_MAX_AGE=300
@@ -133,7 +135,7 @@ services:
       - SECRET_KEY=${SECRET_KEY}
       - DB_NAME=${DB_NAME:-parliament_db}
       - DB_USER=${DB_USER:-parliament_user}
-      - DB_PASSWORD=${DB_PASSWORD:-change_this_password}
+      - DB_PASSWORD=${DB_PASSWORD:?Set DB_PASSWORD in .env}
       - DB_HOST=db
       - DB_PORT=5432
       - DB_CONN_MAX_AGE=300
@@ -167,7 +169,7 @@ services:
       - SECRET_KEY=${SECRET_KEY}
       - DB_NAME=${DB_NAME:-parliament_db}
       - DB_USER=${DB_USER:-parliament_user}
-      - DB_PASSWORD=${DB_PASSWORD:-change_this_password}
+      - DB_PASSWORD=${DB_PASSWORD:?Set DB_PASSWORD in .env}
       - DB_HOST=db
       - DB_PORT=5432
       - DB_CONN_MAX_AGE=300

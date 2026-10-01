@@ -331,6 +331,11 @@ def track_event_reminder_email_view(request, log_id, user_id):
     and every extra thing this view does is one more way to leak whether a
     given (log, user) pair exists to whoever is poking at the URL).
     """
+    # v3.38.2: only a URL we signed records anything (src/utils/tracking_sig.py).
+    from src.utils.tracking_sig import EVENT_REMINDER, pixel_request_is_signed
+    if not pixel_request_is_signed(request, EVENT_REMINDER, log_id, user_id):
+        return HttpResponse(_PIXEL_GIF, content_type='image/gif')
+
     try:
         recipient = EventReminderRecipient.objects.get(
             reminder_log_id=log_id, user__user_id=user_id,

@@ -76,7 +76,11 @@ class TrackingPixelViewTests(TestCase):
         self.client = Client()
 
     def _pixel_url(self, log_id, user_id):
-        return reverse('track_event_reminder_email_view', args=[log_id, user_id])
+        # v3.38.2: pixel URLs are signed (src/utils/tracking_sig.py).
+        from src.utils.tracking_sig import EVENT_REMINDER, signed_pixel_url
+        return signed_pixel_url(
+            reverse('track_event_reminder_email_view', args=[log_id, user_id]),
+            EVENT_REMINDER, log_id, user_id)
 
     def test_hit_records_viewed_at(self):
         self.assertIsNone(self.recipient.viewed_at)
