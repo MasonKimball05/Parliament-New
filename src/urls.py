@@ -185,6 +185,7 @@ from src.view.officer.role_knowledge_base import (
     role_knowledge_base, edit_role_knowledge_base, role_knowledge_base_history, role_knowledge_base_index,
 )
 from src.view.officer.set_member_house import set_member_house
+from src.view.officer.set_member_big import set_member_big
 from src.view.officer.chapter_stats import chapter_stats
 from src.view.pledge_tasks import (
     my_pledge_tasks, pledge_take_quiz, pledge_request_absence, pledge_quiz_analysis,
@@ -625,6 +626,7 @@ urlpatterns = [
 
     # Role Management (Admin)
     path('officers/members/<str:user_id>/set-house/', set_member_house, name='set_member_house'),
+    path('officers/members/<str:user_id>/set-big/', set_member_big, name='set_member_big'),
     path('officers/roles/', manage_roles, name='manage_roles'),
     path('officers/roles/add/', add_role, name='add_role'),
     path('officers/roles/<int:role_id>/', role_detail, name='role_detail'),
