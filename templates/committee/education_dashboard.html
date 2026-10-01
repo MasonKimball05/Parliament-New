@@ -265,6 +265,10 @@
     </div>
     {% endif %}
 
+    {% if access.can_manage_tasks %}
+    {% include "committee/_education_bigs.html" %}
+    {% endif %}
+
     <!-- ── Absence requests (v3.21.0) ────────────────────────────────── -->
     {% if pending_absences %}
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
@@ -907,6 +911,13 @@ document.addEventListener('change', function(e) {
 });
 
 document.addEventListener('submit', function(e) {
+    // v3.39.0 — the Bigs section's buttons are plain form posts; the ones
+    // that change what pledges can see carry data-confirm.
+    const confirmMsg = e.submitter && e.submitter.dataset.confirm;
+    if (confirmMsg && !confirm(confirmMsg)) {
+        e.preventDefault();
+        return;
+    }
     if (e.target && e.target.id === 'add-restriction-form') {
         submitNewRestriction(e);
         return;

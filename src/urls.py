@@ -93,6 +93,8 @@ from src.view.committee.education import (
     education_add_meeting, education_edit_meeting, education_delete_meeting,
     education_meeting_attendance,
     education_adjust_points, education_delete_point_adjustment,
+    education_set_big, education_reveal_big, education_unreveal_big, education_delete_big,
+    education_reveal_all_bigs,
 )
 from src.view.chat import (
     chat_index, channel_chat, get_channel_messages, send_channel_message,
@@ -937,6 +939,13 @@ urlpatterns = [
     # Manual point adjustments (v3.34.0) — `pledge_pk` is `str`, not `int`,
     # matching `education_toggle_completion` above: ParliamentUser's pk is
     # the `user_id` surrogate string key ('P-XXXXXX'), not an integer.
+    # v3.39.0 — pledge bigs (draft → reveal). `reveal-all/` is listed before the
+    # `<pledge_pk>` routes so it can never be read as a pledge id.
+    path('committee/<str:code>/education/bigs/reveal-all/', education_reveal_all_bigs, name='education_reveal_all_bigs'),
+    path('committee/<str:code>/education/bigs/<str:pledge_pk>/set/', education_set_big, name='education_set_big'),
+    path('committee/<str:code>/education/bigs/<str:pledge_pk>/reveal/', education_reveal_big, name='education_reveal_big'),
+    path('committee/<str:code>/education/bigs/<str:pledge_pk>/unreveal/', education_unreveal_big, name='education_unreveal_big'),
+    path('committee/<str:code>/education/bigs/<str:pledge_pk>/delete/', education_delete_big, name='education_delete_big'),
     path('committee/<str:code>/education/points/<str:pledge_pk>/adjust/', education_adjust_points, name='education_adjust_points'),
     path('committee/<str:code>/education/points/adjustments/<int:adjustment_pk>/delete/', education_delete_point_adjustment, name='education_delete_point_adjustment'),
     # Quiz question management

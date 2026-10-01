@@ -853,3 +853,95 @@ class EducationAbsenceRequest(models.Model):
 
     def __str__(self):
         return f'{self.pledge} — {self.meeting.event.title} ({self.status})'
+
+
+class PledgeBigAssignment(models.Model):
+    """
+    A pledge's big brother, as set by the education committee, with a
+    separate moment at which it goes live (v3.39.0, 10-01-26).
+
+    Mason: "add a feature to the education dashboard to be able to set pledge
+    bigs as well as a function to just set it vs when it goes live so it's on
+    the site outside the dashboard so the pledges can see it."
+
+    ⚠️ WHY THIS IS NOT JUST `ParliamentUser.big_brother`. That field is read
+    all over the site (profile card, house map, the profile page, house
+    inheritance), so writing a pairing into it IS publishing it. Bigs are
+    revealed at a ritual, so a pairing has to be able to exist for days
+    before anyone outside the education dashboard can see it. This row is the
+    draft; `src.big_reveal.reveal()` copies it into `big_brother` at the
+    reveal, and `revealed_at` records that it happened.
+
+    Nothing outside the education dashboard (gated on `can_manage_tasks`)
+    reads an unrevealed row. That is the whole promise of this model; if you
+    add a reader, it must filter `revealed_at__isnull=False`.
+
+    One row per pledge (OneToOne). Once revealed, the pledge's own profile
+    stops letting him change his big (`profile_view`); education and the
+    admin-v2 profile editor still can.
+    """
+    REVEAL_MODES = [
+        ('manual', 'Manual — reveal when ready'),
+        ('timed', 'Timed — reveal at a set time'),
+    ]
+
+    committee = models.ForeignKey(
+        'Committee',
+        on_delete=models.CASCADE,
+        related_name='big_assignments',
+        limit_choices_to={'is_education_committee': True},
+    )
+    pledge = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='big_assignment',
+    )
+    big = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='big_assignments_as_big',
+    )
+    reveal_mode = models.CharField(max_length=10, choices=REVEAL_MODES, default='manual')
+    reveals_at = models.DateTimeField(
+        null=True, blank=True,
+        help_text='Timed mode: when the pairing goes live on the site.',
+    )
+    #: Set when the pairing was copied to the pledge's profile. Null = draft.
+    revealed_at = models.DateTimeField(null=True, blank=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        on_delete=models.SET_NULL,
+        related_name='created_big_assignments',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['pledge__name']
+        verbose_name = 'Pledge Big Assignment'
+        verbose_name_plural = 'Pledge Big Assignments'
+        indexes = [
+            # `reveal_due_bigs` runs every minute.
+            models.Index(fields=['reveal_mode', 'revealed_at', 'reveals_at'],
+                         name='src_bigassign_due_idx'),
+        ]
+
+    def __str__(self):
+        state = 'revealed' if self.is_revealed else 'draft'
+        return f'{self.pledge} ← {self.big} ({state})'
+
+    @property
+    def is_revealed(self):
+        return self.revealed_at is not None
+
+    @property
+    def status_label(self):
+        from django.utils import timezone
+        if self.is_revealed:
+            return 'live'
+        if self.reveal_mode == 'timed':
+            if not self.reveals_at:
+                return 'no time set'
+            return f'reveals {timezone.localtime(self.reveals_at).strftime("%-m/%-d at %-I:%M %p")}'
+        return 'draft'

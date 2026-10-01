@@ -7,6 +7,7 @@ Celery tasks for Parliament — split into submodules by domain.
   notifications.py — user-facing push/in-app notifications + daily digest
   security_audit.py — scheduled security audits (weekly weak-password check)
   db_health.py     — DB connection-pressure monitor (Postgres max_connections)
+  education.py     — timed pledge big reveals (v3.39.0)
 
 All names are re-exported here so existing `from src.tasks import X` call sites
 continue to work without modification. Celery's autodiscovery imports this package
@@ -47,6 +48,9 @@ from src.tasks.security_audit import (
 from src.tasks.db_health import (
     monitor_db_connection_pressure,
 )
+from src.tasks.education import (
+    reveal_due_bigs,
+)
 
 __all__ = [
     'send_announcement_email',
@@ -72,4 +76,5 @@ __all__ = [
     'send_daily_digest',
     'check_weak_passwords',
     'monitor_db_connection_pressure',
+    'reveal_due_bigs',
 ]
