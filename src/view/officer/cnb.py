@@ -764,6 +764,35 @@ def resolution_detail(request, resolution_id):
     return render(request, 'cnb/resolution_detail.html', context)
 
 
+# ── Who may edit a resolution (v3.41.1, 10-02-26) ────────────────────────────
+#
+# `resolution_detail` has always shown the Edit button and the amendment forms
+# to collaborators added as Editor, and `ResolutionCollaborator`'s docstring
+# says that is what the role is for. But `edit_resolution`, `add_amendment`,
+# `remove_amendment` and `section_context_api` were all `@cnb_required`, so an
+# editor who clicked Edit was sent home with "Constitution & Bylaws Chair
+# access required." The role granted nothing.
+#
+# Mason, 10-02-26: the chair and editor collaborators can edit the text and
+# add/remove amendments. Changing status and managing collaborators stay with
+# the chair (`set_resolution_status`, `add_collaborator`, `remove_collaborator`
+# keep `@cnb_required`), and so does creating a resolution.
+
+def _can_edit_resolution(user, resolution):
+    """C&B permission holders, and this resolution's Editor collaborators."""
+    if user.has_cnb_permission:
+        return True
+    return resolution.collaborators.filter(user=user, role='editor').exists()
+
+
+def _edit_denied(request, resolution):
+    """A redirect for someone who may not edit `resolution`, else None."""
+    if _can_edit_resolution(request.user, resolution):
+        return None
+    messages.error(request, 'Only the Constitution & Bylaws Chair and this resolution\'s editors can change it.')
+    return redirect('cnb_resolution_detail', resolution_id=resolution.pk)
+
+
 @login_required
 @cnb_required
 def create_resolution(request):
@@ -813,7 +842,6 @@ def create_resolution(request):
 
 
 @login_required
-@cnb_required
 def edit_resolution(request, resolution_id):
     """Edit resolution metadata (title, whereas, resolved text, etc.)."""
     # v3.17.5: `prefetch_related('amendments')` — resolution_form.html tests the
@@ -824,6 +852,9 @@ def edit_resolution(request, resolution_id):
         Resolution.objects.prefetch_related('amendments__section'),
         pk=resolution_id,
     )
+    denied = _edit_denied(request, resolution)
+    if denied:
+        return denied
 
     if resolution.status not in ('draft', 'pending'):
         messages.error(request, 'Only draft or pending resolutions can be edited.')
@@ -860,7 +891,6 @@ def edit_resolution(request, resolution_id):
 
 
 @login_required
-@cnb_required
 @require_POST
 def add_amendment(request, resolution_id):
     """
@@ -869,6 +899,9 @@ def add_amendment(request, resolution_id):
     is captured automatically from the current section content.
     """
     resolution = get_object_or_404(Resolution, pk=resolution_id)
+    denied = _edit_denied(request, resolution)
+    if denied:
+        return denied
 
     if resolution.status not in ('draft', 'pending'):
         messages.error(request, 'Cannot modify a closed resolution.')
@@ -882,7 +915,13 @@ def add_amendment(request, resolution_id):
         messages.error(request, 'A section must be selected.')
         return redirect('cnb_resolution_detail', resolution_id=resolution_id)
 
-    section = get_object_or_404(Section, pk=section_id)
+    section = get_object_or_404(Section.objects.select_related('article__document'), pk=section_id)
+    # An editor (not the chair) can only amend documents members can see. The
+    # amendment modal only offers those, so this is for a hand-made POST.
+    if not request.user.has_cnb_permission and not GoverningDocument.enabled().filter(
+            pk=section.article.document_id).exists():
+        messages.error(request, 'That section cannot be amended.')
+        return redirect('cnb_resolution_detail', resolution_id=resolution_id)
 
     # Auto-detect amendment type from the diff
     if not proposed_text:
@@ -934,11 +973,13 @@ def add_amendment(request, resolution_id):
 
 
 @login_required
-@cnb_required
 @require_POST
 def remove_amendment(request, resolution_id, amendment_id):
     """Remove a section amendment from a resolution."""
     resolution = get_object_or_404(Resolution, pk=resolution_id)
+    denied = _edit_denied(request, resolution)
+    if denied:
+        return denied
     amendment = get_object_or_404(ResolutionAmendment, pk=amendment_id, resolution=resolution)
 
     if resolution.status not in ('draft', 'pending'):
@@ -1069,12 +1110,24 @@ def resolution_print(request, resolution_id):
 # ── Section context API (AJAX) ────────────────────────────────────────────────
 
 @login_required
-@cnb_required
 def section_context_api(request, section_id):
     """Return section data as JSON for the amendment modal, including neighboring sections."""
     section = get_object_or_404(
         Section.objects.select_related('article__document'), pk=section_id
     )
+    # v3.41.1 — the amendment modal calls this, so editors need it too. The
+    # chair gets every section (a document has to be editable before it is
+    # switched on). An editor of an open resolution gets sections of the
+    # documents members can already read, and nothing else: this must not be a
+    # way to read a switched-off document such as the unpassed Foreword.
+    if not request.user.has_cnb_permission:
+        is_editor = ResolutionCollaborator.objects.filter(
+            user=request.user, role='editor',
+            resolution__status__in=('draft', 'pending'),
+        ).exists()
+        visible = GoverningDocument.enabled().filter(pk=section.article.document_id).exists()
+        if not (is_editor and visible):
+            return JsonResponse({'error': 'Not allowed.'}, status=403)
     article = section.article
     siblings = list(article.sections.order_by('display_order'))
     idx = next((i for i, s in enumerate(siblings) if s.pk == section.pk), None)

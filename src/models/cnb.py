@@ -584,7 +584,9 @@ class ResolutionCollaborator(models.Model):
     """
     Grants a member access to a resolution beyond the default member read access.
     - viewer: can always view this resolution (useful when resolution is pre-publication draft)
-    - editor: can add/remove amendments, change status — same as CNB permission holder
+    - editor: can edit the resolution's text and add/remove amendments while it is
+      draft or pending. Changing status and managing collaborators stay with CNB
+      permission holders (Mason, 10-02-26, v3.41.1).
     Only CNB permission holders can add or remove collaborators.
     """
     ROLE_CHOICES = [
