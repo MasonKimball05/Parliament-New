@@ -194,6 +194,8 @@ which predate this file and are more specific than their commit dates.
 | v3.42.0 | *not deployed* | `ab9992f` | See `changelogs/v3.42.0.md`. |
 | v3.42.1 | *not deployed* | `b8aae7e` | See `changelogs/v3.42.1.md`. |
 | v3.42.2 | *not deployed* | `b8aae7e` | See `changelogs/v3.42.2.md`. |
+| v3.43.0 | *not deployed* | `febb066` | See `changelogs/v3.43.0.md`. |
+| v3.44.0 | *not deployed* | `febb066` | See `changelogs/v3.44.0.md`. |
 
 > **⚠️ 09-02-26 — code for the whole backlog above (v3.25.2 through
 > v3.28.8) was restarted into prod the same day, and Mason confirmed
