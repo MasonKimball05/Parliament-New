@@ -849,7 +849,12 @@ def edit_resolution(request, resolution_id):
     # :214). Without a prefetch that was three separate queries; with it, all
     # three read one cached result set.
     resolution = get_object_or_404(
-        Resolution.objects.prefetch_related('amendments__section'),
+        # v3.41.5: down to the document. The amendment list prints
+        # `amendment.section.full_identifier`, which reads the section's
+        # article and that article's document, so stopping at `section` cost
+        # two queries per amendment (7 amendments: 14). Reported by Mason from
+        # the performance panel, 10-02-26.
+        Resolution.objects.prefetch_related('amendments__section__article__document'),
         pk=resolution_id,
     )
     denied = _edit_denied(request, resolution)
@@ -882,6 +887,9 @@ def edit_resolution(request, resolution_id):
         if request.POST.get('save_and_preview'):
             from django.urls import reverse
             return redirect(reverse('cnb_resolution_print', kwargs={'resolution_id': resolution.pk}) + '?from_save=1')
+        # v3.41.2 — the edit page's Save button: save and keep editing.
+        if request.POST.get('save_stay'):
+            return redirect('cnb_edit_resolution', resolution_id=resolution.pk)
         return redirect('cnb_resolution_detail', resolution_id=resolution.pk)
 
     ref_docs = GoverningDocument.enabled().prefetch_related('articles__sections')  # v3.19.1: per-document flags

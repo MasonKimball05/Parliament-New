@@ -62,3 +62,52 @@ class AmendmentLineEndingTests(TestCase):
                 html = self.client.get(reverse(name, args=[self.resolution.pk])).content.decode()
                 self.assertIn('MutationObserver', html)
                 self.assertIn('height: 92vh; max-height: 92vh;', html)
+
+
+class AutosaveBeforeAmendmentTests(AmendmentLineEndingTests):
+    """
+    v3.41.4 — saving an amendment reloads the edit page; with unsaved edits in
+    the main form the browser asked "leave site?". The page now saves the main
+    form first. The behaviour is JavaScript; this pins that the edit page is
+    wired for it and the create page is not (its URL would create a resolution).
+    """
+    test_proposed_text_is_stored_with_lf = None
+    test_an_addition_posted_with_crlf_is_typed_addition = None
+    test_preview_compares_tokens_by_key_and_shows_removals = None
+    test_editor_locks_the_page_behind_it = None
+
+    def test_edit_page_is_wired_and_create_page_is_not(self):
+        edit = self.client.get(reverse('cnb_edit_resolution', args=[self.resolution.pk])).content.decode()
+        self.assertIn('id="resolutionForm" data-autosave="1"', edit)
+        create = self.client.get(reverse('cnb_create_resolution')).content.decode()
+        self.assertIn('id="resolutionForm"', create)
+        self.assertNotIn('data-autosave="1"', create)
+
+
+class EditPageQueryCountTests(TestCase):
+    """v3.41.5 — the edit page must not cost queries per amendment."""
+
+    def _page_queries(self, amendment_count):
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+        chair = ParliamentUser.objects.create(
+            user_id=f'CNB-Q{amendment_count}', name='Chair', username=f'cnbq{amendment_count}',
+            member_type='Member', member_status='Active', is_admin=True, email=f'q{amendment_count}@example.com')
+        resolution = Resolution.objects.create(title='T', created_by=chair)
+        document = GoverningDocument.objects.filter(doc_type='constitution').first() \
+            or GoverningDocument.objects.create(doc_type='constitution', title='Constitution')
+        for n in range(amendment_count):
+            article = Article.objects.create(document=document, number=f'Q{amendment_count}-{n}',
+                                             title='A', display_order=900 + n)
+            section = Section.objects.create(article=article, number='1', title='S', content='x', display_order=1)
+            ResolutionAmendment.objects.create(resolution=resolution, section=section, proposed_text='y',
+                                               original_text_snapshot='x', amendment_type='change')
+        self.client.force_login(chair)
+        url = reverse('cnb_edit_resolution', args=[resolution.pk])
+        self.client.get(url)   # warm caches (flags, session)
+        with CaptureQueriesContext(connection) as ctx:
+            self.assertEqual(self.client.get(url).status_code, 200)
+        return len(ctx)
+
+    def test_query_count_does_not_grow_with_amendments(self):
+        self.assertEqual(self._page_queries(2), self._page_queries(8))
