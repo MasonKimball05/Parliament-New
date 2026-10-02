@@ -726,6 +726,11 @@ def resolution_detail(request, resolution_id):
         # v3.17.3: `created_by` was joined and never read by resolution_print.html.
         Resolution.objects.prefetch_related(
             'amendments__section__article__document',
+            # v3.42.1: each amendment's "surrounding context" block loops the
+            # sibling sections of its article (resolution_detail.html), which
+            # was one query per amendment (15 amendments: 15). Reported by
+            # Mason from the performance panel, 10-02-26.
+            'amendments__section__article__sections',
             'collaborators__user',
         ),
         pk=resolution_id
@@ -1057,7 +1062,10 @@ def add_amendment(request, resolution_id):
         messages.success(request, f'Amendment for {section.full_identifier} added.')
 
     from src import cnb_live
-    cnb_live.broadcast_amendments_changed(resolution.pk, request.user)
+    cnb_live.broadcast_amendments_changed(
+        resolution.pk, request.user,
+        ('proposed striking all of ' if whole_section_delete else
+         ('added an amendment to ' if created else 'updated the amendment to ')) + section.full_identifier)
 
     if request.POST.get('next') == 'edit':
         return redirect('cnb_edit_resolution', resolution_id=resolution_id)
@@ -1082,7 +1090,7 @@ def remove_amendment(request, resolution_id, amendment_id):
     amendment.delete()
     messages.success(request, f'Amendment for {identifier} removed.')
     from src import cnb_live
-    cnb_live.broadcast_amendments_changed(resolution.pk, request.user)
+    cnb_live.broadcast_amendments_changed(resolution.pk, request.user, f'removed the amendment to {identifier}')
     if request.POST.get('next') == 'edit':
         return redirect('cnb_edit_resolution', resolution_id=resolution_id)
     return redirect('cnb_resolution_detail', resolution_id=resolution_id)

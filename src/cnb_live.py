@@ -144,5 +144,12 @@ def broadcast_saved(resolution, changed_fields, user):
     })
 
 
-def broadcast_amendments_changed(resolution_id, user):
-    _send(resolution_id, {'type': 'res.amendments', 'by': user.get_display_name(), 'uid': str(user.pk)})
+def broadcast_amendments_changed(resolution_id, user, what=''):
+    """`what` is a plain phrase for the page: "added an amendment to Art. III § 3"."""
+    _send(resolution_id, {
+        'type': 'res.amendments', 'by': user.get_display_name(), 'uid': str(user.pk), 'what': what,
+    })
+
+
+#: A draft relayed to the other editors is display-only; cap it anyway.
+MAX_DRAFT_CHARS = 60000

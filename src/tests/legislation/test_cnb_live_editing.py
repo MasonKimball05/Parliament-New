@@ -231,6 +231,42 @@ class ConsumerTests(TransactionTestCase):
             await b.disconnect()
         async_to_sync(run)()
 
+    def test_a_draft_is_relayed_only_from_the_lock_holder(self):
+        """v3.42.2 — the others watch the holder type; nobody else can push text."""
+        async def run():
+            a = self._communicator(self.chair)
+            await a.connect()
+            await self._until(a, 'init')
+            b = self._communicator(self.editor)
+            await b.connect()
+            await self._until(b, 'init')
+            await self._until(a, 'join')
+
+            # B does not hold the title: B's "draft" goes nowhere.
+            await b.send_to(text_data=json.dumps({'t': 'draft', 'f': 'title', 'v': 'not mine'}))
+            self.assertTrue(await a.receive_nothing(timeout=0.3))
+
+            await a.send_to(text_data=json.dumps({'t': 'lock', 'f': 'title'}))
+            await self._until(b, 'lock')
+            await a.send_to(text_data=json.dumps({'t': 'draft', 'f': 'title', 'v': 'Typing'}))
+            draft = await self._until(b, 'draft')
+            self.assertEqual((draft['f'], draft['v']), ('title', 'Typing'))
+            await a.disconnect()
+            await b.disconnect()
+        async_to_sync(run)()
+
+    def test_an_amendment_change_says_what_happened(self):
+        async def run():
+            b = self._communicator(self.editor)
+            await b.connect()
+            await self._until(b, 'init')
+            await database_sync_to_async(cnb_live.broadcast_amendments_changed)(
+                self.resolution.pk, self.chair, 'added an amendment to Constitution Art. III § 3')
+            msg = await self._until(b, 'amendments')
+            self.assertEqual(msg['what'], 'added an amendment to Constitution Art. III § 3')
+            await b.disconnect()
+        async_to_sync(run)()
+
     def test_a_save_is_broadcast_to_the_other_editor(self):
         async def run():
             b = self._communicator(self.editor)

@@ -111,3 +111,33 @@ class EditPageQueryCountTests(TestCase):
 
     def test_query_count_does_not_grow_with_amendments(self):
         self.assertEqual(self._page_queries(2), self._page_queries(8))
+
+
+class DetailPageQueryCountTests(TestCase):
+    """v3.42.1 — the resolution page must not cost queries per amendment."""
+
+    def _page_queries(self, amendment_count):
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+        chair = ParliamentUser.objects.create(
+            user_id=f'CNB-D{amendment_count}', name='Chair', username=f'cnbd{amendment_count}',
+            member_type='Member', member_status='Active', is_admin=True, email=f'd{amendment_count}@example.com')
+        resolution = Resolution.objects.create(title='T', created_by=chair)
+        document = GoverningDocument.objects.filter(doc_type='constitution').first() \
+            or GoverningDocument.objects.create(doc_type='constitution', title='Constitution')
+        for n in range(amendment_count):
+            article = Article.objects.create(document=document, number=f'D{amendment_count}-{n}',
+                                             title='A', display_order=800 + n)
+            section = Section.objects.create(article=article, number='1', title='S', content='x', display_order=1)
+            Section.objects.create(article=article, number='2', title='S2', content='y', display_order=2)
+            ResolutionAmendment.objects.create(resolution=resolution, section=section, proposed_text='z',
+                                               original_text_snapshot='x', amendment_type='change')
+        self.client.force_login(chair)
+        url = reverse('cnb_resolution_detail', args=[resolution.pk])
+        self.client.get(url)   # warm caches (flags, session)
+        with CaptureQueriesContext(connection) as ctx:
+            self.assertEqual(self.client.get(url).status_code, 200)
+        return len(ctx)
+
+    def test_query_count_does_not_grow_with_amendments(self):
+        self.assertEqual(self._page_queries(2), self._page_queries(8))

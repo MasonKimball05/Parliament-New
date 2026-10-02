@@ -145,13 +145,14 @@ class ResolutionEditConsumer(AsyncWebsocketConsumer):
     that resolution are accepted (C&B permission or an Editor collaborator),
     and only while it is draft or pending — the same rule as the edit page.
 
-    Text never travels client→server over the socket: saving is still an HTTP
-    POST (auth, CSRF, the conflict check). The socket carries lock requests
-    and the server's broadcasts.
+    Saving is still an HTTP POST (auth, CSRF, the conflict check). The socket
+    carries lock requests, the server's broadcasts, and (v3.42.2) the lock
+    holder's draft text, which is relayed to the other editors for display
+    and never stored.
 
-    client → server   {t:'lock', f} · {t:'unlock', f} · {t:'ping'}
+    client → server   {t:'lock', f} · {t:'unlock', f} · {t:'draft', f, v} · {t:'ping'}
     server → client   init · join · here · leave · lock · unlock · denied ·
-                      saved · amendments
+                      draft · saved · amendments
     """
 
     async def connect(self):
@@ -212,6 +213,14 @@ class ResolutionEditConsumer(AsyncWebsocketConsumer):
                 await self.channel_layer.group_send(self.group, {'type': 'res.lock', 'f': field, 'who': self.me})
             else:
                 await self._out({'t': 'denied', 'f': field, 'who': holder})
+        elif kind == 'draft':
+            # v3.42.2 — what the lock holder is typing, shown read-only in the
+            # others' locked field. Relayed, never stored; only from the holder.
+            value = data.get('v')
+            if field in self.held and isinstance(value, str) and len(value) <= cnb_live.MAX_DRAFT_CHARS:
+                await self.channel_layer.group_send(self.group, {
+                    'type': 'res.draft', 'f': field, 'v': value, 'cid': self.cid,
+                })
         elif kind == 'unlock':
             self.held.discard(field)
             if await database_sync_to_async(cnb_live.release_lock)(self.resolution_id, field, self.cid):
@@ -239,11 +248,15 @@ class ResolutionEditConsumer(AsyncWebsocketConsumer):
     async def res_unlock(self, event):
         await self._out({'t': 'unlock', 'f': event['f'], 'cid': event['cid']})
 
+    async def res_draft(self, event):
+        if event['cid'] != self.cid:
+            await self._out({'t': 'draft', 'f': event['f'], 'v': event['v'], 'cid': event['cid']})
+
     async def res_saved(self, event):
         await self._out({'t': 'saved', 'by': event['by'], 'uid': event['uid'], 'fields': event['fields']})
 
     async def res_amendments(self, event):
-        await self._out({'t': 'amendments', 'by': event['by'], 'uid': event['uid']})
+        await self._out({'t': 'amendments', 'by': event['by'], 'uid': event['uid'], 'what': event.get('what', '')})
 
     # ── Helpers ───────────────────────────────────────────────────────────────
 
