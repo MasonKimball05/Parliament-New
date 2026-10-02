@@ -908,7 +908,11 @@ def add_amendment(request, resolution_id):
         return redirect('cnb_resolution_detail', resolution_id=resolution_id)
 
     section_id = request.POST.get('section_id')
-    proposed_text = request.POST.get('proposed_text', '').strip()
+    # v3.41.3 — a textarea posts CRLF; section text is stored with LF. Left as
+    # CRLF, the "is the old text still inside the new text" test below never
+    # matched (every addition was typed a change) and the diffs flagged every
+    # line start as changed.
+    proposed_text = request.POST.get('proposed_text', '').replace('\r\n', '\n').replace('\r', '\n').strip()
     scope_note = request.POST.get('scope_note', '').strip()
 
     if not section_id:
@@ -931,7 +935,7 @@ def add_amendment(request, resolution_id):
             # Partial deletion must include the revised section text (with clause removed)
             messages.error(request, 'For a partial deletion, provide the full section text with the removed clause omitted.')
             return redirect('cnb_resolution_detail', resolution_id=resolution_id)
-    elif section.content.strip() and section.content.strip() in proposed_text:
+    elif section.content.strip() and section.content.replace('\r\n', '\n').strip() in proposed_text:
         amendment_type = 'addition'
     else:
         amendment_type = 'change'

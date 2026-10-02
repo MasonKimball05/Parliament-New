@@ -871,7 +871,7 @@
 {% if action == 'Edit' and resolution %}
 <!-- ── Amendment Editor Modal ─────────────────────────────────────────────── -->
 <div id="addAmendmentModal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-3">
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-5xl flex flex-col" style="max-height: 92vh;">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-5xl flex flex-col" style="height: 92vh; max-height: 92vh; overscroll-behavior: contain;">
 
         <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between flex-shrink-0">
             <div>
@@ -885,7 +885,7 @@
             </button>
         </div>
 
-        <form method="post" action="{% url 'cnb_add_amendment' resolution_id=resolution.pk %}" class="flex flex-col flex-1 overflow-hidden" id="amendmentForm">
+        <form method="post" action="{% url 'cnb_add_amendment' resolution_id=resolution.pk %}" class="flex flex-col flex-1 overflow-hidden" style="min-height: 0;" id="amendmentForm">
             {% csrf_token %}
             <input type="hidden" name="next" value="edit">
 
@@ -931,7 +931,8 @@
                 </div>
             </div>
 
-            <div class="flex-1 overflow-hidden">
+            {# v3.41.3 — was overflow-hidden: on a short or narrow screen the stacked panels were clipped with nothing to scroll, so the wheel scrolled the page behind. #}
+            <div class="flex-1 overflow-y-auto" style="min-height: 0; overscroll-behavior: contain;">
                 <div id="editorEmptyState" class="h-full flex items-center justify-center text-center px-8">
                     <div>
                         <svg class="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -941,7 +942,7 @@
                     </div>
                 </div>
 
-                <div id="editorPanels" class="hidden h-full grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x divide-gray-100 dark:divide-gray-700" style="height: 100%;">
+                <div id="editorPanels" class="hidden grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x divide-gray-100 dark:divide-gray-700" style="min-height: 100%;">
                     <div class="flex flex-col overflow-hidden">
                         <div class="px-4 py-2 bg-gray-50 dark:bg-gray-700/50 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between flex-shrink-0">
                             <span class="text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">Edit Section Text</span>
@@ -1003,6 +1004,13 @@
 // ── Amendment Editor ──────────────────────────────────────────────────────────
 (function() {
     var modal        = document.getElementById('addAmendmentModal');
+    // v3.41.3 — lock the page behind while the editor is open. Watching the
+    // class covers every open/close path (new, edit, Cancel, the X).
+    if (modal) {
+        new MutationObserver(function() {
+            document.body.style.overflow = modal.classList.contains('hidden') ? '' : 'hidden';
+        }).observe(modal, { attributes: true, attributeFilter: ['class'] });
+    }
     var select       = document.getElementById('sectionSelect');
     var proposedTA   = document.getElementById('proposedTextArea');
     var diffEl       = document.getElementById('diffPreview');
@@ -1020,7 +1028,8 @@
     var diffTimer    = null;
 
     // ── Word-level LCS diff ───────────────────────────────────────────────────
-    function tokenize(text) { return text.match(/\s*\S+/g) || []; }
+    // v3.41.3: CRLF normalized, or every line start reads as changed against an LF original.
+    function tokenize(text) { return (text || '').replace(/\r\n?/g, '\n').match(/\s*\S+/g) || []; }
 
     function lcs(a, b) {
         var m = a.length, n = b.length;
