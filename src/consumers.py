@@ -134,3 +134,132 @@ class VoteConsumer(AsyncWebsocketConsumer):
             'event': event['event'],
             'leg_id': event['leg_id'],
         }))
+
+
+class ResolutionEditConsumer(AsyncWebsocketConsumer):
+    """
+    v3.42.0 — live editing on the C&B resolution edit page: presence, field
+    locks, and "someone saved" updates. See `src/cnb_live.py` for the design.
+
+    Clients connect at /ws/cnb/resolutions/<id>/. Only people who may edit
+    that resolution are accepted (C&B permission or an Editor collaborator),
+    and only while it is draft or pending — the same rule as the edit page.
+
+    Text never travels client→server over the socket: saving is still an HTTP
+    POST (auth, CSRF, the conflict check). The socket carries lock requests
+    and the server's broadcasts.
+
+    client → server   {t:'lock', f} · {t:'unlock', f} · {t:'ping'}
+    server → client   init · join · here · leave · lock · unlock · denied ·
+                      saved · amendments
+    """
+
+    async def connect(self):
+        from src import cnb_live
+        user = self.scope.get('user')
+        if not user or not user.is_authenticated:
+            await self.close()
+            return
+        self.resolution_id = int(self.scope['url_route']['kwargs']['resolution_id'])
+        if not await self._may_edit(user, self.resolution_id):
+            await self.close()
+            return
+
+        import secrets
+        self.cid = secrets.token_hex(6)
+        self.me = {'cid': self.cid, 'uid': str(user.pk), 'name': await self._display_name(user)}
+        self.held = set()
+        self.group = cnb_live.group_name(self.resolution_id)
+
+        await self.channel_layer.group_add(self.group, self.channel_name)
+        await self.accept()
+        locks = await database_sync_to_async(cnb_live.current_locks)(self.resolution_id)
+        await self._out({'t': 'init', 'me': self.me, 'locks': locks})
+        await self.channel_layer.group_send(self.group, {
+            'type': 'res.join', 'who': self.me, 'channel': self.channel_name,
+        })
+
+    async def disconnect(self, close_code):
+        from src import cnb_live
+        if not hasattr(self, 'group'):
+            return
+        for field in list(self.held):
+            if await database_sync_to_async(cnb_live.release_lock)(self.resolution_id, field, self.cid):
+                await self.channel_layer.group_send(self.group, {'type': 'res.unlock', 'f': field, 'cid': self.cid})
+        await self.channel_layer.group_send(self.group, {'type': 'res.leave', 'cid': self.cid})
+        await self.channel_layer.group_discard(self.group, self.channel_name)
+
+    async def receive(self, text_data):
+        from src import cnb_live
+        try:
+            data = json.loads(text_data)
+        except (json.JSONDecodeError, ValueError):
+            return
+        if not isinstance(data, dict):
+            return
+        kind, field = data.get('t'), data.get('f')
+
+        if kind == 'ping':
+            await database_sync_to_async(cnb_live.refresh_locks)(self.resolution_id, list(self.held), self.cid)
+            return
+        if field not in cnb_live.FIELDS:
+            return
+
+        if kind == 'lock':
+            holder = await database_sync_to_async(cnb_live.acquire_lock)(self.resolution_id, field, self.me)
+            if holder['cid'] == self.cid:
+                self.held.add(field)
+                await self.channel_layer.group_send(self.group, {'type': 'res.lock', 'f': field, 'who': self.me})
+            else:
+                await self._out({'t': 'denied', 'f': field, 'who': holder})
+        elif kind == 'unlock':
+            self.held.discard(field)
+            if await database_sync_to_async(cnb_live.release_lock)(self.resolution_id, field, self.cid):
+                await self.channel_layer.group_send(self.group, {'type': 'res.unlock', 'f': field, 'cid': self.cid})
+
+    # ── Group events ──────────────────────────────────────────────────────────
+
+    async def res_join(self, event):
+        if event['who']['cid'] == self.cid:
+            return
+        await self._out({'t': 'join', 'who': event['who']})
+        # Tell the newcomer we are here (to them only, not the whole group).
+        await self.channel_layer.send(event['channel'], {'type': 'res.here', 'who': self.me})
+
+    async def res_here(self, event):
+        await self._out({'t': 'here', 'who': event['who']})
+
+    async def res_leave(self, event):
+        if event['cid'] != self.cid:
+            await self._out({'t': 'leave', 'cid': event['cid']})
+
+    async def res_lock(self, event):
+        await self._out({'t': 'lock', 'f': event['f'], 'who': event['who']})
+
+    async def res_unlock(self, event):
+        await self._out({'t': 'unlock', 'f': event['f'], 'cid': event['cid']})
+
+    async def res_saved(self, event):
+        await self._out({'t': 'saved', 'by': event['by'], 'uid': event['uid'], 'fields': event['fields']})
+
+    async def res_amendments(self, event):
+        await self._out({'t': 'amendments', 'by': event['by'], 'uid': event['uid']})
+
+    # ── Helpers ───────────────────────────────────────────────────────────────
+
+    async def _out(self, payload):
+        await self.send(text_data=json.dumps(payload))
+
+    @database_sync_to_async
+    def _display_name(self, user):
+        return user.get_display_name()
+
+    @database_sync_to_async
+    def _may_edit(self, user, resolution_id):
+        from src.models import Resolution
+        from src.view.officer.cnb import _can_edit_resolution
+        try:
+            resolution = Resolution.objects.get(pk=resolution_id)
+        except Resolution.DoesNotExist:
+            return False
+        return resolution.status in ('draft', 'pending') and _can_edit_resolution(user, resolution)

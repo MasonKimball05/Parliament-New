@@ -865,37 +865,114 @@ def edit_resolution(request, resolution_id):
         messages.error(request, 'Only draft or pending resolutions can be edited.')
         return redirect('cnb_resolution_detail', resolution_id=resolution_id)
 
+    from src import cnb_live
+    conflicts = []
+
     if request.method == 'POST':
-        resolution.title = request.POST.get('title', resolution.title).strip()
-        resolution.resolution_type = request.POST.get('resolution_type', resolution.resolution_type)
-        resolution.authors = request.POST.get('authors', '').strip()
-        resolution.sponsors = request.POST.get('sponsors', '').strip()
-        resolution.whereas_clauses = request.POST.get('whereas_clauses', '').strip()
-        resolution.resolved_text = request.POST.get('resolved_text', '').strip()
-        resolution.resolution_body = request.POST.get('resolution_body', '').strip()
-        resolution.additional_notes = request.POST.get('additional_notes', '').strip()
-        vote_date_raw = request.POST.get('vote_date', '').strip()
-        if vote_date_raw:
-            try:
-                resolution.vote_date = datetime.date.fromisoformat(vote_date_raw)
-            except ValueError:
-                messages.error(request, 'Invalid vote date format.')
+        # ── v3.42.0: field-level save with a conflict check ──────────────────
+        #
+        # Until now every save wrote all nine fields from whatever the browser
+        # held, so two people with the page open overwrote each other: the
+        # second save put back the first person's STALE copy of every field
+        # they had not touched. See `src/cnb_live.py`.
+        #
+        # The page now posts `changed_fields` (what this person edited) and
+        # `orig_<field>` (what each of those held when they loaded it):
+        #   * only changed fields are written;
+        #   * a changed field whose saved value is no longer `orig` was edited
+        #     by someone else meanwhile. It is NOT written. The editor gets the
+        #     page back with their text still in the box and the other version
+        #     shown above it, and decides.
+        # A post without `changed_fields` (no JavaScript, an old tab, a test)
+        # behaves as before: every field is written.
+        changed_raw = request.POST.get('changed_fields')
+        if changed_raw is None:
+            wanted = list(cnb_live.FIELDS)
         else:
-            resolution.vote_date = None
-        resolution.save(update_fields=['title', 'resolution_type', 'authors', 'sponsors', 'whereas_clauses', 'resolved_text', 'resolution_body', 'additional_notes', 'vote_date'])
-        messages.success(request, 'Resolution updated.')
-        if request.POST.get('save_and_preview'):
-            from django.urls import reverse
-            return redirect(reverse('cnb_resolution_print', kwargs={'resolution_id': resolution.pk}) + '?from_save=1')
-        # v3.41.2 — the edit page's Save button: save and keep editing.
-        if request.POST.get('save_stay'):
-            return redirect('cnb_edit_resolution', resolution_id=resolution.pk)
-        return redirect('cnb_resolution_detail', resolution_id=resolution.pk)
+            wanted = [f for f in changed_raw.split(',') if f in cnb_live.FIELDS]
+
+        written = []
+        with transaction.atomic():
+            # Locked, so "compare with what is saved, then write" cannot
+            # interleave with another save of the same resolution.
+            live = Resolution.objects.select_for_update().get(pk=resolution.pk)
+            current = cnb_live.baseline(live)
+            for field in wanted:
+                if field == 'resolution_type':
+                    new = request.POST.get(field, live.resolution_type)
+                else:
+                    new = cnb_live.norm(request.POST.get(field, ''))
+                if new == current[field]:
+                    continue
+                orig = request.POST.get(f'orig_{field}')
+                if changed_raw is not None and orig is not None \
+                        and cnb_live.norm(orig) != current[field]:
+                    conflicts.append({
+                        'field': field, 'label': cnb_live.FIELD_LABELS[field],
+                        'theirs': current[field], 'mine': new,
+                    })
+                    continue
+                if field == 'title' and not new:
+                    messages.error(request, 'A title is required.')
+                    continue
+                if field == 'vote_date':
+                    if new:
+                        try:
+                            live.vote_date = datetime.date.fromisoformat(new)
+                        except ValueError:
+                            messages.error(request, 'Invalid vote date format.')
+                            continue
+                    else:
+                        live.vote_date = None
+                else:
+                    setattr(live, field, new)
+                written.append(field)
+            if written:
+                live.save(update_fields=written + ['updated_at'])
+
+        cnb_live.broadcast_saved(live, written, request.user)
+
+        if conflicts:
+            # Show the saved state, with this person's unsaved text put back in
+            # the conflicted fields. 409 so the page's background save (the one
+            # that runs before an amendment reloads the page) does not mistake
+            # this for "saved" and discard their text.
+            for field in cnb_live.FIELDS:
+                setattr(resolution, field, getattr(live, field))
+            for conflict in conflicts:
+                if conflict['field'] != 'vote_date':
+                    setattr(resolution, conflict['field'], conflict['mine'])
+            names = ', '.join(c['label'] for c in conflicts)
+            messages.warning(
+                request,
+                f'Not saved: {names}. Someone else changed '
+                f'{"it" if len(conflicts) == 1 else "them"} while you were editing. '
+                'Your text is still in the box; their version is shown above the form.'
+                + (' Your other changes were saved.' if written else ''))
+            baseline_source = live
+        else:
+            messages.success(request, 'Resolution updated.' if written else 'No changes to save.')
+            if request.POST.get('save_and_preview'):
+                from django.urls import reverse
+                return redirect(reverse('cnb_resolution_print', kwargs={'resolution_id': resolution.pk}) + '?from_save=1')
+            # v3.41.2 — the edit page's Save button: save and keep editing.
+            if request.POST.get('save_stay'):
+                return redirect('cnb_edit_resolution', resolution_id=resolution.pk)
+            return redirect('cnb_resolution_detail', resolution_id=resolution.pk)
+    else:
+        baseline_source = resolution
 
     ref_docs = GoverningDocument.enabled().prefetch_related('articles__sections')  # v3.19.1: per-document flags
-    context = {'resolution': resolution, 'action': 'Edit', 'ref_docs': ref_docs}
+    context = {
+        'resolution': resolution, 'action': 'Edit', 'ref_docs': ref_docs,
+        # v3.42.0 — what is SAVED, for the page's change tracking. On a
+        # conflict re-render this differs from what the boxes show, on purpose.
+        'live_baseline': cnb_live.baseline(baseline_source),
+        'live_field_labels': cnb_live.FIELD_LABELS,
+        'conflicts': conflicts,
+    }
     context.update(_notes_context(request.user, resolution))
-    return render(request, 'cnb/resolution_form.html', context)
+    return render(request, 'cnb/resolution_form.html', context, status=409 if conflicts else 200)
 
 
 @login_required
@@ -979,6 +1056,9 @@ def add_amendment(request, resolution_id):
     else:
         messages.success(request, f'Amendment for {section.full_identifier} added.')
 
+    from src import cnb_live
+    cnb_live.broadcast_amendments_changed(resolution.pk, request.user)
+
     if request.POST.get('next') == 'edit':
         return redirect('cnb_edit_resolution', resolution_id=resolution_id)
     return redirect('cnb_resolution_detail', resolution_id=resolution_id)
@@ -1001,6 +1081,8 @@ def remove_amendment(request, resolution_id, amendment_id):
     identifier = str(amendment.section)
     amendment.delete()
     messages.success(request, f'Amendment for {identifier} removed.')
+    from src import cnb_live
+    cnb_live.broadcast_amendments_changed(resolution.pk, request.user)
     if request.POST.get('next') == 'edit':
         return redirect('cnb_edit_resolution', resolution_id=resolution_id)
     return redirect('cnb_resolution_detail', resolution_id=resolution_id)
