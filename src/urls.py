@@ -269,6 +269,8 @@ from src.view.officer.cnb import (
     resolution_detail, create_resolution as cnb_create_resolution,
     edit_resolution as cnb_edit_resolution,
     add_amendment, remove_amendment, set_resolution_status, section_context_api,
+    add_structure_change, remove_structure_change, rename_article,
+    resolution_document_preview,
     add_collaborator, remove_collaborator, resolution_print,
     add_section, add_article, add_partial_suspension, remove_partial_suspension,
 )
@@ -708,6 +710,11 @@ urlpatterns = [
     path('cnb/resolutions/<int:resolution_id>/edit/', cnb_edit_resolution, name='cnb_edit_resolution'),
     path('cnb/resolutions/<int:resolution_id>/amendment/add/', add_amendment, name='cnb_add_amendment'),
     path('cnb/resolutions/<int:resolution_id>/amendment/<int:amendment_id>/remove/', remove_amendment, name='cnb_remove_amendment'),
+    # v3.43.0 — new articles/sections and renames, proposed by a resolution.
+    path('cnb/article/<int:article_id>/rename/', rename_article, name='cnb_rename_article'),  # v3.44.0
+    path('cnb/resolutions/<int:resolution_id>/document-preview/', resolution_document_preview, name='cnb_resolution_document_preview'),  # v3.44.0
+    path('cnb/resolutions/<int:resolution_id>/structure/add/', add_structure_change, name='cnb_add_structure_change'),
+    path('cnb/resolutions/<int:resolution_id>/structure/<int:change_id>/remove/', remove_structure_change, name='cnb_remove_structure_change'),
     path('cnb/resolutions/<int:resolution_id>/status/', set_resolution_status, name='cnb_set_status'),
     path('cnb/resolutions/<int:resolution_id>/collaborators/add/', add_collaborator, name='cnb_add_collaborator'),
     path('cnb/resolutions/<int:resolution_id>/collaborators/<int:collaborator_id>/remove/', remove_collaborator, name='cnb_remove_collaborator'),

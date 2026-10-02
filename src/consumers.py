@@ -151,9 +151,21 @@ class ResolutionEditConsumer(AsyncWebsocketConsumer):
     and never stored.
 
     client → server   {t:'lock', f} · {t:'unlock', f} · {t:'draft', f, v} · {t:'ping'}
+                      · {t:'takeover', f} (chair only). `f` is a form field or
+                      `amend:<section id>` (the amendment editor).
     server → client   init · join · here · leave · lock · unlock · denied ·
                       draft · saved · amendments
     """
+
+    #: v3.44.0 — True on `ResolutionWatchConsumer` (the `/watch/` route): someone
+    #: looking at the resolution's own page. They see who is editing and get
+    #: nothing else: no locks, no drafts, no saved text. They are not
+    #: announced, cannot lock, and any signed-in member may connect (the same
+    #: people who can open that page).
+    observer = False
+
+    #: What an observer is sent.
+    _OBSERVER_SEES = {'init', 'join', 'here', 'leave'}
 
     async def connect(self):
         from src import cnb_live
@@ -162,20 +174,27 @@ class ResolutionEditConsumer(AsyncWebsocketConsumer):
             await self.close()
             return
         self.resolution_id = int(self.scope['url_route']['kwargs']['resolution_id'])
-        if not await self._may_edit(user, self.resolution_id):
+        access = await self._access(user, self.resolution_id)
+        if access is None or (not self.observer and not access['may_edit']):
             await self.close()
             return
 
         import secrets
         self.cid = secrets.token_hex(6)
-        self.me = {'cid': self.cid, 'uid': str(user.pk), 'name': await self._display_name(user)}
+        self.me = {'cid': self.cid, 'uid': str(user.pk), 'name': access['name']}
+        self.is_chair = access['is_chair']
         self.held = set()
         self.group = cnb_live.group_name(self.resolution_id)
 
         await self.channel_layer.group_add(self.group, self.channel_name)
         await self.accept()
+        if self.observer:
+            await self._out({'t': 'init', 'me': self.me, 'locks': {}, 'chair': False, 'observer': True})
+            # Ask the editors who is there; they answer this channel only.
+            await self.channel_layer.group_send(self.group, {'type': 'res.who', 'channel': self.channel_name})
+            return
         locks = await database_sync_to_async(cnb_live.current_locks)(self.resolution_id)
-        await self._out({'t': 'init', 'me': self.me, 'locks': locks})
+        await self._out({'t': 'init', 'me': self.me, 'locks': locks, 'chair': self.is_chair})
         await self.channel_layer.group_send(self.group, {
             'type': 'res.join', 'who': self.me, 'channel': self.channel_name,
         })
@@ -183,6 +202,9 @@ class ResolutionEditConsumer(AsyncWebsocketConsumer):
     async def disconnect(self, close_code):
         from src import cnb_live
         if not hasattr(self, 'group'):
+            return
+        if self.observer:
+            await self.channel_layer.group_discard(self.group, self.channel_name)
             return
         for field in list(self.held):
             if await database_sync_to_async(cnb_live.release_lock)(self.resolution_id, field, self.cid):
@@ -196,14 +218,26 @@ class ResolutionEditConsumer(AsyncWebsocketConsumer):
             data = json.loads(text_data)
         except (json.JSONDecodeError, ValueError):
             return
-        if not isinstance(data, dict):
+        if not isinstance(data, dict) or self.observer:
             return
         kind, field = data.get('t'), data.get('f')
 
         if kind == 'ping':
             await database_sync_to_async(cnb_live.refresh_locks)(self.resolution_id, list(self.held), self.cid)
             return
-        if field not in cnb_live.FIELDS:
+        if not cnb_live.lockable(field):
+            return
+
+        if kind == 'takeover':
+            # v3.44.0 — the chair releases someone else's lock (a field left
+            # locked by an open tab, or an amendment someone walked away from).
+            if not self.is_chair:
+                return
+            holder = await database_sync_to_async(cnb_live.force_release)(self.resolution_id, field)
+            if holder and holder.get('cid') != self.cid:
+                await self.channel_layer.group_send(self.group, {
+                    'type': 'res.unlock', 'f': field, 'cid': holder['cid'], 'taken_by': self.me['name'],
+                })
             return
 
         if kind == 'lock':
@@ -228,8 +262,15 @@ class ResolutionEditConsumer(AsyncWebsocketConsumer):
 
     # ── Group events ──────────────────────────────────────────────────────────
 
+    async def res_who(self, event):
+        if not self.observer:
+            await self.channel_layer.send(event['channel'], {'type': 'res.here', 'who': self.me})
+
     async def res_join(self, event):
         if event['who']['cid'] == self.cid:
+            return
+        if self.observer:
+            await self._out({'t': 'join', 'who': event['who']})
             return
         await self._out({'t': 'join', 'who': event['who']})
         # Tell the newcomer we are here (to them only, not the whole group).
@@ -246,7 +287,10 @@ class ResolutionEditConsumer(AsyncWebsocketConsumer):
         await self._out({'t': 'lock', 'f': event['f'], 'who': event['who']})
 
     async def res_unlock(self, event):
-        await self._out({'t': 'unlock', 'f': event['f'], 'cid': event['cid']})
+        if event.get('taken_by') and event['cid'] == getattr(self, 'cid', None):
+            self.held.discard(event['f'])        # it was taken from me
+        await self._out({'t': 'unlock', 'f': event['f'], 'cid': event['cid'],
+                         'taken_by': event.get('taken_by', '')})
 
     async def res_draft(self, event):
         if event['cid'] != self.cid:
@@ -261,18 +305,31 @@ class ResolutionEditConsumer(AsyncWebsocketConsumer):
     # ── Helpers ───────────────────────────────────────────────────────────────
 
     async def _out(self, payload):
+        if self.observer and payload.get('t') not in self._OBSERVER_SEES:
+            return
         await self.send(text_data=json.dumps(payload))
 
     @database_sync_to_async
-    def _display_name(self, user):
-        return user.get_display_name()
-
-    @database_sync_to_async
-    def _may_edit(self, user, resolution_id):
+    def _access(self, user, resolution_id):
+        """None if there is no such resolution, else name / may_edit / is_chair."""
         from src.models import Resolution
         from src.view.officer.cnb import _can_edit_resolution
         try:
             resolution = Resolution.objects.get(pk=resolution_id)
         except Resolution.DoesNotExist:
-            return False
-        return resolution.status in ('draft', 'pending') and _can_edit_resolution(user, resolution)
+            return None
+        return {
+            'name': user.get_display_name(),
+            'is_chair': bool(user.has_cnb_permission),
+            'may_edit': resolution.status in ('draft', 'pending') and _can_edit_resolution(user, resolution),
+        }
+
+
+class ResolutionWatchConsumer(ResolutionEditConsumer):
+    """
+    v3.44.0 — `/ws/cnb/resolutions/<id>/watch/`: the read-only view of
+    `ResolutionEditConsumer` for the resolution's own page. Presence only; see
+    `observer` there. A subclass, not `as_asgi(observer=True)`: Channels'
+    consumers accept init kwargs and ignore them.
+    """
+    observer = True

@@ -77,6 +77,9 @@
 
                     <!-- Article actions -->
                     <div class="flex items-center gap-3 flex-shrink-0 text-sm">
+                        {# v3.44.0 — direct rename, for a typo that should not need a resolution. #}
+                        <button data-toggle-panel="rename-article-{{ article.pk }}"
+                                class="text-primary-600 dark:text-primary-400 hover:underline">Rename</button>
                         {% if article.is_active %}
                         <button data-toggle-panel="suspend-article-{{ article.pk }}"
                                 class="text-amber-600 dark:text-amber-400 hover:underline">Suspend Article</button>
@@ -87,6 +90,20 @@
                         </form>
                         {% endif %}
                     </div>
+                </div>
+
+                <!-- Rename article form (hidden) -->
+                <div id="rename-article-{{ article.pk }}" class="hidden mt-3">
+                    <form method="post" action="{% url 'cnb_rename_article' article_id=article.pk %}" class="flex gap-2">
+                        {% csrf_token %}
+                        <label class="sr-only" for="rename-article-input-{{ article.pk }}">New title for Article {{ article.number }}</label>
+                        <input type="text" name="title" id="rename-article-input-{{ article.pk }}" required maxlength="200" value="{{ article.title }}"
+                               class="flex-1 px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                        <button type="submit" class="px-3 py-1.5 text-sm bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-medium">Save title</button>
+                        <button type="button" data-toggle-panel="rename-article-{{ article.pk }}"
+                                class="px-3 py-1.5 text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">Cancel</button>
+                    </form>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">This changes the live document now, outside a resolution. Use it for corrections; a change of substance should go through a resolution.</p>
                 </div>
 
                 <!-- Suspend article form (hidden) -->

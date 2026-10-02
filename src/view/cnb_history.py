@@ -67,6 +67,13 @@ def apply_as_of(documents, as_of):
                 if section.created_at and section.created_at > as_of:
                     section.as_of_hidden = True
                     continue
+                # v3.44.0 — struck by a resolution: gone if that had already
+                # happened by `as_of`, otherwise shown under the number it had.
+                if section.removed_at:
+                    if section.removed_at <= as_of:
+                        section.as_of_hidden = True
+                        continue
+                    section.number = section.former_number
                 later = [r for r in section.revisions.all() if r.replaced_at > as_of]
                 if later:
                     r = min(later, key=lambda r: (r.replaced_at, r.pk))
@@ -77,7 +84,7 @@ def apply_as_of(documents, as_of):
 @login_required
 def section_history(request, section_id):
     section = get_object_or_404(
-        Section.objects.select_related('article__document'), pk=section_id,
+        Section.all_objects.select_related('article__document'), pk=section_id,   # v3.44.0: incl. removed
     )
     doc = section.article.document
     if not request.user.has_cnb_permission and not GoverningDocument.enabled().filter(pk=doc.pk).exists():

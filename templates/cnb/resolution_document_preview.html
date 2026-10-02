@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+
+{% block title %}Document preview — {{ resolution.title }} - Parliament{% endblock %}
+
+{% block content %}
+{# v3.44.0 — how the documents would read if this resolution passed. See src/cnb_projection.py. #}
+<style>
+    /* "Clean copy": what the text would simply say, with the marks removed. */
+    #docPreview.clean del, #docPreview.clean [data-removed] { display: none; }
+    #docPreview.clean ins { background: transparent; color: inherit; }
+    #docPreview.clean .mark-badge { display: none; }
+    #docPreview ins { text-decoration: none; }
+    @media print { .no-print { display: none !important; } }
+</style>
+<div class="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div class="bg-gradient-to-r from-primary-600 via-primary-700 to-primary-800 text-white py-8 shadow-lg no-print">
+        <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+            <a href="{% url 'cnb_resolution_detail' resolution_id=resolution.pk %}" class="text-primary-200 hover:text-white text-sm">&larr; Back to the resolution</a>
+            <h1 class="text-2xl font-bold mt-2 break-words">If “{{ resolution.title }}” passes</h1>
+            <p class="text-primary-100 text-sm mt-1">This is how the documents would read. Nothing here has happened: it is worked out fresh each time you open this page.</p>
+        </div>
+    </div>
+
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6" id="docPreview">
+        {% if closed %}
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm px-6 py-8 text-center text-sm text-gray-600 dark:text-gray-300">
+            This resolution is {{ resolution.get_status_display|lower }}, so there is nothing to preview.
+            {% if resolution.status == 'passed' %}Its changes are already in the documents.{% endif %}
+        </div>
+        {% else %}
+
+        {% if error %}
+        <div class="rounded-lg px-4 py-3 text-sm text-red-800 dark:text-red-200" style="background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.45);">
+            <p class="font-semibold">This resolution could not be applied as things stand, so it could not be marked passed.</p>
+            <p class="mt-1">{{ error }}</p>
+            <p class="mt-1 text-xs">Because of that, the documents below are shown as they are today, with none of this resolution's changes.</p>
+        </div>
+        {% endif %}
+
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm px-5 py-3 flex items-center justify-between gap-3 flex-wrap text-sm no-print">
+            <div class="flex items-center gap-3 flex-wrap text-xs text-gray-600 dark:text-gray-300">
+                <span class="font-semibold text-gray-800 dark:text-gray-100">Key:</span>
+                <span><ins class="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 px-1 rounded">added</ins></span>
+                <span><del class="bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 line-through px-1 rounded">removed</del></span>
+                <span class="px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300 font-semibold">was § 3</span>
+                <span>= renumbered</span>
+            </div>
+            <div class="flex items-center gap-2">
+                <button type="button" id="toggleClean" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-100" aria-pressed="false">Show clean copy</button>
+                <button type="button" id="toggleAll" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-100">Open every article</button>
+            </div>
+        </div>
+
+        {% for document in documents %}
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
+                <h2 class="text-lg font-bold text-gray-900 dark:text-gray-100">{{ document.label }}</h2>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{{ document.touched_count }} of {{ document.articles|length }} article{{ document.articles|length|pluralize }} affected. Unaffected articles are folded; click one to read it.</p>
+            </div>
+            <div class="divide-y divide-gray-100 dark:divide-gray-700">
+                {% for article in document.articles %}
+                <details class="js-article" {% if article.touched %}open{% endif %}>
+                    <summary class="px-6 py-3 cursor-pointer select-none flex items-center gap-2 flex-wrap">
+                        <span class="text-sm font-bold text-gray-900 dark:text-gray-100">Article {{ article.number }} — {{ article.title }}</span>
+                        {% if article.is_new %}<span class="mark-badge text-xs font-semibold px-1.5 py-0.5 rounded bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300">New article</span>{% endif %}
+                        {% if article.old_number %}<span class="mark-badge text-xs font-semibold px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300">was Article {{ article.old_number }}</span>{% endif %}
+                        {% if article.old_title is not None %}<span class="mark-badge text-xs font-semibold px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300">was titled “{{ article.old_title }}”</span>{% endif %}
+                        {% if not article.touched %}<span class="text-xs text-gray-400 dark:text-gray-500">unchanged</span>{% endif %}
+                    </summary>
+                    <div class="px-6 pb-4 space-y-4">
+                        {% for section in article.sections %}
+                        <div {% if section.status == 'removed' %}data-removed="1"{% endif %}
+                             class="{% if section.status == 'unchanged' %}opacity-70{% endif %}">
+                            <p class="text-sm font-semibold text-gray-800 dark:text-gray-100 flex items-center gap-2 flex-wrap">
+                                <span class="{% if section.status == 'removed' %}line-through{% endif %}">§ {{ section.number }}{% if section.title %} — {{ section.title }}{% endif %}</span>
+                                {% if section.status == 'new' %}<span class="mark-badge text-xs font-semibold px-1.5 py-0.5 rounded bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300">New section</span>{% endif %}
+                                {% if section.status == 'removed' %}<span class="mark-badge text-xs font-semibold px-1.5 py-0.5 rounded bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300">Removed</span>{% endif %}
+                                {% if section.old_number %}<span class="mark-badge text-xs font-semibold px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300">was § {{ section.old_number }}</span>{% endif %}
+                                {% if section.old_title is not None %}<span class="mark-badge text-xs font-semibold px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300">was titled “{{ section.old_title|default:'(no title)' }}”</span>{% endif %}
+                            </p>
+                            <div class="mt-1 text-sm leading-relaxed whitespace-pre-wrap text-gray-700 dark:text-gray-300 {% if section.status == 'new' %}bg-green-50 dark:bg-green-900/20 rounded-lg p-3{% elif section.status == 'removed' %}bg-red-50 dark:bg-red-900/20 rounded-lg p-3 line-through{% endif %}">{{ section.html }}</div>
+                        </div>
+                        {% empty %}
+                        <p class="text-sm text-gray-500 dark:text-gray-400 italic">No sections yet.</p>
+                        {% endfor %}
+                    </div>
+                </details>
+                {% endfor %}
+            </div>
+        </div>
+        {% empty %}
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm px-6 py-8 text-center text-sm text-gray-600 dark:text-gray-300">
+            This resolution does not change the text or structure of any document yet. Add an amendment, a new article or section, or a rename, and it will show here.
+        </div>
+        {% endfor %}
+        {% endif %}
+    </div>
+</div>
+
+<script nonce="{{ request.csp_nonce }}">
+(function() {
+    var root = document.getElementById('docPreview');
+    var clean = document.getElementById('toggleClean'), all = document.getElementById('toggleAll');
+    if (clean) clean.addEventListener('click', function() {
+        var on = root.classList.toggle('clean');
+        clean.textContent = on ? 'Show the changes' : 'Show clean copy';
+        clean.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+    if (all) all.addEventListener('click', function() {
+        var items = root.querySelectorAll('details.js-article');
+        var anyClosed = Array.prototype.some.call(items, function(d) { return !d.open; });
+        items.forEach(function(d) { d.open = anyClosed || d.hasAttribute('data-touched'); });
+        all.textContent = anyClosed ? 'Fold unaffected articles' : 'Open every article';
+        if (!anyClosed) items.forEach(function(d) { d.open = d.querySelector('.mark-badge, ins, del') !== null; });
+    });
+})();
+</script>
+{% endblock %}

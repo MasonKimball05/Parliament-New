@@ -177,6 +177,13 @@ class Article(models.Model):
         return f'{self.document.get_doc_type_display()} Article {self.number} — {self.title}'
 
 
+class _SectionsInTheDocument(models.Manager):
+    """Sections that are part of the document: everything not struck by a resolution."""
+
+    def get_queryset(self):
+        return super().get_queryset().filter(removed_at__isnull=True)
+
+
 class Section(models.Model):
     article = models.ForeignKey(
         Article, on_delete=models.CASCADE, related_name='sections'
@@ -238,6 +245,31 @@ class Section(models.Model):
     #: "as of a date" view to hide sections added after that date.
     created_at = models.DateTimeField(null=True, blank=True, editable=False)
 
+    # ── Struck from the document by a resolution (v3.44.0, 10-02-26) ─────────
+    #
+    # Mason: removing the VPA / VPRM sections left holes (§ 1, § 2, § 4). A
+    # whole-section deletion that passes now takes the section OUT of the
+    # document and the sections after it move up one (`cnb_structure.close_gap`).
+    #
+    # ⚠️ `objects` (the default manager) HIDES removed sections, on purpose:
+    # every surface that lists a document — the viewer, the manager, the PDF,
+    # the amendment and maker dropdowns, the cross-reference checker,
+    # `article.sections` — goes through it, so a removed section drops out of
+    # all of them without each having to remember. Use `Section.all_objects`
+    # where history matters (section history, the as-of-a-date view).
+    # Foreign keys TO a section (a passed amendment's) still resolve; Django
+    # follows those with the base manager.
+    #
+    # This is NOT the IFC "suspend" switch (`is_active`): a suspended section
+    # stays in the document, keeps its number and can be switched back on.
+    removed_at = models.DateTimeField(null=True, blank=True, editable=False)
+    #: The number it had. `number` itself is changed to a placeholder so the
+    #: next section can take it ((article, number) is unique).
+    former_number = models.CharField(max_length=20, blank=True, editable=False)
+
+    objects = _SectionsInTheDocument()
+    all_objects = models.Manager()
+
     class Meta:
         ordering = ['article', 'display_order']
         unique_together = ('article', 'number')
@@ -268,6 +300,8 @@ class Section(models.Model):
     def full_identifier(self):
         """Returns a human-readable ID like 'Constitution Art. III § 2'"""
         doc = self.article.document.get_doc_type_display()
+        if self.removed_at:
+            return f'{doc} Art. {self.article.number} § {self.former_number} (removed)'
         return f'{doc} Art. {self.article.number} § {self.number}'
 
     def __str__(self):
@@ -399,27 +433,58 @@ class Resolution(models.Model):
         Called inside a transaction — caller is responsible for saving self.
         """
         from django.utils import timezone
-        for amendment in self.amendments.all():
+        from src.cnb_structure import close_gap
+
+        amendments = list(self.amendments.select_related('section__article__document'))
+        # v3.43.0/v3.44.0 — every citation is recorded FIRST, from the document
+        # as the chapter voted on it. Removing § 2 renumbers § 4; the amendment
+        # to "§ 4" must still say § 4. (See `identifier_snapshot`.)
+        cited = {a.pk: a.section.full_identifier for a in amendments}
+
+        def finish(amendment):
+            amendment.applied = True
+            amendment.identifier_snapshot = cited[amendment.pk]
+            amendment.save(update_fields=['applied', 'identifier_snapshot'])
+
+        # Text changes first. `update_fields` throughout: each amendment holds
+        # its own copy of its section, read before any renumbering, and a full
+        # save would write that stale `number` back.
+        removals = []
+        for amendment in amendments:
+            if amendment.is_whole_section_removal:
+                removals.append(amendment)
+                continue
             section = amendment.section
             # 09-25-26 — keep the outgoing text (SectionRevision).
             section.record_revision('resolution', by=applied_by, resolution=self)
-            whole_section_delete = (amendment.amendment_type == 'deletion' and not amendment.scope_note and not amendment.proposed_text)
-            if whole_section_delete:
-                # Whole-section deletion: clear content and suspend
-                section.content = ''
-                section.is_active = False
-                section.deactivation_reason = f'Deleted by resolution: {self.title}'
-                section.deactivated_by = applied_by
-                section.deactivated_at = timezone.now()
-            else:
-                # change, addition, or partial deletion — proposed_text is the full updated section
-                section.content = amendment.proposed_text
+            # change, addition, or partial deletion — proposed_text is the full updated section
+            section.content = amendment.proposed_text
             section.amendment_protected = False
             section.protected_until = None
             section.protection_note = ''
-            section.save()
-            amendment.applied = True
-            amendment.save()
+            section.save(update_fields=['content', 'amendment_protected', 'protected_until', 'protection_note'])
+            finish(amendment)
+
+        # Then whole-section removals, one at a time, each read fresh: an
+        # earlier removal in the same article has already moved it.
+        for amendment in removals:
+            section = amendment.section
+            section.refresh_from_db()
+            section.record_revision('resolution', by=applied_by, resolution=self)
+            section.content = ''
+            section.is_active = False
+            section.deactivation_reason = f'Deleted by resolution: {self.title}'
+            section.deactivated_by = applied_by
+            section.deactivated_at = timezone.now()
+            section.amendment_protected = False
+            section.protected_until = None
+            section.protection_note = ''
+            section.save(update_fields=['content', 'is_active', 'deactivation_reason', 'deactivated_by',
+                                        'deactivated_at', 'amendment_protected', 'protected_until',
+                                        'protection_note'])
+            # v3.44.0 — take it out of the document; later sections move up.
+            close_gap(section)
+            finish(amendment)
 
     def apply_failure_protection(self):
         """
@@ -512,6 +577,12 @@ class ResolutionAmendment(models.Model):
         help_text='True once the resolution passes and this text has been written to the section'
     )
 
+    #: v3.43.0 — the section's identifier ("Constitution Art. III § 3") at the
+    #: moment the resolution passed. A later resolution can renumber articles
+    #: and sections; a passed resolution must keep citing the numbers it was
+    #: written and voted on with. Blank until applied.
+    identifier_snapshot = models.CharField(max_length=120, blank=True)
+
     added_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -525,8 +596,90 @@ class ResolutionAmendment(models.Model):
             self.original_text_snapshot = self.section.content
         super().save(*args, **kwargs)
 
+    @property
+    def is_whole_section_removal(self):
+        return self.amendment_type == 'deletion' and not self.scope_note and not self.proposed_text
+
+    @property
+    def renumbering_note(self):
+        """For a draft whole-section removal: what moves up when it passes ('' otherwise)."""
+        if self.applied or not self.is_whole_section_removal:
+            return ''
+        from src.cnb_structure import describe_removal
+        return describe_removal(self.section)
+
+    @property
+    def display_identifier(self):
+        """What to call the section when showing this amendment (see `identifier_snapshot`)."""
+        return self.identifier_snapshot or self.section.full_identifier
+
     def __str__(self):
         return f'{self.resolution.title} → {self.section}'
+
+
+class ResolutionStructureChange(models.Model):
+    """
+    A structural change a resolution proposes: a NEW article or section, or a
+    new NAME for one (v3.43.0, 10-02-26).
+
+    Mason: "add an article + section maker to the edit page. Currently you have
+    to just put it straight in as text in the body ... if someone wants to put
+    in a new article 4 it moves the existing article 4 to 5, 5 to 6, etc."
+    and "a way to edit the name of articles + sections too."
+
+    `ResolutionAmendment` can only replace the TEXT of a section that already
+    exists. This is everything else. Like an amendment it is a proposal:
+    nothing in the live document changes until the resolution is marked
+    passed, when `src.cnb_structure.apply_structure_changes` inserts,
+    renumbers and renames.
+
+    Position is stored as "before this article/section" (an object, not a
+    number), so it stays right if another change renumbers things first.
+    Null = at the end.
+    """
+    KIND_CHOICES = [
+        ('new_article', 'New article'),
+        ('new_section', 'New section'),
+        ('rename_article', 'Rename an article'),
+        ('rename_section', 'Rename a section'),
+    ]
+
+    resolution = models.ForeignKey(Resolution, on_delete=models.CASCADE, related_name='structure_changes')
+    kind = models.CharField(max_length=20, choices=KIND_CHOICES)
+
+    #: new_article: the document it goes into.
+    document = models.ForeignKey(GoverningDocument, on_delete=models.CASCADE, null=True, blank=True, related_name='+')
+    #: new_section: the existing article it goes into. rename_article: the article.
+    article = models.ForeignKey(Article, on_delete=models.CASCADE, null=True, blank=True, related_name='+')
+    #: new_section: instead of `article`, a new article proposed by this same resolution.
+    parent = models.ForeignKey('self', on_delete=models.CASCADE, null=True, blank=True, related_name='children')
+    #: rename_section: the section.
+    section = models.ForeignKey(Section, on_delete=models.CASCADE, null=True, blank=True, related_name='+')
+
+    #: Where a new article / section goes. Null = at the end.
+    before_article = models.ForeignKey(Article, on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
+    before_section = models.ForeignKey(Section, on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
+
+    title = models.CharField(max_length=200, blank=True, help_text='The new title.')
+    content = models.TextField(blank=True, help_text='new_section: the full text of the new section.')
+    #: rename_*: the title when this was drafted, so reviewers see old and new.
+    old_title = models.CharField(max_length=200, blank=True)
+
+    applied = models.BooleanField(default=False)
+    #: Set when applied: what it became ("Constitution Art. IV"), and the rows.
+    result_label = models.CharField(max_length=160, blank=True)
+    result_article = models.ForeignKey(Article, on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
+    result_section = models.ForeignKey(Section, on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
+
+    added_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
+    added_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['added_at', 'pk']
+        verbose_name = 'Resolution Structure Change'
+
+    def __str__(self):
+        return f'{self.resolution.title}: {self.get_kind_display()}'
 
 
 class SectionRevision(models.Model):

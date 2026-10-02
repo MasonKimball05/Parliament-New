@@ -26,7 +26,7 @@ from src.models.users import member_defer
 from src.models import (
     GoverningDocument, Article, Section, Resolution, ResolutionAmendment,
     ResolutionCollaborator, ParliamentUser,
-    ResolutionNote,
+    ResolutionNote, ResolutionStructureChange,
 )
 
 
@@ -50,7 +50,15 @@ def cnb_viewer(request):
     # end of that day (src/view/cnb_history.py). Revisions are prefetched only
     # when asked for, so the normal page pays nothing extra.
     as_of = parse_as_of(request.GET.get('as_of'))
-    prefetch = 'articles__sections__revisions' if as_of else 'articles__sections'
+    if as_of:
+        # v3.44.0 — `all_objects`: a section a later resolution struck was
+        # still part of the document on an earlier date (`apply_as_of` hides
+        # it again when it was already gone by then).
+        from django.db.models import Prefetch
+        prefetch = Prefetch('articles__sections',
+                            queryset=Section.all_objects.prefetch_related('revisions').order_by('article', 'display_order'))
+    else:
+        prefetch = 'articles__sections'
     documents = list(GoverningDocument.enabled().prefetch_related(prefetch))
     if as_of:
         apply_as_of(documents, as_of)
@@ -595,6 +603,37 @@ def add_article(request, doc_type):
 @login_required
 @cnb_required
 @require_POST
+def rename_article(request, article_id):
+    """
+    Retitle an article directly (v3.44.0). The C&B manager could already
+    retitle a SECTION (`edit_section`); an article had no way at all outside a
+    resolution. Chair only. Logged, because it changes the live document
+    without a vote.
+    """
+    article = get_object_or_404(Article.objects.select_related('document'), pk=article_id)
+    title = request.POST.get('title', '').strip()[:200]
+    if not title:
+        messages.error(request, 'An article needs a title.')
+    elif title == article.title:
+        messages.info(request, 'That is already the title.')
+    else:
+        old = article.title
+        article.title = title
+        article.save(update_fields=['title'])
+        from src.models import ActivityLog
+        ActivityLog.log_activity(
+            action_type='other', user=request.user, request=request,
+            description=(f'{request.user.get_display_name()} renamed {article.document.get_doc_type_display()} '
+                         f'Article {article.number}: "{old}" → "{title}"'),
+            metadata={'action': 'cnb_rename_article', 'article_id': article.pk, 'old': old, 'new': title},
+        )
+        messages.success(request, f'Article {article.number} is now "{title}".')
+    return redirect('cnb_manage_document', doc_type=article.document.doc_type)
+
+
+@login_required
+@cnb_required
+@require_POST
 def add_partial_suspension(request, section_id):
     """Suspend a specific sub-item within a section without suspending the whole section."""
     section = get_object_or_404(Section, pk=section_id)
@@ -766,6 +805,7 @@ def resolution_detail(request, resolution_id):
         'members': members,
     }
     context.update(_notes_context(request.user, resolution))
+    context.update(_structure_context(resolution, documents if can_edit else None))
     return render(request, 'cnb/resolution_detail.html', context)
 
 
@@ -977,6 +1017,7 @@ def edit_resolution(request, resolution_id):
         'conflicts': conflicts,
     }
     context.update(_notes_context(request.user, resolution))
+    context.update(_structure_context(resolution, ref_docs))
     return render(request, 'cnb/resolution_form.html', context, status=409 if conflicts else 200)
 
 
@@ -1096,6 +1137,158 @@ def remove_amendment(request, resolution_id, amendment_id):
     return redirect('cnb_resolution_detail', resolution_id=resolution_id)
 
 
+# ── Structural changes: new articles / sections, renames (v3.43.0) ──────────
+
+def _structure_context(resolution, documents=None):
+    """
+    The resolution's structural changes, each with its plain-words
+    description and the cross-references it would strand; plus the data for
+    the maker's dropdowns when `documents` is given (editors only).
+    """
+    from src import cnb_structure
+    changes = list(
+        resolution.structure_changes
+        .select_related('document', 'article__document', 'section__article__document',
+                        'before_article', 'before_section', 'parent__document', 'parent__before_article')
+    )
+    rows = []
+    for change in changes:
+        rows.append({
+            'change': change,
+            'says': cnb_structure.describe(change),
+            'refs': cnb_structure.references_to_check(change),
+        })
+    context = {'structure_rows': rows}
+    if documents is not None:
+        context['structure_payload'] = cnb_structure.structure_payload(documents)
+        context['structure_new_articles'] = [
+            {'id': r['change'].pk, 'label': r['says']['heading'].split(': ', 1)[-1]}
+            for r in rows if r['change'].kind == 'new_article' and not r['change'].applied
+        ]
+    return context
+
+
+@login_required
+@require_POST
+def add_structure_change(request, resolution_id):
+    """Propose a new article/section or a rename. Chair and Editor collaborators."""
+    from src import cnb_live, cnb_structure
+    resolution = get_object_or_404(Resolution, pk=resolution_id)
+    denied = _edit_denied(request, resolution)
+    if denied:
+        return denied
+    back = 'cnb_edit_resolution' if request.POST.get('next') == 'edit' else 'cnb_resolution_detail'
+    if resolution.status not in ('draft', 'pending'):
+        messages.error(request, 'Cannot modify a closed resolution.')
+        return redirect('cnb_resolution_detail', resolution_id=resolution_id)
+
+    kind = request.POST.get('kind', '')
+    title = request.POST.get('title', '').strip()
+    content = request.POST.get('content', '').replace('\r\n', '\n').replace('\r', '\n').strip()
+    # Editors (not the chair) work only in documents members can see — the
+    # same rule as `add_amendment`. The maker only offers those; this is for a
+    # hand-made POST.
+    allowed_docs = GoverningDocument.objects.all() if request.user.has_cnb_permission else GoverningDocument.enabled()
+
+    def fail(message):
+        messages.error(request, message)
+        return redirect(back, resolution_id=resolution_id)
+
+    def pick(model, field, **scope):
+        raw = request.POST.get(field, '').strip()
+        return model.objects.filter(pk=raw, **scope).first() if raw.isdigit() else None
+
+    # v3.44.0 — `change_id` edits an existing proposal in place (same kind).
+    editing = None
+    change_raw = request.POST.get('change_id', '').strip()
+    if change_raw.isdigit():
+        editing = resolution.structure_changes.filter(pk=change_raw, applied=False).first()
+        if editing is None:
+            return fail('That proposal is no longer part of this resolution.')
+        kind = editing.kind
+
+    if editing is not None:
+        change = editing
+        change.title = title
+        change.document = change.article = change.section = None
+        change.before_article = change.before_section = change.parent = None
+    else:
+        change = ResolutionStructureChange(resolution=resolution, kind=kind, title=title, added_by=request.user)
+    try:
+        if kind == 'new_article':
+            change.document = pick(GoverningDocument, 'document_id', pk__in=allowed_docs.values('pk'))
+            if change.document is None or not title:
+                return fail('A new article needs a document and a title.')
+            change.before_article = pick(Article, 'before_article_id', document=change.document)
+            cnb_structure.plan_article_insert(change.document, change.before_article)
+        elif kind == 'new_section':
+            if not content:
+                return fail('A new section needs its text.')
+            parent_raw = request.POST.get('parent_id', '').strip()
+            if parent_raw.isdigit():
+                change.parent = resolution.structure_changes.filter(
+                    pk=parent_raw, kind='new_article', applied=False).first()
+                if change.parent is None:
+                    return fail('That new article is not part of this resolution.')
+            else:
+                change.article = pick(Article, 'article_id', document__in=allowed_docs)
+                if change.article is None:
+                    return fail('Choose the article the new section goes in.')
+                change.before_section = pick(Section, 'before_section_id', article=change.article)
+                cnb_structure.plan_section_insert(change.article, change.before_section)
+            change.content = content
+        elif kind == 'rename_article':
+            change.article = pick(Article, 'article_id', document__in=allowed_docs)
+            if change.article is None or not title:
+                return fail('Choose an article and give its new title.')
+            if title == change.article.title:
+                return fail('That is already the article\'s title.')
+            change.old_title = change.article.title
+            resolution.structure_changes.filter(kind=kind, article=change.article, applied=False).exclude(pk=change.pk).delete()
+        elif kind == 'rename_section':
+            change.section = pick(Section, 'section_id', article__document__in=allowed_docs)
+            if change.section is None or not title:
+                return fail('Choose a section and give its new title.')
+            if title == change.section.title:
+                return fail('That is already the section\'s title.')
+            change.old_title = change.section.title
+            resolution.structure_changes.filter(kind=kind, section=change.section, applied=False).exclude(pk=change.pk).delete()
+        else:
+            return fail('Unknown kind of change.')
+    except cnb_structure.StructureError as e:
+        return fail(str(e))
+
+    change.save()
+    heading = cnb_structure.describe(change)['heading']
+    if editing is not None:
+        messages.success(request, f'Updated: {heading}.')
+        cnb_live.broadcast_amendments_changed(resolution.pk, request.user, 'changed a proposal: ' + heading)
+    else:
+        messages.success(request, f'Added: {heading}. Nothing changes in the live document until this resolution passes.')
+        cnb_live.broadcast_amendments_changed(resolution.pk, request.user, 'proposed: ' + heading)
+    return redirect(back, resolution_id=resolution_id)
+
+
+@login_required
+@require_POST
+def remove_structure_change(request, resolution_id, change_id):
+    from src import cnb_live, cnb_structure
+    resolution = get_object_or_404(Resolution, pk=resolution_id)
+    denied = _edit_denied(request, resolution)
+    if denied:
+        return denied
+    change = get_object_or_404(ResolutionStructureChange, pk=change_id, resolution=resolution)
+    back = 'cnb_edit_resolution' if request.POST.get('next') == 'edit' else 'cnb_resolution_detail'
+    if resolution.status not in ('draft', 'pending') or change.applied:
+        messages.error(request, 'Cannot modify a closed resolution.')
+        return redirect('cnb_resolution_detail', resolution_id=resolution_id)
+    heading = cnb_structure.describe(change)['heading']
+    change.delete()   # a new article takes its proposed sections with it (parent CASCADE)
+    messages.success(request, f'Removed: {heading}.')
+    cnb_live.broadcast_amendments_changed(resolution.pk, request.user, 'withdrew: ' + heading)
+    return redirect(back, resolution_id=resolution_id)
+
+
 @login_required
 @cnb_required
 @require_POST
@@ -1120,9 +1313,23 @@ def set_resolution_status(request, resolution_id):
         if new_status == 'passed':
             resolution.passed_at = timezone.now()
             resolution.apply_amendments(applied_by=request.user)
+            # v3.43.0 — new articles/sections (with renumbering) and renames.
+            # After the amendments, so they record the pre-renumbering
+            # citations. A proposal that can no longer be applied (the
+            # document changed under it) stops the whole pass: nothing is
+            # half-applied, and the chair is told why.
+            from src.cnb_structure import StructureError, apply_structure_changes
+            try:
+                structural = apply_structure_changes(resolution, request.user)
+            except StructureError as e:
+                transaction.set_rollback(True)
+                messages.error(request, f'Not passed: a structural change could not be applied. {e}')
+                return redirect('cnb_resolution_detail', resolution_id=resolution_id)
             messages.success(
                 request,
-                f'Resolution passed — {resolution.amendments.count()} section(s) updated.'
+                f'Resolution passed — {resolution.amendments.count()} section(s) updated'
+                + (f', {structural} structural change(s) applied (articles/sections added, renumbered or renamed). '
+                   'Check the cross-reference report on the C&B manager.' if structural else '.')
             )
         elif new_status == 'failed':
             resolution.failed_at = timezone.now()
@@ -1206,7 +1413,29 @@ def resolution_print(request, resolution_id):
         ),
         pk=resolution_id
     )
-    return render(request, 'cnb/resolution_print.html', {'resolution': resolution})
+    context = {'resolution': resolution}
+    context.update(_structure_context(resolution))
+    return render(request, 'cnb/resolution_print.html', context)
+
+
+@login_required
+def resolution_document_preview(request, resolution_id):
+    """
+    How the governing documents would read if this resolution passed
+    (v3.44.0). Open to anyone who can open the resolution; a member is shown
+    only documents that are switched on for members. See src/cnb_projection.py:
+    it runs the real "passed" logic and rolls it back.
+    """
+    from src import cnb_projection
+    resolution = get_object_or_404(Resolution, pk=resolution_id)
+    context = {'resolution': resolution, 'documents': [], 'error': '', 'closed': False}
+    if resolution.status not in ('draft', 'pending'):
+        context['closed'] = True
+    else:
+        allowed = None if request.user.has_cnb_permission else set(
+            GoverningDocument.enabled().values_list('pk', flat=True))
+        context.update(cnb_projection.project(resolution, request.user, allowed))
+    return render(request, 'cnb/resolution_document_preview.html', context)
 
 
 # ── Section context API (AJAX) ────────────────────────────────────────────────

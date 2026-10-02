@@ -1,0 +1,268 @@
+{% comment %}
+The article / section maker popup (v3.43.0). Included once per page by
+resolution_form.html and resolution_detail.html, for people who can edit.
+Needs: resolution, structure_payload, structure_new_articles, structure_next.
+The list it adds to is _structure_changes.html.
+{% endcomment %}
+{{ structure_payload|json_script:"structure-payload" }}
+{{ structure_new_articles|json_script:"structure-new-articles" }}
+
+<div id="structureModal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-3">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-2xl flex flex-col" style="max-height: 92vh; overscroll-behavior: contain;">
+        <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between flex-shrink-0">
+            <div>
+                <h3 class="text-base font-semibold text-gray-900 dark:text-gray-100">Add an Article, a Section, or a Rename</h3>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">This is a proposal. It takes effect, and everything after it is renumbered, only when the resolution passes.</p>
+            </div>
+            <button type="button" class="js-close-structure-modal text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 p-1" aria-label="Close">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+        </div>
+
+        <form method="post" action="{% url 'cnb_add_structure_change' resolution_id=resolution.pk %}" id="structureForm" class="flex flex-col flex-1 overflow-hidden" style="min-height: 0;">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{{ structure_next }}">
+            <input type="hidden" name="change_id" id="stChangeId" value="">
+            <div class="px-6 py-5 space-y-4 overflow-y-auto flex-1" style="min-height: 0; overscroll-behavior: contain;">
+                <div>
+                    <label for="stKind" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">What do you want to do?</label>
+                    <select name="kind" id="stKind" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                        <option value="new_article">Add a new article</option>
+                        <option value="new_section">Add a new section</option>
+                        <option value="rename_article">Rename an article</option>
+                        <option value="rename_section">Rename a section</option>
+                    </select>
+                </div>
+
+                {# One fieldset per kind. The inactive ones are DISABLED, so only the visible one's fields are posted. #}
+                <fieldset data-kind="new_article" class="space-y-4">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label for="stDoc" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Document</label>
+                            <select name="document_id" id="stDoc" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg text-sm"></select>
+                        </div>
+                        <div>
+                            <label for="stBeforeArticle" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Where</label>
+                            <select name="before_article_id" id="stBeforeArticle" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg text-sm"></select>
+                        </div>
+                    </div>
+                    <div>
+                        <label for="stArticleTitle" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Title of the new article</label>
+                        <input type="text" name="title" id="stArticleTitle" maxlength="200" required placeholder='e.g. "Standards Board"' class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg text-sm">
+                    </div>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">An article is a heading. After adding it, add its sections with "Add a new section" and pick this new article.</p>
+                </fieldset>
+
+                <fieldset data-kind="new_section" class="space-y-4" disabled hidden>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label for="stArticle" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">In which article</label>
+                            <select id="stArticle" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg text-sm"></select>
+                            <input type="hidden" name="article_id" id="stArticleId">
+                            <input type="hidden" name="parent_id" id="stParentId">
+                        </div>
+                        <div>
+                            <label for="stBeforeSection" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Where</label>
+                            <select name="before_section_id" id="stBeforeSection" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg text-sm"></select>
+                        </div>
+                    </div>
+                    <div>
+                        <label for="stSectionTitle" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Section title <span class="font-normal text-gray-400">(optional)</span></label>
+                        <input type="text" name="title" id="stSectionTitle" maxlength="200" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg text-sm">
+                    </div>
+                    <div>
+                        <label for="stContent" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Text of the new section</label>
+                        <textarea name="content" id="stContent" rows="8" required class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg text-sm leading-relaxed"></textarea>
+                    </div>
+                </fieldset>
+
+                <fieldset data-kind="rename_article" class="space-y-4" disabled hidden>
+                    <div>
+                        <label for="stRenameArticle" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Article</label>
+                        <select name="article_id" id="stRenameArticle" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg text-sm"></select>
+                    </div>
+                    <div>
+                        <label for="stRenameArticleTitle" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">New title</label>
+                        <input type="text" name="title" id="stRenameArticleTitle" maxlength="200" required class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg text-sm">
+                    </div>
+                </fieldset>
+
+                <fieldset data-kind="rename_section" class="space-y-4" disabled hidden>
+                    <div>
+                        <label for="stRenameSection" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Section</label>
+                        <select name="section_id" id="stRenameSection" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg text-sm"></select>
+                    </div>
+                    <div>
+                        <label for="stRenameSectionTitle" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">New title</label>
+                        <input type="text" name="title" id="stRenameSectionTitle" maxlength="200" required class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg text-sm">
+                    </div>
+                </fieldset>
+
+                <p id="stHint" class="text-sm font-medium text-amber-700 dark:text-amber-300"></p>
+            </div>
+
+            <div class="px-6 py-4 border-t border-gray-100 dark:border-gray-700 flex items-center justify-end gap-3 flex-shrink-0">
+                <button type="button" class="js-close-structure-modal px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors">Cancel</button>
+                <button type="submit" id="stSubmit" class="px-4 py-2 text-sm font-semibold text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors">Add to resolution</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script nonce="{{ request.csp_nonce }}">
+// ── Article / section maker (v3.43.0) ────────────────────────────────────────
+(function() {
+    var modal = document.getElementById('structureModal');
+    if (!modal) return;
+    var docs = JSON.parse(document.getElementById('structure-payload').textContent);
+    var newArticles = JSON.parse(document.getElementById('structure-new-articles').textContent);
+    var $ = function(id) { return document.getElementById(id); };
+    var kind = $('stKind'), hint = $('stHint');
+
+    // Lock the page behind while the popup is open (same as the amendment editor).
+    new MutationObserver(function() {
+        document.body.style.overflow = modal.classList.contains('hidden') ? '' : 'hidden';
+    }).observe(modal, { attributes: true, attributeFilter: ['class'] });
+
+    function opt(value, text) { var o = document.createElement('option'); o.value = value; o.textContent = text; return o; }
+    function fill(select, options) { select.innerHTML = ''; options.forEach(function(o) { select.appendChild(o); }); }
+    function artLabel(a) { return 'Article ' + a.number + (a.title ? ' — ' + a.title : ''); }
+    function secLabel(s) { return '§ ' + s.number + (s.title ? ' — ' + s.title : ''); }
+    function docById(id) { return docs.filter(function(d) { return String(d.id) === String(id); })[0]; }
+    function findArticle(id) {
+        for (var i = 0; i < docs.length; i++) for (var j = 0; j < docs[i].articles.length; j++)
+            if (String(docs[i].articles[j].id) === String(id)) return docs[i].articles[j];
+        return null;
+    }
+    function grouped(select, perArticle) {   // one <optgroup> per document
+        select.innerHTML = '';
+        docs.forEach(function(d) {
+            var g = document.createElement('optgroup'); g.label = d.label;
+            d.articles.forEach(function(a) { perArticle(g, a, d); });
+            if (g.children.length) select.appendChild(g);
+        });
+    }
+
+    // New article: document → position.
+    fill($('stDoc'), docs.map(function(d) { return opt(d.id, d.label); }));
+    function refreshArticlePositions() {
+        var d = docById($('stDoc').value) || { articles: [] };
+        var options = d.articles.map(function(a) { return opt(a.id, 'Before ' + artLabel(a)); });
+        options.push(opt('', 'At the end'));
+        fill($('stBeforeArticle'), options);
+        $('stBeforeArticle').value = '';
+        refreshHint();
+    }
+
+    // New section: article (existing, or a new one from this resolution) → position.
+    function refreshArticleChoices() {
+        grouped($('stArticle'), function(g, a, d) { g.appendChild(opt('a:' + a.id, d.label + ' ' + artLabel(a))); });
+        if (newArticles.length) {
+            var g = document.createElement('optgroup'); g.label = 'New articles in this resolution';
+            newArticles.forEach(function(n) { g.appendChild(opt('p:' + n.id, n.label)); });
+            $('stArticle').appendChild(g);
+        }
+    }
+    function refreshSectionPositions() {
+        var value = $('stArticle').value || '', isNew = value.indexOf('p:') === 0, id = value.slice(2);
+        $('stArticleId').value = isNew ? '' : id;
+        $('stParentId').value = isNew ? id : '';
+        var article = isNew ? null : findArticle(id);
+        var options = (article ? article.sections : []).map(function(s) { return opt(s.id, 'Before ' + secLabel(s)); });
+        options.push(opt('', 'At the end'));
+        fill($('stBeforeSection'), options);
+        $('stBeforeSection').value = '';
+        $('stBeforeSection').disabled = isNew;
+        refreshHint();
+    }
+
+    // Renames.
+    grouped($('stRenameArticle'), function(g, a, d) { g.appendChild(opt(a.id, d.label + ' ' + artLabel(a))); });
+    grouped($('stRenameSection'), function(g, a, d) {
+        a.sections.forEach(function(s) { g.appendChild(opt(s.id, d.label + ' Art. ' + a.number + ' ' + secLabel(s))); });
+    });
+    function prefillRenames() {
+        var a = findArticle($('stRenameArticle').value);
+        if (a) $('stRenameArticleTitle').value = a.title || '';
+        var sid = $('stRenameSection').value, found = null;
+        docs.forEach(function(d) { d.articles.forEach(function(x) { x.sections.forEach(function(s) { if (String(s.id) === String(sid)) found = s; }); }); });
+        if (found) $('stRenameSectionTitle').value = found.title || '';
+    }
+
+    // What it will do, in words. The server works out the real numbers and
+    // refuses what can't be renumbered; this is the same rule, shown early.
+    function refreshHint() {
+        var text = '';
+        if (kind.value === 'new_article') {
+            var d = docById($('stDoc').value) || { articles: [] }, before = findArticle($('stBeforeArticle').value);
+            if (before) {
+                var last = d.articles[d.articles.length - 1];
+                text = 'It becomes Article ' + before.number + '. Current Article' + (before === last ? ' ' + before.number + ' moves' : 's ' + before.number + '–' + last.number + ' move') + ' up one.';
+            } else text = 'It is added after the last article. Nothing is renumbered.';
+        } else if (kind.value === 'new_section') {
+            var sel = $('stBeforeSection'), chosen = sel.options[sel.selectedIndex];
+            if (sel.value) text = 'It takes that section’s number, and that section and every one after it in the article move up one.';
+            else text = 'It is added after the last section of the article. Nothing is renumbered.';
+        } else text = 'Only the title changes. The number and the text stay as they are.';
+        hint.textContent = text;
+    }
+
+    function showKind() {
+        modal.querySelectorAll('fieldset[data-kind]').forEach(function(fs) {
+            var on = fs.dataset.kind === kind.value;
+            fs.disabled = !on; fs.hidden = !on;
+        });
+        refreshHint();
+    }
+
+    kind.addEventListener('change', showKind);
+    $('stDoc').addEventListener('change', refreshArticlePositions);
+    $('stBeforeArticle').addEventListener('change', refreshHint);
+    $('stArticle').addEventListener('change', refreshSectionPositions);
+    $('stBeforeSection').addEventListener('change', refreshHint);
+    $('stRenameArticle').addEventListener('change', prefillRenames);
+    $('stRenameSection').addEventListener('change', prefillRenames);
+
+    function open() {
+        $('stChangeId').value = ''; kind.disabled = false; $('stSubmit').textContent = 'Add to resolution';
+        refreshArticlePositions(); refreshArticleChoices(); refreshSectionPositions(); prefillRenames(); showKind();
+        modal.classList.remove('hidden');
+    }
+    // v3.44.0 — edit a proposal in place: the same form, filled in. The kind
+    // can't change (remove it and add the other kind instead).
+    function openForEdit(d) {
+        open();
+        $('stChangeId').value = d.changeId; $('stSubmit').textContent = 'Save changes';
+        kind.value = d.kind; kind.disabled = true; showKind();
+        if (d.kind === 'new_article') {
+            $('stDoc').value = d.document; refreshArticlePositions();
+            $('stBeforeArticle').value = d.beforeArticle || ''; $('stArticleTitle').value = d.title;
+        } else if (d.kind === 'new_section') {
+            $('stArticle').value = d.parent ? 'p:' + d.parent : 'a:' + d.article; refreshSectionPositions();
+            $('stBeforeSection').value = d.beforeSection || '';
+            $('stSectionTitle').value = d.title; $('stContent').value = d.content;
+        } else if (d.kind === 'rename_article') {
+            $('stRenameArticle').value = d.article; $('stRenameArticleTitle').value = d.title;
+        } else {
+            $('stRenameSection').value = d.section; $('stRenameSectionTitle').value = d.title;
+        }
+        refreshHint();
+    }
+    function close() { modal.classList.add('hidden'); }
+
+    // The list is redrawn in place by live editing, so its buttons are wired
+    // by a function that can run again (same pattern as wireAmendmentList).
+    window.wireStructureList = function(root) {
+        root.querySelectorAll('.js-open-structure-modal').forEach(function(b) { b.addEventListener('click', open); });
+        root.querySelectorAll('.js-edit-structure').forEach(function(b) {
+            b.addEventListener('click', function() { openForEdit(this.dataset); });
+        });
+        root.querySelectorAll('.js-confirm-remove-structure').forEach(function(f) {
+            f.addEventListener('submit', function(e) { if (!confirm('Remove this proposed change?')) e.preventDefault(); });
+        });
+    };
+    window.setStructureNewArticles = function(list) { newArticles = list; };
+    window.wireStructureList(document);
+    modal.querySelectorAll('.js-close-structure-modal').forEach(function(b) { b.addEventListener('click', close); });
+})();
+</script>

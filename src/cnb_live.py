@@ -45,6 +45,21 @@ FIELD_LABELS = {
 LOCK_TTL_SECONDS = 75
 
 
+import re
+
+#: v3.44.0 — the amendment editor is lockable too: one lock per section being
+#: amended, named `amend:<section id>`. Same store, same rules as a field.
+AMEND_KEY = re.compile(r'^amend:\d{1,12}$')
+
+
+def lockable(name):
+    return name in FIELDS or (isinstance(name, str) and bool(AMEND_KEY.match(name)))
+
+
+def _amend_index_key(resolution_id):
+    return f'cnbres:{resolution_id}:amendlocks'
+
+
 def group_name(resolution_id):
     return f'cnb_res_{resolution_id}'
 
@@ -79,6 +94,15 @@ def acquire_lock(resolution_id, field, owner):
     """
     key = _lock_key(resolution_id, field)
     payload = json.dumps(owner)
+    if field not in FIELDS:
+        # Amendment locks have open-ended names, so `current_locks` needs a
+        # list of the ones in play. A stale entry is harmless (its lock key
+        # has expired and is skipped); a lost update only delays a newcomer
+        # seeing a lock until the holder's next message.
+        index = set(cache.get(_amend_index_key(resolution_id)) or [])
+        if field not in index:
+            index.add(field)
+            cache.set(_amend_index_key(resolution_id), sorted(index), 6 * 3600)
     if cache.add(key, payload, LOCK_TTL_SECONDS):
         return owner
     held = cache.get(key)
@@ -111,11 +135,22 @@ def refresh_locks(resolution_id, fields, cid):
 
 
 def current_locks(resolution_id):
-    found = cache.get_many([_lock_key(resolution_id, f) for f in FIELDS])
+    names = list(FIELDS) + [n for n in (cache.get(_amend_index_key(resolution_id)) or []) if lockable(n)]
+    found = cache.get_many([_lock_key(resolution_id, f) for f in names])
     return {
         f: json.loads(found[_lock_key(resolution_id, f)])
-        for f in FIELDS if _lock_key(resolution_id, f) in found
+        for f in names if _lock_key(resolution_id, f) in found
     }
+
+
+def force_release(resolution_id, field):
+    """The chair takes a lock away (v3.44.0). Returns whoever held it, or None."""
+    key = _lock_key(resolution_id, field)
+    held = cache.get(key)
+    if not held:
+        return None
+    cache.delete(key)
+    return json.loads(held)
 
 
 # ── Broadcasts from the HTTP views ───────────────────────────────────────────

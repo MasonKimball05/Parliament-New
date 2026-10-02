@@ -15,7 +15,16 @@
                 Constitution &amp; Bylaws
             </a>
             <div class="flex items-center justify-between gap-4">
-                <h1 class="text-3xl font-bold">{{ action }} Resolution</h1>
+                <h1 class="text-3xl font-bold flex items-center gap-3 flex-wrap">
+                    {{ action }} Resolution
+                    {% if action == 'Edit' and resolution %}
+                    {# v3.44.0 — is the live connection up? Set by the live-editing script. #}
+                    <span id="liveStatus" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-white/15 border border-white/20" role="status" title="Connecting to live editing…">
+                        <span id="liveStatusDot" class="inline-block rounded-full" style="width:.5rem;height:.5rem;background:#fbbf24;"></span>
+                        <span id="liveStatusText">Connecting…</span>
+                    </span>
+                    {% endif %}
+                </h1>
                 <div class="flex items-center gap-2 flex-shrink-0">
                     {% if can_use_notes %}
                     <button type="button" data-notes-open
@@ -27,6 +36,11 @@
                     </button>
                     {% endif %}
                     {% if action == 'Edit' and resolution %}
+                    <a href="{% url 'cnb_resolution_document_preview' resolution.id %}" target="_blank"
+                       class="inline-flex items-center gap-2 bg-white/20 hover:bg-white/30 border border-white/30 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+                       title="How the Constitution / Bylaws would read if this resolution passed">
+                        Preview Document
+                    </a>
                     <a href="{% url 'cnb_resolution_print' resolution.id %}" target="_blank"
                        class="inline-flex items-center gap-2 bg-white/20 hover:bg-white/30 border border-white/30 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors"
                        title="Open print preview in a new tab — use Cmd+P / Ctrl+P to save as PDF">
@@ -295,7 +309,7 @@
                     <div class="flex items-start justify-between gap-4 mb-3">
                         <div class="min-w-0">
                             <div class="flex items-center gap-2 flex-wrap">
-                                <p class="text-sm font-semibold text-gray-900 dark:text-gray-100">{{ amendment.section.full_identifier }}</p>
+                                <p class="text-sm font-semibold text-gray-900 dark:text-gray-100">{{ amendment.display_identifier }}</p>
                                 <span class="px-2 py-0.5 rounded-full text-xs font-semibold
                                     {% if amendment.amendment_type == 'addition' %}bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400
                                     {% elif amendment.amendment_type == 'deletion' %}bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400
@@ -313,7 +327,7 @@
                         <div class="flex items-center gap-3 flex-shrink-0">
                             <button type="button"
                                     class="js-copy-ref text-xs text-primary-600 dark:text-primary-400 hover:underline"
-                                    data-identifier="{{ amendment.section.full_identifier }}"
+                                    data-identifier="{{ amendment.display_identifier }}"
                                     data-amend-type="{{ amendment.amendment_type }}"
                                     data-scope="{{ amendment.scope_note }}"
                                     data-num="{{ forloop.counter }}"
@@ -343,7 +357,7 @@
                     <div>
                         <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Entire section to be deleted</p>
                         <div class="bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800 rounded-lg p-3 text-xs text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-wrap max-h-40 overflow-y-auto line-through opacity-70">{{ amendment.original_text_snapshot }}</div>
-                        <p class="text-xs text-red-600 dark:text-red-400 mt-1.5">This section will be cleared and suspended if the resolution passes.</p>
+                        <p class="text-xs text-red-600 dark:text-red-400 mt-1.5">This section is removed from the document if the resolution passes.{% if amendment.renumbering_note %} <span class="font-semibold">{{ amendment.renumbering_note }}</span>{% endif %}</p>
                     </div>
                     {% else %}
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -372,6 +386,11 @@
             {% endif %}
         </div>
         {% include "cnb/_note_margin.html" with anchor="amendments" notes=pinned_notes.amendments %}
+        </div>
+
+        <!-- ── New articles / sections / renames (v3.43.0) ──────────────── -->
+        <div class="mt-8">
+            {% include "cnb/_structure_changes.html" with structure_can_edit=True structure_next="edit" %}
         </div>
         {% endif %}
 
@@ -920,6 +939,8 @@
 {% endif %}
 
 {% if action == 'Edit' and resolution %}
+{% include "cnb/_structure_maker.html" with structure_next="edit" %}
+
 <!-- ── Amendment Editor Modal ─────────────────────────────────────────────── -->
 <div id="addAmendmentModal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-3">
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-5xl flex flex-col" style="height: 92vh; max-height: 92vh; overscroll-behavior: contain;">
@@ -1038,7 +1059,7 @@
 
             <div id="deletionNotice" class="hidden px-6 py-3 border-t border-red-100 dark:border-red-900/30 bg-red-50 dark:bg-red-900/20 flex-shrink-0">
                 <p class="text-xs text-red-700 dark:text-red-300">
-                    <strong>Deleting entire section:</strong> Clear all text in the editor to flag this section for complete removal. If removing only specific clauses, leave the rest of the text intact.
+                    <strong>Removing the entire section:</strong> when the resolution passes, this section is taken out of the document and the sections after it move up one number. To remove only specific clauses, leave the rest of the text in place.
                 </p>
             </div>
 
@@ -1349,6 +1370,8 @@
 })();
 </script>
 
+{% include "cnb/_amendment_lock.html" %}
+
 <script nonce="{{ request.csp_nonce }}">
 // ── Save & Preview ────────────────────────────────────────────────────────────
 window.submitSaveAndPreview = function() {
@@ -1457,7 +1480,20 @@ window._isDirty = false;
     }
 
     // ── Lock display ─────────────────────────────────────────────────────────
-    var me = null, ws = null, delay = 1000, pingTimer = null;
+    var me = null, ws = null, delay = 1000, pingTimer = null, isChair = false;
+    var amendLocks = {};     // 'amend:<section id>' -> {cid, name}, whoever holds it (me included)
+
+    // v3.44.0 — the pill next to the page title.
+    function setStatus(state) {
+        var dot = document.getElementById('liveStatusDot'), text = document.getElementById('liveStatusText'),
+            pill = document.getElementById('liveStatus');
+        if (!pill) return;
+        var live = state === 'live';
+        dot.style.background = live ? '#4ade80' : '#fbbf24';
+        text.textContent = live ? 'Live' : (state === 'connecting' ? 'Connecting…' : 'Reconnecting…');
+        pill.title = live ? 'Live editing is connected: you see other people\'s changes as they make them.'
+                          : 'Live editing is not connected right now. Saving still works.';
+    }
     var peers = {};          // cid -> name
     var lockedBy = {};       // field -> {cid, name} (someone else)
     var mine = {};           // field -> true (I hold it)
@@ -1490,6 +1526,17 @@ window._isDirty = false;
         return n;
     }
     function setNote(f, text) { var n = noteFor(f); if (n) { n.textContent = text || ''; n.style.display = text ? '' : 'none'; } }
+    // v3.44.0 — the chair can release a lock someone left behind.
+    function takeOverButton(key) {
+        var b = document.createElement('button');
+        b.type = 'button'; b.textContent = 'Take over';
+        b.className = 'underline';
+        b.style.cssText = 'margin-left:.5rem;font-weight:700;';
+        b.addEventListener('click', function() {
+            if (confirm('Take this over? Their unsaved text here will not be saved.')) send({ t: 'takeover', f: key });
+        });
+        return b;
+    }
 
     function applyLock(f, who) {
         var e = el(f); if (!e) return;
@@ -1498,6 +1545,7 @@ window._isDirty = false;
         e.style.outline = '2px solid #f59e0b';
         if (document.activeElement === e) e.blur();
         setNote(f, who.name + ' is editing this. You see their changes as they type; it unlocks when they save.');
+        if (isChair) { var n = noteFor(f); if (n) n.appendChild(takeOverButton(f)); }
     }
     function clearLock(f) {
         var e = el(f); if (!e) return;
@@ -1559,11 +1607,21 @@ window._isDirty = false;
         fetch(window.location.href, { credentials: 'same-origin', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
             .then(function(r) { if (!r.ok) throw new Error('refresh failed'); return r.text(); })
             .then(function(html) {
-                var fresh = new DOMParser().parseFromString(html, 'text/html').getElementById('liveAmendmentsCard');
+                var doc = new DOMParser().parseFromString(html, 'text/html');
+                var fresh = doc.getElementById('liveAmendmentsCard');
                 var card = document.getElementById('liveAmendmentsCard');
                 if (!fresh || !card) throw new Error('no list');
                 card.innerHTML = fresh.innerHTML;
                 if (window.wireAmendmentList) window.wireAmendmentList(card);
+                // v3.43.0 — the proposed articles / sections / renames list too.
+                var freshStructure = doc.getElementById('liveStructureCard');
+                var structureCard = document.getElementById('liveStructureCard');
+                if (freshStructure && structureCard) {
+                    structureCard.innerHTML = freshStructure.innerHTML;
+                    if (window.wireStructureList) window.wireStructureList(structureCard);
+                    var fresher = doc.getElementById('structure-new-articles');
+                    if (fresher && window.setStructureNewArticles) window.setStructureNewArticles(JSON.parse(fresher.textContent));
+                }
             })
             .catch(function() { activity('Could not refresh the amendment list. Save, then reload the page to see it.'); })
             .then(function() { refreshing = false; if (refreshAgain) { refreshAgain = false; refreshAmendments(); } });
@@ -1573,9 +1631,12 @@ window._isDirty = false;
         var m; try { m = JSON.parse(ev.data); } catch (e) { return; }
         switch (m.t) {
             case 'init':
-                me = m.me; peers = {}; mine = {};
+                me = m.me; peers = {}; mine = {}; isChair = !!m.chair; amendLocks = {};
                 FIELDS.forEach(function(f) { if (lockedBy[f]) clearLock(f); });
-                Object.keys(m.locks).forEach(function(f) { applyLock(f, m.locks[f]); });
+                Object.keys(m.locks).forEach(function(f) {
+                    if (f.indexOf('amend:') === 0) amendLocks[f] = m.locks[f]; else applyLock(f, m.locks[f]);
+                });
+                amendChanged();
                 // Re-take what I am in the middle of (first load after a
                 // conflict, or a reconnect).
                 FIELDS.forEach(function(f) { if (isChanged(f) && !lockedBy[f]) send({ t: 'lock', f: f }); });
@@ -1588,12 +1649,24 @@ window._isDirty = false;
                 delete peers[m.cid]; renderPresence();
                 break;
             case 'lock':
+                if (m.f.indexOf('amend:') === 0) { amendLocks[m.f] = m.who; amendChanged(); break; }
                 if (m.who.cid === me.cid) mine[m.f] = true; else applyLock(m.f, m.who);
                 break;
             case 'denied':
+                if (m.f.indexOf('amend:') === 0) { amendLocks[m.f] = m.who; amendChanged(); break; }
                 applyLock(m.f, m.who);
                 break;
             case 'unlock':
+                if (m.f.indexOf('amend:') === 0) {
+                    if (amendLocks[m.f] && amendLocks[m.f].cid === m.cid) { delete amendLocks[m.f]; amendChanged(m.taken_by && m.cid === me.cid ? m.taken_by : ''); }
+                    break;
+                }
+                if (m.cid === me.cid && mine[m.f]) {
+                    // The chair took it from me. My text stays in the box.
+                    delete mine[m.f];
+                    setNote(m.f, (m.taken_by || 'The chair') + ' took this field over. Your text is still here, but it may not save.');
+                    break;
+                }
                 if (lockedBy[m.f] && lockedBy[m.f].cid === m.cid) clearLock(m.f);
                 break;
             case 'saved':
@@ -1604,17 +1677,39 @@ window._isDirty = false;
                 break;
             case 'amendments':
                 if (m.cid && me && m.cid === me.cid) break;
-                activity(m.by + ' ' + (m.what || 'changed the tracked amendments') + '. The list below is up to date.');
+                activity(m.by + ' ' + (m.what || 'changed the tracked amendments') + '. The lists below are up to date.');
                 refreshAmendments();
                 break;
         }
     }
+
+    // ── The amendment editor's lock (v3.44.0) ────────────────────────────────
+    // One lock per section being amended. The popup (an earlier script) asks
+    // through `window.cnbLive` and redraws itself on `window.onAmendLockChange`.
+    function amendChanged(takenBy) { if (window.onAmendLockChange) window.onAmendLockChange(takenBy || ''); }
+    window.cnbLive = {
+        lockAmendment: function(sectionId) { send({ t: 'lock', f: 'amend:' + sectionId }); },
+        unlockAmendment: function(sectionId) {
+            var key = 'amend:' + sectionId;
+            if (amendLocks[key] && me && amendLocks[key].cid === me.cid) delete amendLocks[key];
+            send({ t: 'unlock', f: key });
+        },
+        // null = free; {name, mine} otherwise
+        amendmentHolder: function(sectionId) {
+            var who = amendLocks['amend:' + sectionId];
+            return who ? { name: who.name, mine: !!me && who.cid === me.cid } : null;
+        },
+        takeOverAmendment: function(sectionId) { send({ t: 'takeover', f: 'amend:' + sectionId }); },
+        isChair: function() { return isChair; },
+        connected: function() { return !!ws && ws.readyState === 1; }
+    };
 
     function connect() {
         var scheme = window.location.protocol === 'https:' ? 'wss' : 'ws';
         ws = new WebSocket(scheme + '://' + window.location.host + '/ws/cnb/resolutions/{{ resolution.pk }}/');
         ws.onopen = function() {
             delay = 1000;
+            setStatus('live');
             document.getElementById('liveOffline').classList.add('hidden');
             clearInterval(pingTimer);
             pingTimer = setInterval(function() { send({ t: 'ping' }); }, 25000);
@@ -1623,6 +1718,8 @@ window._isDirty = false;
         ws.onclose = function() {
             clearInterval(pingTimer);
             peers = {}; renderPresence();
+            setStatus('reconnecting');
+            amendLocks = {}; amendChanged();
             document.getElementById('liveOffline').classList.remove('hidden');
             setTimeout(connect, delay);
             delay = Math.min(delay * 2, 30000);
