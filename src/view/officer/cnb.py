@@ -1289,6 +1289,15 @@ def remove_structure_change(request, resolution_id, change_id):
     return redirect(back, resolution_id=resolution_id)
 
 
+#: Where a resolution's status may go from each status (v3.44.2). Passed,
+#: failed and withdrawn are final. These are the buttons resolution_detail.html
+#: offers, plus pending → withdrawn from the docstring below.
+_STATUS_TRANSITIONS = {
+    'draft': {'pending', 'withdrawn'},
+    'pending': {'passed', 'failed', 'withdrawn', 'draft'},
+}
+
+
 @login_required
 @cnb_required
 @require_POST
@@ -1299,8 +1308,10 @@ def set_resolution_status(request, resolution_id):
       draft → pending
       pending → passed | failed | withdrawn
       draft → withdrawn
+      pending → draft
+    Enforced since v3.44.2 (`_STATUS_TRANSITIONS`).
     """
-    resolution = get_object_or_404(Resolution, pk=resolution_id)
+    get_object_or_404(Resolution, pk=resolution_id)
     new_status = request.POST.get('status', '').strip()
     valid = {'draft', 'pending', 'passed', 'failed', 'withdrawn'}
 
@@ -1308,22 +1319,35 @@ def set_resolution_status(request, resolution_id):
         messages.error(request, 'Invalid status.')
         return redirect('cnb_resolution_detail', resolution_id=resolution_id)
 
+    from src.cnb_structure import StructureError, apply_structure_changes
     with transaction.atomic():
+        # v3.44.2 — the docstring's transitions are now enforced, against the
+        # row as it is NOW (locked). Before, any status could be posted from
+        # any status: "passed" sent again from a stale tab re-applied the
+        # resolution's old text over whatever later resolutions had written,
+        # and "failed"/"draft" could be posted on a passed resolution.
+        resolution = Resolution.objects.select_for_update().get(pk=resolution_id)
+        if new_status not in _STATUS_TRANSITIONS.get(resolution.status, ()):
+            messages.error(
+                request,
+                f'This resolution is {resolution.get_status_display().lower()}; '
+                f'it cannot be changed to "{dict(Resolution.STATUS_CHOICES).get(new_status, new_status).lower()}". '
+                'Nothing was changed.')
+            return redirect('cnb_resolution_detail', resolution_id=resolution_id)
         resolution.status = new_status
         if new_status == 'passed':
             resolution.passed_at = timezone.now()
-            resolution.apply_amendments(applied_by=request.user)
             # v3.43.0 — new articles/sections (with renumbering) and renames.
             # After the amendments, so they record the pre-renumbering
             # citations. A proposal that can no longer be applied (the
             # document changed under it) stops the whole pass: nothing is
             # half-applied, and the chair is told why.
-            from src.cnb_structure import StructureError, apply_structure_changes
             try:
+                resolution.apply_amendments(applied_by=request.user)
                 structural = apply_structure_changes(resolution, request.user)
             except StructureError as e:
                 transaction.set_rollback(True)
-                messages.error(request, f'Not passed: a structural change could not be applied. {e}')
+                messages.error(request, f'Not passed: a change could not be applied. {e}')
                 return redirect('cnb_resolution_detail', resolution_id=resolution_id)
             messages.success(
                 request,

@@ -455,6 +455,15 @@ class Resolution(models.Model):
                 removals.append(amendment)
                 continue
             section = amendment.section
+            # v3.44.2 — the section was struck by another resolution after this
+            # amendment was drafted. Writing the text would "pass" a change
+            # into a row the document no longer shows. Stop the pass instead
+            # (the caller rolls back and shows this message).
+            if section.removed_at and not amendment.applied:
+                from src.cnb_structure import StructureError
+                raise StructureError(
+                    f'{cited[amendment.pk]} is no longer in the document, so its amendment cannot be applied. '
+                    'Remove that amendment (or move the resolution back to draft and fix it) first.')
             # 09-25-26 — keep the outgoing text (SectionRevision).
             section.record_revision('resolution', by=applied_by, resolution=self)
             # change, addition, or partial deletion — proposed_text is the full updated section

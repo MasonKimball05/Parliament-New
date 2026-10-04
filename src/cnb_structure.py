@@ -93,7 +93,10 @@ def plan_article_insert(document, before_article):
         return int_to_roman(max(numbers, default=0) + 1), []
     if before_article.document_id != document.pk:
         raise StructureError('That article is in a different document.')
-    start = next(i for i, a in enumerate(articles) if a.pk == before_article.pk)
+    start = next((i for i, a in enumerate(articles) if a.pk == before_article.pk), None)
+    if start is None:
+        raise StructureError('The article this was placed in front of is no longer in the document. '
+                             'Edit this proposal and choose its place again.')
     shifts = []
     for article in articles[start:]:
         n = roman_to_int(article.number)
@@ -119,7 +122,15 @@ def plan_section_insert(article, before_section):
         return str(max(numbers, default=0) + 1), []
     if before_section.article_id != article.pk:
         raise StructureError('That section is in a different article.')
-    start = next(i for i, s in enumerate(sections) if s.pk == before_section.pk)
+    # v3.44.2 — `sections` leaves out removed sections (`Section.objects`), but
+    # `before_section` is followed with the base manager and can be one. A bare
+    # `next()` here raised StopIteration, which took down every page that
+    # describes the proposal. `close_gap` now re-points proposals when it
+    # strikes a section; this is for a row that was already stranded.
+    start = next((i for i, s in enumerate(sections) if s.pk == before_section.pk), None)
+    if start is None:
+        raise StructureError('The section this was placed in front of has been removed from the document. '
+                             'Edit this proposal and choose its place again.')
     shifts = []
     for section in sections[start:]:
         n = section_to_int(section.number)
@@ -404,6 +415,13 @@ def close_gap(section):
     for later, _old, new in shifts:            # lowest first: 4→3 before 5→4
         later.number = new
         later.save(update_fields=['number'])
+    # v3.44.2 — a proposed new section stored as "in front of THIS section"
+    # (in this resolution or any other open one) now goes in front of the
+    # section that took its place, or at the end if it was the last. Without
+    # this the proposal pointed at a row the document no longer lists.
+    from src.models import ResolutionStructureChange
+    ResolutionStructureChange.objects.filter(before_section=section, applied=False).update(
+        before_section=shifts[0][0] if shifts else None)
     return True
 
 
