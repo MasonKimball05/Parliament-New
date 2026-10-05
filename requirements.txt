@@ -66,7 +66,7 @@ markdown==3.8.1
 bleach==6.4.0
 
 # DOCX to HTML conversion for document preview
-mammoth==1.11.0
+mammoth==1.13.0
 
 # Image handling — DIRECT dependency (profile_picture, landing photos/og_image,
 # security screenshot ImageFields all require Pillow), previously installed
