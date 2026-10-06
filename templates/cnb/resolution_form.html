@@ -15,7 +15,16 @@
                 Constitution &amp; Bylaws
             </a>
             <div class="flex items-center justify-between gap-4">
-                <h1 class="text-3xl font-bold">{{ action }} Resolution</h1>
+                <h1 class="text-3xl font-bold flex items-center gap-3 flex-wrap">
+                    {{ action }} Resolution
+                    {% if action == 'Edit' and resolution %}
+                    {# v3.44.0 — is the live connection up? Set by the live-editing script. #}
+                    <span id="liveStatus" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-white/15 border border-white/20" role="status" title="Connecting to live editing…">
+                        <span id="liveStatusDot" class="inline-block rounded-full" style="width:.5rem;height:.5rem;background:#fbbf24;"></span>
+                        <span id="liveStatusText">Connecting…</span>
+                    </span>
+                    {% endif %}
+                </h1>
                 <div class="flex items-center gap-2 flex-shrink-0">
                     {% if can_use_notes %}
                     <button type="button" data-notes-open
@@ -27,6 +36,11 @@
                     </button>
                     {% endif %}
                     {% if action == 'Edit' and resolution %}
+                    <a href="{% url 'cnb_resolution_document_preview' resolution.id %}" target="_blank"
+                       class="inline-flex items-center gap-2 bg-white/20 hover:bg-white/30 border border-white/30 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+                       title="How the Constitution / Bylaws would read if this resolution passed">
+                        Preview Document
+                    </a>
                     <a href="{% url 'cnb_resolution_print' resolution.id %}" target="_blank"
                        class="inline-flex items-center gap-2 bg-white/20 hover:bg-white/30 border border-white/30 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors"
                        title="Open print preview in a new tab — use Cmd+P / Ctrl+P to save as PDF">
@@ -53,8 +67,45 @@
 
     <div class="{% if can_use_notes %}max-w-5xl{% else %}max-w-4xl{% endif %} mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
-        <form method="post" class="space-y-8">
+            {% if action == 'Edit' and resolution %}
+            {# ── v3.42.0 live editing: change tracking, presence, conflicts. See src/cnb_live.py. ── #}
+            {{ live_baseline|json_script:"live-baseline" }}
+            {{ live_field_labels|json_script:"live-field-labels" }}
+
+            <div id="livePresence" class="hidden mb-4 rounded-lg px-4 py-2.5 text-sm text-blue-900 dark:text-blue-100" style="background:rgba(59,130,246,.12);border:1px solid rgba(59,130,246,.40);">
+                <span class="font-semibold">On this page with you:</span> <span id="livePresenceNames"></span>
+                <span class="block text-xs text-blue-800 dark:text-blue-200 mt-0.5">When one of them is working in a field, it is outlined and locked for you, and you see what they type as they type it. It unlocks when they save. Amendments they add or remove show up below without reloading.</span>
+            </div>
+            <div id="liveOffline" class="hidden mb-4 rounded-lg px-4 py-2.5 text-sm text-amber-900 dark:text-amber-100" style="background:rgba(245,158,11,.14);border:1px solid rgba(245,158,11,.50);">
+                <span class="font-semibold">Live editing is disconnected.</span> You can't see who else is here or what they're typing right now. Saving still works, and it still won't overwrite anyone else's changes. Reconnecting…
+            </div>
+            <div id="liveActivity" class="hidden mb-4 rounded-lg px-4 py-2.5 text-sm text-blue-900 dark:text-blue-100 flex items-start justify-between gap-3" style="background:rgba(59,130,246,.12);border:1px solid rgba(59,130,246,.40);">
+                <ul id="liveActivityList" class="space-y-0.5 min-w-0"></ul>
+                <button type="button" id="liveActivityDismiss" class="text-xs font-semibold text-blue-800 dark:text-blue-200 hover:underline flex-shrink-0">Dismiss</button>
+            </div>
+
+            {% if conflicts %}
+            <div class="mb-4 rounded-lg px-4 py-3 text-sm space-y-3 text-amber-900 dark:text-amber-100" style="background:rgba(245,158,11,.14);border:1px solid rgba(245,158,11,.55);">
+                <p class="font-semibold">Someone else changed {{ conflicts|length|pluralize:"this field,these fields" }} while you were editing. Nothing of yours was lost, and nothing of theirs was overwritten.</p>
+                <p class="text-xs">Your text is still in the box below. Their saved version is shown here. Merge what you need into the box, then save again: your next save replaces their version.</p>
+                {% for c in conflicts %}
+                <div>
+                    <p class="text-xs font-semibold uppercase tracking-wide">{{ c.label }} — their saved version</p>
+                    <div class="mt-1 rounded p-3 text-xs whitespace-pre-wrap max-h-40 overflow-y-auto bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 border border-gray-200 dark:border-gray-600">{{ c.theirs|default:"(empty)" }}</div>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+            {% endif %}
+        <form method="post" class="space-y-8" id="resolutionForm"{% if action == 'Edit' and resolution %} data-autosave="1"{% endif %}>
             {% csrf_token %}
+            {% if action == 'Edit' and resolution %}
+            {# v3.42.0 live editing — in a [hidden] wrapper so the form's space-y-8 ignores it. #}
+            <div hidden>
+                <input type="hidden" name="changed_fields" id="liveChangedFields" value="">
+                <div id="liveOrigInputs"></div>
+            </div>
+            {% endif %}
 
             <!-- ── Header ─────────────────────────────────────────────────── -->
             <div class="flex flex-col md:flex-row md:items-start gap-4">
@@ -204,10 +255,24 @@
                     Save &amp; Preview
                 </button>
                 {% endif %}
+                {% if action == 'Edit' and resolution %}
+                {% comment %}
+                v3.41.2 — this button was labelled "Edit Resolution", which did not read as "save". It saves and stays on this page.
+                v3.42.0 — `save_stay` is a hidden input, not the button's name: base.html's double-submit guard disables the
+                first submit button during the submit event, and a disabled button's name is left out of the POST, so the
+                save went to the resolution page after all. Found by driving the page in a real browser.
+                {% endcomment %}
+                <input type="hidden" name="save_stay" value="1">
+                <button type="submit" id="js-save-stay-btn"
+                        class="px-5 py-2 text-sm font-semibold text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors">
+                    Save
+                </button>
+                {% else %}
                 <button type="submit"
                         class="px-5 py-2 text-sm font-semibold text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors">
                     {{ action }} Resolution
                 </button>
+                {% endif %}
             </div>
         </form>
 
@@ -220,7 +285,7 @@
         {% if action == 'Edit' and resolution %}
         <!-- ── Section Amendments ───────────────────────────────────────── -->
         <div class="flex flex-col md:flex-row md:items-start gap-4 mt-8">
-        <div class="flex-1 min-w-0 bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+        <div id="liveAmendmentsCard" class="flex-1 min-w-0 bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
             <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
                 <h2 class="text-base font-semibold text-gray-900 dark:text-gray-100">
                     Tracked Section Amendments
@@ -244,7 +309,7 @@
                     <div class="flex items-start justify-between gap-4 mb-3">
                         <div class="min-w-0">
                             <div class="flex items-center gap-2 flex-wrap">
-                                <p class="text-sm font-semibold text-gray-900 dark:text-gray-100">{{ amendment.section.full_identifier }}</p>
+                                <p class="text-sm font-semibold text-gray-900 dark:text-gray-100">{{ amendment.display_identifier }}</p>
                                 <span class="px-2 py-0.5 rounded-full text-xs font-semibold
                                     {% if amendment.amendment_type == 'addition' %}bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400
                                     {% elif amendment.amendment_type == 'deletion' %}bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400
@@ -262,7 +327,7 @@
                         <div class="flex items-center gap-3 flex-shrink-0">
                             <button type="button"
                                     class="js-copy-ref text-xs text-primary-600 dark:text-primary-400 hover:underline"
-                                    data-identifier="{{ amendment.section.full_identifier }}"
+                                    data-identifier="{{ amendment.display_identifier }}"
                                     data-amend-type="{{ amendment.amendment_type }}"
                                     data-scope="{{ amendment.scope_note }}"
                                     data-num="{{ forloop.counter }}"
@@ -292,7 +357,7 @@
                     <div>
                         <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Entire section to be deleted</p>
                         <div class="bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800 rounded-lg p-3 text-xs text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-wrap max-h-40 overflow-y-auto line-through opacity-70">{{ amendment.original_text_snapshot }}</div>
-                        <p class="text-xs text-red-600 dark:text-red-400 mt-1.5">This section will be cleared and suspended if the resolution passes.</p>
+                        <p class="text-xs text-red-600 dark:text-red-400 mt-1.5">This section is removed from the document if the resolution passes.{% if amendment.renumbering_note %} <span class="font-semibold">{{ amendment.renumbering_note }}</span>{% endif %}</p>
                     </div>
                     {% else %}
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -321,6 +386,11 @@
             {% endif %}
         </div>
         {% include "cnb/_note_margin.html" with anchor="amendments" notes=pinned_notes.amendments %}
+        </div>
+
+        <!-- ── New articles / sections / renames (v3.43.0) ──────────────── -->
+        <div class="mt-8">
+            {% include "cnb/_structure_changes.html" with structure_can_edit=True structure_next="edit" %}
         </div>
         {% endif %}
 
@@ -869,9 +939,11 @@
 {% endif %}
 
 {% if action == 'Edit' and resolution %}
+{% include "cnb/_structure_maker.html" with structure_next="edit" %}
+
 <!-- ── Amendment Editor Modal ─────────────────────────────────────────────── -->
 <div id="addAmendmentModal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-3">
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-5xl flex flex-col" style="max-height: 92vh;">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-5xl flex flex-col" style="height: 92vh; max-height: 92vh; overscroll-behavior: contain;">
 
         <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between flex-shrink-0">
             <div>
@@ -885,7 +957,7 @@
             </button>
         </div>
 
-        <form method="post" action="{% url 'cnb_add_amendment' resolution_id=resolution.pk %}" class="flex flex-col flex-1 overflow-hidden" id="amendmentForm">
+        <form method="post" action="{% url 'cnb_add_amendment' resolution_id=resolution.pk %}" class="flex flex-col flex-1 overflow-hidden" style="min-height: 0;" id="amendmentForm">
             {% csrf_token %}
             <input type="hidden" name="next" value="edit">
 
@@ -931,7 +1003,8 @@
                 </div>
             </div>
 
-            <div class="flex-1 overflow-hidden">
+            {# v3.41.3 — was overflow-hidden: on a short or narrow screen the stacked panels were clipped with nothing to scroll, so the wheel scrolled the page behind. #}
+            <div class="flex-1 overflow-y-auto" style="min-height: 0; overscroll-behavior: contain;">
                 <div id="editorEmptyState" class="h-full flex items-center justify-center text-center px-8">
                     <div>
                         <svg class="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -941,14 +1014,21 @@
                     </div>
                 </div>
 
-                <div id="editorPanels" class="hidden h-full grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x divide-gray-100 dark:divide-gray-700" style="height: 100%;">
+                <div id="editorPanels" class="hidden grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x divide-gray-100 dark:divide-gray-700" style="min-height: 100%;">
                     <div class="flex flex-col overflow-hidden">
                         <div class="px-4 py-2 bg-gray-50 dark:bg-gray-700/50 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between flex-shrink-0">
                             <span class="text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">Edit Section Text</span>
-                            <button type="button" id="resetTextBtn"
-                                    class="text-xs text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-colors">
-                                Reset to original
-                            </button>
+                            <span class="flex items-center gap-3">
+                                {# v3.41.5 — one click for "strike this whole section". Same as clearing the box by hand: empty text + no clause = whole-section deletion. #}
+                                <button type="button" id="removeSectionBtn"
+                                        class="text-xs font-semibold text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 transition-colors">
+                                    Remove entire section
+                                </button>
+                                <button type="button" id="resetTextBtn"
+                                        class="text-xs text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-colors">
+                                    Reset to original
+                                </button>
+                            </span>
                         </div>
                         <textarea name="proposed_text" id="proposedTextArea"
                                   class="flex-1 px-4 py-3 border-0 dark:bg-gray-800 dark:text-gray-100 text-sm leading-relaxed resize-none focus:outline-none focus:ring-0"
@@ -979,7 +1059,7 @@
 
             <div id="deletionNotice" class="hidden px-6 py-3 border-t border-red-100 dark:border-red-900/30 bg-red-50 dark:bg-red-900/20 flex-shrink-0">
                 <p class="text-xs text-red-700 dark:text-red-300">
-                    <strong>Deleting entire section:</strong> Clear all text in the editor to flag this section for complete removal. If removing only specific clauses, leave the rest of the text intact.
+                    <strong>Removing the entire section:</strong> when the resolution passes, this section is taken out of the document and the sections after it move up one number. To remove only specific clauses, leave the rest of the text in place.
                 </p>
             </div>
 
@@ -1003,6 +1083,13 @@
 // ── Amendment Editor ──────────────────────────────────────────────────────────
 (function() {
     var modal        = document.getElementById('addAmendmentModal');
+    // v3.41.3 — lock the page behind while the editor is open. Watching the
+    // class covers every open/close path (new, edit, Cancel, the X).
+    if (modal) {
+        new MutationObserver(function() {
+            document.body.style.overflow = modal.classList.contains('hidden') ? '' : 'hidden';
+        }).observe(modal, { attributes: true, attributeFilter: ['class'] });
+    }
     var select       = document.getElementById('sectionSelect');
     var proposedTA   = document.getElementById('proposedTextArea');
     var diffEl       = document.getElementById('diffPreview');
@@ -1020,7 +1107,8 @@
     var diffTimer    = null;
 
     // ── Word-level LCS diff ───────────────────────────────────────────────────
-    function tokenize(text) { return text.match(/\s*\S+/g) || []; }
+    // v3.41.3: CRLF normalized, or every line start reads as changed against an LF original.
+    function tokenize(text) { return (text || '').replace(/\r\n?/g, '\n').match(/\s*\S+/g) || []; }
 
     function lcs(a, b) {
         var m = a.length, n = b.length;
@@ -1235,36 +1323,54 @@
         modal.classList.remove('hidden');
     };
 
-    // Wire open/close amendment modal buttons
-    document.querySelectorAll('#js-open-amendment-modal, .js-open-amendment-modal').forEach(function(el) {
-        el.addEventListener('click', openAmendmentModal);
-    });
     document.querySelectorAll('.js-close-amendment-modal').forEach(function(el) {
         el.addEventListener('click', closeAmendmentModal);
     });
     // Wire reset button
     var resetBtn = document.getElementById('resetTextBtn');
     if (resetBtn) resetBtn.addEventListener('click', resetToOriginal);
-    // Wire edit amendment buttons
-    document.querySelectorAll('.js-edit-amendment').forEach(function(btn) {
-        btn.addEventListener('click', function() {
-            editAmendment(this.dataset.sectionPk, this.dataset.proposed, this.dataset.scope, this.dataset.original);
-        });
+    // v3.41.5 — "Remove entire section": empty text and no clause is what
+    // `add_amendment` records as a whole-section deletion. The `input` event
+    // redraws the tracked changes (all struck through) and shows the notice.
+    var removeSectionBtn = document.getElementById('removeSectionBtn');
+    if (removeSectionBtn) removeSectionBtn.addEventListener('click', function() {
+        var ta = document.getElementById('proposedTextArea');
+        var scope = document.getElementById('scopeNoteInput');
+        if (!ta) return;
+        ta.value = '';
+        if (scope) scope.value = '';
+        ta.dispatchEvent(new Event('input', { bubbles: true }));
     });
-    // Wire copy-ref buttons (amendment list)
-    document.querySelectorAll('.js-copy-ref').forEach(function(btn) {
-        btn.addEventListener('click', function() {
-            if (window.copyRef) window.copyRef(this.dataset.identifier, this, this.dataset.amendType, this.dataset.scope, parseInt(this.dataset.num));
+    // v3.42.2 — the amendment list is replaced in place when someone else adds
+    // or removes an amendment (see the live-editing script), so everything
+    // inside it is wired by a function that can run again on the new markup.
+    // Element-level on purpose: the remove confirm has to run BEFORE
+    // base.html's document-level double-submit guard marks the form as sent.
+    window.wireAmendmentList = function(root) {
+        root.querySelectorAll('#js-open-amendment-modal, .js-open-amendment-modal').forEach(function(el) {
+            el.addEventListener('click', openAmendmentModal);
         });
-    });
-    // Wire remove amendment form confirmations
-    document.querySelectorAll('.js-confirm-remove-amendment').forEach(function(form) {
-        form.addEventListener('submit', function(e) {
-            if (!confirm('Remove this amendment?')) e.preventDefault();
+        root.querySelectorAll('.js-edit-amendment').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                editAmendment(this.dataset.sectionPk, this.dataset.proposed, this.dataset.scope, this.dataset.original);
+            });
         });
-    });
+        root.querySelectorAll('.js-copy-ref').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                if (window.copyRef) window.copyRef(this.dataset.identifier, this, this.dataset.amendType, this.dataset.scope, parseInt(this.dataset.num));
+            });
+        });
+        root.querySelectorAll('.js-confirm-remove-amendment').forEach(function(form) {
+            form.addEventListener('submit', function(e) {
+                if (!confirm('Remove this amendment?')) e.preventDefault();
+            });
+        });
+    };
+    wireAmendmentList(document);
 })();
 </script>
+
+{% include "cnb/_amendment_lock.html" %}
 
 <script nonce="{{ request.csp_nonce }}">
 // ── Save & Preview ────────────────────────────────────────────────────────────
@@ -1284,7 +1390,9 @@ window.submitSaveAndPreview = function() {
 // ── Unsaved changes warning ───────────────────────────────────────────────────
 window._isDirty = false;
 (function() {
-    var resForm = document.querySelector('form[method="post"]');
+    // v3.41.4 — by id. `form[method="post"]` matches the FIRST post form on
+    // the page, which is base.html's set-email form when that is rendered.
+    var resForm = document.getElementById('resolutionForm');
     if (!resForm) return;
     resForm.querySelectorAll('input, select, textarea').forEach(function(el) {
         el.addEventListener('input', function() { window._isDirty = true; });
@@ -1297,6 +1405,353 @@ window._isDirty = false;
             e.returnValue = '';
         }
     });
+
+    // v3.41.4 — saving an amendment, removing one, or posting a note reloads
+    // this page. With unsaved edits in the main form that raised the browser's
+    // "leave site? changes may not be saved" prompt, and it was telling the
+    // truth: confirming threw those edits away. So save the main form first,
+    // quietly, then let the other form go. No prompt, nothing lost.
+    //
+    // On `document`, so it runs after a form's own submit handler: a declined
+    // "Remove this amendment?" or a form that posts by fetch has already
+    // called preventDefault and is left alone.
+    if (resForm.dataset.autosave) {
+        document.addEventListener('submit', function(e) {
+            var form = e.target;
+            if (form === resForm || e.defaultPrevented || !window._isDirty) return;
+            if ((form.getAttribute('method') || '').toLowerCase() !== 'post') return;
+            e.preventDefault();
+            var go = function() { window._isDirty = false; form.submit(); };
+            fetch(window.location.href, {
+                method: 'POST', body: new FormData(resForm), credentials: 'same-origin'
+            }).then(function(r) {
+                if (!r.ok) throw new Error('save failed');
+                go();
+            }).catch(function() {
+                if (confirm('Your other edits on this page could not be saved first. Continue anyway? Unsaved edits to the title and text will be lost.')) go();
+            });
+        });
+    }
+})();
+</script>
+{% endif %}
+
+{% if action == 'Edit' and resolution %}
+<script nonce="{{ request.csp_nonce }}">
+// ── Live editing (v3.42.0) ───────────────────────────────────────────────────
+// Design: src/cnb_live.py. Three jobs, in order of importance:
+//   1. tell the server which fields THIS person changed, and what each held
+//      when the page loaded (`changed_fields`, `orig_<field>`), so a save
+//      writes only those and cannot overwrite someone else's work;
+//   2. field locks over the socket: a field someone else is in is read-only;
+//   3. presence, and other people's saves appearing in untouched fields.
+// If the socket is down, 1 still works; the page says so and keeps trying.
+(function() {
+    var form = document.getElementById('resolutionForm');
+    var baselineEl = document.getElementById('live-baseline');
+    if (!form || !baselineEl) return;
+    var baseline = JSON.parse(baselineEl.textContent);
+    var labels = JSON.parse(document.getElementById('live-field-labels').textContent);
+    var FIELDS = Object.keys(baseline);
+    var changedInput = document.getElementById('liveChangedFields');
+    var origBox = document.getElementById('liveOrigInputs');
+
+    function el(f) { return form.elements[f]; }
+    function norm(v) { return (v || '').replace(/\r\n?/g, '\n').trim(); }
+    function isChanged(f) { var e = el(f); return !!e && norm(e.value) !== baseline[f]; }
+    // A field someone else holds may be showing THEIR draft. That is not my
+    // change and must never be posted as one.
+    function isMine(f) { return !lockedBy[f] && isChanged(f); }
+
+    // ── 1. Change tracking ───────────────────────────────────────────────────
+    // Kept in hidden inputs and refreshed on every edit, not built at submit
+    // time: Save & Preview calls form.submit() (no submit event) and the
+    // background save before an amendment reads FormData directly.
+    function syncHidden() {
+        var changed = FIELDS.filter(isMine);
+        changedInput.value = changed.join(',');
+        origBox.innerHTML = '';
+        changed.forEach(function(f) {
+            var input = document.createElement('input');
+            input.type = 'hidden'; input.name = 'orig_' + f; input.value = baseline[f];
+            origBox.appendChild(input);
+        });
+        return changed;
+    }
+
+    // ── Lock display ─────────────────────────────────────────────────────────
+    var me = null, ws = null, delay = 1000, pingTimer = null, isChair = false;
+    var amendLocks = {};     // 'amend:<section id>' -> {cid, name}, whoever holds it (me included)
+
+    // v3.44.0 — the pill next to the page title.
+    function setStatus(state) {
+        var dot = document.getElementById('liveStatusDot'), text = document.getElementById('liveStatusText'),
+            pill = document.getElementById('liveStatus');
+        if (!pill) return;
+        var live = state === 'live';
+        dot.style.background = live ? '#4ade80' : '#fbbf24';
+        text.textContent = live ? 'Live' : (state === 'connecting' ? 'Connecting…' : 'Reconnecting…');
+        pill.title = live ? 'Live editing is connected: you see other people\'s changes as they make them.'
+                          : 'Live editing is not connected right now. Saving still works.';
+    }
+    var peers = {};          // cid -> name
+    var lockedBy = {};       // field -> {cid, name} (someone else)
+    var mine = {};           // field -> true (I hold it)
+    var showingDraft = {};   // field -> true (the box shows the holder's unsaved text)
+    var draftTimers = {};
+    var quiet = false;
+
+    // Set a field without it counting as my edit, and refresh the chips /
+    // citation panels that listen for `input`.
+    function setQuietly(f, value) {
+        var e = el(f); if (!e) return;
+        var wasDirty = window._isDirty;
+        e.value = value;
+        quiet = true;    // so my own input listener doesn't treat this as typing and take the lock
+        e.dispatchEvent(new Event('input', { bubbles: true }));
+        quiet = false;
+        window._isDirty = wasDirty;
+    }
+
+    function noteFor(f) {
+        var e = el(f); if (!e) return null;
+        var n = e.parentNode.querySelector('[data-live-note="' + f + '"]');
+        if (!n) {
+            n = document.createElement('p');
+            n.setAttribute('data-live-note', f);
+            n.className = 'text-amber-700 dark:text-amber-300';
+            n.style.cssText = 'font-size:.75rem;margin-top:.25rem;font-weight:600;';
+            e.insertAdjacentElement('afterend', n);
+        }
+        return n;
+    }
+    function setNote(f, text) { var n = noteFor(f); if (n) { n.textContent = text || ''; n.style.display = text ? '' : 'none'; } }
+    // v3.44.0 — the chair can release a lock someone left behind.
+    function takeOverButton(key) {
+        var b = document.createElement('button');
+        b.type = 'button'; b.textContent = 'Take over';
+        b.className = 'underline';
+        b.style.cssText = 'margin-left:.5rem;font-weight:700;';
+        b.addEventListener('click', function() {
+            if (confirm('Take this over? Their unsaved text here will not be saved.')) send({ t: 'takeover', f: key });
+        });
+        return b;
+    }
+
+    function applyLock(f, who) {
+        var e = el(f); if (!e) return;
+        lockedBy[f] = who;
+        if (e.tagName === 'SELECT') e.disabled = true; else e.readOnly = true;
+        e.style.outline = '2px solid #f59e0b';
+        if (document.activeElement === e) e.blur();
+        setNote(f, who.name + ' is editing this. You see their changes as they type; it unlocks when they save.');
+        if (isChair) { var n = noteFor(f); if (n) n.appendChild(takeOverButton(f)); }
+    }
+    function clearLock(f) {
+        var e = el(f); if (!e) return;
+        delete lockedBy[f];
+        // They left without saving: drop their draft, show what is saved.
+        if (showingDraft[f]) { delete showingDraft[f]; setQuietly(f, baseline[f]); }
+        if (e.tagName === 'SELECT') e.disabled = false; else e.readOnly = false;
+        e.style.outline = '';
+        setNote(f, '');
+    }
+
+    function renderPresence() {
+        var names = Object.keys(peers).map(function(c) { return peers[c]; });
+        var unique = names.filter(function(n, i) { return names.indexOf(n) === i; });
+        document.getElementById('livePresenceNames').textContent = unique.join(', ');
+        document.getElementById('livePresence').classList.toggle('hidden', unique.length === 0);
+    }
+
+    function send(obj) { if (ws && ws.readyState === 1) ws.send(JSON.stringify(obj)); }
+
+    // ── 3. Someone else saved ────────────────────────────────────────────────
+    function onSaved(msg) {
+        var names = [];
+        Object.keys(msg.fields).forEach(function(f) {
+            var e = el(f), v = msg.fields[f];
+            if (!e) return;
+            if (lockedBy[f] || showingDraft[f] || !isChanged(f)) {
+                // Not mine (untouched, or I was watching their draft): take it.
+                if (v !== baseline[f] || showingDraft[f]) names.push(labels[f] || f);
+                baseline[f] = v;
+                delete showingDraft[f];
+                setQuietly(f, v);
+            } else if (norm(e.value) !== v) {
+                // I have unsaved edits here. Leave the baseline alone so the
+                // server's conflict check shows both versions when I save.
+                setNote(f, msg.by + ' just saved a different version of this. Saving will show you both.');
+            }
+        });
+        if (names.length) activity(msg.by + ' saved: ' + names.join(', ') + '.');
+        syncHidden();
+    }
+
+    // ── Activity notices (what just happened, in words) ──────────────────────
+    function activity(text) {
+        var list = document.getElementById('liveActivityList');
+        var li = document.createElement('li');
+        var now = new Date();
+        li.textContent = now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) + ' — ' + text;
+        list.insertBefore(li, list.firstChild);
+        while (list.children.length > 5) list.removeChild(list.lastChild);
+        document.getElementById('liveActivity').classList.remove('hidden');
+    }
+
+    // ── Someone else changed the amendments: redraw the list in place ────────
+    var refreshing = false, refreshAgain = false;
+    function refreshAmendments() {
+        if (refreshing) { refreshAgain = true; return; }
+        refreshing = true;
+        fetch(window.location.href, { credentials: 'same-origin', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(function(r) { if (!r.ok) throw new Error('refresh failed'); return r.text(); })
+            .then(function(html) {
+                var doc = new DOMParser().parseFromString(html, 'text/html');
+                var fresh = doc.getElementById('liveAmendmentsCard');
+                var card = document.getElementById('liveAmendmentsCard');
+                if (!fresh || !card) throw new Error('no list');
+                card.innerHTML = fresh.innerHTML;
+                if (window.wireAmendmentList) window.wireAmendmentList(card);
+                // v3.43.0 — the proposed articles / sections / renames list too.
+                var freshStructure = doc.getElementById('liveStructureCard');
+                var structureCard = document.getElementById('liveStructureCard');
+                if (freshStructure && structureCard) {
+                    structureCard.innerHTML = freshStructure.innerHTML;
+                    if (window.wireStructureList) window.wireStructureList(structureCard);
+                    var fresher = doc.getElementById('structure-new-articles');
+                    if (fresher && window.setStructureNewArticles) window.setStructureNewArticles(JSON.parse(fresher.textContent));
+                }
+            })
+            .catch(function() { activity('Could not refresh the amendment list. Save, then reload the page to see it.'); })
+            .then(function() { refreshing = false; if (refreshAgain) { refreshAgain = false; refreshAmendments(); } });
+    }
+
+    function onMessage(ev) {
+        var m; try { m = JSON.parse(ev.data); } catch (e) { return; }
+        switch (m.t) {
+            case 'init':
+                me = m.me; peers = {}; mine = {}; isChair = !!m.chair; amendLocks = {};
+                FIELDS.forEach(function(f) { if (lockedBy[f]) clearLock(f); });
+                Object.keys(m.locks).forEach(function(f) {
+                    if (f.indexOf('amend:') === 0) amendLocks[f] = m.locks[f]; else applyLock(f, m.locks[f]);
+                });
+                amendChanged();
+                // Re-take what I am in the middle of (first load after a
+                // conflict, or a reconnect).
+                FIELDS.forEach(function(f) { if (isChanged(f) && !lockedBy[f]) send({ t: 'lock', f: f }); });
+                renderPresence();
+                break;
+            case 'join': case 'here':
+                if (m.who.cid !== me.cid) { peers[m.who.cid] = m.who.name; renderPresence(); }
+                break;
+            case 'leave':
+                delete peers[m.cid]; renderPresence();
+                break;
+            case 'lock':
+                if (m.f.indexOf('amend:') === 0) { amendLocks[m.f] = m.who; amendChanged(); break; }
+                if (m.who.cid === me.cid) mine[m.f] = true; else applyLock(m.f, m.who);
+                break;
+            case 'denied':
+                if (m.f.indexOf('amend:') === 0) { amendLocks[m.f] = m.who; amendChanged(); break; }
+                applyLock(m.f, m.who);
+                break;
+            case 'unlock':
+                if (m.f.indexOf('amend:') === 0) {
+                    if (amendLocks[m.f] && amendLocks[m.f].cid === m.cid) { delete amendLocks[m.f]; amendChanged(m.taken_by && m.cid === me.cid ? m.taken_by : ''); }
+                    break;
+                }
+                if (m.cid === me.cid && mine[m.f]) {
+                    // The chair took it from me. My text stays in the box.
+                    delete mine[m.f];
+                    setNote(m.f, (m.taken_by || 'The chair') + ' took this field over. Your text is still here, but it may not save.');
+                    break;
+                }
+                if (lockedBy[m.f] && lockedBy[m.f].cid === m.cid) clearLock(m.f);
+                break;
+            case 'saved':
+                onSaved(m);
+                break;
+            case 'draft':
+                if (lockedBy[m.f] && lockedBy[m.f].cid === m.cid) { showingDraft[m.f] = true; setQuietly(m.f, m.v); }
+                break;
+            case 'amendments':
+                if (m.cid && me && m.cid === me.cid) break;
+                activity(m.by + ' ' + (m.what || 'changed the tracked amendments') + '. The lists below are up to date.');
+                refreshAmendments();
+                break;
+        }
+    }
+
+    // ── The amendment editor's lock (v3.44.0) ────────────────────────────────
+    // One lock per section being amended. The popup (an earlier script) asks
+    // through `window.cnbLive` and redraws itself on `window.onAmendLockChange`.
+    function amendChanged(takenBy) { if (window.onAmendLockChange) window.onAmendLockChange(takenBy || ''); }
+    window.cnbLive = {
+        lockAmendment: function(sectionId) { send({ t: 'lock', f: 'amend:' + sectionId }); },
+        unlockAmendment: function(sectionId) {
+            var key = 'amend:' + sectionId;
+            if (amendLocks[key] && me && amendLocks[key].cid === me.cid) delete amendLocks[key];
+            send({ t: 'unlock', f: key });
+        },
+        // null = free; {name, mine} otherwise
+        amendmentHolder: function(sectionId) {
+            var who = amendLocks['amend:' + sectionId];
+            return who ? { name: who.name, mine: !!me && who.cid === me.cid } : null;
+        },
+        takeOverAmendment: function(sectionId) { send({ t: 'takeover', f: 'amend:' + sectionId }); },
+        isChair: function() { return isChair; },
+        connected: function() { return !!ws && ws.readyState === 1; }
+    };
+
+    function connect() {
+        var scheme = window.location.protocol === 'https:' ? 'wss' : 'ws';
+        ws = new WebSocket(scheme + '://' + window.location.host + '/ws/cnb/resolutions/{{ resolution.pk }}/');
+        ws.onopen = function() {
+            delay = 1000;
+            setStatus('live');
+            document.getElementById('liveOffline').classList.add('hidden');
+            clearInterval(pingTimer);
+            pingTimer = setInterval(function() { send({ t: 'ping' }); }, 25000);
+        };
+        ws.onmessage = onMessage;
+        ws.onclose = function() {
+            clearInterval(pingTimer);
+            peers = {}; renderPresence();
+            setStatus('reconnecting');
+            amendLocks = {}; amendChanged();
+            document.getElementById('liveOffline').classList.remove('hidden');
+            setTimeout(connect, delay);
+            delay = Math.min(delay * 2, 30000);
+        };
+    }
+
+    // ── 2. Take a lock on focus, give it back on blur if nothing changed ─────
+    FIELDS.forEach(function(f) {
+        var e = el(f); if (!e) return;
+        e.addEventListener('focus', function() { if (!lockedBy[f]) send({ t: 'lock', f: f }); });
+        e.addEventListener('blur', function() {
+            if (!isChanged(f) && mine[f]) { delete mine[f]; send({ t: 'unlock', f: f }); }
+        });
+        var onEdit = function() {
+            syncHidden();
+            if (quiet || lockedBy[f]) return;        // a programmatic update, not my typing
+            if (!mine[f]) send({ t: 'lock', f: f }); // e.g. a paste without a focus first
+            clearTimeout(draftTimers[f]);
+            draftTimers[f] = setTimeout(function() { send({ t: 'draft', f: f, v: e.value }); }, 300);
+        };
+        e.addEventListener('input', onEdit);
+        e.addEventListener('change', onEdit);
+    });
+
+    document.getElementById('liveActivityDismiss').addEventListener('click', function() {
+        document.getElementById('liveActivity').classList.add('hidden');
+        document.getElementById('liveActivityList').innerHTML = '';
+    });
+
+    // A conflict re-render arrives with my text already in the boxes.
+    if (syncHidden().length) window._isDirty = true;
+    connect();
 })();
 </script>
 {% endif %}

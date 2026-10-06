@@ -308,10 +308,13 @@ def pledge_take_quiz(request, task_pk):
     if request.method == 'POST' and not already_submitted:
         errors = []
         answers = {}
-        for q in questions:
+        # Numbered by position, the way the quiz page numbers them
+        # (forloop.counter). display_order is only a sort key: it can start
+        # at 0 or 1, repeat, or have gaps.
+        for number, q in enumerate(questions, start=1):
             text = request.POST.get(f'answer_{q.pk}', '').strip()
             if not text:
-                errors.append(f'Please answer question {q.display_order + 1}.')
+                errors.append(f'Please answer question {number}.')
             answers[q.pk] = text
 
         if not errors:

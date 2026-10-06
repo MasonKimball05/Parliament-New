@@ -208,12 +208,22 @@ def profile_view(request):
         elif extended_profile_submitted:
             # Save bio, chapter info, socials, other email, big brother
             # (majors/minors/concentrations managed separately via academic_item_add/delete)
-            user.about_me = request.POST.get('about_me', '').strip()
             # v3.15.0: canonicalize class + auto-fill its greek from the registry
-            from src.pledge_classes import apply_to_fields
-            user.pledge_class, user.pledge_class_greek = apply_to_fields(
+            from src.pledge_classes import apply_to_fields, is_original_founder
+            new_class, new_greek = apply_to_fields(
                 request.POST.get('pledge_class', ''),
                 request.POST.get('pledge_class_greek', ''))
+            # The 1800s founders' Beta Blue badge is set only by an admin
+            # (mark_original_founders / admin-v2), never self-claimed here.
+            if (is_original_founder(new_class, new_greek)
+                    and not is_original_founder(user.pledge_class, user.pledge_class_greek)):
+                error = '"Original Founder" is reserved for the chapter\'s 1800s founders.'
+                if is_ajax:
+                    return JsonResponse({'success': False, 'error': error}, status=400)
+                messages.error(request, error)
+                return redirect('profile')
+            user.about_me = request.POST.get('about_me', '').strip()
+            user.pledge_class, user.pledge_class_greek = new_class, new_greek
             user.graduation_semester = request.POST.get('graduation_semester', '').strip()
             raw_year = request.POST.get('graduation_year', '').strip()
             user.graduation_year = int(raw_year) if raw_year.isdigit() else None

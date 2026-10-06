@@ -185,6 +185,7 @@ from src.view.officer.role_knowledge_base import (
     role_knowledge_base, edit_role_knowledge_base, role_knowledge_base_history, role_knowledge_base_index,
 )
 from src.view.officer.set_member_house import set_member_house
+from src.view.officer.set_member_big import set_member_big
 from src.view.officer.chapter_stats import chapter_stats
 from src.view.pledge_tasks import (
     my_pledge_tasks, pledge_take_quiz, pledge_request_absence, pledge_quiz_analysis,
@@ -268,6 +269,8 @@ from src.view.officer.cnb import (
     resolution_detail, create_resolution as cnb_create_resolution,
     edit_resolution as cnb_edit_resolution,
     add_amendment, remove_amendment, set_resolution_status, section_context_api,
+    add_structure_change, remove_structure_change, rename_article,
+    resolution_document_preview,
     add_collaborator, remove_collaborator, resolution_print,
     add_section, add_article, add_partial_suspension, remove_partial_suspension,
 )
@@ -625,6 +628,7 @@ urlpatterns = [
 
     # Role Management (Admin)
     path('officers/members/<str:user_id>/set-house/', set_member_house, name='set_member_house'),
+    path('officers/members/<str:user_id>/set-big/', set_member_big, name='set_member_big'),
     path('officers/roles/', manage_roles, name='manage_roles'),
     path('officers/roles/add/', add_role, name='add_role'),
     path('officers/roles/<int:role_id>/', role_detail, name='role_detail'),
@@ -706,6 +710,11 @@ urlpatterns = [
     path('cnb/resolutions/<int:resolution_id>/edit/', cnb_edit_resolution, name='cnb_edit_resolution'),
     path('cnb/resolutions/<int:resolution_id>/amendment/add/', add_amendment, name='cnb_add_amendment'),
     path('cnb/resolutions/<int:resolution_id>/amendment/<int:amendment_id>/remove/', remove_amendment, name='cnb_remove_amendment'),
+    # v3.43.0 — new articles/sections and renames, proposed by a resolution.
+    path('cnb/article/<int:article_id>/rename/', rename_article, name='cnb_rename_article'),  # v3.44.0
+    path('cnb/resolutions/<int:resolution_id>/document-preview/', resolution_document_preview, name='cnb_resolution_document_preview'),  # v3.44.0
+    path('cnb/resolutions/<int:resolution_id>/structure/add/', add_structure_change, name='cnb_add_structure_change'),
+    path('cnb/resolutions/<int:resolution_id>/structure/<int:change_id>/remove/', remove_structure_change, name='cnb_remove_structure_change'),
     path('cnb/resolutions/<int:resolution_id>/status/', set_resolution_status, name='cnb_set_status'),
     path('cnb/resolutions/<int:resolution_id>/collaborators/add/', add_collaborator, name='cnb_add_collaborator'),
     path('cnb/resolutions/<int:resolution_id>/collaborators/<int:collaborator_id>/remove/', remove_collaborator, name='cnb_remove_collaborator'),

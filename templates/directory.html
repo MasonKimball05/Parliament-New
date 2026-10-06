@@ -32,6 +32,26 @@
                         Show Alumni
                     </a>
                     {% endif %}
+                    <!-- Original Founders Toggle (only once alumni are shown) -->
+                    {% if show_alumni %}
+                    {% if show_founders %}
+                    <a href="?show_alumni=1"
+                       class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-white/20 hover:bg-white/30 transition-colors">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                        Hide Original Founders
+                    </a>
+                    {% else %}
+                    <a href="?show_alumni=1&show_founders=1"
+                       class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-white/10 hover:bg-white/20 transition-colors">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                        </svg>
+                        Show Original Founders
+                    </a>
+                    {% endif %}
+                    {% endif %}
                 </div>
             </div>
             <!-- Action Buttons -->
@@ -87,6 +107,7 @@
         {% if pledges  %}<button data-filter="pledge"  class="filter-pill px-3 py-1.5 rounded-full text-xs font-medium transition-colors">Pledges ({{ pledges|length }})</button>{% endif %}
         {% if advisors %}<button data-filter="advisor" class="filter-pill px-3 py-1.5 rounded-full text-xs font-medium transition-colors">Advisors ({{ advisors|length }})</button>{% endif %}
         {% if show_alumni and alumni %}<button data-filter="alumni"  class="filter-pill px-3 py-1.5 rounded-full text-xs font-medium transition-colors">Alumni ({{ alumni|length }})</button>{% endif %}
+        {% if original_founders %}<button data-filter="founders" class="filter-pill px-3 py-1.5 rounded-full text-xs font-medium transition-colors">Original Founders ({{ original_founders|length }})</button>{% endif %}
     </div>
 
     <!-- Officers Section -->
@@ -404,6 +425,47 @@
                             {{ member.phone_number|format_phone }}
                         </a>
                         {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Original Founders Section (1800s, roll #1–#43; Beta Blue = their class color) -->
+    {% if original_founders %}
+    <div class="mb-8 directory-section">
+        <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
+            <span class="w-3 h-3 rounded-full mr-2" style="background:#003da5;"></span>
+            Original Founders ({{ original_founders|length }})
+        </h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {% for member in original_founders %}
+            <div class="member-card bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 border-l-4" style="border-left-color:#003da5;"
+                 data-name="{{ member.name|lower }}"
+                 data-email=""
+                 data-phone=""
+                 data-role="{{ member.role_number|default:'' }}"
+                 data-type="founders">
+                <div class="flex items-start gap-3">
+                    <button type="button" data-profile-user="{{ member.user_id }}" class="flex-shrink-0 focus:outline-none rounded-full" title="View profile">
+                    {% if member.profile_picture %}
+                    <img src="{{ member.profile_picture.url }}" alt="{{ member.name }}"
+                         class="w-12 h-12 rounded-full object-cover opacity-80 hover:opacity-100 transition-opacity">
+                    {% else %}
+                    <div class="w-12 h-12 rounded-full flex items-center justify-center" style="background:#003da5;">
+                        <span class="text-white font-semibold text-lg">
+                            {{ member.name|slice:":1"|upper }}
+                        </span>
+                    </div>
+                    {% endif %}
+                    </button>
+                    <div class="flex-1 min-w-0">
+                        <button type="button" data-profile-user="{{ member.user_id }}" class="font-semibold text-gray-900 dark:text-white truncate text-left w-full focus:outline-none">{{ member.get_display_name }}</button>
+                        <p class="text-sm text-gray-500 dark:text-gray-400">
+                            {% if member.role_number %}#{{ member.role_number }} &middot; {% endif %}Original Founder
+                        </p>
                     </div>
                 </div>
             </div>

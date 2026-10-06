@@ -11,6 +11,9 @@ normalization, and the auto-fill-greek save behavior.
 import colorsys
 import math
 from datetime import date
+from io import StringIO
+
+from django.core.management import call_command
 
 from django.test import TestCase, Client, override_settings
 from django.urls import reverse
@@ -44,11 +47,13 @@ class PaletteGuaranteesTests(TestCase):
         (and the founder gold isn't duplicated in it either)."""
         self.assertEqual(len(pc.CLASS_PALETTE), len(set(pc.CLASS_PALETTE)))
         self.assertNotIn(pc.FOUNDERS_COLOR, pc.CLASS_PALETTE)
+        self.assertNotIn(pc.ORIGINAL_FOUNDERS_COLOR, pc.CLASS_PALETTE)
 
     def test_min_pairwise_distance_is_noticeable(self):
         """Requirement 2: every pair is clearly distinct. Min ΔE across the
         whole palette (plus founder gold) must clear a visible margin."""
-        labs = [_lab(c) for c in pc.CLASS_PALETTE] + [_lab(pc.FOUNDERS_COLOR)]
+        labs = [_lab(c) for c in pc.CLASS_PALETTE] + [
+            _lab(pc.FOUNDERS_COLOR), _lab(pc.ORIGINAL_FOUNDERS_COLOR)]
         mind = min(math.dist(labs[i], labs[j])
                    for i in range(len(labs)) for j in range(i + 1, len(labs)))
         self.assertGreater(mind, 10.0,
@@ -228,3 +233,143 @@ class LetteringAnchorTests(TestCase):
         for bad in ('Alpha', 'Summer 2023 = Alpha', 'Fall 2023 = Alfa', 'Fall 23 = Alpha'):
             with self.subTest(bad=bad), override_settings(CHAPTER={**settings.CHAPTER, 'lettering_anchor': bad}):
                 self.assertEqual([e.id for e in chapter_config_is_valid(None)], ['src.E001'])
+
+
+class OriginalFoundersTests(TestCase):
+    """The 1800s founders (roll #1–#43) get a Beta Blue badge of their own."""
+
+    def test_badge_is_beta_blue(self):
+        for args in (('Original Founders', ''), ('1879', 'Original Founder')):
+            badge = pc.badge_context(*args)
+            self.assertEqual(badge['color'], '#003da5')
+            self.assertEqual(badge['greek'], 'Original Founder')
+            self.assertFalse(badge['is_founders'])
+
+    def test_not_in_the_semester_sequence(self):
+        greeks = [c['greek'] for c in pc.all_classes(date(2026, 10, 1))]
+        self.assertNotIn(pc.ORIGINAL_FOUNDERS_GREEK, greeks)
+        # Saving the form leaves them alone rather than "fixing" them
+        self.assertEqual(pc.apply_to_fields('1879', 'Original Founder'),
+                         ('1879', 'Original Founder'))
+
+    def _member(self, uid, roll, pledge_class=''):
+        m = ParliamentUser.objects.create_user(
+            user_id=uid, name=f'Member {uid}', username=uid,
+            member_type='Member')
+        m.role_number, m.pledge_class = roll, pledge_class
+        m.save()
+        return m
+
+    def test_command_sets_semester_for_rolls_1_to_43_only(self):
+        f1 = self._member('of1', '1')
+        f43 = self._member('of43', '43', 'Fall 1879')
+        f43.pledge_class_greek = 'Alpha'
+        f43.save()
+        later = self._member('of44', '44')
+        clash = self._member('of5', '5', 'Spring 2023')
+
+        call_command('mark_original_founders', stdout=StringIO())  # dry run
+        f1.refresh_from_db()
+        self.assertEqual(f1.pledge_class, '')
+
+        call_command('mark_original_founders', '--apply', stdout=StringIO())
+        for m in (f1, f43, later, clash):
+            m.refresh_from_db()
+        self.assertEqual(f1.pledge_class, 'Original Founders')
+        self.assertEqual(f1.pledge_class_greek, '')
+        # Semester replaced; greek field untouched
+        self.assertEqual((f43.pledge_class, f43.pledge_class_greek),
+                         ('Original Founders', 'Alpha'))
+        self.assertEqual(later.pledge_class, '')
+        self.assertEqual(clash.pledge_class, 'Spring 2023')
+        self.assertEqual(pc.badge_context(f43.pledge_class, f43.pledge_class_greek)['color'],
+                         pc.ORIGINAL_FOUNDERS_COLOR)
+
+
+class OriginalFounderNotSelfServeTests(TestCase):
+    """Members can't give themselves the Original Founder badge from their
+    own profile, by either field, in any casing, via form or AJAX."""
+
+    def setUp(self):
+        self.member = ParliamentUser.objects.create_user(
+            user_id='ofm', name='Modern Member', username='ofm',
+            member_type='Member')
+        self.member.pledge_class, self.member.pledge_class_greek = 'Spring 2023', 'Alpha'
+        self.member.save()
+        self.client = Client()
+        self.client.force_login(self.member)
+
+    def _post(self, ajax=False, **fields):
+        data = {'extended_profile_submit': '1', 'about_me': 'changed'}
+        data.update(fields)
+        headers = {'HTTP_X_REQUESTED_WITH': 'XMLHttpRequest'} if ajax else {}
+        return self.client.post(reverse('profile'), data, **headers)
+
+    def assertUnchanged(self):
+        self.member.refresh_from_db()
+        self.assertEqual((self.member.pledge_class, self.member.pledge_class_greek),
+                         ('Spring 2023', 'Alpha'))
+        self.assertNotEqual(self.member.about_me, 'changed')
+
+    def test_greek_field_rejected(self):
+        self._post(pledge_class='1879', pledge_class_greek='Original Founder')
+        self.assertUnchanged()
+
+    def test_class_field_rejected_any_case(self):
+        self._post(pledge_class='  ORIGINAL founders ')
+        self.assertUnchanged()
+
+    def test_ajax_rejected_with_error(self):
+        resp = self._post(ajax=True, pledge_class_greek='original founder')
+        self.assertEqual(resp.status_code, 400)
+        self.assertFalse(resp.json()['success'])
+        self.assertUnchanged()
+
+    def test_ordinary_class_change_still_saves(self):
+        self._post(pledge_class='Fall 2023')
+        self.member.refresh_from_db()
+        self.assertEqual(self.member.pledge_class_greek, 'Beta')
+
+
+class DirectoryOriginalFoundersTests(TestCase):
+    """Founders are hidden by default, and only an extra opt-in after
+    'Show Alumni' reveals them, in their own section."""
+
+    def setUp(self):
+        self.viewer = ParliamentUser.objects.create_user(
+            user_id='dv', name='Viewer', username='dv', member_type='Member')
+        self.client = Client()
+        self.client.force_login(self.viewer)
+        self.alum = ParliamentUser.objects.create_user(
+            user_id='da', name='Regular Alum', username='da',
+            member_type='Member')
+        self.founder = ParliamentUser.objects.create_user(
+            user_id='df', name='Founding Father', username='df',
+            member_type='Member')
+        self.alum.member_status = 'Alumni'
+        self.alum.save()
+        self.founder.member_status = 'Alumni'
+        self.founder.pledge_class = 'Original Founders'
+        self.founder.save()
+
+    def _get(self, **params):
+        return self.client.get(reverse('member_directory'), params)
+
+    def test_hidden_by_default(self):
+        self.assertNotContains(self._get(), 'Founding Father')
+
+    def test_show_alumni_alone_still_hides_founders(self):
+        resp = self._get(show_alumni='1')
+        self.assertContains(resp, 'Regular Alum')
+        self.assertNotContains(resp, 'Founding Father')
+        self.assertContains(resp, 'Show Original Founders')
+
+    def test_founders_flag_needs_alumni_shown(self):
+        self.assertNotContains(self._get(show_founders='1'), 'Founding Father')
+
+    def test_both_flags_show_founders_section(self):
+        resp = self._get(show_alumni='1', show_founders='1')
+        self.assertEqual([m.name for m in resp.context['original_founders']],
+                         ['Founding Father'])
+        self.assertNotIn(self.founder, resp.context['alumni'])
+        self.assertContains(resp, 'Hide Original Founders')

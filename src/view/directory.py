@@ -8,12 +8,16 @@ from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse
 from django.shortcuts import render
 from src.models import ParliamentUser
+from src.pledge_classes import is_original_founder
 
 
 @login_required
 def member_directory(request):
     """Display a public directory of all active members."""
     show_alumni = request.GET.get('show_alumni') == '1'
+    # The 1800s founders (roll #1–#43) are alumni of record, not people to
+    # contact — a second opt-in that only exists once alumni are shown.
+    show_founders = show_alumni and request.GET.get('show_founders') == '1'
 
     # v3.17.3: directory.html renders each member's role badges, so every one of
     # these querysets needs `roles` prefetched — dev mode reported 12 + 11
@@ -41,11 +45,22 @@ def member_directory(request):
         member_type='Advisor'
     ).prefetch_related('roles').order_by('name'))
 
-    alumni = []
+    alumni, original_founders = [], []
     if show_alumni:
-        alumni = list(ParliamentUser.objects.filter(
-            member_status='Alumni'
-        ).prefetch_related('roles').order_by('name'))
+        for m in ParliamentUser.objects.filter(
+                member_status='Alumni').prefetch_related('roles').order_by('name'):
+            if is_original_founder(m.pledge_class, m.pledge_class_greek):
+                original_founders.append(m)
+            else:
+                alumni.append(m)
+        if show_founders:
+            # Roll order (numeric, so #9 precedes #10) — it's the record.
+            original_founders.sort(key=lambda m: (
+                not (m.role_number or '').isdigit(),
+                int(m.role_number) if (m.role_number or '').isdigit() else 0,
+                m.name))
+        else:
+            original_founders = []
 
     # Group members by type for display
     officers = [m for m in members if m.member_type == 'Officer']
@@ -77,6 +92,8 @@ def member_directory(request):
         'advisors': advisors,
         'alumni': alumni,
         'show_alumni': show_alumni,
+        'original_founders': original_founders,
+        'show_founders': show_founders,
         # members queryset is already evaluated into the four lists above;
         # calling .count() would fire a fresh SQL COUNT — use len() instead.
         'total_count': len(officers) + len(chairs) + len(regular_members) + len(pledges) + len(advisors),
@@ -142,6 +159,8 @@ def export_directory(request):
 
     rows = []
     for member in all_members:
+        if is_original_founder(member.pledge_class, member.pledge_class_greek):
+            continue  # 1800s founders: records, not contacts
         # .exists() bypasses the prefetch_related cache and fires an extra DB query
         # per member. Use list(.all()) instead — it hits the prefetch cache.
         _member_roles = list(member.roles.all()) if include_roles else []

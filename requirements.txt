@@ -1,5 +1,5 @@
 asgiref==3.9.2  # channels 4.3.2 needs >=3.9,<4
-Django==5.2.17  # v3.19.11: PYSEC-2026-3717 / CVE-2026-15830 (GeoDjango WKT/WKB DoS — not reachable here, but it reddens CI and blocks every push)
+Django==5.2.18  # v3.44.7: 10-06-26 security release (CVE-2026-84429 header-parsing DoS, CVE-2026-87975 model formsets, CVE-2026-77050, CVE-2026-87890)
 icalendar==6.1.0
 psycopg2-binary==2.9.10
 python-dotenv==1.2.2
@@ -60,13 +60,13 @@ pywebpush==2.3.0
 cryptography==50.0.0
 
 # Markdown rendering for changelog display
-markdown==3.8.1
+markdown==3.11  # needs Python >= 3.11
 
 # HTML sanitization to prevent stored XSS from rich-text editors
 bleach==6.4.0
 
 # DOCX to HTML conversion for document preview
-mammoth==1.11.0
+mammoth==1.13.0  # 1.12.2: DoS fix (backtracking on a crafted .docx)
 
 # Image handling — DIRECT dependency (profile_picture, landing photos/og_image,
 # security screenshot ImageFields all require Pillow), previously installed
@@ -75,7 +75,7 @@ mammoth==1.11.0
 pillow==12.3.0
 
 # PDF generation for chapter minutes export
-reportlab==4.1.0
+reportlab==5.0.1
 
 # PDF to image conversion for mobile document viewing
 PyMuPDF==1.27.2.3
@@ -85,10 +85,10 @@ openpyxl==3.1.2
 
 # Two-Factor Authentication (TOTP)
 django-otp==1.5.4
-qrcode==7.4.2
+qrcode==8.2
 
 # REST API (3.0.0 foundation)
-djangorestframework==3.17.2
+djangorestframework==3.18.1
 
 # WebSockets (3.0.0 — replaces HTTP polling for chat)
 channels==4.3.2

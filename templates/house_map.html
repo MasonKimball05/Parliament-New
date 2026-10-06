@@ -14,9 +14,17 @@
         </div>
         <div class="flex items-center gap-3">
             {% if unassigned_count %}
+            {% if can_set_house %}
+            <button type="button" id="js-open-unassigned"
+                    class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300 hover:opacity-80 transition-opacity"
+                    title="Assign houses and bigs/littles">
+                {{ unassigned_count }} unassigned
+            </button>
+            {% else %}
             <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300">
                 {{ unassigned_count }} unassigned
             </span>
+            {% endif %}
             {% endif %}
             <a href="{% url 'member_directory' %}"
                class="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 transition-colors">
@@ -201,6 +209,33 @@
     </div>
     </div>
 </div>
+
+{% if unassigned_panel %}
+<!-- Unassigned quick-manage panel (v3.41.0; house managers only) -->
+<div id="unassignedModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-40 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="unassignedModalTitle">
+    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full sm:max-w-lg overflow-hidden flex flex-col max-h-[85vh]">
+        <div class="flex items-start gap-3 p-4 border-b border-gray-200 dark:border-gray-700">
+            <div class="flex-1 min-w-0">
+                <h2 id="unassignedModalTitle" class="text-lg font-bold text-gray-900 dark:text-white leading-tight">Not in a house</h2>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Changes save as you make them. Setting a big who has a house brings that house along.</p>
+            </div>
+            <button type="button" class="js-close-unassigned text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 flex-shrink-0 p-1 -mr-1" aria-label="Close">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+            </button>
+        </div>
+        <div class="px-4 pt-3">
+            <input type="text" id="unassignedSearch" placeholder="Filter by name…"
+                   class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent">
+        </div>
+        <div class="overflow-y-auto flex-1 min-h-0">
+            <ul id="unassignedList" class="p-4 space-y-3"></ul>
+        </div>
+    </div>
+</div>
+{{ unassigned_panel|json_script:"unassigned-data" }}
+{% endif %}
 
 {{ houses_data|json_script:"houses-data" }}
 
@@ -612,6 +647,180 @@
     {% if can_set_house %}
     var houseChangeBtn = document.getElementById('js-submit-house-change');
     if (houseChangeBtn) houseChangeBtn.addEventListener('click', submitHouseChange);
+    {% endif %}
+
+    {% if unassigned_panel %}
+    // ── Unassigned quick-manage panel (v3.41.0) ─────────────────────────────
+    (function () {
+        const DATA = JSON.parse(document.getElementById('unassigned-data').textContent);
+        const HOUSES = DATA.houses;
+        const people = {};
+        DATA.people.forEach(p => { people[p.id] = p; });
+        const byName = DATA.people.slice().sort((a, b) => a.name.localeCompare(b.name));
+        const modal = document.getElementById('unassignedModal');
+        const list = document.getElementById('unassignedList');
+        let changed = false;
+
+        const SELECT_CLS = 'px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent';
+
+        function csrf() {
+            return (document.querySelector('[name=csrfmiddlewaretoken]') || {}).value || '';
+        }
+
+        function post(url, fields) {
+            const body = new URLSearchParams(Object.assign({ csrfmiddlewaretoken: csrf() }, fields));
+            return fetch(url, {
+                method: 'POST', body,
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            }).then(r => r.json().then(d => {
+                if (!r.ok) throw new Error(d.error || 'Failed to save.');
+                changed = true;
+                return d;
+            }));
+        }
+
+        function setBig(personId, bigId) {
+            return post(`/officers/members/${encodeURIComponent(personId)}/set-big/`, { big: bigId })
+                .then(d => {
+                    people[personId].big = d.big;
+                    people[personId].house = d.house;
+                });
+        }
+
+        function el(tag, cls, text) {
+            const e = document.createElement(tag);
+            if (cls) e.className = cls;
+            if (text !== undefined) e.textContent = text;
+            return e;
+        }
+
+        function label(p) {
+            return p.roll ? `${p.name} (#${p.roll})` : p.name;
+        }
+
+        function personSelect(placeholder, exclude, value) {
+            const sel = el('select', SELECT_CLS + ' w-full');
+            sel.appendChild(new Option(placeholder, ''));
+            byName.forEach(p => {
+                if (exclude.has(p.id)) return;
+                sel.appendChild(new Option(label(p), p.id, false, p.id === value));
+            });
+            return sel;
+        }
+
+        function fail(err) {
+            alert(err.message || 'Failed to save.');
+            render();
+        }
+
+        function renderRow(id) {
+            const p = people[id];
+            const li = el('li', 'unassigned-row p-3 rounded-lg bg-gray-50 dark:bg-gray-700/50 space-y-2');
+            li.dataset.name = p.name.toLowerCase();
+
+            // Header: name (opens profile) + type + house result
+            const head = el('div', 'flex items-center gap-2 flex-wrap');
+            const nameBtn = el('button', 'font-semibold text-sm text-gray-900 dark:text-white hover:underline text-left', label(p));
+            nameBtn.type = 'button';
+            nameBtn.addEventListener('click', () => openProfileModal(id));
+            head.appendChild(nameBtn);
+            head.appendChild(el('span', 'text-xs text-gray-500 dark:text-gray-400',
+                p.status === 'Active' ? p.type : p.status));
+            if (p.house) head.appendChild(el('span',
+                'px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300',
+                `✓ ${p.house}`));
+            li.appendChild(head);
+
+            const grid = el('div', 'grid grid-cols-1 sm:grid-cols-2 gap-2');
+
+            // House
+            const houseWrap = el('div');
+            houseWrap.appendChild(el('div', 'text-xs text-gray-500 dark:text-gray-400 mb-0.5', 'House'));
+            const houseSel = el('select', SELECT_CLS + ' w-full');
+            houseSel.appendChild(new Option('— None —', ''));
+            HOUSES.forEach(([val, lab]) => houseSel.appendChild(new Option(lab, val, false, val === p.house)));
+            houseSel.addEventListener('change', () => {
+                post(`/officers/members/${encodeURIComponent(id)}/set-house/`, { house: houseSel.value })
+                    .then(d => { p.house = d.house; render(); }).catch(fail);
+            });
+            houseWrap.appendChild(houseSel);
+            grid.appendChild(houseWrap);
+
+            // Big
+            const bigWrap = el('div');
+            bigWrap.appendChild(el('div', 'text-xs text-gray-500 dark:text-gray-400 mb-0.5', 'Big'));
+            if (p.locked) {
+                const big = people[p.big];
+                bigWrap.appendChild(el('div', 'text-sm text-gray-500 dark:text-gray-400 italic',
+                    (big ? big.name + ' · ' : '') + 'set on the education dashboard'));
+            } else {
+                const bigSel = personSelect('— None —', new Set([id]), p.big);
+                bigSel.addEventListener('change', () => { setBig(id, bigSel.value).then(render).catch(fail); });
+                bigWrap.appendChild(bigSel);
+            }
+            grid.appendChild(bigWrap);
+            li.appendChild(grid);
+
+            // Littles
+            const littles = byName.filter(x => x.big === id);
+            const litWrap = el('div');
+            litWrap.appendChild(el('div', 'text-xs text-gray-500 dark:text-gray-400 mb-0.5', 'Littles'));
+            const chips = el('div', 'flex flex-wrap gap-1.5 mb-1');
+            littles.forEach(l => {
+                const chip = el('span', 'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300', l.name);
+                if (!l.locked) {
+                    const x = el('button', 'text-gray-400 hover:text-red-500', '×');
+                    x.type = 'button';
+                    x.title = `Remove ${l.name} as a little`;
+                    x.addEventListener('click', () => { setBig(l.id, '').then(render).catch(fail); });
+                    chip.appendChild(x);
+                }
+                chips.appendChild(chip);
+            });
+            if (!littles.length) chips.appendChild(el('span', 'text-sm text-gray-400 italic', 'None'));
+            litWrap.appendChild(chips);
+            const exclude = new Set([id]);
+            littles.forEach(l => exclude.add(l.id));
+            byName.forEach(x => { if (x.locked) exclude.add(x.id); });
+            const addSel = personSelect('+ Add a little…', exclude, '');
+            addSel.addEventListener('change', () => {
+                const l = people[addSel.value];
+                if (!l) return;
+                const cur = people[l.big];
+                if (cur && !confirm(`${l.name}'s big is currently ${cur.name}. Change it to ${p.name}?`)) {
+                    addSel.value = '';
+                    return;
+                }
+                setBig(l.id, id).then(render).catch(fail);
+            });
+            litWrap.appendChild(addSel);
+            li.appendChild(litWrap);
+            return li;
+        }
+
+        function render() {
+            const q = document.getElementById('unassignedSearch').value.trim().toLowerCase();
+            list.replaceChildren(...DATA.unassigned
+                .filter(id => !q || people[id].name.toLowerCase().includes(q))
+                .map(renderRow));
+        }
+
+        function open() { render(); modal.classList.remove('hidden'); }
+        function close() {
+            modal.classList.add('hidden');
+            if (changed) window.location.reload();  // trees + count recompute server-side
+        }
+
+        document.getElementById('js-open-unassigned').addEventListener('click', open);
+        document.getElementById('unassignedSearch').addEventListener('input', render);
+        modal.addEventListener('click', e => {
+            if (e.target === modal || e.target.closest('.js-close-unassigned')) close();
+        });
+        document.addEventListener('keydown', e => {
+            if (e.key === 'Escape' && !modal.classList.contains('hidden')
+                && document.getElementById('profileModal').classList.contains('hidden')) close();
+        });
+    })();
     {% endif %}
 
     // Expose openProfileModal for SVG room click handlers

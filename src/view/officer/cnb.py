@@ -25,7 +25,7 @@ from src.models.users import member_defer
 from src.models import (
     GoverningDocument, Article, Section, Resolution, ResolutionAmendment,
     ResolutionCollaborator, ParliamentUser,
-    ResolutionNote,
+    ResolutionNote, ResolutionStructureChange,
 )
 
 
@@ -54,7 +54,15 @@ def cnb_viewer(request):
     # end of that day (src/view/cnb_history.py). Revisions are prefetched only
     # when asked for, so the normal page pays nothing extra.
     as_of = parse_as_of(request.GET.get('as_of'))
-    prefetch = 'articles__sections__revisions' if as_of else 'articles__sections'
+    if as_of:
+        # v3.44.0 — `all_objects`: a section a later resolution struck was
+        # still part of the document on an earlier date (`apply_as_of` hides
+        # it again when it was already gone by then).
+        from django.db.models import Prefetch
+        prefetch = Prefetch('articles__sections',
+                            queryset=Section.all_objects.prefetch_related('revisions').order_by('article', 'display_order'))
+    else:
+        prefetch = 'articles__sections'
     documents = list(GoverningDocument.enabled().prefetch_related(prefetch))
     if as_of:
         apply_as_of(documents, as_of)
@@ -603,6 +611,37 @@ def add_article(request, doc_type):
 @login_required
 @cnb_required
 @require_POST
+def rename_article(request, article_id):
+    """
+    Retitle an article directly (v3.44.0). The C&B manager could already
+    retitle a SECTION (`edit_section`); an article had no way at all outside a
+    resolution. Chair only. Logged, because it changes the live document
+    without a vote.
+    """
+    article = get_object_or_404(Article.objects.select_related('document'), pk=article_id)
+    title = request.POST.get('title', '').strip()[:200]
+    if not title:
+        messages.error(request, 'An article needs a title.')
+    elif title == article.title:
+        messages.info(request, 'That is already the title.')
+    else:
+        old = article.title
+        article.title = title
+        article.save(update_fields=['title'])
+        from src.models import ActivityLog
+        ActivityLog.log_activity(
+            action_type='other', user=request.user, request=request,
+            description=(f'{request.user.get_display_name()} renamed {article.document.get_doc_type_display()} '
+                         f'Article {article.number}: "{old}" → "{title}"'),
+            metadata={'action': 'cnb_rename_article', 'article_id': article.pk, 'old': old, 'new': title},
+        )
+        messages.success(request, f'Article {article.number} is now "{title}".')
+    return redirect('cnb_manage_document', doc_type=article.document.doc_type)
+
+
+@login_required
+@cnb_required
+@require_POST
 def add_partial_suspension(request, section_id):
     """Suspend a specific sub-item within a section without suspending the whole section."""
     section = get_object_or_404(Section, pk=section_id)
@@ -734,6 +773,11 @@ def resolution_detail(request, resolution_id):
         # v3.17.3: `created_by` was joined and never read by resolution_print.html.
         Resolution.objects.prefetch_related(
             'amendments__section__article__document',
+            # v3.42.1: each amendment's "surrounding context" block loops the
+            # sibling sections of its article (resolution_detail.html), which
+            # was one query per amendment (15 amendments: 15). Reported by
+            # Mason from the performance panel, 10-02-26.
+            'amendments__section__article__sections',
             'collaborators__user',
         ),
         pk=resolution_id
@@ -769,7 +813,37 @@ def resolution_detail(request, resolution_id):
         'members': members,
     }
     context.update(_notes_context(request.user, resolution))
+    context.update(_structure_context(resolution, documents if can_edit else None))
     return render(request, 'cnb/resolution_detail.html', context)
+
+
+# ── Who may edit a resolution (v3.41.1, 10-02-26) ────────────────────────────
+#
+# `resolution_detail` has always shown the Edit button and the amendment forms
+# to collaborators added as Editor, and `ResolutionCollaborator`'s docstring
+# says that is what the role is for. But `edit_resolution`, `add_amendment`,
+# `remove_amendment` and `section_context_api` were all `@cnb_required`, so an
+# editor who clicked Edit was sent home with "Constitution & Bylaws Chair
+# access required." The role granted nothing.
+#
+# Mason, 10-02-26: the chair and editor collaborators can edit the text and
+# add/remove amendments. Changing status and managing collaborators stay with
+# the chair (`set_resolution_status`, `add_collaborator`, `remove_collaborator`
+# keep `@cnb_required`), and so does creating a resolution.
+
+def _can_edit_resolution(user, resolution):
+    """C&B permission holders, and this resolution's Editor collaborators."""
+    if user.has_cnb_permission:
+        return True
+    return resolution.collaborators.filter(user=user, role='editor').exists()
+
+
+def _edit_denied(request, resolution):
+    """A redirect for someone who may not edit `resolution`, else None."""
+    if _can_edit_resolution(request.user, resolution):
+        return None
+    messages.error(request, 'Only the Constitution & Bylaws Chair and this resolution\'s editors can change it.')
+    return redirect('cnb_resolution_detail', resolution_id=resolution.pk)
 
 
 @login_required
@@ -821,7 +895,6 @@ def create_resolution(request):
 
 
 @login_required
-@cnb_required
 def edit_resolution(request, resolution_id):
     """Edit resolution metadata (title, whereas, resolved text, etc.)."""
     # v3.17.5: `prefetch_related('amendments')` — resolution_form.html tests the
@@ -829,46 +902,134 @@ def edit_resolution(request, resolution_id):
     # :214). Without a prefetch that was three separate queries; with it, all
     # three read one cached result set.
     resolution = get_object_or_404(
-        Resolution.objects.prefetch_related('amendments__section'),
+        # v3.41.5: down to the document. The amendment list prints
+        # `amendment.section.full_identifier`, which reads the section's
+        # article and that article's document, so stopping at `section` cost
+        # two queries per amendment (7 amendments: 14). Reported by Mason from
+        # the performance panel, 10-02-26.
+        Resolution.objects.prefetch_related('amendments__section__article__document'),
         pk=resolution_id,
     )
+    denied = _edit_denied(request, resolution)
+    if denied:
+        return denied
 
     if resolution.status not in ('draft', 'pending'):
         messages.error(request, 'Only draft or pending resolutions can be edited.')
         return redirect('cnb_resolution_detail', resolution_id=resolution_id)
 
+    from src import cnb_live
+    conflicts = []
+
     if request.method == 'POST':
-        resolution.title = request.POST.get('title', resolution.title).strip()
-        resolution.resolution_type = request.POST.get('resolution_type', resolution.resolution_type)
-        resolution.authors = request.POST.get('authors', '').strip()
-        resolution.sponsors = request.POST.get('sponsors', '').strip()
-        resolution.whereas_clauses = request.POST.get('whereas_clauses', '').strip()
-        resolution.resolved_text = request.POST.get('resolved_text', '').strip()
-        resolution.resolution_body = request.POST.get('resolution_body', '').strip()
-        resolution.additional_notes = request.POST.get('additional_notes', '').strip()
-        vote_date_raw = request.POST.get('vote_date', '').strip()
-        if vote_date_raw:
-            try:
-                resolution.vote_date = datetime.date.fromisoformat(vote_date_raw)
-            except ValueError:
-                messages.error(request, 'Invalid vote date format.')
+        # ── v3.42.0: field-level save with a conflict check ──────────────────
+        #
+        # Until now every save wrote all nine fields from whatever the browser
+        # held, so two people with the page open overwrote each other: the
+        # second save put back the first person's STALE copy of every field
+        # they had not touched. See `src/cnb_live.py`.
+        #
+        # The page now posts `changed_fields` (what this person edited) and
+        # `orig_<field>` (what each of those held when they loaded it):
+        #   * only changed fields are written;
+        #   * a changed field whose saved value is no longer `orig` was edited
+        #     by someone else meanwhile. It is NOT written. The editor gets the
+        #     page back with their text still in the box and the other version
+        #     shown above it, and decides.
+        # A post without `changed_fields` (no JavaScript, an old tab, a test)
+        # behaves as before: every field is written.
+        changed_raw = request.POST.get('changed_fields')
+        if changed_raw is None:
+            wanted = list(cnb_live.FIELDS)
         else:
-            resolution.vote_date = None
-        resolution.save(update_fields=['title', 'resolution_type', 'authors', 'sponsors', 'whereas_clauses', 'resolved_text', 'resolution_body', 'additional_notes', 'vote_date'])
-        messages.success(request, 'Resolution updated.')
-        if request.POST.get('save_and_preview'):
-            from django.urls import reverse
-            return redirect(reverse('cnb_resolution_print', kwargs={'resolution_id': resolution.pk}) + '?from_save=1')
-        return redirect('cnb_resolution_detail', resolution_id=resolution.pk)
+            wanted = [f for f in changed_raw.split(',') if f in cnb_live.FIELDS]
+
+        written = []
+        with transaction.atomic():
+            # Locked, so "compare with what is saved, then write" cannot
+            # interleave with another save of the same resolution.
+            live = Resolution.objects.select_for_update().get(pk=resolution.pk)
+            current = cnb_live.baseline(live)
+            for field in wanted:
+                if field == 'resolution_type':
+                    new = request.POST.get(field, live.resolution_type)
+                else:
+                    new = cnb_live.norm(request.POST.get(field, ''))
+                if new == current[field]:
+                    continue
+                orig = request.POST.get(f'orig_{field}')
+                if changed_raw is not None and orig is not None \
+                        and cnb_live.norm(orig) != current[field]:
+                    conflicts.append({
+                        'field': field, 'label': cnb_live.FIELD_LABELS[field],
+                        'theirs': current[field], 'mine': new,
+                    })
+                    continue
+                if field == 'title' and not new:
+                    messages.error(request, 'A title is required.')
+                    continue
+                if field == 'vote_date':
+                    if new:
+                        try:
+                            live.vote_date = datetime.date.fromisoformat(new)
+                        except ValueError:
+                            messages.error(request, 'Invalid vote date format.')
+                            continue
+                    else:
+                        live.vote_date = None
+                else:
+                    setattr(live, field, new)
+                written.append(field)
+            if written:
+                live.save(update_fields=written + ['updated_at'])
+
+        cnb_live.broadcast_saved(live, written, request.user)
+
+        if conflicts:
+            # Show the saved state, with this person's unsaved text put back in
+            # the conflicted fields. 409 so the page's background save (the one
+            # that runs before an amendment reloads the page) does not mistake
+            # this for "saved" and discard their text.
+            for field in cnb_live.FIELDS:
+                setattr(resolution, field, getattr(live, field))
+            for conflict in conflicts:
+                if conflict['field'] != 'vote_date':
+                    setattr(resolution, conflict['field'], conflict['mine'])
+            names = ', '.join(c['label'] for c in conflicts)
+            messages.warning(
+                request,
+                f'Not saved: {names}. Someone else changed '
+                f'{"it" if len(conflicts) == 1 else "them"} while you were editing. '
+                'Your text is still in the box; their version is shown above the form.'
+                + (' Your other changes were saved.' if written else ''))
+            baseline_source = live
+        else:
+            messages.success(request, 'Resolution updated.' if written else 'No changes to save.')
+            if request.POST.get('save_and_preview'):
+                from django.urls import reverse
+                return redirect(reverse('cnb_resolution_print', kwargs={'resolution_id': resolution.pk}) + '?from_save=1')
+            # v3.41.2 — the edit page's Save button: save and keep editing.
+            if request.POST.get('save_stay'):
+                return redirect('cnb_edit_resolution', resolution_id=resolution.pk)
+            return redirect('cnb_resolution_detail', resolution_id=resolution.pk)
+    else:
+        baseline_source = resolution
 
     ref_docs = GoverningDocument.enabled().prefetch_related('articles__sections')  # v3.19.1: per-document flags
-    context = {'resolution': resolution, 'action': 'Edit', 'ref_docs': ref_docs}
+    context = {
+        'resolution': resolution, 'action': 'Edit', 'ref_docs': ref_docs,
+        # v3.42.0 — what is SAVED, for the page's change tracking. On a
+        # conflict re-render this differs from what the boxes show, on purpose.
+        'live_baseline': cnb_live.baseline(baseline_source),
+        'live_field_labels': cnb_live.FIELD_LABELS,
+        'conflicts': conflicts,
+    }
     context.update(_notes_context(request.user, resolution))
-    return render(request, 'cnb/resolution_form.html', context)
+    context.update(_structure_context(resolution, ref_docs))
+    return render(request, 'cnb/resolution_form.html', context, status=409 if conflicts else 200)
 
 
 @login_required
-@cnb_required
 @require_POST
 def add_amendment(request, resolution_id):
     """
@@ -877,20 +1038,33 @@ def add_amendment(request, resolution_id):
     is captured automatically from the current section content.
     """
     resolution = get_object_or_404(Resolution, pk=resolution_id)
+    denied = _edit_denied(request, resolution)
+    if denied:
+        return denied
 
     if resolution.status not in ('draft', 'pending'):
         messages.error(request, 'Cannot modify a closed resolution.')
         return redirect('cnb_resolution_detail', resolution_id=resolution_id)
 
     section_id = request.POST.get('section_id')
-    proposed_text = request.POST.get('proposed_text', '').strip()
+    # v3.41.3 — a textarea posts CRLF; section text is stored with LF. Left as
+    # CRLF, the "is the old text still inside the new text" test below never
+    # matched (every addition was typed a change) and the diffs flagged every
+    # line start as changed.
+    proposed_text = request.POST.get('proposed_text', '').replace('\r\n', '\n').replace('\r', '\n').strip()
     scope_note = request.POST.get('scope_note', '').strip()
 
     if not section_id:
         messages.error(request, 'A section must be selected.')
         return redirect('cnb_resolution_detail', resolution_id=resolution_id)
 
-    section = get_object_or_404(Section, pk=section_id)
+    section = get_object_or_404(Section.objects.select_related('article__document'), pk=section_id)
+    # An editor (not the chair) can only amend documents members can see. The
+    # amendment modal only offers those, so this is for a hand-made POST.
+    if not request.user.has_cnb_permission and not GoverningDocument.enabled().filter(
+            pk=section.article.document_id).exists():
+        messages.error(request, 'That section cannot be amended.')
+        return redirect('cnb_resolution_detail', resolution_id=resolution_id)
 
     # Auto-detect amendment type from the diff
     if not proposed_text:
@@ -900,7 +1074,7 @@ def add_amendment(request, resolution_id):
             # Partial deletion must include the revised section text (with clause removed)
             messages.error(request, 'For a partial deletion, provide the full section text with the removed clause omitted.')
             return redirect('cnb_resolution_detail', resolution_id=resolution_id)
-    elif section.content.strip() and section.content.strip() in proposed_text:
+    elif section.content.strip() and section.content.replace('\r\n', '\n').strip() in proposed_text:
         amendment_type = 'addition'
     else:
         amendment_type = 'change'
@@ -936,17 +1110,25 @@ def add_amendment(request, resolution_id):
     else:
         messages.success(request, f'Amendment for {section.full_identifier} added.')
 
+    from src import cnb_live
+    cnb_live.broadcast_amendments_changed(
+        resolution.pk, request.user,
+        ('proposed striking all of ' if whole_section_delete else
+         ('added an amendment to ' if created else 'updated the amendment to ')) + section.full_identifier)
+
     if request.POST.get('next') == 'edit':
         return redirect('cnb_edit_resolution', resolution_id=resolution_id)
     return redirect('cnb_resolution_detail', resolution_id=resolution_id)
 
 
 @login_required
-@cnb_required
 @require_POST
 def remove_amendment(request, resolution_id, amendment_id):
     """Remove a section amendment from a resolution."""
     resolution = get_object_or_404(Resolution, pk=resolution_id)
+    denied = _edit_denied(request, resolution)
+    if denied:
+        return denied
     amendment = get_object_or_404(ResolutionAmendment, pk=amendment_id, resolution=resolution)
 
     if resolution.status not in ('draft', 'pending'):
@@ -956,9 +1138,172 @@ def remove_amendment(request, resolution_id, amendment_id):
     identifier = str(amendment.section)
     amendment.delete()
     messages.success(request, f'Amendment for {identifier} removed.')
+    from src import cnb_live
+    cnb_live.broadcast_amendments_changed(resolution.pk, request.user, f'removed the amendment to {identifier}')
     if request.POST.get('next') == 'edit':
         return redirect('cnb_edit_resolution', resolution_id=resolution_id)
     return redirect('cnb_resolution_detail', resolution_id=resolution_id)
+
+
+# ── Structural changes: new articles / sections, renames (v3.43.0) ──────────
+
+def _structure_context(resolution, documents=None):
+    """
+    The resolution's structural changes, each with its plain-words
+    description and the cross-references it would strand; plus the data for
+    the maker's dropdowns when `documents` is given (editors only).
+    """
+    from src import cnb_structure
+    changes = list(
+        resolution.structure_changes
+        .select_related('document', 'article__document', 'section__article__document',
+                        'before_article', 'before_section', 'parent__document', 'parent__before_article')
+    )
+    rows = []
+    for change in changes:
+        rows.append({
+            'change': change,
+            'says': cnb_structure.describe(change),
+            'refs': cnb_structure.references_to_check(change),
+        })
+    context = {'structure_rows': rows}
+    if documents is not None:
+        context['structure_payload'] = cnb_structure.structure_payload(documents)
+        context['structure_new_articles'] = [
+            {'id': r['change'].pk, 'label': r['says']['heading'].split(': ', 1)[-1]}
+            for r in rows if r['change'].kind == 'new_article' and not r['change'].applied
+        ]
+    return context
+
+
+@login_required
+@require_POST
+def add_structure_change(request, resolution_id):
+    """Propose a new article/section or a rename. Chair and Editor collaborators."""
+    from src import cnb_live, cnb_structure
+    resolution = get_object_or_404(Resolution, pk=resolution_id)
+    denied = _edit_denied(request, resolution)
+    if denied:
+        return denied
+    back = 'cnb_edit_resolution' if request.POST.get('next') == 'edit' else 'cnb_resolution_detail'
+    if resolution.status not in ('draft', 'pending'):
+        messages.error(request, 'Cannot modify a closed resolution.')
+        return redirect('cnb_resolution_detail', resolution_id=resolution_id)
+
+    kind = request.POST.get('kind', '')
+    title = request.POST.get('title', '').strip()
+    content = request.POST.get('content', '').replace('\r\n', '\n').replace('\r', '\n').strip()
+    # Editors (not the chair) work only in documents members can see — the
+    # same rule as `add_amendment`. The maker only offers those; this is for a
+    # hand-made POST.
+    allowed_docs = GoverningDocument.objects.all() if request.user.has_cnb_permission else GoverningDocument.enabled()
+
+    def fail(message):
+        messages.error(request, message)
+        return redirect(back, resolution_id=resolution_id)
+
+    def pick(model, field, **scope):
+        raw = request.POST.get(field, '').strip()
+        return model.objects.filter(pk=raw, **scope).first() if raw.isdigit() else None
+
+    # v3.44.0 — `change_id` edits an existing proposal in place (same kind).
+    editing = None
+    change_raw = request.POST.get('change_id', '').strip()
+    if change_raw.isdigit():
+        editing = resolution.structure_changes.filter(pk=change_raw, applied=False).first()
+        if editing is None:
+            return fail('That proposal is no longer part of this resolution.')
+        kind = editing.kind
+
+    if editing is not None:
+        change = editing
+        change.title = title
+        change.document = change.article = change.section = None
+        change.before_article = change.before_section = change.parent = None
+    else:
+        change = ResolutionStructureChange(resolution=resolution, kind=kind, title=title, added_by=request.user)
+    try:
+        if kind == 'new_article':
+            change.document = pick(GoverningDocument, 'document_id', pk__in=allowed_docs.values('pk'))
+            if change.document is None or not title:
+                return fail('A new article needs a document and a title.')
+            change.before_article = pick(Article, 'before_article_id', document=change.document)
+            cnb_structure.plan_article_insert(change.document, change.before_article)
+        elif kind == 'new_section':
+            if not content:
+                return fail('A new section needs its text.')
+            parent_raw = request.POST.get('parent_id', '').strip()
+            if parent_raw.isdigit():
+                change.parent = resolution.structure_changes.filter(
+                    pk=parent_raw, kind='new_article', applied=False).first()
+                if change.parent is None:
+                    return fail('That new article is not part of this resolution.')
+            else:
+                change.article = pick(Article, 'article_id', document__in=allowed_docs)
+                if change.article is None:
+                    return fail('Choose the article the new section goes in.')
+                change.before_section = pick(Section, 'before_section_id', article=change.article)
+                cnb_structure.plan_section_insert(change.article, change.before_section)
+            change.content = content
+        elif kind == 'rename_article':
+            change.article = pick(Article, 'article_id', document__in=allowed_docs)
+            if change.article is None or not title:
+                return fail('Choose an article and give its new title.')
+            if title == change.article.title:
+                return fail('That is already the article\'s title.')
+            change.old_title = change.article.title
+            resolution.structure_changes.filter(kind=kind, article=change.article, applied=False).exclude(pk=change.pk).delete()
+        elif kind == 'rename_section':
+            change.section = pick(Section, 'section_id', article__document__in=allowed_docs)
+            if change.section is None or not title:
+                return fail('Choose a section and give its new title.')
+            if title == change.section.title:
+                return fail('That is already the section\'s title.')
+            change.old_title = change.section.title
+            resolution.structure_changes.filter(kind=kind, section=change.section, applied=False).exclude(pk=change.pk).delete()
+        else:
+            return fail('Unknown kind of change.')
+    except cnb_structure.StructureError as e:
+        return fail(str(e))
+
+    change.save()
+    heading = cnb_structure.describe(change)['heading']
+    if editing is not None:
+        messages.success(request, f'Updated: {heading}.')
+        cnb_live.broadcast_amendments_changed(resolution.pk, request.user, 'changed a proposal: ' + heading)
+    else:
+        messages.success(request, f'Added: {heading}. Nothing changes in the live document until this resolution passes.')
+        cnb_live.broadcast_amendments_changed(resolution.pk, request.user, 'proposed: ' + heading)
+    return redirect(back, resolution_id=resolution_id)
+
+
+@login_required
+@require_POST
+def remove_structure_change(request, resolution_id, change_id):
+    from src import cnb_live, cnb_structure
+    resolution = get_object_or_404(Resolution, pk=resolution_id)
+    denied = _edit_denied(request, resolution)
+    if denied:
+        return denied
+    change = get_object_or_404(ResolutionStructureChange, pk=change_id, resolution=resolution)
+    back = 'cnb_edit_resolution' if request.POST.get('next') == 'edit' else 'cnb_resolution_detail'
+    if resolution.status not in ('draft', 'pending') or change.applied:
+        messages.error(request, 'Cannot modify a closed resolution.')
+        return redirect('cnb_resolution_detail', resolution_id=resolution_id)
+    heading = cnb_structure.describe(change)['heading']
+    change.delete()   # a new article takes its proposed sections with it (parent CASCADE)
+    messages.success(request, f'Removed: {heading}.')
+    cnb_live.broadcast_amendments_changed(resolution.pk, request.user, 'withdrew: ' + heading)
+    return redirect(back, resolution_id=resolution_id)
+
+
+#: Where a resolution's status may go from each status (v3.44.2). Passed,
+#: failed and withdrawn are final. These are the buttons resolution_detail.html
+#: offers, plus pending → withdrawn from the docstring below.
+_STATUS_TRANSITIONS = {
+    'draft': {'pending', 'withdrawn'},
+    'pending': {'passed', 'failed', 'withdrawn', 'draft'},
+}
 
 
 @login_required
@@ -971,8 +1316,10 @@ def set_resolution_status(request, resolution_id):
       draft → pending
       pending → passed | failed | withdrawn
       draft → withdrawn
+      pending → draft
+    Enforced since v3.44.2 (`_STATUS_TRANSITIONS`).
     """
-    resolution = get_object_or_404(Resolution, pk=resolution_id)
+    get_object_or_404(Resolution, pk=resolution_id)
     new_status = request.POST.get('status', '').strip()
     valid = {'draft', 'pending', 'passed', 'failed', 'withdrawn'}
 
@@ -980,14 +1327,41 @@ def set_resolution_status(request, resolution_id):
         messages.error(request, 'Invalid status.')
         return redirect('cnb_resolution_detail', resolution_id=resolution_id)
 
+    from src.cnb_structure import StructureError, apply_structure_changes
     with transaction.atomic():
+        # v3.44.2 — the docstring's transitions are now enforced, against the
+        # row as it is NOW (locked). Before, any status could be posted from
+        # any status: "passed" sent again from a stale tab re-applied the
+        # resolution's old text over whatever later resolutions had written,
+        # and "failed"/"draft" could be posted on a passed resolution.
+        resolution = Resolution.objects.select_for_update().get(pk=resolution_id)
+        if new_status not in _STATUS_TRANSITIONS.get(resolution.status, ()):
+            messages.error(
+                request,
+                f'This resolution is {resolution.get_status_display().lower()}; '
+                f'it cannot be changed to "{dict(Resolution.STATUS_CHOICES).get(new_status, new_status).lower()}". '
+                'Nothing was changed.')
+            return redirect('cnb_resolution_detail', resolution_id=resolution_id)
         resolution.status = new_status
         if new_status == 'passed':
             resolution.passed_at = timezone.now()
-            resolution.apply_amendments(applied_by=request.user)
+            # v3.43.0 — new articles/sections (with renumbering) and renames.
+            # After the amendments, so they record the pre-renumbering
+            # citations. A proposal that can no longer be applied (the
+            # document changed under it) stops the whole pass: nothing is
+            # half-applied, and the chair is told why.
+            try:
+                resolution.apply_amendments(applied_by=request.user)
+                structural = apply_structure_changes(resolution, request.user)
+            except StructureError as e:
+                transaction.set_rollback(True)
+                messages.error(request, f'Not passed: a change could not be applied. {e}')
+                return redirect('cnb_resolution_detail', resolution_id=resolution_id)
             messages.success(
                 request,
-                f'Resolution passed — {resolution.amendments.count()} section(s) updated.'
+                f'Resolution passed — {resolution.amendments.count()} section(s) updated'
+                + (f', {structural} structural change(s) applied (articles/sections added, renumbered or renamed). '
+                   'Check the cross-reference report on the C&B manager.' if structural else '.')
             )
         elif new_status == 'failed':
             resolution.failed_at = timezone.now()
@@ -1071,18 +1445,52 @@ def resolution_print(request, resolution_id):
         ),
         pk=resolution_id
     )
-    return render(request, 'cnb/resolution_print.html', {'resolution': resolution})
+    context = {'resolution': resolution}
+    context.update(_structure_context(resolution))
+    return render(request, 'cnb/resolution_print.html', context)
+
+
+@login_required
+def resolution_document_preview(request, resolution_id):
+    """
+    How the governing documents would read if this resolution passed
+    (v3.44.0). Open to anyone who can open the resolution; a member is shown
+    only documents that are switched on for members. See src/cnb_projection.py:
+    it runs the real "passed" logic and rolls it back.
+    """
+    from src import cnb_projection
+    resolution = get_object_or_404(Resolution, pk=resolution_id)
+    context = {'resolution': resolution, 'documents': [], 'error': '', 'closed': False}
+    if resolution.status not in ('draft', 'pending'):
+        context['closed'] = True
+    else:
+        allowed = None if request.user.has_cnb_permission else set(
+            GoverningDocument.enabled().values_list('pk', flat=True))
+        context.update(cnb_projection.project(resolution, request.user, allowed))
+    return render(request, 'cnb/resolution_document_preview.html', context)
 
 
 # ── Section context API (AJAX) ────────────────────────────────────────────────
 
 @login_required
-@cnb_required
 def section_context_api(request, section_id):
     """Return section data as JSON for the amendment modal, including neighboring sections."""
     section = get_object_or_404(
         Section.objects.select_related('article__document'), pk=section_id
     )
+    # v3.41.1 — the amendment modal calls this, so editors need it too. The
+    # chair gets every section (a document has to be editable before it is
+    # switched on). An editor of an open resolution gets sections of the
+    # documents members can already read, and nothing else: this must not be a
+    # way to read a switched-off document such as the unpassed Foreword.
+    if not request.user.has_cnb_permission:
+        is_editor = ResolutionCollaborator.objects.filter(
+            user=request.user, role='editor',
+            resolution__status__in=('draft', 'pending'),
+        ).exists()
+        visible = GoverningDocument.enabled().filter(pk=section.article.document_id).exists()
+        if not (is_editor and visible):
+            return JsonResponse({'error': 'Not allowed.'}, status=403)
     article = section.article
     siblings = list(article.sections.order_by('display_order'))
     idx = next((i for i, s in enumerate(siblings) if s.pk == section.pk), None)

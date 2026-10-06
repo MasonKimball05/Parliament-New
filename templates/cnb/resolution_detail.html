@@ -32,9 +32,28 @@
                         {% if resolution.vote_date %}
                         <span>· Vote: {{ resolution.vote_date|date:"M j, Y" }}</span>
                         {% endif %}
+                        {% if resolution.status == 'draft' or resolution.status == 'pending' %}
+                        {# v3.44.0 — live connection indicator; set by cnb/_resolution_watch.html #}
+                        <span id="liveStatus" class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-semibold bg-white/15 border border-white/20 text-white" role="status" title="Connecting…">
+                            <span id="liveStatusDot" class="inline-block rounded-full" style="width:.5rem;height:.5rem;background:#fbbf24;"></span>
+                            <span id="liveStatusText">Connecting…</span>
+                        </span>
+                        {% endif %}
                     </div>
+                    {% if resolution.status == 'draft' or resolution.status == 'pending' %}
+                    <p id="watchPresence" class="hidden mt-2 text-sm text-white" role="status">
+                        <span class="font-semibold">Being edited right now by:</span> <span id="watchPresenceNames"></span>
+                    </p>
+                    {% endif %}
                 </div>
                 <div class="flex items-center gap-2 flex-shrink-0">
+                    {% if resolution.status == 'draft' or resolution.status == 'pending' %}
+                    <a href="{% url 'cnb_resolution_document_preview' resolution_id=resolution.pk %}" target="_blank"
+                       class="inline-flex items-center gap-2 bg-white/15 hover:bg-white/25 text-white px-3 py-2 rounded-lg text-sm font-medium border border-white/20 transition-colors"
+                       title="How the Constitution / Bylaws would read if this resolution passed">
+                        Preview Document
+                    </a>
+                    {% endif %}
                     <a href="{% url 'cnb_resolution_print' resolution_id=resolution.pk %}" target="_blank"
                        class="inline-flex items-center gap-2 bg-white/15 hover:bg-white/25 text-white px-3 py-2 rounded-lg text-sm font-medium border border-white/20 transition-colors">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -201,7 +220,7 @@
                                 <div class="min-w-0">
                                     <div class="flex items-center gap-2 flex-wrap">
                                         <p class="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                                            {{ amendment.section.full_identifier }}
+                                            {{ amendment.display_identifier }}
                                         </p>
                                         <!-- Amendment type badge -->
                                         <span class="px-2 py-0.5 rounded-full text-xs font-semibold
@@ -264,7 +283,7 @@
                             <div>
                                 <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Entire section to be deleted</p>
                                 <div class="bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800 rounded-lg p-3 text-xs text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-wrap max-h-40 overflow-y-auto line-through opacity-70">{{ amendment.original_text_snapshot }}</div>
-                                <p class="text-xs text-red-600 dark:text-red-400 mt-1.5">This section will be cleared and suspended if the resolution passes.</p>
+                                <p class="text-xs text-red-600 dark:text-red-400 mt-1.5">This section is removed from the document if the resolution passes.{% if amendment.renumbering_note %} <span class="font-semibold">{{ amendment.renumbering_note }}</span>{% endif %}</p>
                             </div>
                             {% else %}
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -299,6 +318,11 @@
                 {% include "cnb/_note_margin.html" with anchor="amendments" notes=pinned_notes.amendments %}
                 </div>
 
+                <!-- New articles / sections / renames (v3.43.0) -->
+                {% if structure_rows or can_edit %}
+                {% include "cnb/_structure_changes.html" with structure_can_edit=can_edit structure_next="" %}
+                {% endif %}
+
             </div>
 
             <!-- Sidebar -->
@@ -308,8 +332,9 @@
                 {% include "cnb/_resolution_notes.html" %}
                 {% endif %}
 
-                <!-- Status Actions -->
-                {% if can_edit %}
+                <!-- Status Actions — chair only (v3.41.1). Editors edit the text
+                     and amendments; `set_resolution_status` is @cnb_required. -->
+                {% if can_edit and is_cnb %}
                 <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
                     <div class="px-5 py-4 border-b border-gray-100 dark:border-gray-700">
                         <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100">Actions</h3>
@@ -486,8 +511,9 @@
 
 <!-- Add Section Amendment Modal -->
 {% if can_edit %}
+{% include "cnb/_structure_maker.html" with structure_next="" %}
 <div id="addAmendmentModal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-3">
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-5xl flex flex-col" style="max-height: 92vh;">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-5xl flex flex-col" style="height: 92vh; max-height: 92vh; overscroll-behavior: contain;">
 
         <!-- Modal header -->
         <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between flex-shrink-0">
@@ -502,7 +528,7 @@
             </button>
         </div>
 
-        <form method="post" action="{% url 'cnb_add_amendment' resolution_id=resolution.pk %}" class="flex flex-col flex-1 overflow-hidden" id="amendmentForm">
+        <form method="post" action="{% url 'cnb_add_amendment' resolution_id=resolution.pk %}" class="flex flex-col flex-1 overflow-hidden" style="min-height: 0;" id="amendmentForm">
             {% csrf_token %}
 
             <!-- Top controls (section + type + scope) -->
@@ -552,7 +578,8 @@
             </div>
 
             <!-- Main editor area: textarea ←→ diff preview -->
-            <div class="flex-1 overflow-hidden">
+            {# v3.41.3 — was overflow-hidden: on a short or narrow screen the stacked panels were clipped with nothing to scroll, so the wheel scrolled the page behind. #}
+            <div class="flex-1 overflow-y-auto" style="min-height: 0; overscroll-behavior: contain;">
                 <!-- Empty state (no section selected) -->
                 <div id="editorEmptyState" class="h-full flex items-center justify-center text-center px-8">
                     <div>
@@ -564,16 +591,23 @@
                 </div>
 
                 <!-- Editor panels (shown once section selected) -->
-                <div id="editorPanels" class="hidden h-full grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x divide-gray-100 dark:divide-gray-700" style="height: 100%;">
+                <div id="editorPanels" class="hidden grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x divide-gray-100 dark:divide-gray-700" style="min-height: 100%;">
 
                     <!-- Left: Editable textarea -->
                     <div class="flex flex-col overflow-hidden">
                         <div class="px-4 py-2 bg-gray-50 dark:bg-gray-700/50 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between flex-shrink-0">
                             <span class="text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">Edit Section Text</span>
-                            <button type="button" id="resetTextBtn"
-                                    class="text-xs text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-colors">
-                                Reset to original
-                            </button>
+                            <span class="flex items-center gap-3">
+                                {# v3.41.5 — one click for "strike this whole section". Same as clearing the box by hand: empty text + no clause = whole-section deletion. #}
+                                <button type="button" id="removeSectionBtn"
+                                        class="text-xs font-semibold text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 transition-colors">
+                                    Remove entire section
+                                </button>
+                                <button type="button" id="resetTextBtn"
+                                        class="text-xs text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-colors">
+                                    Reset to original
+                                </button>
+                            </span>
                         </div>
                         <textarea name="proposed_text" id="proposedTextArea"
                                   class="flex-1 px-4 py-3 border-0 dark:bg-gray-800 dark:text-gray-100 text-sm leading-relaxed resize-none focus:outline-none focus:ring-0"
@@ -608,7 +642,7 @@
             <!-- Whole-section deletion shortcut -->
             <div id="deletionNotice" class="hidden px-6 py-3 border-t border-red-100 dark:border-red-900/30 bg-red-50 dark:bg-red-900/20 flex-shrink-0">
                 <p class="text-xs text-red-700 dark:text-red-300">
-                    <strong>Deleting entire section:</strong> Clear all text in the editor to flag this section for complete removal. If removing only specific clauses, leave the rest of the text intact.
+                    <strong>Removing the entire section:</strong> when the resolution passes, this section is taken out of the document and the sections after it move up one number. To remove only specific clauses, leave the rest of the text in place.
                 </p>
             </div>
 
@@ -633,6 +667,13 @@
 // ── Amendment Editor ──────────────────────────────────────────────────────────
 (function() {
     var modal        = document.getElementById('addAmendmentModal');
+    // v3.41.3 — lock the page behind while the editor is open. Watching the
+    // class covers every open/close path (new, edit, Cancel, the X).
+    if (modal) {
+        new MutationObserver(function() {
+            document.body.style.overflow = modal.classList.contains('hidden') ? '' : 'hidden';
+        }).observe(modal, { attributes: true, attributeFilter: ['class'] });
+    }
     var select       = document.getElementById('sectionSelect');
     var proposedTA   = document.getElementById('proposedTextArea');
     var diffEl       = document.getElementById('diffPreview');
@@ -654,7 +695,8 @@
         // Each token = optional leading whitespace + the word.
         // Keeps newlines bound to the following word so the LCS can't
         // match a bare space in one location with a bare space elsewhere.
-        return str.match(/\s*\S+/g) || [];
+        // v3.41.3: CRLF normalized, or every line start reads as changed against an LF original.
+        return (str || '').replace(/\r\n?/g, '\n').match(/\s*\S+/g) || [];
     }
 
     function wordDiff(a, b) {
@@ -788,13 +830,12 @@
         clearTimeout(diffTimer);
         diffTimer = setTimeout(function() {
             renderDiff(originalText, proposedTA ? proposedTA.value : '');
-            // Show deletion notice hint when textarea is empty and type is deletion
-            var type = getSelectedType();
-            if (type === 'deletion' && proposedTA && !proposedTA.value.trim()) {
-                deletionNote.classList.remove('hidden');
-            } else {
-                deletionNote.classList.add('hidden');
-            }
+            // Show the deletion notice when the text has been cleared.
+            // v3.41.5: this called `getSelectedType()`, which does not exist
+            // (the type selector was removed), so it threw on every keystroke
+            // and the notice never showed. Same test as resolution_form.html.
+            var isDeletion = proposedTA && !proposedTA.value.trim() && originalText.trim() !== '';
+            if (deletionNote) deletionNote.classList.toggle('hidden', !isDeletion);
         }, 80);
     }
 
@@ -1030,6 +1071,18 @@ document.addEventListener('DOMContentLoaded', function() {
     // Reset to original button
     var resetBtn = document.getElementById('resetTextBtn');
     if (resetBtn) resetBtn.addEventListener('click', resetToOriginal);
+    // v3.41.5 — "Remove entire section": empty text and no clause is what
+    // `add_amendment` records as a whole-section deletion. The `input` event
+    // redraws the tracked changes (all struck through) and shows the notice.
+    var removeSectionBtn = document.getElementById('removeSectionBtn');
+    if (removeSectionBtn) removeSectionBtn.addEventListener('click', function() {
+        var ta = document.getElementById('proposedTextArea');
+        var scope = document.getElementById('scopeNoteInput');
+        if (!ta) return;
+        ta.value = '';
+        if (scope) scope.value = '';
+        ta.dispatchEvent(new Event('input', { bubbles: true }));
+    });
 
     // Open / close collaborator modal
     var openCollabBtn = document.getElementById('js-open-collab-modal');
@@ -1045,6 +1098,11 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 </script>
+
+{% if resolution.status == 'draft' or resolution.status == 'pending' %}
+{% include "cnb/_resolution_watch.html" %}
+{% if can_edit %}{% include "cnb/_amendment_lock.html" %}{% endif %}
+{% endif %}
 
 {% include "cnb/_notes_drawer.html" %}
 {% endblock %}

@@ -1794,6 +1794,44 @@ DOCUMENTS = [
                     },
                 ],
             },
+            {
+                # Added v3.44.1 (10-02-26). Section 3 was on the original static
+                # C&B page but was never carried into this file; the wording is
+                # that page's, unchanged.
+                'number': '3',
+                'title': 'Definition of Common Terms',
+                'sections': [
+                    {
+                        'number': '1',
+                        'title': '',
+                        'content': (
+                            'Good Standing\n'
+                            'Members in "Good Standing" are eligible to vote, hold office, and enjoy other membership '
+                            'privileges. Requirements:\n'
+                            '1. Financial Standing: All dues, fines, fees paid\n'
+                            '2. Conduct: Adheres to all rules, no outstanding Kai cases\n'
+                            '3. Participation: Active participation in chapter events, meetings, activities\n'
+                            '4. Academic Standing: Meets or exceeds required GPA\n\n'
+                            'Quorum\n'
+                            'The number of members required to pass legislation. A quorum is a simple majority of active, '
+                            'Good Standing members within the chapter.\n\n'
+                            'Supermajority\n'
+                            'Two-Thirds (67%) of all members present. For voting, this is two-thirds of all eligible voting '
+                            'members of the chapter present.\n\n'
+                            'Commonly Used Acronyms\n'
+                            'EVP: Executive Vice President\n'
+                            'VPA: VP of Administration\n'
+                            'VPB: VP of Brotherhood\n'
+                            'VPF: VP of Finance\n'
+                            'VPE: VP of Education\n'
+                            'VPP: VP of Programming\n'
+                            'VPR: VP of Recruitment\n'
+                            'VPRM: VP of Risk Management\n'
+                            'PNM: Potential New Member'
+                        ),
+                    },
+                ],
+            },
         ],
     },
 ]

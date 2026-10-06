@@ -162,6 +162,8 @@
             color: #444;
             margin-bottom: 2pt;
         }
+        .inline-amend-callout .amend-delta-row { display: block; }
+        .inline-amend-callout .amend-delta-label { font-style: normal; font-weight: bold; font-size: 9pt; color: #444; }
         .inline-amend-callout .amend-delta-add { color: #155724; }
         .inline-amend-callout .amend-delta-del { color: #721c24; text-decoration: line-through; }
         /* ── Appendix ─────────────────────────────────────── */
@@ -256,6 +258,27 @@
 <div class="body-text">{{ resolution.resolution_body }}</div>
 {% endif %}
 
+{% if structure_rows %}
+<!-- v3.43.0 — new articles / sections and renames this resolution makes. Server-rendered
+     (the appendix below is built by script) so it is on the page, and in the PDF, regardless. -->
+<p class="section-heading">Structural Changes</p>
+<div class="body-text" style="white-space: normal;">
+    <p style="margin-bottom:6pt;">Upon passage, the following changes are made to the structure of the governing documents. Articles and sections that follow an insertion are renumbered accordingly.</p>
+    <ol style="margin:0 0 0 18pt; padding:0;">
+    {% for row in structure_rows %}
+        <li style="margin-bottom:8pt;">
+            <strong>{{ row.says.heading }}.</strong>
+            {% if row.says.detail %} {{ row.says.detail }}{% endif %}
+            {% if row.says.renumbering %} <em>{{ row.says.renumbering }}</em>{% endif %}
+            {% if row.change.kind == 'new_section' and row.change.content %}
+            <div class="amendment-text" style="border-color:#ccc; margin-top:4pt;"><span style="white-space:pre-wrap;">{{ row.change.content }}</span></div>
+            {% endif %}
+        </li>
+    {% endfor %}
+    </ol>
+</div>
+{% endif %}
+
 <!-- Section III — Conclusion and Certification -->
 <p class="section-heading">Section III &mdash; Conclusion and Certification</p>
 
@@ -312,7 +335,7 @@ document.addEventListener('DOMContentLoaded', function() {
         {% for amendment in resolution.amendments.all %}
         {
             num: {{ forloop.counter }},
-            section: '{{ amendment.section.full_identifier|escapejs }}',
+            section: '{{ amendment.display_identifier|escapejs }}',
             type: '{{ amendment.amendment_type|escapejs }}',
             scope: '{{ amendment.scope_note|escapejs }}',
             proposed: '{{ amendment.proposed_text|escapejs }}',
@@ -327,21 +350,28 @@ document.addEventListener('DOMContentLoaded', function() {
     ];
 
     // ── Word-level diff (LCS) ────────────────────────────────────────────────
-    function tokenize(text) { return text.match(/\s*\S+/g) || []; }
+    // v3.41.3 — tokens are COMPARED by `key()`, not as raw strings. A token
+    // carries its leading whitespace, and the stored original (LF) and a
+    // proposed text posted from a textarea (CRLF), or two different indents,
+    // made the first word of every line look changed. The preview then showed
+    // only the list markers ("2. a. b. d. ...") as the change.
+    function tokenize(text) { return (text || '').replace(/\r\n?/g, '\n').match(/\s*\S+/g) || []; }
+    function key(tok) { return (tok.indexOf('\n') !== -1 ? '\n' : ' ') + tok.trim(); }
 
     function diff(original, proposed) {
         var a = tokenize(original), b = tokenize(proposed);
+        var ka = a.map(key), kb = b.map(key);
         var m = a.length, n = b.length;
         // LCS table
         var dp = new Array(m + 1);
         for (var i = 0; i <= m; i++) { dp[i] = new Array(n + 1).fill(0); }
         for (var i = 1; i <= m; i++)
             for (var j = 1; j <= n; j++)
-                dp[i][j] = a[i-1] === b[j-1] ? dp[i-1][j-1] + 1 : Math.max(dp[i-1][j], dp[i][j-1]);
+                dp[i][j] = ka[i-1] === kb[j-1] ? dp[i-1][j-1] + 1 : Math.max(dp[i-1][j], dp[i][j-1]);
         // Traceback
         var ops = [], i = m, j = n;
         while (i > 0 || j > 0) {
-            if (i > 0 && j > 0 && a[i-1] === b[j-1]) { ops.unshift({t:'same', v:b[j-1]}); i--; j--; }
+            if (i > 0 && j > 0 && ka[i-1] === kb[j-1]) { ops.unshift({t:'same', v:b[j-1]}); i--; j--; }
             else if (j > 0 && (i === 0 || dp[i][j-1] >= dp[i-1][j])) { ops.unshift({t:'add', v:b[j-1]}); j--; }
             else { ops.unshift({t:'del', v:a[i-1]}); i--; }
         }
@@ -373,14 +403,22 @@ document.addEventListener('DOMContentLoaded', function() {
         return html;
     }
 
-    // Extract only the delta tokens (added for addition/change, deleted for deletion)
+    // What changed, as runs of removed / added words in document order.
+    // v3.41.3 — a Change used to list only the ADDED words, so an amendment
+    // that removes a line showed nothing useful. Removed text is now shown
+    // struck through, added text plain, each run in its own quotes.
     function extractDelta(a) {
         var ops = diff(a.original, a.proposed || '');
-        if (a.type === 'deletion' && !a.proposed) {
-            return { text: ops.filter(function(o){ return o.t==='del'; }).map(function(o){ return o.v.trim(); }).join(' ').trim(), cls: 'amend-delta-del' };
-        }
-        var added = ops.filter(function(o){ return o.t==='add'; }).map(function(o){ return o.v.trim(); }).join(' ').trim();
-        return { text: added, cls: 'amend-delta-add' };
+        var runs = [], cur = null;
+        ops.forEach(function(o) {
+            if (o.t === 'same') { cur = null; return; }
+            if (!cur || cur.t !== o.t) { cur = { t: o.t, words: [] }; runs.push(cur); }
+            cur.words.push(o.v.trim());
+        });
+        if (a.type === 'addition') runs = runs.filter(function(r) { return r.t === 'add'; });
+        return runs.map(function(r) {
+            return { text: r.words.join(' '), cls: r.t === 'add' ? 'amend-delta-add' : 'amend-delta-del' };
+        });
     }
 
     // ── Inline marker replacement ─────────────────────────────────────────────
@@ -394,10 +432,11 @@ document.addEventListener('DOMContentLoaded', function() {
     function buildInlineHTML(a) {
         var typeLabel = a.type.charAt(0).toUpperCase() + a.type.slice(1);
         var ref = a.section + ' (' + typeLabel + ')' + (a.scope ? ' \u2014 ' + a.scope : '');
-        var delta = extractDelta(a);
-        var deltaHTML = delta.text
-            ? '<span class="' + delta.cls + '">\u201c' + esc(delta.text) + '\u201d</span>'
-            : '';
+        var deltaHTML = extractDelta(a).map(function(d) {
+            var label = d.cls === 'amend-delta-del' ? 'Removed: ' : 'Added: ';
+            return '<span class="amend-delta-row"><span class="amend-delta-label">' + label + '</span>'
+                 + '<span class="' + d.cls + '">\u201c' + esc(d.text) + '\u201d</span></span>';
+        }).join('');
         return '<span class="inline-amend-callout">'
             + '<span class="amend-ref">' + esc(ref) + '</span>'
             + deltaHTML

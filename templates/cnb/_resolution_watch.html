@@ -1,0 +1,93 @@
+{% comment %}
+The resolution's own page: who is editing it right now, and a "Live" pill
+(v3.44.0). Any signed-in member who can open the page connects to the
+read-only `/watch/` socket; it carries presence only.
+
+For someone who can edit (`can_edit`), it also provides `window.cnbLive` for
+the amendment popup's lock: a second, editor socket that is open only while
+the popup is. Opening the popup therefore shows them to others as editing,
+which they are.
+{% endcomment %}
+<script nonce="{{ request.csp_nonce }}">
+(function() {
+    var RID = '{{ resolution.pk }}';
+    var bar = document.getElementById('watchPresence'), names = document.getElementById('watchPresenceNames');
+    var dot = document.getElementById('liveStatusDot'), text = document.getElementById('liveStatusText'),
+        pill = document.getElementById('liveStatus');
+    function url(path) {
+        return (window.location.protocol === 'https:' ? 'wss' : 'ws') + '://' + window.location.host + '/ws/cnb/resolutions/' + RID + '/' + path;
+    }
+    function setStatus(live) {
+        if (!pill) return;
+        dot.style.background = live ? '#4ade80' : '#fbbf24';
+        text.textContent = live ? 'Live' : 'Reconnecting…';
+        pill.title = live ? 'Connected: this page shows who is editing as it happens.' : 'Not connected right now.';
+    }
+
+    // ── Presence (everyone) ──────────────────────────────────────────────────
+    var peers = {}, delay = 1000, myEditorCid = null;
+    function render() {
+        var list = Object.keys(peers).filter(function(c) { return c !== myEditorCid; }).map(function(c) { return peers[c]; });
+        var unique = list.filter(function(n, i) { return list.indexOf(n) === i; });
+        names.textContent = unique.join(', ');
+        bar.classList.toggle('hidden', unique.length === 0);
+    }
+    function watch() {
+        var ws = new WebSocket(url('watch/'));
+        ws.onopen = function() { delay = 1000; peers = {}; setStatus(true); render(); };
+        ws.onmessage = function(ev) {
+            var m; try { m = JSON.parse(ev.data); } catch (e) { return; }
+            if (m.t === 'join' || m.t === 'here') { peers[m.who.cid] = m.who.name; render(); }
+            else if (m.t === 'leave') { delete peers[m.cid]; render(); }
+        };
+        ws.onclose = function() { setStatus(false); peers = {}; render(); setTimeout(watch, delay); delay = Math.min(delay * 2, 30000); };
+    }
+    watch();
+
+    {% if can_edit %}
+    // ── Amendment lock (editors, only while the popup is open) ───────────────
+    var ed = null, me = null, chair = false, locks = {}, queue = [], pingTimer = null;
+    function changed(takenBy) { if (window.onAmendLockChange) window.onAmendLockChange(takenBy || ''); }
+    function sendEd(obj) {
+        if (ed && ed.readyState === 1) ed.send(JSON.stringify(obj)); else queue.push(obj);
+    }
+    function openEditor() {
+        if (ed && ed.readyState <= 1) return;
+        ed = new WebSocket(url(''));
+        ed.onopen = function() { pingTimer = setInterval(function() { sendEd({ t: 'ping' }); }, 25000); };
+        ed.onmessage = function(ev) {
+            var m; try { m = JSON.parse(ev.data); } catch (e) { return; }
+            if (m.t === 'init') {
+                me = m.me; chair = !!m.chair; myEditorCid = me.cid; locks = {};
+                Object.keys(m.locks).forEach(function(k) { if (k.indexOf('amend:') === 0) locks[k] = m.locks[k]; });
+                queue.splice(0).forEach(sendEd); render(); changed();
+            } else if ((m.t === 'lock' || m.t === 'denied') && m.f.indexOf('amend:') === 0) {
+                locks[m.f] = m.who; changed();
+            } else if (m.t === 'unlock' && m.f.indexOf('amend:') === 0) {
+                if (locks[m.f] && locks[m.f].cid === m.cid) { delete locks[m.f]; changed(m.taken_by && me && m.cid === me.cid ? m.taken_by : ''); }
+            }
+        };
+        ed.onclose = function() { clearInterval(pingTimer); locks = {}; myEditorCid = null; render(); changed(); };
+    }
+    window.cnbLive = {
+        lockAmendment: function(id) { openEditor(); sendEd({ t: 'lock', f: 'amend:' + id }); },
+        unlockAmendment: function(id) {
+            sendEd({ t: 'unlock', f: 'amend:' + id });
+            delete locks['amend:' + id];
+            // The popup closed or moved on: stop counting as "editing".
+            setTimeout(function() {
+                var modal = document.getElementById('addAmendmentModal');
+                if (ed && modal && modal.classList.contains('hidden')) { queue = []; ed.close(); }
+            }, 200);
+        },
+        amendmentHolder: function(id) {
+            var who = locks['amend:' + id];
+            return who ? { name: who.name, mine: !!me && who.cid === me.cid } : null;
+        },
+        takeOverAmendment: function(id) { sendEd({ t: 'takeover', f: 'amend:' + id }); },
+        isChair: function() { return chair; },
+        connected: function() { return !!ed && ed.readyState === 1; }
+    };
+    {% endif %}
+})();
+</script>

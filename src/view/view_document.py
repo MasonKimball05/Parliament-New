@@ -19,46 +19,80 @@ import bleach
 logger = logging.getLogger(__name__)
 
 
+#: Largest image a single PDF page is rendered to for the in-page preview.
+#: ⚠️ THIS CAP IS THE FIX FOR THE 10-04-26 OUTAGE (v3.44.4). The preview used
+#: to render every page at 150 dpi of whatever size the PDF *claimed* the page
+#: was. A phone or copier scan often declares its page in pixels-as-points
+#: (2550 x 3300 pt, i.e. 35 x 46 inches), so one page became a 5,300 x 6,900
+#: pixel bitmap: over 100 MB raw, per page, plus the PNG and base64 copies. A
+#: 5-page, 4 MB scan drove the server past 570 MB and into swap, and because
+#: every ordinary page shares Daphne's one sync thread, the whole site stopped
+#: answering until it finished. 1,400 px is wider than any phone or iPad
+#: column this preview is shown in.
+PDF_PREVIEW_MAX_WIDTH_PX = 1400
+PDF_PREVIEW_MAX_HEIGHT_PX = 2000
+PDF_PREVIEW_JPEG_QUALITY = 80
+
+
+def _pdf_preview_zoom(page_width_pt, page_height_pt, dpi):
+    """Zoom for `dpi`, reduced so the bitmap fits the preview's pixel cap."""
+    zoom = dpi / 72
+    if page_width_pt > 0 and page_width_pt * zoom > PDF_PREVIEW_MAX_WIDTH_PX:
+        zoom = PDF_PREVIEW_MAX_WIDTH_PX / page_width_pt
+    if page_height_pt > 0 and page_height_pt * zoom > PDF_PREVIEW_MAX_HEIGHT_PX:
+        zoom = PDF_PREVIEW_MAX_HEIGHT_PX / page_height_pt
+    return zoom
+
+
 def convert_pdf_to_images(file_path, max_pages=50, dpi=150):
     """
     Convert PDF pages to base64 images for mobile viewing.
-    Returns a list of base64-encoded PNG images.
+
+    Returns ``{'images': [...], 'total_pages': n, 'truncated': bool}`` or
+    ``None`` if the PDF cannot be read. Each image is a JPEG no larger than
+    PDF_PREVIEW_MAX_WIDTH_PX x PDF_PREVIEW_MAX_HEIGHT_PX (see the note on
+    those constants before raising them).
     """
     try:
         import fitz  # PyMuPDF
-
-        images = []
-        doc = fitz.open(file_path)
-
-        # Limit pages to prevent memory issues
-        num_pages = min(len(doc), max_pages)
-
-        for page_num in range(num_pages):
-            page = doc[page_num]
-            # Render page to image at specified DPI
-            mat = fitz.Matrix(dpi / 72, dpi / 72)
-            pix = page.get_pixmap(matrix=mat)
-
-            # Convert to base64
-            img_data = pix.tobytes("png")
-            img_base64 = base64.b64encode(img_data).decode('utf-8')
-            images.append({
-                'data': img_base64,
-                'page': page_num + 1,
-                'width': pix.width,
-                'height': pix.height,
-            })
-
-        doc.close()
-
-        return {
-            'images': images,
-            'total_pages': len(doc) if hasattr(doc, '__len__') else num_pages,
-            'truncated': num_pages < len(doc) if hasattr(doc, '__len__') else False,
-        }
     except ImportError:
         logger.warning("PyMuPDF (fitz) library not installed, cannot convert PDF to images")
         return None
+
+    try:
+        images = []
+        doc = fitz.open(file_path)
+        try:
+            # Read the page count while the document is open. Asking a closed
+            # document for its length raises in current PyMuPDF, which used
+            # to send every successful conversion to the except below.
+            total_pages = len(doc)
+            num_pages = min(total_pages, max_pages)
+
+            for page_num in range(num_pages):
+                page = doc[page_num]
+                zoom = _pdf_preview_zoom(page.rect.width, page.rect.height, dpi)
+                pix = page.get_pixmap(matrix=fitz.Matrix(zoom, zoom), alpha=False)
+                img_data = pix.tobytes("jpeg", jpg_quality=PDF_PREVIEW_JPEG_QUALITY)
+                images.append({
+                    'data': base64.b64encode(img_data).decode('ascii'),
+                    'mime': 'image/jpeg',
+                    'page': page_num + 1,
+                    'width': pix.width,
+                    'height': pix.height,
+                })
+                # Drop the bitmap, and MuPDF's cache of the page's decoded
+                # images, before rendering the next page.
+                del pix, img_data, page
+                fitz.TOOLS.store_shrink(100)
+        finally:
+            doc.close()
+
+        return {
+            'images': images,
+            'total_pages': total_pages,
+            'truncated': num_pages < total_pages,
+        }
     except Exception as e:
         logger.error(f"Error converting PDF to images: {e}")
         return None

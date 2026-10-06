@@ -37,7 +37,8 @@
           <div class="flex items-start justify-between gap-4" id="question-view-{{ question.pk }}">
             <div class="min-w-0">
               <p class="text-sm font-medium text-gray-900 dark:text-white">
-                Q{{ question.display_order }}. {{ question.question_text }}
+                {# v3.44.6: numbered by position, like every other quiz page. display_order is only a sort key and starts at 0. #}
+                Q{{ forloop.counter }}. {{ question.question_text }}
               </p>
               {% if question.answer_hint %}
               <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
@@ -138,7 +139,7 @@
         </div>
         <div>
           <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Display order</label>
-          <input type="number" name="display_order" value="{{ questions|length }}" min="0"
+          <input type="number" name="display_order" value="{{ questions|length|add:1 }}" min="0"
             class="w-32 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500">
           <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Lower numbers shown first to pledges taking the quiz.</p>
         </div>

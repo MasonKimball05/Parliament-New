@@ -228,6 +228,10 @@ def edit_member(request, user_id):
     if 'member_type' in data and data['member_type'] != member.member_type:
         changes.append(f"member_type: {member.member_type} -> {data['member_type']}")
         member.member_type = data['member_type']
+        # v3.39.1 — someone changed to a pledge joins the current class if he
+        # has none (see `ParliamentUser.assign_default_pledge_class`).
+        if member.assign_default_pledge_class():
+            changes.append(f"pledge_class: -> {member.pledge_class}")
 
     if 'member_status' in data and data['member_status'] != member.member_status:
         changes.append(f"member_status: {member.member_status} -> {data['member_status']}")
@@ -733,7 +737,11 @@ def _import_member_row(row, requesting_user):
     if email:
         user.email = email
     if pledge_class:
-        user.pledge_class = pledge_class
+        # v3.39.1 — canonicalize like the profile forms do, so "fa26" becomes
+        # "Fall 2026" with its Greek letter (the house map needs both). A blank
+        # column leaves the class `save()` assigned on creation.
+        from src.pledge_classes import apply_to_fields
+        user.pledge_class, user.pledge_class_greek = apply_to_fields(pledge_class, '')
     if phone_number:
         user.phone_number = phone_number
     if graduation_year:

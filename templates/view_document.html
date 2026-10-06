@@ -285,7 +285,7 @@
                 <div class="space-y-4">
                     {% for page in pdf_images.images %}
                     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
-                        <img src="data:image/png;base64,{{ page.data }}"
+                        <img src="data:{{ page.mime|default:'image/png' }};base64,{{ page.data }}"
                              alt="Page {{ page.page }}"
                              class="w-full h-auto"
                              loading="lazy">

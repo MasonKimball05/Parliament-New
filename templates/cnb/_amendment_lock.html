@@ -1,0 +1,90 @@
+{% comment %}
+The amendment editor's lock (v3.44.0). Included after the amendment popup on
+resolution_form.html and resolution_detail.html.
+
+Two people saving an amendment to the same section overwrote each other (last
+save won). The popup now takes a lock named `amend:<section id>` through
+`window.cnbLive` (the page's live-editing client) while a section is loaded,
+and shows the popup read-only to anyone else who opens that section. The
+chair can take a lock over. With no live connection it does nothing: the
+popup behaves as it did before.
+{% endcomment %}
+<script nonce="{{ request.csp_nonce }}">
+(function() {
+    var modal = document.getElementById('addAmendmentModal');
+    var select = document.getElementById('sectionSelect');
+    var form = document.getElementById('amendmentForm');
+    if (!modal || !select || !form) return;
+    var textarea = document.getElementById('proposedTextArea');
+    var submit = document.getElementById('amendSubmitBtn');
+    var removeBtn = document.getElementById('removeSectionBtn');
+    var scope = document.getElementById('scopeNoteInput');
+    var current = null;      // the section id I asked for
+    var takenFromMe = '';    // who took it, if the chair did
+
+    var banner = document.createElement('div');
+    banner.id = 'amendLockBanner';
+    banner.className = 'hidden px-6 py-2.5 text-sm font-medium text-amber-900 dark:text-amber-100 flex-shrink-0';
+    banner.style.cssText = 'background:rgba(245,158,11,.16);border-bottom:1px solid rgba(245,158,11,.5);';
+    form.insertBefore(banner, form.firstChild);
+
+    function live() { return window.cnbLive || null; }
+
+    function setReadOnly(on) {
+        if (textarea) textarea.readOnly = on;
+        if (scope) scope.readOnly = on;
+        if (submit) { submit.disabled = on; submit.style.opacity = on ? '.5' : ''; }
+        if (removeBtn) { removeBtn.disabled = on; removeBtn.style.opacity = on ? '.5' : ''; }
+    }
+
+    function render() {
+        var api = live(), holder = api && current ? api.amendmentHolder(current) : null;
+        banner.innerHTML = '';
+        if (takenFromMe) {
+            banner.textContent = takenFromMe + ' took over this amendment. What you typed here will not be saved. Close this and reopen it to see their version.';
+            banner.classList.remove('hidden'); setReadOnly(true); return;
+        }
+        if (holder && !holder.mine) {
+            banner.appendChild(document.createTextNode(holder.name + ' is editing the amendment to this section right now. You can read it, but you can’t change it until they save or close it.'));
+            if (api.isChair()) {
+                var b = document.createElement('button');
+                b.type = 'button'; b.textContent = 'Take over'; b.className = 'underline';
+                b.style.cssText = 'margin-left:.5rem;font-weight:700;';
+                b.addEventListener('click', function() {
+                    if (!confirm('Take this amendment over? What ' + holder.name + ' has typed and not saved will be lost.')) return;
+                    api.takeOverAmendment(current);
+                    setTimeout(function() { api.lockAmendment(current); }, 150);
+                });
+                banner.appendChild(b);
+            }
+            banner.classList.remove('hidden'); setReadOnly(true); return;
+        }
+        banner.classList.add('hidden'); setReadOnly(false);
+    }
+
+    function sync() {
+        var api = live();
+        var wanted = (!modal.classList.contains('hidden') && select.value) ? select.value : null;
+        if (wanted !== current) {
+            if (current && api) api.unlockAmendment(current);
+            current = wanted; takenFromMe = '';
+            if (current && api) api.lockAmendment(current);
+        }
+        render();
+    }
+
+    // The page's live client calls this whenever an amendment lock changes.
+    window.onAmendLockChange = function(takenBy) {
+        if (takenBy) takenFromMe = takenBy;
+        // A lock I was refused has been released: ask again.
+        var api = live();
+        if (current && api && !takenFromMe && !api.amendmentHolder(current)) api.lockAmendment(current);
+        render();
+    };
+
+    select.addEventListener('change', sync);
+    // Opening for an existing amendment sets the select without a change
+    // event, then shows the popup; closing hides it. Both change the class.
+    new MutationObserver(sync).observe(modal, { attributes: true, attributeFilter: ['class'] });
+})();
+</script>

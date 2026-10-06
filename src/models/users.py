@@ -572,9 +572,31 @@ class ParliamentUser(AbstractBaseUser):
         for device_cls in device_classes():
             device_cls.objects.filter(user=self).delete()
 
+    def assign_default_pledge_class(self, today=None):
+        """
+        Put a pledge with no pledge class into the current one (v3.39.1).
+
+        Mason, 10-01-26: "if someone is added as a pledge it auto adds them to
+        the current (or next) pc." Without a class (and its Greek letter) a
+        pledge has no color on the house map or the directory. Only fills a
+        BLANK class; one an officer typed is left alone. Returns True if it
+        set anything. The caller saves.
+        """
+        if self.member_type != 'Pledge' or (self.pledge_class or '').strip():
+            return False
+        from src.pledge_classes import current_class
+        cls = current_class(today)
+        self.pledge_class, self.pledge_class_greek = cls['label'], cls['greek']
+        return True
+
     def save(self, *args, **kwargs):
         if self.email:
             self.email = self.email.strip().lower()
+        # v3.39.1 — on creation only, so every path that adds a pledge (Add
+        # Member, bulk import, the Django admin, a shell) gets a class. An
+        # edit that turns someone INTO a pledge is handled in `edit_member`.
+        if self._state.adding:
+            self.assign_default_pledge_class()
         super().save(*args, **kwargs)
 
     class Meta:
