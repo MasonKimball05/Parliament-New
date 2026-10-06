@@ -44,10 +44,21 @@ from src.notifications import send_announcement_notification
 from src.notification_service import notify_all_active_members
 from src.models.users import member_defer
 from src.kai_audit import exclude_kai_logs, redact_kai_logs
+from src.next_url import safe_next
 
 
 _raw_allowed_ids = os.environ.get('ADMIN_V2_USER_IDS', os.environ.get('ADMIN_V2_USER_ID', ''))
 ALLOWED_USER_IDS = {uid.strip() for uid in _raw_allowed_ids.split(',') if uid.strip()}
+
+
+def _safe_referer(request, fallback):
+    """The Referer as a redirect target, but only if it's same-site — else `fallback`.
+
+    These admin-v2 actions bounce back to the page they were triggered from via
+    the Referer header. The surface is behind the owner UID allowlist so the
+    exposure is near-zero, but the raw header is still validated through the same
+    helper every `?next=` path uses, so no redirect in the app trusts it."""
+    return safe_next(request, request.META.get('HTTP_REFERER', '')) or fallback
 
 ADMIN_V2_MAX_ATTEMPTS = 5
 ADMIN_V2_LOCKOUT_SECONDS = 15 * 60  # 15 minutes
@@ -1443,7 +1454,7 @@ def remove_user_profile_picture(request, user_id):
     except ParliamentUser.DoesNotExist:
         messages.error(request, 'User not found')
 
-    return redirect(request.META.get('HTTP_REFERER', 'admin_v2_manage_users'))
+    return redirect(_safe_referer(request, 'admin_v2_manage_users'))
 
 
 @require_admin_v2_auth
@@ -2123,12 +2134,12 @@ def add_ip_to_whitelist(request):
 
     if not ip_address:
         messages.error(request, 'IP address is required')
-        return redirect(request.META.get('HTTP_REFERER', 'admin_v2_dashboard'))
+        return redirect(_safe_referer(request, 'admin_v2_dashboard'))
 
     # Check if already whitelisted
     if IPWhitelist.objects.filter(ip_address=ip_address, is_active=True).exists():
         messages.warning(request, f'IP {ip_address} is already whitelisted')
-        return redirect(request.META.get('HTTP_REFERER', 'admin_v2_dashboard'))
+        return redirect(_safe_referer(request, 'admin_v2_dashboard'))
 
     # Create whitelist entry
     IPWhitelist.objects.create(
@@ -2145,7 +2156,7 @@ def add_ip_to_whitelist(request):
     )
 
     messages.success(request, f'IP {ip_address} has been added to whitelist')
-    return redirect(request.META.get('HTTP_REFERER', 'admin_v2_dashboard'))
+    return redirect(_safe_referer(request, 'admin_v2_dashboard'))
 
 
 @require_admin_v2_auth
@@ -2159,12 +2170,12 @@ def add_ip_to_blacklist(request):
 
     if not ip_address:
         messages.error(request, 'IP address is required')
-        return redirect(request.META.get('HTTP_REFERER', 'admin_v2_dashboard'))
+        return redirect(_safe_referer(request, 'admin_v2_dashboard'))
 
     # Check if already blacklisted
     if IPBlacklist.objects.filter(ip_address=ip_address, is_active=True).exists():
         messages.warning(request, f'IP {ip_address} is already blacklisted')
-        return redirect(request.META.get('HTTP_REFERER', 'admin_v2_dashboard'))
+        return redirect(_safe_referer(request, 'admin_v2_dashboard'))
 
     # Create blacklist entry
     IPBlacklist.objects.create(
@@ -2186,7 +2197,7 @@ def add_ip_to_blacklist(request):
     )
 
     messages.success(request, f'IP {ip_address} has been added to blacklist')
-    return redirect(request.META.get('HTTP_REFERER', 'admin_v2_dashboard'))
+    return redirect(_safe_referer(request, 'admin_v2_dashboard'))
 
 
 @require_admin_v2_auth
@@ -2199,7 +2210,7 @@ def remove_ip_from_whitelist(request):
 
     if not ip_address:
         messages.error(request, 'IP address is required')
-        return redirect(request.META.get('HTTP_REFERER', 'admin_v2_dashboard'))
+        return redirect(_safe_referer(request, 'admin_v2_dashboard'))
 
     # Deactivate whitelist entry
     entries = IPWhitelist.objects.filter(ip_address=ip_address, is_active=True)
@@ -2214,7 +2225,7 @@ def remove_ip_from_whitelist(request):
     )
 
     messages.success(request, f'IP {ip_address} has been removed from whitelist ({count} entries deactivated)')
-    return redirect(request.META.get('HTTP_REFERER', 'admin_v2_dashboard'))
+    return redirect(_safe_referer(request, 'admin_v2_dashboard'))
 
 
 @require_admin_v2_auth
@@ -2227,7 +2238,7 @@ def remove_ip_from_blacklist(request):
 
     if not ip_address:
         messages.error(request, 'IP address is required')
-        return redirect(request.META.get('HTTP_REFERER', 'admin_v2_dashboard'))
+        return redirect(_safe_referer(request, 'admin_v2_dashboard'))
 
     # Deactivate blacklist entry
     entries = IPBlacklist.objects.filter(ip_address=ip_address, is_active=True)
@@ -2245,7 +2256,7 @@ def remove_ip_from_blacklist(request):
     )
 
     messages.success(request, f'IP {ip_address} has been removed from blacklist ({count} entries deactivated)')
-    return redirect(request.META.get('HTTP_REFERER', 'admin_v2_dashboard'))
+    return redirect(_safe_referer(request, 'admin_v2_dashboard'))
 
 
 @require_admin_v2_auth
