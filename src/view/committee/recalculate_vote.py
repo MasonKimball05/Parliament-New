@@ -2,7 +2,7 @@ from django.shortcuts import get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.utils.http import url_has_allowed_host_and_scheme
-from src.next_url import safe_next
+from src.next_url import safe_referer
 from src.models import CommitteeLegislation, CommitteeVote
 from src.feature_flag_decorators import require_feature_flag
 import logging
@@ -42,11 +42,11 @@ def recalculate_committee_vote(request, legislation_id):
 
     if not (is_chair or is_officer):
         messages.error(request, "You don't have permission to recalculate this vote.")
-        return redirect(safe_next(request, request.META.get('HTTP_REFERER', '')) or 'chapter_documents')
+        return redirect(safe_referer(request) or 'chapter_documents')
 
     if not legislation.voting_closed:
         messages.error(request, "Cannot recalculate - voting is still open.")
-        return redirect(safe_next(request, request.META.get('HTTP_REFERER', '')) or 'chapter_documents')
+        return redirect(safe_referer(request) or 'chapter_documents')
 
     tally = get_vote_tally(legislation)
     total_votes = tally['total']

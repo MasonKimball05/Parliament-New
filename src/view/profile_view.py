@@ -47,6 +47,18 @@ def profile_view(request):
     if request.method == 'POST':
         is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
 
+        # v3.44.9 — the short profile fields are plain text (see
+        # src/profile_text.py). Checked once here, before any branch saves.
+        # The password form is left alone: a password may contain anything.
+        if not password_form_submitted:
+            from src.profile_text import profile_text_error
+            text_error = profile_text_error(request.POST, user.other_email)
+            if text_error:
+                if is_ajax:
+                    return JsonResponse({'success': False, 'error': text_error}, status=400)
+                messages.error(request, text_error)
+                return redirect('profile')
+
         if profile_picture_submitted:
             action = request.POST.get('action', '')
 

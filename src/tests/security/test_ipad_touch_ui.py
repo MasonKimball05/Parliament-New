@@ -107,17 +107,21 @@ class TheIpadPdfViewerFixExistsTests(SimpleTestCase):
     def test_detecting_an_apple_touch_device_reveals_the_prerendered_view(self):
         self.assertIn("mobileView.classList.remove('md:hidden')", self.doc)
 
-    def test_the_prerendered_images_are_always_built_server_side(self):
+    def test_the_page_images_are_always_listed_server_side(self):
         """
         Confirms this fix needs no new data: `pdf_images` is computed
         unconditionally for every PDF, not gated on viewport, so the
         mobile-view content this script reveals is already in the DOM —
         this is purely a display-toggle fix, not a data-availability one.
+
+        v3.44.5: `pdf_images` is now the list of page links
+        (`pdf_preview_manifest`), not the rendered pages. The <img> tags are
+        still in the DOM for every PDF; each one is fetched when it is shown.
         """
         view_document_py = (
             Path(settings.BASE_DIR) / 'src' / 'view' / 'view_document.py'
         ).read_text(encoding='utf-8')
-        self.assertIn('pdf_images = convert_pdf_to_images', view_document_py)
+        self.assertIn('pdf_images = pdf_preview_manifest(', view_document_py)
 
     def test_the_detection_script_is_csp_safe(self):
         """Every inline script in this file uses the request-scoped nonce —

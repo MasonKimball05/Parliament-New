@@ -45,7 +45,7 @@ from src.notification_service import notify_all_active_members
 from src.models.users import member_defer
 from src.kai_audit import exclude_kai_logs, redact_kai_logs
 from src.chapter import get_chapter
-from src.next_url import safe_next
+from src.next_url import safe_referer
 
 
 _raw_allowed_ids = os.environ.get('ADMIN_V2_USER_IDS', os.environ.get('ADMIN_V2_USER_ID', ''))
@@ -59,7 +59,7 @@ def _safe_referer(request, fallback):
     the Referer header. The surface is behind the owner UID allowlist so the
     exposure is near-zero, but the raw header is still validated through the same
     helper every `?next=` path uses, so no redirect in the app trusts it."""
-    return safe_next(request, request.META.get('HTTP_REFERER', '')) or fallback
+    return safe_referer(request) or fallback
 
 ADMIN_V2_MAX_ATTEMPTS = 5
 ADMIN_V2_LOCKOUT_SECONDS = 15 * 60  # 15 minutes

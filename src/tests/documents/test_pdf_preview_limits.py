@@ -78,11 +78,14 @@ class PdfPreviewPixelCapTests(SimpleTestCase):
         self.assertEqual(image['mime'], 'image/jpeg')
         self.assertEqual(base64.b64decode(image['data'])[:3], b'\xff\xd8\xff')
 
-    def test_the_template_uses_the_mime_type_it_is_given(self):
+    def test_the_template_does_not_inline_page_images(self):
+        """v3.44.5: pages are fetched one at a time from `pdf_preview_page`
+        (see test_pdf_preview_on_demand.py). Before that this test pinned the
+        data: URI's mime type."""
         from django.conf import settings
         template = (Path(settings.BASE_DIR) / 'templates' / 'view_document.html').read_text(encoding='utf-8')
-        self.assertIn('data:{{ page.mime', template)
-        self.assertNotIn('data:image/png;base64,{{ page.data }}', template)
+        self.assertIn('<img src="{{ page.url }}" data-preview-page=', template)
+        self.assertNotIn('{{ page.data }}', template)
 
 
 class PdfPreviewReturnsItsResultTests(SimpleTestCase):

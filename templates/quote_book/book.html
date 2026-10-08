@@ -226,9 +226,10 @@
     if (!stage || !window.St || !window.St.PageFlip) return;
 
     function escapeHtml(s) {
-        var d = document.createElement('div');
-        d.textContent = s === null || s === undefined ? '' : String(s);
-        return d.innerHTML;
+        // v3.44.9: escapes quotes too, so the result is safe inside an attribute.
+        return String(s === null || s === undefined ? '' : s)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
     }
 
     // Build every leaf up front — cover, table of contents, then one
@@ -261,7 +262,7 @@
 
     var tocHtml = '<div class="book-toc"><h2>Table of Contents</h2><ul>' +
         chapters.map(function(ch) {
-            return '<li><button type="button" class="toc-link" data-member-id="' + ch.member_id + '">' +
+            return '<li><button type="button" class="toc-link" data-member-id="' + escapeHtml(ch.member_id) + '">' +
                 escapeHtml(ch.member_name) + '</button></li>';
         }).join('') +
         '</ul></div>';

@@ -468,6 +468,13 @@ async function openEditRoleModal(roleId) {
     }
 }
 
+// v3.44.9 — names go into innerHTML and into an attribute below.
+function rolesEsc(value) {
+    return String(value === null || value === undefined ? '' : value)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
 function renderHolders(holders) {
     const div = document.getElementById('edit-role-holders');
     if (holders.length === 0) {
@@ -475,9 +482,9 @@ function renderHolders(holders) {
     } else {
         div.innerHTML = holders.map(h => `
             <span class="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded text-xs">
-                ${h.name}
+                ${rolesEsc(h.name)}
                 <button type="button" class="js-unassign-member ml-1 text-primary-600 dark:text-primary-300 hover:text-red-600 dark:hover:text-red-400 font-bold leading-none"
-                    data-user-id="${h.user_id}" data-name="${h.name.replace(/'/g, "\\'")}"
+                    data-user-id="${rolesEsc(h.user_id)}" data-name="${rolesEsc(h.name)}"
                     title="Remove from role">&times;</button>
             </span>`).join('');
     }

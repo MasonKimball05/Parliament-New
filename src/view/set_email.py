@@ -16,7 +16,7 @@ from django.conf import settings
 from django.utils import timezone
 import logging
 from src.chapter import get_chapter
-from src.next_url import safe_next
+from src.next_url import safe_referer
 from django.utils.html import escape as _esc
 
 logger = logging.getLogger(__name__)
@@ -32,8 +32,9 @@ def _safe_referer(request, fallback='home'):
     These post-action redirects send the user back where they came from, but a
     raw `Referer` is an off-site value when the member arrived from an external
     link, so it goes through the same validator every `?next=` path uses
-    (`src/next_url.safe_next`) rather than being trusted directly."""
-    return safe_next(request, request.META.get('HTTP_REFERER', '')) or fallback
+    (`src/next_url.safe_referer`, which ends in `safe_next`) rather than being
+    trusted directly."""
+    return safe_referer(request) or fallback
 
 
 _RATE_LIMIT = 3          # max verification emails per window

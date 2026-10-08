@@ -614,9 +614,10 @@ const RESULT_LABELS = {
 const HAS_LINKED_EVENT = {{ has_linked_event|yesno:"true,false" }};
 
 function escapeHtml(str) {
-    const div = document.createElement('div');
-    div.textContent = str;
-    return div.innerHTML;
+    // v3.44.9: escapes quotes too, so the result is safe inside an attribute.
+    return String(str === null || str === undefined ? '' : str)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
 function renderExcuseSummary() {
@@ -703,7 +704,7 @@ function renderAttendance() {
             <td class="px-4 py-3">
                 <div class="flex items-center gap-3">
                     <div class="flex-shrink-0 h-8 w-8 rounded-full bg-primary-100 dark:bg-primary-900/50 flex items-center justify-center">
-                        <span class="text-primary-600 dark:text-primary-400 font-semibold text-xs">${m.name.charAt(0).toUpperCase()}</span>
+                        <span class="text-primary-600 dark:text-primary-400 font-semibold text-xs">${escapeHtml(m.name.charAt(0).toUpperCase())}</span>
                     </div>
                     <div>
                         <div class="flex items-center gap-2">
@@ -715,19 +716,19 @@ function renderAttendance() {
                 </div>
             </td>
             <td class="px-4 py-3 text-center">
-                <input type="radio" name="att_${m.user_id}" value="present" ${m.status === 'present' ? 'checked' : ''}
+                <input type="radio" name="att_${escapeHtml(m.user_id)}" value="present" ${m.status === 'present' ? 'checked' : ''}
                        class="h-5 w-5 text-green-600 focus:ring-green-500 border-gray-300 dark:border-gray-600 dark:bg-gray-700">
             </td>
             <td class="px-4 py-3 text-center">
-                <input type="radio" name="att_${m.user_id}" value="late" ${m.status === 'late' ? 'checked' : ''}
+                <input type="radio" name="att_${escapeHtml(m.user_id)}" value="late" ${m.status === 'late' ? 'checked' : ''}
                        class="h-5 w-5 text-yellow-600 focus:ring-yellow-500 border-gray-300 dark:border-gray-600 dark:bg-gray-700">
             </td>
             <td class="px-4 py-3 text-center">
-                <input type="radio" name="att_${m.user_id}" value="absent" ${m.status === 'absent' ? 'checked' : ''}
+                <input type="radio" name="att_${escapeHtml(m.user_id)}" value="absent" ${m.status === 'absent' ? 'checked' : ''}
                        class="h-5 w-5 text-red-600 focus:ring-red-500 border-gray-300 dark:border-gray-600 dark:bg-gray-700">
             </td>
             <td class="px-4 py-3 text-center">
-                <input type="radio" name="att_${m.user_id}" value="excused" ${m.status === 'excused' ? 'checked' : ''}
+                <input type="radio" name="att_${escapeHtml(m.user_id)}" value="excused" ${m.status === 'excused' ? 'checked' : ''}
                        class="h-5 w-5 text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-gray-600 dark:bg-gray-700">
             </td>
         `;
@@ -1209,7 +1210,7 @@ function createMotionCard(motion, motionIdx) {
     let html = `
         <div class="flex justify-between items-start">
             <div>
-                <div class="text-sm font-bold text-primary-900 dark:text-primary-200">${MOTION_TYPE_LABELS[m.motion_type] || m.motion_type}</div>
+                <div class="text-sm font-bold text-primary-900 dark:text-primary-200">${escapeHtml(MOTION_TYPE_LABELS[m.motion_type] || m.motion_type)}</div>
                 <div class="text-sm text-gray-700 dark:text-gray-300 mt-1">${escapeHtml(m.motion_text || '')}</div>
             </div>
             <div class="flex gap-1 ml-3 flex-shrink-0">
@@ -1227,17 +1228,17 @@ function createMotionCard(motion, motionIdx) {
     if (m.received_second) {
         html += `<span class="px-2 py-0.5 bg-green-200 dark:bg-green-800 text-green-800 dark:text-green-200 rounded">Seconded${m.seconded_by_text ? ': ' + escapeHtml(m.seconded_by_text) : ''}</span>`;
     }
-    html += `<span class="px-2 py-0.5 bg-purple-200 dark:bg-purple-800 text-purple-800 dark:text-purple-200 rounded">${VOTE_METHOD_LABELS[m.vote_method] || m.vote_method}</span>`;
+    html += `<span class="px-2 py-0.5 bg-purple-200 dark:bg-purple-800 text-purple-800 dark:text-purple-200 rounded">${escapeHtml(VOTE_METHOD_LABELS[m.vote_method] || m.vote_method)}</span>`;
 
     const resultColors = {passed: 'bg-green-200 dark:bg-green-800 text-green-800 dark:text-green-200', failed: 'bg-red-200 dark:bg-red-800 text-red-800 dark:text-red-200'};
     const resultClass = resultColors[m.result] || 'bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300';
-    html += `<span class="px-2 py-0.5 ${resultClass} rounded">${RESULT_LABELS[m.result] || m.result}</span>`;
+    html += `<span class="px-2 py-0.5 ${resultClass} rounded">${escapeHtml(RESULT_LABELS[m.result] || m.result)}</span>`;
 
     if (m.votes_for != null) {
-        html += `<span class="px-2 py-0.5 bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 rounded">Votes: ${m.votes_for}-${m.votes_against || 0}-${m.votes_abstain || 0}</span>`;
+        html += `<span class="px-2 py-0.5 bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 rounded">Votes: ${escapeHtml(m.votes_for)}-${escapeHtml(m.votes_against || 0)}-${escapeHtml(m.votes_abstain || 0)}</span>`;
     }
     if (m.caucus_held) {
-        html += `<span class="px-2 py-0.5 bg-orange-200 dark:bg-orange-800 text-orange-800 dark:text-orange-200 rounded">Caucus: ${m.caucus_type || ''}${m.caucus_duration ? ' ' + m.caucus_duration + 'min' : ''}</span>`;
+        html += `<span class="px-2 py-0.5 bg-orange-200 dark:bg-orange-800 text-orange-800 dark:text-orange-200 rounded">Caucus: ${escapeHtml(m.caucus_type || '')}${m.caucus_duration ? ' ' + escapeHtml(m.caucus_duration) + 'min' : ''}</span>`;
     }
     html += '</div>';
 
@@ -1314,7 +1315,7 @@ function showMotionForm() {
     const sel = document.getElementById('motionAuthorSelect');
     sel.innerHTML = '<option value="">-- Select member --</option>';
     memberChoices.forEach(m => {
-        sel.innerHTML += `<option value="${m.user_id}">${m.name}</option>`;
+        sel.add(new Option(m.name, m.user_id));  // v3.44.9: a text node, not HTML
     });
 
     // Show the form
@@ -1497,7 +1498,7 @@ function editMotion(motionIdx) {
     const sel = document.getElementById('motionAuthorSelect');
     sel.innerHTML = '<option value="">-- Select member --</option>';
     memberChoices.forEach(mc => {
-        sel.innerHTML += `<option value="${mc.user_id}" ${String(mc.user_id) === String(m.author_id) ? 'selected' : ''}>${mc.name}</option>`;
+        sel.add(new Option(mc.name, mc.user_id, false, String(mc.user_id) === String(m.author_id)));  // v3.44.9: a text node, not HTML
     });
     document.getElementById('motionAuthorText').value = m.author_text || '';
 

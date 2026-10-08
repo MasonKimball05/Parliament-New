@@ -282,13 +282,34 @@
                     </div>
                 </div>
                 <!-- PDF pages as images -->
+                <script nonce="{{ request.csp_nonce }}">
+                    // v3.44.5: each page is its own request now, so one can fail
+                    // on its own (a rate limit when a whole room opens the same
+                    // document, a dropped connection). Try a failed page twice
+                    // more before leaving it broken. Registered before the
+                    // images exist so no error is missed; `error` does not
+                    // bubble, hence the capturing listener.
+                    document.getElementById('pdf-mobile-view').addEventListener('error', function (e) {
+                        var img = e.target;
+                        if (!img || img.tagName !== 'IMG' || !img.hasAttribute('data-preview-page')) return;
+                        var tries = Number(img.getAttribute('data-retries') || 0);
+                        if (tries >= 2) return;
+                        img.setAttribute('data-retries', tries + 1);
+                        // A changed query string guarantees a fresh request;
+                        // the view ignores it.
+                        var src = img.getAttribute('src').split('?')[0] + '?retry=' + (tries + 1);
+                        setTimeout(function () { img.setAttribute('src', src); }, 1500 * (tries + 1));
+                    }, true);
+                </script>
                 <div class="space-y-4">
                     {% for page in pdf_images.images %}
                     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
-                        <img src="data:{{ page.mime|default:'image/png' }};base64,{{ page.data }}"
+                        {# v3.44.5: each page is fetched when it scrolls into view. width/height reserve its space so the pages below it stay off screen (and unfetched) until then. #}
+                        <img src="{{ page.url }}" data-preview-page="{{ page.page }}"
+                             width="{{ page.width }}" height="{{ page.height }}"
                              alt="Page {{ page.page }}"
                              class="w-full h-auto"
-                             loading="lazy">
+                             loading="lazy" decoding="async">
                         <div class="text-center text-xs text-gray-400 dark:text-gray-500 py-1 bg-gray-50 dark:bg-gray-700/50">
                             Page {{ page.page }}
                         </div>

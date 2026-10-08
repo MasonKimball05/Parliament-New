@@ -322,7 +322,7 @@
     };
 
     function esc(s) {
-        return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
     }
 
     // ── Tree rendering ──────────────────────────────────────────────────────
@@ -472,9 +472,9 @@
         // Avatar
         const avatarEl = document.getElementById('pm-avatar');
         if (d.profile_picture_url) {
-            avatarEl.innerHTML = `<img src="${d.profile_picture_url}" alt="${esc(d.name)}" class="w-12 h-12 rounded-full object-cover">`;
+            avatarEl.innerHTML = `<img src="${esc(d.profile_picture_url)}" alt="${esc(d.name)}" class="w-12 h-12 rounded-full object-cover">`;
         } else {
-            const initial = d.name ? d.name[0].toUpperCase() : '?';
+            const initial = esc(d.name ? d.name[0].toUpperCase() : '?');
             avatarEl.innerHTML = `<div class="w-12 h-12 rounded-full bg-indigo-100 dark:bg-indigo-900 flex items-center justify-center"><span class="text-indigo-600 dark:text-indigo-300 font-bold text-xl">${initial}</span></div>`;
         }
 
@@ -482,7 +482,7 @@
         _setText('profileModalTitle', d.name);
         const typeLabel = (d.member_status === 'Alumni' || d.member_status === 'Removed') ? d.member_status : d.member_type;
         const typeColor = TYPE_COLORS[typeLabel] || TYPE_COLORS.Member;
-        document.getElementById('pm-type-badge').innerHTML = `<span class="px-2 py-0.5 text-xs rounded-full font-medium ${typeColor}">${typeLabel}</span>`;
+        document.getElementById('pm-type-badge').innerHTML = `<span class="px-2 py-0.5 text-xs rounded-full font-medium ${typeColor}">${esc(typeLabel)}</span>`;
         const rollParts = [];
         if (d.role_number) rollParts.push(`#${d.role_number}`);
         if (d.user_id)     rollParts.push(`ID ${d.user_id}`);
@@ -575,8 +575,8 @@
         // Role history
         if (d.role_history && d.role_history.length) {
             document.getElementById('pm-history-list').innerHTML = d.role_history.map(h => {
-                const range = h.end ? `${esc(h.start)} – ${esc(h.end)}` : `${esc(h.start)} – present`;
-                return `<div class="text-sm flex flex-wrap gap-x-2 gap-y-0.5"><span class="font-medium text-gray-800 dark:text-gray-200">${esc(h.role)}</span><span class="text-gray-500 dark:text-gray-400">${range}</span></div>`;
+                const range = h.end ? `${h.start} – ${h.end}` : `${h.start} – present`;
+                return `<div class="text-sm flex flex-wrap gap-x-2 gap-y-0.5"><span class="font-medium text-gray-800 dark:text-gray-200">${esc(h.role)}</span><span class="text-gray-500 dark:text-gray-400">${esc(range)}</span></div>`;
             }).join('');
             _show('pm-history-section');
         } else { _hide('pm-history-section'); }
