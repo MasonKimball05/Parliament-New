@@ -1,0 +1,170 @@
+{% comment %}
+   v3.45.0 — put an amendment's reference into the text without scrolling.
+
+   Mason, 10-08-26: "when trying to add the tracked amendment refs you need to
+   scroll all the way down and then copy the ref, then scroll back up, paste it
+   in, then scroll back down and try to remember which you pasted and which you
+   had not."
+
+   A button fixed to the corner of the edit page opens a small panel listing
+   every tracked amendment. "Insert" puts that amendment's bracketed reference
+   at the cursor in the field last clicked in (Whereas, Resolved, Body or
+   Conclusion notes; Body if none). Each row says where its reference already
+   is, and the button shows how many are placed.
+
+   It reads the amendments from the list's own "Copy [ref]" buttons, so the
+   reference text is the one that button copies. Everything is built as text
+   nodes. Include once, on the edit page only, outside #liveAmendmentsCard.
+{% endcomment %}
+<div id="refInserter" class="hidden fixed right-4 z-40" style="bottom: 5rem;">
+    <div id="refInserterPanel" class="hidden w-96 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden mb-2" style="max-width: calc(100vw - 2rem);">
+        <div class="px-4 py-3 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+            <p class="text-sm font-semibold text-gray-900 dark:text-gray-100">Amendment references</p>
+            <button type="button" id="refInserterClose" class="text-xs text-gray-500 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400">Close</button>
+        </div>
+        <p class="px-4 py-2 text-xs text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-gray-700">
+            Click where the reference should go, then Insert. Goes into: <strong id="refInserterTarget" class="text-gray-700 dark:text-gray-200">Body</strong>
+        </p>
+        <div id="refInserterList" class="max-h-80 overflow-y-auto divide-y divide-gray-100 dark:divide-gray-700"></div>
+        <p id="refInserterMsg" class="hidden px-4 py-2 text-xs text-amber-600 dark:text-amber-400 border-t border-gray-100 dark:border-gray-700"></p>
+    </div>
+    <div class="flex justify-end">
+        <button type="button" id="refInserterToggle"
+                class="px-4 py-2 text-sm font-semibold text-white bg-primary-600 hover:bg-primary-700 rounded-full shadow-lg transition-colors"></button>
+    </div>
+</div>
+<script nonce="{{ request.csp_nonce }}">
+(function() {
+    var box    = document.getElementById('refInserter');
+    var panel  = document.getElementById('refInserterPanel');
+    var list   = document.getElementById('refInserterList');
+    var toggle = document.getElementById('refInserterToggle');
+    var target = document.getElementById('refInserterTarget');
+    var msg    = document.getElementById('refInserterMsg');
+    if (!box) return;
+
+    var FIELDS = [
+        { id: 'whereasTextarea',  label: 'Whereas' },
+        { id: 'resolvedTextarea', label: 'Resolved' },
+        { id: 'bodyTextarea',     label: 'Body' },
+        { id: 'notesTextarea',    label: 'Conclusion notes' }
+    ].map(function(field) { field.el = document.getElementById(field.id); return field; })
+     .filter(function(field) { return field.el; });
+    if (!FIELDS.length) return;
+
+    // The field a reference goes into: the last one clicked or typed in.
+    var current = FIELDS.filter(function(f) { return f.id === 'bodyTextarea'; })[0] || FIELDS[0];
+    var touched = false;      // false until a field is used: then insert at the END of Body
+
+    function el(tag, className, text) {
+        var node = document.createElement(tag);
+        if (className) node.className = className;
+        if (text !== undefined) node.textContent = text;
+        return node;
+    }
+
+    // The same text "Copy [ref]" copies (window.copyRef in resolution_form.html).
+    function refCode(d) {
+        var code = '[' + d.identifier;
+        if (d.amendType && d.amendType !== 'change') code += ' (' + d.amendType.charAt(0).toUpperCase() + d.amendType.slice(1) + ')';
+        if (d.scope) code += ' — ' + d.scope;
+        if (d.num) code += ' - ' + d.num;
+        return code + ']';
+    }
+
+    function amendments() {
+        return Array.prototype.map.call(document.querySelectorAll('#liveAmendmentsCard .js-copy-ref'), function(btn) {
+            var row = btn.closest('.js-amendment-row');
+            return {
+                code: refCode(btn.dataset),
+                num: btn.dataset.num,
+                identifier: btn.dataset.identifier,
+                type: btn.dataset.amendType,
+                title: row && row.dataset.sectionTitle || '',
+                row: row
+            };
+        });
+    }
+
+    function placedIn(code) {
+        return FIELDS.filter(function(f) { return f.el.value.indexOf(code) !== -1; })
+                     .map(function(f) { return f.label; });
+    }
+
+    function say(text) {
+        msg.textContent = text || '';
+        msg.classList.toggle('hidden', !text);
+    }
+
+    function insert(code) {
+        var ta = current.el;
+        if (ta.readOnly || ta.disabled) {
+            say(current.label + ' is being edited by someone else right now. Nothing was inserted.');
+            return;
+        }
+        say('');
+        var start, end;
+        if (touched) {
+            start = ta.selectionStart; end = ta.selectionEnd;
+        } else {
+            start = end = ta.value.length;
+        }
+        // Keep the reference from running into the word before it.
+        var before = ta.value.slice(0, start);
+        var text = (before && !/\s$/.test(before) ? ' ' : '') + code;
+        ta.focus();
+        ta.setRangeText(text, start, end, 'end');
+        touched = true;
+        // The page's own listeners take it from here (citation chips, the
+        // "unsaved changes" flag, the field lock): the same as a paste.
+        ta.dispatchEvent(new Event('input', { bubbles: true }));
+        render();
+    }
+
+    function render() {
+        var items = amendments();
+        box.classList.toggle('hidden', items.length === 0);
+        target.textContent = current.label + (touched ? '' : ' (at the end)');
+        var placed = 0;
+        list.textContent = '';
+        items.forEach(function(item) {
+            var where = placedIn(item.code);
+            if (where.length) placed++;
+
+            var row = el('div', 'px-4 py-2 flex items-center justify-between gap-3');
+            var text = el('div', 'min-w-0');
+            text.appendChild(el('p', 'text-xs font-semibold text-gray-900 dark:text-gray-100 truncate',
+                                '[' + item.num + '] ' + item.identifier + (item.title ? ' — ' + item.title : '')));
+            text.appendChild(el('p', 'text-xs ' + (where.length ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'),
+                                where.length ? '✓ In ' + where.join(', ') : 'Not placed yet'));
+            row.appendChild(text);
+
+            var button = el('button', 'flex-shrink-0 text-xs font-medium text-primary-600 dark:text-primary-400 hover:underline',
+                            where.length ? 'Insert again' : 'Insert');
+            button.type = 'button';
+            button.addEventListener('click', function() { insert(item.code); });
+            row.appendChild(button);
+            list.appendChild(row);
+
+            // The same status on the amendment's own row in the list below.
+            var tag = item.row && item.row.querySelector('.js-ref-status');
+            if (tag) {
+                tag.textContent = where.length ? '✓ Placed in ' + where.join(', ') : 'Reference not placed';
+                tag.className = 'js-ref-status text-xs ' + (where.length ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400');
+            }
+        });
+        toggle.textContent = 'References: ' + placed + ' of ' + items.length + ' placed';
+    }
+
+    FIELDS.forEach(function(field) {
+        field.el.addEventListener('focus', function() { current = field; touched = true; render(); });
+        field.el.addEventListener('input', render);
+    });
+    toggle.addEventListener('click', function() { panel.classList.toggle('hidden'); say(''); render(); });
+    document.getElementById('refInserterClose').addEventListener('click', function() { panel.classList.add('hidden'); });
+
+    // The edit page redraws the amendment list when someone else changes it.
+    window.refreshRefInserter = render;
+    render();
+})();
+</script>

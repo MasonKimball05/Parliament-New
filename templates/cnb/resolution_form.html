@@ -303,9 +303,10 @@
             </div>
 
             {% if resolution.amendments.all %}
+            <div class="js-amendment-filter hidden px-6 py-3 border-b border-gray-100 dark:border-gray-700 flex flex-col gap-2"></div>
             <div class="divide-y divide-gray-100 dark:divide-gray-700">
                 {% for amendment in resolution.amendments.all %}
-                <div class="px-6 py-5">
+                <div class="js-amendment-row px-6 py-5" data-doc="{{ amendment.section.article.document.doc_type }}" data-doc-label="{{ amendment.section.article.document.get_doc_type_display }}" data-type="{{ amendment.amendment_type }}" data-section-title="{{ amendment.section.title }}">
                     <div class="flex items-start justify-between gap-4 mb-3">
                         <div class="min-w-0">
                             <div class="flex items-center gap-2 flex-wrap">
@@ -320,9 +321,14 @@
                             {% if amendment.section.title %}
                             <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{{ amendment.section.title }}</p>
                             {% endif %}
+{% if amendment.proposed_title %}
+                            <p class="text-xs text-amber-600 dark:text-amber-400 mt-0.5"><span class="font-medium">New title when this passes:</span> {{ amendment.proposed_title }}</p>
+                            {% endif %}
                             {% if amendment.scope_note %}
                             <p class="text-xs text-gray-600 dark:text-gray-300 mt-0.5"><span class="font-medium">Scope:</span> {{ amendment.scope_note }}</p>
                             {% endif %}
+                            {# v3.45.0 — filled in by cnb/_ref_inserter.html: is this amendment's [ref] in the text yet? #}
+                            <p class="js-ref-status text-xs"></p>
                         </div>
                         <div class="flex items-center gap-3 flex-shrink-0">
                             <button type="button"
@@ -378,6 +384,7 @@
                 </div>
                 {% endfor %}
             </div>
+            <div class="js-amendment-none hidden px-6 py-8 text-center text-sm text-gray-500 dark:text-gray-400">No amendments match this filter.</div>
             {% else %}
             <div class="px-6 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
                 No section amendments added yet.
@@ -978,7 +985,7 @@
                             <optgroup label="{{ doc.get_doc_type_display }}">
                                 {% for article in doc.articles.all %}
                                 {% for section in article.sections.all %}
-                                <option value="{{ section.pk }}" {% if section.amendment_protected %}disabled{% endif %}>
+                                <option value="{{ section.pk }}" data-title="{{ section.title }}" {% if section.amendment_protected %}disabled{% endif %}>
                                     {{ section.full_identifier }}{% if section.title %} — {{ section.title }}{% endif %}{% if section.amendment_protected %} [PROTECTED until {{ section.protected_until }}]{% endif %}
                                 </option>
                                 {% endfor %}
@@ -994,6 +1001,16 @@
                         <input type="text" name="scope_note" id="scopeNoteInput"
                                placeholder='e.g. "§ 3.a.i" or "the second sentence"'
                                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                    </div>
+                    <div class="md:col-span-2">
+                        {# v3.45.0 — the section's title. A changed title is stored as a rename and applied when the resolution passes. #}
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5" for="sectionTitleInput">
+                            Section title <span class="font-normal text-gray-400">(change it here to rename the section)</span>
+                        </label>
+                        <input type="text" name="section_title" id="sectionTitleInput" maxlength="200" disabled
+                               placeholder="Select a section first"
+                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                        <p id="sectionTitleHint" class="hidden text-xs text-amber-600 dark:text-amber-400 mt-1"></p>
                     </div>
                 </div>
 
@@ -1624,6 +1641,8 @@ window._isDirty = false;
                 if (!fresh || !card) throw new Error('no list');
                 card.innerHTML = fresh.innerHTML;
                 if (window.wireAmendmentList) window.wireAmendmentList(card);
+                if (window.wireAmendmentFilter) window.wireAmendmentFilter(card);  // v3.45.0: keeps the chosen filter
+                if (window.refreshRefInserter) window.refreshRefInserter();          // v3.45.0: the corner panel lists them
                 // v3.43.0 — the proposed articles / sections / renames list too.
                 var freshStructure = doc.getElementById('liveStructureCard');
                 var structureCard = document.getElementById('liveStructureCard');
@@ -1768,4 +1787,7 @@ window._isDirty = false;
 {% endif %}
 
 {% if ref_docs %}{% include "cnb/_notes_drawer.html" with fab_offset="5.5rem" %}{% else %}{% include "cnb/_notes_drawer.html" %}{% endif %}
+{% include "cnb/_amendment_filter.html" %}
+{% if action == 'Edit' and resolution %}{% include "cnb/_amendment_title.html" %}{% endif %}
+{% if action == 'Edit' and resolution %}{% include "cnb/_ref_inserter.html" %}{% endif %}
 {% endblock %}

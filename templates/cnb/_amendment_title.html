@@ -1,0 +1,70 @@
+{% comment %}
+   v3.45.0 — the "Section title" box in the amendment popup.
+
+   Mason, 10-08-26: "there's no way to edit the actual name of a section in
+   the tracked amendments section."
+
+   Fills the box when a section is chosen (or an amendment is opened for
+   editing): the title this resolution already proposes for it, else the
+   section's current title. Says what saving will do. The server half is
+   `_propose_section_title` in src/view/officer/cnb.py.
+
+   Needs #addAmendmentModal, #sectionSelect (options carry data-title),
+   #sectionTitleInput and #sectionTitleHint. Include once per page.
+{% endcomment %}
+{{ resolution.pending_section_titles|json_script:"pending-section-titles" }}
+<script nonce="{{ request.csp_nonce }}">
+(function() {
+    var modal  = document.getElementById('addAmendmentModal');
+    var select = document.getElementById('sectionSelect');
+    var input  = document.getElementById('sectionTitleInput');
+    var hint   = document.getElementById('sectionTitleHint');
+    if (!modal || !select || !input) return;
+    var pending = JSON.parse(document.getElementById('pending-section-titles').textContent);
+    var original = '', proposed = '';
+
+    function say() {
+        var typed = input.value.replace(/\s+/g, ' ').trim();
+        var text = '';
+        if (!input.disabled) {
+            if (typed && typed !== original) {
+                text = 'When this resolution passes, the title changes from “' + (original || '(none)') + '” to “' + typed + '”.';
+            } else if (proposed && typed === original) {
+                text = 'Saving withdraws the proposed title “' + proposed + '”. The section keeps “' + original + '”.';
+            } else if (!typed && original) {
+                text = 'A blank title is ignored. The section keeps “' + original + '”.';
+            }
+        }
+        if (hint) {
+            hint.textContent = text;
+            hint.classList.toggle('hidden', !text);
+        }
+    }
+
+    function sync() {
+        var option = select.options[select.selectedIndex];
+        if (!select.value || !option) {
+            original = proposed = '';
+            input.value = '';
+            input.disabled = true;
+            input.placeholder = 'Select a section first';
+        } else {
+            original = option.dataset.title || '';
+            proposed = pending[select.value] || '';
+            input.disabled = false;
+            input.placeholder = 'No title';
+            input.value = proposed || original;
+        }
+        say();
+    }
+
+    select.addEventListener('change', sync);
+    input.addEventListener('input', say);
+    // Opening the popup for "Add" or for "Edit" sets the section from script,
+    // which fires no change event. Sync once the opener has finished.
+    new MutationObserver(function() {
+        if (!modal.classList.contains('hidden')) setTimeout(sync, 0);
+    }).observe(modal, { attributes: true, attributeFilter: ['class'] });
+    sync();
+})();
+</script>
