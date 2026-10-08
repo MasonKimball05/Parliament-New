@@ -194,7 +194,7 @@
                                 </button>
                             {% endif %}
                         </div>
-                        <div class="message-text text-gray-900 dark:text-gray-100 text-sm sm:text-base break-words" data-message-id="{{ msg.id }}" data-raw="{{ msg.message|escapejs }}">{{ msg.message|linebreaksbr }}</div>
+                        <div class="message-text text-gray-900 dark:text-gray-100 text-sm sm:text-base break-words" data-message-id="{{ msg.id }}" data-raw="{{ msg.message }}">{{ msg.message|linebreaksbr }}</div>
                     </div>
                 </div>
             {% endfor %}
@@ -409,7 +409,7 @@
                 }
             } else if (data.type === 'edit') {
                 const msg = data.message;
-                const textEl = document.querySelector(`[data-message-id="${msg.id}"]`);
+                const textEl = document.querySelector(`.message-text[data-message-id="${msg.id}"]`);
                 if (textEl) {
                     textEl.innerHTML = renderMessageText(msg.message);
                     const container = document.getElementById(`msg-${msg.id}`);
@@ -641,7 +641,7 @@
                 : '';
             const avatarHtml = profilePicture
                 ? `<img src="${escapeHtml(profilePicture)}" alt="${escapeHtml(msg.sender_name)}" class="w-8 h-8 sm:w-9 sm:h-9 rounded-full object-cover flex-shrink-0 mt-0.5">`
-                : `<div class="w-8 h-8 sm:w-9 sm:h-9 rounded-full text-white flex items-center justify-center font-bold text-xs sm:text-sm flex-shrink-0 mt-0.5" style="background-color:${avatarBg}">${initials}</div>`;
+                : `<div class="w-8 h-8 sm:w-9 sm:h-9 rounded-full text-white flex items-center justify-center font-bold text-xs sm:text-sm flex-shrink-0 mt-0.5" style="background-color:${avatarBg}">${escapeHtml(initials)}</div>`;
 
             messageDiv.className = `msg-row flex gap-2 sm:gap-3 px-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 group transition-colors ${ownBorder}`;
             messageDiv.style.paddingTop = '2px';
@@ -696,7 +696,7 @@
         const profilePicture = msg.sender_profile_picture || (isSender ? currentUserProfilePicture : null);
         const avatarHtml = profilePicture
             ? `<img src="${escapeHtml(profilePicture)}" alt="${escapeHtml(msg.sender_name)}" class="w-8 h-8 sm:w-9 sm:h-9 rounded-full object-cover flex-shrink-0 mt-0.5">`
-            : `<div class="w-8 h-8 sm:w-9 sm:h-9 rounded-full text-white flex items-center justify-center font-bold text-xs sm:text-sm flex-shrink-0 mt-0.5" style="background-color: ${avatarBg}">${initials.toUpperCase()}</div>`;
+            : `<div class="w-8 h-8 sm:w-9 sm:h-9 rounded-full text-white flex items-center justify-center font-bold text-xs sm:text-sm flex-shrink-0 mt-0.5" style="background-color: ${avatarBg}">${escapeHtml(initials.toUpperCase())}</div>`;
 
         const ownBorderPrepend = isSender ? 'border-l-2 border-primary-300 dark:border-primary-600 pl-3' : '';
         const editButtonPrepend = isSender
@@ -784,8 +784,13 @@
     }
 
     // Edit message function
+    //
+    // v3.44.9: look the message up as `.message-text[data-message-id]`. The
+    // Edit and Delete buttons carry the same data-message-id and come first
+    // in the row, so the bare attribute selector found the Edit button: the
+    // box opened holding the word "Edit" and a save rewrote the button.
     function editMessage(messageId) {
-        const messageElement = document.querySelector(`[data-message-id="${messageId}"]`);
+        const messageElement = document.querySelector(`.message-text[data-message-id="${messageId}"]`);
         if (!messageElement) return;
 
         const currentText = messageElement.dataset.raw ?? messageElement.textContent;
@@ -860,7 +865,7 @@
         .then(data => {
             if (data.success) {
                 // Update the message text
-                const messageElement = document.querySelector(`[data-message-id="${messageId}"]`);
+                const messageElement = document.querySelector(`.message-text[data-message-id="${messageId}"]`);
                 messageElement.innerHTML = renderMessageText(data.message.message);
                 messageElement.dataset.raw = data.message.message;
                 messageElement.style.display = '';  // restore — don't force block, breaks flex stacked rows
@@ -891,7 +896,7 @@
     }
 
     function cancelEdit(messageId) {
-        const messageElement = document.querySelector(`[data-message-id="${messageId}"]`);
+        const messageElement = document.querySelector(`.message-text[data-message-id="${messageId}"]`);
         const editForm = document.getElementById(`edit-input-${messageId}`)?.closest('.edit-form');
         messageElement.style.display = '';
         if (editForm) editForm.remove();
@@ -1194,9 +1199,10 @@
 
     // HTML escape
     function escapeHtml(text) {
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
+        // v3.44.9: escapes quotes too, so the result is safe inside an attribute.
+        return String(text === null || text === undefined ? '' : text)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
     }
 
     // Update active users list
@@ -1451,7 +1457,11 @@
     });
 
     // Mention dropdown — delegated on mention-list
-    document.getElementById('mention-list').addEventListener('click', function(e) {
+    // v3.44.9: the list only exists for someone who can send. Without the
+    // check this line threw in read-only channels and in admin preview, and
+    // the initial scroll below never ran.
+    var mentionListEl = document.getElementById('mention-list');
+    if (mentionListEl) mentionListEl.addEventListener('click', function(e) {
         var btn = e.target.closest('.js-insert-mention');
         if (btn) insertMention(btn.dataset.mentionUsername);
     });
@@ -1565,7 +1575,7 @@ const _PM_TYPE_COLORS = {
 };
 
 function _pmEsc(str) {
-    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    return String(str == null ? '' : str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
 function _pmShow(id) { document.getElementById(id).classList.remove('hidden'); }
 function _pmHide(id) { document.getElementById(id).classList.add('hidden'); }
@@ -1612,9 +1622,9 @@ function _pmRenderProfile(d) {
     // Avatar
     const avatarEl = document.getElementById('pm-avatar');
     if (d.profile_picture_url) {
-        avatarEl.innerHTML = `<img src="${d.profile_picture_url}" alt="${_pmEsc(d.name)}" class="w-12 h-12 rounded-full object-cover">`;
+        avatarEl.innerHTML = `<img src="${_pmEsc(d.profile_picture_url)}" alt="${_pmEsc(d.name)}" class="w-12 h-12 rounded-full object-cover">`;
     } else {
-        const initial = d.name ? d.name[0].toUpperCase() : '?';
+        const initial = _pmEsc(d.name ? d.name[0].toUpperCase() : '?');
         avatarEl.innerHTML = `<div class="w-12 h-12 rounded-full bg-primary-100 dark:bg-primary-900 flex items-center justify-center"><span class="text-primary-600 dark:text-primary-300 font-bold text-xl">${initial}</span></div>`;
     }
 
@@ -1622,7 +1632,7 @@ function _pmRenderProfile(d) {
     _pmText('profileModalTitle', d.name);
     const typeLabel = (d.member_status === 'Alumni' || d.member_status === 'Removed') ? d.member_status : d.member_type;
     const typeColor = _PM_TYPE_COLORS[typeLabel] || _PM_TYPE_COLORS.Member;
-    document.getElementById('pm-type-badge').innerHTML = `<span class="px-2 py-0.5 text-xs rounded-full font-medium ${typeColor}">${typeLabel}</span>`;
+    document.getElementById('pm-type-badge').innerHTML = `<span class="px-2 py-0.5 text-xs rounded-full font-medium ${typeColor}">${_pmEsc(typeLabel)}</span>`;
     const rollParts = [];
     if (d.role_number) rollParts.push(`#${d.role_number}`);
     if (d.user_id) rollParts.push(`ID ${d.user_id}`);
@@ -1713,7 +1723,7 @@ function _pmRenderProfile(d) {
     if (d.role_history && d.role_history.length) {
         document.getElementById('pm-history-list').innerHTML = d.role_history.map(h => {
             const range = h.end ? `${h.start} – ${h.end}` : `${h.start} – present`;
-            return `<div class="text-sm flex flex-wrap gap-x-2 gap-y-0.5"><span class="font-medium text-gray-800 dark:text-gray-200">${_pmEsc(h.role)}</span><span class="text-gray-500 dark:text-gray-400">${range}</span></div>`;
+            return `<div class="text-sm flex flex-wrap gap-x-2 gap-y-0.5"><span class="font-medium text-gray-800 dark:text-gray-200">${_pmEsc(h.role)}</span><span class="text-gray-500 dark:text-gray-400">${_pmEsc(range)}</span></div>`;
         }).join('');
         _pmShow('pm-history-section');
     } else { _pmHide('pm-history-section'); }
@@ -1724,7 +1734,7 @@ function _pmRenderProfile(d) {
     const allSocials = [
         ...Object.keys(socials).map(k => {
             const info = _PM_SOCIAL[k] || { label: k, color: 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300' };
-            return `<a href="${socials[k].url}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${info.color} hover:opacity-80 transition-opacity">${info.label}: @${_pmEsc(socials[k].handle)}</a>`;
+            return `<a href="${_pmEsc(socials[k].url)}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${info.color} hover:opacity-80 transition-opacity">${_pmEsc(info.label)}: @${_pmEsc(socials[k].handle)}</a>`;
         }),
         ...customSocials.map(s =>
             `<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700 dark:bg-gray-700/60 dark:text-gray-300">${_pmEsc(s.platform)}: @${_pmEsc(s.handle)}</span>`

@@ -1112,7 +1112,7 @@
                     renderTab(tabName, data);
                 })
                 .catch(err => {
-                    container.innerHTML = `<div class="text-red-400">Error: ${err.message}</div>`;
+                    container.innerHTML = `<div class="text-red-400">Error: ${escapeHtml(err.message)}</div>`;
                 });
         }
 
@@ -1297,7 +1297,7 @@
                                     <div class="flex-1">
                                         ${kvRow(k, v)}
                                     </div>
-                                    <button data-devtools-action="clearCache" data-key="${k}" class="text-red-400 hover:text-red-300 text-xs ml-2">Clear</button>
+                                    <button data-devtools-action="clearCache" data-key="${escapeHtml(k)}" class="text-red-400 hover:text-red-300 text-xs ml-2">Clear</button>
                                 </div>
                             `).join('') : '<div class="text-gray-500">No known cache values</div>'}
                         </div>
@@ -1335,10 +1335,10 @@
                             ${Object.entries(data.data || {}).length ? Object.entries(data.data).map(([k, v]) => `
                                 <div class="flex items-start justify-between border-b border-gray-700 pb-2 mb-2 last:border-0">
                                     <div class="flex-1">
-                                        <div class="text-xs text-cyan-300">${k}</div>
-                                        <div class="text-xs text-gray-400 font-mono mt-1 break-all">${typeof v === 'object' ? JSON.stringify(v) : v}</div>
+                                        <div class="text-xs text-cyan-300">${escapeHtml(k)}</div>
+                                        <div class="text-xs text-gray-400 font-mono mt-1 break-all">${escapeHtml(typeof v === 'object' ? JSON.stringify(v) : v)}</div>
                                     </div>
-                                    <button data-devtools-action="deleteSessionKey" data-key="${k}" class="text-red-400 hover:text-red-300 text-xs ml-2">Delete</button>
+                                    <button data-devtools-action="deleteSessionKey" data-key="${escapeHtml(k)}" class="text-red-400 hover:text-red-300 text-xs ml-2">Delete</button>
                                 </div>
                             `).join('') : '<div class="text-gray-500">No session data</div>'}
                         </div>
@@ -1356,8 +1356,8 @@
                             ${(data.feature_flags || []).map(f => `
                                 <div class="flex items-center justify-between">
                                     <div>
-                                        <span class="text-sm ${f.is_enabled ? 'text-green-400' : 'text-gray-400'}">${f.name}</span>
-                                        ${f.description ? `<div class="text-xs text-gray-500">${f.description}</div>` : ''}
+                                        <span class="text-sm ${f.is_enabled ? 'text-green-400' : 'text-gray-400'}">${escapeHtml(f.name)}</span>
+                                        ${f.description ? `<div class="text-xs text-gray-500">${escapeHtml(f.description)}</div>` : ''}
                                     </div>
                                     <button data-devtools-action="toggleFlag" data-flag-id="${f.id}" data-flag-type="feature"
                                             class="px-2 py-1 rounded text-xs font-medium transition ${f.is_enabled ? 'bg-green-600 hover:bg-green-700' : 'bg-gray-600 hover:bg-gray-700'}">
@@ -1373,8 +1373,8 @@
                             ${(data.page_toggles || []).length ? data.page_toggles.map(p => `
                                 <div class="flex items-center justify-between">
                                     <div>
-                                        <span class="text-sm ${p.is_enabled ? 'text-green-400' : 'text-gray-400'}">${p.display_name || p.url_name}</span>
-                                        <div class="text-xs text-gray-500">${p.url_name}</div>
+                                        <span class="text-sm ${p.is_enabled ? 'text-green-400' : 'text-gray-400'}">${escapeHtml(p.display_name || p.url_name)}</span>
+                                        <div class="text-xs text-gray-500">${escapeHtml(p.url_name)}</div>
                                     </div>
                                     <button data-devtools-action="toggleFlag" data-flag-id="${p.id}" data-flag-type="page"
                                             class="px-2 py-1 rounded text-xs font-medium transition ${p.is_enabled ? 'bg-green-600 hover:bg-green-700' : 'bg-gray-600 hover:bg-gray-700'}">
@@ -1426,7 +1426,7 @@
                                 <span>Clear Log</span>
                             </button>
                         </div>
-                        <div class="text-xs text-gray-500">${data.log_file}</div>
+                        <div class="text-xs text-gray-500">${escapeHtml(data.log_file)}</div>
                     </div>
                     <div class="bg-gray-800 rounded p-3 space-y-1 max-h-72 overflow-auto font-mono text-xs">
                         ${(data.recent_errors || []).length ? data.recent_errors.map(e => {
@@ -1461,10 +1461,10 @@
                             <tbody>
                                 ${data.online_users.map(u => `
                                     <tr class="border-t border-gray-700">
-                                        <td class="py-2">${u.name}</td>
-                                        <td class="py-2 text-gray-400">${u.user_id}</td>
+                                        <td class="py-2">${escapeHtml(u.name)}</td>
+                                        <td class="py-2 text-gray-400">${escapeHtml(u.user_id)}</td>
                                         <td class="py-2">${u.is_admin ? '<span class="text-amber-400">Yes</span>' : 'No'}</td>
-                                        <td class="py-2 text-gray-400">${u.session_expires}</td>
+                                        <td class="py-2 text-gray-400">${escapeHtml(u.session_expires)}</td>
                                     </tr>
                                 `).join('')}
                             </tbody>
@@ -1476,13 +1476,14 @@
         }
 
         function kvRow(key, value, valueColor = 'text-gray-300', size = '') {
-            return `<div class="${size}"><span class="text-gray-500">${key}:</span> <span class="${valueColor}">${value ?? 'N/A'}</span></div>`;
+            return `<div class="${size}"><span class="text-gray-500">${escapeHtml(key)}:</span> <span class="${valueColor}">${escapeHtml(value ?? 'N/A')}</span></div>`;
         }
 
         function escapeHtml(text) {
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
+            // v3.44.9: escapes quotes too, so the result is safe inside an attribute.
+            return String(text === null || text === undefined ? '' : text)
+                .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
         }
 
         function attachHandlers(tabName) {
@@ -2092,7 +2093,12 @@
                     const originalText = submitBtn.textContent;
                     if (originalText && !submitBtn.querySelector('svg.animate-spin')) {
                         submitBtn.dataset.originalText = originalText;
-                        submitBtn.innerHTML = '<svg class="animate-spin inline-block w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>' + originalText + '...';
+                        submitBtn.innerHTML = '<svg class="animate-spin inline-block w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>';
+                        // v3.44.9: the label goes back in as text. It used to
+                        // be concatenated into innerHTML, which re-parsed text
+                        // Django had already escaped (a member's name on a
+                        // button, say) as markup.
+                        submitBtn.appendChild(document.createTextNode(originalText + '...'));
                     }
                 }, 0);
             }
@@ -2159,13 +2165,13 @@
                         return;
                     }
                     listEl.innerHTML = data.notifications.map(n => `
-                        <a href="#" data-id="${n.id}" data-link="${n.link}" class="notif-item block px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 border-b border-gray-100 dark:border-gray-700 transition ${n.is_read ? 'opacity-60' : ''}">
+                        <a href="#" data-id="${escapeHtml(n.id)}" data-link="${escapeHtml(n.link)}" class="notif-item block px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 border-b border-gray-100 dark:border-gray-700 transition ${n.is_read ? 'opacity-60' : ''}">
                             <div class="flex gap-3">
                                 <div class="flex-shrink-0 mt-0.5">${TYPE_ICONS[n.type] || TYPE_ICONS['announcement']}</div>
                                 <div class="flex-1 min-w-0">
                                     <p class="text-sm font-medium text-gray-900 dark:text-white truncate">${escapeHtml(n.title)}</p>
                                     ${n.message ? `<p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5 truncate">${escapeHtml(n.message)}</p>` : ''}
-                                    <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">${n.time_ago}</p>
+                                    <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">${escapeHtml(n.time_ago)}</p>
                                 </div>
                                 ${!n.is_read ? '<div class="flex-shrink-0 mt-2"><span class="w-2 h-2 bg-blue-500 rounded-full block"></span></div>' : ''}
                             </div>
@@ -2214,9 +2220,10 @@
         });
 
         function escapeHtml(text) {
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
+            // v3.44.9: escapes quotes too, so the result is safe inside an attribute.
+            return String(text === null || text === undefined ? '' : text)
+                .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
         }
     })();
     </script>

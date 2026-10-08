@@ -1146,6 +1146,14 @@ document.addEventListener('DOMContentLoaded', async function() {
     }
 });
 
+// v3.44.9 — every value written into innerHTML below goes through this.
+// Usernames, names and role names are typed by people.
+function ulEsc(value) {
+    return String(value === null || value === undefined ? '' : value)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
 function populateRolesCheckboxes(containerId, selectedIds) {
     const container = document.getElementById(containerId);
     if (!allRoles.length) {
@@ -1156,8 +1164,8 @@ function populateRolesCheckboxes(containerId, selectedIds) {
     const prefix = containerId.includes('add') ? 'add' : 'edit';
     container.innerHTML = allRoles.map(role => `
         <label class="flex items-center">
-            <input type="checkbox" name="${prefix}-roles" value="${role.id}" ${selectedIds.includes(role.id) ? 'checked' : ''} class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-gray-600 rounded">
-            <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">${role.name}</span>
+            <input type="checkbox" name="${prefix}-roles" value="${ulEsc(role.id)}" ${selectedIds.includes(role.id) ? 'checked' : ''} class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-gray-600 rounded">
+            <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">${ulEsc(role.name)}</span>
         </label>
     `).join('');
 }
@@ -1517,15 +1525,15 @@ function openInitiateModal() {
     listContainer.innerHTML = uniquePledges.map((cb, index) => `
         <div class="px-3 py-3 flex items-center justify-between gap-4">
             <div class="flex-1 min-w-0">
-                <span class="text-sm font-medium text-gray-900 dark:text-white truncate">${cb.dataset.name}</span>
-                <span class="text-xs text-gray-500 dark:text-gray-400 ml-2">(${cb.value})</span>
+                <span class="text-sm font-medium text-gray-900 dark:text-white truncate">${ulEsc(cb.dataset.name)}</span>
+                <span class="text-xs text-gray-500 dark:text-gray-400 ml-2">(${ulEsc(cb.value)})</span>
             </div>
             <div class="flex items-center gap-2">
                 <label class="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">Roll #</label>
                 <input type="text"
                        class="role-number-input w-20 px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                       data-user-id="${cb.value}"
-                       data-name="${cb.dataset.name}"
+                       data-user-id="${ulEsc(cb.value)}"
+                       data-name="${ulEsc(cb.dataset.name)}"
                        placeholder="e.g. 123"
                        required>
             </div>
@@ -1681,7 +1689,7 @@ async function confirmSyncAdmins() {
             if (result.results.added.length > 0) {
                 html += '<div class="mb-2"><span class="font-medium text-green-600 dark:text-green-400">Added admin:</span><ul class="ml-4 list-disc">';
                 result.results.added.forEach(u => {
-                    html += `<li>${u.name} (${u.roles.join(', ')})</li>`;
+                    html += `<li>${ulEsc(u.name)} (${ulEsc(u.roles.join(', '))})</li>`;
                 });
                 html += '</ul></div>';
             }
@@ -1689,7 +1697,7 @@ async function confirmSyncAdmins() {
             if (result.results.removed.length > 0) {
                 html += '<div class="mb-2"><span class="font-medium text-red-600 dark:text-red-400">Removed admin:</span><ul class="ml-4 list-disc">';
                 result.results.removed.forEach(u => {
-                    html += `<li>${u.name}</li>`;
+                    html += `<li>${ulEsc(u.name)}</li>`;
                 });
                 html += '</ul></div>';
             }
@@ -1697,7 +1705,7 @@ async function confirmSyncAdmins() {
             if (result.results.protected.length > 0) {
                 html += '<div class="mb-2"><span class="font-medium text-yellow-600 dark:text-yellow-400">Protected (not changed):</span><ul class="ml-4 list-disc">';
                 result.results.protected.forEach(u => {
-                    html += `<li>${u.name} - ${u.reason}</li>`;
+                    html += `<li>${ulEsc(u.name)} - ${ulEsc(u.reason)}</li>`;
                 });
                 html += '</ul></div>';
             }
@@ -1811,10 +1819,10 @@ function renderBatchQueue() {
     batchQueue.forEach((m, i) => {
         const tr = document.createElement('tr');
         tr.innerHTML = `
-            <td class="px-3 py-2 text-gray-900 dark:text-gray-100">${m.name}</td>
-            <td class="px-3 py-2 text-gray-600 dark:text-gray-300 font-mono text-xs">${m.username}</td>
-            <td class="px-3 py-2 text-gray-600 dark:text-gray-300">${m.member_type}</td>
-            <td class="px-3 py-2 text-gray-500 dark:text-gray-400 text-xs">${m.email || '—'}</td>
+            <td class="px-3 py-2 text-gray-900 dark:text-gray-100">${ulEsc(m.name)}</td>
+            <td class="px-3 py-2 text-gray-600 dark:text-gray-300 font-mono text-xs">${ulEsc(m.username)}</td>
+            <td class="px-3 py-2 text-gray-600 dark:text-gray-300">${ulEsc(m.member_type)}</td>
+            <td class="px-3 py-2 text-gray-500 dark:text-gray-400 text-xs">${ulEsc(m.email || '—')}</td>
             <td class="px-3 py-2 text-right"><button class="js-batch-remove text-red-500 hover:text-red-700 text-xs" data-index="${i}">Remove</button></td>
         `;
         tbody.appendChild(tr);
@@ -2029,17 +2037,17 @@ function renderImportResults(results, tbodyId) {
         if (r.status === 'created') {
             const pwText = r.password_is_username ? `${r.temp_password} (= username)` : r.temp_password;
             tr.innerHTML = `
-                <td class="px-3 py-2 text-gray-900 dark:text-gray-100">${r.name}</td>
-                <td class="px-3 py-2 font-mono text-xs text-gray-700 dark:text-gray-300">${r.username}</td>
-                <td class="px-3 py-2 font-mono text-xs text-gray-700 dark:text-gray-300">${pwText}</td>
+                <td class="px-3 py-2 text-gray-900 dark:text-gray-100">${ulEsc(r.name)}</td>
+                <td class="px-3 py-2 font-mono text-xs text-gray-700 dark:text-gray-300">${ulEsc(r.username)}</td>
+                <td class="px-3 py-2 font-mono text-xs text-gray-700 dark:text-gray-300">${ulEsc(pwText)}</td>
                 <td class="px-3 py-2"><span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">Created</span></td>
             `;
         } else {
             tr.innerHTML = `
-                <td class="px-3 py-2 text-gray-900 dark:text-gray-100">${r.name}</td>
-                <td class="px-3 py-2 font-mono text-xs text-gray-700 dark:text-gray-300">${r.username}</td>
+                <td class="px-3 py-2 text-gray-900 dark:text-gray-100">${ulEsc(r.name)}</td>
+                <td class="px-3 py-2 font-mono text-xs text-gray-700 dark:text-gray-300">${ulEsc(r.username)}</td>
                 <td class="px-3 py-2 text-gray-400 dark:text-gray-500">—</td>
-                <td class="px-3 py-2"><span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400" title="${r.error}">Error: ${r.error}</span></td>
+                <td class="px-3 py-2"><span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400" title="${ulEsc(r.error)}">Error: ${ulEsc(r.error)}</span></td>
             `;
         }
         tbody.appendChild(tr);

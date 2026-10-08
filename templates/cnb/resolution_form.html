@@ -617,13 +617,17 @@
                   'class="text-primary-400 hover:text-primary-600 dark:hover:text-primary-200 transition-colors">▾</button>'
                 : '';
 
+            // v3.44.9: the label is text typed into the resolution by whoever
+            // edited it last, so it goes in with textContent, never as HTML.
             chip.innerHTML =
-                '<span>' + label + '</span>' +
+                '<span class="js-chip-label"></span>' +
                 expandBtn +
                 '<button type="button" title="Remove this citation" ' +
                 'style="font-size:14px;line-height:1;padding:0 2px;" ' +
                 'class="text-primary-400 hover:text-red-500 dark:hover:text-red-400 transition-colors font-bold">' +
                 '&times;</button>';
+
+            chip.querySelector('.js-chip-label').textContent = label;
 
             // Section text preview (hidden by default)
             var preview = document.createElement('div');
@@ -713,10 +717,11 @@
                 var chip = document.createElement('span');
                 chip.className = 'inline-flex items-center gap-1 pl-2.5 pr-1.5 py-1 rounded-full bg-primary-50 dark:bg-primary-900/30 border border-primary-200 dark:border-primary-700 text-xs font-mono font-semibold text-primary-700 dark:text-primary-300';
                 chip.innerHTML =
-                    '<span>' + marker.slice(1, -1) + '</span>' +
+                    '<span class="js-chip-label"></span>' +
                     '<button type="button" title="Remove this citation" ' +
                     'style="font-size:14px;line-height:1;padding:0 2px;" ' +
                     'class="text-primary-400 hover:text-red-500 dark:hover:text-red-400 transition-colors font-bold">&times;</button>';
+                chip.querySelector('.js-chip-label').textContent = marker.slice(1, -1); // v3.44.9: text, not HTML
                 chip.querySelector('button').addEventListener('click', function() {
                     // Remove only the first occurrence of this marker
                     ta.value = ta.value.replace(marker, '');
@@ -1248,9 +1253,15 @@
             el.className = p.highlight
                 ? 'rounded-lg border border-primary-300 dark:border-primary-700 bg-primary-50 dark:bg-primary-900/20 p-2'
                 : 'rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 p-2 opacity-70';
-            el.innerHTML = '<p class="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">' + p.label + '</p>' +
-                '<p class="text-xs font-medium text-gray-700 dark:text-gray-300">§ ' + p.s.number + (p.s.title ? ' — ' + p.s.title : '') + '</p>' +
-                '<p class="text-xs text-gray-500 dark:text-gray-500 mt-1 leading-relaxed line-clamp-3 whitespace-pre-wrap">' + (p.s.content || '').slice(0, 200) + '</p>';
+            // v3.44.9: section number, title and text are document content
+            // (it changes when a resolution passes), so they are set as text.
+            el.innerHTML = '<p class="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1"></p>' +
+                '<p class="text-xs font-medium text-gray-700 dark:text-gray-300"></p>' +
+                '<p class="text-xs text-gray-500 dark:text-gray-500 mt-1 leading-relaxed line-clamp-3 whitespace-pre-wrap"></p>';
+            var ctxLines = el.querySelectorAll('p');
+            ctxLines[0].textContent = p.label;
+            ctxLines[1].textContent = '§ ' + p.s.number + (p.s.title ? ' — ' + p.s.title : '');
+            ctxLines[2].textContent = (p.s.content || '').slice(0, 200);
             contextPanels.appendChild(el);
         });
     }

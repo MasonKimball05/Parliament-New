@@ -860,9 +860,9 @@ function _renderProfile(d) {
     // Avatar
     const avatarEl = document.getElementById('pm-avatar');
     if (d.profile_picture_url) {
-        avatarEl.innerHTML = `<img src="${d.profile_picture_url}" alt="${d.name}" class="w-12 h-12 rounded-full object-cover">`;
+        avatarEl.innerHTML = `<img src="${_esc(d.profile_picture_url)}" alt="${_esc(d.name)}" class="w-12 h-12 rounded-full object-cover">`;
     } else {
-        const initial = d.name ? d.name[0].toUpperCase() : '?';
+        const initial = _esc(d.name ? d.name[0].toUpperCase() : '?');
         avatarEl.innerHTML = `<div class="w-12 h-12 rounded-full bg-primary-100 dark:bg-primary-900 flex items-center justify-center"><span class="text-primary-600 dark:text-primary-300 font-bold text-xl">${initial}</span></div>`;
     }
 
@@ -870,7 +870,7 @@ function _renderProfile(d) {
     _setText('profileModalTitle', d.name);
     const typeLabel = (d.member_status === 'Alumni' || d.member_status === 'Removed') ? d.member_status : d.member_type;
     const typeColor = TYPE_COLORS[typeLabel] || TYPE_COLORS.Member;
-    document.getElementById('pm-type-badge').innerHTML = `<span class="px-2 py-0.5 text-xs rounded-full font-medium ${typeColor}">${typeLabel}</span>`;
+    document.getElementById('pm-type-badge').innerHTML = `<span class="px-2 py-0.5 text-xs rounded-full font-medium ${typeColor}">${_esc(typeLabel)}</span>`;
     const rollParts = [];
     if (d.role_number) rollParts.push(`#${d.role_number}`);
     if (d.user_id) rollParts.push(`ID ${d.user_id}`);
@@ -892,9 +892,9 @@ function _renderProfile(d) {
 
     // Contact
     let contactRows = '';
-    if (d.email)       contactRows += `<div class="text-sm"><a href="mailto:${d.email}" class="text-primary-600 dark:text-primary-400 hover:underline">${d.email}</a></div>`;
-    if (d.other_email) contactRows += `<div class="text-sm text-gray-500 dark:text-gray-400"><a href="mailto:${d.other_email}" class="hover:underline">${d.other_email}</a></div>`;
-    if (d.phone)       contactRows += `<div class="text-sm text-gray-600 dark:text-gray-400">${d.phone}</div>`;
+    if (d.email)       contactRows += `<div class="text-sm"><a href="mailto:${_esc(d.email)}" class="text-primary-600 dark:text-primary-400 hover:underline">${_esc(d.email)}</a></div>`;
+    if (d.other_email) contactRows += `<div class="text-sm text-gray-500 dark:text-gray-400"><a href="mailto:${_esc(d.other_email)}" class="hover:underline">${_esc(d.other_email)}</a></div>`;
+    if (d.phone)       contactRows += `<div class="text-sm text-gray-600 dark:text-gray-400">${_esc(d.phone)}</div>`;
     document.getElementById('pm-contact-list').innerHTML = contactRows || '<p class="text-sm text-gray-400">No contact info</p>';
 
     // Academics
@@ -913,33 +913,33 @@ function _renderProfile(d) {
     // Chapter info
     let chapterRows = '';
     if (d.pledge_class) {
-        let pcLabel = d.pledge_class;
+        let pcLabel = _esc(d.pledge_class);
         // v3.15.0: badge = server-resolved greek + unique per-class color.
         // Prefer d.pledge_class_badge; fall back to legacy greek text.
         const badge = d.pledge_class_badge;
         if (badge && badge.is_founders) {
-            pcLabel = `<span class="font-semibold px-1.5 py-0.5 rounded" style="background:linear-gradient(135deg,#b8860b,#ffd700,#b8860b);color:#3b1f00;">Founder Class</span> · ${d.pledge_class}`;
+            pcLabel = `<span class="font-semibold px-1.5 py-0.5 rounded" style="background:linear-gradient(135deg,#b8860b,#ffd700,#b8860b);color:#3b1f00;">Founder Class</span> · ${_esc(d.pledge_class)}`;
         } else if (badge && badge.greek) {
             const glyphs = badge.greek.trim().split(/\s+/)
                 .map(w => GREEK_GLYPHS[w.toLowerCase()] || '').join('');
-            const greekDisplay = glyphs ? `${badge.greek} (${glyphs})` : badge.greek;
-            pcLabel = `<span class="font-semibold px-1.5 py-0.5 rounded" style="background:${badge.color};color:#fff;">${greekDisplay} Class</span> · ${d.pledge_class}`;
+            const greekDisplay = _esc(glyphs ? `${badge.greek} (${glyphs})` : badge.greek);
+            pcLabel = `<span class="font-semibold px-1.5 py-0.5 rounded" style="background:${_esc(badge.color)};color:#fff;">${greekDisplay} Class</span> · ${_esc(d.pledge_class)}`;
         } else if (d.pledge_class_greek) {
             // Legacy fallback (greek text that didn't resolve to a known class)
             if (d.pledge_class_greek.trim().toLowerCase() === 'founder') {
-                pcLabel = `<span class="font-semibold px-1.5 py-0.5 rounded" style="background:linear-gradient(135deg,#b8860b,#ffd700,#b8860b);color:#3b1f00;">Founder Class</span> · ${d.pledge_class}`;
+                pcLabel = `<span class="font-semibold px-1.5 py-0.5 rounded" style="background:linear-gradient(135deg,#b8860b,#ffd700,#b8860b);color:#3b1f00;">Founder Class</span> · ${_esc(d.pledge_class)}`;
             } else {
                 const glyphs = d.pledge_class_greek.trim().split(/\s+/)
                     .map(w => GREEK_GLYPHS[w.toLowerCase()] || '').join('');
                 const greekDisplay = glyphs
-                    ? `${d.pledge_class_greek} (${glyphs})`
+                    ? d.pledge_class_greek + ' (' + glyphs + ')'
                     : d.pledge_class_greek;
-                pcLabel = `${greekDisplay} Class · ${d.pledge_class}`;
+                pcLabel = `${_esc(greekDisplay)} Class · ${_esc(d.pledge_class)}`;
             }
         }
         chapterRows += _row('Pledge class', pcLabel);
     }
-    if (d.graduation)    chapterRows += _row('Graduation', d.graduation);
+    if (d.graduation)    chapterRows += _row('Graduation', _esc(d.graduation));
     if (d.big_brother) {
         const bigRn = d.big_brother.role_number ? ` <span class="text-gray-400">#${_esc(d.big_brother.role_number)}</span>` : '';
         chapterRows += _row('Big brother', _esc(d.big_brother.name) + bigRn);
@@ -993,7 +993,7 @@ function _renderProfile(d) {
     // Current roles
     if (d.roles && d.roles.length) {
         document.getElementById('pm-roles-list').innerHTML = d.roles.map(r =>
-            `<span class="px-2 py-0.5 text-xs rounded-full bg-primary-100 dark:bg-primary-900/50 text-primary-700 dark:text-primary-300">${r.name}</span>`
+            `<span class="px-2 py-0.5 text-xs rounded-full bg-primary-100 dark:bg-primary-900/50 text-primary-700 dark:text-primary-300">${_esc(r.name)}</span>`
         ).join('');
         _show('pm-roles-section');
     } else {
@@ -1004,7 +1004,7 @@ function _renderProfile(d) {
     if (d.role_history && d.role_history.length) {
         document.getElementById('pm-history-list').innerHTML = d.role_history.map(h => {
             const range = h.end ? `${h.start} – ${h.end}` : `${h.start} – present`;
-            return `<div class="text-sm flex flex-wrap gap-x-2 gap-y-0.5"><span class="font-medium text-gray-800 dark:text-gray-200">${_esc(h.role)}</span><span class="text-gray-500 dark:text-gray-400">${range}</span></div>`;
+            return `<div class="text-sm flex flex-wrap gap-x-2 gap-y-0.5"><span class="font-medium text-gray-800 dark:text-gray-200">${_esc(h.role)}</span><span class="text-gray-500 dark:text-gray-400">${_esc(range)}</span></div>`;
         }).join('');
         _show('pm-history-section');
     } else {
@@ -1019,7 +1019,7 @@ function _renderProfile(d) {
     const allSocialItems = [
         ...socialKeys.map(k => {
             const info = SOCIAL_ICONS[k] || { label: k, color: 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300' };
-            return `<a href="${socials[k].url}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${info.color} hover:opacity-80 transition-opacity">${info.label}: @${socials[k].handle}</a>`;
+            return `<a href="${_esc(socials[k].url)}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${info.color} hover:opacity-80 transition-opacity">${_esc(info.label)}: @${_esc(socials[k].handle)}</a>`;
         }),
         ...customSocials.map(s =>
             `<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700 dark:bg-gray-700/60 dark:text-gray-300">${_esc(s.platform)}: @${_esc(s.handle)}</span>`
@@ -1049,7 +1049,8 @@ function _renderProfile(d) {
 }
 
 function _esc(str) {
-    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    // v3.44.9: also escapes ' so it is safe in any quoted attribute.
+    return String(str == null ? '' : str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
 
 let _currentUserId = null;
