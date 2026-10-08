@@ -1437,7 +1437,13 @@ def resolution_print(request, resolution_id):
         ),
         pk=resolution_id
     )
-    context = {'resolution': resolution}
+    # v3.45.0 — how each amendment is stated ("Shall strike from Article ...",
+    # "Shall amend Article ..."), in the same order the template lists them.
+    from src.cnb_amendment_text import describe
+    context = {
+        'resolution': resolution,
+        'amendment_refs': [describe(amendment) for amendment in resolution.amendments.all()],
+    }
     context.update(_structure_context(resolution))
     return render(request, 'cnb/resolution_print.html', context)
 

@@ -163,6 +163,7 @@
             margin-bottom: 2pt;
         }
         .inline-amend-callout .amend-delta-row { display: block; }
+        .inline-amend-callout .amend-delta-listed { margin: 2pt 0 2pt 12pt; }
         .inline-amend-callout .amend-delta-label { font-style: normal; font-weight: bold; font-size: 9pt; color: #444; }
         .inline-amend-callout .amend-delta-add { color: #155724; }
         .inline-amend-callout .amend-delta-del { color: #721c24; text-decoration: line-through; }
@@ -322,6 +323,7 @@
     &mdash; End of Resolution: {{ resolution.title|upper }} &mdash;
 </div>
 
+{{ amendment_refs|json_script:"amendment-refs" }}
 <script nonce="{{ request.csp_nonce }}">
 document.addEventListener('DOMContentLoaded', function() {
     var printBtn = document.getElementById('js-print-btn');
@@ -401,24 +403,6 @@ document.addEventListener('DOMContentLoaded', function() {
         return html;
     }
 
-    // What changed, as runs of removed / added words in document order.
-    // v3.41.3 — a Change used to list only the ADDED words, so an amendment
-    // that removes a line showed nothing useful. Removed text is now shown
-    // struck through, added text plain, each run in its own quotes.
-    function extractDelta(a) {
-        var ops = diff(a.original, a.proposed || '');
-        var runs = [], cur = null;
-        ops.forEach(function(o) {
-            if (o.t === 'same') { cur = null; return; }
-            if (!cur || cur.t !== o.t) { cur = { t: o.t, words: [] }; runs.push(cur); }
-            cur.words.push(o.v.trim());
-        });
-        if (a.type === 'addition') runs = runs.filter(function(r) { return r.t === 'add'; });
-        return runs.map(function(r) {
-            return { text: r.words.join(' '), cls: r.t === 'add' ? 'amend-delta-add' : 'amend-delta-del' };
-        });
-    }
-
     // ── Inline marker replacement ─────────────────────────────────────────────
     function buildMarker(a) {
         var code = '[' + a.section;
@@ -427,18 +411,69 @@ document.addEventListener('DOMContentLoaded', function() {
         return code + ' - ' + a.num + ']';
     }
 
+    // ── The amendment reference (v3.45.0) ─────────────────────────────────────
+    // Mason, 10-08-26: state it as the motion it is.
+    //   only removals   Shall strike from Article II, Section 3 of the Bylaws (Dues): "..."
+    //   anything else   Shall amend Article II, Section 3 of the Bylaws (Dues) ...
+    //   several edits   one lead-in, then (a) (b) (c)
+    // The wording and the list of edits come from the server
+    // (src/cnb_amendment_text.py, where they are tested). This only lays
+    // them out. Every value goes through esc().
+    var refs = JSON.parse(document.getElementById('amendment-refs').textContent);
+
+    function quoted(text, cls) {
+        return '\u201c<span class="' + cls + '">' + esc(text) + '</span>\u201d';
+    }
+    function letter(index) {            // 0 -> a, 25 -> z, 26 -> aa
+        var out = '';
+        for (index += 1; index > 0; index = Math.floor((index - 1) / 26)) {
+            out = String.fromCharCode(97 + (index - 1) % 26) + out;
+        }
+        return out;
+    }
+    // What follows the lead-in when the section has ONE edit.
+    // An addition also says where it goes (`item.where`: 'at the end',
+    // 'after "shall be paid"').
+    function singleSuffix(item) {
+        if (item.kind === 'strike') return ':';
+        if (item.kind === 'add')    return ' by adding ' + esc(item.where) + ':';
+        return ' by changing:';
+    }
+    function listedVerb(item) {
+        if (item.kind === 'strike') return 'Strike ';
+        if (item.kind === 'add')    return 'Add ' + esc(item.where) + ': ';
+        return 'Change ';
+    }
+
+    function itemHTML(item) {
+        if (item.kind === 'strike') return quoted(item.before, 'amend-delta-del');
+        if (item.kind === 'add')    return quoted(item.after, 'amend-delta-add');
+        return quoted(item.before, 'amend-delta-del') + ' to read ' + quoted(item.after, 'amend-delta-add');
+    }
+    function referenceHTML(a) {
+        var ref = refs[a.num - 1];
+        if (!ref) return '<span class="amend-ref">' + esc(a.section) + '</span>';
+        var lead = esc(ref.lead) + (ref.scope ? ' (' + esc(ref.scope) + ')' : '');
+        var items = ref.items;
+        function row(html, cls) { return '<span class="amend-delta-row' + (cls || '') + '">' + html + '</span>'; }
+        if (ref.whole) {
+            return '<span class="amend-ref">' + lead + (items.length ? ':' : '.') + '</span>'
+                 + (items.length ? row(quoted(items[0].before, 'amend-delta-del')) : '');
+        }
+        if (!items.length) {
+            return '<span class="amend-ref">' + lead + '. No change to the text.</span>';
+        }
+        if (items.length === 1) {
+            return '<span class="amend-ref">' + lead + singleSuffix(items[0]) + '</span>' + row(itemHTML(items[0]));
+        }
+        return '<span class="amend-ref">' + lead + ' as follows:</span>'
+             + items.map(function(item, index) {
+                   return row('(' + letter(index) + ') ' + listedVerb(item) + itemHTML(item), ' amend-delta-listed');
+               }).join('');
+    }
+
     function buildInlineHTML(a) {
-        var typeLabel = a.type.charAt(0).toUpperCase() + a.type.slice(1);
-        var ref = a.section + ' (' + typeLabel + ')' + (a.scope ? ' \u2014 ' + a.scope : '');
-        var deltaHTML = extractDelta(a).map(function(d) {
-            var label = d.cls === 'amend-delta-del' ? 'Removed: ' : 'Added: ';
-            return '<span class="amend-delta-row"><span class="amend-delta-label">' + label + '</span>'
-                 + '<span class="' + d.cls + '">\u201c' + esc(d.text) + '\u201d</span></span>';
-        }).join('');
-        return '<span class="inline-amend-callout">'
-            + '<span class="amend-ref">' + esc(ref) + '</span>'
-            + deltaHTML
-            + '</span>';
+        return '<span class="inline-amend-callout">' + referenceHTML(a) + '</span>';
     }
 
     function replaceMarkersIn(el) {
@@ -459,27 +494,23 @@ document.addEventListener('DOMContentLoaded', function() {
         appendix.innerHTML = '<p class="appendix-heading">Appendix \u2014 Tracked Section Amendments</p>';
 
         amendments.forEach(function(a) {
-            var typeLabel = a.type.charAt(0).toUpperCase() + a.type.slice(1);
-            var art = 'Article ' + a.articleNum + (a.articleTitle ? ' (' + a.articleTitle + ')' : '');
-            var sec = (a.sectionTitle ? '\u00a7\u00a0' + a.sectionNum + ': ' + a.sectionTitle : '\u00a7\u00a0' + a.sectionNum);
-            var scope = a.scope ? ' \u2014 ' + a.scope : '';
-
-            var desc;
-            if (a.type === 'addition') {
-                desc = 'The following shall be added to ' + art + ' of the ' + a.docType + ' of the Samford Chapter, the Alpha Mu of Beta Theta Pi, under ' + sec + scope + ':';
-            } else if (a.type === 'deletion') {
-                desc = 'The following shall be deleted from ' + sec + ' of ' + art + ' of the ' + a.docType + ' of the Samford Chapter, the Alpha Mu of Beta Theta Pi' + scope + ':';
-            } else {
-                desc = 'The following change shall be made to ' + sec + ' of ' + art + ' of the ' + a.docType + ' of the Samford Chapter, the Alpha Mu of Beta Theta Pi' + scope + ':';
-            }
+            // v3.45.0 — the entry states the amendment the same way the body
+            // does, then shows the whole section with the changes marked.
+            var ref = refs[a.num - 1];
+            var count = ref ? ref.items.length : 0;
+            var statement = ref
+                ? ref.lead + (ref.scope ? ' (' + ref.scope + ')' : '')
+                  + (ref.whole ? '.' : count > 1 ? ', in ' + count + ' places. The section with the changes marked:'
+                                                  : '. The section with the change marked:')
+                : a.section;
 
             var diffHTML = (a.original || a.proposed) ? renderDiffHTML(a) : '';
 
             var entry = document.createElement('div');
             entry.className = 'amendment-entry';
             entry.innerHTML =
-                '<p class="amendment-entry-header">[' + a.num + '] ' + esc(a.section) + (a.sectionTitle ? ' \u2014 ' + esc(a.sectionTitle) : '') + ' &mdash; ' + typeLabel + '</p>'
-                + '<p style="font-size:11pt;margin-bottom:8pt;line-height:1.5;">' + esc(desc) + '</p>'
+                '<p class="amendment-entry-header">[' + a.num + '] ' + esc(a.section) + (a.sectionTitle ? ' \u2014 ' + esc(a.sectionTitle) : '') + '</p>'
+                + '<p style="font-size:11pt;margin-bottom:8pt;line-height:1.5;">' + esc(statement) + '</p>'
                 + (diffHTML ? '<div class="amendment-text" style="border-color:#ccc;"><span style="white-space:pre-wrap;">' + diffHTML + '</span></div>' : '');
             appendix.appendChild(entry);
         });
