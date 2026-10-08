@@ -2,7 +2,9 @@ from django.shortcuts import render, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.urls import reverse
 from django.conf import settings
-from django.http import FileResponse, Http404, HttpResponseForbidden
+from django.core import signing
+from django.http import FileResponse, Http404, HttpResponse, HttpResponseForbidden
+from django.views.decorators.http import require_GET
 from src.feature_flag_decorators import require_feature_flag
 from src.models import Legislation, CommitteeDocument
 from src.models.documents import DocumentVersion
@@ -44,9 +46,172 @@ def _pdf_preview_zoom(page_width_pt, page_height_pt, dpi):
     return zoom
 
 
-def convert_pdf_to_images(file_path, max_pages=50, dpi=150):
+#: Pages of a PDF the in-page preview offers. Past this the viewer says
+#: "showing first N of M" and links to the file.
+PDF_PREVIEW_MAX_PAGES = 50
+PDF_PREVIEW_DPI = 150
+
+#: How long a preview page link works after the viewer page was loaded.
+#: The link is only handed to a member who has just passed the viewer's own
+#: permission check, and it is tied to that member (see pdf_preview_page).
+PDF_PREVIEW_TOKEN_MAX_AGE = 2 * 60 * 60
+_PDF_PREVIEW_SALT = 'src.view.view_document.pdf_preview'
+
+
+def _render_pdf_page_jpeg(fitz, doc, page_index, dpi):
     """
-    Convert PDF pages to base64 images for mobile viewing.
+    Render one page of an open document. Returns (jpeg_bytes, width, height).
+
+    The pixel cap (PDF_PREVIEW_MAX_*) is applied here, so both callers get it.
+    The bitmap and MuPDF's cache of the page's decoded images are released
+    before returning.
+    """
+    page = doc[page_index]
+    zoom = _pdf_preview_zoom(page.rect.width, page.rect.height, dpi)
+    pix = page.get_pixmap(matrix=fitz.Matrix(zoom, zoom), alpha=False)
+    try:
+        return pix.tobytes("jpeg", jpg_quality=PDF_PREVIEW_JPEG_QUALITY), pix.width, pix.height
+    finally:
+        del pix, page
+        fitz.TOOLS.store_shrink(100)
+
+
+def pdf_preview_manifest(file_path, user, max_pages=PDF_PREVIEW_MAX_PAGES, dpi=PDF_PREVIEW_DPI):
+    """
+    Describe a PDF's preview pages WITHOUT rendering any of them (v3.44.5).
+
+    Returns ``{'images': [{'page', 'url', 'width', 'height'}, ...],
+    'total_pages': n, 'truncated': bool}`` or ``None`` if the PDF cannot be
+    read. Each ``url`` points at ``pdf_preview_page``, which renders that one
+    page when the browser asks for it. The viewer used to render every page
+    inside its own request, for every visitor, including desktop visitors who
+    are shown the PDF in an iframe and never see the images.
+
+    ``width``/``height`` are the size the page WILL be rendered at. The
+    template puts them on the <img> so the browser can lay the page out before
+    the image arrives; without them every lazy image is zero pixels tall, all
+    of them are "on screen" at once, and all of them load at once.
+
+    Call this only after the caller's own permission check has passed: the
+    urls it returns are what grants access to the page images.
+    """
+    try:
+        import fitz  # PyMuPDF
+    except ImportError:
+        logger.warning("PyMuPDF (fitz) library not installed, cannot preview PDF")
+        return None
+
+    media_root = os.path.realpath(settings.MEDIA_ROOT)
+    resolved = os.path.realpath(file_path)
+    if not resolved.startswith(media_root + os.sep):
+        logger.error("PDF preview refused for a file outside MEDIA_ROOT: %s", file_path)
+        return None
+
+    try:
+        token = signing.dumps(
+            {
+                'u': str(user.pk),
+                'p': os.path.relpath(resolved, media_root),
+                # A replaced file gets a new token, so a browser never shows
+                # cached pages of the old file under the new one's url.
+                'm': int(os.path.getmtime(resolved)),
+            },
+            salt=_PDF_PREVIEW_SALT,
+            compress=True,
+        )
+        images = []
+        doc = fitz.open(resolved)
+        try:
+            total_pages = len(doc)
+            num_pages = min(total_pages, max_pages)
+            for page_num in range(num_pages):
+                rect = doc[page_num].rect
+                zoom = _pdf_preview_zoom(rect.width, rect.height, dpi)
+                images.append({
+                    'page': page_num + 1,
+                    'url': reverse('pdf_preview_page', args=[token, page_num + 1]),
+                    'width': max(1, round(rect.width * zoom)),
+                    'height': max(1, round(rect.height * zoom)),
+                })
+        finally:
+            doc.close()
+        return {
+            'images': images,
+            'total_pages': total_pages,
+            'truncated': num_pages < total_pages,
+        }
+    except Exception as e:
+        logger.error(f"Error reading PDF for preview: {e}")
+        return None
+
+
+@login_required
+@require_GET
+def pdf_preview_page(request, token, page):
+    """
+    One page of a PDF preview, as a JPEG (v3.44.5).
+
+    ``token`` is issued by ``pdf_preview_manifest`` after a viewer's permission
+    check, and is signed, time-limited and tied to the member it was issued
+    to. This view does not repeat the viewer's permission check (there are
+    five viewers with five different rules); the token is the proof that one
+    of them passed. A link copied to another member does not work for them.
+
+    Everything that can go wrong is a 404, so the response does not say
+    whether a token was valid for somebody else.
+    """
+    try:
+        data = signing.loads(token, salt=_PDF_PREVIEW_SALT, max_age=PDF_PREVIEW_TOKEN_MAX_AGE)
+        owner, rel_path = data['u'], data['p']
+    except (signing.BadSignature, KeyError, TypeError):
+        raise Http404("Preview not found")
+
+    if owner != str(request.user.pk):
+        raise Http404("Preview not found")
+    if not 1 <= page <= PDF_PREVIEW_MAX_PAGES:
+        raise Http404("Preview not found")
+
+    # The path is signed, so this cannot be reached with a path the server did
+    # not choose. The guard is kept anyway, in the same form as serve_media's.
+    media_root = os.path.realpath(settings.MEDIA_ROOT)
+    resolved = os.path.realpath(os.path.join(media_root, rel_path))
+    if not resolved.startswith(media_root + os.sep) or not os.path.isfile(resolved):
+        raise Http404("Preview not found")
+
+    try:
+        import fitz  # PyMuPDF
+    except ImportError:
+        raise Http404("Preview not found")
+
+    try:
+        doc = fitz.open(resolved)
+        try:
+            if page > len(doc):
+                raise Http404("Preview not found")
+            img_data, _width, _height = _render_pdf_page_jpeg(fitz, doc, page - 1, PDF_PREVIEW_DPI)
+        finally:
+            doc.close()
+    except Http404:
+        raise
+    except Exception as e:
+        logger.error(f"Error rendering PDF preview page: {e}")
+        raise Http404("Preview not found")
+
+    response = HttpResponse(img_data, content_type='image/jpeg')
+    # A page of a member-only document: the member's own browser may keep it,
+    # a shared or CDN cache must not. Same header as download_chapter_document.
+    response['Cache-Control'] = 'private, max-age=3600'
+    return response
+
+
+def convert_pdf_to_images(file_path, max_pages=PDF_PREVIEW_MAX_PAGES, dpi=PDF_PREVIEW_DPI):
+    """
+    Convert PDF pages to base64 images, all at once.
+
+    Not used by the document viewer since v3.44.5: it renders every page
+    before returning, which is what the viewer must not do inside a request.
+    The viewer uses ``pdf_preview_manifest`` + ``pdf_preview_page``. Kept for
+    callers that want a whole (small) PDF as images in one go.
 
     Returns ``{'images': [...], 'total_pages': n, 'truncated': bool}`` or
     ``None`` if the PDF cannot be read. Each image is a JPEG no larger than
@@ -70,21 +235,15 @@ def convert_pdf_to_images(file_path, max_pages=50, dpi=150):
             num_pages = min(total_pages, max_pages)
 
             for page_num in range(num_pages):
-                page = doc[page_num]
-                zoom = _pdf_preview_zoom(page.rect.width, page.rect.height, dpi)
-                pix = page.get_pixmap(matrix=fitz.Matrix(zoom, zoom), alpha=False)
-                img_data = pix.tobytes("jpeg", jpg_quality=PDF_PREVIEW_JPEG_QUALITY)
+                img_data, width, height = _render_pdf_page_jpeg(fitz, doc, page_num, dpi)
                 images.append({
                     'data': base64.b64encode(img_data).decode('ascii'),
                     'mime': 'image/jpeg',
                     'page': page_num + 1,
-                    'width': pix.width,
-                    'height': pix.height,
+                    'width': width,
+                    'height': height,
                 })
-                # Drop the bitmap, and MuPDF's cache of the page's decoded
-                # images, before rendering the next page.
-                del pix, img_data, page
-                fitz.TOOLS.store_shrink(100)
+                del img_data
         finally:
             doc.close()
 
@@ -317,7 +476,7 @@ def read_text_file(file_path, max_size=500000):
         return None
 
 
-def _build_document_context(document_field, *, title, document_type, back_url,
+def _build_document_context(document_field, *, user, title, document_type, back_url,
                             description=None, uploaded_by=None, uploaded_at=None):
     """
     Build the shared context dict every document-viewer render needs.
@@ -325,7 +484,10 @@ def _build_document_context(document_field, *, title, document_type, back_url,
     `document_field` is a Django FileField (e.g. ``legislation.document``).
     Callers are responsible for object lookup and permission checks before
     calling this; this helper only handles the (identical) rendering prep:
-    file-type detection plus DOCX/PDF/text conversion.
+    file-type detection plus DOCX/text conversion, and the list of PDF
+    preview pages (rendered later, one request per page; see
+    ``pdf_preview_manifest``). `user` is the member the preview page links
+    are issued to.
     """
     file_info = get_file_type_info(document_field.name)
 
@@ -336,7 +498,7 @@ def _build_document_context(document_field, *, title, document_type, back_url,
     if file_info.get('is_docx'):
         docx_html = convert_docx_to_html(document_field.path)
     if file_info.get('is_pdf'):
-        pdf_images = convert_pdf_to_images(document_field.path)
+        pdf_images = pdf_preview_manifest(document_field.path, user)
     if file_info.get('is_text'):
         text_content = read_text_file(document_field.path)
 
@@ -367,6 +529,7 @@ def view_legislation_document(request, legislation_id):
 
     context = _build_document_context(
         legislation.document,
+        user=request.user,
         title=legislation.title,
         document_type='Legislation Document',
         back_url=reverse('legislation_detail', args=[legislation_id]),
@@ -390,6 +553,7 @@ def view_chapter_document(request, document_id):
 
     context = _build_document_context(
         document.document,
+        user=request.user,
         title=document.title,
         document_type=document.get_document_type_display() if hasattr(document, 'get_document_type_display') else 'Chapter Document',
         back_url=reverse('chapter_documents'),
@@ -416,6 +580,7 @@ def view_committee_document(request, code, document_id):
 
     context = _build_document_context(
         document.document,
+        user=request.user,
         title=document.title,
         document_type=document.get_document_type_display() if hasattr(document, 'get_document_type_display') else 'Committee Document',
         back_url=reverse('committee_documents', args=[code]),
@@ -438,6 +603,7 @@ def view_passed_legislation_document(request, pk):
 
     context = _build_document_context(
         legislation.document,
+        user=request.user,
         title=legislation.title,
         document_type='Passed Legislation',
         back_url=reverse('passed_legislation_detail', args=[pk]),
@@ -592,12 +758,12 @@ def view_reference_document(request, doc_slug):
 
     file_info = get_file_type_info(file_path)
 
-    # Convert PDF to images for mobile viewing
+    # List the PDF's preview pages for mobile viewing (rendered on request)
     pdf_images = None
     if file_info.get('is_pdf'):
         full_path = os.path.join(settings.MEDIA_ROOT, file_path)
         if os.path.exists(full_path):
-            pdf_images = convert_pdf_to_images(full_path)
+            pdf_images = pdf_preview_manifest(full_path, request.user)
 
     context = {
         'document_url': document_url,

@@ -286,7 +286,7 @@ from src.view.officer.cnb_notes import (
 from src.view.view_document import (
     view_legislation_document, view_chapter_document,
     view_committee_document, view_passed_legislation_document,
-    view_reference_document,
+    view_reference_document, pdf_preview_page,
     download_legislation_document, download_chapter_document, download_committee_document,
     download_committee_document_version,
 )
@@ -364,6 +364,7 @@ urlpatterns = [
     path('constitution-bylaws/', cnb_viewer, name='constitution_bylaws'),
     path('constitution-bylaws/section/<int:section_id>/history/', cnb_section_history, name='cnb_section_history'),
     path('reference-document/<str:doc_slug>/', view_reference_document, name='view_reference_document'),
+    path('document-preview/<str:token>/<int:page>/', pdf_preview_page, name='pdf_preview_page'),
 
     # Password Reset URLs
     path('password-reset/', auth_views.PasswordResetView.as_view(template_name='registration/password_reset.html'), name='password_reset'),
