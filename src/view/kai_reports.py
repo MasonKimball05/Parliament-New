@@ -1,3 +1,4 @@
+from django.views.decorators.http import require_POST
 from django.db import DatabaseError
 from django.db.models import Count, Q
 from django.db.models.functions import TruncMonth
@@ -2820,6 +2821,7 @@ def edit_kai_template(request, template_id):
 
 @login_required
 @require_feature_flag('kai_reports')
+@require_POST
 def delete_kai_template(request, template_id):
     """Delete a Kai report template"""
     # Check if user is a Kai chair or admin

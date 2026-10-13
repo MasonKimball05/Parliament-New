@@ -762,9 +762,13 @@
                                     Admin
                                 </a>
                             {% endif %}
-                            <a href="{% url 'logout' %}" class="px-2 py-1.5 text-sm rounded-md bg-gray-600 hover:bg-gray-700 transition-colors whitespace-nowrap">
-                                Logout
-                            </a>
+                            {# v3.45.3: logout is POST-only (a link could sign a member out from another site). #}
+                            <form method="post" action="{% url 'logout' %}" class="inline">
+                                {% csrf_token %}
+                                <button type="submit" class="px-2 py-1.5 text-sm rounded-md bg-gray-600 hover:bg-gray-700 transition-colors whitespace-nowrap">
+                                    Logout
+                                </button>
+                            </form>
                         </div>
 
                         <!-- Mobile Menu Button -->
@@ -900,9 +904,12 @@
                         🔐 Admin Panel
                     </a>
                     {% endif %}
-                    <a href="{% url 'logout' %}" class="block px-3 py-2 rounded-md text-base font-medium bg-gray-600 hover:bg-gray-700 transition-colors">
-                        🚪 Logout
-                    </a>
+                    <form method="post" action="{% url 'logout' %}">
+                        {% csrf_token %}
+                        <button type="submit" class="block w-full text-left px-3 py-2 rounded-md text-base font-medium bg-gray-600 hover:bg-gray-700 transition-colors">
+                            🚪 Logout
+                        </button>
+                    </form>
                 </div>
             </div>
         </div>

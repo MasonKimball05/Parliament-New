@@ -1,11 +1,22 @@
-from django.shortcuts import redirect
+from django.shortcuts import redirect, render
 from django.contrib.auth import logout
+from django.views.decorators.http import require_http_methods
 from ..decorators import log_function_call
 from src.view.two_factor import clear_remember_cookie
 
 
 @log_function_call
+@require_http_methods(['GET', 'POST'])
 def logout_view(request):
+    # v3.45.3 (Mason, 10-13-26: "Let's update the logout"): signing out takes a
+    # POST. A GET used to sign out too, and a GET has no CSRF check, so any
+    # page or email could log a member out with a link or an <img>. A GET now
+    # shows a "Log out?" page whose button sends the POST.
+    if request.method != 'POST':
+        if not request.user.is_authenticated:
+            return redirect('login')
+        return render(request, 'logout_confirm.html')
+
     # v3.18.8: the manual ActivityLog write that used to sit here is gone —
     # every logout was producing TWO rows. `logout()` below fires Django's
     # `user_logged_out` signal, and `middleware/activity_logging.py:37` already

@@ -16,6 +16,7 @@
    reference text is the one that button copies. Everything is built as text
    nodes. Include once, on the edit page only, outside #liveAmendmentsCard.
 {% endcomment %}
+{% include "cnb/_amendment_ref_match.html" %}
 {# Third in the corner stack: C&B Reference at 1.5rem, Notes at 5.5rem (fab_offset), this at 9.5rem. #}
 <div id="refInserter" class="hidden fixed right-6 z-30" style="bottom: 9.5rem;">
     <div id="refInserterPanel" class="hidden w-96 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden mb-2" style="max-width: calc(100vw - 2rem);">
@@ -78,6 +79,7 @@
             var row = btn.closest('.js-amendment-row');
             return {
                 code: refCode(btn.dataset),
+                pattern: window.cnbAmendmentRefPattern(btn.dataset.identifier, ''),
                 num: btn.dataset.num,
                 identifier: btn.dataset.identifier,
                 type: btn.dataset.amendType,
@@ -87,8 +89,11 @@
         });
     }
 
-    function placedIn(code) {
-        return FIELDS.filter(function(f) { return f.el.value.indexOf(code) !== -1; })
+    // v3.45.3: matched by section, not by the exact text (see
+    // cnb/_amendment_ref_match.html). A ref pasted before the list was
+    // renumbered, or before the type or scope changed, still counts.
+    function placedIn(pattern) {
+        return FIELDS.filter(function(f) { return pattern.test(f.el.value); })
                      .map(function(f) { return f.label; });
     }
 
@@ -129,7 +134,7 @@
         var placed = 0;
         list.textContent = '';
         items.forEach(function(item) {
-            var where = placedIn(item.code);
+            var where = placedIn(item.pattern);
             if (where.length) placed++;
 
             var row = el('div', 'px-4 py-2 flex items-center justify-between gap-3');

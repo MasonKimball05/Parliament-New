@@ -1,0 +1,38 @@
+{% comment %}
+   v3.45.3 — how a page recognises an amendment's [ref] in the resolution text.
+
+   Mason, 10-13-26: "the tracked amendment refs are randomly breaking. The text
+   for the ref is still there, but the system no longer tracks/realizes that
+   the ref is there."
+
+   A ref reads "[Bylaws Art. II § 3 (Addition) — scope - 2]". Until v3.45.3
+   both the edit page and the print preview looked for that exact string. Three
+   parts of it change after the ref is pasted:
+
+     - the number at the end is the amendment's place in the list, and the list
+       is sorted by section, so adding or removing an amendment on an earlier
+       section renumbers every one after it;
+     - "(Addition)" / "(Deletion)" is worked out again from the text each time
+       the amendment is saved;
+     - the scope note can be edited.
+
+   Any of those left the old ref in the text but no longer matched.
+
+   A resolution has at most one amendment per section (unique_together), so
+   the section is enough to say which amendment a ref means. A ref matches its
+   amendment when it is "[" + the section + at least one of the amendment
+   parts ("(Type)", "— scope", "- N") + "]". A plain citation "[Bylaws Art. II
+   § 3]" with nothing after the section is still a citation, not a ref.
+
+   Include once per page, before the scripts that use it.
+{% endcomment %}
+<script nonce="{{ request.csp_nonce }}">
+window.cnbAmendmentRefPattern = function(identifier, flags) {
+    var id = String(identifier).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    // "[<section>" then, right after it, " (Addition|Deletion|Change)", " —" or
+    // " - <digit>"; then anything up to the closing bracket. Requiring a space
+    // first keeps "§ 1" from matching "§ 12".
+    return new RegExp('\\[' + id + '(?=\\s+(?:\\((?:Addition|Deletion|Change)\\)|\\u2014|-\\s*\\d))[^\\]]*\\]',
+                      flags || 'g');
+};
+</script>

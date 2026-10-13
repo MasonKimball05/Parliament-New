@@ -1,6 +1,7 @@
 """
 Member-facing views for attendance and excuse requests
 """
+from django.views.decorators.http import require_POST
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
@@ -155,6 +156,7 @@ def submit_excuse(request, event_id):
 
 @login_required
 @require_feature_flag('attendance_tracking', 'excuse_system')
+@require_POST
 def cancel_excuse(request, excuse_id):
     """
     Cancel/delete a pending excuse request

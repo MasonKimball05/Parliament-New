@@ -324,6 +324,7 @@
 </div>
 
 {{ amendment_refs|json_script:"amendment-refs" }}
+{% include "cnb/_amendment_ref_match.html" %}
 <script nonce="{{ request.csp_nonce }}">
 document.addEventListener('DOMContentLoaded', function() {
     var printBtn = document.getElementById('js-print-btn');
@@ -404,12 +405,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // ── Inline marker replacement ─────────────────────────────────────────────
-    function buildMarker(a) {
-        var code = '[' + a.section;
-        if (a.type && a.type !== 'change') code += ' (' + a.type.charAt(0).toUpperCase() + a.type.slice(1) + ')';
-        if (a.scope) code += ' \u2014 ' + a.scope;
-        return code + ' - ' + a.num + ']';
-    }
+    // (v3.45.3: `buildMarker` is gone; refs are matched by section. See replaceMarkersIn.)
 
     // ── The amendment reference (v3.45.0) ─────────────────────────────────────
     // Mason, 10-08-26: state it as the motion it is.
@@ -476,12 +472,15 @@ document.addEventListener('DOMContentLoaded', function() {
         return '<span class="inline-amend-callout">' + referenceHTML(a) + '</span>';
     }
 
+    // v3.45.3: a ref is found by its section, not by the exact text
+    // the Copy [ref] button would write today (see cnb/_amendment_ref_match.html).
+    // A ref pasted before the list was renumbered, or before the amendment's
+    // type or scope changed, still becomes the motion.
     function replaceMarkersIn(el) {
         if (!el) return;
         amendments.forEach(function(a) {
-            var marker = buildMarker(a);
-            var escaped = marker.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-            el.innerHTML = el.innerHTML.replace(new RegExp(escaped, 'g'), buildInlineHTML(a));
+            var pattern = window.cnbAmendmentRefPattern(a.section, 'g');
+            el.innerHTML = el.innerHTML.replace(pattern, function() { return buildInlineHTML(a); });
         });
     }
 
