@@ -111,6 +111,74 @@ def _where(before, a1):
     return 'after “' + _join(before[max(0, a1 - ANCHOR_WORDS):a1]) + '”'
 
 
+#: A list marker at the start of a line: "a.", "2.", "iv.", "(1)", "b)".
+_MARKER = re.compile(r'^\(?(?:\d{1,3}|[a-z]{1,2}|[ivxlc]{1,6})[.)]$', re.IGNORECASE)
+
+#: Two lines whose words are at least this alike are the same line, edited.
+#: Below it they are a line struck and a different line added.
+LINE_MATCH_RATIO = 0.5
+
+#: An addition placed between lines is located by the line before it, quoted
+#: whole when it is this many words or fewer (a list item), else by its last
+#: ANCHOR_WORDS words.
+SHORT_LINE_WORDS = 10
+
+
+class _Line:
+    """One non-blank line: its list marker ('' if none) and the words after it."""
+
+    def __init__(self, text, start):
+        self.words = _words(text)
+        self.start = start                    # index of its first word in the whole text
+        first = self.words[0] if self.words else ''
+        self.marker, self.body = '', self.words
+        if _MARKER.match(first):
+            self.marker, self.body = first, self.words[1:]
+        elif len(self.words) > 1 and self.words[1] == '.' and _MARKER.match(first + '.'):
+            # "viii." is long enough for `_words` to split the full stop off.
+            self.marker, self.body = first + '.', self.words[2:]
+        self.key = ' '.join(self.body)
+
+
+def _lines(text):
+    lines, start = [], 0
+    for raw in (text or '').replace('\r\n', '\n').replace('\r', '\n').split('\n'):
+        if raw.strip():
+            line = _Line(raw, start)
+            lines.append(line)
+            start += len(line.words)
+    return lines
+
+
+def _pair(old, new):
+    """
+    Line up the lines of a changed block. Returns (old_index | None, new_index | None)
+    in order: a pair is one line edited, a lone old line is struck, a lone new
+    line is added. Within a stretch with no pair, strikes come before additions.
+    """
+    pairs, i, waiting = [], 0, []
+    for j, line in enumerate(new):
+        for k in range(i, len(old)):
+            if SequenceMatcher(a=old[k].words, b=line.words, autojunk=False).ratio() >= LINE_MATCH_RATIO:
+                pairs.extend((x, None) for x in range(i, k))
+                pairs.extend((None, w) for w in waiting)
+                pairs.append((k, j))
+                i, waiting = k + 1, []
+                break
+        else:
+            waiting.append(j)
+    pairs.extend((x, None) for x in range(i, len(old)))
+    pairs.extend((None, w) for w in waiting)
+    return pairs
+
+
+def _after_line(line):
+    words = line.words
+    if len(words) <= SHORT_LINE_WORDS:
+        return 'after “' + _join(words) + '”'
+    return 'after “' + _join(words[-ANCHOR_WORDS:]) + '”'
+
+
 def edit_items(original, proposed):
     """
     The separate edits between two versions of a section's text.
@@ -120,21 +188,113 @@ def edit_items(original, proposed):
     where the new words go ('at the end', 'after "shall be paid"').
     Whitespace and line endings are ignored, so a CRLF copy of the same text
     has no items.
+
+    v3.45.4 — LINE BY LINE FIRST. Mason, 10-13-26, on the print preview: taking
+    one officer out of a lettered list read as "Change Administration to read
+    Brotherhood, Brotherhood to read Finance, Finance to read Recruitment...",
+    because a word-level diff sees every item below the removed one move up a
+    letter. Lines are now matched by their words WITHOUT the list marker, so:
+
+      * a line that only got a new letter or number is not an edit (see
+        `renumbered`, which says the list was relettered);
+      * a line that is gone is one strike, a new line is one addition, placed
+        after the line before it;
+      * a line that was edited is diffed word by word, as before.
     """
-    before, after = _words(original), _words(proposed)
-    if before == after:
+    if _words(original) == _words(proposed):
         return []
-    if before and after and SequenceMatcher(a=before, b=after, autojunk=False).ratio() < REWRITE_RATIO:
-        return [{'kind': 'change', 'before': _join(before), 'after': _join(after), 'where': ''}]
+    before_words, after_words = _words(original), _words(proposed)
+    if before_words and after_words and SequenceMatcher(
+            a=before_words, b=after_words, autojunk=False).ratio() < REWRITE_RATIO:
+        return [{'kind': 'change', 'before': _join(before_words), 'after': _join(after_words), 'where': ''}]
+
+    old, new = _lines(original), _lines(proposed)
+    matcher = SequenceMatcher(a=[l.key for l in old], b=[l.key for l in new], autojunk=False)
     items = []
-    for a1, a2, b1, b2 in _hunks(before, after):
-        removed, added = before[a1:a2], after[b1:b2]
+    for tag, i1, i2, j1, j2 in matcher.get_opcodes():
+        if tag == 'equal':
+            continue
+        pairs = [(k, None) for k in range(i1, i2)] + [(None, k) for k in range(j1, j2)] \
+            if tag != 'replace' else _pair(old[i1:i2], new[j1:j2])
+        if tag == 'replace':
+            pairs = [(None if a is None else a + i1, None if b is None else b + j1) for a, b in pairs]
+        # The old line the next addition follows.
+        anchor = i1 - 1
+        run_kind, run = None, []
+
+        def flush():
+            if not run:
+                return
+            text = _join([w for line in run for w in line.words])
+            if run_kind == 'strike':
+                items.append({'kind': 'strike', 'before': text, 'after': '', 'where': '', '_run': 'strike'})
+            elif items and items[-1].get('_run') == 'strike':
+                # Lines struck and other lines put in their place: one change.
+                struck = items.pop()
+                items.append({'kind': 'change', 'before': struck['before'], 'after': text, 'where': ''})
+            else:
+                if anchor < 0:
+                    where = 'at the beginning'
+                elif anchor >= len(old) - 1:
+                    where = 'at the end'
+                else:
+                    where = _after_line(old[anchor])
+                items.append({'kind': 'add', 'before': '', 'after': text, 'where': where})
+
+        for a, b in pairs:
+            if a is not None and b is not None:
+                flush()
+                run_kind, run = None, []
+                items.extend(_line_items(old[a], new[b], old))
+                anchor = a
+            elif a is not None:
+                if run_kind != 'strike':
+                    flush()
+                    run_kind, run = 'strike', []
+                run.append(old[a])
+            else:
+                if run_kind != 'add':
+                    flush()
+                    run_kind, run = 'add', []
+                run.append(new[b])
+        flush()
+    for item in items:
+        item.pop('_run', None)
+    return items
+
+
+def _line_items(old_line, new_line, lines):
+    """Word-level edits inside one line that was changed (its marker aside)."""
+    items = []
+    for a1, a2, b1, b2 in _hunks(old_line.body, new_line.body):
+        removed, added = old_line.body[a1:a2], new_line.body[b1:b2]
         kind = 'change' if removed and added else ('strike' if removed else 'add')
         items.append({
             'kind': kind, 'before': _join(removed), 'after': _join(added),
-            'where': _where(before, a1) if kind == 'add' else '',
+            'where': _where_in_line(old_line, a1, lines) if kind == 'add' else '',
         })
     return items
+
+
+def _where_in_line(line, a1, lines):
+    """Where words added inside a line go, without quoting past the line's own edges."""
+    head = len(line.words) - len(line.body)          # the marker, if any
+    at = head + a1
+    if at == 0:
+        return 'at the beginning' if line is lines[0] else 'at the start of “' + _join(line.words[:ANCHOR_WORDS]) + '”'
+    if at >= len(line.words):
+        return 'at the end' if line is lines[-1] else _after_line(line)
+    return 'after “' + _join(line.words[max(0, at - ANCHOR_WORDS):at]) + '”'
+
+
+def renumbered(original, proposed):
+    """True when some unchanged line only got a new list letter or number."""
+    old, new = _lines(original), _lines(proposed)
+    matcher = SequenceMatcher(a=[l.key for l in old], b=[l.key for l in new], autojunk=False)
+    for tag, i1, i2, j1, j2 in matcher.get_opcodes():
+        if tag == 'equal' and any(old[i1 + n].marker != new[j1 + n].marker for n in range(i2 - i1)):
+            return True
+    return False
 
 
 def section_reference(amendment):
@@ -165,6 +325,9 @@ def describe(amendment):
         lead       'Shall strike from <reference>' / 'Shall amend <reference>'
         scope      the amendment's scope note ('' if none)
         items      see `edit_items`
+        renumbered True when list items below an edit only get a new letter
+                   or number (v3.45.4); the motion says so in one line
+                   instead of listing each one as a change
     """
     reference = section_reference(amendment)
     items = edit_items(amendment.original_text_snapshot, amendment.proposed_text)
@@ -178,6 +341,7 @@ def describe(amendment):
     return {
         'action': action, 'whole': whole, 'reference': reference, 'lead': lead,
         'scope': amendment.scope_note or '', 'items': items,
+        'renumbered': not whole and renumbered(amendment.original_text_snapshot, amendment.proposed_text),
     }
 
 
@@ -197,12 +361,17 @@ def sentence(amendment):
         return f'{lead}: “{text}”' if text else f'{lead}.'
     if not items:
         return f'{lead}. No change to the text.'
+    note = f'\n{RENUMBERED_NOTE}' if said['renumbered'] else ''
     if len(items) == 1:
-        return f'{lead}{_single(items[0])}'
+        return f'{lead}{_single(items[0])}{note}'
     lines = [f'{lead} as follows:']
     for index, item in enumerate(items):
         lines.append(f'({_letter(index)}) {_listed(item)}')
-    return '\n'.join(lines)
+    return '\n'.join(lines) + note
+
+
+#: The line a motion adds when list items only moved up or down a letter.
+RENUMBERED_NOTE = 'The items that follow are renumbered to match.'
 
 
 def _single(item):

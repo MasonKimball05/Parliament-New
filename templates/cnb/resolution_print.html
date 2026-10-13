@@ -164,6 +164,7 @@
         }
         .inline-amend-callout .amend-delta-row { display: block; }
         .inline-amend-callout .amend-delta-listed { margin: 2pt 0 2pt 12pt; }
+        .inline-amend-callout .amend-delta-note { margin-top: 2pt; font-style: italic; }
         .inline-amend-callout .amend-delta-label { font-style: normal; font-weight: bold; font-size: 9pt; color: #444; }
         .inline-amend-callout .amend-delta-add { color: #155724; }
         .inline-amend-callout .amend-delta-del { color: #721c24; text-decoration: line-through; }
@@ -394,6 +395,11 @@ document.addEventListener('DOMContentLoaded', function() {
             return (a.original ? '<span class="diff-del">' + esc(a.original) + '</span> ' : '')
                  + '<span class="diff-add">' + esc(a.proposed) + '</span>';
         }
+        if (!a.original || !a.proposed) return opsHTML(ops);
+        return lineDiffHTML(a.original, a.proposed);
+    }
+
+    function opsHTML(ops) {
         var html = '';
         ops.forEach(function(op) {
             var t = esc(op.v);
@@ -402,6 +408,91 @@ document.addEventListener('DOMContentLoaded', function() {
             else                     html += '<span class="diff-del">' + t + '</span>';
         });
         return html;
+    }
+
+    // ── v3.45.4: line by line first ──────────────────────────────────────────
+    // Mason, 10-13-26: taking one officer out of a lettered list showed every
+    // item below it with a struck letter, a new letter, and lone struck
+    // letters on lines of their own, because the word diff lined the letters
+    // up with the wrong items. Lines are now matched by their words without
+    // the list marker (the same rule as src/cnb_amendment_text.py):
+    //   * same words, new letter  -> the old letter struck, the new one added;
+    //   * a line that is gone      -> the whole line struck;
+    //   * a new line               -> the whole line added;
+    //   * an edited line           -> word diff inside that line.
+    var LINE_RE = /^(\s*)(\(?(?:\d{1,3}|[a-z]{1,2}|[ivxlc]{1,6})[.)])?(\s*)(.*)$/i;
+    function splitLine(raw) {
+        var m = LINE_RE.exec(raw);
+        var marker = m[2] || '';
+        // A marker must be followed by a space ("a. President"), not be the word itself ("I am").
+        if (marker && !m[3] && m[4]) { marker = ''; }
+        var body = marker ? m[4] : (m[2] || '') + m[3] + m[4];
+        return { raw: raw, indent: m[1], marker: marker, gap: marker ? m[3] : '', body: body,
+                 key: body.replace(/\s+/g, ' ').trim() };
+    }
+    function words(text) { return text.replace(/\s+/g, ' ').trim().split(' ').filter(Boolean); }
+    function likeness(x, y) {
+        var a = words(x), b = words(y);
+        if (!a.length && !b.length) return 1;
+        var ka = a, kb = b, m = a.length, n = b.length, dp = [];
+        for (var i = 0; i <= m; i++) { dp.push(new Array(n + 1).fill(0)); }
+        for (var i = 1; i <= m; i++)
+            for (var j = 1; j <= n; j++)
+                dp[i][j] = ka[i-1] === kb[j-1] ? dp[i-1][j-1] + 1 : Math.max(dp[i-1][j], dp[i][j-1]);
+        return 2 * dp[m][n] / (m + n);
+    }
+    function lineDiffHTML(original, proposed) {
+        var A = original.replace(/\r\n?/g, '\n').split('\n').map(splitLine);
+        var B = proposed.replace(/\r\n?/g, '\n').split('\n').map(splitLine);
+        var m = A.length, n = B.length, dp = [];
+        for (var i = 0; i <= m; i++) { dp.push(new Array(n + 1).fill(0)); }
+        for (var i = m - 1; i >= 0; i--)
+            for (var j = n - 1; j >= 0; j--)
+                dp[i][j] = A[i].key === B[j].key ? dp[i+1][j+1] + 1 : Math.max(dp[i+1][j], dp[i][j+1]);
+        var out = [], dels = [], adds = [];
+        // The indent stays outside the mark, so the highlight starts at the text.
+        function whole(line, cls) {
+            if (!line.key) return esc(line.raw);
+            return esc(line.indent) + '<span class="' + cls + '">' + esc(line.raw.slice(line.indent.length)) + '</span>';
+        }
+        function del(line) { return whole(line, 'diff-del'); }
+        function add(line) { return whole(line, 'diff-add'); }
+        function flush() {
+            // Pair a struck line with an added one when most of their words match: an edit.
+            var j = 0;
+            dels.forEach(function(d) {
+                for (var k = j; k < adds.length; k++) {
+                    if (likeness(d.raw, adds[k].raw) >= 0.5) {
+                        for (; j < k; j++) out.push(add(adds[j]));
+                        out.push(opsHTML(diff(d.raw, adds[k].raw)));
+                        j = k + 1;
+                        return;
+                    }
+                }
+                out.push(del(d));
+            });
+            for (; j < adds.length; j++) out.push(add(adds[j]));
+            dels = []; adds = [];
+        }
+        var i = 0, j = 0;
+        while (i < m || j < n) {
+            if (i < m && j < n && A[i].key === B[j].key) {
+                flush();
+                var a = A[i], b = B[j];
+                if (a.marker === b.marker) out.push(esc(b.raw));
+                else out.push(esc(b.indent)
+                              + (a.marker ? '<span class="diff-del">' + esc(a.marker) + '</span>' : '')
+                              + (b.marker ? '<span class="diff-add">' + esc(b.marker) + '</span>' : '')
+                              + esc(b.gap || ' ') + esc(b.body));
+                i++; j++;
+            } else if (j < n && (i >= m || dp[i][j+1] >= dp[i+1][j])) {
+                adds.push(B[j++]);
+            } else {
+                dels.push(A[i++]);
+            }
+        }
+        flush();
+        return out.join('\n');
     }
 
     // ── Inline marker replacement ─────────────────────────────────────────────
@@ -459,13 +550,16 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!items.length) {
             return '<span class="amend-ref">' + lead + '. No change to the text.</span>';
         }
+        // v3.45.4: list items that only moved up or down a letter are not
+        // listed one by one; one line says so (src/cnb_amendment_text.py).
+        var note = ref.renumbered ? row('The items that follow are renumbered to match.', ' amend-delta-note') : '';
         if (items.length === 1) {
-            return '<span class="amend-ref">' + lead + singleSuffix(items[0]) + '</span>' + row(itemHTML(items[0]));
+            return '<span class="amend-ref">' + lead + singleSuffix(items[0]) + '</span>' + row(itemHTML(items[0])) + note;
         }
         return '<span class="amend-ref">' + lead + ' as follows:</span>'
              + items.map(function(item, index) {
                    return row('(' + letter(index) + ') ' + listedVerb(item) + itemHTML(item), ' amend-delta-listed');
-               }).join('');
+               }).join('') + note;
     }
 
     function buildInlineHTML(a) {

@@ -208,3 +208,82 @@ class PrintPageTests(_Base):
 
     def test_no_amendments(self):
         self.assertEqual(self.refs(self.page()), [])
+
+
+OFFICER_LIST = ('2. The officers shall include:\n   a. President\n   b. EVP\n'
+                '   c. VP Administration\n   d. VP Brotherhood\n   e. VP Finance\n'
+                '   f. VP Risk Management\n   g. VP Recruitment\n'
+                '3. No member may hold an office without first being elected.')
+OFFICER_LIST_CUT = ('2. The officers shall include:\n   a. President\n   b. EVP\n'
+                    '   c. VP Brotherhood\n   d. VP Finance\n   e. VP Recruitment\n'
+                    '3. No member may hold an office without first being elected.')
+
+
+class ListAwareEditItemsTests(SimpleTestCase):
+    """
+    v3.45.4 (Mason, 10-13-26). Taking officers out of a lettered list read as
+    a chain of renames ("Change Administration to read Brotherhood,
+    Brotherhood to read Finance, ...") because every later item moved up a
+    letter. Lines are now matched without their list marker.
+    """
+
+    def test_removing_list_items_is_one_strike_each(self):
+        self.assertEqual(edit_items(OFFICER_LIST, OFFICER_LIST_CUT), [
+            {'kind': 'strike', 'before': 'c. VP Administration', 'after': '', 'where': ''},
+            {'kind': 'strike', 'before': 'f. VP Risk Management', 'after': '', 'where': ''},
+        ])
+
+    def test_relettering_alone_is_flagged_not_listed(self):
+        from src.cnb_amendment_text import renumbered
+        self.assertTrue(renumbered(OFFICER_LIST, OFFICER_LIST_CUT))
+        self.assertFalse(renumbered(DUES, DUES.replace('thirty', 'fourteen')))
+        only_letters = OFFICER_LIST.replace('   c. VP', '   x. VP')
+        self.assertEqual(edit_items(OFFICER_LIST, only_letters), [])
+
+    def test_a_new_list_item_is_placed_after_the_line_before_it(self):
+        proposed = OFFICER_LIST.replace('   e. VP Finance\n', '   e. VP Finance\n   ee. VP Ritual\n')
+        self.assertEqual(edit_items(OFFICER_LIST, proposed), [
+            {'kind': 'add', 'before': '', 'after': 'ee. VP Ritual', 'where': 'after “e. VP Finance”'}])
+
+    def test_words_added_to_the_end_of_a_line_are_located_by_that_line(self):
+        items = edit_items(OFFICER_LIST, OFFICER_LIST.replace('e. VP Finance', 'e. VP Finance Chair'))
+        self.assertEqual(items, [{'kind': 'add', 'before': '', 'after': 'Chair', 'where': 'after “e. VP Finance”'}])
+
+    def test_a_line_replaced_by_a_different_line_is_one_change(self):
+        proposed = OFFICER_LIST.replace('d. VP Brotherhood', 'd. Chaplain and Chorister jointly')
+        self.assertEqual(edit_items(OFFICER_LIST, proposed), [
+            {'kind': 'change', 'before': 'd. VP Brotherhood', 'after': 'd. Chaplain and Chorister jointly', 'where': ''}])
+
+    def test_long_roman_markers_count_as_markers(self):
+        original = 'vii. Seven items here.\nviii. Eight items here.\nix. Nine items here.'
+        self.assertEqual(edit_items(original, 'vii. Seven items here.\nviii. Nine items here.'), [
+            {'kind': 'strike', 'before': 'viii. Eight items here.', 'after': '', 'where': ''}])
+
+    def test_the_motion_says_the_list_is_renumbered(self):
+        from types import SimpleNamespace
+        from src.cnb_amendment_text import RENUMBERED_NOTE
+        section = SimpleNamespace(article=SimpleNamespace(number='III', document=SimpleNamespace(
+            get_doc_type_display=lambda: 'Constitution')), number='3', former_number='', title='Chapter Officers')
+        amendment = SimpleNamespace(section=section, identifier_snapshot='', scope_note='',
+                                    original_text_snapshot=OFFICER_LIST, proposed_text=OFFICER_LIST_CUT,
+                                    is_whole_section_removal=False)
+        said = describe(amendment)
+        self.assertTrue(said['renumbered'])
+        self.assertEqual(said['action'], 'strike')
+        self.assertTrue(sentence(amendment).endswith(RENUMBERED_NOTE))
+
+    def test_the_print_page_uses_the_same_note(self):
+        from pathlib import Path
+        from src.cnb_amendment_text import RENUMBERED_NOTE
+        source = Path('templates/cnb/resolution_print.html').read_text(encoding='utf-8')
+        self.assertIn(RENUMBERED_NOTE, source)
+        self.assertIn('function lineDiffHTML', source)
+
+
+class DevPanelNeverPrintsTests(SimpleTestCase):
+    """v3.45.4: the dev-mode bar printed on every page and covered text."""
+
+    def test_the_panel_is_hidden_in_print(self):
+        from pathlib import Path
+        source = Path('templates/dev/panel.html').read_text(encoding='utf-8')
+        self.assertIn('@media print { .pdev-root { display:none !important; } }', source)
