@@ -81,13 +81,14 @@ venv/bin/python manage.py collectstatic --noinput
 venv/bin/python manage.py setup_celery_schedules
 ```
 
-Recreate/enable the three systemd units (unit files are in the snapshot
+Recreate/enable the two systemd units (unit files are in the snapshot
 repo's `main` if they were in the app dir; otherwise `/etc/systemd/system/`
 from the snapshot of that path, or rewrite from the originals):
 `parliament-gunicorn` (**runs Daphne** — ASGI, HTTP + WebSockets on
 `parliament.sock`; do NOT resurrect the old WSGI `parliament.service`),
-`parliament-worker` (Celery worker), `parliament-beat` (Celery beat — run
-`setup_celery_schedules` first, as above).
+`parliament-worker` (Celery worker with beat inside it, `-B` — run
+`setup_celery_schedules` first, as above). There is no `parliament-beat`
+since v3.45.5.
 
 Then: re-point DNS/Cloudflare if the IP changed, and **purge Cloudflare
 cache** (Caching → Purge) — it caches 404s from before files existed.

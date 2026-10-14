@@ -1,24 +1,42 @@
 [Unit]
-Description=Parliament Celery Worker
+Description=Parliament Celery Worker + Beat scheduler
 After=network.target redis.service postgresql.service
 Requires=postgresql.service
+# v3.45.5 — beat now runs inside this service (`-B`). The old separate
+# parliament-beat.service must not run at the same time, or every periodic
+# task (vote auto-close, digests, reminders) runs twice. Conflicts= makes
+# systemd stop it whenever this one starts. Remove it for good with:
+#   systemctl disable --now parliament-beat.service
+#   rm /etc/systemd/system/parliament-beat.service && systemctl daemon-reload
+Conflicts=parliament-beat.service
 
 [Service]
 Type=exec
 User=root
 Group=root
 WorkingDirectory=/var/www/Parliament-New
-
 Environment="PATH=/var/www/Parliament-New/venv/bin"
 Environment="DJANGO_SETTINGS_MODULE=Parliament.settings"
+# See parliament-gunicorn.service.
+Environment="MALLOC_ARENA_MAX=2"
 EnvironmentFile=/var/www/Parliament-New/.env
 
-# Concurrency=1 keeps memory usage predictable on the VPS.
-# Raise --concurrency if the queue backs up under load.
+# Concurrency=1 keeps memory usage predictable on the VPS. Raise
+# --concurrency if the queue backs up under load.
+# DatabaseScheduler reads/writes schedules from the DB so they can be managed
+# without restarting.
+# -B: run beat embedded (a small process forked from the worker, sharing its
+#     memory) instead of a second full copy of Django. Only safe with ONE
+#     worker; see Parliament/celery.py.
+# --max-memory-per-child: the process that runs tasks is replaced after a
+#     task leaves it above ~160 MB (sending email or push loads libraries and
+#     keeps them). The value is in KiB.
 ExecStart=/var/www/Parliament-New/venv/bin/celery \
-    -A Parliament worker \
+    -A Parliament worker -B \
     --loglevel=INFO \
     --concurrency=1 \
+    --max-memory-per-child=160000 \
+    --scheduler django_celery_beat.schedulers:DatabaseScheduler \
     --logfile=/var/www/Parliament-New/logs/celery-worker.log
 
 Restart=on-failure
@@ -26,6 +44,8 @@ RestartSec=10s
 
 NoNewPrivileges=true
 PrivateTmp=true
+MemoryHigh=300M
+MemoryMax=400M
 
 StandardOutput=journal
 StandardError=journal

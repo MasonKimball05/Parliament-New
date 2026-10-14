@@ -11,6 +11,12 @@ sits open for 5 minutes after the request that opened it finishes, so a burst
 of traffic leaves a large idle backlog behind it rather than releasing
 connections as soon as the requests are done.
 
+⚠️ v3.45.5 found the actual cause, and it was not the 5-minute linger. Under
+Daphne (ASGI) every request runs in its own thread, and a persistent
+connection belongs to its thread, so EVERY request left one connection
+behind that nothing reused. 20 members loading 10 pages each left 100. The
+default CONN_MAX_AGE is now 0 (see Parliament/settings.py).
+
 This task doesn't fix that (pgbouncer is the real fix — see the pgbouncer
 setup notes, not yet built as of this writing). It exists so the NEXT time
 usage climbs toward the ceiling, an officer gets a warning while there is

@@ -3,7 +3,7 @@ Attendance Dashboard for Officers
 Provides chapter-wide statistics, member breakdowns, and event series analysis
 """
 from django.contrib.auth.decorators import login_required
-from django.shortcuts import render
+from django.shortcuts import get_object_or_404, render
 from django.db.models import Count, Q, Avg, F
 from django.db.models.functions import TruncMonth, TruncWeek
 from django.utils import timezone
@@ -260,7 +260,8 @@ def member_attendance_detail(request, user_id):
     """
     Detailed attendance view for a specific member (officer view)
     """
-    member = ParliamentUser.objects.get(user_id=user_id)
+    # v3.45.5: an unknown user_id is a 404 (it was a 500).
+    member = get_object_or_404(ParliamentUser, user_id=user_id)
     now = timezone.now()
 
     # Date range filter
