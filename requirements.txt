@@ -2,7 +2,7 @@ asgiref==3.9.2  # channels 4.3.2 needs >=3.9,<4
 Django==5.2.18  # v3.44.7: 10-06-26 security release (CVE-2026-84429 header-parsing DoS, CVE-2026-87975 model formsets, CVE-2026-77050, CVE-2026-87890)
 icalendar==6.1.0
 psycopg2-binary==2.9.10
-python-dotenv==1.2.2
+python-dotenv==1.2.4
 python-magic==0.4.27
 pytz==2025.2
 requests==2.33.1
