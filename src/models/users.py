@@ -310,6 +310,16 @@ class ParliamentUser(AbstractBaseUser):
     )
     pledge_class = models.CharField(max_length=30, blank=True, help_text='e.g. "Spring 2024"')
     pledge_class_greek = models.CharField(max_length=50, blank=True, help_text='Greek letter/name for the class (e.g. "Beta")')
+    # v3.46.0 — Mason 10-14-26, reversing the 06-24-26 removal: pledges need a
+    # phase so the education dashboard can advance them, and so Phase 2/3 tasks
+    # and phase-gated pages unlock as they do. Set on the education dashboard;
+    # meaningless once member_type is no longer 'Pledge'. See src/pledge_phases.py.
+    PLEDGE_PHASE_CHOICES = [('1', 'Phase 1'), ('2', 'Phase 2'), ('3', 'Phase 3')]
+    pledge_phase = models.CharField(
+        max_length=1, default='1',
+        choices=PLEDGE_PHASE_CHOICES,
+        help_text='Pledge education phase. Unlocks tasks and pages for this phase and earlier.',
+    )
     graduation_year = models.PositiveSmallIntegerField(null=True, blank=True)
     graduation_semester = models.CharField(
         max_length=6, blank=True,
@@ -671,6 +681,7 @@ ANONYMIZE_FIELDS_KEPT = {
     ),
     'pledge_class': 'a cohort label ("Spring 2024"), not personally identifying on its own',
     'pledge_class_greek': 'same as pledge_class',
+    'pledge_phase': 'education progress, not identity',
     'graduation_year': 'a rough time period, not personally identifying on its own',
     'graduation_semester': 'same as graduation_year',
     'last_login': 'an audit timestamp, not identifying',

@@ -24,7 +24,7 @@
   <div class="bg-gradient-to-r from-primary-600 via-primary-700 to-primary-800 text-white py-8 shadow-lg">
     <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
       <h1 class="text-3xl font-bold mb-1">{% if is_preview %}{{ preview_pledge.name }}'s Tasks{% else %}My Tasks{% endif %}</h1>
-      <p class="text-primary-100 text-sm">Track your pledge education progress</p>
+      <p class="text-primary-100 text-sm">Track your pledge education progress{% if pledge_phase_label %} · <span class="font-semibold text-white">{{ pledge_phase_label }}</span>{% endif %}</p>
 
       {% if overdue_count %}
       <!-- v3.20.2 — lead with overdue. Due dates were stored and shown nowhere,

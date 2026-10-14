@@ -95,6 +95,7 @@ from src.view.committee.education import (
     education_adjust_points, education_delete_point_adjustment,
     education_set_big, education_reveal_big, education_unreveal_big, education_delete_big,
     education_reveal_all_bigs,
+    education_set_pledge_phase, education_advance_all_phases,
 )
 from src.view.chat import (
     chat_index, channel_chat, get_channel_messages, send_channel_message,
@@ -957,6 +958,10 @@ urlpatterns = [
     path('committee/<str:code>/education/bigs/<str:pledge_pk>/unreveal/', education_unreveal_big, name='education_unreveal_big'),
     path('committee/<str:code>/education/bigs/<str:pledge_pk>/delete/', education_delete_big, name='education_delete_big'),
     path('committee/<str:code>/education/points/<str:pledge_pk>/adjust/', education_adjust_points, name='education_adjust_points'),
+    # v3.46.0 — pledge phases. `phases/advance-all/` before `<pledge_pk>` so it
+    # can never be read as a pledge id (same reason as bigs/reveal-all/).
+    path('committee/<str:code>/education/phases/advance-all/', education_advance_all_phases, name='education_advance_all_phases'),
+    path('committee/<str:code>/education/phases/<str:pledge_pk>/set/', education_set_pledge_phase, name='education_set_pledge_phase'),
     path('committee/<str:code>/education/points/adjustments/<int:adjustment_pk>/delete/', education_delete_point_adjustment, name='education_delete_point_adjustment'),
     # Quiz question management
     path('committee/<str:code>/education/tasks/<int:task_pk>/questions/', education_manage_quiz_questions, name='education_manage_quiz_questions'),

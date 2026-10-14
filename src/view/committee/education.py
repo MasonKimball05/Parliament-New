@@ -2068,3 +2068,71 @@ def education_reveal_all_bigs(request, code):
     count = sum(1 for a in pending if reveal(a))
     messages.success(request, f'Revealed {count} big{"s" if count != 1 else ""}.')
     return _bigs_redirect(code)
+
+
+# ── Pledge phases (v3.46.0) ──────────────────────────────────────────────────
+#
+# Mason, 10-14-26: "there's no way to advance a pledges phase on the education
+# dashboard." A pledge's phase unlocks that phase's tasks (and every earlier
+# phase's) and the pages ticked for it under Pledge Page Access. Rules live in
+# src/pledge_phases.py. Gated on `can_manage_tasks`, the permission that
+# already decides which tasks exist and what they are worth.
+
+def _progress_redirect(code):
+    return redirect(reverse('education_home', kwargs={'code': code}) + '#pledge-progress')
+
+
+@login_required
+@require_page_enabled('committee_home')
+@require_POST
+def education_set_pledge_phase(request, code, pledge_pk):
+    """Set one pledge's phase (advance, or move back to correct a mistake)."""
+    from django.contrib import messages
+    from src.pledge_phases import PHASES
+
+    committee, access = _education_committee_or_404(code, request.user)
+    denied = _require_education_permission(access, 'can_manage_tasks')
+    if denied:
+        return denied
+    pledge = get_object_or_404(ParliamentUser, pk=pledge_pk, member_type='Pledge', is_active=True)
+    phase = request.POST.get('phase', '')
+    if phase not in PHASES:
+        messages.error(request, 'Choose Phase 1, 2 or 3.')
+        return _progress_redirect(code)
+    if pledge.pledge_phase != phase:
+        pledge.pledge_phase = phase
+        pledge.save(update_fields=['pledge_phase'])
+        messages.success(request, f'{pledge.name} is now in Phase {phase}.')
+    return _progress_redirect(code)
+
+
+@login_required
+@require_page_enabled('committee_home')
+@require_POST
+def education_advance_all_phases(request, code):
+    """
+    Move every active pledge up one phase. Pledges already in the last phase
+    stay there, and a pledge held back stays one phase behind the others.
+    """
+    from django.contrib import messages
+    from src.pledge_phases import next_phase
+
+    committee, access = _education_committee_or_404(code, request.user)
+    denied = _require_education_permission(access, 'can_manage_tasks')
+    if denied:
+        return denied
+    moved = 0
+    with transaction.atomic():
+        for pledge in (ParliamentUser.objects.select_for_update()
+                       .filter(member_type='Pledge', is_active=True)
+                       .only('pk', 'pledge_phase')):
+            following = next_phase(pledge.pledge_phase)
+            if following:
+                pledge.pledge_phase = following
+                pledge.save(update_fields=['pledge_phase'])
+                moved += 1
+    if moved:
+        messages.success(request, f'Advanced {moved} pledge{"s" if moved != 1 else ""} one phase.')
+    else:
+        messages.info(request, 'Every pledge is already in the last phase.')
+    return _progress_redirect(code)
