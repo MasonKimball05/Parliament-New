@@ -215,6 +215,11 @@ STATICFILES_DIRS = [
 MEDIA_URL = os.getenv('DJANGO_MEDIA_URL', os.getenv('MEDIA_URL', '/media/'))
 MEDIA_ROOT = os.path.join(BASE_DIR, os.getenv('MEDIA_ROOT','media'))
 
+# v3.45.6 — where PDF preview pages are kept once rendered (outside
+# MEDIA_ROOT; nothing serves this folder directly, every page goes through
+# pdf_preview_page's token check). Safe to delete at any time.
+PDF_PREVIEW_CACHE_DIR = os.getenv('PDF_PREVIEW_CACHE_DIR') or os.path.join(BASE_DIR, 'cache', 'pdf-previews')
+
 # v3.14.2: default storage slugifies uploaded filenames at save time
 # (spaces/quotes/non-ASCII broke Content-Disposition and X-Accel headers —
 # 07-19 review). DualLocationStorage fields get the same via a shared mixin;
@@ -665,6 +670,10 @@ if 'test' in _sys.argv or os.getenv('PYTEST_CURRENT_TEST'):
     LOGGING['handlers']['file']['filename'] = os.path.join(
         os.getenv('TEST_LOG_DIR') or _tempfile.mkdtemp(prefix='parliament-test-logs-'),
         'django_actions.log')
+
+    # v3.45.6: PDF preview pages rendered during tests go to a throwaway
+    # folder, never the real preview cache (src/view/view_document.py).
+    PDF_PREVIEW_CACHE_DIR = _tempfile.mkdtemp(prefix='parliament-test-previews-')
 
     # ⚠️ v3.19.8 — A TEST RUN MUST NEVER TOUCH THE REAL CACHE, AND UNTIL NOW
     # NOTHING SAID SO. This block set Celery to eager and said nothing about

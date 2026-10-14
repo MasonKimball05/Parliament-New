@@ -35,6 +35,8 @@ logs/
 
 # === Media / Uploaded Files ===
 media/
+# v3.45.6: rendered PDF preview pages (PDF_PREVIEW_CACHE_DIR)
+cache/
 uploads/
 
 # === Static Files ===

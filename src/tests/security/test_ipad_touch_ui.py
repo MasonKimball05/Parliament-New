@@ -47,11 +47,12 @@ from pathlib import Path
 
 from django.conf import settings
 from django.test import SimpleTestCase
+from src.tests.base_template_source import base_html_source
 
 
 class TheMobileMenuBreakpointMatchesItsButtonTests(SimpleTestCase):
     def setUp(self):
-        self.base = (Path(settings.BASE_DIR) / 'templates' / 'base.html').read_text(encoding='utf-8')
+        self.base = base_html_source()
 
     def test_the_toggle_button_is_xl_hidden(self):
         self.assertIn('id="mobile-menu-button" class="xl:hidden', self.base)

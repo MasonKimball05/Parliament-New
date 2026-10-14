@@ -44,6 +44,7 @@ from pathlib import Path
 
 from django.conf import settings
 from django.test import SimpleTestCase
+from src.tests.base_template_source import base_html_source
 
 #: Measured 08-19-26, after converting `committee/education_dashboard.html` (6 handlers)
 #: and `admin_v2/csp_violations.html` (1). **Lower this when you convert one.**
@@ -80,7 +81,9 @@ def _blank_comments(text):
 
 def _templates():
     root = Path(settings.BASE_DIR) / 'templates'
-    return sorted(root.rglob('*.html'))
+    # v3.45.6: base.html's scripts moved to static/js/base/; still scanned.
+    from src.tests.base_template_source import moved_script_files
+    return sorted(root.rglob('*.html')) + moved_script_files()
 
 
 def _swallowing_handlers():
@@ -113,7 +116,7 @@ class TheHelperExistsTests(SimpleTestCase):
     """The control. Everything below points at this."""
 
     def setUp(self):
-        self.base = (Path(settings.BASE_DIR) / 'templates' / 'base.html').read_text(encoding='utf-8')
+        self.base = base_html_source()
 
     def test_base_defines_the_post_helper(self):
         self.assertIn('P.post = function', self.base)

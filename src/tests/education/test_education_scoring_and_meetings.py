@@ -658,7 +658,17 @@ class TaskDeleteButtonTests(EducationFixtureMixin, TestCase):
         body = self.client.get(
             reverse('education_home', args=[self.committee.code])
         ).content.decode()
-        self.assertIn("meta[name=\"csrf-token\"]", body)
+        # v3.45.6: the code that reads the meta tag moved from base.html into
+        # static/js/base/core.js, which every page loads. So: the page carries
+        # a real token in the meta tag, and loads the script that reads it.
+        import re
+        from pathlib import Path
+        from django.conf import settings
+        token = re.search(r'<meta name="csrf-token" content="([^"]*)"', body)
+        self.assertTrue(token and len(token.group(1)) >= 32, 'no usable token in the meta tag')
+        self.assertIn('/static/js/base/core.js', body)
+        core = (Path(settings.BASE_DIR) / 'static' / 'js' / 'base' / 'core.js').read_text(encoding='utf-8')
+        self.assertIn("meta[name=\"csrf-token\"]", core)
         self.assertNotIn("document.cookie.match(/csrftoken", body)
 
 

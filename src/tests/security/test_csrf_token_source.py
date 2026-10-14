@@ -54,6 +54,9 @@ def _template_files():
         if not root.exists():
             continue
         yield from sorted(root.rglob('*.html'))
+    # v3.45.6: base.html's scripts moved to static/js/base/; still scanned.
+    from src.tests.base_template_source import moved_script_files
+    yield from moved_script_files()
 
 
 def _strip_comments(text):
