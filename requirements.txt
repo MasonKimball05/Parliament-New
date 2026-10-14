@@ -21,7 +21,7 @@ user-agents==2.2.0
 # App server: Daphne (ASGI — HTTP + WebSockets). See daphne pin below with channels.
 
 # Redis for shared caching across workers (optional but recommended)
-redis==5.2.1
+redis==8.1.0
 django-redis==7.0.0
 
 # Celery — async task queue and periodic task scheduling
