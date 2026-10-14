@@ -916,7 +916,8 @@
     </script>
 
     <!-- Alpine.js (must load before any x-data components) -->
-    <script src="{% static 'js/alpinejs.min.js' %}" defer></script>
+    <script src="{% static_v 'js/alpine-components.js' %}"></script>
+    <script src="{% static_v 'js/alpinejs.min.js' %}" defer></script>
 
     <!-- Quick Actions Script -->
     <script src="{% static 'js/quick-actions.js' %}"></script>

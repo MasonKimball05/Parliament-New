@@ -4,19 +4,7 @@
 
 {% block admin_content %}
 <div class="container mx-auto px-4 py-8"
-     x-data="{
-       q: '',
-       expanded: {},
-       toggleSection(s) { this.expanded[s] = !this.expanded[s] },
-       matchEntry(e) {
-         if (!this.q) return true;
-         const t = this.q.toLowerCase();
-         return e.pattern.toLowerCase().includes(t)
-             || e.name.toLowerCase().includes(t)
-             || e.auth.toLowerCase().includes(t)
-             || e.doc.toLowerCase().includes(t);
-       }
-     }">
+     x-data="urlExplorer">
 
     <!-- Header -->
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-6">
@@ -56,18 +44,18 @@
         <!-- Section header (collapsible when not filtering) -->
         <button type="button"
                 class="w-full flex items-center justify-between px-5 py-4 text-left hover:bg-gray-50 dark:hover:bg-gray-750 transition"
-                @click="toggleSection('{{ section }}')">
+                @click="toggleSection('{{ section|escapejs }}')">
             <div class="flex items-center gap-3">
                 <span class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">{{ section }}</span>
                 <span class="text-xs bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 px-2 py-0.5 rounded-full">{{ entries|length }}</span>
             </div>
-            <svg class="w-4 h-4 text-gray-400 transition-transform" :class="expanded['{{ section }}'] || q ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg class="w-4 h-4 text-gray-400 transition-transform" :class="isOpen('{{ section|escapejs }}') ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
             </svg>
         </button>
 
         <!-- Entry table (visible when expanded OR when filtering) -->
-        <div x-show="expanded['{{ section }}'] || q" x-transition>
+        <div x-show="isOpen('{{ section|escapejs }}')" x-transition>
             <div class="overflow-x-auto"><!-- v3.15.0 mobile: horizontal scroll instead of page blowout -->
             <table class="min-w-full text-sm">
                 <thead>
@@ -81,7 +69,8 @@
                 <tbody>
                     {% for entry in entries %}
                     <tr class="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-750 transition"
-                        x-show="matchEntry({ pattern: '{{ entry.pattern|escapejs }}', name: '{{ entry.name|escapejs }}', auth: '{{ entry.auth|escapejs }}', doc: '{{ entry.doc|escapejs }}' })">
+                        data-pattern="{{ entry.pattern }}" data-name="{{ entry.name }}" data-auth="{{ entry.auth }}" data-doc="{{ entry.doc }}"
+                        x-show="rowMatches($el)">
                         <td class="px-5 py-3 font-mono text-xs text-gray-800 dark:text-gray-200 break-all">{{ entry.pattern }}</td>
                         <td class="px-4 py-3 text-xs text-gray-500 dark:text-gray-400 break-all">{{ entry.name }}</td>
                         <td class="px-4 py-3">
@@ -108,7 +97,7 @@
     {% endfor %}
 
     <!-- No results -->
-    <div x-show="q && document.querySelectorAll('tbody tr[style!=\'display: none;\']').length === 0"
+    <div x-show="noMatches()"
          class="text-center py-12 text-gray-500 dark:text-gray-400">
         No routes match "<span x-text="q" class="font-medium"></span>".
     </div>

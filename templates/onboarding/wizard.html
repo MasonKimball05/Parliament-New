@@ -4,10 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Welcome to Parliament</title>
-    {% load static %}
+    {% load static static_version %}
     <link rel="stylesheet" href="{% static 'css/output.css' %}">
     <style>[x-cloak]{display:none!important}</style>
-    <script src="{% static 'js/alpinejs.min.js' %}" defer></script>
+    <script src="{% static_v 'js/alpinejs.min.js' %}" defer></script>
 </head>
 <body class="h-full bg-gray-50 font-sans" x-data="onboarding('{{ step }}')" x-cloak>
 
@@ -227,6 +227,11 @@ function onboarding(initialStep) {
 
     };
 }
+// v3.45.7: the CSP build of Alpine only sees components registered with
+// Alpine.data, not global functions. See static/js/alpine-components.js.
+document.addEventListener('alpine:init', function () {
+    window.Alpine.data('onboarding', onboarding);
+});
 </script>
 </body>
 </html>

@@ -4,11 +4,7 @@
 
 {% block content %}
 <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8"
-     x-data="{
-       q: '',
-       m(s) { return !this.q || s.toLowerCase().includes(this.q.toLowerCase()) },
-       any(...items) { return !this.q || items.some(s => s.toLowerCase().includes(this.q.toLowerCase())) }
-     }">
+     x-data="guideSearch">
     <!-- Header -->
     <div class="mb-8">
         <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">

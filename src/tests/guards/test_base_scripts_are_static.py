@@ -48,8 +48,12 @@ class MovedScriptsTests(SimpleTestCase):
         self.assertLess(len(base().encode('utf-8')), 80 * 1024)
 
     def test_scripts_load_synchronously(self):
-        """`defer`/`async` would run them after the page's own scripts."""
-        for tag in re.findall(r'<script src="\{% static_v [^>]*>', base()):
+        """`defer`/`async` would run them after the page's own scripts.
+
+        Only the files moved out of base.html (js/base/). Alpine itself is
+        loaded with `defer` on purpose (v3.45.7), as Alpine's docs require.
+        """
+        for tag in re.findall(r'<script src="\{% static_v \'js/base/[^>]*>', base()):
             self.assertNotIn('defer', tag)
             self.assertNotIn('async', tag)
 
@@ -76,6 +80,18 @@ class MovedScriptsTests(SimpleTestCase):
 
 class StaticVersionTagTests(SimpleTestCase):
 
+    def setUp(self):
+        from src.templatetags import static_version
+        static_version._versions.clear()
+        self.addCleanup(static_version._versions.clear)
+        # An empty STATIC_ROOT, so a developer's old collectstatic output
+        # cannot decide these tests.
+        import tempfile
+        self.static_root = tempfile.mkdtemp(prefix='parliament-static-root-')
+        override = override_settings(STATIC_ROOT=self.static_root)
+        override.enable()
+        self.addCleanup(override.disable)
+
     def render(self, path):
         return Template("{% load static_version %}{% static_v '" + path + "' %}").render(Context())
 
@@ -87,3 +103,21 @@ class StaticVersionTagTests(SimpleTestCase):
 
     def test_a_missing_file_gets_the_plain_url(self):
         self.assertTrue(self.render('js/base/no-such-file.js').endswith('js/base/no-such-file.js'))
+
+    def test_production_hashes_the_collected_copy(self):
+        """v3.45.7: the url follows the file nginx serves (STATIC_ROOT), not the source."""
+        import hashlib
+        collected = Path(self.static_root) / 'js' / 'base' / 'core.js'
+        collected.parent.mkdir(parents=True)
+        collected.write_bytes(b'// an older core.js, not yet replaced by collectstatic')
+        digest = hashlib.sha256(collected.read_bytes()).hexdigest()[:12]
+        self.assertTrue(self.render('js/base/core.js').endswith(f'?v={digest}'))
+
+    @override_settings(DEBUG=True)
+    def test_debug_hashes_the_source(self):
+        import hashlib
+        collected = Path(self.static_root) / 'js' / 'base' / 'core.js'
+        collected.parent.mkdir(parents=True)
+        collected.write_bytes(b'// stale')
+        digest = hashlib.sha256((BASE / 'static' / 'js' / 'base' / 'core.js').read_bytes()).hexdigest()[:12]
+        self.assertTrue(self.render('js/base/core.js').endswith(f'?v={digest}'))
