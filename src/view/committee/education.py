@@ -368,6 +368,7 @@ def education_home(request, code):
     # reuse those sets here rather than calling t.assigned_to.all() twice per task.
     task_assigned_pks = {row['task'].pk: row['assigned_pks'] for row in task_rows}
     pledge_summaries = []
+    now_for_seen = timezone.now()
     for pledge in pledges:
         applicable_required = [
             t for t in tasks
@@ -378,8 +379,12 @@ def education_home(request, code):
             if completion_map.get((t.pk, pledge.pk)) and
                completion_map[(t.pk, pledge.pk)].status == 'completed'
         )
+        # v3.47.0 — days since he was last on the site (not since he last
+        # typed a password; see ParliamentUser.last_seen_at). None = never.
+        last_seen_days = (now_for_seen - pledge.last_seen_at).days if pledge.last_seen_at else None
         pledge_summaries.append({
             'pledge': pledge,
+            'last_seen_days': last_seen_days,
             'completed': completed,
             'total': len(applicable_required),
             'percent': round(completed / len(applicable_required) * 100) if applicable_required else 0,

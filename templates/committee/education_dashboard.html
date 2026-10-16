@@ -87,6 +87,19 @@
           {% else %}
           <span class="text-xs px-2 py-0.5 rounded-full bg-primary-50 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300 shrink-0">{{ ps.pledge.get_pledge_phase_display }}</span>
           {% endif %}
+          {% comment %}
+          v3.47.0 — Mason 10-16-26: when the pledge was last on the site, not
+          when he last typed a password (a remembered session can go weeks
+          without one). Amber after 7 days, red after 14 or never.
+          {% endcomment %}
+          {% if ps.pledge.last_seen_at %}
+          <span class="text-xs shrink-0 {% if ps.last_seen_days >= 14 %}text-red-600 dark:text-red-400 font-medium{% elif ps.last_seen_days >= 7 %}text-amber-600 dark:text-amber-400 font-medium{% else %}text-gray-500 dark:text-gray-400{% endif %}"
+                title="Last on the site {{ ps.pledge.last_seen_at|date:'M j, Y g:i A' }}">
+            Last on {% if ps.last_seen_days == 0 %}today{% elif ps.last_seen_days == 1 %}yesterday{% else %}{{ ps.last_seen_days }} days ago{% endif %}
+          </span>
+          {% else %}
+          <span class="text-xs shrink-0 text-red-600 dark:text-red-400 font-medium" title="No record of this pledge using the site">Never on</span>
+          {% endif %}
           <span class="text-sm text-gray-600 dark:text-gray-400 shrink-0">{{ ps.completed }}/{{ ps.total }} tasks</span>
           {% comment %}
           09-22-26 — points earned so far out of the max currently possible

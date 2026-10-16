@@ -4,6 +4,8 @@ Updates UserSession records on each authenticated request to keep active session
 Also performs fingerprint validation to detect potentially stolen sessions.
 """
 from django.core.cache import cache
+from django.utils import timezone
+from src.impersonation import is_impersonating
 from ..models import UserSession
 from src.utils.security_utils import get_client_ip as _get_client_ip
 import logging
@@ -92,6 +94,18 @@ class SessionTrackingMiddleware:
                 except Exception as e:
                     # Don't let session tracking errors break the request
                     logger.warning(f"Failed to update user session: {e}")
+
+                # v3.47.0 — "last time they got on", shown on the education
+                # dashboard. Rides this same 5-minute throttle, so it is one
+                # extra UPDATE per session per 5 minutes, not per request.
+                # An admin's "log in as" is the admin on the site, not the
+                # member, so it must not move the member's timestamp.
+                if not is_impersonating(request):
+                    try:
+                        request.user._meta.model.objects.filter(pk=request.user.pk).update(
+                            last_seen_at=timezone.now())
+                    except Exception as e:
+                        logger.warning(f"Failed to update last_seen_at: {e}")
 
                 cache.set(check_cache_key, True, self.update_interval_seconds)
 

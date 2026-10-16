@@ -320,6 +320,17 @@ class ParliamentUser(AbstractBaseUser):
         choices=PLEDGE_PHASE_CHOICES,
         help_text='Pledge education phase. Unlocks tasks and pages for this phase and earlier.',
     )
+    # v3.47.0 — Mason 10-16-26: "the last time a pledge logged onto the site.
+    # Not just entered credentials, the last time they got on." `last_login`
+    # only moves when a password is typed; a member on a 30-day "remember me"
+    # session can use the site every day and keep a last_login from weeks ago.
+    # This moves on any signed-in request, written by SessionTrackingMiddleware
+    # at most once per 5 minutes per session, and never by an admin's
+    # "log in as". Shown on the education dashboard.
+    last_seen_at = models.DateTimeField(
+        null=True, blank=True,
+        help_text='Last time this member used the site while signed in (to within 5 minutes).',
+    )
     graduation_year = models.PositiveSmallIntegerField(null=True, blank=True)
     graduation_semester = models.CharField(
         max_length=6, blank=True,
@@ -685,6 +696,7 @@ ANONYMIZE_FIELDS_KEPT = {
     'graduation_year': 'a rough time period, not personally identifying on its own',
     'graduation_semester': 'same as graduation_year',
     'last_login': 'an audit timestamp, not identifying',
+    'last_seen_at': 'same as last_login',
 }
 
 
@@ -803,6 +815,7 @@ MEMBER_PROFILE_FIELDS = (
 MEMBER_ACCOUNT_FIELDS = (
     'password',
     'last_login',
+    'last_seen_at',
     'force_password_change',
     'has_default_password',
     'backup_codes_acknowledged',
