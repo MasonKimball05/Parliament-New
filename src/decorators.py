@@ -48,6 +48,13 @@ def log_function_call(func):
 def committee_chair_required(view_func):
     @wraps(view_func)
     def wrapper(request, code, *args, **kwargs):
+        # v3.45.1 — signed out goes to the login page, like the other
+        # decorators here. Without this the decorator only worked when
+        # `@login_required` was stacked ABOVE it; `committee_manage_members`
+        # had it below, so a signed-out request crashed on `.is_admin`.
+        if not request.user.is_authenticated:
+            return redirect('login')
+
         committee = get_object_or_404(Committee, code=code)
 
         # Allow admins to bypass chair requirement
@@ -122,6 +129,10 @@ def kai_chair_required(view_func):
     """Restrict access to Kai committee chairs and admins."""
     @wraps(view_func)
     def wrapper(request, *args, **kwargs):
+        # v3.45.1 — same as committee_chair_required: do not depend on
+        # `@login_required` being stacked above this.
+        if not request.user.is_authenticated:
+            return redirect('login')
         try:
             kai_committee = Committee.objects.get(is_kai_committee=True)
             allowed = kai_committee.is_chair(request.user) or request.user.is_admin

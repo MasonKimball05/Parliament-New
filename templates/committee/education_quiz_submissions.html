@@ -44,6 +44,18 @@
       </ol>
     </div>
 
+    {% if points_scaled %}
+    {% comment %}v3.50.0 — by-% quizzes: unmarked answers count as wrong, so say so before anyone clicks Mark Passed.{% endcomment %}
+    <div class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-xl px-5 py-4 text-sm text-amber-800 dark:text-amber-200">
+      <p class="font-semibold">This quiz gives points by % right ({{ task.points }} pts).</p>
+      <p class="mt-1">
+        {% if task.max_score %}A score you enter is used first. Otherwise, a{% else %}A{% endif %}nswers you haven't marked right or wrong count as wrong,
+        so mark them before or after Mark Passed and the points follow.
+        {% if pledges_with_unmarked %}<strong>{{ pledges_with_unmarked }} pledge{{ pledges_with_unmarked|pluralize }}</strong> still {{ pledges_with_unmarked|pluralize:"has,have" }} unmarked answers.{% endif %}
+      </p>
+    </div>
+    {% endif %}
+
     <!-- Pledge submissions -->
     {% for row in pledge_rows %}
     {% comment %}
@@ -87,6 +99,12 @@
              hidden inputs. -->
         {% if row.submitted and access.can_grade_submissions %}
         <div class="flex items-center gap-2 flex-wrap justify-end">
+          {% if row.points_preview %}
+          <span class="text-xs {% if row.points_preview.unmarked %}text-amber-700 dark:text-amber-400{% else %}text-gray-500 dark:text-gray-400{% endif %}"
+                title="Points if marked passed now (refresh after marking answers)">
+            {{ row.points_preview.points }} of {{ task.points }} pts{% if row.points_preview.unmarked %} · {{ row.points_preview.unmarked }} not marked{% endif %}
+          </span>
+          {% endif %}
           {% if task.is_scored %}
           <!-- Score entry. Posted alongside the status so one click records
                both; the view leaves an existing score alone when the field is

@@ -78,6 +78,17 @@ def add_member(request):
         errors = {field: error[0] for field, error in form.errors.items()}
         return JsonResponse({'success': False, 'errors': errors}, status=400)
 
+    # v3.50.0 — same text rules as a member's own profile (src/profile_text.py).
+    from src.profile_text import member_fields_error
+    text_error = member_fields_error({
+        'name': form.cleaned_data['name'],
+        'email': form.cleaned_data.get('email') or '',
+        'member_type': form.cleaned_data['member_type'],
+        'member_status': form.cleaned_data['member_status'],
+    })
+    if text_error:
+        return JsonResponse({'success': False, 'error': text_error, 'errors': {'__all__': text_error}}, status=400)
+
     # Generate username from name (first initial + last name)
     base_username = generate_username(form.cleaned_data['name'])
     username = ensure_unique_username(base_username)
@@ -199,6 +210,26 @@ def edit_member(request, user_id):
         data = json.loads(request.body)
     except json.JSONDecodeError:
         return JsonResponse({'success': False, 'error': 'Invalid JSON data'}, status=400)
+    if not isinstance(data, dict):
+        return JsonResponse({'success': False, 'error': 'Invalid JSON data'}, status=400)
+
+    # v3.50.0 — an officer who is not an admin can't edit an admin's account.
+    # Changing an admin's email (then using "forgot password") or member type
+    # would be a way to take over or demote the people above you; deleting an
+    # admin was already refused for the same reason.
+    if member.is_admin and not request.user.is_admin and member.pk != request.user.pk:
+        return JsonResponse({'success': False, 'error': "Only an admin can edit an admin's account."}, status=403)
+
+    # v3.50.0 — validate before anything is applied: the same text rules as the
+    # member's own profile, a real member type and status, a real email.
+    from src.profile_text import member_fields_error
+    text_error = member_fields_error(
+        {k: data[k] for k in ('name', 'preferred_name', 'email', 'member_type',
+                              'member_status', 'role_number') if k in data},
+        member,
+    )
+    if text_error:
+        return JsonResponse({'success': False, 'error': text_error}, status=400)
 
     # Track changes for logging
     changes = []
@@ -676,6 +707,13 @@ def _import_member_row(row, requesting_user):
     if member_type not in VALID_MEMBER_TYPES:
         return {'status': 'error', 'name': name, 'username': username,
                 'error': f"Invalid member_type '{member_type}'. Must be one of: {', '.join(sorted(VALID_MEMBER_TYPES))}."}
+
+    # v3.50.0 — same text rules as everywhere else a member is edited.
+    from src.profile_text import member_fields_error
+    text_error = member_fields_error({'name': name, 'username': username, 'email': email or '',
+                                      'phone_number': phone_number, 'pledge_class': pledge_class})
+    if text_error:
+        return {'status': 'error', 'name': name, 'username': username, 'error': text_error}
 
     # --- Username conflict ---
     if ParliamentUser.objects.filter(username=username).exists():

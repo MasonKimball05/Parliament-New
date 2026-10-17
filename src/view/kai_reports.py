@@ -11,7 +11,7 @@ from django.utils import timezone
 from django.utils.timezone import localtime
 from django.http import HttpResponse
 from django.core.exceptions import ValidationError
-import csv
+from src.utils.export_utils import safe_csv_writer
 import logging
 from datetime import datetime, timedelta
 from src.models import KaiReport, Committee, ParliamentUser, KaiReportActivity, KaiReportTemplate, KaiFormField, KaiReportFieldResponse, KaiClosureRequest, ActivityLog, KaiMemberPermission, KaiRecusal, KaiAppeal, KaiBreakGlassGrant
@@ -1406,7 +1406,7 @@ def export_kai_reports_csv(request):
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = f'attachment; filename="kai_reports_{timezone.now().strftime("%Y%m%d_%H%M%S")}.csv"'
 
-        writer = csv.writer(response)
+        writer = safe_csv_writer(response)
         # v3.17.7: headers and per-row redaction moved to KAI_CSV_HEADERS /
         # _kai_csv_row so this export and the bulk one cannot drift. The
         # redaction rule itself is unchanged from v3.16.2.
@@ -2660,7 +2660,7 @@ def bulk_actions_kai_reports(request):
             response = HttpResponse(content_type='text/csv')
             response['Content-Disposition'] = f'attachment; filename="selected_kai_reports_{timezone.now().strftime("%Y%m%d_%H%M%S")}.csv"'
 
-            writer = csv.writer(response)
+            writer = safe_csv_writer(response)
             writer.writerow(KAI_CSV_HEADERS)
 
             for report in reports.select_related('submitted_by', 'reviewed_by', 'targeted_to').defer(*member_defer('submitted_by', 'reviewed_by', 'targeted_to')):

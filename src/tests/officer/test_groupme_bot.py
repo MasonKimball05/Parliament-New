@@ -384,3 +384,72 @@ class WhereToFindItTests(TestCase):
         html = self.html(self.officer, 'create_announcement')
         self.assertIn('Manage GroupMe groups', html)
         self.assertIn('name="groupme_channel_ids"', html)
+
+
+class EventReminderTests(GroupMeFixture, TestCase):
+    """v3.50.0 — a reminder posted before an event."""
+
+    def make_event(self, hours_away, visible_to=None, channels=(), reminder_hours=24, **kw):
+        from src.models import Event
+        e = Event.objects.create(title='Chapter meeting', description='x', location='The house',
+                                 date_time=timezone.now() + timedelta(hours=hours_away),
+                                 created_by=self.officer, visible_to=visible_to,
+                                 groupme_reminder_hours=reminder_hours, **kw)
+        e.groupme_channels.set(channels)
+        return e
+
+    def sweep(self):
+        with inline_celery():
+            groupme_tasks.sweep_groupme()
+
+    def test_posts_once_when_the_reminder_time_comes(self):
+        e = self.make_event(30, channels=[self.everyone])
+        self.sweep()
+        self.assertEqual(self.api.posts(), [])          # 30 h away, reminder at 24 h
+        from src.models import Event
+        Event.objects.filter(pk=e.pk).update(date_time=timezone.now() + timedelta(hours=20))
+        self.sweep(); self.sweep()
+        posts = self.api.posts()
+        self.assertEqual(len(posts), 1)
+        self.assertEqual(posts[0]['json']['bot_id'], 'botEVERYONE1')
+        self.assertIn('⏰ Reminder: Chapter meeting', posts[0]['json']['text'])
+        self.assertIn('The house', posts[0]['json']['text'])
+
+    def test_past_events_and_unticked_events_are_ignored(self):
+        self.make_event(-1, channels=[self.everyone])
+        self.make_event(2)
+        self.sweep()
+        self.assertEqual(self.api.posts(), [])
+
+    def test_members_only_event_skips_the_pledge_group(self):
+        e = self.make_event(2, visible_to=['Member'], channels=[self.everyone, self.brothers])
+        self.sweep()
+        self.assertEqual([p['json']['bot_id'] for p in self.api.posts()], ['botBROTHERS1'])
+        self.assertEqual(GroupMeMessage.objects.get(event=e, channel=self.everyone).status, 'skipped')
+
+    def test_event_form_offers_the_groups(self):
+        html = self.oc.get(reverse('create_event')).content.decode()
+        self.assertIn('GroupMe reminder', html)
+        self.assertIn('name="groupme_reminder_hours"', html)
+
+    def test_save_keeps_only_allowed_groups(self):
+        from django.test import RequestFactory
+        from src.groupme import save_event_channels
+        e = self.make_event(48, visible_to=['Member'])
+        req = RequestFactory().post('/', {'groupme_channel_ids': [str(self.everyone.pk), str(self.brothers.pk)],
+                                          'groupme_reminder_hours': '6'})
+        save_event_channels(req, [e])
+        e.refresh_from_db()
+        self.assertEqual(list(e.groupme_channels.all()), [self.brothers])
+        self.assertEqual(e.groupme_reminder_hours, 6)
+
+
+class CspRetentionTests(TestCase):
+    def test_reports_older_than_30_days_are_deleted(self):
+        from src.models import CSPViolation
+        from src.tasks.cleanup import prune_old_csp_violations
+        old = CSPViolation.objects.create(violated_directive='script-src', blocked_uri='inline')
+        new = CSPViolation.objects.create(violated_directive='script-src', blocked_uri='inline')
+        CSPViolation.objects.filter(pk=old.pk).update(created_at=timezone.now() - timedelta(days=31))
+        self.assertEqual(prune_old_csp_violations(), 1)
+        self.assertEqual(list(CSPViolation.objects.values_list('pk', flat=True)), [new.pk])

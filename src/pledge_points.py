@@ -99,3 +99,27 @@ def points_for(task, completion, pledge_pk, marks):
         correct.get((task.pk, pledge_pk), 0),
         questions.get(task.pk, 0),
     )
+
+
+def grading_preview(task, completion, correct, question_count, answered_marked):
+    """
+    v3.50.0 — what a by-% quiz would give if marked Completed right now, for
+    the grading page and its warning. `answered_marked` = answers with a
+    right/wrong mark. Returns None for a quiz that doesn't scale.
+
+      {'points': 7, 'unmarked': 3, 'uses_score': False}
+
+    `unmarked` is questions without a mark (an unanswered question counts too:
+    it's "not right" until marked), and is what makes 0 points a surprise.
+    """
+    if not is_scaled(task):
+        return None
+    from types import SimpleNamespace
+    score = getattr(completion, 'score', None) if completion is not None else None
+    as_completed = SimpleNamespace(status='completed', score=score)
+    uses_score = bool(task.max_score) and score is not None
+    return {
+        'points': task_points_earned(task, as_completed, correct, question_count),
+        'unmarked': 0 if uses_score else max(question_count - answered_marked, 0),
+        'uses_score': uses_score,
+    }

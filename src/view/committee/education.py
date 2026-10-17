@@ -23,7 +23,7 @@ from django.urls import reverse
 from django.views.decorators.http import require_POST
 from django.db import transaction
 from django.utils import timezone
-from src.pledge_points import is_scaled, points_for, quiz_marks
+from src.pledge_points import grading_preview, is_scaled, points_for, quiz_marks
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.db.models import Count, Q
 
@@ -404,6 +404,7 @@ def education_home(request, code):
 
     # Page access restrictions (VPE settings panel)
     page_restrictions = PledgePageRestriction.objects.all().order_by('display_name', 'url_name')
+    from src.middleware.pledge_pages import restrictable_url_names
 
     # Quiz questions keyed by task_pk (only for quiz-type tasks)
     quiz_task_pks = [t.pk for t in tasks if t.task_type == 'quiz']
@@ -607,6 +608,7 @@ def education_home(request, code):
         'POINTS_MODE_CHOICES': PledgeTask.POINTS_MODE_CHOICES,
         'PHASE_CHOICES': PledgeTask.PHASE_CHOICES,
         'page_restrictions': page_restrictions,
+        'restrictable_pages': restrictable_url_names(),
         'PHASE_CHOICES_SIMPLE': [('all', 'All'), ('1', 'Ph.1'), ('2', 'Ph.2'), ('3', 'Ph.3')],
         'all_pledges': pledges,
         'quiz_questions_map': quiz_questions_map,
@@ -899,7 +901,29 @@ def education_toggle_completion(request, code, task_pk, pledge_pk):
     comp.completed_at = timezone.now() if new_status == 'completed' else None
     comp.save(update_fields=updated)
 
+    # v3.50.0 — marking a "points by % right" quiz Completed while answers are
+    # still unmarked (and no score typed) gives fewer points than the grader
+    # probably expects: unmarked counts as wrong. Say so; don't block it.
+    warning = ''
+    if new_status == 'completed' and is_scaled(task):
+        from src.models import PledgeQuizAnswer
+        marks = PledgeQuizAnswer.objects.filter(question__task=task, pledge=pledge)
+        preview = grading_preview(
+            task, comp,
+            marks.filter(is_correct=True).count(), task.questions.count(),
+            marks.exclude(is_correct=None).count(),
+        )
+        if preview and preview['unmarked']:
+            warning = (
+                f"{pledge.get_display_name()} is marked passed, but {preview['unmarked']} of "
+                f"{task.questions.count()} answers aren't marked right or wrong yet, so he has "
+                f"{preview['points']} of {task.points} pts for now. Mark them and his points update."
+            )
+
     if request.headers.get('X-Requested-With') != 'XMLHttpRequest' and requested:
+        if warning:
+            from django.contrib import messages
+            messages.warning(request, warning)
         # The grading page posts a normal form, so send it back where it was.
         #
         # ⚠️ The Referer is attacker-influenced, so it is validated against this
@@ -918,6 +942,7 @@ def education_toggle_completion(request, code, task_pk, pledge_pk):
         'pledge_pk': pledge_pk,
         'score': comp.score,
         'score_display': comp.score_display,
+        'warning': warning,
     })
 
 
@@ -938,6 +963,14 @@ def education_update_page_restriction(request, code):
     url_name = request.POST.get('url_name', '').strip()
     if not url_name:
         return JsonResponse({'error': 'url_name required'}, status=400)
+    # v3.50.0 — restrictions are now enforced on every page (see
+    # src/middleware/pledge_pages.py), so the name has to be a real page: a
+    # typo used to save and silently restrict nothing.
+    from src.middleware.pledge_pages import is_always_allowed, restrictable_url_names
+    if is_always_allowed(url_name):
+        return JsonResponse({'error': f'"{url_name}" can\'t be restricted: pledges need it to sign in or set up their account.'}, status=400)
+    if url_name not in restrictable_url_names() and not PledgePageRestriction.objects.filter(url_name=url_name).exists():
+        return JsonResponse({'error': f'There is no page called "{url_name}". Pick one from the list.'}, status=400)
 
     _valid_phases = {'all', '1', '2', '3'}
     phases = [p for p in request.POST.getlist('phases') if p in _valid_phases]
@@ -1204,16 +1237,29 @@ def education_quiz_submissions(request, code, task_pk):
                 'answer_pk': answer.pk if answer else None,
                 'is_correct': answer.is_correct if answer else None,
             })
+        # v3.50.0 — a "points by % right" quiz: what he'd get if marked
+        # Completed now, and how many answers still aren't marked (those count
+        # as wrong, so marking Completed first quietly gave 0 points).
+        preview = grading_preview(
+            task, completion_map.get(pledge.pk),
+            sum(1 for p in qa_pairs if p['is_correct'] is True), len(questions),
+            sum(1 for p in qa_pairs if p['is_correct'] is not None),
+        )
         pledge_rows.append({
             'pledge': pledge,
             'submitted': submitted,
             'completion': completion_map.get(pledge.pk),
             'qa_pairs': qa_pairs,
+            'points_preview': preview,
         })
 
     return render(request, 'committee/education_quiz_submissions.html', {
         'committee': committee,
         'task': task,
+        'points_scaled': is_scaled(task),
+        'pledges_with_unmarked': sum(
+            1 for r in pledge_rows
+            if r['submitted'] and r['points_preview'] and r['points_preview']['unmarked']),
         'questions': questions,
         'pledge_rows': pledge_rows,
         'is_chair': is_chair,

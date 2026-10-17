@@ -521,9 +521,10 @@
         </div>
         <div>
           <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">URL identifier <span class="text-red-500">*</span></label>
-          <input type="text" id="new-url-name" name="url_name" required placeholder="e.g. directory"
+          <input type="text" id="new-url-name" name="url_name" required placeholder="e.g. directory" list="restrictable-pages" autocomplete="off"
             class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500 font-mono">
-          <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">The internal page key (from the URL — ask your developer if unsure)</p>
+          <datalist id="restrictable-pages">{% for name in restrictable_pages %}<option value="{{ name }}">{% endfor %}</datalist>
+          <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">The internal page key. Start typing to pick from the list; a name that isn't a real page is refused.</p>
         </div>
         <div>
           <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Which phases <strong>can</strong> visit this page?</label>
@@ -673,6 +674,8 @@ async function toggleCompletion(committeeCode, taskPk, pledgePk, btn) {
         btn.textContent = STATUS_EMOJI[newStatus] || '⬜';
         btn.className = btn.className.replace(/bg-\S+/g, '');
         btn.classList.add(...STATUS_CLASSES[newStatus].split(' '));
+        // v3.50.0 — "points by % right" quiz marked passed with unmarked answers.
+        if (data.warning) { Parliament.toast(data.warning, 'warning'); }
     } catch (e) {
         /* Parliament.post has already told the user. Re-enabling the button is
            the only thing left to do — and it matters, because a disabled button

@@ -151,6 +151,11 @@ SCHEDULES = [
         'crontab': {'hour': '3', 'minute': '12'},  # 3:12 AM Central daily
     },
     {
+        'name': 'Prune CSP reports older than 30 days',
+        'task': 'tasks.prune_old_csp_violations',
+        'crontab': {'hour': '3', 'minute': '13'},  # 3:13 AM Central daily (v3.50.0)
+    },
+    {
         'name': 'Notify expiring API tokens',
         'task': 'tasks.notify_expiring_api_tokens',
         'crontab': {'hour': '3', 'minute': '14'},  # 3:14 AM Central daily

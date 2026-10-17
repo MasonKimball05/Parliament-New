@@ -93,9 +93,10 @@ def groupme_dashboard(request):
             GroupMeMessage.objects.filter(channel=c).order_by('-created_at').first()
         )
     log = (
-        GroupMeMessage.objects.select_related('announcement')
+        GroupMeMessage.objects.select_related('announcement', 'event')
         .only('channel_name', 'kind', 'status', 'error', 'created_at', 'sent_at',
-              'attempts', 'announcement__title', 'announcement__id')
+              'attempts', 'announcement__title', 'announcement__id',
+              'event__title', 'event__id')
         .order_by('-created_at')[:LOG_ROWS]
     )
     return render(request, 'officer/groupme_dashboard.html', {
@@ -326,7 +327,7 @@ def groupme_test_channel(request, channel_id):
 @require_POST
 @log_function_call
 def groupme_retry_message(request, message_id):
-    message = get_object_or_404(GroupMeMessage, pk=message_id, kind='announcement')
+    message = get_object_or_404(GroupMeMessage, pk=message_id, kind__in=('announcement', 'event_reminder'))
     if message.status != 'failed' or message.channel_id is None:
         messages.error(request, 'Only a failed post to a channel that still exists can be retried.')
         return redirect('groupme_dashboard')

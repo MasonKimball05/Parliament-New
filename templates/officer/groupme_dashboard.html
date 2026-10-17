@@ -12,7 +12,7 @@ The access token and bot ids are never rendered (bots show their last 4).
     <div>
         <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">GroupMe Bot</h1>
         <p class="text-gray-600 dark:text-gray-400">
-            Announcements posted here can be echoed into the chapter's GroupMes. Each group below is a
+            Announcements posted here can be echoed into the chapter's GroupMes, and events can post a reminder before they start. Each group below is a
             "channel": the bot only posts an announcement to a group if everyone in that group can see it on Parliament.
         </p>
     </div>
@@ -236,7 +236,7 @@ The access token and bot ids are never rendered (bots show their last 4).
                     <tr class="text-gray-700 dark:text-gray-300 align-top">
                         <td class="py-2 pr-4 whitespace-nowrap">{{ m.created_at|date:"M j, g:i A" }}</td>
                         <td class="py-2 pr-4">{{ m.channel_name }}</td>
-                        <td class="py-2 pr-4">{% if m.announcement %}{{ m.announcement.title|truncatechars:60 }}{% else %}{{ m.get_kind_display }}{% endif %}</td>
+                        <td class="py-2 pr-4">{% if m.announcement %}{{ m.announcement.title|truncatechars:60 }}{% elif m.event %}Reminder: {{ m.event.title|truncatechars:50 }}{% else %}{{ m.get_kind_display }}{% endif %}</td>
                         <td class="py-2 pr-4">
                             {% if m.status == 'sent' %}<span class="text-green-700 dark:text-green-400">Sent</span>
                             {% elif m.status == 'failed' %}<span class="text-red-600 dark:text-red-400">Failed{% if m.attempts > 1 %} ({{ m.attempts }} tries){% endif %}: {{ m.error }}</span>
@@ -244,7 +244,7 @@ The access token and bot ids are never rendered (bots show their last 4).
                             {% else %}<span class="text-amber-600 dark:text-amber-400">Queued</span>{% endif %}
                         </td>
                         <td class="py-2">
-                            {% if m.status == 'failed' and m.kind == 'announcement' %}
+                            {% if m.status == 'failed' and m.kind != 'test' %}
                             <form method="post" action="{% url 'groupme_retry_message' m.pk %}">
                                 {% csrf_token %}
                                 <button type="submit" class="text-xs font-semibold text-primary-600 dark:text-primary-400 hover:underline">Retry</button>

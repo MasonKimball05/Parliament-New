@@ -2,7 +2,7 @@
 Public member directory view.
 Shows basic member information visible to all authenticated members.
 """
-import csv
+from src.utils.export_utils import safe_csv_writer
 import io
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse
@@ -189,7 +189,7 @@ def _export_csv(rows, columns):
     response = HttpResponse(content_type='text/csv')
     response['Content-Disposition'] = 'attachment; filename="member_directory.csv"'
 
-    writer = csv.writer(response)
+    writer = safe_csv_writer(response)
     writer.writerow([col[0] for col in columns])
 
     for row in rows:
@@ -239,7 +239,11 @@ def _export_xlsx(rows, columns):
 
     for row_num, row in enumerate(rows, 2):
         for col_idx, (_, key) in enumerate(columns, 1):
-            ws.cell(row=row_num, column=col_idx, value=row.get(key, ''))
+            cell = ws.cell(row=row_num, column=col_idx, value=row.get(key, ''))
+            # v3.45.2: openpyxl stores any string that starts with "=" as a
+            # formula. Every value here is member data, so keep it text.
+            if cell.data_type == 'f':
+                cell.data_type = 's'
 
     for col in ws.columns:
         max_length = 0

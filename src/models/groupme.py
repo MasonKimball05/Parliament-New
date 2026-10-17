@@ -131,6 +131,7 @@ class GroupMeMessage(models.Model):
 
     KIND_CHOICES = (
         ('announcement', 'Announcement'),
+        ('event_reminder', 'Event reminder'),
         ('test', 'Test message'),
     )
     STATUS_CHOICES = (
@@ -148,6 +149,11 @@ class GroupMeMessage(models.Model):
     channel_name = models.CharField(max_length=100, blank=True)
     announcement = models.ForeignKey(
         'Announcement', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='groupme_messages',
+    )
+    #: v3.50.0 — set on event reminders.
+    event = models.ForeignKey(
+        'Event', on_delete=models.SET_NULL, null=True, blank=True,
         related_name='groupme_messages',
     )
     kind = models.CharField(max_length=20, choices=KIND_CHOICES, default='announcement')
@@ -171,6 +177,11 @@ class GroupMeMessage(models.Model):
                 fields=['announcement', 'channel'],
                 condition=Q(kind='announcement'),
                 name='groupme_one_post_per_announcement_channel',
+            ),
+            models.UniqueConstraint(
+                fields=['event', 'channel'],
+                condition=Q(kind='event_reminder'),
+                name='groupme_one_reminder_per_event_channel',
             ),
         ]
 

@@ -327,3 +327,93 @@ def schedule_dispatch(announcement):
             logger.warning(f'[groupme] could not queue announcement {announcement.pk}: {type(e).__name__}')
 
     transaction.on_commit(_go)
+
+
+# ---------------------------------------------------------------------------
+# Event reminders (v3.50.0)
+# ---------------------------------------------------------------------------
+
+def format_event_reminder(event):
+    """`⏰ Reminder: Title` / when (and where) / the calendar link."""
+    from src.notifications import get_site_url
+
+    when = timezone.localtime(event.date_time)
+    hour = when.strftime('%I').lstrip('0') or '12'
+    line = f"{when.strftime('%A, %b')} {when.day} at {hour}:{when.strftime('%M %p')}"
+    if event.location:
+        line += f" · {event.location.strip()}"
+    link = f"{get_site_url()}{reverse('calendar')}"
+    head = f"⏰ Reminder: {event.title.strip()}"
+    return f"{head}\n{line}\n\n{link}"[:MAX_MESSAGE_CHARS]
+
+
+def due_event_reminders():
+    """Events whose GroupMe reminder time has come and that haven't had it."""
+    from datetime import timedelta
+    from src.models import Event
+
+    now = timezone.now()
+    longest = max(Event.GROUPME_REMINDER_HOURS)
+    candidates = (
+        Event.objects
+        .filter(is_active=True, archived=False, groupme_reminded_at__isnull=True,
+                groupme_channels__isnull=False,
+                date_time__gt=now, date_time__lte=now + timedelta(hours=longest))
+        .distinct()
+    )
+    return [e.pk for e in candidates
+            if e.date_time - timedelta(hours=e.groupme_reminder_hours) <= now]
+
+
+def dispatch_event_reminder(event_id):
+    """Claim the event's reminder (once, ever) and queue one message per allowed channel."""
+    from src.models import Event, GroupMeMessage
+
+    with transaction.atomic():
+        event = (
+            Event.objects.select_for_update(skip_locked=True)
+            .filter(pk=event_id, groupme_reminded_at__isnull=True, is_active=True)
+            .first()
+        )
+        if event is None or event.date_time <= timezone.now():
+            return []
+        event.groupme_reminded_at = timezone.now()
+        event.save(update_fields=['groupme_reminded_at'])
+        text = format_event_reminder(event)
+        to_send = []
+        for channel in event.groupme_channels.all():
+            if not channel.is_active:
+                status, error = 'skipped', 'Channel is turned off.'
+            elif not channel_allowed(event.visible_to, channel):
+                status, error = 'skipped', blocked_reason(event.visible_to, channel) + '.'
+            else:
+                status, error = 'queued', ''
+            message, created = GroupMeMessage.objects.get_or_create(
+                event=event, channel=channel, kind='event_reminder',
+                defaults={'channel_name': channel.name, 'text': text, 'status': status,
+                          'error': error, 'sent_by': event.created_by},
+            )
+            if created and status == 'queued':
+                to_send.append(message.pk)
+    return to_send
+
+
+def save_event_channels(request, events):
+    """
+    Store the ticked channels (only ones the audience rule allows) and the
+    "hours before" on each of `events` (one event, or a recurring series). An
+    event whose reminder already went out is left alone.
+    """
+    from src.models import Event, GroupMeChannel
+
+    ids = [int(i) for i in request.POST.getlist('groupme_channel_ids') if i.isdigit()]
+    channels = list(GroupMeChannel.objects.filter(is_active=True, pk__in=ids))
+    raw = request.POST.get('groupme_reminder_hours', '')
+    hours = int(raw) if raw.isdigit() and int(raw) in Event.GROUPME_REMINDER_HOURS else 24
+    for event in events:
+        if event.groupme_reminded_at:
+            continue
+        event.groupme_channels.set([c for c in channels if channel_allowed(event.visible_to, c)])
+        if event.groupme_reminder_hours != hours:
+            event.groupme_reminder_hours = hours
+            event.save(update_fields=['groupme_reminder_hours'])

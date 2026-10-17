@@ -52,7 +52,7 @@ def profile_view(request):
         # The password form is left alone: a password may contain anything.
         if not password_form_submitted:
             from src.profile_text import profile_text_error
-            text_error = profile_text_error(request.POST, user.other_email)
+            text_error = profile_text_error(request.POST, user.other_email, user=user)
             if text_error:
                 if is_ajax:
                     return JsonResponse({'success': False, 'error': text_error}, status=400)

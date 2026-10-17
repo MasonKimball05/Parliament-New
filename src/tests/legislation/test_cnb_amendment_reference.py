@@ -83,6 +83,39 @@ class EditItemsTests(SimpleTestCase):
         self.assertEqual(edit_items(DUES, ''), [{'kind': 'strike', 'before': DUES, 'after': '', 'where': ''}])
 
 
+class LongTextTests(SimpleTestCase):
+    """v3.45.1 — very long texts are not compared word by word (MAX_DIFF_WORDS)."""
+
+    def test_a_long_section_is_still_compared(self):
+        # The longest seeded section is 1,373 words. One changed word in a
+        # text that size must still be reported as that one word.
+        words = [f'word{i}' for i in range(1400)]
+        changed = list(words)
+        changed[700] = 'CHANGED'
+        self.assertEqual(edit_items(' '.join(words), ' '.join(changed)),
+                         [{'kind': 'change', 'before': 'word700', 'after': 'CHANGED', 'where': ''}])
+
+    def test_past_the_limit_it_is_one_change_of_the_whole_text(self):
+        from src import cnb_amendment_text
+        words = [f'word{i}' for i in range(cnb_amendment_text.MAX_DIFF_WORDS // 2 + 1)]
+        changed = list(words)
+        changed[10] = 'CHANGED'
+        before, after = ' '.join(words), ' '.join(changed)
+        self.assertEqual(edit_items(before, after),
+                         [{'kind': 'change', 'before': before, 'after': after, 'where': ''}])
+
+    def test_past_the_limit_the_comparison_is_not_run(self):
+        from unittest import mock
+        from src import cnb_amendment_text
+        text = ' '.join(['same'] * cnb_amendment_text.MAX_DIFF_WORDS)
+        with mock.patch.object(cnb_amendment_text, 'SequenceMatcher', side_effect=AssertionError('compared')):
+            self.assertEqual(len(edit_items(text, text + ' more')), 1)
+
+    def test_identical_long_texts_have_no_items(self):
+        text = ' '.join(['same'] * 10000)
+        self.assertEqual(edit_items(text, text.replace(' ', '\r\n')), [])
+
+
 class _Base(TestCase):
     def setUp(self):
         self.chair = ParliamentUser.objects.create(

@@ -33,6 +33,16 @@ MERGE_GAP = 2
 #: It is reported as one change of the whole text.
 REWRITE_RATIO = 0.4
 
+#: v3.45.1 — above this many words (old text plus new text) the two are not
+#: compared word by word; the amendment is reported as one change of the whole
+#: text, the same as a rewrite. The comparison's cost grows with the square of
+#: the length, it runs on every load of the print preview, and nothing limits
+#: how long a proposed text may be. Measured on the 2-core test machine:
+#: 20,000 words of ordinary prose took 1.5 s, 60,000 words of repetitive text
+#: took over three minutes. The longest section in the seeded documents is
+#: 1,373 words, so about 2,750 with its amended copy.
+MAX_DIFF_WORDS = 6000
+
 _SNAPSHOT = re.compile(r'^(?P<doc>.+?) Art\. (?P<article>\S+) § (?P<section>\S+)')
 
 
@@ -204,8 +214,11 @@ def edit_items(original, proposed):
     if _words(original) == _words(proposed):
         return []
     before_words, after_words = _words(original), _words(proposed)
-    if before_words and after_words and SequenceMatcher(
-            a=before_words, b=after_words, autojunk=False).ratio() < REWRITE_RATIO:
+    # v3.45.1: past MAX_DIFF_WORDS the whole text is one change, so a huge
+    # paste cannot make SequenceMatcher (quadratic) hold a request thread.
+    too_long = len(before_words) + len(after_words) > MAX_DIFF_WORDS
+    if before_words and after_words and (too_long or SequenceMatcher(
+            a=before_words, b=after_words, autojunk=False).ratio() < REWRITE_RATIO):
         return [{'kind': 'change', 'before': _join(before_words), 'after': _join(after_words), 'where': ''}]
 
     old, new = _lines(original), _lines(proposed)

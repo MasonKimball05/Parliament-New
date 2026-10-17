@@ -17,6 +17,7 @@ import json
 import logging
 
 from django.http import HttpResponse, HttpResponseBadRequest
+from django.http.request import RawPostDataException
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 from django.utils import timezone
@@ -35,21 +36,37 @@ def csp_report(request):
     if int(request.META.get('CONTENT_LENGTH', 0) or 0) > _MAX_BODY:
         return HttpResponseBadRequest()
 
-    body = request.body[:_MAX_BODY]
+    # v3.45.1 — this endpoint is public and CSRF-exempt, so anything can be
+    # posted to it. Three kinds of body used to raise (a 500 each time):
+    #   * a form-encoded or multipart POST: a middleware has already read
+    #     request.POST, and Django then refuses to hand out request.body
+    #   * JSON that is not an object ([], "a", 5): no .get()
+    #   * a field that is not text ({"blocked-uri": 5}): `origin in 5`
+    # All three are now a 400, like any other body that is not a report.
+    try:
+        body = request.body[:_MAX_BODY]
+    except RawPostDataException:
+        return HttpResponseBadRequest()
     try:
         payload = json.loads(body)
     except (json.JSONDecodeError, UnicodeDecodeError):
+        return HttpResponseBadRequest()
+    if not isinstance(payload, dict):
         return HttpResponseBadRequest()
 
     report = payload.get('csp-report') or payload  # Chrome wraps it; Firefox sometimes doesn't
     if not report or not isinstance(report, dict):
         return HttpResponseBadRequest()
 
-    blocked_uri   = report.get('blocked-uri', '')
-    violated      = report.get('violated-directive', '')
-    document_uri  = report.get('document-uri', '')
-    source_file   = report.get('source-file', '')
-    line_number   = report.get('line-number', '')
+    def _text(key):
+        value = report.get(key, '')
+        return '' if value is None else str(value)
+
+    blocked_uri   = _text('blocked-uri')
+    violated      = _text('violated-directive')
+    document_uri  = _text('document-uri')
+    source_file   = _text('source-file')
+    line_number   = _text('line-number')
     ip_address    = get_client_ip(request)
 
     # Known benign origins injected by infrastructure (Cloudflare beacon, etc.)

@@ -6,6 +6,7 @@ from django.core.mail import send_mail
 from django.shortcuts import render, redirect
 from django.http import JsonResponse
 from django.utils import timezone
+from django.utils.html import escape
 from django.views.decorators.http import require_POST
 from django.views.decorators.csrf import csrf_exempt
 from src.utils.security_utils import get_client_ip
@@ -43,10 +44,16 @@ def _replace_photo_tags(html, photos_by_id):
         align = (match.group(3) or 'center').strip().lower()
         size_class  = _SIZE_CLASSES.get(size, 'landing-photo-medium')
         align_class = _ALIGN_CLASSES.get(align, 'landing-photo-center')
-        caption_html = f'<figcaption class="landing-photo-caption">{photo.caption}</figcaption>' if photo.caption else ''
+        # v3.45.1 — the caption is text. The result is printed with `|safe`,
+        # and the caption (unlike the section HTML around it) is not cleaned
+        # with bleach when saved, so it is escaped here. Before this a caption
+        # could add markup to the public page, and one with a quote mark in
+        # it ended its own alt="...".
+        caption = escape(photo.caption or '')
+        caption_html = f'<figcaption class="landing-photo-caption">{caption}</figcaption>' if caption else ''
         return (
             f'<figure class="landing-photo-inline {size_class} {align_class}">'
-            f'<img src="{photo.image.url}" alt="{photo.caption or ""}">'
+            f'<img src="{escape(photo.image.url)}" alt="{caption}">'
             f'{caption_html}'
             f'</figure>'
         )

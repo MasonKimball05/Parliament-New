@@ -39,6 +39,7 @@ from src.tasks.cleanup import (
     prune_stale_push_subscriptions,
     cleanup_api_access_logs,
     prune_expired_chat_permissions,
+    prune_old_csp_violations,
 )
 from src.tasks.notifications import (
     notify_expiring_api_tokens,
@@ -74,6 +75,7 @@ __all__ = [
     'prune_stale_push_subscriptions',
     'cleanup_api_access_logs',
     'prune_expired_chat_permissions',
+    'prune_old_csp_violations',
     'notify_expiring_api_tokens',
     'send_push_notification',
     'send_event_reminder_pushes',

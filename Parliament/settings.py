@@ -189,6 +189,7 @@ MIDDLEWARE = [
     'src.middleware.security.ForcePasswordChangeMiddleware',  # Force password change after admin reset
     'src.middleware.security.QuarantineEnforcementMiddleware',  # Log out quarantined users on every request
     'src.middleware.maintenance.MaintenanceModeMiddleware',  # Block access when maintenance mode is enabled
+    'src.middleware.pledge_pages.PledgePageRestrictionMiddleware',  # v3.50.0: enforce the education dashboard's pledge page restrictions on every page
     'django.contrib.messages.middleware.MessageMiddleware',  # Required
     'src.middleware.js_resubmit.JsResubmitEnvelopeMiddleware',  # v3.29.33: wraps the JS fetch-resubmit response — must stay directly after MessageMiddleware (response phase runs in reverse, so this reads/consumes messages before MessageMiddleware persists them)
     'django.middleware.clickjacking.XFrameOptionsMiddleware',

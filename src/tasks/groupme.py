@@ -38,7 +38,8 @@ def sweep_groupme():
     announcement is echoed within 5 minutes of going live, and anything the
     create-time path couldn't queue (broker down) still goes out.
 
-      1. dispatch every due announcement (published, channels ticked, unclaimed);
+      1. dispatch every due announcement (published, channels ticked, unclaimed)
+         and every event whose GroupMe reminder time has come (v3.50.0);
       2. re-queue messages that never got a first attempt (queued > 2 min ago).
     """
     from src.groupme import due_announcements_queryset, dispatch_announcement, queue_send
@@ -46,6 +47,11 @@ def sweep_groupme():
 
     for pk in list(due_announcements_queryset().values_list('pk', flat=True)[:50]):
         queue_send(dispatch_announcement(pk))
+
+    # v3.50.0 — event reminders, same once-only claim.
+    from src.groupme import dispatch_event_reminder, due_event_reminders
+    for pk in due_event_reminders()[:50]:
+        queue_send(dispatch_event_reminder(pk))
 
     stale = timezone.now() - timedelta(minutes=2)
     stuck = list(

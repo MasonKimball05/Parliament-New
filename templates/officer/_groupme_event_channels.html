@@ -1,0 +1,65 @@
+{% comment %}
+v3.50.0 — "Remind GroupMe" on the create/edit event forms. Context:
+groupme_channels (each with .allowed_now, .checked, .audience_csv),
+groupme_hours, GROUPME_REMINDER_HOURS, groupme_reminded (edit page, once sent).
+Same audience rule as announcements (src/groupme.py): a group is only offered
+if everyone in it can see the event; the server re-checks on save and send.
+{% endcomment %}
+<div class="border border-gray-200 dark:border-gray-700 rounded-lg px-4 py-4" id="groupme-channels">
+    <div class="flex items-center justify-between gap-2">
+        <p class="text-sm font-medium text-gray-800 dark:text-gray-200">GroupMe reminder</p>
+        <a href="{% url 'groupme_dashboard' %}" class="text-xs text-primary-600 dark:text-primary-400 hover:underline">Manage GroupMe groups</a>
+    </div>
+    {% if groupme_reminded %}
+    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Reminder already posted {{ groupme_reminded|date:"M j, g:i A" }}.</p>
+    {% elif groupme_channels %}
+    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1 mb-3">Post a reminder to these groups before the event. Only groups where everyone can see the event are allowed.</p>
+    <div class="space-y-2">
+        {% for c in groupme_channels %}
+        <div class="flex items-start">
+            <input type="checkbox" name="groupme_channel_ids" value="{{ c.pk }}" id="groupme-ch-{{ c.pk }}"
+                   data-audience="{{ c.audience_csv }}"
+                   class="groupme-channel mt-0.5 rounded border-gray-300 dark:border-gray-600 text-primary-600 focus:ring-primary-500 dark:bg-gray-700"
+                   {% if c.checked %}checked{% endif %} {% if not c.allowed_now %}disabled{% endif %}>
+            <label for="groupme-ch-{{ c.pk }}" class="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                {{ c.name }}
+                <span class="text-xs text-gray-500 dark:text-gray-400">({{ c.audience_labels|join:", " }})</span>
+                <span class="groupme-blocked block text-xs text-amber-700 dark:text-amber-400 {% if c.allowed_now %}hidden{% endif %}">Not everyone in this GroupMe can see this event.</span>
+            </label>
+        </div>
+        {% endfor %}
+    </div>
+    <div class="flex items-center gap-2 mt-3">
+        <label for="groupme-hours" class="text-sm text-gray-700 dark:text-gray-300">Post it</label>
+        <select name="groupme_reminder_hours" id="groupme-hours"
+                class="px-2 py-1 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg text-sm">
+            {% for h in GROUPME_REMINDER_HOURS %}<option value="{{ h }}" {% if h == groupme_hours %}selected{% endif %}>{{ h }} hour{{ h|pluralize }}</option>{% endfor %}
+        </select>
+        <span class="text-sm text-gray-500 dark:text-gray-400">before the event</span>
+    </div>
+    <script nonce="{{ request.csp_nonce }}">
+    (function () {
+        var box = document.getElementById('groupme-channels');
+        var vis = document.getElementById('visibility-checkboxes');
+        if (!box || !vis) return;
+        var channels = Array.prototype.slice.call(box.querySelectorAll('input.groupme-channel'));
+        function audience(cb) { return cb.dataset.audience ? cb.dataset.audience.split(',') : []; }
+        function update() {
+            var visible = Array.prototype.slice.call(vis.querySelectorAll('input[type="checkbox"]'))
+                .filter(function (i) { return i.checked; }).map(function (i) { return i.value; });
+            channels.forEach(function (cb) {
+                var ok = visible.length === 0 || audience(cb).every(function (a) { return visible.indexOf(a) !== -1; });
+                cb.disabled = !ok;
+                if (!ok) cb.checked = false;
+                cb.closest('div').querySelector('.groupme-blocked').classList.toggle('hidden', ok);
+            });
+        }
+        vis.addEventListener('change', update);
+        update();
+    })();
+    </script>
+    {% else %}
+    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">No GroupMe groups are connected and turned on.
+        <a href="{% url 'groupme_dashboard' %}" class="text-primary-600 dark:text-primary-400 hover:underline">Set up the GroupMe bot</a></p>
+    {% endif %}
+</div>

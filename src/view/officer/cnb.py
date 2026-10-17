@@ -1021,7 +1021,6 @@ def edit_resolution(request, resolution_id):
     return render(request, 'cnb/resolution_form.html', context, status=409 if conflicts else 200)
 
 
-@login_required
 def _propose_section_title(request, resolution, section):
     """
     The amendment popup's "Section title" box (v3.45.0).
@@ -1064,6 +1063,12 @@ def _propose_section_title(request, resolution, section):
     return f'its title becomes "{title}" when this passes'
 
 
+# v3.45.1 — `@login_required` belongs here. v3.45.0 put the helper above
+# between the decorator and this view, so the decorator ended up on the helper
+# and this view had none: a signed-out POST reached `_edit_denied` and crashed
+# on AnonymousUser (a 500, nothing saved).
+# src/tests/guards/test_anonymous_access.py now requests every route signed out.
+@login_required
 @require_POST
 def add_amendment(request, resolution_id):
     """
