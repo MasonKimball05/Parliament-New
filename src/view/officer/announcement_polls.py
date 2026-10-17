@@ -10,7 +10,7 @@ Member views:
   - poll_confirmation           — shown after submission
   - polls_view                  — v3.31.3: browse open/closed polls
 """
-import csv
+from src.utils.export_utils import safe_csv_writer
 import random
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
@@ -302,7 +302,7 @@ def _export_poll_csv(poll, questions, responses):
     filename = f"poll_{poll.id}_{timezone.now().strftime('%Y%m%d')}.csv"
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
 
-    writer = csv.writer(response)
+    writer = safe_csv_writer(response)
 
     # v3.16.2: for anonymous polls, omit the submission timestamp AND shuffle
     # row order. The respondent name was already omitted, but submitted_at

@@ -930,6 +930,13 @@ class TwoFactorRequirementAdmin(admin.ModelAdmin):
 
 
 # ──────────────────────────────────────────────── deliberately unregistered
+# v3.49.0 — GroupMeSettings, GroupMeChannel and GroupMeMessage are NOT
+# registered either. `GroupMeSettings.access_token` is a GroupMe user's full
+# account token and `GroupMeChannel.bot_id` lets anyone post as the bot; the
+# officer dashboard at /officers/groupme/ manages them without ever rendering
+# either. If they are ever registered, both fields MUST be in `exclude`
+# (export_as_csv honours exclude since v3.16.2).
+#
 # CalendarSubscription (src/models_calendar_subscription.py) is intentionally
 # NOT registered. Its `token` is a bearer credential: anyone holding it can
 # read that member's personal event feed anonymously at

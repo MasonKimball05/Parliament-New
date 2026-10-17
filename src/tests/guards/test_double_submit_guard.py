@@ -22,12 +22,13 @@ from pathlib import Path
 
 from django.conf import settings
 from django.test import SimpleTestCase
+from src.tests.base_template_source import base_html_source
 
 MARKER = '<!-- Global Form Submit Protection'
 
 
 def _guard_script():
-    text = (Path(settings.BASE_DIR) / 'templates' / 'base.html').read_text(encoding='utf-8')
+    text = base_html_source()
     start = text.index(MARKER)
     return text[start:text.index('</script>', start)]
 

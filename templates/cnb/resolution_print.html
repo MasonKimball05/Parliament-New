@@ -163,6 +163,8 @@
             margin-bottom: 2pt;
         }
         .inline-amend-callout .amend-delta-row { display: block; }
+        .inline-amend-callout .amend-delta-listed { margin: 2pt 0 2pt 12pt; }
+        .inline-amend-callout .amend-delta-note { margin-top: 2pt; font-style: italic; }
         .inline-amend-callout .amend-delta-label { font-style: normal; font-weight: bold; font-size: 9pt; color: #444; }
         .inline-amend-callout .amend-delta-add { color: #155724; }
         .inline-amend-callout .amend-delta-del { color: #721c24; text-decoration: line-through; }
@@ -322,9 +324,9 @@
     &mdash; End of Resolution: {{ resolution.title|upper }} &mdash;
 </div>
 
+{{ amendment_refs|json_script:"amendment-refs" }}
+{% include "cnb/_amendment_ref_match.html" %}
 <script nonce="{{ request.csp_nonce }}">
-    // Chapter wording for amendment descriptions (src/chapter.py) — was a literal.
-    var CHAPTER_FORMAL = '{% chapter "school_short" as chapter_short_js %}{{ chapter_short_js|escapejs }} Chapter, the {% chapter "chapter_name" as chapter_name_js %}{{ chapter_name_js|escapejs }} of {% chapter "fraternity" as chapter_frat_js %}{{ chapter_frat_js|escapejs }}';
 document.addEventListener('DOMContentLoaded', function() {
     var printBtn = document.getElementById('js-print-btn');
     if (printBtn) printBtn.addEventListener('click', function() { window.print(); });
@@ -393,6 +395,11 @@ document.addEventListener('DOMContentLoaded', function() {
             return (a.original ? '<span class="diff-del">' + esc(a.original) + '</span> ' : '')
                  + '<span class="diff-add">' + esc(a.proposed) + '</span>';
         }
+        if (!a.original || !a.proposed) return opsHTML(ops);
+        return lineDiffHTML(a.original, a.proposed);
+    }
+
+    function opsHTML(ops) {
         var html = '';
         ops.forEach(function(op) {
             var t = esc(op.v);
@@ -403,52 +410,171 @@ document.addEventListener('DOMContentLoaded', function() {
         return html;
     }
 
-    // What changed, as runs of removed / added words in document order.
-    // v3.41.3 — a Change used to list only the ADDED words, so an amendment
-    // that removes a line showed nothing useful. Removed text is now shown
-    // struck through, added text plain, each run in its own quotes.
-    function extractDelta(a) {
-        var ops = diff(a.original, a.proposed || '');
-        var runs = [], cur = null;
-        ops.forEach(function(o) {
-            if (o.t === 'same') { cur = null; return; }
-            if (!cur || cur.t !== o.t) { cur = { t: o.t, words: [] }; runs.push(cur); }
-            cur.words.push(o.v.trim());
-        });
-        if (a.type === 'addition') runs = runs.filter(function(r) { return r.t === 'add'; });
-        return runs.map(function(r) {
-            return { text: r.words.join(' '), cls: r.t === 'add' ? 'amend-delta-add' : 'amend-delta-del' };
-        });
+    // ── v3.45.4: line by line first ──────────────────────────────────────────
+    // Mason, 10-13-26: taking one officer out of a lettered list showed every
+    // item below it with a struck letter, a new letter, and lone struck
+    // letters on lines of their own, because the word diff lined the letters
+    // up with the wrong items. Lines are now matched by their words without
+    // the list marker (the same rule as src/cnb_amendment_text.py):
+    //   * same words, new letter  -> the old letter struck, the new one added;
+    //   * a line that is gone      -> the whole line struck;
+    //   * a new line               -> the whole line added;
+    //   * an edited line           -> word diff inside that line.
+    var LINE_RE = /^(\s*)(\(?(?:\d{1,3}|[a-z]{1,2}|[ivxlc]{1,6})[.)])?(\s*)(.*)$/i;
+    function splitLine(raw) {
+        var m = LINE_RE.exec(raw);
+        var marker = m[2] || '';
+        // A marker must be followed by a space ("a. President"), not be the word itself ("I am").
+        if (marker && !m[3] && m[4]) { marker = ''; }
+        var body = marker ? m[4] : (m[2] || '') + m[3] + m[4];
+        return { raw: raw, indent: m[1], marker: marker, gap: marker ? m[3] : '', body: body,
+                 key: body.replace(/\s+/g, ' ').trim() };
+    }
+    function words(text) { return text.replace(/\s+/g, ' ').trim().split(' ').filter(Boolean); }
+    function likeness(x, y) {
+        var a = words(x), b = words(y);
+        if (!a.length && !b.length) return 1;
+        var ka = a, kb = b, m = a.length, n = b.length, dp = [];
+        for (var i = 0; i <= m; i++) { dp.push(new Array(n + 1).fill(0)); }
+        for (var i = 1; i <= m; i++)
+            for (var j = 1; j <= n; j++)
+                dp[i][j] = ka[i-1] === kb[j-1] ? dp[i-1][j-1] + 1 : Math.max(dp[i-1][j], dp[i][j-1]);
+        return 2 * dp[m][n] / (m + n);
+    }
+    function lineDiffHTML(original, proposed) {
+        var A = original.replace(/\r\n?/g, '\n').split('\n').map(splitLine);
+        var B = proposed.replace(/\r\n?/g, '\n').split('\n').map(splitLine);
+        var m = A.length, n = B.length, dp = [];
+        for (var i = 0; i <= m; i++) { dp.push(new Array(n + 1).fill(0)); }
+        for (var i = m - 1; i >= 0; i--)
+            for (var j = n - 1; j >= 0; j--)
+                dp[i][j] = A[i].key === B[j].key ? dp[i+1][j+1] + 1 : Math.max(dp[i+1][j], dp[i][j+1]);
+        var out = [], dels = [], adds = [];
+        // The indent stays outside the mark, so the highlight starts at the text.
+        function whole(line, cls) {
+            if (!line.key) return esc(line.raw);
+            return esc(line.indent) + '<span class="' + cls + '">' + esc(line.raw.slice(line.indent.length)) + '</span>';
+        }
+        function del(line) { return whole(line, 'diff-del'); }
+        function add(line) { return whole(line, 'diff-add'); }
+        function flush() {
+            // Pair a struck line with an added one when most of their words match: an edit.
+            var j = 0;
+            dels.forEach(function(d) {
+                for (var k = j; k < adds.length; k++) {
+                    if (likeness(d.raw, adds[k].raw) >= 0.5) {
+                        for (; j < k; j++) out.push(add(adds[j]));
+                        out.push(opsHTML(diff(d.raw, adds[k].raw)));
+                        j = k + 1;
+                        return;
+                    }
+                }
+                out.push(del(d));
+            });
+            for (; j < adds.length; j++) out.push(add(adds[j]));
+            dels = []; adds = [];
+        }
+        var i = 0, j = 0;
+        while (i < m || j < n) {
+            if (i < m && j < n && A[i].key === B[j].key) {
+                flush();
+                var a = A[i], b = B[j];
+                if (a.marker === b.marker) out.push(esc(b.raw));
+                else out.push(esc(b.indent)
+                              + (a.marker ? '<span class="diff-del">' + esc(a.marker) + '</span>' : '')
+                              + (b.marker ? '<span class="diff-add">' + esc(b.marker) + '</span>' : '')
+                              + esc(b.gap || ' ') + esc(b.body));
+                i++; j++;
+            } else if (j < n && (i >= m || dp[i][j+1] >= dp[i+1][j])) {
+                adds.push(B[j++]);
+            } else {
+                dels.push(A[i++]);
+            }
+        }
+        flush();
+        return out.join('\n');
     }
 
     // ── Inline marker replacement ─────────────────────────────────────────────
-    function buildMarker(a) {
-        var code = '[' + a.section;
-        if (a.type && a.type !== 'change') code += ' (' + a.type.charAt(0).toUpperCase() + a.type.slice(1) + ')';
-        if (a.scope) code += ' \u2014 ' + a.scope;
-        return code + ' - ' + a.num + ']';
+    // (v3.45.3: `buildMarker` is gone; refs are matched by section. See replaceMarkersIn.)
+
+    // ── The amendment reference (v3.45.0) ─────────────────────────────────────
+    // Mason, 10-08-26: state it as the motion it is.
+    //   only removals   Shall strike from Article II, Section 3 of the Bylaws (Dues): "..."
+    //   anything else   Shall amend Article II, Section 3 of the Bylaws (Dues) ...
+    //   several edits   one lead-in, then (a) (b) (c)
+    // The wording and the list of edits come from the server
+    // (src/cnb_amendment_text.py, where they are tested). This only lays
+    // them out. Every value goes through esc().
+    var refs = JSON.parse(document.getElementById('amendment-refs').textContent);
+
+    function quoted(text, cls) {
+        return '\u201c<span class="' + cls + '">' + esc(text) + '</span>\u201d';
+    }
+    function letter(index) {            // 0 -> a, 25 -> z, 26 -> aa
+        var out = '';
+        for (index += 1; index > 0; index = Math.floor((index - 1) / 26)) {
+            out = String.fromCharCode(97 + (index - 1) % 26) + out;
+        }
+        return out;
+    }
+    // What follows the lead-in when the section has ONE edit.
+    // An addition also says where it goes (`item.where`: 'at the end',
+    // 'after "shall be paid"').
+    function singleSuffix(item) {
+        if (item.kind === 'strike') return ':';
+        if (item.kind === 'add')    return ' by adding ' + esc(item.where) + ':';
+        return ' by changing:';
+    }
+    function listedVerb(item) {
+        if (item.kind === 'strike') return 'Strike ';
+        if (item.kind === 'add')    return 'Add ' + esc(item.where) + ': ';
+        return 'Change ';
+    }
+
+    function itemHTML(item) {
+        if (item.kind === 'strike') return quoted(item.before, 'amend-delta-del');
+        if (item.kind === 'add')    return quoted(item.after, 'amend-delta-add');
+        return quoted(item.before, 'amend-delta-del') + ' to read ' + quoted(item.after, 'amend-delta-add');
+    }
+    function referenceHTML(a) {
+        var ref = refs[a.num - 1];
+        if (!ref) return '<span class="amend-ref">' + esc(a.section) + '</span>';
+        var lead = esc(ref.lead) + (ref.scope ? ' (' + esc(ref.scope) + ')' : '');
+        var items = ref.items;
+        function row(html, cls) { return '<span class="amend-delta-row' + (cls || '') + '">' + html + '</span>'; }
+        if (ref.whole) {
+            return '<span class="amend-ref">' + lead + (items.length ? ':' : '.') + '</span>'
+                 + (items.length ? row(quoted(items[0].before, 'amend-delta-del')) : '');
+        }
+        if (!items.length) {
+            return '<span class="amend-ref">' + lead + '. No change to the text.</span>';
+        }
+        // v3.45.4: list items that only moved up or down a letter are not
+        // listed one by one; one line says so (src/cnb_amendment_text.py).
+        var note = ref.renumbered ? row('The items that follow are renumbered to match.', ' amend-delta-note') : '';
+        if (items.length === 1) {
+            return '<span class="amend-ref">' + lead + singleSuffix(items[0]) + '</span>' + row(itemHTML(items[0])) + note;
+        }
+        return '<span class="amend-ref">' + lead + ' as follows:</span>'
+             + items.map(function(item, index) {
+                   return row('(' + letter(index) + ') ' + listedVerb(item) + itemHTML(item), ' amend-delta-listed');
+               }).join('') + note;
     }
 
     function buildInlineHTML(a) {
-        var typeLabel = a.type.charAt(0).toUpperCase() + a.type.slice(1);
-        var ref = a.section + ' (' + typeLabel + ')' + (a.scope ? ' \u2014 ' + a.scope : '');
-        var deltaHTML = extractDelta(a).map(function(d) {
-            var label = d.cls === 'amend-delta-del' ? 'Removed: ' : 'Added: ';
-            return '<span class="amend-delta-row"><span class="amend-delta-label">' + label + '</span>'
-                 + '<span class="' + d.cls + '">\u201c' + esc(d.text) + '\u201d</span></span>';
-        }).join('');
-        return '<span class="inline-amend-callout">'
-            + '<span class="amend-ref">' + esc(ref) + '</span>'
-            + deltaHTML
-            + '</span>';
+        return '<span class="inline-amend-callout">' + referenceHTML(a) + '</span>';
     }
 
+    // v3.45.3: a ref is found by its section, not by the exact text
+    // the Copy [ref] button would write today (see cnb/_amendment_ref_match.html).
+    // A ref pasted before the list was renumbered, or before the amendment's
+    // type or scope changed, still becomes the motion.
     function replaceMarkersIn(el) {
         if (!el) return;
         amendments.forEach(function(a) {
-            var marker = buildMarker(a);
-            var escaped = marker.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-            el.innerHTML = el.innerHTML.replace(new RegExp(escaped, 'g'), buildInlineHTML(a));
+            var pattern = window.cnbAmendmentRefPattern(a.section, 'g');
+            el.innerHTML = el.innerHTML.replace(pattern, function() { return buildInlineHTML(a); });
         });
     }
 
@@ -461,27 +587,23 @@ document.addEventListener('DOMContentLoaded', function() {
         appendix.innerHTML = '<p class="appendix-heading">Appendix \u2014 Tracked Section Amendments</p>';
 
         amendments.forEach(function(a) {
-            var typeLabel = a.type.charAt(0).toUpperCase() + a.type.slice(1);
-            var art = 'Article ' + a.articleNum + (a.articleTitle ? ' (' + a.articleTitle + ')' : '');
-            var sec = (a.sectionTitle ? '\u00a7\u00a0' + a.sectionNum + ': ' + a.sectionTitle : '\u00a7\u00a0' + a.sectionNum);
-            var scope = a.scope ? ' \u2014 ' + a.scope : '';
-
-            var desc;
-            if (a.type === 'addition') {
-                desc = 'The following shall be added to ' + art + ' of the ' + a.docType + ' of the ' + CHAPTER_FORMAL + ', under ' + sec + scope + ':';
-            } else if (a.type === 'deletion') {
-                desc = 'The following shall be deleted from ' + sec + ' of ' + art + ' of the ' + a.docType + ' of the ' + CHAPTER_FORMAL + '' + scope + ':';
-            } else {
-                desc = 'The following change shall be made to ' + sec + ' of ' + art + ' of the ' + a.docType + ' of the ' + CHAPTER_FORMAL + '' + scope + ':';
-            }
+            // v3.45.0 — the entry states the amendment the same way the body
+            // does, then shows the whole section with the changes marked.
+            var ref = refs[a.num - 1];
+            var count = ref ? ref.items.length : 0;
+            var statement = ref
+                ? ref.lead + (ref.scope ? ' (' + ref.scope + ')' : '')
+                  + (ref.whole ? '.' : count > 1 ? ', in ' + count + ' places. The section with the changes marked:'
+                                                  : '. The section with the change marked:')
+                : a.section;
 
             var diffHTML = (a.original || a.proposed) ? renderDiffHTML(a) : '';
 
             var entry = document.createElement('div');
             entry.className = 'amendment-entry';
             entry.innerHTML =
-                '<p class="amendment-entry-header">[' + a.num + '] ' + esc(a.section) + (a.sectionTitle ? ' \u2014 ' + esc(a.sectionTitle) : '') + ' &mdash; ' + typeLabel + '</p>'
-                + '<p style="font-size:11pt;margin-bottom:8pt;line-height:1.5;">' + esc(desc) + '</p>'
+                '<p class="amendment-entry-header">[' + a.num + '] ' + esc(a.section) + (a.sectionTitle ? ' \u2014 ' + esc(a.sectionTitle) : '') + '</p>'
+                + '<p style="font-size:11pt;margin-bottom:8pt;line-height:1.5;">' + esc(statement) + '</p>'
                 + (diffHTML ? '<div class="amendment-text" style="border-color:#ccc;"><span style="white-space:pre-wrap;">' + diffHTML + '</span></div>' : '');
             appendix.appendChild(entry);
         });

@@ -27,7 +27,8 @@ PostgreSQL (prod) / SQLite (dev, DB_BACKEND=sqlite) ── Redis (cache + channe
 
 One systemd unit serves ALL HTTP and WebSocket traffic: `parliament-gunicorn`
 — which, despite the name, runs **Daphne** (see gotcha #5 in the handoff
-guide). `parliament-worker` and `parliament-beat` run Celery.
+guide). `parliament-worker` runs Celery: the worker and, since v3.45.5, the
+beat scheduler inside it (`-B`). There is no separate `parliament-beat` any more.
 
 ## Request lifecycle (the middleware stack, in order)
 
@@ -111,7 +112,8 @@ layer. If WebSockets break but HTTP works, check Redis before Daphne.
 
 Broker: Redis. Schedules live in the **database** (`django_celery_beat`) and
 are seeded/updated by `python manage.py setup_celery_schedules` — run it after
-any schedule change, then restart `parliament-beat`. Task inventory
+any schedule change, then restart `parliament-worker` (beat runs inside it
+since v3.45.5). Task inventory
 (`src/tasks/`):
 
 - `votes.py` — auto open/close for chapter/committee/slating votes (every

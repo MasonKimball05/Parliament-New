@@ -12,6 +12,7 @@ settings_sqlite.py. Everything machine-specific comes from .env (see
 DJANGO_SETTINGS_MODULE should be 'Parliament.settings'.
 """
 import os
+import sys
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -145,7 +146,6 @@ if (not DEBUG
     _req['handlers'] = list(_req.get('handlers', [])) + ['error_alerts']
 
 INSTALLED_APPS = [
-    'daphne',                # Must be first — overrides runserver with ASGI handler
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -160,6 +160,14 @@ INSTALLED_APPS = [
     'rest_framework',       # Django REST Framework (3.0.0 API layer)
     'channels',             # WebSocket support (3.0.0 chat upgrade)
 ]
+
+# v3.45.5 — 'daphne' as an app only makes `manage.py runserver` serve ASGI
+# (websockets) in development. Production starts the `daphne` program itself,
+# which does not need it. As an installed app it imported Twisted and the
+# Daphne server (~16 MB) into EVERY process: the Celery worker, beat, and each
+# management command, none of which serve web requests.
+if len(sys.argv) > 1 and sys.argv[1] == 'runserver':
+    INSTALLED_APPS.insert(0, 'daphne')  # must be first to take over runserver
 
 ASGI_APPLICATION = 'Parliament.asgi.application'
 
@@ -181,6 +189,7 @@ MIDDLEWARE = [
     'src.middleware.security.ForcePasswordChangeMiddleware',  # Force password change after admin reset
     'src.middleware.security.QuarantineEnforcementMiddleware',  # Log out quarantined users on every request
     'src.middleware.maintenance.MaintenanceModeMiddleware',  # Block access when maintenance mode is enabled
+    'src.middleware.pledge_pages.PledgePageRestrictionMiddleware',  # v3.50.0: enforce the education dashboard's pledge page restrictions on every page
     'django.contrib.messages.middleware.MessageMiddleware',  # Required
     'src.middleware.js_resubmit.JsResubmitEnvelopeMiddleware',  # v3.29.33: wraps the JS fetch-resubmit response — must stay directly after MessageMiddleware (response phase runs in reverse, so this reads/consumes messages before MessageMiddleware persists them)
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
@@ -206,6 +215,11 @@ STATICFILES_DIRS = [
 
 MEDIA_URL = os.getenv('DJANGO_MEDIA_URL', os.getenv('MEDIA_URL', '/media/'))
 MEDIA_ROOT = os.path.join(BASE_DIR, os.getenv('MEDIA_ROOT','media'))
+
+# v3.45.6 — where PDF preview pages are kept once rendered (outside
+# MEDIA_ROOT; nothing serves this folder directly, every page goes through
+# pdf_preview_page's token check). Safe to delete at any time.
+PDF_PREVIEW_CACHE_DIR = os.getenv('PDF_PREVIEW_CACHE_DIR') or os.path.join(BASE_DIR, 'cache', 'pdf-previews')
 
 # v3.14.2: default storage slugifies uploaded filenames at save time
 # (spaces/quotes/non-ASCII broke Content-Disposition and X-Accel headers —
@@ -342,9 +356,23 @@ else:
             'PASSWORD': os.getenv('DB_PASSWORD'),
             'HOST': os.getenv('DB_HOST', 'localhost'),
             'PORT': os.getenv('DB_PORT', '5432'),
-            # Connection pooling - reuse database connections instead of creating new ones
-            # This significantly reduces memory and CPU overhead
-            'CONN_MAX_AGE': int(os.getenv('DB_CONN_MAX_AGE', '300')),  # 5 minutes
+            # ⚠️ v3.45.5 — 0 (close after each request), was 300. DO NOT RAISE IT
+            # while the site is served by Daphne (ASGI).
+            #
+            # Under ASGI, Django runs each request's sync code in a thread made
+            # for that request. A persistent connection belongs to the thread
+            # that opened it, so with CONN_MAX_AGE > 0 every request left one
+            # open Postgres connection behind when its thread ended, and
+            # nothing reused it. Measured 10-13-26 with production settings:
+            # 20 members loading 10 pages each left 100 idle Postgres backends
+            # (~220 MB) and then "too many clients" 500s. That is the 09-16-26
+            # incident (src/tasks/db_health.py), and most of the RAM spikes.
+            # With 0: no backends left behind, and the same pages were no
+            # slower (opening a local connection costs a few ms; pgbouncer, if
+            # used, makes it cheaper still). Django's own docs say the same:
+            # don't use persistent connections under ASGI. src.W007 warns if
+            # .env sets DB_CONN_MAX_AGE above 0.
+            'CONN_MAX_AGE': int(os.getenv('DB_CONN_MAX_AGE', '0')),
             'CONN_HEALTH_CHECKS': True,  # Verify connections are alive before reusing
             'OPTIONS': {
                 # Enable SSL for database connections in production
@@ -716,6 +744,10 @@ if 'test' in _sys.argv or os.getenv('PYTEST_CURRENT_TEST'):
     LOGGING['handlers']['file']['filename'] = os.path.join(
         os.getenv('TEST_LOG_DIR') or _tempfile.mkdtemp(prefix='parliament-test-logs-'),
         'django_actions.log')
+
+    # v3.45.6: PDF preview pages rendered during tests go to a throwaway
+    # folder, never the real preview cache (src/view/view_document.py).
+    PDF_PREVIEW_CACHE_DIR = _tempfile.mkdtemp(prefix='parliament-test-previews-')
 
     # ⚠️ v3.19.8 — A TEST RUN MUST NEVER TOUCH THE REAL CACHE, AND UNTIL NOW
     # NOTHING SAID SO. This block set Celery to eager and said nothing about

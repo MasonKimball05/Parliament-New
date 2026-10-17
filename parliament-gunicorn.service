@@ -32,6 +32,12 @@ WorkingDirectory=/var/www/Parliament-New
 # Environment variables
 Environment="PATH=/var/www/Parliament-New/venv/bin"
 Environment="DJANGO_SETTINGS_MODULE=Parliament.settings"
+# v3.45.5 — glibc gives each thread that allocates its own memory arena (up to
+# 8 per CPU), and Daphne runs every request in a new thread. Memory freed in
+# an arena is rarely given back, so a burst of requests left the process
+# ~115 MB bigger (measured: 181 -> 296 MB after 60 concurrent page loads).
+# Two arenas: 181 -> 235 MB, same speed.
+Environment="MALLOC_ARENA_MAX=2"
 EnvironmentFile=/var/www/Parliament-New/.env
 
 # Daphne serves both HTTP and WebSockets over the unix socket nginx proxies to.
@@ -47,10 +53,18 @@ RestartSec=5s
 NoNewPrivileges=true
 PrivateTmp=true
 
-# Resource limits (optional but recommended)
-LimitAS=268435456
-# 256MB in bytes
-MemoryLimit=256M
+# Resource limits — v3.45.5.
+# LimitAS (removed) capped VIRTUAL memory at 256 MB. Python reserves far more
+# address space than it uses (thread stacks, malloc arenas, mapped libraries):
+# with the app and PyMuPDF loaded, a process under that cap could not start a
+# second thread, and Daphne needs a thread per request.
+# MemoryLimit (removed) is the old cgroup-v1 name. Measured steady size is
+# 180-240 MB, more after PDF previews or exports load their libraries, so
+# 256 MB was a kill switch that fired in normal use.
+# MemoryHigh: above it the kernel reclaims from this service first.
+# MemoryMax: hard ceiling, so one runaway request cannot take Postgres down.
+MemoryHigh=320M
+MemoryMax=420M
 
 # Logging
 StandardOutput=journal

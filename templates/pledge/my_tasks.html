@@ -24,7 +24,7 @@
   <div class="bg-gradient-to-r from-primary-600 via-primary-700 to-primary-800 text-white py-8 shadow-lg">
     <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
       <h1 class="text-3xl font-bold mb-1">{% if is_preview %}{{ preview_pledge.name }}'s Tasks{% else %}My Tasks{% endif %}</h1>
-      <p class="text-primary-100 text-sm">Track your pledge education progress</p>
+      <p class="text-primary-100 text-sm">Track your pledge education progress{% if pledge_phase_label %} · <span class="font-semibold text-white">{{ pledge_phase_label }}</span>{% endif %}</p>
 
       {% if overdue_count %}
       <!-- v3.20.2 — lead with overdue. Due dates were stored and shown nowhere,
@@ -395,7 +395,14 @@
                 {% endif %}
                 {% endif %}
                 {% if item.task.points %}
+                {% comment %}v3.48.0 — a "points by % right" quiz says so, and once completed shows what he earned (7 of 10).{% endcomment %}
+                {% if item.points_scaled and item.completion.status == 'completed' %}
+                <span class="text-xs text-primary-600 dark:text-primary-400">{{ item.points_earned }} of {{ item.task.points }} pts</span>
+                {% elif item.points_scaled %}
+                <span class="text-xs text-primary-600 dark:text-primary-400">Up to {{ item.task.points }} pts, by % right</span>
+                {% else %}
                 <span class="text-xs text-primary-600 dark:text-primary-400">{{ item.task.points }} pts</span>
+                {% endif %}
                 {% endif %}
                 {% if item.completion and item.completion.status == 'completed' and item.completion.completed_at %}
                 <span class="text-xs text-green-600 dark:text-green-400">Completed {{ item.completion.completed_at|date:"M j" }}</span>

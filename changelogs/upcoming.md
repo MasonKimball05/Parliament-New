@@ -9,7 +9,7 @@
 
 ### GroupMe Bot Integration for Announcements
 
-**Status:** Researching
+**Status:** Announcements echo BUILT in v3.49.0 (`changelogs/v3.49.0.md`). Event / vote / attendance reminders below are still ideas.
 
 Exploring the possibility of using a GroupMe bot to send automated notifications to the chapter's announcements channel instead of SMS text reminders.
 

@@ -172,12 +172,16 @@ class PreviewPageTests(_PreviewTestCase):
         response = self.client.get(self.pages[0]['url'])
         self.assertEqual(response['Cache-Control'], 'private, max-age=3600')
 
-    def test_one_request_renders_one_page(self):
-        with mock.patch.object(
-            view_document, '_render_pdf_page_jpeg', wraps=view_document._render_pdf_page_jpeg,
-        ) as render:
+    def test_one_request_runs_the_helper_once(self):
+        """v3.45.6: one helper run per request (it renders that page and the
+        next few in one go), never one per page and never in this process."""
+        with mock.patch.object(view_document, '_run_helper', wraps=view_document._run_helper) as helper, \
+                mock.patch.object(view_document, '_render_pdf_page_jpeg') as in_process:
             self.client.get(self.pages[0]['url'])
-        self.assertEqual(render.call_count, 1)
+        renders = [c.args[0] for c in helper.call_args_list if c.args[0]['op'] == 'render']
+        self.assertEqual(len(renders), 1)
+        self.assertEqual(renders[0]['pages'], [1, 2])   # the doc has 2 pages
+        in_process.assert_not_called()
 
     def test_anonymous_is_sent_to_login(self):
         response = Client().get(self.pages[0]['url'])
@@ -244,3 +248,102 @@ class OtherViewersTests(_PreviewTestCase):
             response = self._view(doc)
         self.assertEqual(response.status_code, 404)
         manifest.assert_not_called()
+
+
+class HelperProcessTests(_PreviewTestCase):
+    """
+    v3.45.6 (Mason, 10-13-26: the 1 GB server idles at 70-80%). Rendering ran
+    PyMuPDF inside Daphne: +37 MB measured, kept until a restart. Pages are
+    now rendered by `src/pdf_preview_helper.py` in a short-lived process and
+    kept on disk.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.doc = self._document([(612, 792)] * 6)
+
+    def _pages(self):
+        return self._view(self.doc).context['pdf_images']['images']
+
+    def test_a_shown_page_is_served_from_the_cache(self):
+        pages = self._pages()
+        self.client.get(pages[0]['url'])
+        with mock.patch.object(view_document, '_run_helper') as helper:
+            response = self.client.get(pages[0]['url'])
+            self.client.get(pages[3]['url'])          # rendered in the same batch as page 1
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.content[:3], b'\xff\xd8\xff')
+        helper.assert_not_called()
+
+    def test_the_batch_stops_at_the_last_page(self):
+        pages = self._pages()
+        with mock.patch.object(view_document, '_run_helper', wraps=view_document._run_helper) as helper:
+            self.client.get(pages[4]['url'])
+        renders = [c.args[0]['pages'] for c in helper.call_args_list if c.args[0]['op'] == 'render']
+        self.assertEqual(renders, [[5, 6]])
+
+    def test_the_viewer_is_answered_from_the_cache_the_second_time(self):
+        self._pages()
+        with mock.patch.object(view_document, '_run_helper') as helper:
+            self.assertEqual(len(self._pages()), 6)
+        helper.assert_not_called()
+
+    def test_a_replaced_file_is_rendered_fresh(self):
+        pages = self._pages()
+        first = self.client.get(pages[0]['url']).content
+        Path(self.doc.document.path).write_bytes(_pdf_bytes([(300, 300)] * 6))
+        os.utime(self.doc.document.path, (1, 2_000_000_000))
+        new_pages = self._pages()
+        second = self.client.get(new_pages[0]['url'])
+        self.assertEqual(second.status_code, 200)
+        self.assertNotEqual(first, second.content)
+        self.assertEqual((new_pages[0]['width'], new_pages[0]['height']), (625, 625))
+
+    def test_only_one_helper_runs_at_a_time(self):
+        held = []
+        real = view_document._run_helper
+
+        def check(job):
+            held.append(view_document._helper_lock.locked())
+            return real(job)
+
+        with mock.patch.object(view_document, '_run_helper', side_effect=check):
+            self.client.get(self._pages()[0]['url'])
+        self.assertTrue(held)
+        self.assertTrue(all(held))
+
+    def test_an_unwritable_cache_still_serves_the_page(self):
+        pages = self._pages()
+        with tempfile.TemporaryDirectory() as tmp:
+            blocker = os.path.join(tmp, 'not-a-folder')
+            Path(blocker).write_text('x')
+            with override_settings(PDF_PREVIEW_CACHE_DIR=os.path.join(blocker, 'cache')):
+                response = self.client.get(pages[0]['url'])
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.content[:3], b'\xff\xd8\xff')
+
+    def test_a_helper_failure_is_a_404(self):
+        pages = self._pages()
+        with mock.patch.object(view_document, '_run_helper', return_value=None):
+            self.assertEqual(self.client.get(pages[0]['url']).status_code, 404)
+
+    def test_the_cache_is_pruned_past_its_limit(self):
+        pages = self._pages()
+        self.client.get(pages[0]['url'])
+        root = view_document._preview_cache_root()
+        old = os.path.join(root, 'stale')
+        os.makedirs(old)
+        Path(old, 'page-1.jpg').write_bytes(b'x' * 1000)
+        os.utime(old, (1, 1))
+        with mock.patch.object(view_document, 'PDF_PREVIEW_CACHE_MAX_BYTES', 10):
+            view_document._prune_preview_cache()
+        self.assertFalse(os.path.exists(old))
+
+    def test_the_viewer_code_never_imports_pymupdf_for_a_preview(self):
+        """PyMuPDF is imported only by the helper and by convert_pdf_to_images
+        (kept for callers outside the viewer)."""
+        source = Path(view_document.__file__).read_text(encoding='utf-8')
+        self.assertEqual(source.count('import fitz'), 1)
+        self.assertLess(source.index('def convert_pdf_to_images('), source.index('import fitz'))
+        helper = Path(view_document.pdf_preview_helper.__file__).read_text(encoding='utf-8')
+        self.assertNotIn('django', helper.split('"""', 2)[2])

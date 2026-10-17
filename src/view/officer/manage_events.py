@@ -206,11 +206,42 @@ def generate_recurring_events(parent_event, max_occurrences=52):
             reminder_2_enabled=parent_event.reminder_2_enabled,
             reminder_2_hours_before=parent_event.reminder_2_hours_before,
             reminder_2_email_enabled=parent_event.reminder_2_email_enabled,
+            # v3.50.0 — the GroupMe reminder carries forward too (channels are
+            # a many-to-many, set after the instances are saved).
+            groupme_reminder_hours=parent_event.groupme_reminder_hours,
         )
         instances.append(instance)
         count += 1
 
     return instances
+
+
+
+def _groupme_event_context(event=None, request=None):
+    """v3.50.0 — the "GroupMe reminder" box on the event forms."""
+    from src.groupme import channel_allowed
+    from src.models import Event, GroupMeChannel
+
+    if event is not None and event.groupme_reminded_at:
+        return {'groupme_reminded': event.groupme_reminded_at, 'groupme_channels': []}
+    channels = list(GroupMeChannel.objects.filter(is_active=True))
+    if request is not None and request.method == 'POST':
+        visible_to = request.POST.getlist('visible_to') or None
+        checked = {int(i) for i in request.POST.getlist('groupme_channel_ids') if i.isdigit()}
+        raw = request.POST.get('groupme_reminder_hours', '')
+        hours = int(raw) if raw.isdigit() else 24
+    else:
+        visible_to = event.visible_to if event is not None else None
+        checked = set(event.groupme_channels.values_list('pk', flat=True)) if event is not None else set()
+        hours = event.groupme_reminder_hours if event is not None else 24
+    for c in channels:
+        c.allowed_now = channel_allowed(visible_to, c)
+        c.checked = c.allowed_now and c.pk in checked
+        c.audience_csv = ','.join(c.audience or [])
+    return {
+        'groupme_channels': channels, 'groupme_hours': hours,
+        'GROUPME_REMINDER_HOURS': Event.GROUPME_REMINDER_HOURS, 'groupme_reminded': None,
+    }
 
 
 @login_required
@@ -225,10 +256,15 @@ def create_event(request):
             event.save()
 
             # If this is a recurring event, generate instances
+            recurring_instances = []
             if event.is_recurring and event.recurrence_type != 'none':
                 recurring_instances = generate_recurring_events(event)
                 for instance in recurring_instances:
                     instance.save()
+
+            # v3.50.0 — GroupMe reminder, for this event and every occurrence.
+            from src.groupme import save_event_channels
+            save_event_channels(request, [event, *recurring_instances])
 
             # Note: We don't create in-app notifications for events because
             # events are displayed on the calendar page which all members access.
@@ -239,7 +275,9 @@ def create_event(request):
     else:
         form = EventForm()
 
-    return render(request, 'officer/create_event.html', {'form': form})
+    return render(request, 'officer/create_event.html', {
+        'form': form, **_groupme_event_context(request=request),
+    })
 
 @login_required
 @officer_required
@@ -264,6 +302,11 @@ def edit_event(request, event_id):
             with transaction.atomic():
                 form.save()
                 others = apply_series_edit(event, before, set(form.changed_data), scope)
+                # v3.50.0 — GroupMe reminder, applied to the same scope.
+                from src.event_series import affected_events
+                from src.groupme import save_event_channels
+                save_event_channels(request, list(
+                    affected_events(event, scope, pivot=before['date_time']).distinct()))
             if others:
                 messages.success(request, f'Event "{event.title}" and {others} other event(s) in the series updated.')
             else:
@@ -275,6 +318,7 @@ def edit_event(request, event_id):
 
     return render(request, 'officer/edit_event.html', {
         'form': form, 'event': event, 'scope_counts': counts, 'scope': scope,
+        **_groupme_event_context(event, request),
     })
 
 @login_required

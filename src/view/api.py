@@ -24,7 +24,7 @@ from django.utils import timezone
 from src.notifications import mark_announcement_dismissed
 from src.models.api import APIToken, APIAccessLog, DEFINED_SCOPES, ALL_SCOPE_KEYS
 from src.models_feature_flags import FeatureFlag
-from src.models import ActivityLog
+from src.models import ActivityLog, Announcement
 from src.models.admin_audit import log_admin_action
 
 import logging
@@ -41,6 +41,9 @@ logger = logging.getLogger(__name__)
 @require_POST
 def dismiss_announcement_api(request, announcement_id):
     """Mark an announcement as dismissed for the current user."""
+    # v3.45.3: an id with no announcement is a 404, not a 500.
+    if not Announcement.objects.filter(pk=announcement_id).exists():
+        return JsonResponse({'success': False, 'error': 'Announcement not found'}, status=404)
     try:
         success = mark_announcement_dismissed(request.user, announcement_id)
         if success:

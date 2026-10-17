@@ -2,10 +2,12 @@ from django.http import HttpResponseForbidden
 from django.shortcuts import redirect, get_object_or_404
 from src.models import Committee, CommitteeDocument
 from django.contrib.auth.decorators import login_required
+from django.views.decorators.http import require_POST
 from django.contrib import messages
 from src.logging_utils import log_document_action, log_security_event, get_client_ip
 
 @login_required
+@require_POST
 def toggle_document_publish(request, code, document_id):
     """Toggle the published_to_chapter status of a document"""
     committee = get_object_or_404(Committee, code=code)

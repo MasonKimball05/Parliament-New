@@ -1,0 +1,271 @@
+{% extends "admin_base.html" %}
+
+{% block title %}GroupMe Bot - Parliament{% endblock %}
+
+{% block admin_content %}
+{% comment %}
+v3.49.0 — GroupMe bot dashboard. Views: src/view/officer/groupme.py.
+The access token and bot ids are never rendered (bots show their last 4).
+{% endcomment %}
+<div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+
+    <div>
+        <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">GroupMe Bot</h1>
+        <p class="text-gray-600 dark:text-gray-400">
+            Announcements posted here can be echoed into the chapter's GroupMes, and events can post a reminder before they start. Each group below is a
+            "channel": the bot only posts an announcement to a group if everyone in that group can see it on Parliament.
+        </p>
+    </div>
+
+    <!-- Connection -->
+    <section class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
+        <div class="flex items-center justify-between flex-wrap gap-2 mb-4">
+            <h2 class="text-lg font-bold text-gray-900 dark:text-white">GroupMe account</h2>
+            {% if settings_row.has_token %}
+            <span class="text-xs px-2 py-1 rounded-full bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300">Connected{% if settings_row.token_owner_name %} as {{ settings_row.token_owner_name }}{% endif %}</span>
+            {% else %}
+            <span class="text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300">Not connected</span>
+            {% endif %}
+        </div>
+        <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+            Needed to add the bot to a group or move it. Posting doesn't use it, so bots keep working if the token is removed.
+            Get one at <span class="font-mono">dev.groupme.com</span> → Access Token. It controls that person's whole GroupMe account,
+            so paste your own and only from here; it's stored encrypted and never shown again.
+        </p>
+        <form method="post" action="{% url 'groupme_save_settings' %}" class="grid gap-4 sm:grid-cols-2">
+            {% csrf_token %}
+            <div class="sm:col-span-2">
+                <label for="gm-token" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    {% if settings_row.has_token %}Replace access token{% else %}Access token{% endif %}
+                </label>
+                <input type="password" name="access_token" id="gm-token" autocomplete="off" spellcheck="false"
+                       placeholder="{% if settings_row.has_token %}Leave blank to keep the current one{% else %}Paste token{% endif %}"
+                       class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg font-mono text-sm">
+            </div>
+            <div>
+                <label for="gm-bot-name" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Bot name in GroupMe</label>
+                <input type="text" name="bot_name" id="gm-bot-name" maxlength="30" value="{{ settings_row.bot_name }}"
+                       class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg text-sm">
+                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Used for bots added from now on.</p>
+            </div>
+            <div class="space-y-2 pt-6">
+                <label class="flex items-center text-sm text-gray-700 dark:text-gray-300">
+                    <input type="checkbox" name="include_full_text" {% if settings_row.include_full_text %}checked{% endif %}
+                           class="rounded border-gray-300 dark:border-gray-600 text-primary-600 mr-2 dark:bg-gray-700">
+                    Post the whole announcement (off = title and link only)
+                </label>
+                {% if settings_row.has_token %}
+                <label class="flex items-center text-sm text-gray-700 dark:text-gray-300">
+                    <input type="checkbox" name="clear_token" class="rounded border-gray-300 dark:border-gray-600 text-red-600 mr-2 dark:bg-gray-700">
+                    Disconnect this GroupMe account
+                </label>
+                {% endif %}
+            </div>
+            <div class="sm:col-span-2">
+                <button type="submit" class="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white text-sm font-semibold rounded-lg">Save</button>
+            </div>
+        </form>
+    </section>
+
+    <!-- Channels -->
+    <section class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
+        <h2 class="text-lg font-bold text-gray-900 dark:text-white mb-4">Channels</h2>
+        {% if groups_error %}
+        <p class="mb-4 text-sm text-red-600 dark:text-red-400">Couldn't load your GroupMe groups: {{ groups_error }}</p>
+        {% endif %}
+
+        {% for c in channels %}
+        <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-4 mb-4">
+            <div class="flex items-start justify-between flex-wrap gap-2">
+                <div>
+                    <p class="font-semibold text-gray-900 dark:text-white">
+                        {{ c.name }}
+                        {% if not c.is_active %}<span class="ml-1 text-xs px-2 py-0.5 rounded-full bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300">Off</span>{% endif %}
+                    </p>
+                    <p class="text-sm text-gray-600 dark:text-gray-400">
+                        GroupMe: {{ c.group_name|default:"(group name not known)" }} · bot {{ c.masked_bot_id }}
+                        · who's in it: {{ c.audience_labels|join:", " }}
+                    </p>
+                    {% if c.last_message %}
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        Last: {{ c.last_message.get_kind_display }} {{ c.last_message.get_status_display|lower }} {{ c.last_message.created_at|date:"M j, g:i A" }}
+                        {% if c.last_message.status == 'failed' %}<span class="text-red-600 dark:text-red-400">({{ c.last_message.error }})</span>{% endif %}
+                    </p>
+                    {% endif %}
+                </div>
+                <div class="flex gap-2 flex-wrap">
+                    <form method="post" action="{% url 'groupme_test_channel' c.pk %}">
+                        {% csrf_token %}
+                        <button type="submit" class="px-3 py-1.5 text-xs font-semibold rounded bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200">Send test</button>
+                    </form>
+                    <form method="post" action="{% url 'groupme_remove_channel' c.pk %}"
+                          data-confirm="Remove &quot;{{ c.name }}&quot;? The bot will stop posting to {{ c.group_name|default:'that group' }}.">
+                        {% csrf_token %}
+                        <button type="submit" class="px-3 py-1.5 text-xs font-semibold rounded bg-red-50 hover:bg-red-100 dark:bg-red-900/30 dark:hover:bg-red-900/50 text-red-700 dark:text-red-300">Remove</button>
+                    </form>
+                </div>
+            </div>
+
+            <details class="mt-3">
+                <summary class="cursor-pointer text-sm text-primary-600 dark:text-primary-400">Edit</summary>
+                <form method="post" action="{% url 'groupme_edit_channel' c.pk %}" class="mt-3 grid gap-3 sm:grid-cols-2">
+                    {% csrf_token %}
+                    <div>
+                        <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1" for="gm-name-{{ c.pk }}">Name</label>
+                        <input type="text" name="name" id="gm-name-{{ c.pk }}" value="{{ c.name }}" maxlength="100" required
+                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg text-sm">
+                    </div>
+                    <fieldset>
+                        <legend class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Who's in this GroupMe</legend>
+                        <div class="flex gap-4 flex-wrap">
+                            {% for key, label in AUDIENCE_CHOICES %}
+                            <label class="flex items-center text-sm text-gray-700 dark:text-gray-300">
+                                <input type="checkbox" name="audience" value="{{ key }}" {% if key in c.audience %}checked{% endif %}
+                                       class="rounded border-gray-300 dark:border-gray-600 text-primary-600 mr-1.5 dark:bg-gray-700">{{ label }}
+                            </label>
+                            {% endfor %}
+                        </div>
+                    </fieldset>
+                    <label class="flex items-center text-sm text-gray-700 dark:text-gray-300">
+                        <input type="checkbox" name="is_active" {% if c.is_active %}checked{% endif %}
+                               class="rounded border-gray-300 dark:border-gray-600 text-primary-600 mr-2 dark:bg-gray-700">
+                        On (offered on new announcements)
+                    </label>
+                    <div class="sm:col-span-2">
+                        <button type="submit" class="px-3 py-1.5 bg-primary-600 hover:bg-primary-700 text-white text-xs font-semibold rounded">Save</button>
+                    </div>
+                </form>
+
+                <form method="post" action="{% url 'groupme_move_channel' c.pk %}" class="mt-4 border-t border-gray-200 dark:border-gray-700 pt-3"
+                      data-confirm="Move &quot;{{ c.name }}&quot; to the selected group? The bot will be removed from {{ c.group_name|default:'the current group' }}.">
+                    {% csrf_token %}
+                    <p class="text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Moved to a new GroupMe?</p>
+                    {% if settings_row.has_token and groups %}
+                    <div class="flex gap-2 flex-wrap">
+                        <select name="group_id" required
+                                class="px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg text-sm">
+                            <option value="">Pick the new group…</option>
+                            {% for g in groups %}{% if g.id != c.group_id %}
+                            <option value="{{ g.id }}">{{ g.name }}{% if g.members %} ({{ g.members }}){% endif %}</option>
+                            {% endif %}{% endfor %}
+                        </select>
+                        <button type="submit" class="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 dark:bg-gray-600 dark:hover:bg-gray-500 text-white text-xs font-semibold rounded">Move bot</button>
+                    </div>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Name, audience and history stay the same; only the group changes.</p>
+                    {% else %}
+                    <p class="text-xs text-gray-500 dark:text-gray-400">Connect a GroupMe account above (one that's in the new group) to move it.</p>
+                    {% endif %}
+                </form>
+            </details>
+        </div>
+        {% empty %}
+        <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">No channels yet. Add the bot to a group below.</p>
+        {% endfor %}
+
+        <!-- Add a channel -->
+        <div class="border border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-4">
+            <h3 class="font-semibold text-gray-900 dark:text-white mb-3">Add a channel</h3>
+            <form method="post" action="{% url 'groupme_add_channel' %}" class="grid gap-3 sm:grid-cols-2">
+                {% csrf_token %}
+                <div>
+                    <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1" for="gm-new-name">Name</label>
+                    <input type="text" name="name" id="gm-new-name" maxlength="100" required placeholder="e.g. Brothers + Pledges"
+                           class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg text-sm">
+                </div>
+                <fieldset>
+                    <legend class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Who's in this GroupMe</legend>
+                    <div class="flex gap-4 flex-wrap">
+                        {% for key, label in AUDIENCE_CHOICES %}
+                        <label class="flex items-center text-sm text-gray-700 dark:text-gray-300">
+                            <input type="checkbox" name="audience" value="{{ key }}" {% if key == 'Member' %}checked{% endif %}
+                                   class="rounded border-gray-300 dark:border-gray-600 text-primary-600 mr-1.5 dark:bg-gray-700">{{ label }}
+                        </label>
+                        {% endfor %}
+                    </div>
+                </fieldset>
+                <div class="sm:col-span-2">
+                    <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1" for="gm-new-group">Add the bot to</label>
+                    {% if settings_row.has_token %}
+                    <select name="group_id" id="gm-new-group"
+                            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg text-sm">
+                        <option value="">Pick one of {{ settings_row.token_owner_name|default:"your" }}'s groups…</option>
+                        {% for g in groups %}{% if g.id not in used_group_ids %}
+                        <option value="{{ g.id }}">{{ g.name }}{% if g.members %} ({{ g.members }}){% endif %}</option>
+                        {% endif %}{% endfor %}
+                    </select>
+                    {% else %}
+                    <p class="text-sm text-gray-500 dark:text-gray-400">Connect a GroupMe account above to pick a group, or use an existing bot below.</p>
+                    {% endif %}
+                </div>
+                <details class="sm:col-span-2">
+                    <summary class="cursor-pointer text-xs text-gray-600 dark:text-gray-400">…or use a bot already made on dev.groupme.com</summary>
+                    <div class="grid gap-3 sm:grid-cols-2 mt-2">
+                        <div>
+                            <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1" for="gm-new-bot">Bot ID</label>
+                            <input type="text" name="bot_id" id="gm-new-bot" autocomplete="off" spellcheck="false" maxlength="100"
+                                   class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg font-mono text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1" for="gm-new-group-name">Group name (for this page)</label>
+                            <input type="text" name="group_name" id="gm-new-group-name" maxlength="200"
+                                   class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg text-sm">
+                        </div>
+                    </div>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">If a Bot ID is filled in, it's used instead of the group picked above.</p>
+                </details>
+                <div class="sm:col-span-2">
+                    <button type="submit" class="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white text-sm font-semibold rounded-lg">Add channel</button>
+                </div>
+            </form>
+        </div>
+    </section>
+
+    <!-- Log -->
+    <section class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
+        <h2 class="text-lg font-bold text-gray-900 dark:text-white mb-4">Recent posts</h2>
+        {% if log %}
+        <div class="overflow-x-auto">
+            <table class="min-w-full text-sm">
+                <thead>
+                    <tr class="text-left text-xs uppercase text-gray-500 dark:text-gray-400">
+                        <th class="py-2 pr-4">When</th><th class="py-2 pr-4">Channel</th><th class="py-2 pr-4">What</th><th class="py-2 pr-4">Result</th><th class="py-2"></th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+                    {% for m in log %}
+                    <tr class="text-gray-700 dark:text-gray-300 align-top">
+                        <td class="py-2 pr-4 whitespace-nowrap">{{ m.created_at|date:"M j, g:i A" }}</td>
+                        <td class="py-2 pr-4">{{ m.channel_name }}</td>
+                        <td class="py-2 pr-4">{% if m.announcement %}{{ m.announcement.title|truncatechars:60 }}{% elif m.event %}Reminder: {{ m.event.title|truncatechars:50 }}{% else %}{{ m.get_kind_display }}{% endif %}</td>
+                        <td class="py-2 pr-4">
+                            {% if m.status == 'sent' %}<span class="text-green-700 dark:text-green-400">Sent</span>
+                            {% elif m.status == 'failed' %}<span class="text-red-600 dark:text-red-400">Failed{% if m.attempts > 1 %} ({{ m.attempts }} tries){% endif %}: {{ m.error }}</span>
+                            {% elif m.status == 'skipped' %}<span class="text-gray-500 dark:text-gray-400">Skipped: {{ m.error }}</span>
+                            {% else %}<span class="text-amber-600 dark:text-amber-400">Queued</span>{% endif %}
+                        </td>
+                        <td class="py-2">
+                            {% if m.status == 'failed' and m.kind != 'test' %}
+                            <form method="post" action="{% url 'groupme_retry_message' m.pk %}">
+                                {% csrf_token %}
+                                <button type="submit" class="text-xs font-semibold text-primary-600 dark:text-primary-400 hover:underline">Retry</button>
+                            </form>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="text-sm text-gray-600 dark:text-gray-400">Nothing posted yet.</p>
+        {% endif %}
+    </section>
+</div>
+
+<script nonce="{{ request.csp_nonce }}">
+document.addEventListener('submit', function (e) {
+    var msg = e.target.getAttribute && e.target.getAttribute('data-confirm');
+    if (msg && !window.confirm(msg)) { e.preventDefault(); e.stopImmediatePropagation(); }
+}, true);
+</script>
+{% endblock %}

@@ -205,6 +205,19 @@ which predate this file and are more specific than their commit dates.
 | v3.44.5 | *not deployed* | `d6d19d5` | See `changelogs/v3.44.5.md`. |
 | v3.44.8 | *not deployed* | `8220f69` | See `changelogs/v3.44.8.md`. |
 | v3.44.9 | *not deployed* | `87318ce` | See `changelogs/v3.44.9.md`. |
+| v3.45.3 | *not deployed* | `1b1ff46` | See `changelogs/v3.45.3.md`. |
+| v3.45.4 | *not deployed* | `3e03e88` | See `changelogs/v3.45.4.md`. |
+| v3.45.5 | *not deployed* | `441b3e5` | See `changelogs/v3.45.5.md`. |
+| v3.45.6 | *not deployed* | `1f80ad5` | See `changelogs/v3.45.6.md`. |
+| v3.45.7 | *not deployed* | `2660ab9` | See `changelogs/v3.45.7.md`. |
+| v3.46.0 | *not deployed* | `b7dd062` | See `changelogs/v3.46.0.md`. |
+| v3.47.0 | *not deployed* | `2f48848` | See `changelogs/v3.47.0.md`. |
+| v3.48.0 | *not deployed* | `18d2486` | See `changelogs/v3.48.0.md`. |
+| v3.48.1 | *not deployed* | `d811fb6` | See `changelogs/v3.48.1.md`. |
+| v3.49.0 | *not deployed* | `d811fb6` | See `changelogs/v3.49.0.md`. |
+| v3.45.1 | *not deployed* | `5bd3791` | See `changelogs/v3.45.1.md`. |
+| v3.45.2 | *not deployed* | `5bd3791` | See `changelogs/v3.45.2.md`. |
+| v3.50.0 | *not deployed* | `5bd3791` | See `changelogs/v3.50.0.md`. |
 
 > **⚠️ 09-02-26 — code for the whole backlog above (v3.25.2 through
 > v3.28.8) was restarted into prod the same day, and Mason confirmed

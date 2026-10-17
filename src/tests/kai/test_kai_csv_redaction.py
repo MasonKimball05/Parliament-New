@@ -234,7 +234,8 @@ class NoExportBuildsItsOwnRowTests(TestCase):
         source = inspect.getsource(kai_module)
         for func_name in ('export_kai_reports_csv', 'bulk_actions_kai_reports'):
             func_src = inspect.getsource(getattr(kai_module, func_name))
-            if 'csv.writer' not in func_src:
+            # v3.45.2: the exports now call `safe_csv_writer`.
+            if 'csv.writer' not in func_src and 'csv_writer(' not in func_src:
                 continue
             self.assertIn(
                 '_kai_csv_row', func_src,

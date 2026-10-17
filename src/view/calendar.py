@@ -541,7 +541,8 @@ def export_event_ical(request, event_id):
     # Create response with iCal file
     response = HttpResponse(cal.to_ical(), content_type='text/calendar; charset=utf-8')
     safe_filename = ''.join(c if c.isalnum() or c in (' ', '-', '_') else '_' for c in event.title)
-    response['Content-Disposition'] = f'attachment; filename="{safe_filename}.ics"'
+    from django.utils.http import content_disposition_header
+    response['Content-Disposition'] = content_disposition_header(True, f'{safe_filename}.ics')
     return response
 
 
@@ -920,7 +921,8 @@ def event_signup_export(request, event_id):
     keyed on URL name precisely because this route has a parameter in the
     middle of it and could not be expressed as a path prefix.
     """
-    import csv
+    from django.utils.http import content_disposition_header
+    from src.utils.export_utils import safe_csv_writer
 
     # v3.17.3 revived this view (see event_signup_list for the history);
     # v3.17.5 moved the gate onto @officer_required so Chairs are admitted and
@@ -939,11 +941,13 @@ def event_signup_export(request, event_id):
         f"_{event.date_time.strftime('%Y%m%d')}.csv"
     )
     response = HttpResponse(content_type='text/csv')
-    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    # v3.45.2: the title is in the filename, so let Django quote it. A raw
+    # f-string breaks on a quote mark and on any character outside Latin-1.
+    response['Content-Disposition'] = content_disposition_header(True, filename)
     response['Cache-Control'] = 'no-store'
     response['X-Content-Type-Options'] = 'nosniff'
 
-    writer = csv.writer(response)
+    writer = safe_csv_writer(response)
     writer.writerow(['Status', 'Waitlist Position', 'Name', 'Email', 'Signed Up At'])
     for s in all_active:
         if s.waitlist_position is not None:

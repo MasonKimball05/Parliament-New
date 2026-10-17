@@ -116,7 +116,7 @@ Then restart everything that talks to the database — this is the moment of
 brief disruption:
 
 ```bash
-sudo systemctl restart parliament-gunicorn.service parliament-worker parliament-beat
+sudo systemctl restart parliament-gunicorn.service parliament-worker
 ```
 
 ## 7. Verify
@@ -145,13 +145,17 @@ DB_PORT=5432
 ```
 
 ```bash
-sudo systemctl restart parliament-gunicorn.service parliament-worker parliament-beat
+sudo systemctl restart parliament-gunicorn.service parliament-worker
 ```
 
 That's it — pgbouncer can keep running harmlessly in the background even
 while unused, or `sudo systemctl stop pgbouncer` to fully back out.
 
 ## After this is live and stable
+
+**Done in v3.45.5: the default is now 0.** Under Daphne (ASGI) a persistent
+connection was left behind by every request (see the comment on CONN_MAX_AGE
+in `Parliament/settings.py`). The original note follows.
 
 Once pgbouncer has been running cleanly for a while, it's worth revisiting
 `DB_CONN_MAX_AGE=300` in `Parliament/settings.py` — with pgbouncer's own

@@ -203,6 +203,21 @@ class Event(models.Model):
         help_text='When the second reminder was dispatched (null = not yet sent)'
     )
 
+    # v3.50.0 — GroupMe reminder (src/groupme.py). Posted once, this many
+    # hours before the event, to the ticked channels the audience rule allows.
+    # Copied to each occurrence of a recurring event like reminder_N_*.
+    GROUPME_REMINDER_HOURS = (1, 2, 3, 6, 12, 24, 48, 72)
+    groupme_channels = models.ManyToManyField(
+        'GroupMeChannel', blank=True, related_name='events',
+        help_text='GroupMe groups that get a reminder before this event.',
+    )
+    groupme_reminder_hours = models.PositiveSmallIntegerField(
+        default=24, help_text='How many hours before the event the GroupMe reminder is posted.',
+    )
+    groupme_reminded_at = models.DateTimeField(
+        null=True, blank=True, help_text='When the GroupMe reminder was handed to the bot (null = not yet).',
+    )
+
     class Meta:
         ordering = ['date_time']
         indexes = [

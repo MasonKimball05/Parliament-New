@@ -1568,6 +1568,22 @@ def edit_user_profile(request, user_id):
     if request.method == 'POST':
         action = request.POST.get('action', '')
 
+        # v3.50.0 — the same text rules as the member's own profile page
+        # (src/profile_text.py), plus real member type/status and email on the
+        # core form. Until now this editor saved whatever was posted.
+        from src.profile_text import member_fields_error, profile_text_error
+        text_error = profile_text_error(request.POST, target.other_email, user=target)
+        if not text_error and action == 'core':
+            text_error = member_fields_error(
+                {k: request.POST.get(k, '') for k in ('name', 'preferred_name', 'email', 'phone_number',
+                                                     'role_number', 'member_type', 'member_status')
+                 if k in request.POST},
+                target,
+            )
+        if text_error:
+            messages.error(request, text_error)
+            return redirect('admin_v2_edit_user_profile', user_id=user_id)
+
         if action == 'core':
             target.name = request.POST.get('name', target.name).strip()
             target.preferred_name = request.POST.get('preferred_name', '').strip()
@@ -3627,8 +3643,8 @@ def audit_log(request):
         if blocked:
             return blocked
 
-        import csv
         from django.http import StreamingHttpResponse
+        from src.utils.export_utils import safe_csv_writer
 
         def _rows():
             yield ['Timestamp', 'Actor', 'Action', 'Target User', 'Target Repr', 'Detail', 'IP Address']
@@ -3647,7 +3663,7 @@ def audit_log(request):
             def write(self, value):
                 return value
 
-        writer = csv.writer(_Echo())
+        writer = safe_csv_writer(_Echo())
         response = StreamingHttpResponse(
             (writer.writerow(row) for row in _rows()),
             content_type='text/csv',

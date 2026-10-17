@@ -72,6 +72,8 @@ function toggleSongField(taskType) {
     const songField = document.getElementById('song-link-field');
     if (!songField) return;
     songField.classList.toggle('hidden', taskType !== 'song');
+    // v3.48.0 — the quiz points-mode select, same show/hide.
+    document.getElementById('quiz-points-mode-field')?.classList.toggle('hidden', taskType !== 'quiz');
 }
 document.addEventListener('change', function(e) {
     const activation = e.target.closest('[data-action="toggle-activation"]');

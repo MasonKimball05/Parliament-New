@@ -1,0 +1,109 @@
+{% comment %}
+   v3.45.0 — filter for a "Tracked Section Amendments" list. Mason, 10-08-26:
+   "if I only want the constitution amendments or only bylaws or only certain
+   types of amendments".
+
+   The list supplies:
+     <div class="js-amendment-filter hidden ..."></div>      where the chips go
+     <div class="js-amendment-row" data-doc="bylaws" data-doc-label="Bylaws"
+          data-type="change"> ... </div>                      one per amendment
+     <div class="js-amendment-none hidden ...">               shown when nothing matches
+
+   Include this once per page, outside anything that is redrawn. The chips are
+   built from the rows, so only documents and types that are in the list are
+   offered, each with its count. The choice is kept in this script, so the
+   edit page can redraw its list (window.wireAmendmentFilter) and keep it.
+{% endcomment %}
+<script nonce="{{ request.csp_nonce }}">
+(function() {
+    var ON  = 'bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300';
+    var OFF = 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300';
+    var CHIP = 'px-3 py-1 rounded-full text-xs font-medium transition-colors ';
+    var TYPE_LABELS = { change: 'Change', addition: 'Addition', deletion: 'Deletion' };
+    var TYPE_ORDER = ['change', 'addition', 'deletion'];
+    var chosen = { doc: '', type: '' };       // '' = all
+
+    function el(tag, className, text) {
+        var node = document.createElement(tag);
+        if (className) node.className = className;
+        if (text !== undefined) node.textContent = text;
+        return node;
+    }
+
+    function matches(row) {
+        return (!chosen.doc || row.dataset.doc === chosen.doc)
+            && (!chosen.type || row.dataset.type === chosen.type);
+    }
+
+    // How many rows a chip would show, given the OTHER group's choice.
+    function count(rows, key, value) {
+        var other = key === 'doc' ? 'type' : 'doc';
+        return rows.filter(function(row) {
+            return (!value || row.dataset[key] === value)
+                && (!chosen[other] || row.dataset[other] === chosen[other]);
+        }).length;
+    }
+
+    function group(bar, rows, key, title, options, redraw) {
+        var wrap = el('div', 'flex items-center gap-2 flex-wrap');
+        wrap.appendChild(el('span', 'text-xs font-semibold text-gray-500 dark:text-gray-400', title));
+        [{ value: '', label: 'All' }].concat(options).forEach(function(option) {
+            var chip = el('button', CHIP + (chosen[key] === option.value ? ON : OFF),
+                          option.label + ' (' + count(rows, key, option.value) + ')');
+            chip.type = 'button';
+            chip.setAttribute('aria-pressed', chosen[key] === option.value ? 'true' : 'false');
+            chip.addEventListener('click', function() { chosen[key] = option.value; redraw(); });
+            wrap.appendChild(chip);
+        });
+        bar.appendChild(wrap);
+    }
+
+    function wire(root) {
+        var bar = root.querySelector('.js-amendment-filter');
+        if (!bar) return;
+        var rows = Array.prototype.slice.call(root.querySelectorAll('.js-amendment-row'));
+        var none = root.querySelector('.js-amendment-none');
+
+        var docs = [], seen = {};
+        rows.forEach(function(row) {
+            if (!seen[row.dataset.doc]) {
+                seen[row.dataset.doc] = true;
+                docs.push({ value: row.dataset.doc, label: row.dataset.docLabel || row.dataset.doc });
+            }
+        });
+        var types = TYPE_ORDER.filter(function(type) {
+            return rows.some(function(row) { return row.dataset.type === type; });
+        }).map(function(type) { return { value: type, label: TYPE_LABELS[type] }; });
+
+        // A choice that is no longer in the list (its last amendment was
+        // removed) falls back to All, or the list would be empty for no reason.
+        if (chosen.doc && !seen[chosen.doc]) chosen.doc = '';
+        if (chosen.type && !types.some(function(t) { return t.value === chosen.type; })) chosen.type = '';
+
+        function redraw() {
+            var shown = 0;
+            rows.forEach(function(row) {
+                var show = matches(row);
+                row.classList.toggle('hidden', !show);
+                if (show) shown++;
+            });
+            if (none) none.classList.toggle('hidden', shown > 0 || rows.length === 0);
+
+            bar.textContent = '';
+            // Nothing to choose between: one amendment, or one document and one type.
+            if (rows.length < 2 || (docs.length < 2 && types.length < 2)) { bar.classList.add('hidden'); return; }
+            bar.classList.remove('hidden');
+            if (docs.length > 1)  group(bar, rows, 'doc', 'Document', docs, redraw);
+            if (types.length > 1) group(bar, rows, 'type', 'Type', types, redraw);
+            if (chosen.doc || chosen.type) {
+                bar.appendChild(el('span', 'text-xs text-gray-500 dark:text-gray-400',
+                                   'Showing ' + shown + ' of ' + rows.length));
+            }
+        }
+        redraw();
+    }
+
+    window.wireAmendmentFilter = wire;
+    wire(document);
+})();
+</script>

@@ -13,7 +13,7 @@ from django.db.models import Sum, Count, Q
 from django.core.paginator import Paginator
 from django.http import HttpResponse
 from decimal import Decimal
-import csv
+from src.utils.export_utils import safe_csv_writer
 import logging
 
 from src.models import (
@@ -404,7 +404,7 @@ def export_service_csv(request):
     response = HttpResponse(content_type='text/csv')
     response['Content-Disposition'] = 'attachment; filename="service_hours_export.csv"'
 
-    writer = csv.writer(response)
+    writer = safe_csv_writer(response)
     writer.writerow([
         'Member', 'Period', 'Hours', 'Service Date', 'Organization',
         'Description', 'Status', 'Submitted At', 'Reviewed By', 'Reviewed At'

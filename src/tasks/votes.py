@@ -241,6 +241,15 @@ def publish_scheduled_announcements():
         _tasks.send_announcement_email.delay(announcement.pk)
         logger.info(f"[tasks] Queued email for scheduled announcement id={announcement.pk} '{announcement.title}'")
 
+    # v3.49.0 — GroupMe echo for announcements that just went live (and a
+    # safety net for ones the create-time path couldn't queue). Separate try so
+    # a GroupMe problem can never stop the email dispatch above.
+    try:
+        from src.tasks.groupme import sweep_groupme
+        sweep_groupme()
+    except Exception as e:
+        logger.warning(f"[tasks] GroupMe sweep failed: {type(e).__name__}: {e}")
+
 
 @shared_task(name='tasks.notify_expired_vote_receipts')
 def notify_expired_vote_receipts():

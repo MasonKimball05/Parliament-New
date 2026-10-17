@@ -3,7 +3,7 @@
 {% if user.is_authenticated and not dismissed %}
 {% with pledge=user.is_pledge %}
 
-<div id="onboarding-checklist" x-data="{ open: true }" class="bg-white dark:bg-gray-800 rounded-xl shadow-sm ring-1 ring-gray-200 dark:ring-gray-700 overflow-hidden">
+<div id="onboarding-checklist" x-data="onboardingChecklist" class="bg-white dark:bg-gray-800 rounded-xl shadow-sm ring-1 ring-gray-200 dark:ring-gray-700 overflow-hidden">
     {# Header #}
     <div class="flex items-center justify-between px-4 py-3 cursor-pointer select-none" @click="open = !open">
         <div class="flex items-center gap-2">
@@ -16,7 +16,7 @@
             </div>
         </div>
         <div class="flex items-center gap-3">
-            <button @click.stop="window.dismissChecklist()" class="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition px-2 py-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700">
+            <button @click.stop="dismiss()" class="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition px-2 py-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700">
                 Dismiss
             </button>
             <svg :class="open ? 'rotate-180' : ''" class="w-4 h-4 text-gray-400 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>

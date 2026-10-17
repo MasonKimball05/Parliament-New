@@ -1,0 +1,98 @@
+{% comment %}
+v3.49.0 — "Also post to GroupMe" on the create/edit announcement forms.
+Context: groupme_channels (each with .allowed_now, .checked, .audience_csv),
+groupme_posted (list of GroupMeMessage, edit page only, once it has gone out).
+A channel only appears tickable when everyone in that GroupMe can see the
+announcement (src/groupme.py, "the audience rule"); the script below re-applies
+that as "Visible To" changes, and the server checks it again on save and send.
+{% endcomment %}
+{% if groupme_posted %}
+<div class="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg p-4">
+    <p class="text-sm font-medium text-gray-800 dark:text-gray-200 mb-2">GroupMe</p>
+    <ul class="space-y-1 text-sm">
+        {% for m in groupme_posted %}
+        <li class="text-gray-700 dark:text-gray-300">
+            {{ m.channel_name }}:
+            {% if m.status == 'sent' %}<span class="text-green-700 dark:text-green-400">posted {{ m.sent_at|date:"M j, g:i A" }}</span>
+            {% elif m.status == 'failed' %}<span class="text-red-600 dark:text-red-400">failed: {{ m.error }}</span>
+            {% elif m.status == 'skipped' %}<span class="text-gray-500 dark:text-gray-400">skipped: {{ m.error }}</span>
+            {% else %}<span class="text-amber-600 dark:text-amber-400">sending…</span>{% endif %}
+        </li>
+        {% endfor %}
+    </ul>
+    <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">Already handed to the bot. Editing this announcement won't post it again.</p>
+</div>
+{% elif groupme_channels %}
+<div class="bg-primary-50 dark:bg-primary-900/30 border border-primary-200 dark:border-primary-700 rounded-lg p-4" id="groupme-channels">
+    <div class="flex items-center justify-between gap-2">
+        <p class="text-sm font-medium text-gray-800 dark:text-gray-200">Also post to GroupMe</p>
+        <a href="{% url 'groupme_dashboard' %}" class="text-xs text-primary-600 dark:text-primary-400 hover:underline">Manage GroupMe groups</a>
+    </div>
+    <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">
+        {% if groupme_is_edit %}Not posted to GroupMe yet. Tick a group and save to post it{% if not announcement.is_published %} when it publishes{% endif %}.
+        {% else %}Posts when the announcement publishes. Only groups where everyone can see it are allowed.{% endif %}
+    </p>
+    <div class="space-y-2">
+        {% for c in groupme_channels %}
+        <div class="flex items-start">
+            <input type="checkbox" name="groupme_channel_ids" value="{{ c.pk }}" id="groupme-ch-{{ c.pk }}"
+                   data-audience="{{ c.audience_csv }}"
+                   class="groupme-channel mt-0.5 rounded border-gray-300 dark:border-gray-600 text-primary-600 focus:ring-primary-500 dark:bg-gray-700"
+                   {% if c.checked %}checked{% endif %} {% if not c.allowed_now %}disabled{% endif %}>
+            <label for="groupme-ch-{{ c.pk }}" class="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                {{ c.name }}
+                <span class="text-xs text-gray-500 dark:text-gray-400">({{ c.audience_labels|join:", " }})</span>
+                <span class="groupme-blocked block text-xs text-amber-700 dark:text-amber-400 {% if c.allowed_now %}hidden{% endif %}">Not everyone in this GroupMe can see this announcement.</span>
+            </label>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+<script nonce="{{ request.csp_nonce }}">
+(function () {
+    var box = document.getElementById('groupme-channels');
+    var vis = document.getElementById('visibility-checkboxes');
+    if (!box || !vis) return;
+    var channels = Array.prototype.slice.call(box.querySelectorAll('input.groupme-channel'));
+    var touched = {% if groupme_touched %}true{% else %}false{% endif %};
+    channels.forEach(function (cb) { cb.addEventListener('change', function () { touched = true; }); });
+
+    function audience(cb) { return cb.dataset.audience ? cb.dataset.audience.split(',') : []; }
+    function visibleTo() {
+        return Array.prototype.slice.call(vis.querySelectorAll('input[type="checkbox"]'))
+            .filter(function (i) { return i.checked; }).map(function (i) { return i.value; });
+    }
+    function allowed(visible, aud) {
+        return visible.length === 0 || aud.every(function (a) { return visible.indexOf(a) !== -1; });
+    }
+    function strictSubset(a, b) {
+        return a.length < b.length && a.every(function (x) { return b.indexOf(x) !== -1; });
+    }
+    function update() {
+        var visible = visibleTo();
+        var ok = channels.filter(function (cb) { return allowed(visible, audience(cb)); });
+        channels.forEach(function (cb) {
+            var isOk = ok.indexOf(cb) !== -1;
+            cb.disabled = !isOk;
+            if (!isOk) cb.checked = false;
+            cb.closest('div').querySelector('.groupme-blocked').classList.toggle('hidden', isOk);
+            if (isOk && !touched) {
+                // Pre-tick the widest groups only, so nobody gets it twice.
+                cb.checked = !ok.some(function (o) { return o !== cb && strictSubset(audience(cb), audience(o)); });
+            }
+        });
+    }
+    vis.addEventListener('change', update);
+    update();
+})();
+</script>
+{% else %}
+{% comment %}v3.49.0 — no channel is on yet: say so, instead of showing nothing.{% endcomment %}
+<div class="bg-gray-50 dark:bg-gray-700/40 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+    <p class="text-sm font-medium text-gray-800 dark:text-gray-200">Also post to GroupMe</p>
+    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+        {% if groupme_any_channels %}Every GroupMe group is turned off{% else %}No GroupMe groups are connected yet{% endif %}, so this announcement won't be posted there.
+        <a href="{% url 'groupme_dashboard' %}" class="text-primary-600 dark:text-primary-400 hover:underline">Set up the GroupMe bot</a>
+    </p>
+</div>
+{% endif %}

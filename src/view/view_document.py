@@ -9,12 +9,20 @@ from src.feature_flag_decorators import require_feature_flag
 from src.models import Legislation, CommitteeDocument
 from src.models.documents import DocumentVersion
 from src.utils.content_disposition import apply_disposition
+from src import pdf_preview_helper
 import mimetypes
 import os
 import re
 import urllib.parse
 import logging
 import base64
+import hashlib
+import json
+import shutil
+import subprocess
+import sys
+import tempfile
+import threading
 
 import bleach
 
@@ -38,12 +46,8 @@ PDF_PREVIEW_JPEG_QUALITY = 80
 
 def _pdf_preview_zoom(page_width_pt, page_height_pt, dpi):
     """Zoom for `dpi`, reduced so the bitmap fits the preview's pixel cap."""
-    zoom = dpi / 72
-    if page_width_pt > 0 and page_width_pt * zoom > PDF_PREVIEW_MAX_WIDTH_PX:
-        zoom = PDF_PREVIEW_MAX_WIDTH_PX / page_width_pt
-    if page_height_pt > 0 and page_height_pt * zoom > PDF_PREVIEW_MAX_HEIGHT_PX:
-        zoom = PDF_PREVIEW_MAX_HEIGHT_PX / page_height_pt
-    return zoom
+    return pdf_preview_helper.preview_zoom(
+        page_width_pt, page_height_pt, dpi, PDF_PREVIEW_MAX_WIDTH_PX, PDF_PREVIEW_MAX_HEIGHT_PX)
 
 
 #: Pages of a PDF the in-page preview offers. Past this the viewer says
@@ -57,10 +61,188 @@ PDF_PREVIEW_DPI = 150
 PDF_PREVIEW_TOKEN_MAX_AGE = 2 * 60 * 60
 _PDF_PREVIEW_SALT = 'src.view.view_document.pdf_preview'
 
+# ── v3.45.6: pages are rendered OUTSIDE Daphne and kept on disk ─────────────
+#
+# Mason, 10-13-26: the server idles at 70-80% of its 1 GB. Rendering previews
+# in Daphne loaded PyMuPDF into it (+37 MB measured, kept until restart).
+# Now `src/pdf_preview_helper.py` does it in a short-lived process of its own
+# and writes JPEGs to PDF_PREVIEW_CACHE_DIR. Daphne never imports PyMuPDF for
+# a preview, and a page that has been shown once is served from disk.
+#
+# * One helper at a time (`_helper_lock`), so a phone loading 20 pages can
+#   never start 20 copies of PyMuPDF.
+# * A request for page N renders N and the next few pages in the same run
+#   (PDF_PREVIEW_RENDER_BATCH): the browser asks for them next, and starting
+#   the helper is most of the cost of a small page.
+# * The cache key is the file's path, size and modification time plus the
+#   render settings, so a replaced file is rendered fresh. The cache is not
+#   under MEDIA_ROOT and nothing serves it directly: every page still goes
+#   through pdf_preview_page's token check.
+# * If the cache folder cannot be written, the page is rendered into a
+#   temporary folder for that one request instead. Slower, never broken.
+
+#: Pages rendered per helper run, starting at the one asked for.
+PDF_PREVIEW_RENDER_BATCH = 4
+#: A helper run that takes longer than this is stopped and the page is a 404.
+PDF_PREVIEW_HELPER_TIMEOUT = 60
+#: When the cache grows past this, the least recently written PDFs are removed.
+PDF_PREVIEW_CACHE_MAX_BYTES = 150 * 1024 * 1024
+
+_HELPER_PATH = pdf_preview_helper.__file__
+_helper_lock = threading.Lock()
+
+
+def _preview_cache_root():
+    return getattr(settings, 'PDF_PREVIEW_CACHE_DIR', None) or os.path.join(
+        settings.BASE_DIR, 'cache', 'pdf-previews')
+
+
+def _preview_cache_dir(resolved):
+    """The cache folder for this version of this file at the current render settings."""
+    st = os.stat(resolved)
+    key = '\0'.join(str(part) for part in (
+        resolved, st.st_size, st.st_mtime_ns, PDF_PREVIEW_DPI,
+        PDF_PREVIEW_MAX_WIDTH_PX, PDF_PREVIEW_MAX_HEIGHT_PX, PDF_PREVIEW_JPEG_QUALITY, 'v1',
+    ))
+    return os.path.join(_preview_cache_root(), hashlib.sha256(key.encode('utf-8')).hexdigest()[:40])
+
+
+def _run_helper(job):
+    """
+    Run the helper on one job and return its answer, or None if it failed.
+    The caller must hold `_helper_lock`.
+    """
+    try:
+        proc = subprocess.run(
+            [sys.executable, '-I', _HELPER_PATH],
+            input=json.dumps(job), capture_output=True, text=True,
+            timeout=PDF_PREVIEW_HELPER_TIMEOUT,
+            env={'PATH': os.environ.get('PATH', ''), 'MALLOC_ARENA_MAX': '2'},
+        )
+    except (subprocess.TimeoutExpired, OSError) as exc:
+        logger.error("PDF preview helper did not finish (%s): %s", job.get('op'), exc)
+        return None
+    try:
+        answer = json.loads(proc.stdout or '{}')
+    except ValueError:
+        answer = {}
+    if not answer.get('ok'):
+        logger.error("PDF preview helper failed (%s): %s %s", job.get('op'),
+                     answer.get('error', ''), (proc.stderr or '')[-500:])
+        return None
+    return answer
+
+
+def _render_settings():
+    return {'dpi': PDF_PREVIEW_DPI, 'max_width': PDF_PREVIEW_MAX_WIDTH_PX,
+            'max_height': PDF_PREVIEW_MAX_HEIGHT_PX, 'quality': PDF_PREVIEW_JPEG_QUALITY}
+
+
+def _write_json(path, data):
+    partial = f'{path}.{os.getpid()}.{threading.get_ident()}.part'
+    with open(partial, 'w', encoding='utf-8') as fh:
+        json.dump(data, fh)
+    os.replace(partial, path)
+
+
+def _preview_info(resolved, max_pages):
+    """Page count and rendered page sizes, from the cache or the helper. None if unreadable."""
+    try:
+        cache = _preview_cache_dir(resolved)
+    except OSError:
+        return None
+    info_path = os.path.join(cache, f'info-{max_pages}.json')
+    try:
+        with open(info_path, encoding='utf-8') as fh:
+            return json.load(fh)
+    except (OSError, ValueError):
+        pass
+    with _helper_lock:
+        answer = _run_helper(dict(_render_settings(), op='info', path=resolved, max_pages=max_pages))
+    if answer is None:
+        return None
+    try:
+        os.makedirs(cache, exist_ok=True)
+        _write_json(info_path, answer)
+    except OSError as exc:
+        logger.warning("PDF preview cache not writable (%s); continuing without it", exc)
+    return answer
+
+
+def _prune_preview_cache():
+    """Remove the oldest cached PDFs once the cache is over its size limit."""
+    root = _preview_cache_root()
+    try:
+        entries = []
+        total = 0
+        for name in os.listdir(root):
+            folder = os.path.join(root, name)
+            if not os.path.isdir(folder):
+                continue
+            size = sum(os.path.getsize(os.path.join(folder, f)) for f in os.listdir(folder))
+            entries.append((os.path.getmtime(folder), size, folder))
+            total += size
+        if total <= PDF_PREVIEW_CACHE_MAX_BYTES:
+            return
+        for _mtime, size, folder in sorted(entries):
+            shutil.rmtree(folder, ignore_errors=True)
+            total -= size
+            if total <= PDF_PREVIEW_CACHE_MAX_BYTES * 0.8:
+                break
+    except OSError as exc:
+        logger.warning("PDF preview cache prune failed: %s", exc)
+
+
+def _preview_page_jpeg(resolved, page):
+    """
+    JPEG bytes of one preview page, rendered by the helper if not cached.
+    None if the page does not exist or could not be rendered.
+    """
+    try:
+        cache = _preview_cache_dir(resolved)
+    except OSError:
+        return None
+    target = os.path.join(cache, f'page-{page}.jpg')
+    if not os.path.isfile(target):
+        info = _preview_info(resolved, PDF_PREVIEW_MAX_PAGES)
+        if info is None or page > min(info['total_pages'], PDF_PREVIEW_MAX_PAGES):
+            return None
+        last = min(info['total_pages'], PDF_PREVIEW_MAX_PAGES, page + PDF_PREVIEW_RENDER_BATCH - 1)
+        try:
+            os.makedirs(cache, exist_ok=True)
+            out_dir = cache
+        except OSError as exc:
+            logger.warning("PDF preview cache not writable (%s); rendering one page uncached", exc)
+            out_dir = None
+        if out_dir is None:
+            with tempfile.TemporaryDirectory() as tmp, _helper_lock:
+                answer = _run_helper(dict(_render_settings(), op='render', path=resolved,
+                                          pages=[page], out_dir=tmp))
+                if answer is None:
+                    return None
+                with open(os.path.join(tmp, f'page-{page}.jpg'), 'rb') as fh:
+                    return fh.read()
+        with _helper_lock:
+            # Another request may have rendered it while this one waited.
+            wanted = [n for n in range(page, last + 1)
+                      if not os.path.isfile(os.path.join(cache, f'page-{n}.jpg'))]
+            if wanted:
+                if _run_helper(dict(_render_settings(), op='render', path=resolved,
+                                    pages=wanted, out_dir=cache)) is None:
+                    return None
+        _prune_preview_cache()
+    try:
+        with open(target, 'rb') as fh:
+            return fh.read()
+    except OSError:
+        return None
+
 
 def _render_pdf_page_jpeg(fitz, doc, page_index, dpi):
     """
-    Render one page of an open document. Returns (jpeg_bytes, width, height).
+    Render one page of an open document IN THIS PROCESS. Returns
+    (jpeg_bytes, width, height). Used only by `convert_pdf_to_images`; the
+    viewer renders through the helper (see above).
 
     The pixel cap (PDF_PREVIEW_MAX_*) is applied here, so both callers get it.
     The bitmap and MuPDF's cache of the page's decoded images are released
@@ -92,15 +274,13 @@ def pdf_preview_manifest(file_path, user, max_pages=PDF_PREVIEW_MAX_PAGES, dpi=P
     the image arrives; without them every lazy image is zero pixels tall, all
     of them are "on screen" at once, and all of them load at once.
 
+    v3.45.6: the page count and sizes come from the helper process (or its
+    cache), not from PyMuPDF in this process. ``dpi`` must be PDF_PREVIEW_DPI,
+    the only resolution the pages are rendered at.
+
     Call this only after the caller's own permission check has passed: the
     urls it returns are what grants access to the page images.
     """
-    try:
-        import fitz  # PyMuPDF
-    except ImportError:
-        logger.warning("PyMuPDF (fitz) library not installed, cannot preview PDF")
-        return None
-
     media_root = os.path.realpath(settings.MEDIA_ROOT)
     resolved = os.path.realpath(file_path)
     if not resolved.startswith(media_root + os.sep):
@@ -108,6 +288,9 @@ def pdf_preview_manifest(file_path, user, max_pages=PDF_PREVIEW_MAX_PAGES, dpi=P
         return None
 
     try:
+        info = _preview_info(resolved, max_pages)
+        if info is None:
+            return None
         token = signing.dumps(
             {
                 'u': str(user.pk),
@@ -119,26 +302,20 @@ def pdf_preview_manifest(file_path, user, max_pages=PDF_PREVIEW_MAX_PAGES, dpi=P
             salt=_PDF_PREVIEW_SALT,
             compress=True,
         )
-        images = []
-        doc = fitz.open(resolved)
-        try:
-            total_pages = len(doc)
-            num_pages = min(total_pages, max_pages)
-            for page_num in range(num_pages):
-                rect = doc[page_num].rect
-                zoom = _pdf_preview_zoom(rect.width, rect.height, dpi)
-                images.append({
-                    'page': page_num + 1,
-                    'url': reverse('pdf_preview_page', args=[token, page_num + 1]),
-                    'width': max(1, round(rect.width * zoom)),
-                    'height': max(1, round(rect.height * zoom)),
-                })
-        finally:
-            doc.close()
+        images = [
+            {
+                'page': number,
+                'url': reverse('pdf_preview_page', args=[token, number]),
+                'width': width,
+                'height': height,
+            }
+            for number, (width, height) in enumerate(info['pages'][:max_pages], start=1)
+        ]
+        total_pages = info['total_pages']
         return {
             'images': images,
             'total_pages': total_pages,
-            'truncated': num_pages < total_pages,
+            'truncated': len(images) < total_pages,
         }
     except Exception as e:
         logger.error(f"Error reading PDF for preview: {e}")
@@ -156,6 +333,9 @@ def pdf_preview_page(request, token, page):
     to. This view does not repeat the viewer's permission check (there are
     five viewers with five different rules); the token is the proof that one
     of them passed. A link copied to another member does not work for them.
+
+    v3.45.6: the page comes from the preview cache, rendered by the helper
+    process if it is not there yet (see `_preview_page_jpeg`).
 
     Everything that can go wrong is a 404, so the response does not say
     whether a token was valid for somebody else.
@@ -178,23 +358,8 @@ def pdf_preview_page(request, token, page):
     if not resolved.startswith(media_root + os.sep) or not os.path.isfile(resolved):
         raise Http404("Preview not found")
 
-    try:
-        import fitz  # PyMuPDF
-    except ImportError:
-        raise Http404("Preview not found")
-
-    try:
-        doc = fitz.open(resolved)
-        try:
-            if page > len(doc):
-                raise Http404("Preview not found")
-            img_data, _width, _height = _render_pdf_page_jpeg(fitz, doc, page - 1, PDF_PREVIEW_DPI)
-        finally:
-            doc.close()
-    except Http404:
-        raise
-    except Exception as e:
-        logger.error(f"Error rendering PDF preview page: {e}")
+    img_data = _preview_page_jpeg(resolved, page)
+    if img_data is None:
         raise Http404("Preview not found")
 
     response = HttpResponse(img_data, content_type='image/jpeg')

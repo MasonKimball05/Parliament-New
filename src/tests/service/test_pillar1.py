@@ -745,9 +745,11 @@ class QuarantineEnforcementMiddlewareTests(TestCase):
         self.user.save(update_fields=['is_quarantined'])
 
         self.client.force_login(self.user)
-        # /logout/ should not loop into a quarantine redirect
-        response = self.client.get('/logout/')
+        # /logout/ should not loop into a quarantine redirect. v3.45.3:
+        # signing out is a POST (a GET shows the "Log out?" page).
+        response = self.client.post('/logout/')
         self.assertNotEqual(response.status_code, 500)
+        self.assertNotIn('quarantined=1', response.get('Location', ''))
 
     def test_login_path_exempt(self):
         """Quarantined users can reach /login/ (they need it to see the message)."""

@@ -41,6 +41,10 @@ MARKUP = '"><form method=post action=/x/><button>go</button></form>'
 
 
 def read(relative):
+    if relative == 'base.html':
+        # v3.45.6: base.html's scripts now live in static/js/base/.
+        from src.tests.base_template_source import base_html_source
+        return base_html_source()
     return (TEMPLATES / relative).read_text(encoding='utf-8')
 
 

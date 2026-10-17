@@ -1029,6 +1029,53 @@ def edit_resolution(request, resolution_id):
     return render(request, 'cnb/resolution_form.html', context, status=409 if conflicts else 200)
 
 
+def _propose_section_title(request, resolution, section):
+    """
+    The amendment popup's "Section title" box (v3.45.0).
+
+    Mason, 10-08-26: "there's no way to edit the actual name of a section in
+    the tracked amendments section." Renaming existed only in the separate
+    "New articles / sections / renames" maker. The popup now carries the
+    title, and a changed title is stored the same way the maker stores it: a
+    `rename_section` ResolutionStructureChange, applied when the resolution
+    passes. One mechanism, two ways in.
+
+    Returns what happened as a phrase for the success message ('' if nothing):
+      * box absent (an old tab) or left blank: nothing. A blank box never
+        clears a title.
+      * same as the section's current title: a pending rename by this
+        resolution is withdrawn.
+      * anything else: the rename is added, or the pending one updated.
+    """
+    raw = request.POST.get('section_title')
+    if raw is None:
+        return ''
+    title = ' '.join(raw.split())[:200]
+    if not title:
+        return ''
+    pending = resolution.structure_changes.filter(kind='rename_section', section=section, applied=False)
+    if title == section.title:
+        if pending.exists():
+            pending.delete()
+            return f'the proposed new title was withdrawn (it stays "{section.title}")'
+        return ''
+    change = pending.first()
+    if change is not None and change.title == title:
+        return ''
+    if change is None:
+        change = ResolutionStructureChange(
+            resolution=resolution, kind='rename_section', section=section, added_by=request.user)
+    change.title, change.old_title = title, section.title
+    change.save()
+    pending.exclude(pk=change.pk).delete()
+    return f'its title becomes "{title}" when this passes'
+
+
+# v3.45.1 — `@login_required` belongs here. v3.45.0 put the helper above
+# between the decorator and this view, so the decorator ended up on the helper
+# and this view had none: a signed-out POST reached `_edit_denied` and crashed
+# on AnonymousUser (a 500, nothing saved).
+# src/tests/guards/test_anonymous_access.py now requests every route signed out.
 @login_required
 @require_POST
 def add_amendment(request, resolution_id):
@@ -1090,6 +1137,21 @@ def add_amendment(request, resolution_id):
         )
         return redirect('cnb_resolution_detail', resolution_id=resolution_id)
 
+    # v3.45.0 — the popup's "Section title" box. A whole-section removal has
+    # no title to change.
+    title_note = '' if whole_section_delete else _propose_section_title(request, resolution, section)
+    back = 'cnb_edit_resolution' if request.POST.get('next') == 'edit' else 'cnb_resolution_detail'
+    text_unchanged = proposed_text == section.content.replace('\r\n', '\n').replace('\r', '\n').strip()
+    if title_note and text_unchanged and not ResolutionAmendment.objects.filter(
+            resolution=resolution, section=section).exists():
+        # Only the title was changed: record the rename and no text amendment
+        # (saving the same text would list an "Addition" that adds nothing).
+        messages.success(request, f'{section.full_identifier}: {title_note}.')
+        from src import cnb_live
+        cnb_live.broadcast_amendments_changed(
+            resolution.pk, request.user, 'proposed a new title for ' + section.full_identifier)
+        return redirect(back, resolution_id=resolution_id)
+
     # Update existing or create new
     amendment, created = ResolutionAmendment.objects.get_or_create(
         resolution=resolution,
@@ -1106,9 +1168,11 @@ def add_amendment(request, resolution_id):
         amendment.amendment_type = amendment_type
         amendment.scope_note = scope_note
         amendment.save(update_fields=['proposed_text', 'amendment_type', 'scope_note'])
-        messages.success(request, f'Amendment for {section.full_identifier} updated.')
+        messages.success(request, f'Amendment for {section.full_identifier} updated'
+                                  + (f'; {title_note}.' if title_note else '.'))
     else:
-        messages.success(request, f'Amendment for {section.full_identifier} added.')
+        messages.success(request, f'Amendment for {section.full_identifier} added'
+                                  + (f'; {title_note}.' if title_note else '.'))
 
     from src import cnb_live
     cnb_live.broadcast_amendments_changed(
@@ -1445,7 +1509,13 @@ def resolution_print(request, resolution_id):
         ),
         pk=resolution_id
     )
-    context = {'resolution': resolution}
+    # v3.45.0 — how each amendment is stated ("Shall strike from Article ...",
+    # "Shall amend Article ..."), in the same order the template lists them.
+    from src.cnb_amendment_text import describe
+    context = {
+        'resolution': resolution,
+        'amendment_refs': [describe(amendment) for amendment in resolution.amendments.all()],
+    }
     context.update(_structure_context(resolution))
     return render(request, 'cnb/resolution_print.html', context)
 

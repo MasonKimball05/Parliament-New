@@ -31,14 +31,30 @@
 
     <!-- ── Pledge progress summary ─────────────────────────────────── -->
     {% if pledge_summaries %}
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
-      <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
-        <h2 class="text-lg font-bold text-gray-900 dark:text-white">Pledge Progress</h2>
-        <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Required tasks completed, and points earned so far out of the max currently possible, per pledge</p>
+    <div id="pledge-progress" class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+      <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div>
+          <h2 class="text-lg font-bold text-gray-900 dark:text-white">Pledge Progress</h2>
+          <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Required tasks completed, and points earned so far out of the max currently possible, per pledge. A pledge's phase unlocks that phase's tasks and pages.</p>
+        </div>
+        {% if access.can_manage_tasks %}
+        {% comment %}
+        v3.46.0 — Mason 10-14-26: "there's no way to advance a pledges phase".
+        Moves every pledge up one phase; one held back stays one behind.
+        {% endcomment %}
+        <form method="post" action="{% url 'education_advance_all_phases' code=committee.code %}" class="shrink-0">
+          {% csrf_token %}
+          <button type="submit"
+            data-confirm="Advance every pledge one phase? Their next phase's tasks and pages unlock right away. Pledges already in Phase 3 stay there."
+            class="px-3 py-1.5 text-sm font-semibold bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition">
+            Advance all pledges
+          </button>
+        </form>
+        {% endif %}
       </div>
       <div class="divide-y divide-gray-100 dark:divide-gray-700">
         {% for ps in pledge_summaries %}
-        <div class="px-6 py-3 flex items-center gap-4">
+        <div class="px-6 py-3 flex flex-wrap items-center gap-x-4 gap-y-2">
           {% comment %}
           v3.20.2 — the name is the way into the per-pledge page. The grid
           answers "who has not done task 4"; this answers "how is Jack doing",
@@ -46,13 +62,44 @@
           {% endcomment %}
           <a href="{% url 'education_pledge_detail' committee.code ps.pledge.pk %}"
              class="text-sm font-medium text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300 hover:underline w-40 shrink-0 truncate">{{ ps.pledge.name }}</a>
-          <div class="flex-1">
+          <div class="flex-1 hidden sm:block">
             <div class="h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
               <div class="h-2 rounded-full transition-all
                 {% if ps.percent == 100 %}bg-green-500{% elif ps.percent >= 60 %}bg-amber-500{% else %}bg-red-500{% endif %}"
                 style="width: {{ ps.percent }}%"></div>
             </div>
           </div>
+          {% if access.can_manage_tasks %}
+          {% comment %}v3.46.0 — set this pledge's phase (advance, or move back to fix a mistake).{% endcomment %}
+          <form method="post" action="{% url 'education_set_pledge_phase' code=committee.code pledge_pk=ps.pledge.pk %}" class="flex items-center gap-1 shrink-0">
+            {% csrf_token %}
+            <label class="sr-only" for="phase-{{ forloop.counter }}">Phase for {{ ps.pledge.name }}</label>
+            <select id="phase-{{ forloop.counter }}" name="phase"
+              class="text-xs py-1 pl-2 pr-5 rounded border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200">
+              {% for value, label in ps.pledge.PLEDGE_PHASE_CHOICES %}
+              <option value="{{ value }}"{% if value == ps.pledge.pledge_phase %} selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+            <button type="submit"
+              class="text-xs px-2 py-1 rounded border border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:text-primary-600 hover:border-primary-300 dark:hover:text-primary-400 transition-colors"
+              title="Save {{ ps.pledge.name }}'s phase">Set</button>
+          </form>
+          {% else %}
+          <span class="text-xs px-2 py-0.5 rounded-full bg-primary-50 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300 shrink-0">{{ ps.pledge.get_pledge_phase_display }}</span>
+          {% endif %}
+          {% comment %}
+          v3.47.0 — Mason 10-16-26: when the pledge was last on the site, not
+          when he last typed a password (a remembered session can go weeks
+          without one). Amber after 7 days, red after 14 or never.
+          {% endcomment %}
+          {% if ps.pledge.last_seen_at %}
+          <span class="text-xs shrink-0 {% if ps.last_seen_days >= 14 %}text-red-600 dark:text-red-400 font-medium{% elif ps.last_seen_days >= 7 %}text-amber-600 dark:text-amber-400 font-medium{% else %}text-gray-500 dark:text-gray-400{% endif %}"
+                title="Last on the site {{ ps.pledge.last_seen_at|date:'M j, Y g:i A' }}">
+            Last on {% if ps.last_seen_days == 0 %}today{% elif ps.last_seen_days == 1 %}yesterday{% else %}{{ ps.last_seen_days }} days ago{% endif %}
+          </span>
+          {% else %}
+          <span class="text-xs shrink-0 text-red-600 dark:text-red-400 font-medium" title="No record of this pledge using the site">Never on</span>
+          {% endif %}
           <span class="text-sm text-gray-600 dark:text-gray-400 shrink-0">{{ ps.completed }}/{{ ps.total }} tasks</span>
           {% comment %}
           09-22-26 — points earned so far out of the max currently possible
@@ -474,9 +521,10 @@
         </div>
         <div>
           <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">URL identifier <span class="text-red-500">*</span></label>
-          <input type="text" id="new-url-name" name="url_name" required placeholder="e.g. directory"
+          <input type="text" id="new-url-name" name="url_name" required placeholder="e.g. directory" list="restrictable-pages" autocomplete="off"
             class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500 font-mono">
-          <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">The internal page key (from the URL — ask your developer if unsure)</p>
+          <datalist id="restrictable-pages">{% for name in restrictable_pages %}<option value="{{ name }}">{% endfor %}</datalist>
+          <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">The internal page key. Start typing to pick from the list; a name that isn't a real page is refused.</p>
         </div>
         <div>
           <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Which phases <strong>can</strong> visit this page?</label>
@@ -626,6 +674,8 @@ async function toggleCompletion(committeeCode, taskPk, pledgePk, btn) {
         btn.textContent = STATUS_EMOJI[newStatus] || '⬜';
         btn.className = btn.className.replace(/bg-\S+/g, '');
         btn.classList.add(...STATUS_CLASSES[newStatus].split(' '));
+        // v3.50.0 — "points by % right" quiz marked passed with unmarked answers.
+        if (data.warning) { Parliament.toast(data.warning, 'warning'); }
     } catch (e) {
         /* Parliament.post has already told the user. Re-enabling the button is
            the only thing left to do — and it matters, because a disabled button
@@ -807,6 +857,8 @@ function toggleSongField(taskType) {
     const songField = document.getElementById('song-link-field');
     if (!songField) return;
     songField.classList.toggle('hidden', taskType !== 'song');
+    // v3.48.0 — the quiz points-mode select, same show/hide.
+    document.getElementById('quiz-points-mode-field')?.classList.toggle('hidden', taskType !== 'quiz');
 }
 
 async function publishTask(committeeCode, taskPk, btn) {

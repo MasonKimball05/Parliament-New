@@ -1,4 +1,5 @@
 from django.db import models
+from django.utils.functional import cached_property
 from django.conf import settings
 
 
@@ -424,6 +425,16 @@ class Resolution(models.Model):
             clauses.append({'prefix': prefix, 'text': text})
         return clauses
 
+    @cached_property
+    def pending_section_titles(self):
+        """
+        {section_id: new title} for the section renames this resolution
+        proposes and has not applied (v3.45.0). One query per resolution
+        object, whatever the number of amendments shown.
+        """
+        return dict(self.structure_changes.filter(kind='rename_section', applied=False, section__isnull=False)
+                    .values_list('section_id', 'title'))
+
     def apply_amendments(self, applied_by):
         """
         When a resolution passes: update each targeted section with the proposed text.
@@ -616,6 +627,11 @@ class ResolutionAmendment(models.Model):
             return ''
         from src.cnb_structure import describe_removal
         return describe_removal(self.section)
+
+    @property
+    def proposed_title(self):
+        """The new title this resolution proposes for the section ('' if none). v3.45.0."""
+        return self.resolution.pending_section_titles.get(self.section_id, '')
 
     @property
     def display_identifier(self):

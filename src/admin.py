@@ -16,7 +16,7 @@ import logging
 from django.db.models.signals import post_save, pre_delete
 from django.dispatch import receiver
 from django.http import HttpResponse
-import csv
+from src.utils.export_utils import safe_csv_writer
 from django.contrib.auth.decorators import user_passes_test
 import os
 from django.contrib.admin.models import LogEntry
@@ -128,7 +128,7 @@ def log_user_deleted(sender, instance, **kwargs):
 def export_as_csv(modeladmin, request, queryset):
     response = HttpResponse(content_type='text/csv')
     response['Content-Disposition'] = 'attachment; filename="export.csv"'
-    writer = csv.writer(response)
+    writer = safe_csv_writer(response)
 
     # v3.16.2: honour the ModelAdmin's `exclude`. Previously this dumped every
     # field on the model, which silently bypassed field-level redactions (e.g.

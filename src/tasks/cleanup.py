@@ -149,6 +149,33 @@ def cleanup_api_access_logs():
         return 0
 
 
+#: v3.50.0 — Mason, 10-17-26: "Keep CSP reports for 30 days."
+CSP_VIOLATION_RETENTION_DAYS = 30
+
+
+@shared_task(name='tasks.prune_old_csp_violations')
+def prune_old_csp_violations():
+    """
+    Delete CSP violation reports older than 30 days, dismissed or not.
+
+    `/csp-report/` is public and nothing ever deleted its rows. A problem
+    that's still happening keeps sending fresh reports, so 30 days of history
+    is enough to spot it; anything older has either been fixed or is
+    duplicated by newer rows.
+    """
+    try:
+        from src.models import CSPViolation
+        cutoff = timezone.now() - timezone.timedelta(days=CSP_VIOLATION_RETENTION_DAYS)
+        deleted_count, _ = CSPViolation.objects.filter(created_at__lt=cutoff).delete()
+        if deleted_count:
+            logger.info(f"[tasks] prune_old_csp_violations: deleted {deleted_count} reports older than "
+                        f"{CSP_VIOLATION_RETENTION_DAYS} days")
+        return deleted_count
+    except Exception as exc:
+        logger.error(f"[tasks] prune_old_csp_violations failed: {exc}")
+        return 0
+
+
 @shared_task(name='tasks.prune_expired_chat_permissions')
 def prune_expired_chat_permissions():
     """

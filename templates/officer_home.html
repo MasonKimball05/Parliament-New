@@ -371,6 +371,9 @@
         <div class="flex flex-wrap gap-2">
 
             <a href="{% url 'manage_announcements' %}" class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 text-sm rounded-lg transition-colors">Announcements</a>
+            {% if user.can_manage_groupme %}{# v3.49.0 — advisors can open Officer Home but not the GroupMe dashboard #}
+            <a href="{% url 'groupme_dashboard' %}" class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 text-sm rounded-lg transition-colors">GroupMe Bot</a>
+            {% endif %}
             <a href="{% url 'manage_events' %}" class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 text-sm rounded-lg transition-colors">Manage Events</a>
             <a href="{% url 'event_attendance_list' %}" class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 text-sm rounded-lg transition-colors">Attendance</a>
             <a href="{% url 'chapter_minutes_list' %}" class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 text-sm rounded-lg transition-colors">Chapter Minutes</a>

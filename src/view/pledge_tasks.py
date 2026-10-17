@@ -11,6 +11,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
+from src.pledge_phases import task_unlocked, unlocked_task_phases
 from src.models import (
     PledgeTask, PledgeTaskCompletion, PledgeTaskQuestion, PledgeQuizAnswer,
     EducationMeeting, EducationMeetingAttendance, EducationAbsenceRequest,
@@ -54,6 +55,10 @@ def pledge_may_see_task(user, task):
     calling it.
     """
     if not task.is_live:
+        return False
+    # v3.46.0 — a task for a later phase stays locked until the pledge is
+    # advanced to it on the education dashboard. See src/pledge_phases.py.
+    if not task_unlocked(task.phase, getattr(user, 'pledge_phase', None)):
         return False
     # An empty assignment means "all pledges"; a non-empty one is a list.
     assigned_pks = set(task.assigned_to.values_list('pk', flat=True))
@@ -109,6 +114,10 @@ def build_pledge_tasks_context(pledge):
         Q(activation_mode='immediate') |
         Q(activation_mode='manual', is_published=True) |
         Q(activation_mode='timed', activates_at__lte=now)
+    ).filter(
+        # v3.46.0 — 'All Phases' tasks plus this pledge's phase and earlier.
+        # Same rule as `pledge_may_see_task`, via src/pledge_phases.py.
+        phase__in=unlocked_task_phases(pledge.pledge_phase),
     ).filter(
         # Assigned to this pledge specifically, or assigned to nobody (= all pledges)
         Q(assigned_to__isnull=True) | Q(assigned_to=pledge)
@@ -198,9 +207,16 @@ def build_pledge_tasks_context(pledge):
     )
 
     # Task points a pledge has actually banked — completed tasks only.
+    # v3.48.0 — a "points by % right" quiz banks part of its points
+    # (src/pledge_points.py). Each item gets its own number for the row.
+    from src.pledge_points import is_scaled, points_for, quiz_marks
+    marks = quiz_marks(tasks, [pledge])
+    for group in phase_groups:
+        for item in group['items']:
+            item['points_earned'] = points_for(item['task'], item['completion'], pledge.pk, marks)
+            item['points_scaled'] = is_scaled(item['task'])
     task_points = sum(
-        t.points for t in tasks
-        if completion_map.get(t.pk) and completion_map[t.pk].status == 'completed'
+        points_for(t, completion_map.get(t.pk), pledge.pk, marks) for t in tasks
     )
 
     # ⚠️ v3.20.2 — `due_date` had been stored since the model was written and
@@ -249,6 +265,7 @@ def build_pledge_tasks_context(pledge):
         'my_big': big_assignment.big if big_assignment else None,
         'my_big_revealed_at': big_assignment.revealed_at if big_assignment else None,
         'phase_groups': phase_groups,
+        'pledge_phase_label': pledge.get_pledge_phase_display(),
         'attendance_history': my_attendance,
         'missed_count': len(missed_meetings),
         'absence_requests': absence_requests,

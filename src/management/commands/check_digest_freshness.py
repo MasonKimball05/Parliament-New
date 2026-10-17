@@ -58,7 +58,7 @@ class Command(BaseCommand):
             if age_h > max_age:
                 problem = (f"Daily digest is STALE: last successful send was "
                            f"{age_h:.1f}h ago (threshold {max_age:.0f}h). "
-                           f"Check parliament-worker / parliament-beat and the "
+                           f"Check parliament-worker (beat runs inside it) and the "
                            f"mail backend.")
 
         if not problem:

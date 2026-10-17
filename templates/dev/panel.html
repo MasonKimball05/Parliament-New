@@ -20,6 +20,9 @@ comments. That bluntness is why they catch real bugs; work around it here.
 <style nonce="{{ request.csp_nonce }}">
   :root { --pdev-bg:#0b0f14; --pdev-fg:#c8d3df; --pdev-dim:#7c8b9a; --pdev-line:#1e2833;
           --pdev-warn:#ffb454; --pdev-bad:#ff6b6b; --pdev-ok:#7ee787; --pdev-key:#7aa2f7; }
+  /* v3.45.4 — never on paper. Mason's print of a resolution had this bar on
+     every page, covering the last line of text. */
+  @media print { .pdev-root { display:none !important; } }
   .pdev-root { position:fixed; z-index:2147483000; bottom:0; right:0; font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:11px; line-height:1.45; color:var(--pdev-fg); }
   .pdev-fab { background:var(--pdev-bg); border:1px solid var(--pdev-line); border-right:0; border-bottom:0;
               padding:5px 10px; cursor:pointer; display:flex; gap:10px; align-items:center; }

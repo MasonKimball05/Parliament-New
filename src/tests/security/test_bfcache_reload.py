@@ -35,11 +35,12 @@ from pathlib import Path
 
 from django.conf import settings
 from django.test import SimpleTestCase
+from src.tests.base_template_source import base_html_source
 
 
 class TheBfcacheReloadExistsTests(SimpleTestCase):
     def setUp(self):
-        self.base = (Path(settings.BASE_DIR) / 'templates' / 'base.html').read_text(encoding='utf-8')
+        self.base = base_html_source()
 
     def test_it_listens_for_pageshow(self):
         self.assertIn("addEventListener('pageshow'", self.base)
@@ -101,7 +102,7 @@ class TheCsrfTokenRefreshExistsTests(SimpleTestCase):
     """
 
     def setUp(self):
-        self.base = (Path(settings.BASE_DIR) / 'templates' / 'base.html').read_text(encoding='utf-8')
+        self.base = base_html_source()
 
     def test_the_helper_is_defined(self):
         # v3.29.25 gave it an `attempt` parameter for the internal retry —
@@ -109,7 +110,10 @@ class TheCsrfTokenRefreshExistsTests(SimpleTestCase):
         self.assertIn('function refreshCsrfToken(attempt)', self.base)
 
     def test_it_fetches_the_refresh_endpoint(self):
-        self.assertIn("{% url \"csrf_token_refresh\" %}", self.base)
+        # v3.45.6: core.js is a static file, so the url is passed in
+        # window.PARLIAMENT_CONFIG by base.html.
+        self.assertIn("fetch(window.PARLIAMENT_CONFIG.csrfRefreshUrl", self.base)
+        self.assertIn("csrfRefreshUrl: \"{% url 'csrf_token_refresh' %}\"", self.base)
 
     def test_it_patches_every_hidden_token_field(self):
         self.assertIn('input[name="csrfmiddlewaretoken"]', self.base)
@@ -164,7 +168,7 @@ class TheCsrfSubmitSafetyNetExistsTests(SimpleTestCase):
     """
 
     def setUp(self):
-        self.base = (Path(settings.BASE_DIR) / 'templates' / 'base.html').read_text(encoding='utf-8')
+        self.base = base_html_source()
 
     def test_it_listens_for_submit_on_the_document(self):
         self.assertIn("addEventListener('submit'", self.base)
@@ -292,7 +296,7 @@ class TheFileInputSafetyNetAlwaysRefreshesTests(SimpleTestCase):
     """
 
     def setUp(self):
-        self.base = (Path(settings.BASE_DIR) / 'templates' / 'base.html').read_text(encoding='utf-8')
+        self.base = base_html_source()
 
     def test_it_detects_a_file_input(self):
         self.assertIn('form.querySelector(\'input[type="file"]\')', self.base)
@@ -349,7 +353,7 @@ class TheCsrfRefreshRetriesOnFailureTests(SimpleTestCase):
     """
 
     def setUp(self):
-        self.base = (Path(settings.BASE_DIR) / 'templates' / 'base.html').read_text(encoding='utf-8')
+        self.base = base_html_source()
 
     def test_the_helper_takes_an_attempt_parameter(self):
         self.assertIn('function refreshCsrfToken(attempt)', self.base)
@@ -474,7 +478,7 @@ class TheFetchBasedResubmitTests(SimpleTestCase):
     """
 
     def setUp(self):
-        self.base = (Path(settings.BASE_DIR) / 'templates' / 'base.html').read_text(encoding='utf-8')
+        self.base = base_html_source()
 
     def test_formdata_is_built_after_the_token_is_resolved(self):
         """

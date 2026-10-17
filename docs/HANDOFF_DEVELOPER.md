@@ -84,13 +84,12 @@ The app is intended to be maintainable by a future chapter member with basic Dja
 
 ## Services
 
-There are three systemd services. The names are not obvious — don't use generic guesses.
+There are two systemd services. The names are not obvious — don't use generic guesses.
 
 | Service | What it does |
 |---------|--------------|
 | `parliament-gunicorn.service` | The Django app server. This is the one to restart after code changes. |
-| `parliament-worker.service` | Celery worker. Handles async tasks (push notifications, etc.). |
-| `parliament-beat.service` | Celery beat scheduler. Triggers periodic tasks (vote auto-close, log pruning, etc.). |
+| `parliament-worker.service` | Celery worker **and** beat scheduler (`-B`, since v3.45.5). Handles async tasks (push notifications, etc.) and triggers periodic tasks (vote auto-close, log pruning, etc.). There is no separate `parliament-beat.service` any more; it was a second full copy of Django on a 1 GB server. |
 
 ```bash
 # Restart the app after a deployment
@@ -100,9 +99,8 @@ sudo systemctl restart parliament-gunicorn.service
 sudo systemctl status parliament-gunicorn.service
 sudo journalctl -u parliament-gunicorn.service -n 50
 
-# Restart workers if push notifications or scheduled tasks stop working
+# Restart the worker (and beat inside it) if push notifications or scheduled tasks stop working
 sudo systemctl restart parliament-worker.service
-sudo systemctl restart parliament-beat.service
 ```
 
 > **Note:** The service file is `parliament-gunicorn.service`, not `parliament.service`. Using the wrong name will silently do nothing.
@@ -364,7 +362,7 @@ python manage.py <command>
 | `execute_scheduled_transitions` | Run any pending slating transitions |
 | `import_from_exportable` | Import data from a `data_backup.json` export |
 | `preflight` | *(09-25-26 row)* Prod self-check: env, Celery schedules/heartbeat, media gating, ledger. Run before/after deploys; exits non-zero on problems |
-| `setup_celery_schedules` | Register Celery beat schedules (run before restarting `parliament-beat`) |
+| `setup_celery_schedules` | Register Celery beat schedules (then restart `parliament-worker`; beat runs inside it) |
 | `seed_cnb_documents [--only doc:ART:SEC --force]` | Seed/refresh C&B text from `chapter_content/alpha_mu/cnb.py`. Never overwrites edited text unless `--force`; scope `--force` with `--only` |
 | `check_cnb_references [--strict]` | Report C&B cross-references pointing to missing/mismatched sections |
 | `kai_break_glass` | Time-boxed, audited emergency Kai access for an admin (admins have **no** Kai access otherwise) |
@@ -419,11 +417,12 @@ sudo systemctl restart parliament-worker.service
 
 ### Scheduled tasks not running (auto-close votes, log pruning, etc.)
 
-Celery beat may be down:
+Celery beat may be down. It runs inside the worker (`-B`) since v3.45.5:
 
 ```bash
-sudo systemctl status parliament-beat.service
-sudo systemctl restart parliament-beat.service
+sudo systemctl status parliament-worker.service
+sudo systemctl restart parliament-worker.service
+grep -i beat /var/www/Parliament-New/logs/celery-worker.log | tail
 ```
 
 ### Error in the activity log / admin v2 shows nothing
@@ -485,7 +484,7 @@ Officers can impersonate any member via `/staff/login-as/<user_id>/`. An amber b
 - Every release has `changelogs/vX.Y.Z.md`. Minor (`Y`) for features, patch (`Z`) for fixes; about one changelog per day.
 - **`changelogs/DEPLOYED.md` is the only source of truth for "is it live."** Commit dates are not deploy dates. After committing, run `make stamp-ledger` (fills in commit hashes; adds rows marked *not deployed*), commit that as a follow-up, and fill in the **Deployed** column by hand after deploying.
 - `src.W003` (a system check) and `src/tests/infra/test_stamp_ledger.py` flag an unstamped ledger — that's the reminder, not a bug.
-- Deploy order when a release has them: `pip install -r requirements.txt` → `migrate` → seeders named in the changelog → `collectstatic` + Cloudflare purge (static changes) → `setup_celery_schedules` + restart `parliament-worker`/`parliament-beat` (task changes) → `sudo systemctl restart parliament-gunicorn.service` (always; it runs Daphne).
+- Deploy order when a release has them: `pip install -r requirements.txt` → `migrate` → seeders named in the changelog → `collectstatic` + Cloudflare purge (static changes) → `setup_celery_schedules` + restart `parliament-worker` (task changes; beat runs inside it since v3.45.5) → `sudo systemctl restart parliament-gunicorn.service` (always; it runs Daphne).
 
 ---
 

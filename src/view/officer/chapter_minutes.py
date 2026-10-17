@@ -1276,8 +1276,13 @@ def download_minutes_pdf(request, minutes_id):
 
     file_name = f"Chapter_Minutes_{minutes.date.strftime('%Y-%m-%d')}_{minutes.title.replace(' ', '_')}.pdf"
     response = HttpResponse(buf.read(), content_type='application/pdf')
-    disposition = 'inline' if request.GET.get('preview') else 'attachment'
-    response['Content-Disposition'] = f'{disposition}; filename="{file_name}"'
+    # v3.45.2: the minutes title is in the filename, so let Django quote it.
+    # A raw f-string breaks on a quote mark and on any character outside
+    # Latin-1 (an em dash or a curly apostrophe is enough).
+    from django.utils.http import content_disposition_header
+    response['Content-Disposition'] = content_disposition_header(
+        not request.GET.get('preview'), file_name
+    )
     return response
 
 

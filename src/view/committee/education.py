@@ -23,6 +23,7 @@ from django.urls import reverse
 from django.views.decorators.http import require_POST
 from django.db import transaction
 from django.utils import timezone
+from src.pledge_points import grading_preview, is_scaled, points_for, quiz_marks
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.db.models import Count, Q
 
@@ -167,6 +168,11 @@ def _apply_task_fields(request, task):
     # Blank = not scored. `_parse_non_negative_int` would turn '' into 0, and a
     # task scored out of 0 is not the same thing as an unscored one.
     task.max_score = _parse_optional_positive_int(request.POST.get('max_score'))
+    # v3.48.0 — quizzes only; anything else (or a bad value) is 'full'.
+    points_mode = request.POST.get('points_mode', 'full')
+    if task_type != 'quiz' or points_mode not in {c[0] for c in PledgeTask.POINTS_MODE_CHOICES}:
+        points_mode = 'full'
+    task.points_mode = points_mode
     task.show_analysis_to_pledges = request.POST.get('show_analysis_to_pledges') == 'on'
     task.display_order = _parse_non_negative_int(request.POST.get('display_order'), 0)
     task.activation_mode = activation_mode
@@ -368,6 +374,10 @@ def education_home(request, code):
     # reuse those sets here rather than calling t.assigned_to.all() twice per task.
     task_assigned_pks = {row['task'].pk: row['assigned_pks'] for row in task_rows}
     pledge_summaries = []
+    # v3.48.1 — calendar days in the site's time zone, so "today" means today:
+    # 11 PM last night seen at 8 AM is "yesterday", not "today" (a raw
+    # timedelta's .days counts whole 24-hour blocks).
+    today_for_seen = timezone.localdate()
     for pledge in pledges:
         applicable_required = [
             t for t in tasks
@@ -378,8 +388,15 @@ def education_home(request, code):
             if completion_map.get((t.pk, pledge.pk)) and
                completion_map[(t.pk, pledge.pk)].status == 'completed'
         )
+        # v3.47.0 — days since he was last on the site (not since he last
+        # typed a password; see ParliamentUser.last_seen_at). None = never.
+        last_seen_days = (
+            (today_for_seen - timezone.localtime(pledge.last_seen_at).date()).days
+            if pledge.last_seen_at else None
+        )
         pledge_summaries.append({
             'pledge': pledge,
+            'last_seen_days': last_seen_days,
             'completed': completed,
             'total': len(applicable_required),
             'percent': round(completed / len(applicable_required) * 100) if applicable_required else 0,
@@ -387,6 +404,7 @@ def education_home(request, code):
 
     # Page access restrictions (VPE settings panel)
     page_restrictions = PledgePageRestriction.objects.all().order_by('display_name', 'url_name')
+    from src.middleware.pledge_pages import restrictable_url_names
 
     # Quiz questions keyed by task_pk (only for quiz-type tasks)
     quiz_task_pks = [t.pk for t in tasks if t.task_type == 'quiz']
@@ -451,6 +469,9 @@ def education_home(request, code):
     # just can't be earned, so it costs the pledge percentage rather than
     # silently shrinking the denominator.
     live_task_points = {t.pk: t.points for t in tasks if t.is_live and t.points}
+    # v3.48.0 — see src/pledge_points.py. Two queries, only if a quiz scales.
+    task_by_pk = {t.pk: t for t in tasks}
+    quiz_marks_map = quiz_marks(tasks, pledges)
     meeting_points_by_pk = {m.pk: m.points for m in all_past_meetings if m.points}
     max_meeting_points = sum(meeting_points_by_pk.values())
 
@@ -476,10 +497,10 @@ def education_home(request, code):
             if not task_assigned_pks.get(pk) or pledge.pk in task_assigned_pks[pk]
         ]
         max_task_points = sum(live_task_points[pk] for pk in applicable_task_pks)
+        # v3.48.0 — a "points by % right" quiz earns part of its points.
         earned_task_points = sum(
-            live_task_points[pk] for pk in applicable_task_pks
-            if completion_map.get((pk, pledge.pk))
-            and completion_map[(pk, pledge.pk)].status == 'completed'
+            points_for(task_by_pk[pk], completion_map.get((pk, pledge.pk)), pledge.pk, quiz_marks_map)
+            for pk in applicable_task_pks
         )
         earned_meeting_points = sum(
             meeting_points_by_pk.get(r.meeting_id, 0)
@@ -584,8 +605,10 @@ def education_home(request, code):
         'is_chair': is_chair,
         'access': access,
         'TASK_TYPES': PledgeTask.TASK_TYPES,
+        'POINTS_MODE_CHOICES': PledgeTask.POINTS_MODE_CHOICES,
         'PHASE_CHOICES': PledgeTask.PHASE_CHOICES,
         'page_restrictions': page_restrictions,
+        'restrictable_pages': restrictable_url_names(),
         'PHASE_CHOICES_SIMPLE': [('all', 'All'), ('1', 'Ph.1'), ('2', 'Ph.2'), ('3', 'Ph.3')],
         'all_pledges': pledges,
         'quiz_questions_map': quiz_questions_map,
@@ -769,6 +792,7 @@ def education_edit_task(request, code, task_pk):
         'is_chair': access['is_chair'],
         'access': access,
         'TASK_TYPES': PledgeTask.TASK_TYPES,
+        'POINTS_MODE_CHOICES': PledgeTask.POINTS_MODE_CHOICES,
         'PHASE_CHOICES': PledgeTask.PHASE_CHOICES,
         'all_pledges': ParliamentUser.objects.filter(member_type='Pledge', is_active=True).order_by('name'),
         'assigned_pks': set(task.assigned_to.values_list('pk', flat=True)),
@@ -877,7 +901,29 @@ def education_toggle_completion(request, code, task_pk, pledge_pk):
     comp.completed_at = timezone.now() if new_status == 'completed' else None
     comp.save(update_fields=updated)
 
+    # v3.50.0 — marking a "points by % right" quiz Completed while answers are
+    # still unmarked (and no score typed) gives fewer points than the grader
+    # probably expects: unmarked counts as wrong. Say so; don't block it.
+    warning = ''
+    if new_status == 'completed' and is_scaled(task):
+        from src.models import PledgeQuizAnswer
+        marks = PledgeQuizAnswer.objects.filter(question__task=task, pledge=pledge)
+        preview = grading_preview(
+            task, comp,
+            marks.filter(is_correct=True).count(), task.questions.count(),
+            marks.exclude(is_correct=None).count(),
+        )
+        if preview and preview['unmarked']:
+            warning = (
+                f"{pledge.get_display_name()} is marked passed, but {preview['unmarked']} of "
+                f"{task.questions.count()} answers aren't marked right or wrong yet, so he has "
+                f"{preview['points']} of {task.points} pts for now. Mark them and his points update."
+            )
+
     if request.headers.get('X-Requested-With') != 'XMLHttpRequest' and requested:
+        if warning:
+            from django.contrib import messages
+            messages.warning(request, warning)
         # The grading page posts a normal form, so send it back where it was.
         #
         # ⚠️ The Referer is attacker-influenced, so it is validated against this
@@ -896,6 +942,7 @@ def education_toggle_completion(request, code, task_pk, pledge_pk):
         'pledge_pk': pledge_pk,
         'score': comp.score,
         'score_display': comp.score_display,
+        'warning': warning,
     })
 
 
@@ -916,6 +963,14 @@ def education_update_page_restriction(request, code):
     url_name = request.POST.get('url_name', '').strip()
     if not url_name:
         return JsonResponse({'error': 'url_name required'}, status=400)
+    # v3.50.0 — restrictions are now enforced on every page (see
+    # src/middleware/pledge_pages.py), so the name has to be a real page: a
+    # typo used to save and silently restrict nothing.
+    from src.middleware.pledge_pages import is_always_allowed, restrictable_url_names
+    if is_always_allowed(url_name):
+        return JsonResponse({'error': f'"{url_name}" can\'t be restricted: pledges need it to sign in or set up their account.'}, status=400)
+    if url_name not in restrictable_url_names() and not PledgePageRestriction.objects.filter(url_name=url_name).exists():
+        return JsonResponse({'error': f'There is no page called "{url_name}". Pick one from the list.'}, status=400)
 
     _valid_phases = {'all', '1', '2', '3'}
     phases = [p for p in request.POST.getlist('phases') if p in _valid_phases]
@@ -1182,16 +1237,29 @@ def education_quiz_submissions(request, code, task_pk):
                 'answer_pk': answer.pk if answer else None,
                 'is_correct': answer.is_correct if answer else None,
             })
+        # v3.50.0 — a "points by % right" quiz: what he'd get if marked
+        # Completed now, and how many answers still aren't marked (those count
+        # as wrong, so marking Completed first quietly gave 0 points).
+        preview = grading_preview(
+            task, completion_map.get(pledge.pk),
+            sum(1 for p in qa_pairs if p['is_correct'] is True), len(questions),
+            sum(1 for p in qa_pairs if p['is_correct'] is not None),
+        )
         pledge_rows.append({
             'pledge': pledge,
             'submitted': submitted,
             'completion': completion_map.get(pledge.pk),
             'qa_pairs': qa_pairs,
+            'points_preview': preview,
         })
 
     return render(request, 'committee/education_quiz_submissions.html', {
         'committee': committee,
         'task': task,
+        'points_scaled': is_scaled(task),
+        'pledges_with_unmarked': sum(
+            1 for r in pledge_rows
+            if r['submitted'] and r['points_preview'] and r['points_preview']['unmarked']),
         'questions': questions,
         'pledge_rows': pledge_rows,
         'is_chair': is_chair,
@@ -1514,10 +1582,12 @@ def education_pledge_detail(request, code, pledge_pk):
     ]
     missed = [r for r in attendance if r.status == 'absent']
 
-    task_points = sum(
-        row['task'].points for row in task_rows
-        if row['completion'] and row['completion'].status == 'completed'
-    )
+    # v3.48.0 — per-row points, so a "points by % right" quiz shows 7 of 10.
+    marks = quiz_marks([row['task'] for row in task_rows], [pledge])
+    for row in task_rows:
+        row['points_earned'] = points_for(row['task'], row['completion'], pledge.pk, marks)
+        row['points_scaled'] = is_scaled(row['task'])
+    task_points = sum(row['points_earned'] for row in task_rows)
 
     return render(request, 'committee/education_pledge_detail.html', {
         'committee': committee,
@@ -1617,6 +1687,7 @@ def education_duplicate_task(request, code, task_pk):
         phase=original.phase,
         is_required=original.is_required,
         points=original.points,
+        points_mode=original.points_mode,
         max_score=original.max_score,
         show_analysis_to_pledges=original.show_analysis_to_pledges,
         display_order=original.display_order,
@@ -2068,3 +2139,71 @@ def education_reveal_all_bigs(request, code):
     count = sum(1 for a in pending if reveal(a))
     messages.success(request, f'Revealed {count} big{"s" if count != 1 else ""}.')
     return _bigs_redirect(code)
+
+
+# ── Pledge phases (v3.46.0) ──────────────────────────────────────────────────
+#
+# Mason, 10-14-26: "there's no way to advance a pledges phase on the education
+# dashboard." A pledge's phase unlocks that phase's tasks (and every earlier
+# phase's) and the pages ticked for it under Pledge Page Access. Rules live in
+# src/pledge_phases.py. Gated on `can_manage_tasks`, the permission that
+# already decides which tasks exist and what they are worth.
+
+def _progress_redirect(code):
+    return redirect(reverse('education_home', kwargs={'code': code}) + '#pledge-progress')
+
+
+@login_required
+@require_page_enabled('committee_home')
+@require_POST
+def education_set_pledge_phase(request, code, pledge_pk):
+    """Set one pledge's phase (advance, or move back to correct a mistake)."""
+    from django.contrib import messages
+    from src.pledge_phases import PHASES
+
+    committee, access = _education_committee_or_404(code, request.user)
+    denied = _require_education_permission(access, 'can_manage_tasks')
+    if denied:
+        return denied
+    pledge = get_object_or_404(ParliamentUser, pk=pledge_pk, member_type='Pledge', is_active=True)
+    phase = request.POST.get('phase', '')
+    if phase not in PHASES:
+        messages.error(request, 'Choose Phase 1, 2 or 3.')
+        return _progress_redirect(code)
+    if pledge.pledge_phase != phase:
+        pledge.pledge_phase = phase
+        pledge.save(update_fields=['pledge_phase'])
+        messages.success(request, f'{pledge.name} is now in Phase {phase}.')
+    return _progress_redirect(code)
+
+
+@login_required
+@require_page_enabled('committee_home')
+@require_POST
+def education_advance_all_phases(request, code):
+    """
+    Move every active pledge up one phase. Pledges already in the last phase
+    stay there, and a pledge held back stays one phase behind the others.
+    """
+    from django.contrib import messages
+    from src.pledge_phases import next_phase
+
+    committee, access = _education_committee_or_404(code, request.user)
+    denied = _require_education_permission(access, 'can_manage_tasks')
+    if denied:
+        return denied
+    moved = 0
+    with transaction.atomic():
+        for pledge in (ParliamentUser.objects.select_for_update()
+                       .filter(member_type='Pledge', is_active=True)
+                       .only('pk', 'pledge_phase')):
+            following = next_phase(pledge.pledge_phase)
+            if following:
+                pledge.pledge_phase = following
+                pledge.save(update_fields=['pledge_phase'])
+                moved += 1
+    if moved:
+        messages.success(request, f'Advanced {moved} pledge{"s" if moved != 1 else ""} one phase.')
+    else:
+        messages.info(request, 'Every pledge is already in the last phase.')
+    return _progress_redirect(code)

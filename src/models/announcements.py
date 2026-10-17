@@ -27,6 +27,21 @@ class Announcement(models.Model):
     send_email_on_publish = models.BooleanField(default=False, help_text='Send email notifications when this announcement is published')
     email_sent_at = models.DateTimeField(null=True, blank=True, help_text='When email notifications were sent')
 
+    # v3.49.0 — GroupMe echo (src/groupme.py). The channels an officer ticked
+    # on the form; `groupme_dispatched_at` is set once, when the dispatcher
+    # claims it, so the create-time post and the 5-minute sweep in
+    # `publish_scheduled_announcements` can't both post it.
+    groupme_channels = models.ManyToManyField(
+        'GroupMeChannel',
+        blank=True,
+        related_name='announcements',
+        help_text='GroupMe groups this announcement is echoed to when it publishes.',
+    )
+    groupme_dispatched_at = models.DateTimeField(
+        null=True, blank=True,
+        help_text='When it was handed to the GroupMe bot (null = not yet).',
+    )
+
     # Linked documents (chapter-published documents attached to this announcement)
     linked_documents = models.ManyToManyField(
         'CommitteeDocument',

@@ -103,6 +103,10 @@
               {% elif row.task.due_date %}
               <span class="text-gray-400 dark:text-gray-500">Due {{ row.task.due_date|date:"M j" }}</span>
               {% endif %}
+              {% if row.task.points and row.completion.status == 'completed' %}
+              {% comment %}v3.48.0 — points this task earned him; "x of y" when it scales by % right.{% endcomment %}
+              <span class="text-primary-600 dark:text-primary-400">{% if row.points_scaled %}{{ row.points_earned }} of {{ row.task.points }} pts{% else %}{{ row.points_earned }} pts{% endif %}</span>
+              {% endif %}
               {% if row.completion.has_score %}
               <span class="font-semibold text-primary-600 dark:text-primary-400">
                 {{ row.completion.score_display }} ({{ row.completion.score_percent }}%)

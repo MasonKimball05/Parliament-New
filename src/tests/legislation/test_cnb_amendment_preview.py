@@ -54,7 +54,10 @@ class AmendmentLineEndingTests(TestCase):
         self._post(CRLF_WITHOUT_C)
         html = self.client.get(reverse('cnb_resolution_print', args=[self.resolution.pk])).content.decode()
         self.assertIn('function key(tok)', html)
-        self.assertIn("'Removed: '", html)
+        # v3.45.0 — the "Removed: / Added:" labels became the reference
+        # sentence (src/cnb_amendment_text.py); the removal is in its items.
+        self.assertIn('Shall strike from Article XCIX, Section 3 of the Constitution (Officers)', html)
+        self.assertIn('c. VP Communication', html)
 
     def test_editor_locks_the_page_behind_it(self):
         for name in ('cnb_edit_resolution', 'cnb_resolution_detail'):

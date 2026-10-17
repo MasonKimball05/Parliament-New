@@ -117,6 +117,64 @@ def _save_poll_from_post(post, announcement, user):
                     )
 
 
+
+def _groupme_context(announcement=None, posted_ids=None, visible_to=None):
+    """
+    v3.49.0 — the "Also post to GroupMe" box. `posted_ids` is the officer's
+    submitted ticks when re-rendering a bound form; otherwise an existing
+    announcement's saved channels, or (new announcement) the default picks.
+    """
+    from src.groupme import channel_allowed, default_channels
+    from src.models import GroupMeChannel
+
+    if announcement is not None and announcement.groupme_dispatched_at:
+        return {
+            'groupme_posted': list(announcement.groupme_messages.filter(kind='announcement')
+                                   .order_by('channel_name')),
+            'groupme_channels': [],
+        }
+    channels = list(GroupMeChannel.objects.filter(is_active=True))
+    if visible_to is None and announcement is not None:
+        visible_to = announcement.visible_to
+    if posted_ids is not None:
+        checked = {int(i) for i in posted_ids if str(i).isdigit()}
+    elif announcement is not None:
+        checked = set(announcement.groupme_channels.values_list('pk', flat=True))
+    else:
+        checked = {c.pk for c in default_channels(visible_to, channels)}
+    for c in channels:
+        c.allowed_now = channel_allowed(visible_to, c)
+        c.checked = c.allowed_now and c.pk in checked
+        c.audience_csv = ','.join(c.audience or [])
+    return {
+        'groupme_channels': channels,
+        # v3.49.0 — "none connected" vs "all turned off" in the empty state.
+        'groupme_any_channels': bool(channels) or GroupMeChannel.objects.exists(),
+        'groupme_posted': [],
+        'groupme_is_edit': announcement is not None,
+        'groupme_touched': announcement is not None or posted_ids is not None,
+    }
+
+
+def _save_groupme_channels(request, announcement):
+    """
+    v3.49.0 — store the ticked channels (only ones the audience rule allows,
+    whatever the browser sent) and, if the announcement is live, post it once
+    the transaction commits. Does nothing once it has gone out.
+    """
+    if announcement.groupme_dispatched_at:
+        return
+    from src.groupme import channel_allowed, schedule_dispatch
+    from src.models import GroupMeChannel
+
+    ids = [int(i) for i in request.POST.getlist('groupme_channel_ids') if i.isdigit()]
+    chosen = [c for c in GroupMeChannel.objects.filter(is_active=True, pk__in=ids)
+              if channel_allowed(announcement.visible_to, c)]
+    announcement.groupme_channels.set(chosen)
+    if chosen:
+        schedule_dispatch(announcement)
+
+
 @login_required
 @officer_required
 @log_function_call
@@ -166,6 +224,9 @@ def create_announcement(request):
             if request.POST.get('poll_title', '').strip():
                 _save_poll_from_post(request.POST, announcement, request.user)
 
+            # v3.49.0 — GroupMe echo
+            _save_groupme_channels(request, announcement)
+
             # If send_email is checked and announcement is published, redirect to confirmation
             if announcement.is_published() and send_email:
                 url = f"{redirect('confirm_announcement_email', announcement_id=announcement.id).url}"
@@ -191,10 +252,17 @@ def create_announcement(request):
         published_to_chapter=True
     ).order_by('title')
 
+    if request.method == 'POST':
+        groupme = _groupme_context(posted_ids=request.POST.getlist('groupme_channel_ids'),
+                                   visible_to=request.POST.getlist('visible_to') or None)
+    else:
+        groupme = _groupme_context()
+
     return render(request, 'officer/create_announcement.html', {
         'form': form,
         'inactive_members': inactive_members,
         'chapter_docs': chapter_docs,
+        **groupme,
     })
 
 
@@ -711,6 +779,8 @@ def edit_announcement(request, announcement_id):
                 announcement.linked_documents.set(valid_docs)
             else:
                 announcement.linked_documents.clear()
+            # v3.49.0 — GroupMe echo (no-op once it has been posted)
+            _save_groupme_channels(request, announcement)
             messages.success(request, 'Announcement updated successfully!')
             return redirect('manage_announcements')
     else:
@@ -739,6 +809,9 @@ def edit_announcement(request, announcement_id):
         'chapter_docs': chapter_docs,
         'linked_doc_ids': linked_doc_ids,
         **poll_totals,
+        **(_groupme_context(announcement, posted_ids=request.POST.getlist('groupme_channel_ids'),
+                            visible_to=request.POST.getlist('visible_to') or None)
+           if request.method == 'POST' else _groupme_context(announcement)),
     })
 
 @login_required
