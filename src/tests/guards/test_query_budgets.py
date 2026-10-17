@@ -342,7 +342,7 @@ class KaiListQueryBudgetTests(QueryBudgetMixin, TestCase):
     #: v3.19.10: 45 → 42. Not a code change — see `warm_singleton_rows`. The
     #: page never cost 45; the first request in each test was paying to create
     #: the `SystemLockdown` singleton.
-    BUDGET = 42
+    BUDGET = 43  # v3.48.1: +1, the v3.47.0 last_seen_at UPDATE (cold path, once per session per 5 min)
 
     def setUp(self):
         self.committee = Committee.objects.create(
@@ -444,7 +444,7 @@ class ActivityLogQueryBudgetTests(QueryBudgetMixin, TestCase):
     #: `KaiMemberPermission` sees the link (v3.34.1). That adds the one
     #: `src_kaimemberpermission` lookup. Constant per page, not per row —
     #: measured with a query-shape probe, no N+1.
-    BUDGET = 40
+    BUDGET = 41  # v3.48.1: +1, the v3.47.0 last_seen_at UPDATE (cold path, once per session per 5 min)
 
     def setUp(self):
         from src.models import ActivityLog
@@ -523,7 +523,7 @@ class HomePageQueryBudgetTests(QueryBudgetMixin, TestCase):
     #: committee lookups: 6 queries, all O(1) — confirmed flat by
     #: `test_the_home_page_does_not_scale_with_committee_count` below,
     #: which still passes. Deliberate, not an N+1.
-    BUDGET = 47
+    BUDGET = 48  # v3.48.1: +1, the v3.47.0 last_seen_at UPDATE (cold path, once per session per 5 min)
 
     def setUp(self):
         self.member = make_user('qb-home', 'Home Member', member_type='Member')
@@ -568,7 +568,7 @@ class SecurityAlertsQueryBudgetTests(QueryBudgetMixin, TestCase):
     #: FLAT, which is what `test_it_does_not_scale_with_alert_count` pins and
     #: what the 51-query incident violated.
     #: v3.19.10: 35 → 32, see `warm_singleton_rows`.
-    BUDGET = 32
+    BUDGET = 33  # v3.48.1: +1, the v3.47.0 last_seen_at UPDATE (cold path, once per session per 5 min)
 
     #: admin-v2 has its own session gate on top of login (`require_admin_v2_auth`
     #: — an allowlisted user id plus two session keys), so `force_login` alone
@@ -882,7 +882,7 @@ class TwoFactorDashboardQueryBudgetTests(QueryBudgetMixin, TestCase):
     #: Measured 08-17-26 (v3.19.10) on sqlite, cold cache, four consecutive
     #: runs: 32, 29, 29, 29. 29 is the steady-state number; 32 was the
     #: singleton-creation artefact — see `warm_singleton_rows`.
-    BUDGET = 29
+    BUDGET = 30  # v3.48.1: +1, the v3.47.0 last_seen_at UPDATE (cold path, once per session per 5 min)
 
     def test_the_dashboard_stays_within_budget(self):
         self.assert_within_budget(self.admin, 'admin_v2_two_factor', self.BUDGET)
@@ -980,7 +980,7 @@ class ServiceDashboardQueryBudgetTests(QueryBudgetMixin, TestCase):
 
     #: Measured 08-17-26 (v3.19.10) on sqlite, cold cache, four consecutive
     #: runs: 43, 40, 40, 40. See `warm_singleton_rows` for the 3.
-    BUDGET = 40
+    BUDGET = 41  # v3.48.1: +1, the v3.47.0 last_seen_at UPDATE (cold path, once per session per 5 min)
 
     def test_the_dashboard_stays_within_budget(self):
         self.assert_within_budget(self.admin, 'service_dashboard', self.BUDGET)
@@ -1169,7 +1169,7 @@ class CommitteeDocumentsQueryBudgetTests(QueryBudgetMixin, TestCase):
     #: committee_only, which do, uploaded by 3 distinct members). Confirmed
     #: flat regardless of document count by
     #: `test_the_page_does_not_scale_with_document_count` below.
-    BUDGET = 37
+    BUDGET = 38  # v3.48.1: +1, the v3.47.0 last_seen_at UPDATE (cold path, once per session per 5 min)
 
     def setUp(self):
         self.committee = Committee.objects.create(
@@ -1470,7 +1470,7 @@ class EducationDashboardQueryBudgetTests(QueryBudgetMixin, TestCase):
     #: the due-reveal check (`reveal_due_bigs`), the pledges' pairings, and the
     #: big picker's candidate list. None is per pledge, and the scaling test
     #: below still passes.
-    BUDGET = 42
+    BUDGET = 43  # v3.48.1: +1, the v3.47.0 last_seen_at UPDATE (cold path, once per session per 5 min)
 
     def setUp(self):
         from django.utils import timezone as tz
@@ -1554,7 +1554,7 @@ class EducationPledgeDetailQueryBudgetTests(QueryBudgetMixin, TestCase):
 
     #: Measured 08-20-26 on sqlite, cold cache, on the fixture below
     #: (10 tasks, 5 completions, 6 meetings attended): 34.
-    BUDGET = 34
+    BUDGET = 35  # v3.48.1: +1, the v3.47.0 last_seen_at UPDATE (cold path, once per session per 5 min)
 
     def setUp(self):
         from django.utils import timezone as tz
@@ -1680,7 +1680,7 @@ class EventAttendanceListQueryBudgetTests(QueryBudgetMixin, TestCase):
     #: 4 upcoming), twice, same number both times.
     #:
     #: Pre-fix on the same fixture: **271**.
-    BUDGET = 33
+    BUDGET = 34  # v3.48.1: +1, the v3.47.0 last_seen_at UPDATE (cold path, once per session per 5 min)
 
     PASSWORD = 'attendance-budget-pass-12345!'
 
@@ -1867,7 +1867,7 @@ class MyAttendanceQueryBudgetTests(QueryBudgetMixin, TestCase):
     #: ceiling in this module — it is NOT the 25 v3.24.0 measured with a bare
     #: `CaptureQueriesContext`). Fixture below: 20 past events, an excuse, and
     #: a four-instance recurring series. Twice, same number both times.
-    BUDGET = 34
+    BUDGET = 35  # v3.48.1: +1, the v3.47.0 last_seen_at UPDATE (cold path, once per session per 5 min)
 
     PASSWORD = 'my-attendance-budget-pass-12345!'
 
@@ -2018,7 +2018,7 @@ class ManageEventsListQueryBudgetTests(QueryBudgetMixin, TestCase):
     #:
     #: Pre-fix on the same fixture (parent_event NOT select_related'd): 38 —
     #: the 9 extra queries are exactly the 9 instance rows on the page.
-    BUDGET = 29
+    BUDGET = 30  # v3.48.1: +1, the v3.47.0 last_seen_at UPDATE (cold path, once per session per 5 min)
 
     PASSWORD = 'manage-events-budget-pass-12345!'
 
@@ -2134,7 +2134,7 @@ class BugTrackerListQueryBudgetTests(QueryBudgetMixin, TestCase):
     #: Pre-fix on the same fixture (no `select_related('submitted_by')`):
     #: 38 — the 7 extra queries are exactly the 7 rows on the page, matching
     #: what was reported live.
-    BUDGET = 31
+    BUDGET = 32  # v3.48.1: +1, the v3.47.0 last_seen_at UPDATE (cold path, once per session per 5 min)
 
     PASSWORD = 'bug-tracker-budget-pass-12345!'
 
@@ -2234,7 +2234,7 @@ class ReviewExcusesQueryBudgetTests(QueryBudgetMixin, TestCase):
     #: `test_it_does_not_scale_with_the_number_of_events` for the assertion
     #: that actually pins the fix. Pre-fix on the same fixture, measured directly
     #: against the reverted view: **88**.
-    BUDGET = 35
+    BUDGET = 36  # v3.48.1: +1, the v3.47.0 last_seen_at UPDATE (cold path, once per session per 5 min)
 
     PASSWORD = 'review-excuses-budget-pass-12345!'
 
@@ -2337,7 +2337,7 @@ class ChapterMinutesListQueryBudgetTests(QueryBudgetMixin, TestCase):
     #: which is where most of this comes from — the select_related fix is
     #: what keeps it FLAT as rows are added, which is what the scaling test
     #: below actually pins.
-    BUDGET = 29
+    BUDGET = 30  # v3.48.1: +1, the v3.47.0 last_seen_at UPDATE (cold path, once per session per 5 min)
 
     def setUp(self):
         self.officer = make_user('qb-cm-off', 'CM Officer')

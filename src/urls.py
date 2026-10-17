@@ -24,6 +24,11 @@ from src.view.officer.manage_announcements import (
     confirm_announcement_email, send_announcement_emails, skip_announcement_email,
     warmup_announcement_email, cancel_warmup_announcement_email
 )
+from src.view.officer.groupme import (
+    groupme_dashboard, groupme_save_settings, groupme_add_channel,
+    groupme_edit_channel, groupme_move_channel, groupme_remove_channel,
+    groupme_test_channel, groupme_retry_message,
+)
 from src.view.officer.announcement_polls import (
     create_or_edit_poll, poll_results, take_poll, poll_confirmation,
     manage_poll_qr, poll_qr_image, generate_poll_qr_embed_link,
@@ -647,6 +652,16 @@ urlpatterns = [
     path('officers/transitions/<int:role_id>/transfer/', transfer_role, name='transfer_role'),
     path('officers/transitions/checklist/<int:role_history_id>/', transition_checklist, name='transition_checklist'),
     path('officers/transitions/checklist/item/<int:status_id>/toggle/', toggle_checklist_item, name='toggle_checklist_item'),
+
+    # GroupMe bot (v3.49.0) — officer dashboard; every action is POST-only
+    path('officers/groupme/', groupme_dashboard, name='groupme_dashboard'),
+    path('officers/groupme/settings/', groupme_save_settings, name='groupme_save_settings'),
+    path('officers/groupme/channels/add/', groupme_add_channel, name='groupme_add_channel'),
+    path('officers/groupme/channels/<int:channel_id>/edit/', groupme_edit_channel, name='groupme_edit_channel'),
+    path('officers/groupme/channels/<int:channel_id>/move/', groupme_move_channel, name='groupme_move_channel'),
+    path('officers/groupme/channels/<int:channel_id>/remove/', groupme_remove_channel, name='groupme_remove_channel'),
+    path('officers/groupme/channels/<int:channel_id>/test/', groupme_test_channel, name='groupme_test_channel'),
+    path('officers/groupme/messages/<int:message_id>/retry/', groupme_retry_message, name='groupme_retry_message'),
 
     # Announcement Management (Officer)
     path('officers/announcements/', manage_announcements, name='manage_announcements'),

@@ -88,6 +88,9 @@
             </div>
             <p class="ml-6 text-sm text-gray-500 dark:text-gray-400">Uncheck to publish without sending an email blast.</p>
 
+            <!-- GroupMe echo (v3.49.0) -->
+            {% include "officer/_groupme_announcement_channels.html" %}
+
             <!-- Linked Documents -->
             {% if chapter_docs %}
             <div class="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">

@@ -67,6 +67,9 @@ _SKIP_PREFIXES = ('/static/', '/media/', '/admin/', '/api/', '/ws/', '/__',
 #: Literals that look like site paths but are not. Each needs a reason — an
 #: unexplained entry here is how a real broken link gets waved through.
 _NOT_SITE_PATHS = {
+    # v3.49.0 — GroupMe API paths (src/groupme.py prefixes them with
+    # https://api.groupme.com/v3), and the fake API in its tests.
+    '/users/me', '/groups', '/bots', '/bots/destroy', '/bots/post',
     # URL *fragments* concatenated in JS: `base + '/approve/'`.
     '/approve/', '/reject/', '/revoke/', '/scopes/', '/notes/', '/notes/add/',
     '/delete/', '/delete/123/', '/update/', '/recruitment-permissions/',

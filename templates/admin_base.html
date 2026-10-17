@@ -53,6 +53,13 @@
                 Announcements
             </a>
 
+            <!-- GroupMe bot (v3.49.0) -->
+            <a href="{% url 'groupme_dashboard' %}"
+               class="px-3 h-10 flex items-center text-xs font-medium hover:bg-gray-700 hover:text-white transition-colors whitespace-nowrap
+                      {% if 'groupme' in request.resolver_match.url_name %}text-white bg-gray-700{% endif %}">
+                GroupMe
+            </a>
+
             <!-- Minutes -->
             <a href="{% url 'chapter_minutes_list' %}"
                class="px-3 h-10 flex items-center text-xs font-medium hover:bg-gray-700 hover:text-white transition-colors whitespace-nowrap

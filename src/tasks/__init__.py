@@ -8,6 +8,7 @@ Celery tasks for Parliament — split into submodules by domain.
   security_audit.py — scheduled security audits (weekly weak-password check)
   db_health.py     — DB connection-pressure monitor (Postgres max_connections)
   education.py     — timed pledge big reveals (v3.39.0)
+  groupme.py       — GroupMe bot: echo announcements (v3.49.0)
 
 All names are re-exported here so existing `from src.tasks import X` call sites
 continue to work without modification. Celery's autodiscovery imports this package
@@ -26,6 +27,10 @@ from src.tasks.votes import (
     publish_scheduled_announcements,
     announce_legislation_availability,
     notify_available_legislation,
+)
+from src.tasks.groupme import (
+    dispatch_announcement_to_groupme,
+    send_groupme_message,
 )
 from src.tasks.cleanup import (
     cleanup_expired_sessions,
@@ -77,4 +82,6 @@ __all__ = [
     'check_weak_passwords',
     'monitor_db_connection_pressure',
     'reveal_due_bigs',
+    'dispatch_announcement_to_groupme',
+    'send_groupme_message',
 ]

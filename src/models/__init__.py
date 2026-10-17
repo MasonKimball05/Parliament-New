@@ -210,6 +210,9 @@ from src.models.api import APIToken, APIAccessLog, DEFINED_SCOPES, ALL_SCOPE_KEY
 # Admin Action Audit Log
 from src.models.admin_audit import AdminActionLog, log_admin_action
 
+# GroupMe bot (v3.49.0)
+from src.models.groupme import GroupMeSettings, GroupMeChannel, GroupMeMessage
+
 # Recruitment
 from src.models.recruitment import (
     RecruitmentCandidate,
@@ -409,6 +412,10 @@ __all__ = [
     # Admin Audit Log
     'AdminActionLog',
     'log_admin_action',
+    # GroupMe bot
+    'GroupMeSettings',
+    'GroupMeChannel',
+    'GroupMeMessage',
     # Recruitment
     'RecruitmentCandidate',
     'RecruitmentCandidateNote',

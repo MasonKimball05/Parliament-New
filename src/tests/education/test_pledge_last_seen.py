@@ -6,7 +6,8 @@ Mason, 10-16-26: "Not just entered credentials, the last time they got on."
 signed-in request (throttled to once per 5 minutes per session) and never on
 an admin's "log in as".
 """
-from datetime import timedelta
+from datetime import datetime, time, timedelta
+from unittest import mock
 
 from django.core.cache import cache
 from django.test import TestCase
@@ -63,8 +64,12 @@ class DashboardShowsLastSeenTests(EducationFixtureMixin, TestCase):
         return response.content.decode()
 
     def set_seen(self, user, days_ago):
+        # v3.48.1 — noon, N calendar days ago in the site's time zone. The
+        # dashboard counts calendar days now, so "now minus N x 24 h" would
+        # read as N+1 in the minutes after midnight (and across a DST change).
+        day = timezone.localdate() - timedelta(days=days_ago)
         ParliamentUser.objects.filter(pk=user.pk).update(
-            last_seen_at=timezone.now() - timedelta(days=days_ago, minutes=5))
+            last_seen_at=timezone.make_aware(datetime.combine(day, time(12))))
 
     def test_never_on(self):
         self.assertIn('Never on', self.html())
@@ -77,6 +82,20 @@ class DashboardShowsLastSeenTests(EducationFixtureMixin, TestCase):
         self.assertIn('Last on yesterday', html)
         self.set_seen(self.other_pledge, 10)
         self.assertIn('Last on 10 days ago', self.html())
+
+    def test_late_last_night_reads_yesterday_not_today(self):
+        # v3.48.1 — the bug: (now - seen).days counts 24-hour blocks, so a
+        # pledge on at 11 PM, looked at by the chair at 8 AM, was "today".
+        today = timezone.localdate()
+        eight_am = timezone.make_aware(datetime.combine(today, time(8)))
+        eleven_pm_last_night = timezone.make_aware(
+            datetime.combine(today - timedelta(days=1), time(23)))
+        ParliamentUser.objects.filter(pk=self.pledge.pk).update(last_seen_at=eleven_pm_last_night)
+        ParliamentUser.objects.filter(pk=self.other_pledge.pk).update(last_seen_at=None)
+        with mock.patch('django.utils.timezone.now', return_value=eight_am):
+            html = self.html()
+        self.assertIn('Last on yesterday', html)
+        self.assertNotIn('Last on today', html)
 
     def test_colour_turns_amber_at_7_days_and_red_at_14(self):
         self.set_seen(self.pledge, 8)

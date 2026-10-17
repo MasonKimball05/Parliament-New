@@ -97,6 +97,9 @@ Two things worth keeping:
                 <p class="ml-6 text-sm text-red-600 dark:text-red-400">{{ form.is_active.errors.0 }}</p>
             {% endif %}
 
+            <!-- GroupMe echo (v3.49.0) -->
+            {% include "officer/_groupme_announcement_channels.html" %}
+
             <!-- Linked Documents -->
             {% if chapter_docs %}
             <div class="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
