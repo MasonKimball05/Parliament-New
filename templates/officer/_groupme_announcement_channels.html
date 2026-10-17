@@ -24,7 +24,10 @@ that as "Visible To" changes, and the server checks it again on save and send.
 </div>
 {% elif groupme_channels %}
 <div class="bg-primary-50 dark:bg-primary-900/30 border border-primary-200 dark:border-primary-700 rounded-lg p-4" id="groupme-channels">
-    <p class="text-sm font-medium text-gray-800 dark:text-gray-200">Also post to GroupMe</p>
+    <div class="flex items-center justify-between gap-2">
+        <p class="text-sm font-medium text-gray-800 dark:text-gray-200">Also post to GroupMe</p>
+        <a href="{% url 'groupme_dashboard' %}" class="text-xs text-primary-600 dark:text-primary-400 hover:underline">Manage GroupMe groups</a>
+    </div>
     <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">
         {% if groupme_is_edit %}Not posted to GroupMe yet. Tick a group and save to post it{% if not announcement.is_published %} when it publishes{% endif %}.
         {% else %}Posts when the announcement publishes. Only groups where everyone can see it are allowed.{% endif %}
@@ -83,4 +86,13 @@ that as "Visible To" changes, and the server checks it again on save and send.
     update();
 })();
 </script>
+{% else %}
+{% comment %}v3.49.0 — no channel is on yet: say so, instead of showing nothing.{% endcomment %}
+<div class="bg-gray-50 dark:bg-gray-700/40 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+    <p class="text-sm font-medium text-gray-800 dark:text-gray-200">Also post to GroupMe</p>
+    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+        {% if groupme_any_channels %}Every GroupMe group is turned off{% else %}No GroupMe groups are connected yet{% endif %}, so this announcement won't be posted there.
+        <a href="{% url 'groupme_dashboard' %}" class="text-primary-600 dark:text-primary-400 hover:underline">Set up the GroupMe bot</a>
+    </p>
+</div>
 {% endif %}

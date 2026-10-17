@@ -408,6 +408,17 @@ class ParliamentUser(AbstractBaseUser):
         return self.is_officer or self.is_advisor or self.member_type == MemberType.CHAIR
 
     @property
+    def can_manage_groupme(self):
+        """
+        v3.49.0 — may open the GroupMe bot dashboard (/officers/groupme/).
+        Delegates to the exact predicate behind `officer_required`, which gates
+        those views, so the links (home + officer home Quick Links, the
+        announcement form) can never show to someone the page would refuse.
+        """
+        from src.permissions import user_is_officer_or_chair
+        return user_is_officer_or_chair(self)
+
+    @property
     def can_manage_events(self):
         """Check if user can create/manage events (Officers and Chairs)"""
         return self.is_officer or self.member_type == MemberType.CHAIR

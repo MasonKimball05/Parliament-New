@@ -148,6 +148,8 @@ def _groupme_context(announcement=None, posted_ids=None, visible_to=None):
         c.audience_csv = ','.join(c.audience or [])
     return {
         'groupme_channels': channels,
+        # v3.49.0 — "none connected" vs "all turned off" in the empty state.
+        'groupme_any_channels': bool(channels) or GroupMeChannel.objects.exists(),
         'groupme_posted': [],
         'groupme_is_edit': announcement is not None,
         'groupme_touched': announcement is not None or posted_ids is not None,

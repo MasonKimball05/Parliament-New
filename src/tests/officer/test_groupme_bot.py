@@ -337,3 +337,50 @@ class DashboardTests(GroupMeFixture, TestCase):
         self.assertFalse(GroupMeChannel.objects.get(pk=self.brothers.pk).is_active)
         self.assertTrue(ActivityLog.objects.filter(action_type='settings_changed',
                                                    description__startswith='GroupMe:').exists())
+
+
+class WhereToFindItTests(TestCase):
+    """v3.49.0 — Mason: "I don't see how to access it" / "I don't see any UI on
+    the make announcements page"."""
+
+    def setUp(self):
+        cache.clear()
+        self.officer = make_user('GM-OFF2', 'Officer')
+        self.chair = make_user('GM-CHAIR', 'Chair')
+        self.member = make_user('GM-MEM2')
+        self.advisor = make_user('GM-ADV', 'Advisor')
+        self.url = reverse('groupme_dashboard')
+
+    def html(self, user, name):
+        c = Client(); c.force_login(user)
+        r = c.get(reverse(name))
+        self.assertEqual(r.status_code, 200, name)
+        return r.content.decode()
+
+    def test_the_predicate_matches_the_page(self):
+        for user in (self.officer, self.chair, self.member, self.advisor):
+            c = Client(); c.force_login(user)
+            can_open = c.get(self.url).status_code == 200
+            self.assertEqual(user.can_manage_groupme, can_open, user.member_type)
+
+    def test_home_quick_links_show_it_only_to_people_who_can_open_it(self):
+        for layout in ('home.html', 'home_modern.html'):
+            from django.template.loader import get_template
+            self.assertIn("url 'groupme_dashboard'", get_template(layout).template.source, layout)
+        self.assertIn(self.url, self.html(self.officer, 'home'))
+        self.assertNotIn(self.url, self.html(self.member, 'home'))
+
+    def test_officer_home_quick_links_hide_it_from_advisors(self):
+        self.assertIn(self.url, self.html(self.officer, 'officer_home'))
+        self.assertNotIn(self.url, self.html(self.advisor, 'officer_home'))
+
+    def test_announcement_form_says_so_when_nothing_is_set_up(self):
+        html = self.html(self.officer, 'create_announcement')
+        self.assertIn('No GroupMe groups are connected yet', html)
+        self.assertIn(self.url, html)
+        GroupMeChannel.objects.create(name='Off', bot_id='botOFF00001', audience=['Member'], is_active=False)
+        self.assertIn('Every GroupMe group is turned off', self.html(self.officer, 'create_announcement'))
+        GroupMeChannel.objects.create(name='Brothers', bot_id='botON000001', audience=['Member'])
+        html = self.html(self.officer, 'create_announcement')
+        self.assertIn('Manage GroupMe groups', html)
+        self.assertIn('name="groupme_channel_ids"', html)
