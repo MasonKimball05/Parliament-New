@@ -23,6 +23,7 @@ from django.urls import reverse
 from django.views.decorators.http import require_POST
 from django.db import transaction
 from django.utils import timezone
+from src.pledge_points import is_scaled, points_for, quiz_marks
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.db.models import Count, Q
 
@@ -167,6 +168,11 @@ def _apply_task_fields(request, task):
     # Blank = not scored. `_parse_non_negative_int` would turn '' into 0, and a
     # task scored out of 0 is not the same thing as an unscored one.
     task.max_score = _parse_optional_positive_int(request.POST.get('max_score'))
+    # v3.48.0 — quizzes only; anything else (or a bad value) is 'full'.
+    points_mode = request.POST.get('points_mode', 'full')
+    if task_type != 'quiz' or points_mode not in {c[0] for c in PledgeTask.POINTS_MODE_CHOICES}:
+        points_mode = 'full'
+    task.points_mode = points_mode
     task.show_analysis_to_pledges = request.POST.get('show_analysis_to_pledges') == 'on'
     task.display_order = _parse_non_negative_int(request.POST.get('display_order'), 0)
     task.activation_mode = activation_mode
@@ -456,6 +462,9 @@ def education_home(request, code):
     # just can't be earned, so it costs the pledge percentage rather than
     # silently shrinking the denominator.
     live_task_points = {t.pk: t.points for t in tasks if t.is_live and t.points}
+    # v3.48.0 — see src/pledge_points.py. Two queries, only if a quiz scales.
+    task_by_pk = {t.pk: t for t in tasks}
+    quiz_marks_map = quiz_marks(tasks, pledges)
     meeting_points_by_pk = {m.pk: m.points for m in all_past_meetings if m.points}
     max_meeting_points = sum(meeting_points_by_pk.values())
 
@@ -481,10 +490,10 @@ def education_home(request, code):
             if not task_assigned_pks.get(pk) or pledge.pk in task_assigned_pks[pk]
         ]
         max_task_points = sum(live_task_points[pk] for pk in applicable_task_pks)
+        # v3.48.0 — a "points by % right" quiz earns part of its points.
         earned_task_points = sum(
-            live_task_points[pk] for pk in applicable_task_pks
-            if completion_map.get((pk, pledge.pk))
-            and completion_map[(pk, pledge.pk)].status == 'completed'
+            points_for(task_by_pk[pk], completion_map.get((pk, pledge.pk)), pledge.pk, quiz_marks_map)
+            for pk in applicable_task_pks
         )
         earned_meeting_points = sum(
             meeting_points_by_pk.get(r.meeting_id, 0)
@@ -589,6 +598,7 @@ def education_home(request, code):
         'is_chair': is_chair,
         'access': access,
         'TASK_TYPES': PledgeTask.TASK_TYPES,
+        'POINTS_MODE_CHOICES': PledgeTask.POINTS_MODE_CHOICES,
         'PHASE_CHOICES': PledgeTask.PHASE_CHOICES,
         'page_restrictions': page_restrictions,
         'PHASE_CHOICES_SIMPLE': [('all', 'All'), ('1', 'Ph.1'), ('2', 'Ph.2'), ('3', 'Ph.3')],
@@ -774,6 +784,7 @@ def education_edit_task(request, code, task_pk):
         'is_chair': access['is_chair'],
         'access': access,
         'TASK_TYPES': PledgeTask.TASK_TYPES,
+        'POINTS_MODE_CHOICES': PledgeTask.POINTS_MODE_CHOICES,
         'PHASE_CHOICES': PledgeTask.PHASE_CHOICES,
         'all_pledges': ParliamentUser.objects.filter(member_type='Pledge', is_active=True).order_by('name'),
         'assigned_pks': set(task.assigned_to.values_list('pk', flat=True)),
@@ -1519,10 +1530,12 @@ def education_pledge_detail(request, code, pledge_pk):
     ]
     missed = [r for r in attendance if r.status == 'absent']
 
-    task_points = sum(
-        row['task'].points for row in task_rows
-        if row['completion'] and row['completion'].status == 'completed'
-    )
+    # v3.48.0 — per-row points, so a "points by % right" quiz shows 7 of 10.
+    marks = quiz_marks([row['task'] for row in task_rows], [pledge])
+    for row in task_rows:
+        row['points_earned'] = points_for(row['task'], row['completion'], pledge.pk, marks)
+        row['points_scaled'] = is_scaled(row['task'])
+    task_points = sum(row['points_earned'] for row in task_rows)
 
     return render(request, 'committee/education_pledge_detail.html', {
         'committee': committee,
@@ -1622,6 +1635,7 @@ def education_duplicate_task(request, code, task_pk):
         phase=original.phase,
         is_required=original.is_required,
         points=original.points,
+        points_mode=original.points_mode,
         max_score=original.max_score,
         show_analysis_to_pledges=original.show_analysis_to_pledges,
         display_order=original.display_order,

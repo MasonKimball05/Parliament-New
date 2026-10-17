@@ -395,7 +395,14 @@
                 {% endif %}
                 {% endif %}
                 {% if item.task.points %}
+                {% comment %}v3.48.0 — a "points by % right" quiz says so, and once completed shows what he earned (7 of 10).{% endcomment %}
+                {% if item.points_scaled and item.completion.status == 'completed' %}
+                <span class="text-xs text-primary-600 dark:text-primary-400">{{ item.points_earned }} of {{ item.task.points }} pts</span>
+                {% elif item.points_scaled %}
+                <span class="text-xs text-primary-600 dark:text-primary-400">Up to {{ item.task.points }} pts, by % right</span>
+                {% else %}
                 <span class="text-xs text-primary-600 dark:text-primary-400">{{ item.task.points }} pts</span>
+                {% endif %}
                 {% endif %}
                 {% if item.completion and item.completion.status == 'completed' and item.completion.completed_at %}
                 <span class="text-xs text-green-600 dark:text-green-400">Completed {{ item.completion.completed_at|date:"M j" }}</span>

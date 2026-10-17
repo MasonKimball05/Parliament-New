@@ -207,9 +207,16 @@ def build_pledge_tasks_context(pledge):
     )
 
     # Task points a pledge has actually banked — completed tasks only.
+    # v3.48.0 — a "points by % right" quiz banks part of its points
+    # (src/pledge_points.py). Each item gets its own number for the row.
+    from src.pledge_points import is_scaled, points_for, quiz_marks
+    marks = quiz_marks(tasks, [pledge])
+    for group in phase_groups:
+        for item in group['items']:
+            item['points_earned'] = points_for(item['task'], item['completion'], pledge.pk, marks)
+            item['points_scaled'] = is_scaled(item['task'])
     task_points = sum(
-        t.points for t in tasks
-        if completion_map.get(t.pk) and completion_map[t.pk].status == 'completed'
+        points_for(t, completion_map.get(t.pk), pledge.pk, marks) for t in tasks
     )
 
     # ⚠️ v3.20.2 — `due_date` had been stored since the model was written and

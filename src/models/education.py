@@ -43,6 +43,20 @@ class PledgeTask(models.Model):
         default=0,
         help_text='Optional point value for gamification / progress tracking',
     )
+    # v3.48.0 — Mason 10-16-26: a quiz can give full points for doing it, or
+    # points by % right (10-pt quiz, 7 of 10 right = 7 pts). Only read for
+    # quizzes; `_apply_task_fields` resets it to 'full' for other types.
+    # The math is in src/pledge_points.py.
+    POINTS_MODE_CHOICES = [
+        ('full', 'Full points for completing it'),
+        ('by_score', 'Points by % right'),
+    ]
+    points_mode = models.CharField(
+        max_length=10, choices=POINTS_MODE_CHOICES, default='full',
+        help_text="Quizzes only: give all the points for completing it, or scale them by "
+                  "how much the pledge got right (the chair's score if one is entered, "
+                  "otherwise the answers marked right).",
+    )
     show_analysis_to_pledges = models.BooleanField(
         default=False,
         help_text='Off by default: the question-by-question breakdown is for educators. '

@@ -87,6 +87,23 @@ empty/absent, the task applies to every pledge).
     </div>
   </div>
 
+  <!-- Quiz points mode (v3.48.0, Mason 10-16-26) — quizzes only; shown/hidden
+       with the Type select like the Song field above. -->
+  <div id="quiz-points-mode-field" class="{% if task.task_type != 'quiz' %}hidden{% endif %}">
+    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Quiz points</label>
+    <select name="points_mode"
+      class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm focus:ring-2 focus:ring-primary-500">
+      {% for val, label in POINTS_MODE_CHOICES %}
+      <option value="{{ val }}" {% if task.points_mode == val or not task and val == 'full' %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+      "By % right": a 10-point quiz with 7 of 10 right earns 7. Uses the score you
+      enter if the quiz is scored out of a total; otherwise the answers you mark
+      right. Points still only count once the quiz is marked Completed.
+    </p>
+  </div>
+
   <div>
     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Display Order</label>
     <input type="number" name="display_order" value="{{ task.display_order|default:0 }}" min="0"
