@@ -89,6 +89,14 @@ def add_member(request):
     if text_error:
         return JsonResponse({'success': False, 'error': text_error, 'errors': {'__all__': text_error}}, status=400)
 
+    # v3.50.1 — a non-admin can't create an account holding an admin role
+    # (he'd know its temp password, and "Sync officer admins" would make it one).
+    from src.permissions import role_change_error
+    for role in form.cleaned_data.get('roles') or []:
+        role_error = role_change_error(request.user, role)
+        if role_error:
+            return JsonResponse({'success': False, 'error': role_error, 'errors': {'__all__': role_error}}, status=403)
+
     # Generate username from name (first initial + last name)
     base_username = generate_username(form.cleaned_data['name'])
     username = ensure_unique_username(base_username)
@@ -230,6 +238,20 @@ def edit_member(request, user_id):
     )
     if text_error:
         return JsonResponse({'success': False, 'error': text_error}, status=400)
+
+    # v3.50.1 — roles that make the holder an admin can only be given or taken
+    # by an admin. Checked before anything is saved.
+    if 'roles' in data:
+        raw_roles = data['roles'] or []
+        if not isinstance(raw_roles, list) or not all(
+                isinstance(r, int) and not isinstance(r, bool) for r in raw_roles):
+            return JsonResponse({'success': False, 'error': 'Invalid roles.'}, status=400)
+        from src.permissions import role_change_error
+        current = set(member.roles.values_list('id', flat=True))
+        for role in Role.objects.filter(id__in=current ^ set(raw_roles)):
+            role_error = role_change_error(request.user, role, member)
+            if role_error:
+                return JsonResponse({'success': False, 'error': role_error}, status=403)
 
     # Track changes for logging
     changes = []

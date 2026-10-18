@@ -273,8 +273,15 @@ def deliver(message_id):
     retry_error = None
     with transaction.atomic():
         message = (
+            # v3.50.1 — no select_related('channel') here: `channel` is a
+            # nullable FK, so Django joins it with LEFT OUTER JOIN, and
+            # PostgreSQL refuses "FOR UPDATE cannot be applied to the nullable
+            # side of an outer join". Every send failed on prod Postgres with
+            # NotSupportedError (not GroupMeError, so no retry; the row stayed
+            # 'queued' and the sweep re-queued it forever). SQLite ignores
+            # FOR UPDATE, which is why the tests passed. Reading `channel`
+            # lazily costs one query and locks only the message row.
             GroupMeMessage.objects.select_for_update()
-            .select_related('channel')
             .filter(pk=message_id, status__in=('queued', 'failed'))
             .first()
         )
@@ -282,6 +289,15 @@ def deliver(message_id):
             return False
         if message.channel is None:
             message.status, message.error = 'failed', 'Channel was removed.'
+            message.save(update_fields=['status', 'error'])
+            return False
+        # v3.50.1 — re-check the audience rule at the moment of posting. A
+        # message can sit 'queued'/'failed' for minutes (Celery retries at 1, 2,
+        # 4 min; the sweep re-queues; Retry on the dashboard) while an officer
+        # turns the channel off, narrows "Visible to", or takes the post down.
+        reason = _no_longer_postable(message)
+        if reason:
+            message.status, message.error = 'skipped', reason
             message.save(update_fields=['status', 'error'])
             return False
         message.attempts += 1
@@ -300,6 +316,32 @@ def deliver(message_id):
     # Raised only AFTER the block commits: raising inside it would roll back
     # the 'failed' status and attempt count we just recorded.
     raise retry_error
+
+
+def _no_longer_postable(message):
+    """Why a queued/failed message must not be posted now, or '' if it still may."""
+    channel = message.channel
+    if not channel.is_active:
+        return 'Channel was turned off before it was sent.'
+    if message.kind == 'announcement':
+        announcement = message.announcement
+        if announcement is None:
+            return 'The announcement was deleted before it was sent.'
+        if not announcement.is_published():
+            return 'The announcement was taken down before it was sent.'
+        if not channel_allowed(announcement.visible_to, channel):
+            return blocked_reason(announcement.visible_to, channel) + ' (changed before it was sent).'
+    elif message.kind == 'event_reminder':
+        event = message.event
+        if event is None:
+            return 'The event was deleted before the reminder was sent.'
+        if not event.is_active or event.archived:
+            return 'The event was hidden before the reminder was sent.'
+        if event.date_time <= timezone.now():
+            return 'The event had already started.'
+        if not channel_allowed(event.visible_to, channel):
+            return blocked_reason(event.visible_to, channel) + ' (changed before it was sent).'
+    return ''
 
 
 def queue_send(message_ids):
@@ -406,10 +448,10 @@ def save_event_channels(request, events):
     """
     from src.models import Event, GroupMeChannel
 
-    ids = [int(i) for i in request.POST.getlist('groupme_channel_ids') if i.isdigit()]
+    ids = [int(i) for i in request.POST.getlist('groupme_channel_ids') if i.isdecimal()]
     channels = list(GroupMeChannel.objects.filter(is_active=True, pk__in=ids))
     raw = request.POST.get('groupme_reminder_hours', '')
-    hours = int(raw) if raw.isdigit() and int(raw) in Event.GROUPME_REMINDER_HOURS else 24
+    hours = int(raw) if raw.isdecimal() and int(raw) in Event.GROUPME_REMINDER_HOURS else 24
     for event in events:
         if event.groupme_reminded_at:
             continue

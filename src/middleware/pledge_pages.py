@@ -26,6 +26,7 @@ ALWAYS_ALLOWED = frozenset({
     'change_password', 'forced_password_change', 'check_default_password',
     'password_reset', 'password_reset_done', 'password_reset_confirm', 'password_reset_complete',
     'csrf_token_refresh', 'push_subscribe', 'push_unsubscribe',
+    'service_worker',  # v3.50.1: the docstring promised the PWA files; this one was missing
 })
 
 #: url_name prefixes never blocked (2FA setup/verify, passkeys, onboarding).

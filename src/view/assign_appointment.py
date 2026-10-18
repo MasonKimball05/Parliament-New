@@ -52,6 +52,13 @@ def assign_appointment(request, legislation_id):
 
         role = legislation.appointment_role
 
+        # v3.50.1 — same rule as the role pages: an admin role is admin-only.
+        from src.permissions import role_change_error
+        role_error = role_change_error(request.user, role, member)
+        if role_error:
+            messages.error(request, role_error)
+            return redirect('passed_legislation')
+
         # Assign role
         member.roles.add(role)
 
