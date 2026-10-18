@@ -1217,10 +1217,12 @@ def _structure_context(resolution, documents=None):
     )
     rows = []
     for change in changes:
+        says = cnb_structure.describe(change)
         rows.append({
             'change': change,
-            'says': cnb_structure.describe(change),
+            'says': says,
             'refs': cnb_structure.references_to_check(change),
+            'ref_code': cnb_structure.ref_code(change, says),  # v3.50.2: Copy [ref]
         })
     context = {'structure_rows': rows}
     if documents is not None:

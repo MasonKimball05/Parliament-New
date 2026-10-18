@@ -12,6 +12,9 @@
    Conclusion notes; Body if none). Each row says where its reference already
    is, and the button shows how many are placed.
 
+   v3.50.2: it lists new articles / sections / renames too, read the same way
+   from #liveStructureCard's "Copy [ref]" buttons.
+
    It reads the amendments from the list's own "Copy [ref]" buttons, so the
    reference text is the one that button copies. Everything is built as text
    nodes. Include once, on the edit page only, outside #liveAmendmentsCard.
@@ -21,7 +24,7 @@
 <div id="refInserter" class="hidden fixed right-6 z-30" style="bottom: 9.5rem;">
     <div id="refInserterPanel" class="hidden w-96 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden mb-2" style="max-width: calc(100vw - 2rem);">
         <div class="px-4 py-3 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
-            <p class="text-sm font-semibold text-gray-900 dark:text-gray-100">Amendment references</p>
+            <p class="text-sm font-semibold text-gray-900 dark:text-gray-100">References</p>
             <button type="button" id="refInserterClose" class="text-xs text-gray-500 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400">Close</button>
         </div>
         <p class="px-4 py-2 text-xs text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-gray-700">
@@ -75,18 +78,29 @@
     }
 
     function amendments() {
-        return Array.prototype.map.call(document.querySelectorAll('#liveAmendmentsCard .js-copy-ref'), function(btn) {
+        var tracked = Array.prototype.map.call(document.querySelectorAll('#liveAmendmentsCard .js-copy-ref'), function(btn) {
             var row = btn.closest('.js-amendment-row');
             return {
                 code: refCode(btn.dataset),
                 pattern: window.cnbAmendmentRefPattern(btn.dataset.identifier, ''),
-                num: btn.dataset.num,
-                identifier: btn.dataset.identifier,
-                type: btn.dataset.amendType,
+                label: '[' + btn.dataset.num + '] ' + btn.dataset.identifier,
                 title: row && row.dataset.sectionTitle || '',
                 row: row
             };
         });
+        // v3.50.2 — new articles / sections / renames, from their own
+        // "Copy [ref]" buttons (cnb/_structure_changes.html).
+        var structural = Array.prototype.map.call(document.querySelectorAll('#liveStructureCard .js-copy-structure-ref'), function(btn) {
+            var row = btn.closest('.js-structure-row');
+            return {
+                code: '[' + btn.dataset.ref + ']',
+                pattern: window.cnbStructureRefPattern(btn.dataset.changeId, ''),
+                label: '[S' + btn.dataset.changeId + '] ' + (row && row.dataset.heading || btn.dataset.ref),
+                title: '',
+                row: row
+            };
+        });
+        return tracked.concat(structural);
     }
 
     // v3.45.3: matched by section, not by the exact text (see
@@ -140,7 +154,7 @@
             var row = el('div', 'px-4 py-2 flex items-center justify-between gap-3');
             var text = el('div', 'min-w-0');
             text.appendChild(el('p', 'text-xs font-semibold text-gray-900 dark:text-gray-100 truncate',
-                                '[' + item.num + '] ' + item.identifier + (item.title ? ' — ' + item.title : '')));
+                                item.label + (item.title ? ' — ' + item.title : '')));
             text.appendChild(el('p', 'text-xs ' + (where.length ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'),
                                 where.length ? '✓ In ' + where.join(', ') : 'Not placed yet'));
             row.appendChild(text);
@@ -152,7 +166,7 @@
             row.appendChild(button);
             list.appendChild(row);
 
-            // The same status on the amendment's own row in the list below.
+            // The same status on the amendment's (or change's) own row below.
             var tag = item.row && item.row.querySelector('.js-ref-status');
             if (tag) {
                 tag.textContent = where.length ? '✓ Placed in ' + where.join(', ') : 'Reference not placed';

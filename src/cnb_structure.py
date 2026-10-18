@@ -211,6 +211,25 @@ def describe(change):
     return out
 
 
+def ref_code(change, says=None):
+    """
+    v3.50.2 — the bracketed reference "Copy [ref]" puts on the clipboard for a
+    structural change, so it can be cited in the Whereas / Resolved / Body
+    text like a tracked amendment:
+
+        [Change S12: New section: Bylaws Art. III (Officers) § 4 — Dues]
+
+    The print preview replaces it with the change itself. It is found by
+    "[Change S<pk>:" alone (`cnbStructureRefPattern` in
+    cnb/_amendment_ref_match.html), because everything after the colon can
+    move: the section number shifts when another change lands in front of
+    it, and the title can be edited. Square brackets in a title are dropped
+    so they can't end the reference early.
+    """
+    heading = (says or describe(change))['heading']
+    return f"Change S{change.pk}: {heading.replace('[', '').replace(']', '').strip()}"
+
+
 def references_to_check(change):
     """
     Cross-references in the live text that this change's renumbering will

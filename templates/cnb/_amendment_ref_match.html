@@ -35,4 +35,11 @@ window.cnbAmendmentRefPattern = function(identifier, flags) {
     return new RegExp('\\[' + id + '(?=\\s+(?:\\((?:Addition|Deletion|Change)\\)|\\u2014|-\\s*\\d))[^\\]]*\\]',
                       flags || 'g');
 };
+// v3.50.2 — a structural change's ref is "[Change S<pk>: <heading>]"
+// (src/cnb_structure.ref_code). Found by "[Change S<pk>:" alone: the heading
+// after it changes when another change renumbers it or its title is edited.
+// The colon keeps "S1" from matching "S12".
+window.cnbStructureRefPattern = function(pk, flags) {
+    return new RegExp('\\[Change S' + String(parseInt(pk, 10)) + ':[^\\]]*\\]', flags || 'g');
+};
 </script>
