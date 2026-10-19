@@ -29,6 +29,7 @@ have caught the numbering mistake in the first place.
 from django.db.migrations.executor import MigrationExecutor
 from django.db import connection
 from django.test import TransactionTestCase
+from django.utils import timezone
 
 
 class Kai0030RenameMigrationTests(TransactionTestCase):
@@ -70,6 +71,9 @@ class Kai0030RenameMigrationTests(TransactionTestCase):
     def test_forward_migration_preserves_data_under_new_names(self):
         self._user_at_0029(user_id='P-MIGTEST1', name='Migration Submitter', username='migtest1', member_type='Member')
 
+        # v3.50.3: values go in as query parameters, not SQLite-only SQL
+        # (`datetime('now')`, 0/1 for booleans), so this runs on CI's Postgres.
+        now = timezone.now()
         with connection.cursor() as c:
             c.execute("""
                 INSERT INTO src_kaiformfield
@@ -77,10 +81,10 @@ class Kai0030RenameMigrationTests(TransactionTestCase):
                  is_required, validation_rules, allowed_file_types, max_file_size_mb,
                  display_order, section, is_active, is_builtin, created_at, updated_at,
                  form_type)
-                VALUES ('custom_field', 'Custom Field', 'text', '', '', '[]', 0,
-                        '{}', '[]', 5, 0, '', 1, 0, datetime('now'), datetime('now'),
+                VALUES ('custom_field', 'Custom Field', 'text', '', '', '[]', %s,
+                        '{}', '[]', 5, 0, '', %s, %s, %s, %s,
                         'accommodation')
-            """)
+            """, [False, True, False, now, now])
             c.execute("SELECT id FROM src_kaiformfield WHERE form_type='accommodation'")
             field_id = c.fetchone()[0]
 
@@ -88,32 +92,23 @@ class Kai0030RenameMigrationTests(TransactionTestCase):
                 INSERT INTO src_kaiaccommodationrequest
                 (title, description, submitted_at, status, committee_notes,
                  resolved_at, request_number, assigned_to_id, requester_id, resolved_by_id)
-                VALUES ('Great job', 'Ran the whole event', datetime('now'), 'approved',
+                VALUES ('Great job', 'Ran the whole event', %s, 'approved',
                         '', NULL, 'ACC-2026-099', NULL, 'P-MIGTEST1', NULL)
-            """)
+            """, [now])
             c.execute("SELECT id FROM src_kaiaccommodationrequest")
             req_id = c.fetchone()[0]
 
-            # req_id/field_id are ints just read back via fetchone() above,
-            # in a test module — nothing here reaches a request. `.format()`
-            # on a plain (non-f) string rather than an f-string, so the
-            # suppression directive below lands on a real, single-line
-            # `.format(...)` call — an f-string opened with `f"""` leaves
-            # no line for a trailing comment that isn't swallowed into the
-            # string itself.
-            activity_sql = """
+            c.execute("""
                 INSERT INTO src_kaiaccommodationrequestactivity
                 (action, details, timestamp, request_id, user_id)
-                VALUES ('created', 'Request submitted', datetime('now'), {req_id}, 'P-MIGTEST1')
-            """.format(req_id=req_id)  # nosec B608  # req_id is an int read back via fetchone() above, test-only, no request reaches it
-            c.execute(activity_sql)
+                VALUES ('created', 'Request submitted', %s, %s, 'P-MIGTEST1')
+            """, [now, req_id])
 
-            response_sql = """
+            c.execute("""
                 INSERT INTO src_kaiaccommodationfieldresponse
                 (text_value, created_at, updated_at, field_id, request_id)
-                VALUES ('a response', datetime('now'), datetime('now'), {field_id}, {req_id})
-            """.format(field_id=field_id, req_id=req_id)  # nosec B608  # field_id/req_id are ints read back via fetchone() above, test-only, no request reaches them
-            c.execute(response_sql)
+                VALUES ('a response', %s, %s, %s, %s)
+            """, [now, now, field_id, req_id])
 
         self._migrate('0030_rename_kai_accommodation_to_commendation')
 
@@ -145,22 +140,17 @@ class Kai0030RenameMigrationTests(TransactionTestCase):
     def test_status_relabeling_covers_every_old_value(self):
         self._user_at_0029(user_id='P-MIGTEST2', name='Migration Submitter 2', username='migtest2', member_type='Member')
 
+        now = timezone.now()
         with connection.cursor() as c:
             old_statuses = ['pending', 'in_review', 'approved', 'denied', 'closed']
             for i, status in enumerate(old_statuses):
-                # i/status come from enumerate() over a literal list two
-                # lines up, in a test module — nothing here reaches a
-                # request. See test_forward_migration_preserves_data_
-                # under_new_names above for why this is `.format()` on a
-                # plain string rather than an f-string.
-                row_sql = """
+                c.execute("""
                     INSERT INTO src_kaiaccommodationrequest
                     (title, description, submitted_at, status, committee_notes,
                      resolved_at, request_number, assigned_to_id, requester_id, resolved_by_id)
-                    VALUES ('Row {i}', 'd', datetime('now'), '{status}', '', NULL, '', NULL,
+                    VALUES (%s, 'd', %s, %s, '', NULL, '', NULL,
                             'P-MIGTEST2', NULL)
-                """.format(i=i, status=status)  # nosec B608  # i/status come from enumerate() over a literal list above, test-only, no request reaches them
-                c.execute(row_sql)
+                """, [f'Row {i}', now, status])
 
         self._migrate('0030_rename_kai_accommodation_to_commendation')
 
@@ -180,14 +170,15 @@ class Kai0030RenameMigrationTests(TransactionTestCase):
     def test_backward_migration_restores_old_names_and_values(self):
         self._user_at_0029(user_id='P-MIGTEST3', name='Migration Submitter 3', username='migtest3', member_type='Member')
 
+        now = timezone.now()
         with connection.cursor() as c:
             c.execute("""
                 INSERT INTO src_kaiaccommodationrequest
                 (title, description, submitted_at, status, committee_notes,
                  resolved_at, request_number, assigned_to_id, requester_id, resolved_by_id)
-                VALUES ('Round trip', 'd', datetime('now'), 'approved', '', NULL, '', NULL,
+                VALUES ('Round trip', 'd', %s, 'approved', '', NULL, '', NULL,
                         'P-MIGTEST3', NULL)
-            """)
+            """, [now])
             c.execute("SELECT id FROM src_kaiaccommodationrequest")
             req_id = c.fetchone()[0]
 
@@ -195,9 +186,7 @@ class Kai0030RenameMigrationTests(TransactionTestCase):
         self._migrate('0029_kai_accommodations')
 
         with connection.cursor() as c:
-            # req_id is an int just read back via fetchone() above, in a
-            # test module — nothing here reaches a request.
-            c.execute(f"SELECT status, title FROM src_kaiaccommodationrequest WHERE id={req_id}")  # nosec B608  # req_id is an int read back via fetchone() above, test-only, no request reaches it
+            c.execute("SELECT status, title FROM src_kaiaccommodationrequest WHERE id=%s", [req_id])
             status, title = c.fetchone()
         self.assertEqual(status, 'approved')  # round-tripped, not lost
         self.assertEqual(title, 'Round trip')

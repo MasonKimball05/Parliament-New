@@ -118,8 +118,13 @@ class ActivitySnapshotCountsTests(TestCase):
 
 
 class InfraHealthSectionTests(TestCase):
+    # v3.50.3: get_connection_pressure() is None on sqlite or when Postgres
+    # can't be queried. Patched here so the test means the same thing on
+    # SQLite locally and on CI's Postgres (it used to fail there: CI's real
+    # Postgres answers the query).
     @mock.patch('django.core.mail.send_mail')
-    def test_shows_not_applicable_on_the_sqlite_test_backend(self, mock_send_mail):
+    @mock.patch('src.tasks.db_health.get_connection_pressure', return_value=None)
+    def test_shows_not_applicable_when_pressure_is_unavailable(self, _mock_pressure, mock_send_mail):
         send_daily_digest()
         body = digest_body(mock_send_mail)
         self.assertIn('INFRASTRUCTURE / OPS HEALTH', body)
