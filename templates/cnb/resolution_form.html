@@ -562,7 +562,9 @@
     // ── Protected body markers ────────────────────────────────────────────
     // Matches both plain refs  [Constitution Art. III § 2]
     // and extended amendment refs [Constitution Art. III § 2 (Addition) — scope - 1]
-    var MARKER_RE = /\[(?:Constitution|Bylaws) Art\. [IVXLCDM]+ § \d+[^\]]*\]/g;
+    // v3.50.2: a structural change's ref ("[Change S12: …]", src/cnb_structure.ref_code)
+    // is a protected citation too.
+    var MARKER_RE = /\[(?:(?:Constitution|Bylaws) Art\. [IVXLCDM]+ § \d+|Change S\d+:)[^\]]*\]/g;
     var bodyTA    = document.getElementById('bodyTextarea');
     var lastBodyText     = bodyTA ? bodyTA.value : '';
     var expectedMarkers  = extractMarkers(lastBodyText);
@@ -942,6 +944,12 @@
     });
     document.querySelectorAll('.js-copy-ref-simple').forEach(function(btn) {
         btn.addEventListener('click', function() { copyRef(this.dataset.identifier, this); });
+    });
+    // v3.50.2 — "Copy [ref]" on a new article / section / rename. Delegated, so
+    // it keeps working after the structure list is redrawn in place.
+    document.addEventListener('click', function(e) {
+        var btn = e.target.closest && e.target.closest('.js-copy-structure-ref');
+        if (btn) copyRef(btn.dataset.ref, btn);
     });
     document.querySelectorAll('.js-toggle-section-text').forEach(function(btn) {
         btn.addEventListener('click', function() { toggleSectionText(this); });
@@ -1642,7 +1650,6 @@ window._isDirty = false;
                 card.innerHTML = fresh.innerHTML;
                 if (window.wireAmendmentList) window.wireAmendmentList(card);
                 if (window.wireAmendmentFilter) window.wireAmendmentFilter(card);  // v3.45.0: keeps the chosen filter
-                if (window.refreshRefInserter) window.refreshRefInserter();          // v3.45.0: the corner panel lists them
                 // v3.43.0 — the proposed articles / sections / renames list too.
                 var freshStructure = doc.getElementById('liveStructureCard');
                 var structureCard = document.getElementById('liveStructureCard');
@@ -1652,6 +1659,9 @@ window._isDirty = false;
                     var fresher = doc.getElementById('structure-new-articles');
                     if (fresher && window.setStructureNewArticles) window.setStructureNewArticles(JSON.parse(fresher.textContent));
                 }
+                // v3.45.0: the corner panel lists them. v3.50.2: after BOTH lists
+                // are redrawn, since it lists structural changes too.
+                if (window.refreshRefInserter) window.refreshRefInserter();
             })
             .catch(function() { activity('Could not refresh the amendment list. Save, then reload the page to see it.'); })
             .then(function() { refreshing = false; if (refreshAgain) { refreshAgain = false; refreshAmendments(); } });

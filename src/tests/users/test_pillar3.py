@@ -400,6 +400,10 @@ class TransferRoleTests(TestCase):
 
     def setUp(self):
         self.officer = make_user('tr_off', member_type='Officer')
+        # v3.50.1 — moving a grants_admin role is admin-only
+        # (src.tests.users.test_admin_role_guard covers the refusal).
+        self.officer.is_admin = True
+        self.officer.save(update_fields=['is_admin'])
         self.outgoing = make_user('tr_out', member_type='Officer', name='Outgoing User')
         self.incoming = make_user('tr_in', member_type='Member', name='Incoming User')
         self.role = Role.objects.create(name='President', code='PRES', one_per_chapter=True, grants_admin=True)

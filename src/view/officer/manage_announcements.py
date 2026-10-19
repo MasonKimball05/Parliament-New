@@ -92,7 +92,7 @@ def _save_poll_from_post(post, announcement, user):
 
     question_indices = sorted(
         set(k.split('_')[-1] for k in post if k.startswith('question_text_')),
-        key=lambda x: int(x) if x.isdigit() else 0,
+        key=lambda x: int(x) if x.isdecimal() else 0,
     )
     for order, idx in enumerate(question_indices):
         text = post.get(f'question_text_{idx}', '').strip()
@@ -107,7 +107,7 @@ def _save_poll_from_post(post, announcement, user):
         if q_type in ('single', 'multiple'):
             opt_indices = sorted(
                 set(k.split('_')[-1] for k in post if k.startswith(f'option_text_{idx}_')),
-                key=lambda x: int(x) if x.isdigit() else 0,
+                key=lambda x: int(x) if x.isdecimal() else 0,
             )
             for opt_order, opt_idx in enumerate(opt_indices):
                 opt_text = post.get(f'option_text_{idx}_{opt_idx}', '').strip()
@@ -137,7 +137,7 @@ def _groupme_context(announcement=None, posted_ids=None, visible_to=None):
     if visible_to is None and announcement is not None:
         visible_to = announcement.visible_to
     if posted_ids is not None:
-        checked = {int(i) for i in posted_ids if str(i).isdigit()}
+        checked = {int(i) for i in posted_ids if str(i).isdecimal()}
     elif announcement is not None:
         checked = set(announcement.groupme_channels.values_list('pk', flat=True))
     else:
@@ -167,7 +167,7 @@ def _save_groupme_channels(request, announcement):
     from src.groupme import channel_allowed, schedule_dispatch
     from src.models import GroupMeChannel
 
-    ids = [int(i) for i in request.POST.getlist('groupme_channel_ids') if i.isdigit()]
+    ids = [int(i) for i in request.POST.getlist('groupme_channel_ids') if i.isdecimal()]
     chosen = [c for c in GroupMeChannel.objects.filter(is_active=True, pk__in=ids)
               if channel_allowed(announcement.visible_to, c)]
     announcement.groupme_channels.set(chosen)

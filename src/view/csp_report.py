@@ -11,11 +11,16 @@ The endpoint is intentionally public (no login required) because:
   - Reports are sent from within a page context, so CSRF isn't applicable
   - Each report is at most a few hundred bytes of JSON
 
-We guard against abuse with a hard cap on body size (4 KB).
+We guard against abuse with a hard cap on body size (4 KB), and (v3.46.2)
+with a cap on how many reports are STORED: per client IP and site-wide, per
+ten-minute window. Over either cap the browser still gets its 204 — browsers
+never retry a report, so refusing it changes nothing for them — but no row is
+written. The comment above `_WINDOW` says why the caps are where they are.
 """
 import json
 import logging
 
+from django.core.cache import cache
 from django.http import HttpResponse, HttpResponseBadRequest
 from django.http.request import RawPostDataException
 from django.views.decorators.csrf import csrf_exempt
@@ -27,6 +32,57 @@ from src.utils.security_utils import get_client_ip
 logger = logging.getLogger('security')
 
 _MAX_BODY = 4096  # bytes
+
+#: v3.46.2 — storage caps, per `_WINDOW` seconds.
+#:
+#: Before this, every accepted POST wrote one `CSPViolation` row, and nothing
+#: deletes those rows. The endpoint is public and CSRF-exempt, so the only
+#: ceiling was nginx's `general_zone` (10 r/s per IP): about 864,000 rows a
+#: day from one client, and more from a client that can vary its address.
+#:
+#: A real browser on a page with a CSP problem sends a handful of reports per
+#: page view, and one copy of a violation is as useful as fifty — the admin
+#: view groups them by (directive, blocked URI) anyway. 60 per IP per ten
+#: minutes is well above that; 1,000 site-wide stops address rotation from
+#: getting around the per-IP cap.
+_WINDOW = 600
+_PER_IP_CAP = 60
+_GLOBAL_CAP = 1000
+
+
+def _bump(key):
+    """Increment a cache counter, starting it (with the window's TTL) if missing."""
+    if cache.add(key, 1, _WINDOW):
+        return 1
+    try:
+        return cache.incr(key)
+    except ValueError:  # expired between add() and incr()
+        cache.set(key, 1, _WINDOW)
+        return 1
+
+
+def _over_storage_cap(ip_address):
+    """
+    True when this report should be acknowledged but not stored.
+
+    Both counters are bumped on every report, so a client already over its
+    own cap keeps counting toward the global one — that is deliberate: a
+    flood should use up the global allowance and stop, not be invisible to it.
+    A cache failure must not break the endpoint, so it fails open (stores).
+    """
+    try:
+        per_ip = _bump(f'csp_report:ip:{ip_address or "unknown"}')
+        site = _bump('csp_report:all')
+    except Exception:
+        return False
+    over = per_ip > _PER_IP_CAP or site > _GLOBAL_CAP
+    # Log the moment a cap is crossed, once — not once per dropped report.
+    if per_ip == _PER_IP_CAP + 1:
+        logger.warning("CSP report cap reached for IP=%s; further reports from it are not stored "
+                       "for up to %d s", ip_address, _WINDOW)
+    if site == _GLOBAL_CAP + 1:
+        logger.warning("Site-wide CSP report cap reached; reports are not stored for up to %d s", _WINDOW)
+    return over
 
 
 @csrf_exempt  # Browser sends CSP reports directly — no session/cookie context, so CSRF token is unavailable
@@ -84,6 +140,13 @@ def csp_report(request):
         f"Document: {document_uri}\n"
         f"Source: {source_file}:{line_number}"
     )
+
+    # v3.46.2 — acknowledged but neither stored nor logged once a cap is
+    # reached. Checked before the log lines too: the `security` logger shares
+    # one 10 MB x 3 rotating file with django/src (see v3.19.4), so an
+    # unthrottled warning per report would push real entries out of it.
+    if _over_storage_cap(ip_address):
+        return HttpResponse(status=204)
 
     if is_noise:
         logger.info(

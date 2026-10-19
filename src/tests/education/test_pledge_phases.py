@@ -232,3 +232,47 @@ class DashboardControlsTests(EducationFixtureMixin, TestCase):
         response = self.client.get(reverse('education_home', args=[self.committee.code]))
         self.assertNotContains(response, reverse('education_advance_all_phases', args=[self.committee.code]))
         self.assertContains(response, 'Phase 1')
+
+
+class ChairSideCountsFollowThePhaseTests(EducationFixtureMixin, TestCase):
+    """
+    v3.46.1 — v3.46.0 hid locked tasks from the pledge but the chair-side
+    numbers still counted them: the dashboard's "points so far" max included
+    live Phase 2/3 tasks a Phase 1 pledge cannot open, and the pledge detail
+    page called a locked task "overdue".
+    """
+
+    def setUp(self):
+        self.build()
+        import datetime
+        past = datetime.date.today() - datetime.timedelta(days=7)
+        self.p1 = PledgeTask.objects.create(title='Phase one task', phase='1', points=10,
+                                            activation_mode='immediate', due_date=past)
+        self.p2 = PledgeTask.objects.create(title='Phase two task', phase='2', points=30,
+                                            activation_mode='immediate', due_date=past)
+
+    def summary(self):
+        response = self.client.get(reverse('education_home', args=[self.committee.code]))
+        self.assertEqual(response.status_code, 200)
+        return next(ps for ps in response.context['pledge_summaries'] if ps['pledge'].pk == self.pledge.pk)
+
+    def overdue_titles(self):
+        response = self.client.get(reverse('education_pledge_detail', args=[self.committee.code, self.pledge.pk]))
+        self.assertEqual(response.status_code, 200)
+        return {row['task'].title for row in response.context['overdue_rows']}
+
+    def test_points_max_leaves_out_locked_tasks(self):
+        self.assertEqual(self.summary()['max_points'], 10)
+
+    def test_points_max_grows_when_the_phase_unlocks(self):
+        self.pledge.pledge_phase = '2'
+        self.pledge.save()
+        self.assertEqual(self.summary()['max_points'], 40)
+
+    def test_a_locked_task_is_not_overdue(self):
+        self.assertEqual(self.overdue_titles(), {'Phase one task'})
+
+    def test_it_is_overdue_once_unlocked(self):
+        self.pledge.pledge_phase = '2'
+        self.pledge.save()
+        self.assertEqual(self.overdue_titles(), {'Phase one task', 'Phase two task'})

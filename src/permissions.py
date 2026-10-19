@@ -91,3 +91,27 @@ def is_platform_owner(user):
     if owner_email and (getattr(user, 'email', '') or '').lower() != owner_email:
         return False
     return True
+
+
+def role_change_error(actor, role, member=None):
+    """
+    v3.50.1 — why `actor` may NOT give `role` to (or take it from) `member`,
+    or '' when they may.
+
+    Only an admin may move a role that `grants_admin`: `transfer_role` makes
+    the incoming holder an admin on the spot, and "Sync officer admins" makes
+    every holder one later. Before this, any officer OR CHAIR could transfer
+    the President role to himself and be an admin one POST later (and strip it
+    from the real President in the same request). Only an admin may change the
+    roles on an admin's account, the same rule v3.50.0 put on `edit_member`.
+
+    `role.grants_admin` itself was already admin-only to set (`role_detail`,
+    `add_role`); this closes the matching gap on who may HOLD such a role.
+    """
+    if getattr(actor, 'is_admin', False):
+        return ''
+    if role is not None and role.grants_admin:
+        return f'Only an admin can give or take "{role.name}", because it makes the holder an admin.'
+    if member is not None and member.is_admin:
+        return "Only an admin can change the roles on an admin's account."
+    return ''

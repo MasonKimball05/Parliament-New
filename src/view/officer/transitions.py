@@ -160,6 +160,20 @@ def transfer_role(request, role_id):
 
     incoming = get_object_or_404(ParliamentUser, user_id=incoming_id, member_status='Active')
 
+    # v3.50.1 — only an admin may hand over a role that makes its holder an
+    # admin (this view sets is_admin below), or take a role from an admin.
+    from src.permissions import role_change_error
+    if outgoing_id and outgoing_id != incoming_id:
+        losing = list(ParliamentUser.objects.filter(user_id=outgoing_id))
+    elif not outgoing_id and role.one_per_chapter:
+        losing = list(ParliamentUser.objects.filter(roles=role).exclude(user_id=incoming_id))
+    else:
+        losing = []
+    for member in [incoming, *losing]:
+        error = role_change_error(request.user, role, member)
+        if error:
+            return JsonResponse({'success': False, 'error': error}, status=403)
+
     changes = []
     end_semester, start_semester = transition_semesters()
 

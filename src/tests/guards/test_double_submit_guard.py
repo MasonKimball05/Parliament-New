@@ -65,3 +65,22 @@ class DoubleSubmitGuardKeepsTheSubmitterTests(SimpleTestCase):
     def test_the_guard_acts_on_the_button_that_was_pressed(self):
         """Otherwise "Deny" shows its spinner on "Approve"."""
         self.assertIn('e.submitter', _strip_js_comments(_guard_script()))
+
+
+class DoubleSubmitGuardRespectsACancelledConfirmTests(SimpleTestCase):
+    """
+    v3.46.1 — answering "Cancel" to a confirm() left the button disabled in
+    its spinner for 10 seconds (checked in Chromium). The guard now skips a
+    confirm form whose submit was prevented, and listens on `window` so it
+    runs after every confirm handler whatever the script order.
+    """
+
+    def test_listens_on_window(self):
+        self.assertIn("window.addEventListener('submit'", _strip_js_comments(_guard_script()))
+
+    def test_skips_a_prevented_confirm_submit(self):
+        script = _strip_js_comments(_guard_script())
+        check = script.index('e.defaultPrevented')
+        self.assertLess(check, script.index('submittedForms.add(form)'))
+        for marker in ('js-confirm-submit', 'data-confirm-msg', "hasAttribute('data-confirm')"):
+            self.assertIn(marker, script[check:script.index('submittedForms.add(form)')])

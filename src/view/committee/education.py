@@ -490,11 +490,20 @@ def education_home(request, code):
         ):
             attendance_by_pledge.setdefault(record.pledge_id, []).append(record)
 
+    # v3.46.1 — and only tasks his phase has unlocked. Since v3.46.0 a live
+    # Phase 2 task is hidden from a Phase 1 pledge (`build_pledge_tasks_context`
+    # filters it out), so he cannot have earned it "so far", and his own My Tasks
+    # total already leaves it out. Counting it here showed every pledge behind.
+    # Earned is filtered the same way, so the two pages keep agreeing.
+    from src.pledge_phases import task_unlocked
+    task_phase_by_pk = {t.pk: t.phase for t in tasks}
+
     for ps in pledge_summaries:
         pledge = ps['pledge']
         applicable_task_pks = [
             pk for pk in live_task_points
-            if not task_assigned_pks.get(pk) or pledge.pk in task_assigned_pks[pk]
+            if (not task_assigned_pks.get(pk) or pledge.pk in task_assigned_pks[pk])
+            and task_unlocked(task_phase_by_pk[pk], pledge.pledge_phase)
         ]
         max_task_points = sum(live_task_points[pk] for pk in applicable_task_pks)
         # v3.48.0 — a "points by % right" quiz earns part of its points.
@@ -1532,6 +1541,7 @@ def education_pledge_detail(request, code, pledge_pk):
     committee, access = _education_committee_or_404(code, request.user)
     is_chair = access['is_chair']
     pledge = get_object_or_404(ParliamentUser, pk=pledge_pk, member_type='Pledge')
+    from src.pledge_phases import task_unlocked
 
     tasks = list(
         PledgeTask.objects.filter(is_active=True)
@@ -1557,7 +1567,11 @@ def education_pledge_detail(request, code, pledge_pk):
         task_rows.append({
             'task': task,
             'completion': completion,
-            'overdue': task.is_overdue_for(completion),
+            # v3.46.1 — a task his phase has not unlocked is hidden from him
+            # (src/pledge_phases.py), so it cannot be overdue for him: he has
+            # no way to do it. His own My Tasks page already agrees.
+            'overdue': (task_unlocked(task.phase, pledge.pledge_phase)
+                        and task.is_overdue_for(completion)),
         })
 
     required = [row for row in task_rows if row['task'].is_required]

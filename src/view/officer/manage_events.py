@@ -227,9 +227,9 @@ def _groupme_event_context(event=None, request=None):
     channels = list(GroupMeChannel.objects.filter(is_active=True))
     if request is not None and request.method == 'POST':
         visible_to = request.POST.getlist('visible_to') or None
-        checked = {int(i) for i in request.POST.getlist('groupme_channel_ids') if i.isdigit()}
+        checked = {int(i) for i in request.POST.getlist('groupme_channel_ids') if i.isdecimal()}
         raw = request.POST.get('groupme_reminder_hours', '')
-        hours = int(raw) if raw.isdigit() else 24
+        hours = int(raw) if raw.isdecimal() else 24
     else:
         visible_to = event.visible_to if event is not None else None
         checked = set(event.groupme_channels.values_list('pk', flat=True)) if event is not None else set()
@@ -301,12 +301,30 @@ def edit_event(request, event_id):
         if form.is_valid():
             with transaction.atomic():
                 form.save()
-                others = apply_series_edit(event, before, set(form.changed_data), scope)
-                # v3.50.0 — GroupMe reminder, applied to the same scope.
+                # v3.50.1 — which events this edit covers, worked out BEFORE
+                # apply_series_edit moves the others: after a move of more than
+                # one occurrence earlier, `date_time >= pivot` would drop the
+                # next one. Re-read after the move so visible_to etc. are current.
                 from src.event_series import affected_events
+                affected_ids = list(
+                    affected_events(event, scope, pivot=before['date_time'])
+                    .values_list('pk', flat=True).distinct())
+                others = apply_series_edit(event, before, set(form.changed_data), scope)
+                # v3.50.1 — the event moved: reminders already sent named the
+                # old time, so clear their "sent" marks and let the push and
+                # GroupMe sweeps send them again for the new time (the Service
+                # Hours editor has always done this for push reminders).
+                # An event whose GroupMe reminder had gone out showed no channel
+                # boxes on the form, so it keeps the groups and lead time it had.
+                already_reminded = set(Event.objects.filter(
+                    pk__in=affected_ids, groupme_reminded_at__isnull=False).values_list('pk', flat=True))
+                if event.date_time != before['date_time']:
+                    Event.objects.filter(pk__in=affected_ids, date_time__gt=timezone.now()).update(
+                        reminder_1_sent_at=None, reminder_2_sent_at=None, groupme_reminded_at=None)
+                # v3.50.0 — GroupMe reminder, applied to the same scope.
                 from src.groupme import save_event_channels
                 save_event_channels(request, list(
-                    affected_events(event, scope, pivot=before['date_time']).distinct()))
+                    Event.objects.filter(pk__in=affected_ids).exclude(pk__in=already_reminded)))
             if others:
                 messages.success(request, f'Event "{event.title}" and {others} other event(s) in the series updated.')
             else:

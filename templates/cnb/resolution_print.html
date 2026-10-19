@@ -325,6 +325,11 @@
 </div>
 
 {{ amendment_refs|json_script:"amendment-refs" }}
+{% comment %} v3.50.2 — what a "[Change S12: …]" ref in the text becomes. Built here,
+   escaped by Django, and copied in by the script below (never parsed from text). {% endcomment %}
+{% for row in structure_rows %}
+<template class="js-structure-motion" data-change-id="{{ row.change.pk }}"><span class="inline-amend-callout"><span class="amend-ref">Upon passage: {{ row.says.heading }}.{% if row.says.detail %} {{ row.says.detail }}{% endif %}{% if row.says.renumbering %} {{ row.says.renumbering }}{% endif %}</span>{% if row.change.kind == 'new_section' and row.change.content %}<span class="amend-delta-row">“<span class="amend-delta-add">{{ row.change.content }}</span>”</span>{% endif %}</span></template>
+{% endfor %}
 {% include "cnb/_amendment_ref_match.html" %}
 <script nonce="{{ request.csp_nonce }}">
 document.addEventListener('DOMContentLoaded', function() {
@@ -570,11 +575,19 @@ document.addEventListener('DOMContentLoaded', function() {
     // the Copy [ref] button would write today (see cnb/_amendment_ref_match.html).
     // A ref pasted before the list was renumbered, or before the amendment's
     // type or scope changed, still becomes the motion.
+    // v3.50.2 — structural changes cited as "[Change S12: …]".
+    var structureMotions = Array.prototype.map.call(
+        document.querySelectorAll('template.js-structure-motion'),
+        function(t) { return { pattern: window.cnbStructureRefPattern(t.dataset.changeId, 'g'), html: t.innerHTML }; });
+
     function replaceMarkersIn(el) {
         if (!el) return;
         amendments.forEach(function(a) {
             var pattern = window.cnbAmendmentRefPattern(a.section, 'g');
             el.innerHTML = el.innerHTML.replace(pattern, function() { return buildInlineHTML(a); });
+        });
+        structureMotions.forEach(function(m) {
+            el.innerHTML = el.innerHTML.replace(m.pattern, function() { return m.html; });
         });
     }
 

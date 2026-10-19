@@ -223,6 +223,11 @@ def assign_role_member(request, role_id):
 
     user = get_object_or_404(ParliamentUser, user_id=user_id)
 
+    from src.permissions import role_change_error  # v3.50.1
+    error = role_change_error(request.user, role, user)
+    if error:
+        return JsonResponse({'success': False, 'error': error}, status=403)
+
     if role.one_per_chapter and ParliamentUser.objects.filter(roles=role).exclude(user_id=user_id).exists():
         return JsonResponse({'success': False, 'error': f'"{role.name}" can only have one holder. Remove the current holder first.'}, status=400)
 
@@ -254,6 +259,12 @@ def unassign_role_member(request, role_id):
         return JsonResponse({'success': False, 'error': 'user_id required'}, status=400)
 
     user = get_object_or_404(ParliamentUser, user_id=user_id)
+
+    from src.permissions import role_change_error  # v3.50.1
+    error = role_change_error(request.user, role, user)
+    if error:
+        return JsonResponse({'success': False, 'error': error}, status=403)
+
     user.roles.remove(role)
 
     ActivityLog.log_activity(

@@ -8,11 +8,27 @@
         // Track forms that have been submitted
         const submittedForms = new WeakSet();
 
-        document.addEventListener('submit', function(e) {
+        // v3.46.1 — on `window`, not `document`, so this runs after every
+        // form- and document-level submit handler, whatever order the
+        // scripts were loaded in. That matters for the check below.
+        window.addEventListener('submit', function(e) {
             const form = e.target;
 
             // Skip forms with data-no-double-submit-protection attribute
             if (form.hasAttribute('data-no-double-submit-protection')) return;
+
+            // v3.46.1 — a confirm() the member answered "Cancel" to. Those
+            // handlers call preventDefault(); before this check the guard
+            // still marked the form as submitted and put the button into its
+            // spinner, disabled, for 10 seconds, for a POST that never left.
+            // Only confirm forms are skipped: core.js's CSRF guard also calls
+            // preventDefault() (file-upload forms, then it resubmits itself),
+            // and AJAX forms do too; those keep the guard exactly as before.
+            if (e.defaultPrevented && (
+                form.classList.contains('js-confirm-submit') ||
+                form.hasAttribute('data-confirm-msg') ||
+                (e.submitter && e.submitter.hasAttribute('data-confirm'))
+            )) return;
 
             // If form was already submitted, prevent duplicate
             if (submittedForms.has(form)) {
