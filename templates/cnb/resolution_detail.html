@@ -337,9 +337,9 @@
                 {% include "cnb/_resolution_notes.html" %}
                 {% endif %}
 
-                <!-- Status Actions — chair only (v3.41.1). Editors edit the text
-                     and amendments; `set_resolution_status` is @cnb_required. -->
-                {% if can_edit and is_cnb %}
+                <!-- Status Actions — chair and (v3.51.0) the author. Editors edit
+                     the text and amendments. Passed / Failed: chair only. -->
+                {% if can_edit and can_manage %}
                 <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
                     <div class="px-5 py-4 border-b border-gray-100 dark:border-gray-700">
                         <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100">Actions</h3>
@@ -362,6 +362,7 @@
                             </button>
                         </form>
                         {% elif resolution.status == 'pending' %}
+                        {% if is_cnb %}
                         <form method="post" action="{% url 'cnb_set_status' resolution_id=resolution.pk %}">
                             {% csrf_token %}
                             <input type="hidden" name="status" value="passed">
@@ -378,6 +379,9 @@
                                 Resolution Failed
                             </button>
                         </form>
+                        {% else %}
+                        <p class="px-3 py-2 text-xs text-gray-500 dark:text-gray-400">The Constitution &amp; Bylaws Chair records whether it passed or failed.</p>
+                        {% endif %}
                         <form method="post" action="{% url 'cnb_set_status' resolution_id=resolution.pk %}">
                             {% csrf_token %}
                             <input type="hidden" name="status" value="draft">
@@ -450,11 +454,11 @@
                     </dl>
                 </div>
 
-                <!-- Collaborators (CNB-managed) -->
+                <!-- Collaborators (chair- or author-managed, v3.51.0) -->
                 <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
                     <div class="px-5 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
                         <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100">Collaborators</h3>
-                        {% if is_cnb %}
+                        {% if can_manage %}
                         <button id="js-open-collab-modal"
                                 class="text-xs text-primary-600 dark:text-primary-400 hover:underline font-medium">+ Add</button>
                         {% endif %}
@@ -467,18 +471,18 @@
                             <div class="flex items-center justify-between gap-3">
                                 <div class="min-w-0">
                                     <p class="text-sm text-gray-900 dark:text-gray-100 font-medium truncate">{{ collab.user.name }}</p>
-                                    {% if not is_cnb %}
+                                    {% if not can_manage %}
                                     <p class="text-xs text-gray-500 dark:text-gray-400">{{ collab.get_role_display }}</p>
                                     {% endif %}
                                 </div>
-                                {% if is_cnb %}
+                                {% if can_manage %}
                                 <form method="post" action="{% url 'cnb_remove_collaborator' resolution_id=resolution.pk collaborator_id=collab.pk %}" class="flex-shrink-0">
                                     {% csrf_token %}
                                     <button type="submit" class="text-xs text-red-500 hover:text-red-700 dark:hover:text-red-400">Remove</button>
                                 </form>
                                 {% endif %}
                             </div>
-                            {% if is_cnb %}
+                            {% if can_manage %}
                             <!-- Reuses cnb_add_collaborator directly — it already
                                  get_or_create()s and updates the role when the
                                  collaborator already exists, so no new endpoint
@@ -965,7 +969,7 @@
 {% endif %}
 
 <!-- Add Collaborator Modal -->
-{% if is_cnb %}
+{% if can_manage %}
 <div id="addCollabModal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-md">
         <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">

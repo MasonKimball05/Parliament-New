@@ -513,7 +513,7 @@ class QuoteBookQueryBudgetTests(QueryBudgetMixin, TestCase):
     for everyone (one extra `Quote.objects.filter(...).count()` query),
     not just officers. A real, deliberate query for a real feature.
     """
-    BUDGET = 29
+    BUDGET = 30  # +1 at the 10-17-26 merge of main: v3.47.0's last_seen_at UPDATE (cold path, once per session per 5 min; see v3.48.1)
 
     def setUp(self):
         enable_quote_book_toggle()

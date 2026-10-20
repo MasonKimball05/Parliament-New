@@ -36,6 +36,14 @@ def assign_appointment(request, legislation_id):
 
     is_plurality = legislation.vote_mode == 'plurality'
 
+    # v3.51.0 — only a vote that closed and passed, and only once (Mason,
+    # 10-19-26). Before, the page assigned the role for an open, failed or
+    # already-assigned vote, and logged it "following appointment vote".
+    refusal = _not_assignable(legislation)
+    if refusal:
+        messages.error(request, refusal)
+        return redirect('passed_legislation')
+
     if request.method == 'POST':
         # Resolve the member to assign
         if is_plurality:
@@ -59,6 +67,19 @@ def assign_appointment(request, legislation_id):
             messages.error(request, role_error)
             return redirect('passed_legislation')
 
+        # v3.51.0 — re-checked under a row lock, so two officers (or a
+        # double-submit) can't both assign it.
+        from django.db import transaction
+        with transaction.atomic():
+            locked = Legislation.objects.select_for_update().get(pk=legislation.pk)
+            refusal = _not_assignable(locked)
+            if refusal:
+                messages.error(request, refusal)
+                return redirect('passed_legislation')
+            locked.appointment_assigned = True
+            locked.save(update_fields=['appointment_assigned'])
+            legislation.appointment_assigned = True
+
         # Assign role
         member.roles.add(role)
 
@@ -66,10 +87,6 @@ def assign_appointment(request, legislation_id):
         if member.member_type == 'Member':
             member.member_type = 'Chair'
             member.save(update_fields=['member_type'])
-
-        # Mark assignment complete
-        legislation.appointment_assigned = True
-        legislation.save(update_fields=['appointment_assigned'])
 
         ActivityLog.log_activity(
             action_type='other',
@@ -102,6 +119,17 @@ def assign_appointment(request, legislation_id):
         return redirect('passed_legislation')
 
     return _render_assign_page(request, legislation, is_plurality)
+
+
+def _not_assignable(legislation):
+    """Why this appointment's role can't be assigned now, or '' if it can."""
+    if legislation.appointment_assigned:
+        return f'"{legislation.title}" has already been assigned.'
+    if not legislation.voting_closed:
+        return f'Voting on "{legislation.title}" hasn\'t closed yet.'
+    if not legislation.passed:
+        return f'"{legislation.title}" did not pass, so there is no role to assign.'
+    return ''
 
 
 def _render_assign_page(request, legislation, is_plurality):

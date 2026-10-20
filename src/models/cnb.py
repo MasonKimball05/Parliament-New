@@ -877,12 +877,18 @@ class ResolutionNote(models.Model):
 
     @staticmethod
     def user_can_use_notes(user, resolution):
-        """CNB holders and any collaborator on this resolution."""
+        """CNB holders, the author (v3.51.0) and any collaborator on this resolution."""
         if not user.is_authenticated:
             return False
         if user.has_cnb_permission:
             return True
+        if resolution.created_by_id is not None and resolution.created_by_id == user.pk and user.can_create_resolution:
+            return True
         return resolution.collaborators.filter(user=user).exists()
 
     def user_can_delete(self, user):
-        return user.has_cnb_permission or (self.created_by_id is not None and self.created_by_id == user.pk)
+        if user.has_cnb_permission or (self.created_by_id is not None and self.created_by_id == user.pk):
+            return True
+        # v3.51.0 — the resolution's author runs its working group too.
+        res = self.resolution
+        return res.created_by_id is not None and res.created_by_id == user.pk and user.can_create_resolution

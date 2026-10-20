@@ -88,8 +88,40 @@ def role_change_error(actor, role, member=None):
     """
     if getattr(actor, 'is_admin', False):
         return ''
+    # v3.51.0 — Mason, 10-19-26: chairs don't hand out roles; only officers
+    # (and admins) do. `officer_required` lets chairs in, so this is the check.
+    if not getattr(actor, 'is_officer', False):
+        return 'Only officers can give or take roles.'
     if role is not None and role.grants_admin:
         return f'Only an admin can give or take "{role.name}", because it makes the holder an admin.'
     if member is not None and member.is_admin:
         return "Only an admin can change the roles on an admin's account."
     return ''
+
+
+#: v3.51.0 — member types that open officer pages (`CAN_VIEW_OFFICER_PAGES`).
+ELEVATED_MEMBER_TYPES = ('Officer', 'Chair', 'Advisor')
+
+
+def member_type_change_error(actor, new_type, member=None):
+    """
+    v3.51.0 — why `actor` may NOT set `member`'s member type to `new_type`
+    (`member` None = a new account), or '' when they may.
+
+    `officer_required` lets chairs into the member editor, add-member and bulk
+    import, and member type is itself a permission: Officer / Chair / Advisor
+    open the officer pages. So, like roles (`role_change_error`), a non-officer
+    can only make Members and Pledges, and can't change his own type (a Chair
+    could otherwise make himself an Officer). Admins and officers unchanged.
+    """
+    if getattr(actor, 'is_admin', False) or getattr(actor, 'is_officer', False):
+        return ''
+    current = getattr(member, 'member_type', None)
+    if member is not None and new_type == current:
+        return ''
+    if member is not None and member.pk == actor.pk:
+        return "You can't change your own member type."
+    if new_type in ELEVATED_MEMBER_TYPES or current in ELEVATED_MEMBER_TYPES:
+        return 'Only officers can make someone an Officer, Chair or Advisor, or change theirs.'
+    return ''
+

@@ -368,7 +368,8 @@ class CnbDocumentPdfViewTests(TestCase):
         response = self.client.get(reverse('constitution_bylaws'))
         pdf_url = reverse('cnb_document_pdf')
         self.assertEqual(response.content.decode().count(pdf_url), 2)
-        # This user has no CNB permission, so "New Resolution" must be
-        # absent while "View Document PDF" is still present.
-        self.assertNotContains(response, 'New Resolution')
+        # v3.51.0: any brother can write a resolution, so this Member (no CNB
+        # permission) now sees "New Resolution" too. Pledges don't — see
+        # src/tests/legislation/test_resolutions_open_to_brothers.py.
+        self.assertContains(response, 'New Resolution')
         self.assertContains(response, 'View Document PDF')

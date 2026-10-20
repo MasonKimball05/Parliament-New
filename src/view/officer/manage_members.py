@@ -91,7 +91,10 @@ def add_member(request):
 
     # v3.50.1 — a non-admin can't create an account holding an admin role
     # (he'd know its temp password, and "Sync officer admins" would make it one).
-    from src.permissions import role_change_error
+    from src.permissions import member_type_change_error, role_change_error
+    type_error = member_type_change_error(request.user, form.cleaned_data['member_type'])  # v3.51.0
+    if type_error:
+        return JsonResponse({'success': False, 'error': type_error, 'errors': {'__all__': type_error}}, status=403)
     for role in form.cleaned_data.get('roles') or []:
         role_error = role_change_error(request.user, role)
         if role_error:
@@ -238,6 +241,13 @@ def edit_member(request, user_id):
     )
     if text_error:
         return JsonResponse({'success': False, 'error': text_error}, status=400)
+
+    # v3.51.0 — chairs can't promote anyone (or themselves) past Member.
+    if 'member_type' in data:
+        from src.permissions import member_type_change_error
+        type_error = member_type_change_error(request.user, data['member_type'], member)
+        if type_error:
+            return JsonResponse({'success': False, 'error': type_error}, status=403)
 
     # v3.50.1 — roles that make the holder an admin can only be given or taken
     # by an admin. Checked before anything is saved.
@@ -729,6 +739,10 @@ def _import_member_row(row, requesting_user):
     if member_type not in VALID_MEMBER_TYPES:
         return {'status': 'error', 'name': name, 'username': username,
                 'error': f"Invalid member_type '{member_type}'. Must be one of: {', '.join(sorted(VALID_MEMBER_TYPES))}."}
+    from src.permissions import member_type_change_error  # v3.51.0
+    type_error = member_type_change_error(requesting_user, member_type)
+    if type_error:
+        return {'status': 'error', 'name': name, 'username': username, 'error': type_error}
 
     # v3.50.0 — same text rules as everywhere else a member is edited.
     from src.profile_text import member_fields_error

@@ -432,6 +432,22 @@ class ParliamentUser(AbstractBaseUser):
         return self.roles.filter(code='CNB').exists()
 
     @property
+    def can_create_resolution(self):
+        """
+        v3.51.0 — any brother may write a resolution (Mason, 10-19-26: "open to
+        everyone", brothers only). Members, Chairs, Officers and admins; not
+        pledges, not advisors. The author then runs his own resolution
+        (`src.view.officer.cnb._can_manage_resolution`) except for recording
+        the vote result: Passed / Failed change the governing documents and
+        stay with the C&B Chair.
+        """
+        if not self.is_active:
+            return False
+        if self.is_admin:
+            return True
+        return self.member_type in MemberType.CAN_VOTE
+
+    @property
     def can_access_kai(self):
         """
         True if this user may open the Kai review list (`view_kai_reports`).
