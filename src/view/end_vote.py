@@ -75,9 +75,12 @@ def end_vote(request, legislation_id):
             has_tie = False
             tied_options = []
 
-        # Only passes if there's a clear winner (no tie)
-        vote_passed = bool(most_voted) and not has_tie
-        winner = most_voted if not has_tie else None
+        # Only passes if there's a clear winner (no tie). v3.51.1: and at
+        # least one vote — 0-0 was "no tie" above, so the first option "won"
+        # a vote nobody voted in (and became assignable as an appointment).
+        from src.vote_rules import plurality_passed
+        vote_passed = plurality_passed(plurality_counts)
+        winner = most_voted if vote_passed else None
 
     # Update status based on vote outcome
     # v3.13.3: failed votes are now marked 'failed', not 'removed' — the

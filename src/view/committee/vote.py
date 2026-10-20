@@ -8,6 +8,7 @@ from datetime import timedelta
 from src.models import Committee, CommitteeLegislation, CommitteeVote, Attendance, ActivityLog
 from src.view.webauthn import check_vote_reauth
 from src.feature_flag_decorators import require_feature_flag
+from src.vote_rules import plurality_passed  # v3.51.1
 import logging
 
 logger = logging.getLogger('function_calls')
@@ -63,11 +64,8 @@ def committee_vote(request, code):
 
             if total_votes > 0:
                 if legislation.vote_mode == 'plurality':
-                    options = {k: v for k, v in tally.items() if k != 'total'}
-                    if options:
-                        max_votes = max(options.values())
-                        legislation.passed = max_votes > 0
-                        legislation.status = 'passed' if legislation.passed else 'draft'
+                    legislation.passed = plurality_passed(tally)  # v3.51.1: a tie doesn't pass
+                    legislation.status = 'passed' if legislation.passed else 'draft'
                 elif legislation.vote_mode == 'piecewise':
                     required = legislation.required_number or 0
                     legislation.passed = tally.get('yes', 0) >= required
@@ -120,11 +118,8 @@ def committee_vote(request, code):
                 if total_votes > 0:
                     if legislation.vote_mode == 'plurality':
                         # Plurality: winner is the option with most votes
-                        options = {k: v for k, v in tally.items() if k != 'total'}
-                        if options:
-                            max_votes = max(options.values())
-                            legislation.passed = max_votes > 0
-                            legislation.status = 'passed' if legislation.passed else 'draft'
+                        legislation.passed = plurality_passed(tally)  # v3.51.1: a tie doesn't pass
+                        legislation.status = 'passed' if legislation.passed else 'draft'
                     elif legislation.vote_mode == 'piecewise':
                         # Piecewise: need exact number of yes votes
                         required = legislation.required_number or 0
