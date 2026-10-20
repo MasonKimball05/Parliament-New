@@ -35,12 +35,16 @@ def word_diff(old, new):
         if op == 'equal':
             out.append(conditional_escape(''.join(a[i1:i2])))
             continue
-        if i2 > i1:
+        # Test the joined text, not the token count: `_TOKEN.split('')` is [''],
+        # and a leading/trailing space adds a '' edge token, so a replace can
+        # carry a zero-length side that would render as an empty <del>/<ins>.
+        removed, added = ''.join(a[i1:i2]), ''.join(b[j1:j2])
+        if removed:
             out.append('<del class="bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 line-through">'
-                       f'{conditional_escape("".join(a[i1:i2]))}</del>')
-        if j2 > j1:
+                       f'{conditional_escape(removed)}</del>')
+        if added:
             out.append('<ins class="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 no-underline">'
-                       f'{conditional_escape("".join(b[j1:j2]))}</ins>')
+                       f'{conditional_escape(added)}</ins>')
     return mark_safe(''.join(out))  # nosec  # B308,B703: every text segment passes through conditional_escape
 
 
