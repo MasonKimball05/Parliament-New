@@ -858,6 +858,27 @@ def _brothers():
         Q(member_type__in=MemberType.CAN_VOTE) | Q(is_admin=True))
 
 
+_RESOLUTION_TYPES = {value for value, _label in Resolution.TYPE_CHOICES}
+
+
+def _resolution_field_error(field, value):
+    """
+    v3.51.2 — why `value` can't be saved to `field` on a Resolution, or ''.
+
+    `create_resolution` / `edit_resolution` write these from the POST without a
+    form. `title` is CharField(300): longer is a DataError (500) on PostgreSQL
+    and silently kept on SQLite. `resolution_type` must be one of TYPE_CHOICES.
+    Reachable by every brother since v3.51.0.
+    """
+    if field == 'title':
+        limit = Resolution._meta.get_field('title').max_length
+        if len(value) > limit:
+            return f'The title can be at most {limit} characters (this one is {len(value)}).'
+    elif field == 'resolution_type' and value not in _RESOLUTION_TYPES:
+        return 'Pick a resolution type from the list.'
+    return ''
+
+
 def _edit_denied(request, resolution):
     """A redirect for someone who may not edit `resolution`, else None."""
     if _can_edit_resolution(request.user, resolution):
@@ -887,6 +908,13 @@ def create_resolution(request):
 
         if not title:
             messages.error(request, 'A title is required.')
+            return render(request, 'cnb/resolution_form.html', {'action': 'Create', 'ref_docs': ref_docs})
+
+        # v3.51.2 — checked before saving: a long title or type was a DataError
+        # (500) on PostgreSQL, and an unknown type was saved as-is.
+        field_error = _resolution_field_error('title', title) or _resolution_field_error('resolution_type', resolution_type)
+        if field_error:
+            messages.error(request, field_error)
             return render(request, 'cnb/resolution_form.html', {'action': 'Create', 'ref_docs': ref_docs})
 
         vote_date = None
@@ -989,6 +1017,10 @@ def edit_resolution(request, resolution_id):
                     continue
                 if field == 'title' and not new:
                     messages.error(request, 'A title is required.')
+                    continue
+                field_error = _resolution_field_error(field, new)  # v3.51.2
+                if field_error:
+                    messages.error(request, field_error)
                     continue
                 if field == 'vote_date':
                     if new:

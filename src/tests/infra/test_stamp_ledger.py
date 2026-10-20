@@ -35,6 +35,7 @@ import os
 import re
 import tempfile
 from pathlib import Path
+from unittest import mock
 
 from django.test import SimpleTestCase
 
@@ -283,3 +284,41 @@ class TheRealLedgerIsStampedTests(SimpleTestCase):
             '--amend changes the sha being recorded:\n  '
             + '\n  '.join(remaining),
         )
+
+
+class StampLedgerRefusesTheMultiChapterCheckoutTests(SimpleTestCase):
+    """
+    v3.51.2 — on 10-19-26 the v3.50.2 stamp was made in the multi-chapter
+    checkout and pushed to that branch, so main's ledger never got the row.
+    """
+
+    def setUp(self):
+        self.script = _load_script()
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.marker = Path(self.tmp.name) / '.multi-chapter'
+        self.script.MULTI_CHAPTER_MARKER = self.marker
+
+    def test_no_marker_means_no_refusal(self):
+        self.assertEqual(self.script.wrong_branch_message(), '')
+
+    def test_marker_refuses_and_names_main(self):
+        self.marker.write_text('x', encoding='utf-8')
+        with mock.patch.dict(os.environ, {}, clear=False):
+            os.environ.pop('STAMP_ON_MULTI_CHAPTER', None)
+            message = self.script.wrong_branch_message()
+        self.assertIn('main', message)
+        self.assertIn('Nothing was changed', message)
+
+    def test_main_returns_before_touching_anything(self):
+        self.marker.write_text('x', encoding='utf-8')
+        with mock.patch.dict(os.environ, {}, clear=False), \
+                mock.patch.object(self.script, 'added_commits') as added:
+            os.environ.pop('STAMP_ON_MULTI_CHAPTER', None)
+            self.assertEqual(self.script.main(), 1)
+        added.assert_not_called()
+
+    def test_override(self):
+        self.marker.write_text('x', encoding='utf-8')
+        with mock.patch.dict(os.environ, {'STAMP_ON_MULTI_CHAPTER': '1'}):
+            self.assertEqual(self.script.wrong_branch_message(), '')
