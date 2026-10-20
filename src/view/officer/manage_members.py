@@ -14,7 +14,7 @@ from django.db import connection, transaction
 
 from src.models import ParliamentUser, Role, ActivityLog
 from src.forms import AddMemberForm, EditMemberForm
-from src.decorators import officer_required
+from src.decorators import admin_required, officer_required
 from src.notification_service import notify_users
 from src.notifications import send_pledge_welcome_email
 from src.permissions import is_platform_owner
@@ -570,8 +570,16 @@ def get_all_roles(request):
 
 
 @login_required
+@admin_required
 def get_admin_roles(request):
-    """API endpoint to get roles that grant admin privileges."""
+    """
+    API endpoint to get roles that grant admin privileges.
+
+    10-20-26 — was @login_required only, so any member (pledges included) could
+    list which roles grant admin. Its one caller is the Sync Officer Admins
+    modal on the member list, which only admins see, and `sync_officer_admins`
+    is admin-only too, so this is `admin_required` rather than `officer_required`.
+    """
     admin_roles = Role.objects.filter(grants_admin=True).values('id', 'name', 'code')
     return JsonResponse({
         'success': True,
