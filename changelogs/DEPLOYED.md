@@ -223,6 +223,7 @@ which predate this file and are more specific than their commit dates.
 | v3.50.1 | live by 10-19-26 ‡ | `3748430` | See `changelogs/v3.50.1.md`. |
 | v3.50.2 | live by 10-19-26 ‡ | `6f51f2a` | See `changelogs/v3.50.2.md`. |
 | v3.50.3 | n/a — tests only | `f006b53` | See `changelogs/v3.50.3.md`. |
+| v3.51.0 | *not deployed* | `7613240` | See `changelogs/v3.51.0.md`. |
 
 > **‡ 10-19-26 — Mason: "All deployments are live on prod."** Every row marked ‡
 > had been left *not deployed* while it shipped. He deploys as he goes; the exact
