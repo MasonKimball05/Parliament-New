@@ -10,8 +10,46 @@ from django.core.mail import EmailMultiAlternatives
 from django.template.loader import render_to_string
 from django.utils.html import strip_tags
 
+from django import forms
+from django.core.exceptions import ValidationError
+
 from src.models import BugReport, ActivityLog
 from src.models.users import member_defer, UserSession
+
+
+#: v3.51.6 — screenshot limits. The view assigns `request.FILES['screenshot']`
+#: straight to the model, and a model `ImageField` only checks the image in a
+#: *form*, so before this anything at all could be stored as a "screenshot".
+SCREENSHOT_EXTENSIONS = ('.png', '.jpg', '.jpeg', '.webp', '.gif')
+SCREENSHOT_MAX_BYTES = 10 * 1024 * 1024
+
+
+def _screenshot_error(upload):
+    """None if `upload` is an acceptable screenshot, else a message for the member."""
+    name = (upload.name or '').lower()
+    if not name.endswith(SCREENSHOT_EXTENSIONS):
+        return 'Screenshots must be PNG, JPEG, WebP or GIF.'
+    if upload.size > SCREENSHOT_MAX_BYTES:
+        return 'Screenshots can be at most 10 MB.'
+    try:
+        # Pillow open + verify, the same check a form ImageField runs.
+        forms.ImageField().clean(upload)
+    except ValidationError:
+        return "That file isn't a readable image."
+    finally:
+        upload.seek(0)
+    return None
+
+
+def _choice(value, choices, default):
+    """`value` if it's one of the model's choices, else `default` (v3.51.6)."""
+    return value if value in {c[0] for c in choices} else default
+
+
+def _clip(field, value):
+    """Trim `value` to the model field's max_length (v3.51.6): a 500 on
+    PostgreSQL is worse than a shortened URL or user-agent string."""
+    return value[:BugReport._meta.get_field(field).max_length]
 
 
 @login_required
@@ -41,24 +79,33 @@ def submit_bug_report(request):
         # Create the bug report
         bug_report = BugReport(
             description=description,
-            issue_type=request.POST.get('issue_type', 'other'),
-            page=request.POST.get('page', ''),
-            page_url=request.POST.get('page_url', ''),
-            feature=request.POST.get('feature', ''),
-            priority=request.POST.get('priority', 'medium'),
+            # v3.51.6: choices checked and text trimmed to the column, so a
+            # hand-edited form can't 500 on PostgreSQL (DataError) or store
+            # a value the admin pages don't know.
+            issue_type=_choice(request.POST.get('issue_type', 'other'), BugReport.ISSUE_TYPES, 'other'),
+            page=_choice(request.POST.get('page', ''), BugReport.PAGE_CHOICES, ''),
+            page_url=_clip('page_url', request.POST.get('page_url', '')),
+            feature=_clip('feature', request.POST.get('feature', '')),
+            priority=_choice(request.POST.get('priority', 'medium'), BugReport.PRIORITY_CHOICES, 'medium'),
             steps_to_reproduce=request.POST.get('steps_to_reproduce', ''),
             expected_behavior=request.POST.get('expected_behavior', ''),
             actual_behavior=request.POST.get('actual_behavior', ''),
-            browser_info=request.POST.get('browser_info', ''),
+            browser_info=_clip('browser_info', request.POST.get('browser_info', '')),
             device_type=device_type,
             browser=browser,
             operating_system=operating_system,
             submitted_by=request.user,
         )
 
-        # Handle screenshot upload
+        # Handle screenshot upload. v3.51.6: checked first. A bad file doesn't
+        # throw the report away; it's saved without the screenshot and the
+        # member is told why.
+        screenshot_problem = None
         if 'screenshot' in request.FILES:
-            bug_report.screenshot = request.FILES['screenshot']
+            upload = request.FILES['screenshot']
+            screenshot_problem = _screenshot_error(upload)
+            if screenshot_problem is None:
+                bug_report.screenshot = upload
 
         bug_report.save()
 
@@ -81,6 +128,8 @@ def submit_bug_report(request):
             },
         )
 
+        if screenshot_problem:
+            messages.warning(request, f'Your report was saved without the screenshot. {screenshot_problem}')
         messages.success(request, 'Thank you! Your bug report has been submitted successfully.')
         return redirect('bug_report_success', bug_id=bug_report.id)
 
