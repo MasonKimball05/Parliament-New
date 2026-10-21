@@ -1377,7 +1377,10 @@ if settings.DEBUG:
     urlpatterns += static('/exportable-media/', document_root=_os.path.join(settings.BASE_DIR, 'exportable_media'))
 
 # Custom error handlers
-from src.view.error_handlers import custom_404, custom_500
+from src.view.error_handlers import custom_400, custom_403, custom_404, custom_500
 
+# v3.51.3: all four close their DB connection — see src/view/error_handlers.py.
+handler400 = custom_400
+handler403 = custom_403
 handler404 = custom_404
 handler500 = custom_500

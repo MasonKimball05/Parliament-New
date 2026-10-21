@@ -7,6 +7,7 @@ from django.http import Http404, HttpResponse, HttpResponseForbidden
 from django.views.decorators.csrf import csrf_exempt
 from django.core.cache import cache
 from django.conf import settings
+from django.db import connections
 from src.models import HoneypotAccess
 from src.security_notifications import alert_honeypot_triggered
 from src.geo_utils import get_ip_geo
@@ -33,6 +34,25 @@ def lookup_geo(ip_address, record_id):
         record.save(update_fields=['additional_data'])
     except Exception as e:
         logger.warning(f"Failed to save geo data for honeypot record {record_id}: {e}")
+
+
+def _lookup_geo_in_thread(ip_address, record_id):
+    """
+    v3.51.3 — `lookup_geo` for a background thread, closing the thread's
+    database connection afterwards.
+
+    Django opens one connection per thread and closes them only when a request
+    finishes. This thread is not a request, so without this every honeypot hit
+    left an idle PostgreSQL backend in Daphne until the next restart (prod
+    10-21-26: 6 idle connections, 3–9 hours old, with CONN_MAX_AGE=0).
+    """
+    try:
+        lookup_geo(ip_address, record_id)
+    except Exception as e:  # never let the thread die noisily
+        logger.warning(f"Geo lookup thread failed for honeypot record {record_id}: {e}")
+    finally:
+        connections.close_all()
+
 
 # How long to ban an IP after honeypot access (seconds)
 HONEYPOT_BAN_DURATION = 24 * 60 * 60  # 24 hours
@@ -184,7 +204,7 @@ def log_and_block_honeypot_access(request, endpoint):
     # immediately, so the thread would exist only to write "lookup failed".
     if honeypot_record is not None and ip_address:
         threading.Thread(
-            target=lookup_geo,
+            target=_lookup_geo_in_thread,  # v3.51.3: closes its DB connection
             args=(ip_address, honeypot_record.id),
             daemon=True,
         ).start()
