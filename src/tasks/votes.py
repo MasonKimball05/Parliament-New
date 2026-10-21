@@ -158,8 +158,8 @@ def auto_open_close_committee_votes():
 
             if total_votes > 0:
                 if leg.vote_mode == 'plurality':
-                    options = {k: v for k, v in tally.items() if k != 'total'}
-                    leg.passed = max(options.values()) > 0 if options else False
+                    from src.vote_rules import plurality_passed
+                    leg.passed = plurality_passed(tally)  # v3.51.1: a tie doesn't pass
                     leg.status = 'passed' if leg.passed else 'draft'
                 elif leg.vote_mode == 'piecewise':
                     leg.passed = tally.get('yes', 0) >= (leg.required_number or 0)

@@ -14,11 +14,14 @@ From here an officer can:
   * send a test message, turn a channel off, remove it, and retry failures.
 """
 import re
+from datetime import timedelta
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.cache import cache
+from django.db.models import Count, Min
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from src.decorators import log_function_call, officer_required
@@ -33,6 +36,7 @@ GROUPS_CACHE_KEY = 'groupme_groups_list'
 GROUPS_CACHE_SECONDS = 120
 TEST_COOLDOWN_SECONDS = 30
 LOG_ROWS = 50
+STUCK_MINUTES = 10  # v3.51.0: "N posts waiting" warning on the dashboard
 
 _GROUP_ID_RE = re.compile(r'^\d{1,50}$')
 _BOT_ID_RE = re.compile(r'^[A-Za-z0-9]{6,100}$')
@@ -99,7 +103,17 @@ def groupme_dashboard(request):
               'event__title', 'event__id')
         .order_by('-created_at')[:LOG_ROWS]
     )
+    # v3.51.0 — posts that should have gone out by now. Retries run at 1, 2
+    # and 4 minutes and the sweep re-queues every 5, so anything still
+    # 'queued' after STUCK_MINUTES is not going to post by itself (worker
+    # down, or deliver() failing the way v3.49.0 did on Postgres).
+    stuck_cutoff = timezone.now() - timedelta(minutes=STUCK_MINUTES)
+    stuck = GroupMeMessage.objects.filter(status='queued', created_at__lt=stuck_cutoff).aggregate(
+        count=Count('pk'), oldest=Min('created_at'))
     return render(request, 'officer/groupme_dashboard.html', {
+        'stuck_count': stuck['count'],
+        'stuck_oldest': stuck['oldest'],
+        'stuck_minutes': STUCK_MINUTES,
         'settings_row': settings_row,
         'channels': channels,
         'groups': groups,

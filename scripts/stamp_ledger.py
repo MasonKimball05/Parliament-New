@@ -253,8 +253,37 @@ def stamp_ledger_rows(pending: dict[str, tuple[str, str]], dry_run: bool) -> lis
     return changed
 
 
+#: v3.51.2 — the multi-chapter line's marker file (see `.multi-chapter`).
+MULTI_CHAPTER_MARKER = REPO / '.multi-chapter'
+
+
+def wrong_branch_message() -> str:
+    """
+    Why stamping here would go to the wrong branch, or '' when it's fine.
+
+    v3.51.2 — releases are committed on `main`, so their ledger stamps belong
+    there. On 10-19-26 the v3.50.2 stamp (`0e05afe`) was run in the
+    `multi-chapter` checkout and pushed there: `main`'s DEPLOYED.md never got
+    the row, and the two branches then disagreed on the same lines, which is a
+    merge conflict waiting for the next main → multi-chapter merge.
+    `STAMP_ON_MULTI_CHAPTER=1` overrides, for the day that branch ships.
+    """
+    if MULTI_CHAPTER_MARKER.exists() and not os.environ.get('STAMP_ON_MULTI_CHAPTER'):
+        return ('stamp-ledger: this checkout is the multi-chapter branch (it has '
+                'the .multi-chapter marker).\n'
+                '    Release stamps belong on main — run it in the main worktree '
+                '(~/Documents/GitHub/Parliament-main).\n'
+                '    Nothing was changed. STAMP_ON_MULTI_CHAPTER=1 overrides.')
+    return ''
+
+
 def main() -> int:
     dry_run = bool(os.environ.get('CHECK'))
+
+    refusal = wrong_branch_message()
+    if refusal:
+        print(refusal)
+        return 1
 
     added = added_commits()
     if not added:

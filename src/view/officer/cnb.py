@@ -109,6 +109,7 @@ def cnb_viewer(request):
         'resolutions': resolutions,
         'user_can_manage': is_cnb,
         'is_cnb': is_cnb,
+        'can_create_resolution': request.user.can_create_resolution,  # v3.51.0
         'active_tab': active_tab,
         # v3.17.5: was two COUNT round trips over the same table. One pass.
         **Resolution.objects.aggregate(
@@ -744,7 +745,7 @@ def _notes_context(user, resolution):
         'note_color_choices': ResolutionNote.COLOR_CHOICES,
         'note_max_length': ResolutionNote.MAX_LENGTH,
         # Mirrors ResolutionNote.user_can_delete for the per-note Delete button.
-        'can_delete_any_note': user.has_cnb_permission,
+        'can_delete_any_note': _can_manage_resolution(user, resolution),  # v3.51.0: + author
     }
 
 
@@ -785,10 +786,8 @@ def resolution_detail(request, resolution_id):
 
     is_editable_status = resolution.status in ('draft', 'pending')
     is_cnb = request.user.has_cnb_permission
-    is_editor_collab = resolution.collaborators.filter(
-        user=request.user, role='editor'
-    ).exists()
-    can_edit = is_editable_status and (is_cnb or is_editor_collab)
+    can_manage = _can_manage_resolution(request.user, resolution)  # v3.51.0: chair or author
+    can_edit = is_editable_status and _can_edit_resolution(request.user, resolution)
 
     # Section selector for the amendment modal — only needed by editors.
     # v3.19.1: gated. A document that is switched off should not be amendable,
@@ -799,17 +798,21 @@ def resolution_detail(request, resolution_id):
         if can_edit else []
     )
 
-    # Members list for the add-collaborator form — CNB only
-    members = (
-        ParliamentUser.objects.filter(is_active=True).order_by('name')
-        if is_cnb else []
-    )
+    # Members list for the add-collaborator form — chair or author (v3.51.0).
+    # An author may only add brothers (see `add_collaborator`).
+    if is_cnb:
+        members = ParliamentUser.objects.filter(is_active=True).order_by('name')
+    elif can_manage:
+        members = _brothers().order_by('name')
+    else:
+        members = []
 
     context = {
         'resolution': resolution,
         'documents': documents,
         'can_edit': can_edit,
         'is_cnb': is_cnb,
+        'can_manage': can_manage,
         'members': members,
     }
     context.update(_notes_context(request.user, resolution))
@@ -831,25 +834,73 @@ def resolution_detail(request, resolution_id):
 # the chair (`set_resolution_status`, `add_collaborator`, `remove_collaborator`
 # keep `@cnb_required`), and so does creating a resolution.
 
-def _can_edit_resolution(user, resolution):
-    """C&B permission holders, and this resolution's Editor collaborators."""
+def _can_manage_resolution(user, resolution):
+    """
+    v3.51.0 — who runs a resolution: the C&B Chair (and admins), and its
+    author while he is still a brother (`ParliamentUser.can_create_resolution`).
+    Mason, 10-19-26: anyone (brothers) can make a resolution and has full
+    control of it — collaborators and Draft / Pending / Withdrawn — except
+    Passed and Failed, which change the governing documents
+    (`_AUTHOR_STATUSES`).
+    """
+    if not getattr(user, 'is_authenticated', False):
+        return False
     if user.has_cnb_permission:
         return True
+    return (resolution.created_by_id is not None
+            and resolution.created_by_id == user.pk
+            and user.can_create_resolution)
+
+
+def _can_edit_resolution(user, resolution):
+    """C&B permission holders, the author (v3.51.0), and Editor collaborators."""
+    if _can_manage_resolution(user, resolution):
+        return True
     return resolution.collaborators.filter(user=user, role='editor').exists()
+
+
+def _brothers():
+    """Active accounts that may write resolutions (mirrors `can_create_resolution`)."""
+    from src.constants import MemberType
+    return ParliamentUser.objects.filter(is_active=True).filter(
+        Q(member_type__in=MemberType.CAN_VOTE) | Q(is_admin=True))
+
+
+_RESOLUTION_TYPES = {value for value, _label in Resolution.TYPE_CHOICES}
+
+
+def _resolution_field_error(field, value):
+    """
+    v3.51.2 — why `value` can't be saved to `field` on a Resolution, or ''.
+
+    `create_resolution` / `edit_resolution` write these from the POST without a
+    form. `title` is CharField(300): longer is a DataError (500) on PostgreSQL
+    and silently kept on SQLite. `resolution_type` must be one of TYPE_CHOICES.
+    Reachable by every brother since v3.51.0.
+    """
+    if field == 'title':
+        limit = Resolution._meta.get_field('title').max_length
+        if len(value) > limit:
+            return f'The title can be at most {limit} characters (this one is {len(value)}).'
+    elif field == 'resolution_type' and value not in _RESOLUTION_TYPES:
+        return 'Pick a resolution type from the list.'
+    return ''
 
 
 def _edit_denied(request, resolution):
     """A redirect for someone who may not edit `resolution`, else None."""
     if _can_edit_resolution(request.user, resolution):
         return None
-    messages.error(request, 'Only the Constitution & Bylaws Chair and this resolution\'s editors can change it.')
+    messages.error(request, 'Only the Constitution & Bylaws Chair, this resolution\'s author and its editors can change it.')
     return redirect('cnb_resolution_detail', resolution_id=resolution.pk)
 
 
 @login_required
-@cnb_required
 def create_resolution(request):
-    """Create a new resolution."""
+    """Create a new resolution. v3.51.0: any brother, not just the chair."""
+    if not request.user.can_create_resolution:
+        messages.error(request, 'Pledges and advisors can read resolutions but not write them.')
+        return redirect('cnb_resolution_list')
     if request.method == 'POST':
         title = request.POST.get('title', '').strip()
         resolution_type = request.POST.get('resolution_type', 'amendment')
@@ -865,6 +916,13 @@ def create_resolution(request):
 
         if not title:
             messages.error(request, 'A title is required.')
+            return render(request, 'cnb/resolution_form.html', {'action': 'Create', 'ref_docs': ref_docs})
+
+        # v3.51.2 — checked before saving: a long title or type was a DataError
+        # (500) on PostgreSQL, and an unknown type was saved as-is.
+        field_error = _resolution_field_error('title', title) or _resolution_field_error('resolution_type', resolution_type)
+        if field_error:
+            messages.error(request, field_error)
             return render(request, 'cnb/resolution_form.html', {'action': 'Create', 'ref_docs': ref_docs})
 
         vote_date = None
@@ -967,6 +1025,10 @@ def edit_resolution(request, resolution_id):
                     continue
                 if field == 'title' and not new:
                     messages.error(request, 'A title is required.')
+                    continue
+                field_error = _resolution_field_error(field, new)  # v3.51.2
+                if field_error:
+                    messages.error(request, field_error)
                     continue
                 if field == 'vote_date':
                     if new:
@@ -1366,6 +1428,12 @@ def remove_structure_change(request, resolution_id, change_id):
 #: Where a resolution's status may go from each status (v3.44.2). Passed,
 #: failed and withdrawn are final. These are the buttons resolution_detail.html
 #: offers, plus pending → withdrawn from the docstring below.
+#:
+#: v3.51.0 — an author who is not the chair may move his own resolution only
+#: between these; Passed and Failed apply amendments / protection to the
+#: governing documents and stay with the C&B Chair.
+_AUTHOR_STATUSES = {'draft', 'pending', 'withdrawn'}
+
 _STATUS_TRANSITIONS = {
     'draft': {'pending', 'withdrawn'},
     'pending': {'passed', 'failed', 'withdrawn', 'draft'},
@@ -1373,7 +1441,6 @@ _STATUS_TRANSITIONS = {
 
 
 @login_required
-@cnb_required
 @require_POST
 def set_resolution_status(request, resolution_id):
     """
@@ -1385,13 +1452,22 @@ def set_resolution_status(request, resolution_id):
       pending → draft
     Enforced since v3.44.2 (`_STATUS_TRANSITIONS`).
     """
-    get_object_or_404(Resolution, pk=resolution_id)
+    target = get_object_or_404(Resolution, pk=resolution_id)
     new_status = request.POST.get('status', '').strip()
     valid = {'draft', 'pending', 'passed', 'failed', 'withdrawn'}
 
     if new_status not in valid:
         messages.error(request, 'Invalid status.')
         return redirect('cnb_resolution_detail', resolution_id=resolution_id)
+
+    # v3.51.0 — the chair, or the author for everything but the vote result.
+    if not request.user.has_cnb_permission:
+        if not _can_manage_resolution(request.user, target):
+            messages.error(request, 'Only the Constitution & Bylaws Chair or this resolution\'s author can change its status.')
+            return redirect('cnb_resolution_detail', resolution_id=resolution_id)
+        if new_status not in _AUTHOR_STATUSES:
+            messages.error(request, 'Only the Constitution & Bylaws Chair can record that a resolution passed or failed. Nothing was changed.')
+            return redirect('cnb_resolution_detail', resolution_id=resolution_id)
 
     from src.cnb_structure import StructureError, apply_structure_changes
     with transaction.atomic():
@@ -1450,11 +1526,13 @@ def set_resolution_status(request, resolution_id):
 # ── Collaborator management ───────────────────────────────────────────────────
 
 @login_required
-@cnb_required
 @require_POST
 def add_collaborator(request, resolution_id):
-    """Add or update a collaborator on a resolution."""
+    """Add or update a collaborator on a resolution. v3.51.0: chair or author."""
     resolution = get_object_or_404(Resolution, pk=resolution_id)
+    if not _can_manage_resolution(request.user, resolution):
+        messages.error(request, 'Only the Constitution & Bylaws Chair or this resolution\'s author can manage its collaborators.')
+        return redirect('cnb_resolution_detail', resolution_id=resolution_id)
     user_id = request.POST.get('user_id', '').strip()
     role = request.POST.get('role', 'viewer')
 
@@ -1462,8 +1540,11 @@ def add_collaborator(request, resolution_id):
         messages.error(request, 'Invalid role.')
         return redirect('cnb_resolution_detail', resolution_id=resolution_id)
 
+    # v3.51.0: an author (not the chair) may only add brothers — an Editor can
+    # change the text, and pledges/advisors can't write resolutions themselves.
+    pool = ParliamentUser.objects.filter(is_active=True) if request.user.has_cnb_permission else _brothers()
     try:
-        user = ParliamentUser.objects.get(pk=user_id, is_active=True)
+        user = pool.get(pk=user_id)
     except (ParliamentUser.DoesNotExist, ValueError):
         messages.error(request, 'User not found.')
         return redirect('cnb_resolution_detail', resolution_id=resolution_id)
@@ -1488,11 +1569,13 @@ def add_collaborator(request, resolution_id):
 
 
 @login_required
-@cnb_required
 @require_POST
 def remove_collaborator(request, resolution_id, collaborator_id):
-    """Remove a collaborator from a resolution."""
+    """Remove a collaborator from a resolution. v3.51.0: chair or author."""
     resolution = get_object_or_404(Resolution, pk=resolution_id)
+    if not _can_manage_resolution(request.user, resolution):
+        messages.error(request, 'Only the Constitution & Bylaws Chair or this resolution\'s author can manage its collaborators.')
+        return redirect('cnb_resolution_detail', resolution_id=resolution_id)
     collab = get_object_or_404(ResolutionCollaborator, pk=collaborator_id, resolution=resolution)
     name = collab.user.name
     collab.delete()

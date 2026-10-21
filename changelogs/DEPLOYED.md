@@ -169,59 +169,69 @@ which predate this file and are more specific than their commit dates.
 | v3.31.6 | 09-15-26 ¶ | `0eb8a29` | See `changelogs/v3.31.6.md`. |
 | v3.31.7 | 09-15-26 ¶ | `0eb8a29` | See `changelogs/v3.31.7.md`. |
 | v3.32.0 | 09-15-26 ¶ | `0eb8a29` | See `changelogs/v3.32.0.md`. **⚠️ Read `changelogs/v3.32.0.md`'s deploy note before assuming this is fully settled: it warns that any officer without an explicit `EducationMemberPermission` grant loses education-dashboard access the moment this is live. Confirming the code shipped is not the same question as confirming officers were granted access before anyone noticed being locked out — that second thing is worth a direct check with Mason, not an inference from this row.** |
-| v3.33.0 | *not deployed* | `c5dc5dd` | See `changelogs/v3.33.0.md`. |
-| v3.34.0 | *not deployed* | `3ec50ba` | See `changelogs/v3.34.0.md`. |
-| v3.34.1 | *not deployed* | `d0b7a98` | See `changelogs/v3.34.1.md`. |
-| v3.35.0 | *not deployed* | `36d2348` | See `changelogs/v3.35.0.md`. |
+| v3.33.0 | live by 10-19-26 ‡ | `c5dc5dd` | See `changelogs/v3.33.0.md`. |
+| v3.34.0 | live by 10-19-26 ‡ | `3ec50ba` | See `changelogs/v3.34.0.md`. |
+| v3.34.1 | live by 10-19-26 ‡ | `d0b7a98` | See `changelogs/v3.34.1.md`. |
+| v3.35.0 | live by 10-19-26 ‡ | `36d2348` | See `changelogs/v3.35.0.md`. |
 | v3.35.1 | 09-27-26 | `314b118` | See `changelogs/v3.35.1.md`. |
-| v3.35.2 | *not deployed* | `62afafb`, `8be207d` | See `changelogs/v3.35.2.md`. |
-| v3.35.3 | *not deployed* | `b500a90`, `801b36b`, `65f9752`, `990e79f` | See `changelogs/v3.35.3.md`. |
-| v3.36.0 | *not deployed* | `7230b8b` | See `changelogs/v3.36.0.md`. |
-| v3.37.0 | *not deployed* | `e10b044`, `77a8182`, `1e2a443` | See `changelogs/v3.37.0.md`. |
-| v3.37.1 | *not deployed* | `b685bc7` | See `changelogs/v3.37.1.md`. |
-| v3.38.0 | *not deployed* | `4100131` | See `changelogs/v3.38.0.md`. |
-| v3.38.1 | *not deployed* | `7ea9605` | See `changelogs/v3.38.1.md`. |
-| v3.38.2 | *not deployed* | `736c335` | See `changelogs/v3.38.2.md`. |
-| v3.39.0 | *not deployed* | `7d20cb2` | See `changelogs/v3.39.0.md`. |
-| v3.40.0 | *not deployed* | `7976b7d` | See `changelogs/v3.40.0.md`. |
-| v3.39.1 | *not deployed* | `d7d840a` | See `changelogs/v3.39.1.md`. |
-| v3.41.0 | *not deployed* | `d497dd8` | See `changelogs/v3.41.0.md`. |
-| v3.41.1 | *not deployed* | `20dbd8a` | See `changelogs/v3.41.1.md`. |
-| v3.41.3 | *not deployed* | `4f5716c` | See `changelogs/v3.41.3.md`. |
-| v3.41.2 | *not deployed* | `08da9f1` | See `changelogs/v3.41.2.md`. |
-| v3.41.4 | *not deployed* | `08da9f1` | See `changelogs/v3.41.4.md`. |
-| v3.41.5 | *not deployed* | `08da9f1` | See `changelogs/v3.41.5.md`. |
-| v3.42.0 | *not deployed* | `ab9992f` | See `changelogs/v3.42.0.md`. |
-| v3.42.1 | *not deployed* | `b8aae7e` | See `changelogs/v3.42.1.md`. |
-| v3.42.2 | *not deployed* | `b8aae7e` | See `changelogs/v3.42.2.md`. |
-| v3.43.0 | *not deployed* | `febb066` | See `changelogs/v3.43.0.md`. |
-| v3.44.0 | *not deployed* | `febb066` | See `changelogs/v3.44.0.md`. |
-| v3.44.1 | *not deployed* | `65f7ee6` | See `changelogs/v3.44.1.md`. |
-| v3.44.2 | *not deployed* | `2830013` | See `changelogs/v3.44.2.md`. |
-| v3.44.3 | *not deployed* | `6848a63` | See `changelogs/v3.44.3.md`. |
-| v3.44.4 | *not deployed* | `868e2be` | See `changelogs/v3.44.4.md`. |
-| v3.44.6 | *not deployed* | `38246a7` | See `changelogs/v3.44.6.md`. |
-| v3.44.7 | *not deployed* | `5623e11`, `ac9ebaf` | See `changelogs/v3.44.7.md`. |
-| v3.44.5 | *not deployed* | `d6d19d5` | See `changelogs/v3.44.5.md`. |
-| v3.44.8 | *not deployed* | `8220f69` | See `changelogs/v3.44.8.md`. |
-| v3.44.9 | *not deployed* | `87318ce` | See `changelogs/v3.44.9.md`. |
-| v3.45.3 | *not deployed* | `1b1ff46` | See `changelogs/v3.45.3.md`. |
-| v3.45.4 | *not deployed* | `3e03e88` | See `changelogs/v3.45.4.md`. |
-| v3.45.5 | *not deployed* | `441b3e5` | See `changelogs/v3.45.5.md`. |
-| v3.45.6 | *not deployed* | `1f80ad5` | See `changelogs/v3.45.6.md`. |
-| v3.45.7 | *not deployed* | `2660ab9` | See `changelogs/v3.45.7.md`. |
-| v3.46.0 | *not deployed* | `b7dd062` | See `changelogs/v3.46.0.md`. |
-| v3.47.0 | *not deployed* | `2f48848` | See `changelogs/v3.47.0.md`. |
-| v3.48.0 | *not deployed* | `18d2486` | See `changelogs/v3.48.0.md`. |
-| v3.48.1 | *not deployed* | `d811fb6` | See `changelogs/v3.48.1.md`. |
-| v3.49.0 | *not deployed* | `d811fb6` | See `changelogs/v3.49.0.md`. |
-| v3.45.1 | *not deployed* | `5bd3791` | See `changelogs/v3.45.1.md`. |
-| v3.45.2 | *not deployed* | `5bd3791` | See `changelogs/v3.45.2.md`. |
-| v3.50.0 | *not deployed* | `5bd3791` | See `changelogs/v3.50.0.md`. |
-| v3.46.1 | *not deployed* | `3748430` | See `changelogs/v3.46.1.md`. |
-| v3.46.2 | *not deployed* | `3748430` | See `changelogs/v3.46.2.md`. |
-| v3.50.1 | *not deployed* | `3748430` | See `changelogs/v3.50.1.md`. |
-| v3.50.2 | *not deployed* | `6f51f2a` | See `changelogs/v3.50.2.md`. |
+| v3.35.2 | live by 10-19-26 ‡ | `62afafb`, `8be207d` | See `changelogs/v3.35.2.md`. |
+| v3.35.3 | live by 10-19-26 ‡ | `b500a90`, `801b36b`, `65f9752`, `990e79f` | See `changelogs/v3.35.3.md`. |
+| v3.36.0 | live by 10-19-26 ‡ | `7230b8b` | See `changelogs/v3.36.0.md`. |
+| v3.37.0 | live by 10-19-26 ‡ | `e10b044`, `77a8182`, `1e2a443` | See `changelogs/v3.37.0.md`. |
+| v3.37.1 | live by 10-19-26 ‡ | `b685bc7` | See `changelogs/v3.37.1.md`. |
+| v3.38.0 | live by 10-19-26 ‡ | `4100131` | See `changelogs/v3.38.0.md`. |
+| v3.38.1 | live by 10-19-26 ‡ | `7ea9605` | See `changelogs/v3.38.1.md`. |
+| v3.38.2 | live by 10-19-26 ‡ | `736c335` | See `changelogs/v3.38.2.md`. |
+| v3.39.0 | live by 10-19-26 ‡ | `7d20cb2` | See `changelogs/v3.39.0.md`. |
+| v3.40.0 | live by 10-19-26 ‡ | `7976b7d` | See `changelogs/v3.40.0.md`. |
+| v3.39.1 | live by 10-19-26 ‡ | `d7d840a` | See `changelogs/v3.39.1.md`. |
+| v3.41.0 | live by 10-19-26 ‡ | `d497dd8` | See `changelogs/v3.41.0.md`. |
+| v3.41.1 | live by 10-19-26 ‡ | `20dbd8a` | See `changelogs/v3.41.1.md`. |
+| v3.41.3 | live by 10-19-26 ‡ | `4f5716c` | See `changelogs/v3.41.3.md`. |
+| v3.41.2 | live by 10-19-26 ‡ | `08da9f1` | See `changelogs/v3.41.2.md`. |
+| v3.41.4 | live by 10-19-26 ‡ | `08da9f1` | See `changelogs/v3.41.4.md`. |
+| v3.41.5 | live by 10-19-26 ‡ | `08da9f1` | See `changelogs/v3.41.5.md`. |
+| v3.42.0 | live by 10-19-26 ‡ | `ab9992f` | See `changelogs/v3.42.0.md`. |
+| v3.42.1 | live by 10-19-26 ‡ | `b8aae7e` | See `changelogs/v3.42.1.md`. |
+| v3.42.2 | live by 10-19-26 ‡ | `b8aae7e` | See `changelogs/v3.42.2.md`. |
+| v3.43.0 | live by 10-19-26 ‡ | `febb066` | See `changelogs/v3.43.0.md`. |
+| v3.44.0 | live by 10-19-26 ‡ | `febb066` | See `changelogs/v3.44.0.md`. |
+| v3.44.1 | live by 10-19-26 ‡ | `65f7ee6` | See `changelogs/v3.44.1.md`. |
+| v3.44.2 | live by 10-19-26 ‡ | `2830013` | See `changelogs/v3.44.2.md`. |
+| v3.44.3 | live by 10-19-26 ‡ | `6848a63` | See `changelogs/v3.44.3.md`. |
+| v3.44.4 | live by 10-19-26 ‡ | `868e2be` | See `changelogs/v3.44.4.md`. |
+| v3.44.6 | live by 10-19-26 ‡ | `38246a7` | See `changelogs/v3.44.6.md`. |
+| v3.44.7 | live by 10-19-26 ‡ | `5623e11`, `ac9ebaf` | See `changelogs/v3.44.7.md`. |
+| v3.44.5 | live by 10-19-26 ‡ | `d6d19d5` | See `changelogs/v3.44.5.md`. |
+| v3.44.8 | live by 10-19-26 ‡ | `8220f69` | See `changelogs/v3.44.8.md`. |
+| v3.44.9 | live by 10-19-26 ‡ | `87318ce` | See `changelogs/v3.44.9.md`. |
+| v3.45.3 | live by 10-19-26 ‡ | `1b1ff46` | See `changelogs/v3.45.3.md`. |
+| v3.45.4 | live by 10-19-26 ‡ | `3e03e88` | See `changelogs/v3.45.4.md`. |
+| v3.45.5 | live by 10-19-26 ‡ | `441b3e5` | See `changelogs/v3.45.5.md`. |
+| v3.45.6 | live by 10-19-26 ‡ | `1f80ad5` | See `changelogs/v3.45.6.md`. |
+| v3.45.7 | live by 10-19-26 ‡ | `2660ab9` | See `changelogs/v3.45.7.md`. |
+| v3.46.0 | live by 10-19-26 ‡ | `b7dd062` | See `changelogs/v3.46.0.md`. |
+| v3.47.0 | live by 10-19-26 ‡ | `2f48848` | See `changelogs/v3.47.0.md`. |
+| v3.48.0 | live by 10-19-26 ‡ | `18d2486` | See `changelogs/v3.48.0.md`. |
+| v3.48.1 | live by 10-19-26 ‡ | `d811fb6` | See `changelogs/v3.48.1.md`. |
+| v3.49.0 | live by 10-19-26 ‡ | `d811fb6` | See `changelogs/v3.49.0.md`. |
+| v3.45.1 | live by 10-19-26 ‡ | `5bd3791` | See `changelogs/v3.45.1.md`. |
+| v3.45.2 | live by 10-19-26 ‡ | `5bd3791` | See `changelogs/v3.45.2.md`. |
+| v3.50.0 | live by 10-19-26 ‡ | `5bd3791` | See `changelogs/v3.50.0.md`. |
+| v3.46.1 | live by 10-19-26 ‡ | `3748430` | See `changelogs/v3.46.1.md`. |
+| v3.46.2 | live by 10-19-26 ‡ | `3748430` | See `changelogs/v3.46.2.md`. |
+| v3.50.1 | live by 10-19-26 ‡ | `3748430` | See `changelogs/v3.50.1.md`. |
+| v3.50.2 | live by 10-19-26 ‡ | `6f51f2a` | See `changelogs/v3.50.2.md`. |
+| v3.50.3 | n/a — tests only | `f006b53` | See `changelogs/v3.50.3.md`. |
+| v3.51.0 | *not deployed* | `7613240` | See `changelogs/v3.51.0.md`. |
+| v3.51.1 | *not deployed* | `c29b7a0` | See `changelogs/v3.51.1.md`. |
+| v3.51.2 | *not deployed* | `c4946ad` | See `changelogs/v3.51.2.md`. |
+| v3.51.3 | *not deployed* | `3196aa1` | See `changelogs/v3.51.3.md`. |
+
+> **‡ 10-19-26 — Mason: "All deployments are live on prod."** Every row marked ‡
+> had been left *not deployed* while it shipped. He deploys as he goes; the exact
+> deploy dates weren't recorded, so the column says "live by" the day he
+> confirmed it rather than inventing dates.
 
 > **⚠️ 09-02-26 — code for the whole backlog above (v3.25.2 through
 > v3.28.8) was restarted into prod the same day, and Mason confirmed

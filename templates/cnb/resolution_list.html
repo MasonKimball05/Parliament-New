@@ -18,7 +18,7 @@
                 <h1 class="text-3xl font-bold">Chapter Resolutions</h1>
                 <p class="text-primary-100 text-sm mt-1">Official resolutions of {% chapter "chapter_name" %} Chapter</p>
             </div>
-            {% if user.has_cnb_permission %}
+            {% if user.can_create_resolution %}
             <a href="{% url 'cnb_create_resolution' %}"
                class="inline-flex items-center gap-2 bg-white text-primary-700 hover:bg-primary-50 px-4 py-2 rounded-lg text-sm font-semibold transition-colors self-start">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -67,7 +67,7 @@
         {% else %}
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-12 text-center">
             <p class="text-sm text-gray-500 dark:text-gray-400 mb-3">No resolutions yet.</p>
-            {% if user.has_cnb_permission %}
+            {% if user.can_create_resolution %}
             <a href="{% url 'cnb_create_resolution' %}" class="text-primary-600 dark:text-primary-400 text-sm font-medium hover:underline">
                 Create the first resolution →
             </a>

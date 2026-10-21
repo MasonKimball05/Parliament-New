@@ -77,6 +77,11 @@ def role_detail(request, role_id):
         })
 
     # POST - Update role
+    # v3.51.0 — officers only (officer_required lets chairs in). A chair could
+    # otherwise rename the code of a role he holds to one that carries
+    # permissions (e.g. 'CNB'). See src.permissions.role_change_error.
+    if not request.user.is_officer:
+        return JsonResponse({'success': False, 'error': 'Only officers can create, change or delete roles.'}, status=403)
     try:
         data = json.loads(request.body)
     except json.JSONDecodeError:
@@ -147,6 +152,8 @@ def role_detail(request, role_id):
 @require_POST
 def add_role(request):
     """Create a new role."""
+    if not request.user.is_officer:  # v3.51.0
+        return JsonResponse({'success': False, 'error': 'Only officers can create, change or delete roles.'}, status=403)
     try:
         data = json.loads(request.body)
     except json.JSONDecodeError:
@@ -295,6 +302,8 @@ def get_assignable_members(request, role_id):
 @require_POST
 def delete_role(request, role_id):
     """Delete a role."""
+    if not request.user.is_officer:  # v3.51.0
+        return JsonResponse({'success': False, 'error': 'Only officers can create, change or delete roles.'}, status=403)
     role = get_object_or_404(Role, id=role_id)
 
     # Check if role has any holders

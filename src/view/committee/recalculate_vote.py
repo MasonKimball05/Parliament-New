@@ -5,6 +5,7 @@ from django.contrib import messages
 from django.utils.http import url_has_allowed_host_and_scheme
 from src.next_url import safe_referer
 from src.models import CommitteeLegislation, CommitteeVote
+from src.vote_rules import plurality_passed
 from src.feature_flag_decorators import require_feature_flag
 import logging
 
@@ -55,11 +56,8 @@ def recalculate_committee_vote(request, legislation_id):
 
     if total_votes > 0:
         if legislation.vote_mode == 'plurality':
-            options = {k: v for k, v in tally.items() if k != 'total'}
-            if options:
-                max_votes = max(options.values())
-                legislation.passed = max_votes > 0
-                legislation.status = 'passed' if legislation.passed else 'draft'
+            legislation.passed = plurality_passed(tally)  # v3.51.1: a tie doesn't pass
+            legislation.status = 'passed' if legislation.passed else 'draft'
         elif legislation.vote_mode == 'piecewise':
             required = legislation.required_number or 0
             legislation.passed = tally.get('yes', 0) >= required
