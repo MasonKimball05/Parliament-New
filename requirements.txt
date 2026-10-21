@@ -72,7 +72,7 @@ mammoth==1.13.0  # 1.12.2: DoS fix (backtracking on a crafted .docx)
 # security screenshot ImageFields all require Pillow), previously installed
 # only by luck as reportlab's transitive dep. Pinned v3.16.1 after the
 # preflight pip-audit flagged a stale installed copy.
-pillow==12.3.0
+pillow==13.0.0
 
 # PDF generation for chapter minutes export
 reportlab==5.0.1
