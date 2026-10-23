@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+
+{% block title %}Delete {{ channel.name }}{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Header -->
+    <div class="mb-6">
+        <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">Delete Channel</h1>
+        <p class="text-gray-600 dark:text-gray-400">Are you sure you want to delete this channel?</p>
+    </div>
+
+    <!-- Channel Preview -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-6 border-l-4 border-red-500">
+        <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-2">{{ channel.icon }} {{ channel.name }}</h2>
+        {% if channel.description %}
+        <p class="text-gray-700 dark:text-gray-300 mb-4 whitespace-pre-wrap">{{ channel.description }}</p>
+        {% endif %}
+
+        <div class="flex items-center space-x-4 text-sm text-gray-500 dark:text-gray-400 pt-3 border-t border-gray-200 dark:border-gray-700">
+            <span>{{ channel.get_access_type_display }}</span>
+            {% if channel.created_by %}
+            <span>•</span>
+            <span>Created by {{ channel.created_by.get_display_name }}</span>
+            {% endif %}
+            <span>•</span>
+            <span>{{ channel.created_at|date:"M d, Y" }}</span>
+        </div>
+    </div>
+
+    <!-- Warning -->
+    <div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 mb-6">
+        <div class="flex">
+            <div class="flex-shrink-0">
+                <svg class="h-5 w-5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+                </svg>
+            </div>
+            <div class="ml-3">
+                <h3 class="text-sm font-medium text-red-800 dark:text-red-300">Warning</h3>
+                <p class="mt-1 text-sm text-red-700 dark:text-red-400">
+                    This action cannot be undone. The channel and all of its messages will be permanently deleted.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Confirmation Form -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
+        <form method="post">
+            {% csrf_token %}
+            <div class="flex items-center justify-end space-x-4">
+                <a href="{% url 'chat_index' %}" class="px-6 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition">
+                    Cancel
+                </a>
+                <button type="submit" class="px-6 py-2 bg-red-600 dark:bg-red-500 text-white rounded-md hover:bg-red-700 dark:hover:bg-red-600 transition">
+                    Yes, Delete Channel
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Back Link -->
+    <div class="mt-6">
+        <a href="{% url 'chat_index' %}" class="text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300 font-medium">
+            ← Back to Chats
+        </a>
+    </div>
+</div>
+{% endblock %}
