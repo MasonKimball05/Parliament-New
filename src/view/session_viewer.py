@@ -7,7 +7,6 @@ from django.contrib.auth.decorators import login_required
 from django.shortcuts import render, redirect
 from django.http import JsonResponse
 from django.contrib import messages
-from django.contrib.sessions.models import Session
 from django.utils import timezone
 import logging
 
@@ -67,7 +66,7 @@ def revoke_session(request, session_key):
 
         # Delete the Django session
         try:
-            Session.objects.filter(session_key=session_key).delete()
+            UserSession.delete_session_from_store(session_key)
         except Exception as e:
             logger.warning(f"Could not delete Django session {session_key}: {e}")
 

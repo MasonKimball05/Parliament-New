@@ -16,7 +16,7 @@ def committee_vote_result(request, code, legislation_id):
 
     user = request.user
     is_chair = committee.is_chair(user)
-    is_member = committee.voting_members.filter(pk=user.pk).exists() or committee.non_voting_members.filter(pk=user.pk).exists()
+    is_member = committee.is_voter(user) or committee.is_member(user)  # P0: there is no non_voting_members field
 
     # Check if user can view results
     # User can view if: they voted, they are a chair, they are a member, or voting is closed

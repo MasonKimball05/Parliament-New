@@ -97,7 +97,10 @@ class ChatConsumer(AsyncWebsocketConsumer):
         from src.models import ChatChannel
         try:
             channel = ChatChannel.objects.get(id=channel_id)
-            return channel.can_read(user)
+            # Same gate as the channel page: the read rule, plus the admin
+            # "View All" override (the page renders admin preview mode and its
+            # live updates come over this socket).
+            return channel.has_access(user, admin_override=True)
         except ChatChannel.DoesNotExist:
             return False
 

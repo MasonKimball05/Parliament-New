@@ -794,9 +794,13 @@ class SetPassedTests(TestCase):
 
     def test_counts_and_query_paths_agree(self):
         from src.models import Vote
-        for choice in ('yes', 'yes', 'no', 'abstain'):
+        # One voter per ballot: (user, legislation, vote_choice) is unique.
+        for i, choice in enumerate(('yes', 'yes', 'no', 'abstain')):
+            voter = ParliamentUser.objects.create_user(
+                user_id=f'spv{i}', name=f'SP Voter {i}', username=f'spvoter{i}',
+                member_type='Member')
             Vote.objects.create(
-                legislation=self.bill, user=self.author, vote_choice=choice)
+                legislation=self.bill, user=voter, vote_choice=choice)
 
         from_db = self.bill.set_passed(commit=False)
         from_counts = self.bill.set_passed(

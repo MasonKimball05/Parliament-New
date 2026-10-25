@@ -201,48 +201,19 @@ def global_search(request):
     if committees:
         results['committees'] = committees
 
-    # Search Chat Channels (name, description) - user must have access
-    # Prefetch permissions + committee membership so the per-channel check is
-    # pure Python and doesn't fire a separate DB query per channel.
+    # Search Chat Channels (name, description) - user must have access.
+    # The chat access rule lives in ChatChannel._has_access_cached; this used to
+    # be a hand-rolled copy of it that ignored grant expiry and can_read, and
+    # disagreed on chairs/advisors and role grants. access_map is a fixed
+    # number of queries whatever the result count.
     chat_channels = list(
         ChatChannel.objects.filter(
-            Q(name__icontains=query) | Q(description__icontains=query)
-        )
-        .select_related('committee')
-        .prefetch_related(
-            'permissions',
-            'committee__members',
-            'committee__chairs',
-            'committee__advisors',
-        )
+            Q(name__icontains=query) | Q(description__icontains=query),
+            is_active=True,
+        ).select_related('committee')
     )
-    user_pk = request.user.pk
-    user_member_type = request.user.member_type
-    user_is_officer = request.user.is_officer
-
-    accessible_channels = []
-    for channel in chat_channels:
-        if channel.access_type == 'open':
-            accessible_channels.append(channel)
-        elif channel.access_type == 'committee' and channel.committee:
-            committee = channel.committee
-            member_pks = {m.pk for m in committee.members.all()}
-            chair_pks = {m.pk for m in committee.chairs.all()}
-            advisor_pks = {m.pk for m in committee.advisors.all()}
-            if user_pk in (member_pks | chair_pks | advisor_pks):
-                accessible_channels.append(channel)
-        elif channel.access_type == 'restricted':
-            # All permission rows are already in the prefetch cache — no extra queries
-            for perm in channel.permissions.all():
-                if perm.user_id == user_pk:
-                    accessible_channels.append(channel)
-                    break
-                if perm.member_type and perm.member_type == user_member_type:
-                    accessible_channels.append(channel)
-                    break
-                if perm.officers_only and user_is_officer:
-                    accessible_channels.append(channel)
-                    break
+    readable = ChatChannel.access_map(chat_channels, request.user)
+    accessible_channels = [c for c in chat_channels if readable.get(c.pk)]
 
     if accessible_channels:
         results['chat_channels'] = accessible_channels[:10]

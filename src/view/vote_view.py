@@ -9,7 +9,7 @@ from django.utils import timezone
 from django.utils.timezone import make_aware
 from django.utils.dateparse import parse_datetime
 from datetime import timedelta
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from ..models import Legislation, Vote, Attendance, ParliamentUser, ActivityLog
 from src.utils.file_validation import validate_uploaded_file
 from src.feature_flag_decorators import require_page_enabled, require_feature_flag
@@ -287,6 +287,28 @@ def mark_attendance_quick(request):
     return JsonResponse({'ok': True, 'status': new_status})
 
 
+ALREADY_VOTED_MSG = "You have already voted on this legislation."
+
+
+def _record_ballot(user, legislation, choices):
+    """P0: create one Vote row per choice, all-or-nothing, serialized per
+    legislation. The row lock makes the already-voted check and the inserts
+    one step, so two concurrent submissions can't both record a ballot; the
+    (user, legislation, vote_choice) unique constraint is the backstop.
+    Returns the created rows, or None if the user had already voted."""
+    try:
+        with transaction.atomic():
+            Legislation.objects.select_for_update().only('pk').get(pk=legislation.pk)
+            if Vote.objects.filter(user=user, legislation=legislation).exists():
+                return None
+            return [
+                Vote.objects.create(user=user, legislation=legislation, vote_choice=choice)
+                for choice in choices
+            ]
+    except IntegrityError:
+        return None
+
+
 @login_required
 @require_page_enabled('vote')
 @require_POST
@@ -318,7 +340,7 @@ def cast_vote(request):
         legislation = get_object_or_404(Legislation, id=legislation_id)
 
         if Vote.objects.filter(user=user, legislation=legislation).exists():
-            messages.error(request, "You have already voted on this legislation.")
+            messages.error(request, ALREADY_VOTED_MSG)
             return redirect('vote')
         if legislation.voting_closed:
             messages.error(request, "Voting on this legislation has ended.")
@@ -341,19 +363,18 @@ def cast_vote(request):
                 messages.error(request, f"You can only select up to {legislation.plurality_votes_allowed} options.")
                 return redirect('vote')
 
-            # Validate each choice
-            for choice in vote_choices:
-                if choice not in legislation.plurality_options:
-                    messages.error(request, "Invalid vote option.")
-                    return redirect('vote')
+            # Validate each choice (and no option selected twice)
+            if len(set(vote_choices)) != len(vote_choices) or any(
+                    choice not in (legislation.plurality_options or []) for choice in vote_choices):
+                messages.error(request, "Invalid vote option.")
+                return redirect('vote')
 
             # Create a vote record for each selection — atomic so a
             # mid-loop failure can't record a partial ballot (v3.13.3)
-            with transaction.atomic():
-                created_votes = [
-                    Vote.objects.create(user=user, legislation=legislation, vote_choice=choice)
-                    for choice in vote_choices
-                ]
+            created_votes = _record_ballot(user, legislation, vote_choices)
+            if created_votes is None:
+                messages.error(request, ALREADY_VOTED_MSG)
+                return redirect('vote')
 
             logger.info(f"{user.username} voted for {vote_choices} on '{legislation.title}' (ID: {legislation.id}) at {timezone.now()}")
             if legislation.anonymous_vote:
@@ -401,8 +422,15 @@ def cast_vote(request):
             if legislation.vote_mode != 'plurality' and vote_choice not in valid_standard:
                 messages.error(request, "Invalid vote option.")
                 return redirect('vote')
+            if vote_choice == 'abstain' and not legislation.allow_abstain:
+                messages.error(request, "Abstaining is not allowed on this vote.")
+                return redirect('vote')
 
-            new_vote = Vote.objects.create(user=user, legislation=legislation, vote_choice=vote_choice)
+            created_votes = _record_ballot(user, legislation, [vote_choice])
+            if created_votes is None:
+                messages.error(request, ALREADY_VOTED_MSG)
+                return redirect('vote')
+            new_vote = created_votes[0]
             logger.info(f"{user.username} voted '{vote_choice}' on '{legislation.title}' (ID: {legislation.id}) at {timezone.now()}")
             if legislation.anonymous_vote:
                 _vote_desc = f'{user.name} cast a vote on "{legislation.title}" (anonymous)'

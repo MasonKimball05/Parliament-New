@@ -47,34 +47,33 @@ class ChatChannel(models.Model):
         return self.name
 
     @classmethod
-    def access_context(cls, user):
+    def access_context(cls, user, channel_ids=None, flag='can_read'):
         """
-        Everything `has_access` needs about `user`, fetched once.
+        Everything the access rule needs about `user`, fetched once.
 
         v3.17.3. `has_access` asks the database the same questions about the
         same user for every channel it is called on, and the chat index calls it
         **twice per channel**. Dev mode measured the fallout: `is_member` 15×,
         the guest-permission `.exists()` 9×, on one page load.
 
-        This is deliberately a *context object consumed by the existing method*
-        rather than a second copy of the access rules. Duplicating an
-        authorization predicate is how v3.16.3's Kai search ended up wrong in
-        two places at once — "the duplication is why both were wrong". There is
-        still exactly one implementation of who can read a channel; this only
-        changes where its inputs come from.
+        This is deliberately a *context object consumed by the one rule*
+        (`_has_access_cached`) rather than a second copy of the access rules.
+        Duplicating an authorization predicate is how v3.16.3's Kai search
+        ended up wrong in two places at once — "the duplication is why both
+        were wrong". `has_access`, `can_read`, `can_write` and `access_map` all
+        answer through it.
 
-        Pass it to `has_access(..., ctx=...)`, or use `access_map()`.
+        `channel_ids` limits the permission rows fetched (single-channel
+        checks); `flag` is the grant column consulted — 'can_read' or
+        'can_write'. Expired grants are excluded here, for every grant type.
         """
         from django.utils import timezone
 
-        permissions = list(
-            ChatChannelPermission.objects
-            .filter(can_read=True)
-            .filter(models.Q(expires_at__isnull=True)
-                    | models.Q(expires_at__gt=timezone.now()))
-            .values('channel_id', 'user_id', 'member_type', 'chairs_only',
-                    'officers_only', 'alumni_only')
-        )
+        permissions = ChatChannelPermission.objects.filter(**{flag: True}).filter(
+            models.Q(expires_at__isnull=True)
+            | models.Q(expires_at__gt=timezone.now()))
+        if channel_ids is not None:
+            permissions = permissions.filter(channel_id__in=list(channel_ids))
         return {
             'user_id': user.pk,
             'member_type': user.member_type,
@@ -83,11 +82,26 @@ class ChatChannel(models.Model):
             'is_officer': bool(user.is_officer),
             'is_chair': user.chair_roles.exists(),
             'committee_ids': set(user.committees.values_list('id', flat=True)),
-            'permissions': permissions,
+            'permissions': list(permissions.values(
+                'channel_id', 'user_id', 'member_type', 'chairs_only',
+                'officers_only', 'alumni_only')),
         }
 
     def _has_access_cached(self, ctx, admin_override=False):
-        """`has_access`, answered from an `access_context()` — no queries."""
+        """
+        THE chat access rule, answered from an `access_context()` — no queries.
+
+        * inactive channel → nobody (not even with the admin override)
+        * `admin_override` (the admin "View All Channels" mode) → admins
+        * open → everyone
+        * committee → members of the linked committee, plus explicit,
+          unexpired per-user guest grants. Role grants (member type / chairs /
+          officers / alumni) are NOT honoured here: committee chats (Kai) are
+          membership-gated.
+        * restricted → an unexpired grant matching the user: per-user, member
+          type, chairs-only (user chairs any committee), officers-only,
+          alumni-only. Committee membership alone does not admit.
+        """
         if not self.is_active:
             return False
         if admin_override and ctx['is_admin']:
@@ -97,15 +111,17 @@ class ChatChannel(models.Model):
 
         rows = [p for p in ctx['permissions'] if p['channel_id'] == self.pk]
 
-        if self.access_type == 'committee' and self.committee_id:
+        if self.access_type == 'committee':
+            if not self.committee_id:
+                return False
             if self.committee_id in ctx['committee_ids']:
                 return True
             return any(p['user_id'] == ctx['user_id'] for p in rows)
 
         if self.access_type == 'restricted':
             return (
-                any(p['user_id'] == ctx['user_id'] for p in rows)
-                or any(p['member_type'] == ctx['member_type'] for p in rows)
+                any(p['user_id'] is not None and p['user_id'] == ctx['user_id'] for p in rows)
+                or any(p['member_type'] and p['member_type'] == ctx['member_type'] for p in rows)
                 or (any(p['chairs_only'] for p in rows) and ctx['is_chair'])
                 or (any(p['officers_only'] for p in rows) and ctx['is_officer'])
                 or (any(p['alumni_only'] for p in rows)
@@ -122,7 +138,8 @@ class ChatChannel(models.Model):
         Three queries (guest permissions, the user's committees, the chair
         check) whatever the channel count, against 2–13 per channel before.
         """
-        ctx = cls.access_context(user)
+        channels = list(channels)
+        ctx = cls.access_context(user, channel_ids=[c.pk for c in channels])
         return {
             channel.pk: channel._has_access_cached(ctx, admin_override)
             for channel in channels
@@ -162,71 +179,22 @@ class ChatChannel(models.Model):
 
     def has_access(self, user, admin_override=False, ctx=None):
         """
-        Check if user has access to this channel.
+        Can `user` read this channel? The single implementation of the rule —
+        see `_has_access_cached`. `can_read` is an alias.
 
         `ctx` is an optional `access_context()`; supply it and this answers
         without touching the database. See `access_map()` for many channels.
         """
-        if ctx is not None:
-            return self._has_access_cached(ctx, admin_override)
-
-        if not self.is_active:
-            return False
-
-        # Admin override for "View All Channels" mode
-        if admin_override and user.is_admin:
-            return True
-
-        if self.access_type == 'open':
-            return True
-
-        if self.access_type == 'committee' and self.committee:
-            # Check if user is a committee member first
-            if self.committee.is_member(user):
+        if ctx is None:
+            # Cheap answers first, so open channels cost no queries.
+            if not self.is_active:
+                return False
+            if admin_override and user.is_admin:
                 return True
-            # Check if user has guest permission with can_read=True (not expired)
-            from django.utils import timezone
-            return ChatChannelPermission.objects.filter(
-                channel=self,
-                user=user,
-                can_read=True
-            ).filter(
-                models.Q(expires_at__isnull=True) | models.Q(expires_at__gt=timezone.now())
-            ).exists()
-
-        if self.access_type == 'restricted':
-            from django.utils import timezone
-            not_expired = models.Q(expires_at__isnull=True) | models.Q(expires_at__gt=timezone.now())
-            # Check custom permissions - must have can_read=True
-            return ChatChannelPermission.objects.filter(
-                channel=self,
-                user=user,
-                can_read=True
-            ).filter(not_expired).exists() or ChatChannelPermission.objects.filter(
-                channel=self,
-                member_type=user.member_type,
-                can_read=True
-            ).exists() or (
-                ChatChannelPermission.objects.filter(
-                    channel=self,
-                    chairs_only=True,
-                    can_read=True
-                ).exists() and user.chair_roles.exists()
-            ) or (
-                ChatChannelPermission.objects.filter(
-                    channel=self,
-                    officers_only=True,
-                    can_read=True
-                ).exists() and user.is_officer
-            ) or (
-                ChatChannelPermission.objects.filter(
-                    channel=self,
-                    alumni_only=True,
-                    can_read=True
-                ).exists() and user.member_status == 'Alumni'
-            )
-
-        return False
+            if self.access_type == 'open':
+                return True
+            ctx = self.access_context(user, channel_ids=[self.pk])
+        return self._has_access_cached(ctx, admin_override)
 
     def get_unread_count(self, user):
         """Get unread message count for a user"""
@@ -243,69 +211,23 @@ class ChatChannel(models.Model):
             return self.messages.filter(is_deleted=False).count()
 
     def can_read(self, user):
-        """Check if user can read messages in this channel"""
-        if not self.is_active:
-            return False
-
-        # Admins always have access
-        if user.is_admin:
-            return True
-
-        # Committee members always have read access
-        if self.committee and self.committee.is_member(user):
-            return True
-
-        # Check if user has specific permission
-        if self.access_type == 'open':
-            return True
-
-        # For committee and restricted channels, check guest permissions
-        if self.access_type in ['committee', 'restricted']:
-            from django.utils import timezone
-            perm = ChatChannelPermission.objects.filter(
-                channel=self,
-                user=user,
-                can_read=True
-            ).filter(
-                models.Q(expires_at__isnull=True) | models.Q(expires_at__gt=timezone.now())
-            ).first()
-            return perm is not None
-
-        return False
+        """Alias of `has_access(user)` — one rule for who can read a channel."""
+        return self.has_access(user)
 
     def can_write(self, user):
-        """Check if user can send messages in this channel"""
-        if not self.is_active:
+        """
+        Can `user` send messages here? The read rule (`_has_access_cached`)
+        evaluated against `can_write` grants, and the user must also be able
+        to read. No admin bypass — an admin writes where the rule admits them.
+        """
+        if not self.is_active or self.is_read_only:
             return False
-
-        if self.is_read_only:
+        if not self.has_access(user):
             return False
-
-        # Admins always have access
-        if user.is_admin:
-            return True
-
-        # Committee members always have write access
-        if self.committee and self.committee.is_member(user):
-            return True
-
-        # Check if user has specific permission
         if self.access_type == 'open':
             return True
-
-        # For committee and restricted channels, check guest permissions
-        if self.access_type in ['committee', 'restricted']:
-            from django.utils import timezone
-            perm = ChatChannelPermission.objects.filter(
-                channel=self,
-                user=user,
-                can_write=True
-            ).filter(
-                models.Q(expires_at__isnull=True) | models.Q(expires_at__gt=timezone.now())
-            ).first()
-            return perm is not None
-
-        return False
+        ctx = self.access_context(user, channel_ids=[self.pk], flag='can_write')
+        return self._has_access_cached(ctx)
 
     def can_delete_messages(self, user):
         """Check if user can delete their own messages in this channel"""

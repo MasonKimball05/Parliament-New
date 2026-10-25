@@ -27,7 +27,9 @@ def _ws_broadcast(group_name, payload):
 def _parse_mentions(message_text, channel):
     """
     Parse @username patterns from message text and return a set of matching user PKs.
-    Only considers active members.
+    Only considers active members who can read `channel` — a mention creates a
+    Notification carrying the message text, so naming someone outside a private
+    channel must not reach them.
     """
     import re
     from src.models import ParliamentUser
@@ -36,11 +38,11 @@ def _parse_mentions(message_text, channel):
     if not raw_mentions:
         return set()
 
-    matched = ParliamentUser.objects.filter(
+    candidates = ParliamentUser.objects.filter(
         username__in=raw_mentions,
         member_status='Active',
-    ).values_list('pk', flat=True)
-    return set(matched)
+    )
+    return {u.pk for u in candidates if channel.has_access(u)}
 
 
 def _dispatch_chat_push(channel, message, mentioned_pks=None):
@@ -95,8 +97,21 @@ def _dispatch_chat_push(channel, message, mentioned_pks=None):
         else:
             url = reverse('channel_chat', kwargs={'channel_id': channel.id})
 
+        # Channel names and text can be sensitive (Kai): only open channels
+        # put them on a lock screen.
+        if channel.access_type == 'open':
+            title = f'#{channel.name}'
+            body = f'{sender.name}: {message.message[:120]}'
+        else:
+            title = 'Parliament'
+            body = 'New message in a private channel'
+
         for receipt in recipients:
             user = receipt.user
+
+            # A read receipt outlives access (expired guest, left committee).
+            if not channel.has_access(user):
+                continue
 
             # Check global push_chat preference
             prefs = getattr(user, 'preferences', None)
@@ -112,8 +127,8 @@ def _dispatch_chat_push(channel, message, mentioned_pks=None):
 
             send_push_notification.delay(
                 user_id=user.pk,
-                title=f'#{channel.name}',
-                body=f'{sender.name}: {message.message[:120]}',
+                title=title,
+                body=body,
                 url=url,
                 tag=f'chat-{channel.id}',
             )
@@ -655,6 +670,7 @@ def set_channel_notification_pref(request, channel_id=None, code=None):
         channel=channel,
         defaults={'level': level},
     )
+    return JsonResponse({'success': True, 'level': level})
 
 
 @login_required

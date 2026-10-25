@@ -602,6 +602,18 @@ class Vote(models.Model):
     # original cast time.
     cast_at = models.DateTimeField(auto_now_add=True, null=True, blank=True)
 
+    class Meta:
+        # P0: one row per (user, legislation, choice). Multi-select plurality
+        # legitimately stores several rows per (user, legislation) — one per
+        # option — so the constraint includes vote_choice; cast_vote's row
+        # lock is what stops a second single-select ballot.
+        constraints = [
+            models.UniqueConstraint(
+                fields=['user', 'legislation', 'vote_choice'],
+                name='unique_vote_user_legislation_choice',
+            ),
+        ]
+
 
 # ─────────────────────────────────────────────────────── draft file lifecycle
 #

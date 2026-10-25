@@ -1324,6 +1324,22 @@ class UserSession(models.Model):
 
         return deleted_count
 
+    @staticmethod
+    def delete_session_from_store(session_key):
+        """
+        Delete one real session through the CONFIGURED session engine.
+
+        Production runs the cache (Redis) engine, where the `django_session`
+        table is empty — deleting `Session` rows there is a no-op and leaves
+        the device logged in. `SessionStore(...).delete()` works for the db,
+        cache and cached_db engines alike.
+        """
+        from importlib import import_module
+        from django.conf import settings
+
+        engine = import_module(settings.SESSION_ENGINE)
+        engine.SessionStore(session_key=session_key).delete()
+
     @classmethod
     def revoke_other_sessions(cls, user, keep_session_key=None):
         """
@@ -1351,8 +1367,6 @@ class UserSession(models.Model):
 
         Returns the number of sessions revoked.
         """
-        from django.contrib.sessions.models import Session
-
         other_sessions = cls.objects.filter(user=user)
         if keep_session_key:
             other_sessions = other_sessions.exclude(session_key=keep_session_key)
@@ -1362,6 +1376,7 @@ class UserSession(models.Model):
         if not count:
             return 0
 
-        Session.objects.filter(session_key__in=session_keys).delete()
+        for key in session_keys:
+            cls.delete_session_from_store(key)
         other_sessions.delete()
         return count

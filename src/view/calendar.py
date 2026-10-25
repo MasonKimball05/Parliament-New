@@ -3,11 +3,12 @@ from django.conf import settings
 from django.shortcuts import render, get_object_or_404
 from django.urls import reverse
 from django.utils import timezone
-from django.http import JsonResponse, HttpResponse
+from django.http import JsonResponse, HttpResponse, Http404
 from django.db import transaction, models
 from src.models import Event, EventSignup, ActivityLog, AttendanceExcuse
 from src.models_calendar_subscription import CalendarSubscription
 from src.feature_flag_decorators import require_page_enabled, require_feature_flag
+from src.models_feature_flags import FeatureFlag
 from icalendar import Calendar, Event as ICalEvent
 from icalendar.prop import vDuration
 import calendar
@@ -30,8 +31,14 @@ def calendar_view(request):
     now = timezone.now()
 
     # Get month and year from query params, default to current month
-    year = int(request.GET.get('year', now.year))
-    month = int(request.GET.get('month', now.month))
+    try:
+        year = int(request.GET.get('year', now.year))
+        month = int(request.GET.get('month', now.month))
+        if not 1 <= month <= 12:
+            raise ValueError('month out of range')
+        datetime(year, month, 1)  # rejects years outside datetime's range
+    except (TypeError, ValueError):
+        return JsonResponse({'error': 'Invalid year or month.'}, status=400)
 
     # Calculate date range limits (1 year back and 1 year forward)
     min_date = now - timedelta(days=365)
@@ -220,8 +227,14 @@ def calendar_data_api(request):
     """API endpoint for fetching calendar data via AJAX (visible to all members)"""
     now = timezone.now()
 
-    year = int(request.GET.get('year', now.year))
-    month = int(request.GET.get('month', now.month))
+    try:
+        year = int(request.GET.get('year', now.year))
+        month = int(request.GET.get('month', now.month))
+        if not 1 <= month <= 12:
+            raise ValueError('month out of range')
+        datetime(year, month, 1)  # rejects years outside datetime's range
+    except (TypeError, ValueError):
+        return JsonResponse({'error': 'Invalid year or month.'}, status=400)
 
     # Calculate date range limits (1 year back and 1 year forward)
     min_date = now - timedelta(days=365)
@@ -563,10 +576,22 @@ def calendar_subscription_feed(request, token):
     except CalendarSubscription.DoesNotExist:
         return HttpResponse('Invalid or expired calendar subscription link.', status=404)
 
+    # Same gate as the views that hand out / regenerate this token
+    # (@require_feature_flag('calendar_subscriptions')), and the token's owner
+    # must still be someone who could log in: login refuses is_active=False
+    # and quarantined accounts, and 'Removed' is not a member at all.
+    user = subscription.user
+    if (
+        not FeatureFlag.is_feature_enabled('calendar_subscriptions')
+        or not user.is_active
+        or getattr(user, 'is_quarantined', False)
+        or user.member_status == 'Removed'
+    ):
+        return HttpResponse('Invalid or expired calendar subscription link.', status=404)
+
     # Record access
     subscription.record_access()
 
-    user = subscription.user
     now = timezone.now()
 
     # Get events from past 30 days to future 365 days
@@ -748,8 +773,12 @@ def event_signup(request, event_id):
     with transaction.atomic():
         event = get_object_or_404(
             Event.objects.select_for_update(),
-            pk=event_id, is_active=True, requires_signup=True,
+            pk=event_id, is_active=True, archived=False, requires_signup=True,
         )
+        # An event the member can't see on the calendar must not be
+        # reachable by id either — same 404 as a nonexistent event.
+        if not event.is_visible_to_user(request.user):
+            raise Http404
 
         if not event.signups_open:
             return JsonResponse({'success': False, 'error': 'Sign-ups are closed for this event.'}, status=400)
@@ -817,8 +846,12 @@ def event_cancel_signup(request, event_id):
     with transaction.atomic():
         event = get_object_or_404(
             Event.objects.select_for_update(),
-            pk=event_id, is_active=True, requires_signup=True,
+            pk=event_id, is_active=True, archived=False, requires_signup=True,
         )
+        # An event the member can't see on the calendar must not be
+        # reachable by id either — same 404 as a nonexistent event.
+        if not event.is_visible_to_user(request.user):
+            raise Http404
         signup = EventSignup.objects.filter(event=event, user=request.user, is_cancelled=False).first()
         if not signup:
             return JsonResponse({'success': False, 'error': 'You are not signed up for this event.'}, status=400)
