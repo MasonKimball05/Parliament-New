@@ -247,6 +247,16 @@ class StampLedgerReadsEveryCommittedSpellingTests(SimpleTestCase):
         self.assertIsNone(result)
         self.assertIn(line, text)
 
+    def test_a_line_that_says_pending_is_stamped(self):
+        """v3.51.8: `**Committed:** *pending*` (v3.51.7) was left as it was."""
+        result, text = self._stamp('**Committed:** *pending*')
+        self.assertIsNotNone(result)
+        self.assertIn('**Committed:** 10-01-26, `abc1234`', text)
+
+    def test_the_tool_and_the_check_agree_on_the_phrases(self):
+        from src import checks_ledger
+        self.assertEqual(set(checks_ledger._NOT_YET), set(self.script.NOT_YET))
+
     def test_the_tool_and_the_check_agree_on_the_pattern(self):
         from src import checks_ledger
         for line in ('**Committed:** *not yet*', '**Committed & pushed:** *not yet*',

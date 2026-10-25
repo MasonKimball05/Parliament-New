@@ -129,6 +129,16 @@ class LedgerCheckTests(SimpleTestCase):
         self.assertEqual(warnings[0].id, 'src.W003')
         self.assertIn('v1.0.0', warnings[0].msg)
 
+    def test_a_committed_changelog_saying_pending_is_reported(self):
+        """v3.51.8: v3.51.7 shipped as `**Committed:** *pending*` with no warning."""
+        self._write('v1.0.0.md', '**Committed:** *pending*\n')
+        self._ledger('| v1.0.0 | *not deployed* | *not committed* | x |\n')
+        self._commit()
+
+        # The changelog half specifically — the ledger row alone would also name v1.0.0.
+        self.assertIn('under **Committed & pushed** although git has them: v1.0.0',
+                      self._messages())
+
     def test_an_uncommitted_changelog_saying_not_yet_is_silent(self):
         """
         ⚠️ THE MOST IMPORTANT NEGATIVE CONTROL IN THIS FILE. A release in

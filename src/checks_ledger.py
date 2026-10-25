@@ -80,7 +80,10 @@ _SHA = re.compile(r'`([0-9a-f]{7,40})`')
 
 #: Phrases meaning "this has not been committed yet". Checked case-insensitively
 #: against the value of the line above and against DEPLOYED.md's commit cell.
-_NOT_YET = ('not yet', 'not committed', 'uncommitted', 'pending commit')
+#: v3.51.8 — bare 'pending' added: v3.51.7 was written `**Committed:** *pending*`,
+#: matched neither list, and so was left unstamped with no warning. ('pending
+#: commit' is now redundant but kept so the two lists read the same.)
+_NOT_YET = ('not yet', 'not committed', 'uncommitted', 'pending commit', 'pending')
 
 #: How long to wait for git before giving up and staying silent. `manage.py
 #: check` gates a deploy; it must not hang on one.

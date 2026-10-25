@@ -49,7 +49,10 @@ VERSION_FILE = re.compile(r'^v(\d+)\.(\d+)\.(\d+)\.md$')
 
 #: Phrases either line uses to mean "not committed yet". Kept in sync with
 #: `src/checks_ledger.py::_NOT_YET` — if that list grows, grow this one.
-NOT_YET = ('not yet', 'not committed', 'uncommitted', 'pending commit')
+#: v3.51.8 — bare 'pending' added: v3.51.7 was written `**Committed:** *pending*`,
+#: matched neither list, and so was left unstamped with no warning. ('pending
+#: commit' is now redundant but kept so the two lists read the same.)
+NOT_YET = ('not yet', 'not committed', 'uncommitted', 'pending commit', 'pending')
 
 #: Same pattern `src/checks_ledger.py::_SHA` uses.
 SHA = re.compile(r'`([0-9a-f]{7,40})`')
