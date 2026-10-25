@@ -218,3 +218,76 @@ class Enforce2FAMiddleware:
             return False
 
         return False
+
+
+# ── v3.51.9: the same verify step for websockets ─────────────────────────────
+
+def session_passes_second_factor(user, session):
+    """
+    True when ``Enforce2FAMiddleware`` would let this session past the TOTP
+    verify step. Sync (it queries); call it via ``database_sync_to_async``.
+
+    ``session`` is anything with ``.get`` (a SessionStore, or a dict in tests).
+    It mirrors the HTTP rules in ``Enforce2FAMiddleware.__call__``:
+
+    * no confirmed device → nothing to verify (``user_has_device``);
+    * an impersonation session → allowed (the admin doesn't hold the member's
+      authenticator; see ``src/impersonation.py``);
+    * a passkey login (``webauthn_authenticated``) → verified;
+    * otherwise the session must carry ``otp_device_id`` naming a device that
+      exists and belongs to this user — exactly what django-otp's
+      ``OTPMiddleware`` checks before ``is_verified()`` can be True.
+
+    Deliberately NOT mirrored: the remember-device cookie. On HTTP it calls
+    ``otp_login``, which writes ``otp_device_id`` into the session, so the page
+    that opens the socket has already verified it. The "required but not set
+    up" redirect isn't mirrored either: the member can dismiss it on HTTP, and
+    with no device there is no second factor to bypass.
+    """
+    from django_otp import DEVICE_ID_SESSION_KEY
+    from django_otp.models import Device
+    from src.impersonation import SESSION_ORIGINAL_ID
+
+    if not user_has_device(user):
+        return True
+    if session is None:
+        return False
+    if session.get(SESSION_ORIGINAL_ID):
+        return True
+    if session.get('webauthn_authenticated'):
+        return True
+    persistent_id = session.get(DEVICE_ID_SESSION_KEY)
+    if not persistent_id:
+        return False
+    device = Device.from_persistent_id(persistent_id)
+    return device is not None and str(device.user_id) == str(user.pk)
+
+
+class SecondFactorWebsocketMiddleware:
+    """
+    ASGI middleware for the websocket router (wrap it INSIDE
+    ``AuthMiddlewareStack``, which must have resolved ``scope['user']`` first).
+
+    A session that passed the password check but not the 2FA verify step is
+    handed to the consumer as ``AnonymousUser``. Every consumer already refuses
+    an anonymous user at connect, so they need no changes, and a consumer added
+    later is covered without having to remember to check.
+    """
+
+    def __init__(self, inner):
+        self.inner = inner
+
+    async def __call__(self, scope, receive, send):
+        from channels.db import database_sync_to_async
+        from django.contrib.auth.models import AnonymousUser
+
+        user = scope.get('user')
+        if user is not None and getattr(user, 'is_authenticated', False):
+            passes = await database_sync_to_async(session_passes_second_factor)(
+                user, scope.get('session'))
+            if not passes:
+                logger.info(
+                    'websocket refused: 2FA not verified this session (user %s, %s)',
+                    user.pk, scope.get('path'))
+                scope = dict(scope, user=AnonymousUser())
+        return await self.inner(scope, receive, send)
