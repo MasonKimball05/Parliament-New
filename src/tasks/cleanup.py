@@ -176,6 +176,39 @@ def prune_old_csp_violations():
         return 0
 
 
+#: v3.52.0 follow-up (10-26-26 auto-run): how long a dead mobile ticket is kept.
+#: Every ticket lives 5 minutes at most (MobileAuthTicket.TTL), so a day is
+#: only there to make a sign-in problem from earlier today still visible in
+#: the admin.
+MOBILE_TICKET_RETENTION = timezone.timedelta(days=1)
+
+
+@shared_task(name='tasks.prune_expired_mobile_auth_tickets')
+def prune_expired_mobile_auth_tickets():
+    """
+    Delete ``MobileAuthTicket`` rows that expired more than a day ago.
+
+    Nothing else ever deletes them, and they are minted far more often than
+    sign-ins happen: a handoff code every time the app opens a web view, a
+    websocket ticket per socket, a 2FA ticket per password step and per wrong
+    code, and a challenge for every ``auth/passkey/begin/``, which is
+    unauthenticated (throttled per IP, but a distributed caller is not). A used
+    or expired ticket can never be redeemed again (``consume`` filters on
+    ``used_at IS NULL`` and ``expires_at > now``), so deleting it changes no
+    behaviour; it only stops the table growing without limit.
+    """
+    try:
+        from src.models import MobileAuthTicket
+        cutoff = timezone.now() - MOBILE_TICKET_RETENTION
+        deleted_count, _ = MobileAuthTicket.objects.filter(expires_at__lt=cutoff).delete()
+        if deleted_count:
+            logger.info(f"[tasks] prune_expired_mobile_auth_tickets: deleted {deleted_count} tickets")
+        return deleted_count
+    except Exception as exc:
+        logger.error(f"[tasks] prune_expired_mobile_auth_tickets failed: {exc}")
+        return 0
+
+
 @shared_task(name='tasks.prune_expired_chat_permissions')
 def prune_expired_chat_permissions():
     """
