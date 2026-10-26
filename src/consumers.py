@@ -3,6 +3,7 @@ from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
 
 from src.mobile.ws import accept_kwargs  # echoes the app's `parliament.ticket` subprotocol
+from src.mobile.ws import SCOPE_FLAG as MOBILE_SCOPE_FLAG
 
 
 class ChatConsumer(AsyncWebsocketConsumer):
@@ -28,7 +29,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
             await self.close()
             return
 
-        has_access = await self._check_read_permission(user, self.channel_id)
+        has_access = await self._check_read_permission(
+            user, self.channel_id, via_app=bool(self.scope.get(MOBILE_SCOPE_FLAG)))
         if not has_access:
             await self.close()
             return
@@ -95,10 +97,17 @@ class ChatConsumer(AsyncWebsocketConsumer):
     # ── Helpers ───────────────────────────────────────────────────────────────
 
     @database_sync_to_async
-    def _check_read_permission(self, user, channel_id):
+    def _check_read_permission(self, user, channel_id, via_app=False):
         from src.models import ChatChannel
         try:
             channel = ChatChannel.objects.get(id=channel_id)
+            if via_app:
+                # v3.56.0 — an app (ticket) socket gets what the app's chat
+                # endpoints give: the chats flag, and the plain read rule with
+                # NO admin override (the app has no "View All" mode, so an
+                # admin's phone must not tail channels they aren't in).
+                from src.models_feature_flags import FeatureFlag
+                return FeatureFlag.is_feature_enabled('chats') and channel.has_access(user)
             # Same gate as the channel page: the read rule, plus the admin
             # "View All" override (the page renders admin preview mode and its
             # live updates come over this socket).

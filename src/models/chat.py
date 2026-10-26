@@ -148,33 +148,32 @@ class ChatChannel(models.Model):
     @classmethod
     def unread_map(cls, channels, user):
         """
-        ``{channel_id: unread_count}`` in two queries.
+        ``{channel_id: unread_count}`` in one query.
 
-        v3.17.3: `get_unread_count` was one `ChatReadReceipt.objects.get` plus
-        one `.count()` per channel. Same arithmetic, batched: one pass for the
-        user's receipts, one grouped count of undeleted messages newer than each
-        receipt's marker.
+        v3.17.3 batched `get_unread_count` (one receipt lookup + one COUNT per
+        channel) into two queries, but the second fetched a row for EVERY
+        undeleted message in the channels and compared timestamps in Python,
+        so its cost grew with the whole chat history. v3.56.0: the database
+        counts. Each message is joined to this user's receipt marker for its
+        channel; no receipt, or a receipt with no marker message, means
+        everything is unread (get_unread_count's two fallback branches).
         """
+        from django.db.models import Count, F, OuterRef, Q, Subquery
+
         channel_ids = [c.pk for c in channels]
         if not channel_ids:
             return {}
-
-        markers = {}
-        for row in (ChatReadReceipt.objects
-                    .filter(user=user, channel_id__in=channel_ids)
-                    .select_related('last_read_message')
-                    .values('channel_id', 'last_read_message__created_at')):
-            markers[row['channel_id']] = row['last_read_message__created_at']
-
+        marker = (ChatReadReceipt.objects
+                  .filter(user=user, channel_id=OuterRef('channel_id'))
+                  .values('last_read_message__created_at')[:1])
         counts = {cid: 0 for cid in channel_ids}
         for row in (ChatMessage.objects
                     .filter(channel_id__in=channel_ids, is_deleted=False)
-                    .values('channel_id', 'created_at')):
-            marker = markers.get(row['channel_id'])
-            # No receipt, or a receipt with no marker message, means everything
-            # is unread — matching get_unread_count's two fallback branches.
-            if marker is None or row['created_at'] > marker:
-                counts[row['channel_id']] += 1
+                    .annotate(marker=Subquery(marker))
+                    .filter(Q(marker__isnull=True) | Q(created_at__gt=F('marker')))
+                    .values('channel_id')
+                    .annotate(n=Count('id'))):
+            counts[row['channel_id']] = row['n']
         return counts
 
     def has_access(self, user, admin_override=False, ctx=None):

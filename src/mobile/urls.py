@@ -9,8 +9,8 @@ without the full sign-in). Enforced by
 from django.urls import path
 
 from src.mobile import (
-    views_auth, views_calendar, views_devices, views_home, views_notifications, views_push,
-    views_session, views_votes,
+    views_auth, views_calendar, views_chat, views_devices, views_home, views_notifications,
+    views_push, views_session, views_votes,
 )
 
 app_name = 'mobile'
@@ -67,4 +67,17 @@ urlpatterns = [
          views_votes.CommitteeVoteDetailView.as_view(), name='mobile_committee_vote'),
     path('committees/<str:code>/votes/<int:legislation_id>/cast/',
          views_votes.CommitteeVoteCastView.as_view(), name='mobile_committee_vote_cast'),
+    path('chat/channels/', views_chat.ChannelListView.as_view(), name='mobile_chat_channels'),
+    path('chat/channels/<int:channel_id>/messages/', views_chat.MessageListView.as_view(),
+         name='mobile_chat_messages'),
+    path('chat/channels/<int:channel_id>/send/', views_chat.SendView.as_view(),
+         name='mobile_chat_send'),
+    path('chat/channels/<int:channel_id>/messages/<int:message_id>/edit/',
+         views_chat.EditView.as_view(), name='mobile_chat_edit'),
+    path('chat/channels/<int:channel_id>/messages/<int:message_id>/delete/',
+         views_chat.DeleteView.as_view(), name='mobile_chat_delete'),
+    path('chat/channels/<int:channel_id>/read/', views_chat.ReadView.as_view(),
+         name='mobile_chat_read'),
+    path('chat/channels/<int:channel_id>/notification-level/',
+         views_chat.NotificationLevelView.as_view(), name='mobile_chat_notification_level'),
 ]

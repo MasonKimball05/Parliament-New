@@ -1,145 +1,19 @@
 from django.shortcuts import render, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse, HttpResponseForbidden
-from django.urls import reverse
 from django.utils import timezone
 from src.models import ChatChannel, ChatMessage, ChatReadReceipt, Committee
 from src.models_feature_flags import SiteSetting, FeatureFlag
 from src.feature_flag_decorators import require_feature_flag
 from src.models.users import member_defer
+from src import chat_service
 
 
-def _ws_broadcast(group_name, payload):
-    """
-    Send a message to a Channels group. Silently no-ops if the channel layer
-    is not configured (e.g., running without Redis in a bare dev environment).
-    """
-    try:
-        from channels.layers import get_channel_layer
-        from asgiref.sync import async_to_sync
-        layer = get_channel_layer()
-        if layer:
-            async_to_sync(layer.group_send)(group_name, payload)
-    except Exception:
-        pass  # Never let a WS broadcast error break the HTTP response
-
-
-def _parse_mentions(message_text, channel):
-    """
-    Parse @username patterns from message text and return a set of matching user PKs.
-    Only considers active members who can read `channel` — a mention creates a
-    Notification carrying the message text, so naming someone outside a private
-    channel must not reach them.
-    """
-    import re
-    from src.models import ParliamentUser
-
-    raw_mentions = re.findall(r'@([a-zA-Z0-9._]+)', message_text)
-    if not raw_mentions:
-        return set()
-
-    candidates = ParliamentUser.objects.filter(
-        username__in=raw_mentions,
-        member_status='Active',
-    )
-    return {u.pk for u in candidates if channel.has_access(u)}
-
-
-def _dispatch_chat_push(channel, message, mentioned_pks=None):
-    """
-    Fire push notifications to channel members who are not currently viewing the channel.
-    Respects per-channel notification preference (all / mentions / none) and the global
-    push_chat user preference. Never raises — push failures must not break message send.
-
-    mentioned_pks: set of user PKs explicitly @mentioned in this message.
-
-    Returns the set of user PKs a push was queued for, so the mention
-    notification doesn't push the same person a second time.
-    """
-    pushed = set()
-    try:
-        from datetime import timedelta
-        from src.models import ChatNotificationPreference
-        from src.tasks import send_push_notification
-
-        if mentioned_pks is None:
-            mentioned_pks = set()
-
-        sender = message.sender
-        active_cutoff = timezone.now() - timedelta(seconds=10)
-
-        # IDs of users currently active in the channel (they can see it live)
-        active_ids = set(
-            ChatReadReceipt.objects.filter(
-                channel=channel,
-                last_read_at__gte=active_cutoff,
-            ).values_list('user_id', flat=True)
-        )
-        active_ids.add(sender.pk)
-
-        # Users who have previously visited this channel and are not active right now
-        recipients = list(
-            ChatReadReceipt.objects
-            .filter(channel=channel)
-            .exclude(user_id__in=active_ids)
-            .select_related('user__preferences').defer(*member_defer('user'))
-        )
-
-        # Load per-channel prefs for all candidate recipients in one query
-        recipient_pks = [r.user_id for r in recipients]
-        pref_map = {
-            p.user_id: p.level
-            for p in ChatNotificationPreference.objects.filter(
-                channel=channel,
-                user_id__in=recipient_pks,
-            )
-        }
-
-        # Build the channel URL for the push notification tap target
-        if channel.channel_type == 'committee' and channel.committee:
-            url = reverse('committee_channel_chat', kwargs={'code': channel.committee.code})
-        else:
-            url = reverse('channel_chat', kwargs={'channel_id': channel.id})
-
-        # Channel names and text can be sensitive (Kai): only open channels
-        # put them on a lock screen.
-        if channel.access_type == 'open':
-            title = f'#{channel.name}'
-            body = f'{sender.name}: {message.message[:120]}'
-        else:
-            title = 'Parliament'
-            body = 'New message in a private channel'
-
-        for receipt in recipients:
-            user = receipt.user
-
-            # A read receipt outlives access (expired guest, left committee).
-            if not channel.has_access(user):
-                continue
-
-            # Check global push_chat preference
-            prefs = getattr(user, 'preferences', None)
-            if prefs is not None and not prefs.push_chat:
-                continue
-
-            # Check per-channel notification level (default: 'all')
-            level = pref_map.get(user.pk, ChatNotificationPreference.LEVEL_ALL)
-            if level == ChatNotificationPreference.LEVEL_NONE:
-                continue
-            if level == ChatNotificationPreference.LEVEL_MENTIONS and user.pk not in mentioned_pks:
-                continue
-
-            send_push_notification.delay(
-                user_id=user.pk,
-                title=title,
-                body=body,
-                url=url,
-                tag=f'chat-{channel.id}',
-            )
-            pushed.add(user.pk)
-    except Exception:
-        pass  # Never let push failures break message sending
-    return pushed
+# v3.56.0: these live in src/chat_service.py (shared with the app); the old
+# names stay importable for callers and tests.
+_ws_broadcast = chat_service.ws_broadcast
+_parse_mentions = chat_service.parse_mentions
+_dispatch_chat_push = chat_service.dispatch_push
 
 
 @login_required
@@ -355,94 +229,12 @@ def send_channel_message(request, channel_id=None, code=None):
     else:
         return JsonResponse({'error': 'Invalid channel identifier'}, status=400)
 
-    # Check if user has write permission
-    if not channel.can_write(request.user):
-        return JsonResponse({'error': 'You do not have permission to send messages in this channel'}, status=403)
-
-    # Rate limit: max 5 messages per 3 seconds per user
-    from django.core.cache import cache as _rate_cache
-    _rate_key = f'chat_send_rate_{request.user.pk}'
-    _send_count = _rate_cache.get(_rate_key, 0)
-    if _send_count >= 5:
-        return JsonResponse({'error': 'You are sending messages too quickly. Please slow down.'}, status=429)
-    _rate_cache.set(_rate_key, _send_count + 1, 3)
-
-    message_text = request.POST.get('message', '').strip()
-
-    if not message_text:
-        return JsonResponse({'error': 'Message cannot be empty'}, status=400)
-
-    if len(message_text) > 2000:
-        return JsonResponse({'error': 'Message too long (max 2000 characters)'}, status=400)
-
-    # Create message
-    message = ChatMessage.objects.create(
-        channel=channel,
-        sender=request.user,
-        message=message_text
-    )
-
-    # Update read receipt for sender and invalidate their nav badge cache
-    from django.core.cache import cache as _cache
-    receipt, created = ChatReadReceipt.objects.get_or_create(
-        user=request.user,
-        channel=channel
-    )
-    receipt.last_read_message = message
-    receipt.save(update_fields=['last_read_message'])
-    _cache.delete(f'chat_unread_{request.user.pk}')
-
-    # Parse @mentions and dispatch targeted push notifications
-    mentioned_pks = _parse_mentions(message_text, channel)
-    chat_pushed_pks = _dispatch_chat_push(channel, message, mentioned_pks=mentioned_pks)
-
-    # Create in-app mention notifications and collect user_ids for WS broadcast
-    mentioned_user_ids = []
-    if mentioned_pks:
-        from src.models import ParliamentUser as _PUser
-        from src.notification_service import create_notification
-
-        if channel.channel_type == 'committee' and channel.committee:
-            channel_url = reverse('committee_channel_chat', kwargs={'code': channel.committee.code})
-        else:
-            channel_url = reverse('channel_chat', kwargs={'channel_id': channel.id})
-
-        for mentioned_user in _PUser.objects.filter(pk__in=mentioned_pks):
-            mentioned_user_ids.append(str(mentioned_user.user_id))
-            if mentioned_user.pk == request.user.pk:
-                continue  # Don't self-notify
-            # Through the service so the mention also pushes (prefs['push']
-            # ['mentions']) — unless the chat fan-out above already pushed
-            # this person for this message. A private channel's name and
-            # text stay off the lock screen, as in _dispatch_chat_push.
-            is_open = channel.access_type == 'open'
-            create_notification(
-                recipient=mentioned_user,
-                notification_type='chat_mention',
-                title=f'{request.user.name} mentioned you in #{channel.name}',
-                message=message_text[:200],
-                link=channel_url,
-                source_type='chatmessage',
-                source_id=message.id,
-                push=mentioned_user.pk not in chat_pushed_pks,
-                push_title=None if is_open else 'Parliament',
-                push_body=None if is_open else f'{request.user.name} mentioned you in a private channel',
-            )
-
-    # Broadcast to WebSocket group so all connected clients receive it in real-time
-    _ws_broadcast(f'chat_{channel.id}', {
-        'type': 'chat.message',
-        'message': {
-            'id': message.id,
-            'sender_id': message.sender.user_id,
-            'sender_name': message.sender.name,
-            'sender_profile_picture': message.sender.profile_picture.url if message.sender.profile_picture else None,
-            'message': message.message,
-            'created_at': message.created_at.isoformat(),
-            'edited_at': None,
-            'mentioned_user_ids': mentioned_user_ids,
-        },
-    })
+    # v3.56.0: write check, rate limit, mentions, push and broadcast are
+    # chat_service.send_message (shared with the app).
+    try:
+        message = chat_service.send_message(channel, request.user, request.POST.get('message', ''))
+    except chat_service.ChatError as exc:
+        return JsonResponse({'error': str(exc)}, status=exc.status)
 
     return JsonResponse({
         'success': True,
@@ -475,42 +267,10 @@ def edit_channel_message(request, message_id, channel_id=None, code=None):
         return JsonResponse({'error': 'Invalid channel identifier'}, status=400)
     message = get_object_or_404(ChatMessage, id=message_id, channel=channel)
 
-    # Only the sender can edit their message
-    if message.sender != request.user:
-        return JsonResponse({'error': 'Only the sender can edit this message'}, status=403)
-
-    # Check channel edit permission (committee members always pass; guests need can_edit=True)
-    if not channel.can_edit_messages(request.user):
-        return JsonResponse({'error': 'You do not have permission to edit messages in this channel'}, status=403)
-
-    # Check if message is within 1 hour edit window
-    from datetime import timedelta
-    time_since_creation = timezone.now() - message.created_at
-    if time_since_creation > timedelta(hours=1):
-        return JsonResponse({'error': 'Messages can only be edited within 1 hour of sending'}, status=403)
-
-    new_message_text = request.POST.get('message', '').strip()
-
-    if not new_message_text:
-        return JsonResponse({'error': 'Message cannot be empty'}, status=400)
-
-    if len(new_message_text) > 2000:
-        return JsonResponse({'error': 'Message too long (max 2000 characters)'}, status=400)
-
-    # Update message
-    message.message = new_message_text
-    message.edited_at = timezone.now()
-    message.save(update_fields=['message', 'edited_at'])
-
-    # Broadcast edit to WebSocket group
-    _ws_broadcast(f'chat_{channel.id}', {
-        'type': 'chat.edit',
-        'message': {
-            'id': message.id,
-            'message': message.message,
-            'edited_at': message.edited_at.isoformat(),
-        },
-    })
+    try:
+        chat_service.edit_message(channel, message, request.user, request.POST.get('message', ''))
+    except chat_service.ChatError as exc:
+        return JsonResponse({'error': str(exc)}, status=exc.status)
 
     return JsonResponse({
         'success': True,
@@ -539,30 +299,12 @@ def delete_channel_message(request, message_id, channel_id=None, code=None):
         return JsonResponse({'error': 'Invalid channel identifier'}, status=400)
     message = get_object_or_404(ChatMessage, id=message_id, channel=channel)
 
-    # Check permissions: admin, chairs can delete any message
-    # Message sender can delete own message if they have delete permission
-    is_sender = message.sender == request.user
-    is_admin = request.user.is_admin
-    is_chair = channel.committee and channel.committee.is_chair(request.user)
-
-    can_delete = (
-        is_admin or
-        is_chair or
-        (is_sender and channel.can_delete_messages(request.user))
-    )
-
-    if not can_delete:
-        return JsonResponse({'error': 'Permission denied'}, status=403)
-
-    # Soft delete
-    message.is_deleted = True
-    message.save(update_fields=['is_deleted'])
-
-    # Broadcast deletion to WebSocket group
-    _ws_broadcast(f'chat_{channel.id}', {
-        'type': 'chat.delete',
-        'message_id': message.id,
-    })
+    # Admins and chairs can delete any message; the sender needs the
+    # channel's delete permission (chat_service.can_delete).
+    try:
+        chat_service.delete_message(channel, message, request.user)
+    except chat_service.ChatError as exc:
+        return JsonResponse({'error': str(exc)}, status=exc.status)
 
     return JsonResponse({'success': True})
 
