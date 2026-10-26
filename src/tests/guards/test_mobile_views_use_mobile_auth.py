@@ -92,3 +92,46 @@ class MobileViewsUseMobileAuthTests(SimpleTestCase):
     def test_unnamed_routes_cannot_hide(self):
         unnamed = [cb for name, cb in _mobile_patterns() if not name]
         self.assertEqual(unnamed, [], 'every mobile route needs a name (the allowlist is by name)')
+
+
+def _all_url_names():
+    names = set()
+
+    def walk(patterns):
+        for p in patterns:
+            if isinstance(p, URLResolver):
+                walk(p.url_patterns)
+            elif isinstance(p, URLPattern) and p.name:
+                names.add(p.name)
+
+    walk(get_resolver().url_patterns)
+    return names
+
+
+class MobileViewsNameTheirWebPageTests(SimpleTestCase):
+    """
+    Phase 3: an app screen must honour its web page's toggle and pledge
+    restriction. Both key on the WEB url_name (``home``), not the mobile one
+    (``mobile_home``), so a mobile view that forgot ``web_page`` would quietly
+    serve a page the site has switched off or restricted. Every mobile route
+    except the app's own plumbing (the routes the pledge middleware always
+    allows: sign-in, ``me/``, devices, push token, socket tickets) must name
+    one, and it must be a real route.
+    """
+
+    def test_every_screen_endpoint_names_a_real_web_page(self):
+        from src.middleware.pledge_pages import is_always_allowed
+        names = _all_url_names()
+        problems = []
+        for name, callback in _mobile_patterns():
+            if is_always_allowed(name):
+                continue
+            cls = _view_class(callback)
+            page = getattr(cls, 'web_page', None)
+            if not page:
+                problems.append(f'{name}: set web_page to the web url_name it mirrors')
+            elif page not in names:
+                problems.append(f'{name}: web_page {page!r} is not a url name')
+            elif page.startswith('mobile_'):
+                problems.append(f'{name}: web_page must be the WEB page, not {page!r}')
+        self.assertEqual(problems, [], '\n'.join(problems))

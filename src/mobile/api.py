@@ -136,12 +136,50 @@ class MobileUserThrottle(UserRateThrottle):
         return getattr(settings, 'MOBILE_API_THROTTLE_RATE', '1200/hour')
 
 
+# ── Web-page gates ───────────────────────────────────────────────────────────
+
+def check_web_page(user, url_name, toggle=True):
+    """
+    Refuse the request if the website would refuse ``user`` the page
+    ``url_name``: its PageToggle is off (``@require_page_enabled``; skipped
+    with ``toggle=False`` for a web page that has no such decorator), or a
+    pledge restriction blocks it (``PledgePageRestrictionMiddleware``).
+
+    Both rules key on the WEB page's url_name, so a mobile route named
+    ``mobile_home`` is not covered by a toggle or restriction on ``home`` unless
+    the view says which page it mirrors (Phase 3). Same helpers as the web, so
+    the same fail-open/fail-closed behaviour.
+    """
+    from src.models.education import PledgePageRestriction
+    from src.models_feature_flags import PageToggle
+    if toggle and not PageToggle.is_page_enabled(url_name):
+        raise exceptions.PermissionDenied('This page is turned off.', code='page_disabled')
+    if user.is_pledge:
+        phase = getattr(user, 'pledge_phase', None) or 'all'
+        if not PledgePageRestriction.is_allowed(url_name, phase):
+            raise exceptions.PermissionDenied('Not available to pledges yet.',
+                                              code='pledge_restricted')
+
+
 # ── Bases ────────────────────────────────────────────────────────────────────
 
 class MobileAPIView(APIView):
     authentication_classes = [MobileTokenAuthentication]
     permission_classes = [IsAuthenticated]
     throttle_classes = [MobileUserThrottle]
+
+    #: url_name of the web page this endpoint is the app's version of, if any.
+    #: Its page toggle and pledge restriction apply here too (check_web_page).
+    #: The guard test requires it on every view that isn't app plumbing.
+    web_page = None
+    #: False when that web page has no @require_page_enabled (so the app
+    #: doesn't honour a toggle the site ignores).
+    web_page_toggle = True
+
+    def initial(self, request, *args, **kwargs):
+        super().initial(request, *args, **kwargs)
+        if self.web_page:
+            check_web_page(request.user, self.web_page, toggle=self.web_page_toggle)
 
     def get_exception_handler(self):
         return mobile_exception_handler

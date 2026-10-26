@@ -84,23 +84,53 @@ def mark_notification_read(request, notification_id):
     """Mark a single notification as read."""
     try:
         notification = Notification.objects.get(id=notification_id, recipient=request.user)
-        if not notification.is_read:
-            notification.is_read = True
-            notification.read_at = timezone.now()
-            notification.save(update_fields=['is_read', 'read_at'])
-            _record_announcement_view(notification, request.user)
-            _invalidate_notification_cache(request.user)
-        return JsonResponse({'success': True})
     except Notification.DoesNotExist:
         return JsonResponse({'success': False, 'error': 'Notification not found'}, status=404)
+    mark_read(notification, request.user)
+    return JsonResponse({'success': True})
 
 
 @login_required
 @require_POST
 def mark_all_notifications_read(request):
     """Mark all of the user's unread notifications as read."""
+    count = mark_all_read(request.user)
+    return JsonResponse({'success': True, 'count': count})
+
+
+@login_required
+@require_POST
+def delete_notification(request, notification_id):
+    """Delete a single notification."""
+    try:
+        notification = Notification.objects.get(id=notification_id, recipient=request.user)
+        was_unread = not notification.is_read
+        notification.delete()
+        if was_unread:
+            _invalidate_notification_cache(request.user)
+        return JsonResponse({'success': True})
+    except Notification.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Notification not found'}, status=404)
+
+
+def mark_read(notification, user):
+    """
+    Mark one of ``user``'s notifications read (no-op if it already is).
+    Shared by the web endpoint and the app (src/mobile/views_notifications.py).
+    """
+    if notification.is_read:
+        return
+    notification.is_read = True
+    notification.read_at = timezone.now()
+    notification.save(update_fields=['is_read', 'read_at'])
+    _record_announcement_view(notification, user)
+    _invalidate_notification_cache(user)
+
+
+def mark_all_read(user):
+    """Mark every unread notification of ``user`` read; returns how many."""
     unread = Notification.objects.filter(
-        recipient=request.user, is_read=False
+        recipient=user, is_read=False
     )
     # Record announcement views before bulk-updating. Batch-fetch every
     # referenced Announcement in one query (Announcement.objects.in_bulk)
@@ -119,26 +149,11 @@ def mark_all_notifications_read(request):
         for notification in announcement_notifs:
             announcement = announcements_by_id.get(notification.source_id)
             if announcement is not None:
-                _record_announcement_view(notification, request.user, announcement=announcement)
+                _record_announcement_view(notification, user, announcement=announcement)
     count = unread.update(is_read=True, read_at=timezone.now())
     if count > 0:
-        _invalidate_notification_cache(request.user)
-    return JsonResponse({'success': True, 'count': count})
-
-
-@login_required
-@require_POST
-def delete_notification(request, notification_id):
-    """Delete a single notification."""
-    try:
-        notification = Notification.objects.get(id=notification_id, recipient=request.user)
-        was_unread = not notification.is_read
-        notification.delete()
-        if was_unread:
-            _invalidate_notification_cache(request.user)
-        return JsonResponse({'success': True})
-    except Notification.DoesNotExist:
-        return JsonResponse({'success': False, 'error': 'Notification not found'}, status=404)
+        _invalidate_notification_cache(user)
+    return count
 
 
 def _record_announcement_view(notification, user, announcement=None):

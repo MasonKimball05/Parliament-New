@@ -45,82 +45,91 @@ def user_preferences(request):
     return {'user_prefs': get_user_prefs(request.user)}
 
 
+def unread_notification_count(user):
+    """Unread bell notifications for ``user`` (cached 60 s; shared with the app)."""
+    from django.core.cache import cache
+    cache_key = f'notif_count_{user.pk}'
+    unread_count = cache.get(cache_key)
+    if unread_count is None:
+        from src.models import Notification
+        unread_count = Notification.objects.filter(
+            recipient=user, is_read=False
+        ).count()
+        cache.set(cache_key, unread_count, 60)
+    return unread_count
+
+
+def unread_chat_count(user):
+    """Unread chat messages for ``user``, capped at 99 (cached 30 s; shared with the app)."""
+    from django.core.cache import cache
+    # Chat unread count — single aggregated query instead of N per-channel COUNTs.
+    # For each receipt: count messages in that channel newer than the last-read message.
+    # Uses a subquery so the whole thing is one round-trip to the DB.
+    chat_cache_key = f'chat_unread_{user.pk}'
+    unread_chat = cache.get(chat_cache_key)
+    if unread_chat is None:
+        from django.db.models import OuterRef, Subquery, IntegerField, Value, Count, Sum, Case, When
+        from django.db.models.functions import Coalesce
+        from src.models import ChatReadReceipt, ChatMessage
+
+        # Subquery: messages in the receipt's channel that are newer than last_read.
+        # NOTE: when this filter matches 0 rows, the GROUP BY produces 0 rows, so the
+        # subquery returns NULL — not 0. We handle that with Case/When below.
+        newer_msgs = ChatMessage.objects.filter(
+            channel=OuterRef('channel'),
+            is_deleted=False,
+            created_at__gt=OuterRef('last_read_message__created_at'),
+        ).values('channel').annotate(n=Count('id')).values('n')
+
+        # Fallback when last_read_message is NULL (receipt exists but user has never
+        # opened the channel): treat all messages as unread.
+        all_msgs = ChatMessage.objects.filter(
+            channel=OuterRef('channel'),
+            is_deleted=False,
+        ).values('channel').annotate(n=Count('id')).values('n')
+
+        receipts = (
+            ChatReadReceipt.objects
+            .filter(user=user, channel__isnull=False)
+            .annotate(
+                unread=Case(
+                    # last_read_message IS set → NULL from subquery means 0 newer messages
+                    When(
+                        last_read_message__isnull=False,
+                        then=Coalesce(
+                            Subquery(newer_msgs[:1], output_field=IntegerField()),
+                            Value(0),
+                            output_field=IntegerField(),
+                        ),
+                    ),
+                    # last_read_message IS NULL → count all messages as unread
+                    default=Coalesce(
+                        Subquery(all_msgs[:1], output_field=IntegerField()),
+                        Value(0),
+                        output_field=IntegerField(),
+                    ),
+                    output_field=IntegerField(),
+                )
+            )
+        )
+        # Push the final sum into SQL rather than iterating in Python.
+        unread_chat = min(receipts.aggregate(total=Sum('unread'))['total'] or 0, 99)
+        cache.set(chat_cache_key, unread_chat, 30)
+    return unread_chat
+
+
 def notifications(request):
     """
     Injects unread notification count and unread chat count into all templates.
     Used by the navbar bell icon and Chats link badge.
     Cached for 60 seconds (notifications) and 30 seconds (chat) to reduce queries.
+    The counts live in the two functions above so the mobile API reads the same
+    numbers (src/mobile/views_home.py).
     """
     if request.user.is_authenticated:
-        from django.core.cache import cache
-
-        # Bell notification count
-        cache_key = f'notif_count_{request.user.pk}'
-        unread_count = cache.get(cache_key)
-        if unread_count is None:
-            from src.models import Notification
-            unread_count = Notification.objects.filter(
-                recipient=request.user, is_read=False
-            ).count()
-            cache.set(cache_key, unread_count, 60)
-
-        # Chat unread count — single aggregated query instead of N per-channel COUNTs.
-        # For each receipt: count messages in that channel newer than the last-read message.
-        # Uses a subquery so the whole thing is one round-trip to the DB.
-        chat_cache_key = f'chat_unread_{request.user.pk}'
-        unread_chat = cache.get(chat_cache_key)
-        if unread_chat is None:
-            from django.db.models import OuterRef, Subquery, IntegerField, Value, Count, Sum, Case, When
-            from django.db.models.functions import Coalesce
-            from src.models import ChatReadReceipt, ChatMessage
-
-            # Subquery: messages in the receipt's channel that are newer than last_read.
-            # NOTE: when this filter matches 0 rows, the GROUP BY produces 0 rows, so the
-            # subquery returns NULL — not 0. We handle that with Case/When below.
-            newer_msgs = ChatMessage.objects.filter(
-                channel=OuterRef('channel'),
-                is_deleted=False,
-                created_at__gt=OuterRef('last_read_message__created_at'),
-            ).values('channel').annotate(n=Count('id')).values('n')
-
-            # Fallback when last_read_message is NULL (receipt exists but user has never
-            # opened the channel): treat all messages as unread.
-            all_msgs = ChatMessage.objects.filter(
-                channel=OuterRef('channel'),
-                is_deleted=False,
-            ).values('channel').annotate(n=Count('id')).values('n')
-
-            receipts = (
-                ChatReadReceipt.objects
-                .filter(user=request.user, channel__isnull=False)
-                .annotate(
-                    unread=Case(
-                        # last_read_message IS set → NULL from subquery means 0 newer messages
-                        When(
-                            last_read_message__isnull=False,
-                            then=Coalesce(
-                                Subquery(newer_msgs[:1], output_field=IntegerField()),
-                                Value(0),
-                                output_field=IntegerField(),
-                            ),
-                        ),
-                        # last_read_message IS NULL → count all messages as unread
-                        default=Coalesce(
-                            Subquery(all_msgs[:1], output_field=IntegerField()),
-                            Value(0),
-                            output_field=IntegerField(),
-                        ),
-                        output_field=IntegerField(),
-                    )
-                )
-            )
-            # Push the final sum into SQL rather than iterating in Python.
-            unread_chat = min(receipts.aggregate(total=Sum('unread'))['total'] or 0, 99)
-            cache.set(chat_cache_key, unread_chat, 30)
-
         return {
-            'unread_notification_count': unread_count,
-            'unread_chat_count': unread_chat,
+            'unread_notification_count': unread_notification_count(request.user),
+            'unread_chat_count': unread_chat_count(request.user),
         }
     return {'unread_notification_count': 0, 'unread_chat_count': 0}
 

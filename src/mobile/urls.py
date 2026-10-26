@@ -8,7 +8,9 @@ without the full sign-in). Enforced by
 """
 from django.urls import path
 
-from src.mobile import views_auth, views_devices, views_push, views_session
+from src.mobile import (
+    views_auth, views_devices, views_home, views_notifications, views_push, views_session,
+)
 
 app_name = 'mobile'
 
@@ -33,4 +35,15 @@ urlpatterns = [
     path('devices/<uuid:public_id>/revoke/', views_devices.DeviceRevokeView.as_view(),
          name='mobile_device_revoke'),
     path('devices/push-token/', views_push.PushTokenView.as_view(), name='mobile_push_token'),
+    # Phase 3 screens. Each view names the web page it mirrors (`web_page`), so
+    # that page's toggle and pledge restriction apply here too.
+    path('home/', views_home.HomeView.as_view(), name='mobile_home'),
+    path('notifications/', views_notifications.NotificationListView.as_view(),
+         name='mobile_notifications'),
+    path('notifications/count/', views_notifications.NotificationCountView.as_view(),
+         name='mobile_notifications_count'),
+    path('notifications/<int:notification_id>/read/',
+         views_notifications.NotificationReadView.as_view(), name='mobile_notification_read'),
+    path('notifications/read-all/', views_notifications.NotificationReadAllView.as_view(),
+         name='mobile_notifications_read_all'),
 ]
