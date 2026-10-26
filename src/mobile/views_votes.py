@@ -25,7 +25,8 @@ so a member who can't vote anyway isn't asked to type a password.
 
 Not here (web view): the author's own unreleased bills, uploading and
 managing legislation, the officer attendance panel, receipt verification.
-Committee ballots come with ``committees/<code>/votes/``.
+Committee ballots are at the bottom of this module; ``votes/`` lists the
+member's committees that have open ballots (``committees``).
 """
 import json
 import logging
@@ -112,6 +113,7 @@ class VoteListView(_VotesBase):
                 'has_passkeys': user.webauthn_credentials.exists(),
             },
             'votes': [_summary(leg, voted) for leg in rows],
+            'committees': committee_summaries(user),
         })
 
 
@@ -286,3 +288,113 @@ class PasskeyReauthCompleteView(_VotesBase):
         raw, grant = MobileAuthTicket.issue(MobileAuthTicket.PURPOSE_VOTE_GRANT, user=user,
                                             device=request.mobile_device)
         return Response({'reauth_grant': raw, 'expires_at': grant.expires_at.isoformat()})
+
+
+# ── Committee ballots ───────────────────────────────────────────────────────
+# committees/<code>/votes/ (+ <id>/, <id>/cast/). Behind the committee_voting
+# flag like the web page. Only a voting member of an active committee sees
+# anything: anyone else gets a 404, so committee codes can't be probed (the
+# web page shows any member the open ballots; the app has no use for that).
+# Casting is src/ballots.py's cast_committee, the web form's code; re-auth is
+# the same password check / passkey grant as chapter ballots. No receipts:
+# committee ballots never had them.
+
+def _voting_committees(user):
+    from src.models import Committee
+    return Committee.objects.filter(voting_members=user, is_active=True, is_archived=False)
+
+
+def _committee_on_ballot(committee):
+    from src.models import CommitteeLegislation
+    return (CommitteeLegislation.objects
+            .filter(committee=committee, available_at__lte=timezone.now(), voting_closed=False)
+            .exclude(status='removed'))
+
+
+def committee_summaries(user):
+    """[{code, name, open_count}] for votes/: where the member has ballots."""
+    from django.db.models import Count, Q
+    from src.feature_flag_decorators import check_feature_enabled
+    if not check_feature_enabled('committee_voting'):
+        return []
+    now = timezone.now()
+    rows = (_voting_committees(user)
+            .annotate(open_count=Count('legislation', distinct=True, filter=Q(
+                legislation__available_at__lte=now, legislation__voting_closed=False,
+            ) & ~Q(legislation__status='removed')))
+            .filter(open_count__gt=0)
+            .order_by('name'))
+    return [{'code': c.code, 'name': c.name, 'open_count': c.open_count} for c in rows]
+
+
+class _CommitteeBase(_VotesBase):
+
+    def committee(self, request, code):
+        from src.feature_flag_decorators import check_feature_enabled
+        if not check_feature_enabled('committee_voting'):
+            raise exceptions.PermissionDenied('Committee voting is off.', code='feature_disabled')
+        committee = _voting_committees(request.user).filter(code=code).first()
+        if committee is None:
+            raise Http404
+        return committee
+
+
+class CommitteeVoteListView(_CommitteeBase):
+
+    def get(self, request, code):
+        from src.models import CommitteeVote
+        committee = self.committee(request, code)
+        rows = list(_committee_on_ballot(committee).order_by('-available_at'))
+        voted = set(CommitteeVote.objects.filter(user=request.user, legislation__in=rows)
+                    .values_list('legislation_id', flat=True))
+        return Response({
+            'committee': {'code': committee.code, 'name': committee.name},
+            'attendance_ok': ballots.attendance_ok(request.user),
+            'votes': [_summary(leg, voted) for leg in rows],
+        })
+
+
+class CommitteeVoteDetailView(_CommitteeBase):
+
+    def get(self, request, code, legislation_id):
+        from src.models import CommitteeVote
+        committee = self.committee(request, code)
+        leg = _committee_on_ballot(committee).filter(pk=legislation_id).first()
+        if leg is None:
+            raise Http404
+        voted = set(CommitteeVote.objects.filter(user=request.user, legislation=leg)
+                    .values_list('legislation_id', flat=True))
+        return Response({'vote': {
+            **_summary(leg, voted),
+            'description': leg.description,
+            'options': _options(leg),
+            'votes_allowed': (leg.plurality_votes_allowed or 1) if leg.vote_mode == 'plurality' else 1,
+            'allow_abstain': leg.allow_abstain,
+            'required_percentage': leg.required_percentage if leg.vote_mode == 'percentage' else None,
+            'required_number': leg.required_number if leg.vote_mode == 'piecewise' else None,
+        }})
+
+
+class CommitteeVoteCastView(_CommitteeBase):
+
+    def post(self, request, code, legislation_id):
+        committee = self.committee(request, code)
+        data = request.data if isinstance(request.data, dict) else {}
+        try:
+            ballots.check_committee_eligible(request.user, committee)
+        except ballots.BallotError as exc:
+            raise VoteRefused(exc.code, str(exc), _STATUS[exc.code])
+        _confirm_identity(request, data)
+        leg = _committee_on_ballot(committee).filter(pk=legislation_id).first()
+        if leg is None:
+            raise Http404
+        choices = data.get('choices')
+        if choices is None and data.get('choice') is not None:
+            choices = [data.get('choice')]
+        if not isinstance(choices, list) or not all(isinstance(c, str) for c in choices):
+            raise VoteRefused('invalid_choice', 'Send "choices" as a list of options.')
+        try:
+            result = ballots.cast_committee(request.user, committee, leg, choices, request._request)
+        except ballots.BallotError as exc:
+            raise VoteRefused(exc.code, str(exc), _STATUS[exc.code])
+        return Response({'ok': True, 'choices_count': len(result['votes'])})

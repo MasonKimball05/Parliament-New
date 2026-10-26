@@ -268,3 +268,100 @@ class PasskeyReauthTests(_Base):
         _, access, _ = make_device(plain)
         r = self.post('votes/reauth/passkey/begin/', access=access)
         self.assertEqual((r.status_code, r.json()['error']), (400, 'no_passkeys'))
+
+
+class CommitteeBallotTests(_Base):
+    """committees/<code>/votes/ — voting members of an active committee only."""
+
+    def setUp(self):
+        super().setUp()
+        from src.models import Committee, CommitteeLegislation
+        self.committee = Committee.objects.create(name='Finance', code='FIN', is_active=True)
+        self.committee.voting_members.add(self.user)
+        self.other_committee = Committee.objects.create(name='Social', code='SOC', is_active=True)
+        now = timezone.now()
+        make = lambda c, title, **kw: CommitteeLegislation.objects.create(
+            committee=c, title=title, description='d', posted_by=self.user,
+            available_at=now - timedelta(hours=1), **kw)
+        self.cbill = make(self.committee, 'Budget')
+        self.removed = make(self.committee, 'Removed', status='removed')
+        self.theirs = make(self.other_committee, 'Party')
+
+    def ccast(self, code, bill, access=None, **body):
+        body.setdefault('choices', ['yes'])
+        body.setdefault('password', 'pw-vote-1')
+        return self.post(f'committees/{code}/votes/{bill.id}/cast/', body, access=access)
+
+    def test_votes_lists_my_committees_with_open_ballots(self):
+        self.assertEqual(self.get('votes/').json()['committees'],
+                         [{'code': 'FIN', 'name': 'Finance', 'open_count': 1}])
+
+    def test_list_and_cast(self):
+        from src.models import CommitteeVote
+        body = self.get('committees/FIN/votes/').json()
+        self.assertEqual([v['title'] for v in body['votes']], ['Budget'])
+        r = self.ccast('FIN', self.cbill)
+        self.assertEqual(r.status_code, 200, r.content)
+        self.assertEqual(CommitteeVote.objects.filter(user=self.user, legislation=self.cbill).count(), 1)
+        self.assertEqual(self.ccast('FIN', self.cbill).json()['error'], 'already_voted')
+
+    def test_not_a_voting_member_sees_nothing(self):
+        for path in ('committees/SOC/votes/', f'committees/SOC/votes/{self.theirs.id}/'):
+            self.assertEqual(self.get(path).status_code, 404, path)
+        self.assertEqual(self.ccast('SOC', self.theirs).status_code, 404)
+
+    def test_another_committees_bill_through_my_committee_is_404(self):
+        # The P0 IDOR shape: my committee's code, their bill's id.
+        from src.models import CommitteeVote
+        self.assertEqual(self.ccast('FIN', self.theirs).status_code, 404)
+        self.assertFalse(CommitteeVote.objects.filter(legislation=self.theirs).exists())
+
+    def test_removed_bill_is_refused_on_web_and_app(self):
+        from src.models import CommitteeVote
+        self.assertEqual(self.ccast('FIN', self.removed).status_code, 404)
+        web = Client()
+        web.force_login(self.user)
+        web.post(reverse('vote', kwargs={'code': 'FIN'}),
+                 {'action': 'cast_vote', 'legislation_id': self.removed.id,
+                  'vote_choice': 'yes', 'password': 'pw-vote-1'})
+        self.assertFalse(CommitteeVote.objects.filter(legislation=self.removed).exists())
+
+    def test_web_committee_form_still_casts(self):
+        from src.models import CommitteeVote
+        web = Client()
+        web.force_login(self.user)
+        web.post(reverse('vote', kwargs={'code': 'FIN'}),
+                 {'action': 'cast_vote', 'legislation_id': self.cbill.id,
+                  'vote_choice': 'no', 'password': 'pw-vote-1'})
+        self.assertEqual(CommitteeVote.objects.get(legislation=self.cbill).vote_choice, 'no')
+
+    def test_not_present(self):
+        Attendance.objects.all().delete()
+        self.assertEqual(self.ccast('FIN', self.cbill).json()['error'], 'not_present')
+
+    def test_flag_off(self):
+        from src.tests.mobile.test_home_and_notifications import flag
+        flag('committee_voting', False)
+        r = self.get('committees/FIN/votes/')
+        self.assertEqual((r.status_code, r.json()['error']), (403, 'feature_disabled'))
+        self.assertEqual(self.get('votes/').json()['committees'], [])
+
+    def test_inactive_committee_is_404(self):
+        self.committee.is_active = False
+        self.committee.save()
+        self.assertEqual(self.get('committees/FIN/votes/').status_code, 404)
+
+    @patch('webauthn.verify_authentication_response')
+    def test_passkey_grant_works_for_committee_ballots(self, verify):
+        verify.return_value = SimpleNamespace(new_sign_count=2)
+        WebAuthnCredential.objects.create(user=self.user, credential_id=CRED_ID,
+                                          public_key=b'pk', sign_count=1, name='Phone')
+        begin = self.post('votes/reauth/passkey/begin/').json()
+        grant = self.post('votes/reauth/passkey/complete/', {
+            'challenge_id': begin['challenge_id'],
+            'credential': {'id': b64url(CRED_ID), 'rawId': b64url(CRED_ID),
+                           'type': 'public-key', 'response': {}},
+        }).json()['reauth_grant']
+        r = self.post(f'committees/FIN/votes/{self.cbill.id}/cast/',
+                      {'choices': ['yes'], 'reauth_grant': grant})
+        self.assertEqual(r.status_code, 200, r.content)

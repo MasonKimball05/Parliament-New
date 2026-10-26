@@ -61,4 +61,10 @@ urlpatterns = [
          name='mobile_vote_reauth_passkey_begin'),
     path('votes/reauth/passkey/complete/', views_votes.PasskeyReauthCompleteView.as_view(),
          name='mobile_vote_reauth_passkey_complete'),
+    path('committees/<str:code>/votes/', views_votes.CommitteeVoteListView.as_view(),
+         name='mobile_committee_votes'),
+    path('committees/<str:code>/votes/<int:legislation_id>/',
+         views_votes.CommitteeVoteDetailView.as_view(), name='mobile_committee_vote'),
+    path('committees/<str:code>/votes/<int:legislation_id>/cast/',
+         views_votes.CommitteeVoteCastView.as_view(), name='mobile_committee_vote_cast'),
 ]
