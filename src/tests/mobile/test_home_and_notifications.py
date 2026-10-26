@@ -187,9 +187,11 @@ class HomeTests(_Base):
         _, access = self.as_pledge()
         self.assertIsNone(self.get('home/', access=access).json()['pending_votes'])
 
-    def test_voting_flag_off_hides_ballots(self):
+    def test_voting_flag_does_not_hide_ballots(self):
+        # legislation_voting gates managing bills, not voting (same on the web).
         flag('legislation_voting', False)
-        self.assertIsNone(self.get('home/').json()['pending_votes'])
+        self.assertEqual([v['title'] for v in self.get('home/').json()['pending_votes']],
+                         ['Open bill'])
 
     def test_vote_page_off_hides_ballots(self):
         toggle('vote', False)

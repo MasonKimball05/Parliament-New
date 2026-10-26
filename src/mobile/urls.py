@@ -10,7 +10,7 @@ from django.urls import path
 
 from src.mobile import (
     views_auth, views_calendar, views_devices, views_home, views_notifications, views_push,
-    views_session,
+    views_session, views_votes,
 )
 
 app_name = 'mobile'
@@ -53,4 +53,12 @@ urlpatterns = [
          name='mobile_event_signup'),
     path('calendar/subscription/', views_calendar.CalendarSubscriptionView.as_view(),
          name='mobile_calendar_subscription'),
+    path('votes/', views_votes.VoteListView.as_view(), name='mobile_votes'),
+    path('votes/<int:legislation_id>/', views_votes.VoteDetailView.as_view(), name='mobile_vote'),
+    path('votes/<int:legislation_id>/cast/', views_votes.VoteCastView.as_view(),
+         name='mobile_vote_cast'),
+    path('votes/reauth/passkey/begin/', views_votes.PasskeyReauthBeginView.as_view(),
+         name='mobile_vote_reauth_passkey_begin'),
+    path('votes/reauth/passkey/complete/', views_votes.PasskeyReauthCompleteView.as_view(),
+         name='mobile_vote_reauth_passkey_complete'),
 ]

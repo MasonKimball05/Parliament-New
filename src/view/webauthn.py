@@ -463,7 +463,6 @@ def check_vote_reauth(request):
     Password failures are rate-limited per user (v3.13.3 — the vote forms
     previously allowed unlimited password guessing).
     """
-    from django.core.cache import cache
     user = request.user
 
     if request.POST.get('auth_method') == 'passkey':
@@ -471,6 +470,21 @@ def check_vote_reauth(request):
             return True, None
         return False, 'Passkey confirmation expired or missing — please try again.'
 
+    return check_vote_password(user, request.POST.get('password', ''), request)
+
+
+#: check_vote_password's refusal when the member is over the failure limit.
+VOTE_PW_LOCKED_MSG = ('Too many incorrect password attempts. Try again in '
+                      '15 minutes, or confirm with a passkey.')
+
+
+def check_vote_password(user, password, request):
+    """
+    The vote password confirmation, with its per-member failure limit.
+    Returns (ok, error_message). Shared by the web form and the app's
+    votes/<id>/cast/ (v3.55.0), so failures in either count toward one limit.
+    """
+    from django.core.cache import cache
     key = f'vote_pw_attempts_{user.pk}'
     failures = cache.get(key, 0)
     if failures >= _VOTE_PW_MAX_FAILURES:
@@ -478,10 +492,8 @@ def check_vote_reauth(request):
             f'Vote password confirmation rate-limited for {user.username} '
             f'from {get_client_ip(request)}'
         )
-        return False, ('Too many incorrect password attempts. Try again in '
-                       '15 minutes, or confirm with a passkey.')
-    password = request.POST.get('password', '')
-    if not password or not user.check_password(password):
+        return False, VOTE_PW_LOCKED_MSG
+    if not password or not isinstance(password, str) or not user.check_password(password):
         cache.set(key, failures + 1, _REAUTH_WINDOW_SECONDS)
         return False, 'Incorrect password.'
     cache.delete(key)

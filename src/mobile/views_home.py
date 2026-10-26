@@ -4,9 +4,10 @@ The app's Home tab (mobile plan, Phase 3): ``GET home/``.
 One request for the whole screen:
 
 * ``pending_votes`` — open chapter ballots the member hasn't cast, newest
-  first (up to 5). Only for members who can vote, with the
-  ``legislation_voting`` flag on and the Vote page open to them; otherwise
-  ``null``, so the app can tell "nothing to vote on" from "no Votes tab".
+  first (up to 5). Only for members who can vote, with the Vote page open
+  to them; otherwise ``null``, so the app can tell "nothing to vote on" from
+  "no Votes tab". (Not the ``legislation_voting`` flag: that gates managing
+  bills, not voting, on the web too; corrected v3.55.0.)
   Committee ballots arrive with the Votes endpoints.
 * ``events`` — the next 3 events the member may see.
 * ``announcements`` — the latest 3 published announcements they may see.
@@ -39,9 +40,9 @@ ANNOUNCEMENTS = 3
 EXCERPT = 280
 
 
-def _may_open(user, url_name, flag):
+def _may_open(user, url_name, flag=None):
     """Would the website let ``user`` open ``url_name`` (behind ``flag``)?"""
-    if not check_feature_enabled(flag):
+    if flag and not check_feature_enabled(flag):
         return False
     try:
         check_web_page(user, url_name)
@@ -51,7 +52,7 @@ def _may_open(user, url_name, flag):
 
 
 def _pending_votes(user, now):
-    if not (user.can_vote and _may_open(user, 'vote', 'legislation_voting')):
+    if not (user.can_vote and _may_open(user, 'vote')):
         return None
     voted = Vote.objects.filter(user=user).values_list('legislation_id', flat=True)
     rows = (Legislation.objects.open_for_voting(now)

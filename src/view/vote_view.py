@@ -9,27 +9,21 @@ from django.utils import timezone
 from django.utils.timezone import make_aware
 from django.utils.dateparse import parse_datetime
 from datetime import timedelta
-from django.db import IntegrityError, transaction
 from ..models import Legislation, Vote, Attendance, ParliamentUser, ActivityLog
 from src.utils.file_validation import validate_uploaded_file
 from src.feature_flag_decorators import require_page_enabled, require_feature_flag
 from src.view.webauthn import check_vote_reauth
 from src.utils.vote_events import broadcast_vote_event
-from src.utils.vote_receipts import make_receipt
+from src import ballots
 import logging
 
 
 def _attendance_can_vote(user):
     """Present/late within the last 3 hours AND a voting-eligible member type
-    (excludes pledges). Shared by cast_vote and the vote page's can_vote state.
+    (excludes pledges). The rule lives in src/ballots.py (v3.55.0), shared
+    with the app's Votes endpoints.
     """
-    three_hours_ago = timezone.now() - timedelta(hours=3)
-    attendance = Attendance.objects.filter(
-        user=user,
-        created_at__gte=three_hours_ago,
-        status__in=['present', 'late']
-    ).order_by('-created_at').first()
-    return bool(attendance) and user.can_vote
+    return ballots.can_cast_now(user)
 
 
 @login_required
@@ -287,28 +281,6 @@ def mark_attendance_quick(request):
     return JsonResponse({'ok': True, 'status': new_status})
 
 
-ALREADY_VOTED_MSG = "You have already voted on this legislation."
-
-
-def _record_ballot(user, legislation, choices):
-    """P0: create one Vote row per choice, all-or-nothing, serialized per
-    legislation. The row lock makes the already-voted check and the inserts
-    one step, so two concurrent submissions can't both record a ballot; the
-    (user, legislation, vote_choice) unique constraint is the backstop.
-    Returns the created rows, or None if the user had already voted."""
-    try:
-        with transaction.atomic():
-            Legislation.objects.select_for_update().only('pk').get(pk=legislation.pk)
-            if Vote.objects.filter(user=user, legislation=legislation).exists():
-                return None
-            return [
-                Vote.objects.create(user=user, legislation=legislation, vote_choice=choice)
-                for choice in choices
-            ]
-    except IntegrityError:
-        return None
-
-
 @login_required
 @require_page_enabled('vote')
 @require_POST
@@ -316,155 +288,53 @@ def cast_vote(request):
     """v3.14.1 split — ballot casting (re-auth, validation, receipt mint).
 
     Was multiplexed into vote_view behind action=cast_vote; the vote forms
-    on vote.html post here.
+    on vote.html post here. v3.55.0: eligibility, validation, the locked
+    insert, the activity log and the receipt are src/ballots.py, shared with
+    the app; this view keeps the web's re-auth and its messages.
     """
     user = request.user
-    can_vote = _attendance_can_vote(user)
-    if not can_vote:
-        if not user.can_vote:
-            messages.error(request, "Your membership type is not eligible to vote.")
-        else:
-            messages.error(
-                request,
-                "Your vote was NOT counted: you aren't marked present within "
-                "the last 3 hours. Ask an officer to mark your attendance, "
-                "then vote again."
-            )
+    try:
+        ballots.check_eligible(user)
+    except ballots.BallotError as exc:
+        messages.error(request, str(exc))
         return redirect('vote')
 
     # Identity confirmation: password, or passkey (v3.13.3)
     reauth_ok, reauth_error = check_vote_reauth(request)
-
-    if reauth_ok:
-        legislation_id = request.POST.get('legislation_id')
-        legislation = get_object_or_404(Legislation, id=legislation_id)
-
-        if Vote.objects.filter(user=user, legislation=legislation).exists():
-            messages.error(request, ALREADY_VOTED_MSG)
-            return redirect('vote')
-        if legislation.voting_closed:
-            messages.error(request, "Voting on this legislation has ended.")
-            return redirect('vote')
-        if not legislation.voting_has_started():
-            messages.error(request, "Voting has not started yet on this legislation.")
-            return redirect('vote')
-
-        logger = logging.getLogger('function_calls')
-
-        # Handle multi-select plurality voting
-        if legislation.vote_mode == 'plurality' and legislation.plurality_votes_allowed > 1:
-            vote_choices = request.POST.getlist('vote_choices')
-
-            # Validate number of selections
-            if len(vote_choices) < 1:
-                messages.error(request, "Please select at least one option.")
-                return redirect('vote')
-            if len(vote_choices) > legislation.plurality_votes_allowed:
-                messages.error(request, f"You can only select up to {legislation.plurality_votes_allowed} options.")
-                return redirect('vote')
-
-            # Validate each choice (and no option selected twice)
-            if len(set(vote_choices)) != len(vote_choices) or any(
-                    choice not in (legislation.plurality_options or []) for choice in vote_choices):
-                messages.error(request, "Invalid vote option.")
-                return redirect('vote')
-
-            # Create a vote record for each selection — atomic so a
-            # mid-loop failure can't record a partial ballot (v3.13.3)
-            created_votes = _record_ballot(user, legislation, vote_choices)
-            if created_votes is None:
-                messages.error(request, ALREADY_VOTED_MSG)
-                return redirect('vote')
-
-            logger.info(f"{user.username} voted for {vote_choices} on '{legislation.title}' (ID: {legislation.id}) at {timezone.now()}")
-            if legislation.anonymous_vote:
-                _vote_desc = f'{user.name} cast {len(vote_choices)} vote(s) on "{legislation.title}" (anonymous)'
-                _vote_meta = {'legislation_id': legislation.id, 'vote_mode': legislation.vote_mode, 'anonymous': True, 'choices_count': len(vote_choices)}
-            else:
-                _vote_desc = f'{user.name} voted for {vote_choices} on "{legislation.title}"'
-                _vote_meta = {'legislation_id': legislation.id, 'vote_mode': legislation.vote_mode, 'anonymous': False, 'vote_choices': vote_choices}
-            ActivityLog.log_activity(
-                action_type='vote_cast',
-                user=user,
-                description=_vote_desc,
-                request=request,
-                object_type='Legislation',
-                object_id=legislation.id,
-                object_repr=legislation.title,
-                metadata=_vote_meta,
-            )
-            # v3.14.0 fix: mint the receipt AT CAST TIME from the rows just
-            # created — this is the only moment the choices are known-good.
-            # My Ballots regenerates from current DB rows and stays as the
-            # convenience re-issue.
-            request.session['fresh_vote_receipt'] = {
-                'token': make_receipt(user, legislation, created_votes,
-                                      cast_at=created_votes[0].cast_at),
-                'legislation_title': legislation.title,
-            }
-            messages.success(
-                request,
-                f"Your {len(vote_choices)} vote(s) have been submitted. "
-                "Copy your receipt below — it can also be re-issued under "
-                "My Work → My Ballots."
-            )
-            broadcast_vote_event('tally', legislation.id)
-        else:
-            # Single-select voting (percentage, piecewise, or plurality with 1 vote)
-            vote_choice = request.POST.get('vote_choice')
-            if not vote_choice:
-                messages.error(request, "Please select a vote option.")
-                return redirect('vote')
-            if legislation.vote_mode == 'plurality' and vote_choice not in legislation.plurality_options:
-                messages.error(request, "Invalid vote option.")
-                return redirect('vote')
-            valid_standard = ['yes', 'no', 'abstain']
-            if legislation.vote_mode != 'plurality' and vote_choice not in valid_standard:
-                messages.error(request, "Invalid vote option.")
-                return redirect('vote')
-            if vote_choice == 'abstain' and not legislation.allow_abstain:
-                messages.error(request, "Abstaining is not allowed on this vote.")
-                return redirect('vote')
-
-            created_votes = _record_ballot(user, legislation, [vote_choice])
-            if created_votes is None:
-                messages.error(request, ALREADY_VOTED_MSG)
-                return redirect('vote')
-            new_vote = created_votes[0]
-            logger.info(f"{user.username} voted '{vote_choice}' on '{legislation.title}' (ID: {legislation.id}) at {timezone.now()}")
-            if legislation.anonymous_vote:
-                _vote_desc = f'{user.name} cast a vote on "{legislation.title}" (anonymous)'
-                _vote_meta = {'legislation_id': legislation.id, 'vote_mode': legislation.vote_mode, 'anonymous': True}
-            else:
-                _vote_desc = f'{user.name} voted "{vote_choice}" on "{legislation.title}"'
-                _vote_meta = {'legislation_id': legislation.id, 'vote_mode': legislation.vote_mode, 'anonymous': False, 'vote_choice': vote_choice}
-            ActivityLog.log_activity(
-                action_type='vote_cast',
-                user=user,
-                description=_vote_desc,
-                request=request,
-                object_type='Legislation',
-                object_id=legislation.id,
-                object_repr=legislation.title,
-                metadata=_vote_meta,
-            )
-            # v3.14.0 fix: mint the receipt at cast time (see plurality path)
-            request.session['fresh_vote_receipt'] = {
-                'token': make_receipt(user, legislation, [new_vote],
-                                      cast_at=new_vote.cast_at),
-                'legislation_title': legislation.title,
-            }
-            messages.success(
-                request,
-                "Your vote has been submitted. Copy your receipt below — "
-                "it can also be re-issued under My Work → My Ballots."
-            )
-            broadcast_vote_event('tally', legislation.id)
-
-        return redirect('vote')
-    else:
+    if not reauth_ok:
         messages.error(request, reauth_error)
         return redirect('vote')
+
+    legislation = get_object_or_404(Legislation, id=request.POST.get('legislation_id'))
+    if ballots.is_multi_select(legislation):
+        choices = request.POST.getlist('vote_choices')
+    else:
+        choice = request.POST.get('vote_choice')
+        choices = [choice] if choice else []
+    try:
+        result = ballots.cast(user, legislation, choices, request)
+    except ballots.BallotError as exc:
+        messages.error(request, str(exc))
+        return redirect('vote')
+
+    request.session['fresh_vote_receipt'] = {
+        'token': result['receipt'],
+        'legislation_title': legislation.title,
+    }
+    if ballots.is_multi_select(legislation):
+        messages.success(
+            request,
+            f"Your {len(choices)} vote(s) have been submitted. "
+            "Copy your receipt below — it can also be re-issued under "
+            "My Work → My Ballots."
+        )
+    else:
+        messages.success(
+            request,
+            "Your vote has been submitted. Copy your receipt below — "
+            "it can also be re-issued under My Work → My Ballots."
+        )
+    return redirect('vote')
 
 
 @login_required
