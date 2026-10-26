@@ -180,6 +180,7 @@ MIDDLEWARE = [
     'src.middleware.security.PasswordResetRateLimitMiddleware',  # Rate limit password reset attempts
     'src.middleware.security.LoginRateLimitMiddleware',  # Rate limit login attempts and prevent brute force
     'django.contrib.auth.middleware.AuthenticationMiddleware',  # Required
+    'src.middleware.mobile_session.MobileSessionGuardMiddleware',  # mobile plan Phase 1: log out an app web-view session whose device was revoked — must be right after AuthenticationMiddleware and before OTPMiddleware/Enforce2FAMiddleware (see the module docstring)
     'src.middleware.security.InputSanitizationMiddleware',  # Detect/block SQL injection, XSS, add security headers — must be after AuthenticationMiddleware so request.user is available
     'django_otp.middleware.OTPMiddleware',  # Required for 2FA - adds is_verified() method
     'src.middleware.two_factor.Enforce2FAMiddleware',  # Enforce 2FA based on policy
@@ -257,6 +258,7 @@ TEMPLATES = [
                 'src.context_processors.maintenance_mode',
                 'src.context_processors.impersonation',
                 'src.context_processors.two_factor_status',
+                'src.middleware.mobile_session.in_mobile_app',  # layout only — never a security check
             ],
         },
     },
@@ -495,6 +497,27 @@ ERROR_ALERT_EMAIL = os.getenv('ERROR_ALERT_EMAIL', '')
 BUG_REPORT_EMAIL = os.getenv('BUG_REPORT_EMAIL', '')
 SITE_URL = os.getenv('SITE_URL', 'https://am-parliament.org')
 
+# Mobile app passkey sign-in (src/mobile/views_auth.py). An Android app's
+# WebAuthn assertion carries the origin `android:apk-key-hash:<base64url sha256
+# of the signing cert>` instead of the site origin, so each signing key the app
+# ships with (upload key, Play app-signing key) must be listed here,
+# comma-separated. iOS uses the site origin and needs nothing here. Empty = the
+# app's passkey sign-in only accepts the site origin.
+MOBILE_ANDROID_APK_KEY_HASH_ORIGINS = [
+    o.strip() for o in os.getenv('MOBILE_ANDROID_APK_KEY_HASH_ORIGINS', '').split(',') if o.strip()
+]
+
+# Absolute lifetime of an app sign-in (src/models/mobile.py). Refresh tokens
+# rotate on a 30-day sliding window, but never past created_at + this many
+# days: after that the member signs in again (with their second factor).
+MOBILE_DEVICE_MAX_AGE_DAYS = 90
+
+# Per-member request rate for the Bearer-authenticated mobile API
+# (src/mobile/api.py MobileUserThrottle, scope `mobile`), instead of the
+# site-wide DRF `user` 300/hour. The pre-auth sign-in endpoints keep their own
+# stricter per-IP / per-device throttles (MOBILE_AUTH_THROTTLE_RATES).
+MOBILE_API_THROTTLE_RATE = os.getenv('MOBILE_API_THROTTLE_RATE', '1200/hour')
+
 # Anymail (Brevo) Configuration - used when EMAIL_BACKEND is anymail.backends.brevo.EmailBackend
 ANYMAIL = {
     'BREVO_API_KEY': os.getenv('BREVO_API_KEY', ''),
@@ -548,6 +571,30 @@ else:
     VAPID_PRIVATE_KEY = ''
     VAPID_PUBLIC_KEY = ''
     VAPID_CLAIMS = None
+
+# =============================================================================
+# MOBILE APP: EXPO PUSH + APP LINKS (mobile plan, Phase 1)
+# =============================================================================
+# Expo access token for https://exp.host/--/api/v2/push/send. Turn ON
+# "Enhanced Push Security" for the Expo project and set the token here, or
+# anyone holding a member's ExponentPushToken can push to their phone.
+# System check src.W020 warns when it is empty and push devices exist (or
+# always, in production). See src/mobile/push.py.
+EXPO_ACCESS_TOKEN = os.getenv('EXPO_ACCESS_TOKEN', '')
+
+# Universal links / app links / shared web credentials, served at
+# /.well-known/apple-app-site-association and /.well-known/assetlinks.json
+# (src/mobile/views_well_known.py). Both 404 until configured. The bundle id
+# and package take a comma-separated list, so dev/preview builds with suffixed
+# ids (org.example.app.development, ...) verify too; the first is production.
+MOBILE_IOS_TEAM_ID = os.getenv('MOBILE_IOS_TEAM_ID', '')
+MOBILE_IOS_BUNDLE_ID = os.getenv('MOBILE_IOS_BUNDLE_ID', '')
+MOBILE_ANDROID_PACKAGE = os.getenv('MOBILE_ANDROID_PACKAGE', '')
+# Comma-separated SHA-256 signing-cert fingerprints (AA:BB:...), e.g. the
+# Play App Signing key AND the upload key.
+MOBILE_ANDROID_CERT_SHA256 = [
+    f.strip() for f in os.getenv('MOBILE_ANDROID_CERT_SHA256', '').split(',') if f.strip()
+]
 
 # Cache Configuration
 # Redis provides shared caching across all workers, reducing memory usage

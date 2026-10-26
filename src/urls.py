@@ -255,7 +255,8 @@ from src.view.directory import member_directory, export_directory
 from src.view.profile_card import profile_card_json
 from src.view.house_map import house_map
 from src.view.preferences import preferences_view, toggle_dev_mode
-from src.view.session_viewer import session_list, revoke_session, revoke_all_other_sessions
+from src.view.session_viewer import session_list, revoke_session, revoke_all_other_sessions, revoke_mobile_device
+from src.mobile.handoff import mobile_web_handoff
 from src.view.activity_logs import activity_logs_view, export_activity_logs
 from src.view.upload_legislation import upload_legislation
 from src.view.end_vote import end_vote, create_runoff
@@ -357,6 +358,8 @@ from django.urls import include as url_include
 urlpatterns = [
     # REST API (v1)
     path('api/v1/', url_include('src.api.urls')),
+    path('api/mobile/v1/', url_include('src.mobile.urls')),  # mobile plan, Phase 1
+    path('m/handoff/', mobile_web_handoff, name='mobile_web_handoff'),  # app web view sign-in (src/mobile/handoff.py)
 
     # Public landing page
     path('', landing_page, name='landing'),
@@ -1085,6 +1088,7 @@ urlpatterns = [
     path('account/sessions/', session_list, name='session_list'),
     path('account/sessions/<str:session_key>/revoke/', revoke_session, name='revoke_session'),
     path('account/sessions/revoke-all/', revoke_all_other_sessions, name='revoke_all_sessions'),
+    path('account/devices/<uuid:public_id>/revoke/', revoke_mobile_device, name='revoke_mobile_device'),  # mobile plan, Phase 1
 
     # Admin v2 - Advanced Administration
     path('admin-v2/', admin_v2_login, name='admin_v2_login'),
@@ -1384,3 +1388,13 @@ handler400 = custom_400
 handler403 = custom_403
 handler404 = custom_404
 handler500 = custom_500
+
+# ── Mobile app: universal links / app links (mobile plan, Phase 1) ──────────
+# Exact paths, no trailing slash (Apple and Google fetch these verbatim and
+# follow no redirects). See src/mobile/views_well_known.py.
+from src.mobile import views_well_known as _well_known  # noqa: E402
+urlpatterns += [
+    path('.well-known/apple-app-site-association', _well_known.apple_app_site_association,
+         name='apple_app_site_association'),
+    path('.well-known/assetlinks.json', _well_known.assetlinks, name='assetlinks'),
+]

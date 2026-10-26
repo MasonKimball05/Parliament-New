@@ -19,7 +19,8 @@ def notify_expiring_api_tokens():
     same 7-day window.
     """
     from datetime import timedelta
-    from src.models import APIToken, Notification
+    from src.models import APIToken
+    from src.notification_service import create_notification
     from django.core.cache import cache as _cache
 
     warning_cutoff = timezone.now() + timedelta(days=7)
@@ -41,7 +42,7 @@ def notify_expiring_api_tokens():
         expires_str = token.expires_at.strftime('%B %d, %Y')
 
         try:
-            Notification.objects.create(
+            create_notification(
                 recipient=token.user,
                 notification_type='security',
                 title=f'API token "{token.name}" expires in {label}',
@@ -50,7 +51,6 @@ def notify_expiring_api_tokens():
                 source_type='apitoken',
                 source_id=token.pk,
             )
-            _cache.delete(f'notif_count_{token.user.pk}')
             _cache.set(dedup_key, True, 86400 * 7)
             notified += 1
         except Exception as exc:
@@ -63,11 +63,33 @@ def notify_expiring_api_tokens():
 @shared_task(name='tasks.send_push_notification', bind=True, max_retries=2, default_retry_delay=30)
 def send_push_notification(self, user_id, title, body, url='/home/', tag='parliament'):
     """
-    Send a Web Push notification to all active subscriptions for a user.
+    Push one notification to every device a user has: browsers (Web Push) and
+    the mobile app (Expo).
 
-    Payload shape matches service-worker.js: { title, body, url, tag }
-    Subscriptions that return 410 Gone are automatically deleted (expired).
-    Skips gracefully if VAPID keys are not configured.
+    A dispatcher only — it queues ``send_web_push`` and ``send_native_push``,
+    each of which retries on its own. Two tasks rather than one so a retry of
+    a failed Expo request can never re-send a web push that already went out
+    (and vice versa). Signature unchanged so every ``.delay()`` call site keeps
+    working.
+    """
+    send_web_push.delay(user_id, title, body, url, tag)
+    send_native_push.delay(user_id, title, body, url, tag)
+
+
+def _is_transient_web_push_error(status):
+    return status is None or status == 429 or status >= 500
+
+
+@shared_task(name='tasks.send_web_push', bind=True, max_retries=2, default_retry_delay=30)
+def send_web_push(self, user_id, title, body, url='/home/', tag='parliament', subscription_ids=None):
+    """
+    Send a Web Push notification to a user's browser subscriptions.
+
+    Payload shape matches service-worker.js: { title, body, url, tag }.
+    404/410 from the push service mean the subscription is gone: deleted.
+    A network error, 429 or 5xx is retried — for the failed subscriptions
+    only (``subscription_ids``), so a retry never re-sends to the ones that
+    already succeeded. Skips gracefully if VAPID keys are not configured.
     """
     from django.conf import settings
     from src.models import PushSubscription
@@ -75,7 +97,7 @@ def send_push_notification(self, user_id, title, body, url='/home/', tag='parlia
     vapid_private = getattr(settings, 'VAPID_PRIVATE_KEY', None)
     vapid_claims = getattr(settings, 'VAPID_CLAIMS', None)
     if not vapid_private or not vapid_claims:
-        logger.debug('[push] VAPID keys not configured — skipping push')
+        logger.debug('[push] VAPID keys not configured — skipping web push')
         return
 
     try:
@@ -85,12 +107,17 @@ def send_push_notification(self, user_id, title, body, url='/home/', tag='parlia
         return
 
     subscriptions = PushSubscription.objects.filter(user_id=user_id)
-    if not subscriptions.exists():
+    if subscription_ids is not None:
+        subscriptions = subscriptions.filter(pk__in=subscription_ids)
+    subscriptions = list(subscriptions)
+    if not subscriptions:
         return
 
     import json as _json
     payload = _json.dumps({'title': title, 'body': body, 'url': url, 'tag': tag})
     expired_ids = []
+    retry_ids = []
+    last_exc = None
 
     for sub in subscriptions:
         try:
@@ -99,21 +126,79 @@ def send_push_notification(self, user_id, title, body, url='/home/', tag='parlia
                 data=payload,
                 vapid_private_key=vapid_private,
                 vapid_claims=vapid_claims,
+                timeout=10,
             )
             PushSubscription.objects.filter(pk=sub.pk).update(last_used_at=timezone.now())
         except WebPushException as exc:
             response = getattr(exc, 'response', None)
             status = response.status_code if response is not None else None
-            if status == 410:
+            if status in (404, 410):
                 expired_ids.append(sub.pk)
-                logger.info(f'[push] subscription expired for user {user_id}, removing')
+                logger.info(f'[push] subscription gone ({status}) for user {user_id}, removing')
+            elif _is_transient_web_push_error(status):
+                retry_ids.append(sub.pk)
+                last_exc = exc
+                logger.warning(f'[push] transient web push failure for user {user_id} (status={status})')
             else:
                 logger.warning(f'[push] WebPushException for user {user_id}: {exc} (status={status})')
         except Exception as exc:
-            logger.error(f'[push] unexpected error for user {user_id}: {exc}')
+            import requests as _requests
+            if isinstance(exc, (_requests.ConnectionError, _requests.Timeout)):
+                retry_ids.append(sub.pk)
+                last_exc = exc
+                logger.warning(f'[push] network error on web push for user {user_id}: {exc}')
+            else:
+                logger.error(f'[push] unexpected error for user {user_id}: {exc}')
 
     if expired_ids:
         PushSubscription.objects.filter(pk__in=expired_ids).delete()
+
+    if retry_ids:
+        if self.request.retries >= self.max_retries:
+            logger.warning(f'[push] giving up on {len(retry_ids)} web push subscription(s) for user {user_id}')
+            return
+        # args=() — the retry carries everything as kwargs; without it the
+        # original positional args are kept too ("multiple values for 'user_id'").
+        raise self.retry(exc=last_exc, args=(), kwargs={
+            'user_id': user_id, 'title': title, 'body': body, 'url': url, 'tag': tag,
+            'subscription_ids': retry_ids,
+        })
+
+
+@shared_task(name='tasks.send_native_push', bind=True, max_retries=2, default_retry_delay=30)
+def send_native_push(self, user_id, title, body, url='/home/', tag='parliament', sent_device_ids=None):
+    """
+    Send the notification to the user's live mobile devices via Expo
+    (src/mobile/push.py). ``data`` carries {url, screen, id} for the app to
+    route on (src/mobile/deeplinks.py); the badge is the unread notification
+    count. An Expo network error / 429 / 5xx is retried, skipping devices
+    already sent to (``sent_device_ids``). ``tag`` is web-only: Expo has no
+    equivalent collapse/thread field we rely on.
+    """
+    from src.mobile import push as expo
+    from src.mobile.deeplinks import push_data_for_url
+    from src.models import Notification
+
+    # Only devices still_allowed() vouches for (tokens of signed-out ones are cleared).
+    devices = expo.live_push_devices([user_id])
+    sent = set(sent_device_ids or ())
+    devices = [d for d in devices if d.pk not in sent]
+    if not devices:
+        return 0
+
+    badge = Notification.objects.filter(recipient_id=user_id, is_read=False).count()
+    try:
+        return expo.send_to_devices(
+            devices, title, body, data=push_data_for_url(url), badge=badge,
+            sent_device_ids=sent)
+    except expo.ExpoTransientError as exc:
+        if self.request.retries >= self.max_retries:
+            logger.warning(f'[expo] giving up on native push for user {user_id}: {exc}')
+            return 0
+        raise self.retry(exc=exc, args=(), kwargs={
+            'user_id': user_id, 'title': title, 'body': body, 'url': url, 'tag': tag,
+            'sent_device_ids': sorted(sent),
+        })
 
 
 @shared_task(name='tasks.send_event_reminder_pushes')
@@ -148,6 +233,7 @@ def send_event_reminder_pushes():
     from django.urls import reverse
     from django.utils.html import strip_tags
     from src.models import ParliamentUser, PushSubscription, Event, EventReminderLog, EventReminderRecipient
+    from src.mobile.push import live_push_devices
     from src.models_feature_flags import FeatureFlag, SiteSetting
     from src.notifications import get_site_url, _flag_user_email
     from datetime import timedelta
@@ -223,12 +309,20 @@ def send_event_reminder_pushes():
                 eligible_users = all_active
 
         eligible_users = list(eligible_users)
+        # "Subscribed" = can receive a push at all: a browser subscription
+        # or a signed-in app device with a push token (mobile plan, Phase 1).
         subscribed_user_ids = set(
             PushSubscription.objects.filter(user__in=eligible_users).values_list('user_id', flat=True)
-        )
+        ) | {
+            d.user_id for d in live_push_devices([u.pk for u in eligible_users])
+        }
 
-        event_url = f'/officer/manage-events/{event.pk}/attendance/'
         local_dt = timezone.localtime(event.date_time)
+        # Members land on the calendar month of the event. This used to be
+        # `/officer/manage-events/<pk>/attendance/` — an officer page, and not
+        # even a route that exists — for every recipient; there is no officer
+        # variant of this reminder, so everyone gets the member page.
+        event_url = f'{reverse("calendar")}?year={local_dt.year}&month={local_dt.month}'
         time_str = local_dt.strftime('%a, %b %-d at %-I:%M %p')
         full_time_str = local_dt.strftime('%A, %B %-d at %-I:%M %p')
         base_body = time_str + (f' — {event.location}' if event.location else '')
@@ -1467,6 +1561,10 @@ def fire_scheduled_notifications():
             try:
                 Notification.objects.bulk_create(in_app)
                 _cache.delete_many([f'notif_count_{u.pk}' for u in recipients])
+                # Push too (web + mobile). Stored as 'announcement' rows, but
+                # reminders have their own toggle, prefs['push']['reminders'].
+                from src.notification_service import _dispatch_push_notifications
+                _dispatch_push_notifications(in_app, pref_attr='push_reminders')
             except Exception as inapp_exc:
                 logger.warning(
                     f'[scheduled_notifications] In-app error — schedule {schedule.pk} '

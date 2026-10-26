@@ -40,28 +40,58 @@ _PUSH_PREF_MAP = {
     'slating_open': 'push_slating',
     'slating_voting': 'push_slating',
     'slating_results': 'push_slating',
+    # Mobile plan, Phase 1 — types that used to create an in-app row with no
+    # push at all. Each has its own prefs['push'] key, defaulting on.
+    'excuse_reviewed': 'push_excuses',
+    'security': 'push_security',
+    'chat_mention': 'push_mentions',
+    # 'role_kb_available' is deliberately unmapped: it fires once per role
+    # transfer, and an unmapped type always pushes.
 }
 
 
-def _dispatch_push_notifications(notifications):
+#: Lock-screen text for types whose message is private (login country, passkey
+#: and device names, officer review notes): the push says only that something
+#: happened; the details stay in the in-app notification.
+_GENERIC_PUSH_BODY = {
+    'security': 'New security alert on your account',
+    'excuse_reviewed': 'Your excuse was reviewed',
+}
+
+
+def _push_body(notif, body):
+    if body is not None:
+        return body
+    generic = _GENERIC_PUSH_BODY.get(notif.notification_type)
+    if generic is not None:
+        return generic
+    return notif.message[:120] if notif.message else ''
+
+
+def _dispatch_push_notifications(notifications, pref_attr=None, title=None, body=None):
     """
-    Fire a send_push_notification Celery task for each notification recipient,
-    respecting per-type push preferences. Recipients with no subscriptions are
-    skipped by the task itself. Skips silently if VAPID not configured.
+    Fire a send_push_notification Celery task (web + mobile) for each
+    notification recipient, respecting per-type push preferences. Recipients
+    with no browser subscription or app device are skipped by the tasks.
+
+    ``pref_attr`` overrides the preference looked up from the type (scheduled
+    reminders are stored as 'announcement' rows but have their own toggle);
+    ``title`` / ``body`` override what is shown on the lock screen (a mention
+    in a private channel must not put the message there).
     """
     try:
         from src.tasks import send_push_notification
         for notif in notifications:
             # Check per-type push preference — default True if prefs not loaded
-            pref_attr = _PUSH_PREF_MAP.get(notif.notification_type)
-            if pref_attr:
+            attr = pref_attr or _PUSH_PREF_MAP.get(notif.notification_type)
+            if attr:
                 prefs = getattr(notif.recipient, 'preferences', None)
-                if prefs is not None and not getattr(prefs, pref_attr, True):
+                if prefs is not None and not getattr(prefs, attr, True):
                     continue
             send_push_notification.delay(
                 user_id=notif.recipient_id,
-                title=notif.title,
-                body=notif.message[:120] if notif.message else '',
+                title=title if title is not None else notif.title,
+                body=_push_body(notif, body),
                 url=notif.link or '/home/',
                 tag=f'{notif.notification_type}-{notif.source_id or ""}',
             )
@@ -96,8 +126,14 @@ def _user_wants_notification(user, notification_type):
         return True  # No preferences record, default to sending
 
 
-def create_notification(recipient, notification_type, title, message='', link='', source_type='', source_id=None):
-    """Create a single notification for one user, respecting their preferences."""
+def create_notification(recipient, notification_type, title, message='', link='', source_type='', source_id=None,
+                        push=True, push_title=None, push_body=None):
+    """
+    Create a single notification for one user, respecting their preferences,
+    and push it (web + mobile) unless ``push`` is False or the member turned
+    that type's push off. ``push_title`` / ``push_body`` replace the
+    lock-screen text when the row's own text is too sensitive to show there.
+    """
     if not _user_wants_notification(recipient, notification_type):
         return None
 
@@ -112,6 +148,8 @@ def create_notification(recipient, notification_type, title, message='', link=''
         source_id=source_id,
     )
     cache.delete(f'notif_count_{recipient.pk}')
+    if push:
+        _dispatch_push_notifications([notification], title=push_title, body=push_body)
     return notification
 
 

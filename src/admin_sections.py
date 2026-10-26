@@ -80,6 +80,7 @@ SECTIONS = {
     'Security — Sessions & Logins': [
         'LoginHistory', 'LoginAlert', 'LoginLockout', 'UserSession',
         'EmailVerificationToken', 'WebAuthnCredential',
+        'MobileDevice', 'MobileAuthTicket',  # mobile plan, Phase 1 (hashes excluded)
     ],
     'Security — Defenses': [
         'IPWhitelist', 'IPBlacklist', 'QuarantinedAccount', 'HoneypotAccess',

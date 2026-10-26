@@ -89,8 +89,15 @@ def _check_password_reauth(request, cache_prefix):
     return 'ok'
 
 
-def _rp_config(request=None):
-    """Return (rp_id, origin) derived from SITE_URL or the current request."""
+def rp_config(request=None):
+    """
+    Return (rp_id, origin) derived from SITE_URL or the current request.
+
+    Public so the mobile app's passkey sign-in (``src/mobile/views_auth.py``)
+    computes the RP ID exactly as the web does; a passkey registered on the
+    site is then usable from the app (iOS/Android associate the app with the
+    same RP ID via the site's well-known files).
+    """
     from urllib.parse import urlparse
     if settings.DEBUG and request is not None:
         # Use the actual host/port the browser connected to so the origin matches
@@ -103,6 +110,9 @@ def _rp_config(request=None):
         rp_id = parsed.hostname
         origin = f'{parsed.scheme}://{parsed.netloc}'
     return rp_id, origin
+
+
+_rp_config = rp_config  # the name every view in this module uses
 
 
 # ── Registration ──────────────────────────────────────────────────────────────

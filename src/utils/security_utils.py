@@ -801,7 +801,7 @@ def analyze_login_risk(user, ip_address, location_data, device_info):
     }
 
 
-def run_post_auth_pipeline(request, user, ip_address, user_agent, method='password'):
+def run_post_auth_pipeline(request, user, ip_address, user_agent, method='password', use_session=True):
     """
     Run the pre-login() security gate shared by the password and passkey login
     paths, and hand off context to the post-login signal handler.
@@ -823,6 +823,13 @@ def run_post_auth_pipeline(request, user, ip_address, user_agent, method='passwo
     Call this BEFORE calling login() on the request. If the first return value
     is not None, the IP is blocked and the view should return that error
     response immediately without proceeding with login.
+
+    ``use_session=False`` is the mobile app's sign-in (``src/mobile/views_auth.py``):
+    it gets the same blacklist and geo checks and the same ``_login_pipeline``
+    stash, but nothing is written to ``request.session`` — writing to it would
+    make SessionMiddleware save a session and send a cookie, and the app must
+    never hold one from signing in. The app fires ``user_logged_in`` itself
+    once a device is issued, so LoginHistory etc. still happen exactly once.
 
     Returns:
         (error_response, None)        — IP is actively blacklisted; return error_response
@@ -854,11 +861,12 @@ def run_post_auth_pipeline(request, user, ip_address, user_agent, method='passwo
     # --- Geo check ---
     is_foreign, geo = is_foreign_ip(ip_address)
 
-    request.session['login_geo'] = geo
-    request.session['login_geo_suspicious'] = is_foreign
-    if geo:
-        request.session['login_geo_country'] = geo.get('country', '')
-        request.session['login_geo_city'] = geo.get('city', '')
+    if use_session:
+        request.session['login_geo'] = geo
+        request.session['login_geo_suspicious'] = is_foreign
+        if geo:
+            request.session['login_geo_country'] = geo.get('country', '')
+            request.session['login_geo_city'] = geo.get('city', '')
 
     # Stash for signals.log_successful_login — avoids a second LoginHistory
     # write (was the bug: this function used to create one here, and the

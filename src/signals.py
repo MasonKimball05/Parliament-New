@@ -25,6 +25,13 @@ def log_successful_login(sender, request, user, **kwargs):
     """
     Log successful login and perform security analysis
     """
+    # Mobile web-view handoff (src/mobile/handoff.py): the app already signed
+    # in — and was recorded, risk-scored and alerted on — when the device was
+    # created. Opening its web view is not a new sign-in; recording it again
+    # would add a LoginHistory row (and a likely "new device" alert) on every
+    # web-view open.
+    if getattr(request, '_mobile_handoff', False):
+        return
     try:
         # Get IP address. Coerce a missing IP to 'unknown' (same convention as
         # the security middleware): LoginHistory.ip_address is NOT NULL, and a
@@ -551,3 +558,7 @@ def reset_education_permissions_on_role_change(changed_role_pks):
                 f"[signals] reset_education_permissions: wiped {deleted} EducationMemberPermission "
                 f"rows for committee '{committee.name}' after role change"
             )
+
+
+# Mobile plan, Phase 1: revoke app devices when a second factor is removed.
+import src.mobile.revocation  # noqa: E402,F401  (registers post_delete receivers)

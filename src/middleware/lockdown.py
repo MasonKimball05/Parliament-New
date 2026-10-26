@@ -26,6 +26,7 @@ class EmergencyLockdownMiddleware:
             '/media/',
             '/health/',
             '/favicon.ico',
+            '/.well-known/',  # app-link metadata; public, static (mobile plan, Phase 1)
         ]
 
     def __call__(self, request):
@@ -48,6 +49,12 @@ class EmergencyLockdownMiddleware:
             # Check if IP is whitelisted
             if not lockdown.is_ip_whitelisted(ip_address):
                 logger.warning(f"LOCKDOWN: Blocked access from {ip_address} to {request.path}")
+
+                # The app gets JSON, not the lockdown page (src/mobile/http.py).
+                # No admin carve-out: that exists for /admin-v2/ only.
+                from src.mobile.http import is_mobile_api, mobile_json_error
+                if is_mobile_api(request):
+                    return mobile_json_error('lockdown', 503, message=lockdown.message or '')
 
                 # Allow access to lockdown page itself
                 if request.path == '/lockdown/':

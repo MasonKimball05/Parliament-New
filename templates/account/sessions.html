@@ -138,6 +138,34 @@
         {% endfor %}
     </div>
 
+    <!-- Your devices (mobile app installs) -->
+    <div class="mt-10" id="mobile-devices">
+        <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-1">Your devices</h2>
+        <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Phones signed in to the Parliament app. Signing one out also ends its in-app web pages.</p>
+        <div class="space-y-3">
+            {% for device in mobile_devices %}
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 border-l-4 {% if device.is_current %}border-green-500{% else %}border-gray-300 dark:border-gray-600{% endif %} flex items-center justify-between">
+                <div>
+                    <h3 class="font-semibold text-gray-900 dark:text-white">
+                        {{ device.device_name|default:"Unnamed device" }}
+                        <span class="text-sm font-normal text-gray-500 dark:text-gray-400">· {{ device.get_platform_display }}{% if device.app_version %} · app {{ device.app_version }}{% endif %}</span>
+                        {% if device.is_current %}<span class="ml-1 px-2 py-0.5 bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300 text-xs font-medium rounded-full">This device</span>{% endif %}
+                    </h3>
+                    <p class="text-sm text-gray-500 dark:text-gray-400">
+                        Signed in {{ device.created_at|date:"M d, Y g:i A" }}{% if device.last_seen_at %} · last active {{ device.last_seen_at|timesince }} ago{% endif %}
+                    </p>
+                </div>
+                <form method="post" action="{% url 'revoke_mobile_device' device.public_id %}" class="flex-shrink-0">
+                    {% csrf_token %}
+                    <button type="submit" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg transition-colors">Sign out</button>
+                </form>
+            </div>
+            {% empty %}
+            <p class="text-sm text-gray-500 dark:text-gray-400">No phones are signed in to the app.</p>
+            {% endfor %}
+        </div>
+    </div>
+
     <!-- Back Link -->
     <div class="mt-8 text-center">
         <a href="{% url 'preferences' %}" class="text-primary-600 dark:text-primary-400 hover:underline">

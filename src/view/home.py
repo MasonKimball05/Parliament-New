@@ -94,19 +94,36 @@ def committee_dashboard_links(user):
             if has_access:
                 links.append({'label': 'Recruitment', 'url': reverse('recruitment_dashboard', args=[c.code])})
 
-        # Education has no formal "member" concept beyond chairs (see
-        # _education_committee_or_404) — chair is the only
-        # committee-specific signal available, so that's the only one
-        # checked here.
-        education_committee = Committee.objects.filter(
-            is_active=True, is_education_committee=True,
-        ).first()
-        if education_committee is not None:
-            c = education_committee
-            if c.chairs.filter(pk=user.pk).exists():
-                links.append({'label': 'Education', 'url': reverse('education_home', args=[c.code])})
+        education_url = _education_dashboard_url(user)
+        if education_url:
+            links.append({'label': 'Education', 'url': education_url})
 
     return links
+
+
+def _education_dashboard_url(user):
+    """The Education card's URL for ``user``, or None (page toggle not checked)."""
+    from src.models import Committee
+    # Education has no formal "member" concept beyond chairs (see
+    # _education_committee_or_404) — chair is the only
+    # committee-specific signal available, so that's the only one
+    # checked here.
+    c = Committee.objects.filter(is_active=True, is_education_committee=True).first()
+    if c is not None and c.chairs.filter(pk=user.pk).exists():
+        return reverse('education_home', args=[c.code])
+    return None
+
+
+def education_dashboard_url(user):
+    """
+    Path of the Education dashboard if the Home page shows ``user`` its card
+    (``committee_dashboard_links``), else None. The mobile ``me/`` endpoint's
+    ``links.education`` is this, so the app and the site agree.
+    """
+    from src.feature_flag_decorators import check_page_enabled
+    if not check_page_enabled('committee_home'):
+        return None
+    return _education_dashboard_url(user)
 
 
 def transition_checklist_cards(user):

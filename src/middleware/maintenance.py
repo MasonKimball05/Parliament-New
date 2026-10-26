@@ -24,6 +24,9 @@ class MaintenanceModeMiddleware:
         '/static/',  # Static files
         '/media/',  # Media files
         '/api/health-check/',  # Health check endpoint
+        # App-link metadata (mobile plan, Phase 1): Apple's CDN caches a
+        # failure, which would break universal links well past the window.
+        '/.well-known/',
     ]
 
     def __init__(self, get_response):
@@ -36,8 +39,11 @@ class MaintenanceModeMiddleware:
             if self._is_exempt_path(request.path):
                 return self.get_response(request)
 
-            # Allow admin users
-            if request.user.is_authenticated and getattr(request.user, 'is_admin', False):
+            # Allow admin users (on /api/mobile/, the Bearer device's user —
+            # the session user is anonymous there; see src/mobile/http.py)
+            from src.mobile.http import effective_user, is_mobile_api, mobile_json_error
+            user = effective_user(request)
+            if user is not None and user.is_authenticated and getattr(user, 'is_admin', False):
                 return self.get_response(request)
 
             # Increment blocked request counter
@@ -45,6 +51,8 @@ class MaintenanceModeMiddleware:
 
             # Show maintenance page
             logger.info(f"Maintenance mode: blocked access to {request.path} from {self._get_client_ip(request)}")
+            if is_mobile_api(request):
+                return mobile_json_error('maintenance', 503)
             return self._maintenance_response(request)
 
         return self.get_response(request)

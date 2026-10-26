@@ -91,6 +91,15 @@ PUBLIC = {
     'api/health-check/': 'latency probe; returns a timestamp only',
     'site-monitor/static-assets/': 'go-sentinel; needs the site-monitor token (v3.35.3)',
     'api/v1/<drf_format_suffix:format>': 'DRF router root with a format suffix; 404 for the sample value',
+    # Mobile app sign-in (src/mobile/views_auth.py). Pre-auth by definition and
+    # held to that by test_mobile_views_use_mobile_auth.PRE_AUTH.
+    'api/mobile/v1/auth/login/': 'mobile app password sign-in',
+    'api/mobile/v1/auth/verify/': 'mobile app 2FA step; the MFA ticket is the credential',
+    'api/mobile/v1/auth/passkey/begin/': 'mobile app passkey sign-in, step 1',
+    'api/mobile/v1/auth/passkey/complete/': 'mobile app passkey sign-in, step 2',
+    'api/mobile/v1/auth/refresh/': 'mobile app token refresh; the refresh token is the credential',
+    '.well-known/apple-app-site-association': 'iOS universal links, fetched by Apple; 404 until configured',
+    '.well-known/assetlinks.json': 'Android app links, fetched by Google; 404 until configured',
 }
 
 #: Statuses that mean "refused" without a redirect.

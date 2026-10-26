@@ -941,6 +941,12 @@ def _default_user_prefs():
             'legislation': True,
             'events': True,
             'slating': True,
+            'chat': True,
+            # Mobile plan, Phase 1: types that previously never pushed.
+            'excuses': True,
+            'security': True,
+            'reminders': True,
+            'mentions': True,
         },
     }
 
@@ -957,6 +963,9 @@ class UserPreferences(models.Model):
                                "announcements": bool, "calendar": bool, "legislation": bool,
                                "excuses": bool, "search": bool, "roberts_rules": bool },
             "notifications": { "announcements": bool, "legislation": bool, "events": bool, "slating": bool, "excuses": bool },
+            "push":          { "announcements": bool, "legislation": bool, "events": bool, "slating": bool,
+                               "chat": bool, "excuses": bool, "security": bool, "reminders": bool,
+                               "mentions": bool },
         }
 
     Adding a new preference requires only a default value here and a UI change — no schema migration.
@@ -1119,6 +1128,22 @@ class UserPreferences(models.Model):
     @property
     def push_chat(self):
         return self._pref('push', 'chat', True)
+
+    @property
+    def push_excuses(self):
+        return self._pref('push', 'excuses', True)
+
+    @property
+    def push_security(self):
+        return self._pref('push', 'security', True)
+
+    @property
+    def push_reminders(self):
+        return self._pref('push', 'reminders', True)
+
+    @property
+    def push_mentions(self):
+        return self._pref('push', 'mentions', True)
 
 
 # Signal to auto-create UserPreferences when a user is created
@@ -1366,7 +1391,16 @@ class UserSession(models.Model):
         password, often because they suspect someone else has it).
 
         Returns the number of sessions revoked.
+
+        Mobile plan, Phase 1: "sign out everywhere" includes the app. Every
+        mobile device is revoked too, except the one whose web view is the
+        kept session (``src/mobile/revocation.py``). This runs before the
+        early return below: a member with no other browser sessions still
+        expects their other phones signed out. Not counted in the return value.
         """
+        from src.mobile.revocation import revoke_for_sign_out_everywhere
+        revoke_for_sign_out_everywhere(user, keep_session_key=keep_session_key)
+
         other_sessions = cls.objects.filter(user=user)
         if keep_session_key:
             other_sessions = other_sessions.exclude(session_key=keep_session_key)

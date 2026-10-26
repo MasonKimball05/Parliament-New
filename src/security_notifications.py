@@ -611,19 +611,19 @@ def notify_user_security_event(user, subject, body, ip_address=None):
     has an email address on file. Safe to call for users without email —
     the in-app notification is created regardless.
     """
-    from src.models import Notification
-    from django.core.cache import cache
+    from src.notification_service import create_notification
 
-    # Always create an in-app notification
+    # Always create an in-app notification ('security' has no in-app opt-out),
+    # and push it to the member's browsers and app unless they turned
+    # prefs['push']['security'] off.
     try:
-        Notification.objects.create(
+        create_notification(
             recipient=user,
             notification_type='security',
             title=subject,
             message=body,
             link='/preferences/',
         )
-        cache.delete(f'notif_count_{user.pk}')
     except Exception as exc:
         logger.warning(f'[security] Failed to create in-app notification for {user.username}: {exc}')
 

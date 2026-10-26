@@ -22,6 +22,8 @@ from django.dispatch import receiver
 @receiver(user_logged_in)
 def log_user_login(sender, request, user, **kwargs):
     """Log successful user login"""
+    if getattr(request, '_mobile_handoff', False):
+        return  # app web-view handoff, not a sign-in: see src/mobile/handoff.py
     ActivityLog.log_activity(
         action_type='login',
         user=user,

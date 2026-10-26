@@ -52,7 +52,11 @@ def _dispatch_chat_push(channel, message, mentioned_pks=None):
     push_chat user preference. Never raises — push failures must not break message send.
 
     mentioned_pks: set of user PKs explicitly @mentioned in this message.
+
+    Returns the set of user PKs a push was queued for, so the mention
+    notification doesn't push the same person a second time.
     """
+    pushed = set()
     try:
         from datetime import timedelta
         from src.models import ChatNotificationPreference
@@ -132,8 +136,10 @@ def _dispatch_chat_push(channel, message, mentioned_pks=None):
                 url=url,
                 tag=f'chat-{channel.id}',
             )
+            pushed.add(user.pk)
     except Exception:
         pass  # Never let push failures break message sending
+    return pushed
 
 
 @login_required
@@ -388,13 +394,13 @@ def send_channel_message(request, channel_id=None, code=None):
 
     # Parse @mentions and dispatch targeted push notifications
     mentioned_pks = _parse_mentions(message_text, channel)
-    _dispatch_chat_push(channel, message, mentioned_pks=mentioned_pks)
+    chat_pushed_pks = _dispatch_chat_push(channel, message, mentioned_pks=mentioned_pks)
 
     # Create in-app mention notifications and collect user_ids for WS broadcast
     mentioned_user_ids = []
     if mentioned_pks:
-        from src.models import Notification, ParliamentUser as _PUser
-        from django.core.cache import cache as _notif_cache
+        from src.models import ParliamentUser as _PUser
+        from src.notification_service import create_notification
 
         if channel.channel_type == 'committee' and channel.committee:
             channel_url = reverse('committee_channel_chat', kwargs={'code': channel.committee.code})
@@ -405,7 +411,12 @@ def send_channel_message(request, channel_id=None, code=None):
             mentioned_user_ids.append(str(mentioned_user.user_id))
             if mentioned_user.pk == request.user.pk:
                 continue  # Don't self-notify
-            Notification.objects.create(
+            # Through the service so the mention also pushes (prefs['push']
+            # ['mentions']) — unless the chat fan-out above already pushed
+            # this person for this message. A private channel's name and
+            # text stay off the lock screen, as in _dispatch_chat_push.
+            is_open = channel.access_type == 'open'
+            create_notification(
                 recipient=mentioned_user,
                 notification_type='chat_mention',
                 title=f'{request.user.name} mentioned you in #{channel.name}',
@@ -413,8 +424,10 @@ def send_channel_message(request, channel_id=None, code=None):
                 link=channel_url,
                 source_type='chatmessage',
                 source_id=message.id,
+                push=mentioned_user.pk not in chat_pushed_pks,
+                push_title=None if is_open else 'Parliament',
+                push_body=None if is_open else f'{request.user.name} mentioned you in a private channel',
             )
-            _notif_cache.delete(f'notif_count_{mentioned_user.pk}')
 
     # Broadcast to WebSocket group so all connected clients receive it in real-time
     _ws_broadcast(f'chat_{channel.id}', {

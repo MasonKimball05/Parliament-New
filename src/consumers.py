@@ -2,6 +2,8 @@ import json
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
 
+from src.mobile.ws import accept_kwargs  # echoes the app's `parliament.ticket` subprotocol
+
 
 class ChatConsumer(AsyncWebsocketConsumer):
     """
@@ -32,7 +34,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             return
 
         await self.channel_layer.group_add(self.group_name, self.channel_name)
-        await self.accept()
+        await self.accept(**accept_kwargs(self.scope))
 
     async def disconnect(self, close_code):
         if hasattr(self, 'group_name'):
@@ -124,7 +126,7 @@ class VoteConsumer(AsyncWebsocketConsumer):
             await self.close()
             return
         await self.channel_layer.group_add(self.GROUP, self.channel_name)
-        await self.accept()
+        await self.accept(**accept_kwargs(self.scope))
 
     async def disconnect(self, close_code):
         await self.channel_layer.group_discard(self.GROUP, self.channel_name)
@@ -190,7 +192,7 @@ class ResolutionEditConsumer(AsyncWebsocketConsumer):
         self.group = cnb_live.group_name(self.resolution_id)
 
         await self.channel_layer.group_add(self.group, self.channel_name)
-        await self.accept()
+        await self.accept(**accept_kwargs(self.scope))
         if self.observer:
             await self._out({'t': 'init', 'me': self.me, 'locks': {}, 'chair': False, 'observer': True})
             # Ask the editors who is there; they answer this channel only.

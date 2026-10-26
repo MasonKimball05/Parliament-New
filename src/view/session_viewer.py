@@ -4,7 +4,8 @@ Allows users to see all their active sessions and log out remotely.
 """
 
 from django.contrib.auth.decorators import login_required
-from django.shortcuts import render, redirect
+from django.shortcuts import get_object_or_404, render, redirect
+from django.views.decorators.http import require_POST
 from django.http import JsonResponse
 from django.contrib import messages
 from django.utils import timezone
@@ -34,9 +35,18 @@ def session_list(request):
     # Sort to put current session first
     sessions = sorted(sessions, key=lambda s: (not s.is_current, -s.last_activity.timestamp()))
 
+    # Mobile plan, Phase 1: signed-in app installs. A web-view session is
+    # also listed above as a session; this is the device behind it.
+    from src.mobile.views_devices import live_devices
+    current_device_id = request.session.get('mobile_device_id')
+    mobile_devices = list(live_devices(request.user)[:50])
+    for device in mobile_devices:
+        device.is_current = device.pk == current_device_id
+
     context = {
         'sessions': sessions,
         'session_count': len(sessions),
+        'mobile_devices': mobile_devices,
     }
 
     return render(request, 'account/sessions.html', context)
@@ -121,3 +131,17 @@ def revoke_all_other_sessions(request):
         'message': f'Successfully logged out of {count} other session{"s" if count != 1 else ""}.',
         'revoked_count': count
     })
+
+
+@login_required
+@require_POST
+def revoke_mobile_device(request, public_id):
+    """Sign one of your app installs out (form POST, CSRF-protected). 404 for anyone else's."""
+    from src.models.mobile import MobileDevice
+    device = get_object_or_404(
+        MobileDevice, public_id=public_id, user=request.user, revoked_at__isnull=True)
+    device.revoke('signed out from the website')
+    security_logger.info(
+        f"MOBILE DEVICE REVOKED: User '{request.user.name}' signed out app device {device.pk}")
+    messages.success(request, 'That device has been signed out of the app.')
+    return redirect('session_list')

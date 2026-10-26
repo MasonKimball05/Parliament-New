@@ -80,6 +80,16 @@ SCHEDULES = [
     },
 
     # -------------------------------------------------------------------------
+    # Expo push receipts (mobile plan, Phase 1) — every 15 minutes: clears the
+    # push token of uninstalled apps and prunes tickets. src/tasks/mobile_push.py
+    # -------------------------------------------------------------------------
+    {
+        'name': 'Check Expo push receipts',
+        'task': 'tasks.check_expo_push_receipts',
+        'interval': {'every': 15, 'period': IntervalSchedule.MINUTES},
+    },
+
+    # -------------------------------------------------------------------------
     # Service event email reminders — every 15 minutes
     # -------------------------------------------------------------------------
     {

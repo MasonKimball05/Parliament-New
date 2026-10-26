@@ -142,6 +142,14 @@ class UserPreferencesForm(forms.Form):
         widget=forms.CheckboxInput(attrs={"class": _CB}))
     push_chat = forms.BooleanField(required=False, label="Chat Messages",
         widget=forms.CheckboxInput(attrs={"class": _CB}))
+    push_mentions = forms.BooleanField(required=False, label="Chat Mentions",
+        widget=forms.CheckboxInput(attrs={"class": _CB}))
+    push_excuses = forms.BooleanField(required=False, label="Excuse Reviews",
+        widget=forms.CheckboxInput(attrs={"class": _CB}))
+    push_reminders = forms.BooleanField(required=False, label="Scheduled Reminders",
+        widget=forms.CheckboxInput(attrs={"class": _CB}))
+    push_security = forms.BooleanField(required=False, label="Security Alerts",
+        widget=forms.CheckboxInput(attrs={"class": _CB}))
 
     # Menu
     show_vote_menu = forms.BooleanField(required=False, label="Show Vote",
@@ -192,6 +200,10 @@ class UserPreferencesForm(forms.Form):
                 'push_events': instance.push_events,
                 'push_slating': instance.push_slating,
                 'push_chat': instance.push_chat,
+                'push_mentions': instance.push_mentions,
+                'push_excuses': instance.push_excuses,
+                'push_reminders': instance.push_reminders,
+                'push_security': instance.push_security,
                 'show_vote_menu': instance.show_vote_menu,
                 'show_committees_menu': instance.show_committees_menu,
                 'show_chats_menu': instance.show_chats_menu,
@@ -279,6 +291,10 @@ class UserPreferencesForm(forms.Form):
                 'events': self.cleaned_data['push_events'],
                 'slating': self.cleaned_data['push_slating'],
                 'chat': self.cleaned_data['push_chat'],
+                'mentions': self.cleaned_data['push_mentions'],
+                'excuses': self.cleaned_data['push_excuses'],
+                'reminders': self.cleaned_data['push_reminders'],
+                'security': self.cleaned_data['push_security'],
             },
         }
         p.prefs.update(preserved)

@@ -77,6 +77,9 @@ class Enforce2FAMiddleware:
             # (07-22 auth security sweep, Finding A.)
             '/api/v1/',
             '/api/health-check/',  # liveness probe — must never require a second factor
+            # Mobile plan, Phase 1: apple-app-site-association / assetlinks.json
+            # — static public JSON for Apple's CDN and Google's verifier.
+            '/.well-known/',
         ]
 
         # Check if current path is exempt
@@ -183,9 +186,13 @@ class Enforce2FAMiddleware:
         except (signing.BadSignature, signing.SignatureExpired, ValueError, TypeError):
             return False
 
-    def user_requires_2fa(self, user):
+    @staticmethod
+    def user_requires_2fa(user):
         """
         Check if user requires 2FA based on policy and individual settings.
+
+        A staticmethod so the mobile sign-in can ask the same question
+        (``Enforce2FAMiddleware.user_requires_2fa(user)``) without an instance.
         """
         # Import here to avoid circular imports
         from src.models import TwoFactorRequirement
@@ -269,7 +276,11 @@ class SecondFactorWebsocketMiddleware:
     ``AuthMiddlewareStack``, which must have resolved ``scope['user']`` first).
 
     A session that passed the password check but not the 2FA verify step is
-    handed to the consumer as ``AnonymousUser``. Every consumer already refuses
+    handed to the consumer as ``AnonymousUser``. So is an app web-view session
+    (one carrying ``mobile_device_id``, from ``/m/handoff/``) whose device no
+    longer vouches for it — the same ``device_session_ok_for`` check
+    ``MobileSessionGuardMiddleware`` runs on HTTP, which never sees a
+    websocket. Every consumer already refuses
     an anonymous user at connect, so they need no changes, and a consumer added
     later is covered without having to remember to check.
     """
@@ -282,9 +293,22 @@ class SecondFactorWebsocketMiddleware:
         from django.contrib.auth.models import AnonymousUser
 
         user = scope.get('user')
+        if scope.get('mobile_ticket_auth'):
+            # Mobile plan, Phase 1: signed in by a websocket ticket
+            # (src/mobile/ws.py). Its device was re-checked with
+            # still_allowed() when the ticket was consumed, which is the app's
+            # 2FA gate (a password-only device fails it once a second factor
+            # exists or is required).
+            return await self.inner(scope, receive, send)
         if user is not None and getattr(user, 'is_authenticated', False):
-            passes = await database_sync_to_async(session_passes_second_factor)(
-                user, scope.get('session'))
+            from src.middleware.mobile_session import device_session_ok_for
+            session = scope.get('session')
+            device_ok = await database_sync_to_async(device_session_ok_for)(user, session)
+            if not device_ok:
+                logger.info('websocket refused: app device behind the session is signed out '
+                            '(user %s, %s)', user.pk, scope.get('path'))
+                return await self.inner(dict(scope, user=AnonymousUser()), receive, send)
+            passes = await database_sync_to_async(session_passes_second_factor)(user, session)
             if not passes:
                 logger.info(
                     'websocket refused: 2FA not verified this session (user %s, %s)',

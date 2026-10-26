@@ -272,13 +272,46 @@ def two_factor_qrcode(request):
     return HttpResponse(stream.getvalue(), content_type='image/svg+xml')
 
 
-def _record_2fa_failure(request):
+def check_second_factor(user, token):
+    """
+    Check a TOTP or backup code for ``user``. Shared by the web verify step
+    below and the mobile app's ``auth/verify/``.
+
+    Returns ``(device, kind, remaining_backup_codes)`` on success — ``kind``
+    is ``'totp'`` or ``'backup'`` and a backup code is DELETED here (one-time
+    use) — or ``(None, None, None)``. ``token`` should already be stripped and
+    upper-cased. TOTP is tried first; a backup code only if TOTP didn't match
+    and the token is 8 characters, as it always was.
+    """
+    totp_device = TOTPDevice.objects.filter(user=user, confirmed=True).first()
+    backup_device = _get_backup_device(user)
+
+    if totp_device and totp_device.verify_token(token):
+        return totp_device, 'totp', None
+    if backup_device and len(token) == 8:
+        static_token = backup_device.token_set.filter(token=token).first()
+        if static_token:
+            static_token.delete()  # One-time use — delete immediately
+            remaining = backup_device.token_set.count()
+            logger.warning(
+                f"User {user.username} used a 2FA backup code. "
+                f"{remaining} code(s) remaining."
+            )
+            return backup_device, 'backup', remaining
+    return None, None, None
+
+
+def _record_2fa_failure(request, user=None):
     """
     Track and log failed 2FA verification attempts.
     Sends a critical alert after _2FA_MAX_FAILURES failures in the window.
+
+    ``user`` defaults to ``request.user``; the mobile verify step passes the
+    ticket's user (there is no session user there). Same counter either way,
+    so web and app failures add up.
     """
     ip_address = get_client_ip(request) or 'unknown'
-    user = request.user
+    user = user or request.user
     fail_key = f'2fa_failures_{user.pk}'
     fail_count = cache.get(fail_key, 0) + 1
     cache.set(fail_key, fail_count, _2FA_WINDOW_SECONDS)
@@ -347,27 +380,15 @@ def two_factor_verify(request):
         token = request.POST.get('token', '').strip().upper()
 
         totp_device = TOTPDevice.objects.filter(user=request.user, confirmed=True).first()
-        backup_device = _get_backup_device(request.user)
 
         verified = False
 
-        # Try TOTP first (6-digit numeric)
-        if totp_device and totp_device.verify_token(token):
-            otp_login(request, totp_device)
+        # TOTP first (6-digit numeric), then a backup code (8-char hex)
+        device, kind, remaining = check_second_factor(request.user, token)
+        if device is not None:
+            otp_login(request, device)
             verified = True
-
-        # Try backup code (8-char hex) if TOTP didn't match
-        elif backup_device and len(token) == 8:
-            static_token = backup_device.token_set.filter(token=token).first()
-            if static_token:
-                static_token.delete()  # One-time use — delete immediately
-                otp_login(request, backup_device)
-                verified = True
-                remaining = backup_device.token_set.count()
-                logger.warning(
-                    f"User {request.user.username} used a 2FA backup code. "
-                    f"{remaining} code(s) remaining."
-                )
+            if kind == 'backup':
                 if remaining <= 2:
                     messages.warning(
                         request,

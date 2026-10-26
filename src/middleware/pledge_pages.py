@@ -27,10 +27,14 @@ ALWAYS_ALLOWED = frozenset({
     'password_reset', 'password_reset_done', 'password_reset_confirm', 'password_reset_complete',
     'csrf_token_refresh', 'push_subscribe', 'push_unsubscribe',
     'service_worker',  # v3.50.1: the docstring promised the PWA files; this one was missing
+    'apple_app_site_association', 'assetlinks',  # mobile app-link metadata
 })
 
-#: url_name prefixes never blocked (2FA setup/verify, passkeys, onboarding).
-ALWAYS_ALLOWED_PREFIXES = ('two_factor_', 'passkey_', 'onboarding')
+#: url_name prefixes never blocked (2FA setup/verify, passkeys, onboarding,
+#: and the mobile app's plumbing: sign-in/sign-out, `me/`, devices, push token
+#: and websocket tickets, which every member needs for the app to work at all).
+ALWAYS_ALLOWED_PREFIXES = ('two_factor_', 'passkey_', 'onboarding', 'mobile_auth_', 'mobile_me',
+                           'mobile_device', 'mobile_push_token', 'mobile_ws_ticket')
 
 
 def is_always_allowed(url_name):
@@ -46,7 +50,10 @@ class PledgePageRestrictionMiddleware:
         return self.get_response(request)
 
     def process_view(self, request, view_func, view_args, view_kwargs):
-        user = getattr(request, 'user', None)
+        # On /api/mobile/ the signed-in user is the Bearer device's, not the
+        # (anonymous) session's — see src/mobile/http.py.
+        from src.mobile.http import effective_user, is_mobile_api, mobile_json_error
+        user = effective_user(request)
         if user is None or not user.is_authenticated or not user.is_pledge:
             return None
         match = getattr(request, 'resolver_match', None)
@@ -57,6 +64,8 @@ class PledgePageRestrictionMiddleware:
         phase = getattr(user, 'pledge_phase', None) or 'all'
         if PledgePageRestriction.is_allowed(url_name, phase):
             return None
+        if is_mobile_api(request):
+            return mobile_json_error('pledge_restricted', 403)
         return render(request, 'errors/pledge_restricted.html', status=403)
 
 

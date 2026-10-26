@@ -18,6 +18,7 @@ from channels.routing import ProtocolTypeRouter, URLRouter
 from channels.auth import AuthMiddlewareStack
 from src.routing import websocket_urlpatterns
 from src.middleware.two_factor import SecondFactorWebsocketMiddleware
+from src.mobile.ws import MobileTicketWebsocketMiddleware, TicketAwareOriginValidator
 
 application = ProtocolTypeRouter({
     'http': django_asgi_app,
@@ -25,9 +26,23 @@ application = ProtocolTypeRouter({
     # (it needs the resolved user) and treats a session that hasn't passed the
     # 2FA verify step as anonymous. Enforce2FAMiddleware is HTTP-only, so
     # before this a password-only session could open every socket.
+    #
+    # Mobile plan, Phase 1 (src/mobile/ws.py), outermost to innermost after the
+    # session user is resolved:
+    #   MobileTicketWebsocketMiddleware — a socket with NO session user that
+    #     offers `parliament.ticket.<ticket>` is signed in by that ticket;
+    #   SecondFactorWebsocketMiddleware — skips ticket sockets (the device
+    #     passed the full sign-in), downgrades unverified sessions as before;
+    #   TicketAwareOriginValidator — AllowedHostsOriginValidator (stops another
+    #     site's page riding the member's cookies), letting only a ticket
+    #     socket arrive without an Origin header.
     'websocket': AuthMiddlewareStack(
-        SecondFactorWebsocketMiddleware(
-            URLRouter(websocket_urlpatterns)
+        MobileTicketWebsocketMiddleware(
+            SecondFactorWebsocketMiddleware(
+                TicketAwareOriginValidator(
+                    URLRouter(websocket_urlpatterns)
+                )
+            )
         )
     ),
 })

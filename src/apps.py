@@ -57,6 +57,8 @@ class SrcConfig(AppConfig):
         import src.checks_site_monitor  # noqa: F401  (registers a system check)
         # v3.45.5: DB_CONN_MAX_AGE above 0 leaks connections under ASGI.
         import src.checks_db_connections  # noqa: F401  (registers a system check)
+        # Mobile plan, Phase 1: warns (src.W020) when EXPO_ACCESS_TOKEN is empty.
+        import src.checks_expo  # noqa: F401  (registers a system check)
 
         from django.db.models.signals import post_migrate
         post_migrate.connect(_set_committee_flags, sender=self)

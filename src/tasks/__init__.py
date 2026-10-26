@@ -9,6 +9,7 @@ Celery tasks for Parliament — split into submodules by domain.
   db_health.py     — DB connection-pressure monitor (Postgres max_connections)
   education.py     — timed pledge big reveals (v3.39.0)
   groupme.py       — GroupMe bot: echo announcements (v3.49.0)
+  mobile_push.py   — Expo push receipt checks (mobile plan, Phase 1)
 
 All names are re-exported here so existing `from src.tasks import X` call sites
 continue to work without modification. Celery's autodiscovery imports this package
@@ -44,6 +45,8 @@ from src.tasks.cleanup import (
 from src.tasks.notifications import (
     notify_expiring_api_tokens,
     send_push_notification,
+    send_web_push,
+    send_native_push,
     send_event_reminder_pushes,
     send_service_event_email_reminders,
     send_daily_digest,
@@ -56,6 +59,9 @@ from src.tasks.db_health import (
 )
 from src.tasks.education import (
     reveal_due_bigs,
+)
+from src.tasks.mobile_push import (
+    check_expo_push_receipts,
 )
 
 __all__ = [
@@ -86,4 +92,7 @@ __all__ = [
     'reveal_due_bigs',
     'dispatch_announcement_to_groupme',
     'send_groupme_message',
+    'send_web_push',
+    'send_native_push',
+    'check_expo_push_receipts',
 ]

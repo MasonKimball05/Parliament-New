@@ -1014,3 +1014,39 @@ class RoleKnowledgeBaseRevisionAdmin(ReadOnlyAdmin):
     list_filter = ('created_at',)
     search_fields = ('knowledge_base__role__name', 'content', 'edited_by__name')
     list_select_related = ('knowledge_base__role', 'edited_by')
+
+
+# ─────────────────────────────────────────────── mobile app (mobile plan, Phase 1)
+# View + delete only, no add/edit: devices and tickets are minted by the sign-in
+# flow (src/mobile/). ViewDeleteAdmin rather than ReadOnlyAdmin for the same
+# reason as PageVisit above: both CASCADE from ParliamentUser, and a
+# ReadOnlyAdmin here would stop /admin/ deleting a departed member. Deleting a
+# device row signs that install out (its tokens stop resolving).
+#
+# CONFIDENTIALITY (the v3.16.2 rule, honoured by export_as_csv too): every
+# secret-derived column is excluded. The hashes are of 256-bit tokens, so they
+# can't be reversed, but they are lookup keys for live credentials and nobody
+# reviewing a device needs them. auth_fingerprint is derived from the password
+# hash; push_token lets anyone holding it push to that phone; a ticket's
+# payload can carry sign-in state (e.g. a pending passkey challenge).
+from .models import MobileAuthTicket, MobileDevice  # noqa: E402
+
+
+@admin.register(MobileDevice, site=admin_site)
+class MobileDeviceAdmin(ViewDeleteAdmin):
+    exclude = ('access_hash', 'refresh_hash', 'prev_refresh_hash', 'alt_refresh_hash',
+               'retired_refresh_hashes', 'auth_fingerprint', 'push_token')
+    list_display = ('user', 'platform', 'device_name', 'app_version', 'verified_via',
+                    'created_at', 'last_seen_at', 'revoked_at', 'revoked_reason')
+    list_filter = ('platform', 'verified_via', 'revoked_at')
+    search_fields = ('user__username', 'user__name', 'device_name')
+    list_select_related = ('user',)
+
+
+@admin.register(MobileAuthTicket, site=admin_site)
+class MobileAuthTicketAdmin(ViewDeleteAdmin):
+    exclude = ('token_hash', 'payload')
+    list_display = ('purpose', 'user', 'device', 'created_at', 'expires_at', 'used_at')
+    list_filter = ('purpose',)
+    search_fields = ('user__username', 'user__name')
+    list_select_related = ('user', 'device')

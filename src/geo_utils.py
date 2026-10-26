@@ -150,3 +150,19 @@ def is_foreign_ip(ip_address, trusted_country='US', timeout=2):
     if not country_code:
         return False, geo
     return country_code != trusted_country, geo
+
+
+def cached_is_foreign_ip(ip_address, trusted_country='US'):
+    """
+    ``is_foreign_ip`` from the 24 h cache ONLY — never a network call, so it is
+    safe on a hot request path (the mobile web-view handoff). Returns
+    ``(is_foreign, geo)``, or ``(False, {})`` when the IP is private or not
+    cached (same benefit of the doubt as a failed lookup).
+    """
+    if not ip_address or any(ip_address.startswith(p) for p in PRIVATE_PREFIXES):
+        return False, {}
+    geo = cache.get(f'geo_{ip_address}') or {}
+    country_code = geo.get('country_code', '') if isinstance(geo, dict) else ''
+    if not country_code:
+        return False, {}
+    return country_code != trusted_country, geo

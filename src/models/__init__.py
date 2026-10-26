@@ -207,6 +207,9 @@ from src.models.analytics import PageVisit
 # API Tokens
 from src.models.api import APIToken, APIAccessLog, DEFINED_SCOPES, ALL_SCOPE_KEYS
 
+# Mobile app (mobile plan, Phase 1)
+from src.models.mobile import MobileDevice, MobileAuthTicket, MobilePushTicket
+
 # Admin Action Audit Log
 from src.models.admin_audit import AdminActionLog, log_admin_action
 
@@ -407,6 +410,10 @@ __all__ = [
     # API Tokens
     'APIToken',
     'APIAccessLog',
+    # Mobile app
+    'MobileDevice',
+    'MobileAuthTicket',
+    'MobilePushTicket',
     'DEFINED_SCOPES',
     'ALL_SCOPE_KEYS',
     # Admin Audit Log

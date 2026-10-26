@@ -90,6 +90,7 @@ class ForcePasswordChangeMiddleware:
             '/admin/',
             '/onboarding/',
         ]
+        self.mobile_exempt_paths = ('/api/mobile/v1/auth/',)
 
     def __call__(self, request):
         # ⚠️ v3.21.3 — AN IMPERSONATING ADMIN IS EXEMPT, and this was the gap.
@@ -106,6 +107,19 @@ class ForcePasswordChangeMiddleware:
         # including what impersonation deliberately does NOT bypass
         # (quarantine, lockdown, maintenance).
         if is_impersonating(request):
+            return self.get_response(request)
+
+        # The app: JSON 403 for the Bearer device's user (or a session user),
+        # except signing out. The app sends the member to the web page to
+        # change it; doing so changes the password hash, which signs the
+        # device out (MobileDevice.still_allowed).
+        from src.mobile.http import effective_user, is_mobile_api, mobile_json_error
+        if is_mobile_api(request):
+            user = effective_user(request)
+            if (user is not None and user.is_authenticated
+                    and getattr(user, 'force_password_change', False)
+                    and not request.path.startswith(self.mobile_exempt_paths)):
+                return mobile_json_error('password_change_required', 403)
             return self.get_response(request)
 
         # Check if user is authenticated and needs to change password
@@ -146,6 +160,9 @@ class QuarantineEnforcementMiddleware:
         ):
             from django.contrib.auth import logout
             logout(request)
+            from src.mobile.http import is_mobile_api, mobile_json_error
+            if is_mobile_api(request):
+                return mobile_json_error('quarantined', 403)
             return redirect('/login/?quarantined=1')
 
         return self.get_response(request)
@@ -469,7 +486,8 @@ class InputSanitizationMiddleware:
         # Maximum input length before truncating for logging
         self.max_log_length = 500
         # Fields that should never be scanned (tokens, internal fields)
-        self.skip_fields = {'csrfmiddlewaretoken', 'next'}
+        # (access_token: the app's /m/handoff/ form field, never echoed to a log.)
+        self.skip_fields = {'csrfmiddlewaretoken', 'next', 'access_token'}
         # Minimum value length to bother scanning — short values can't contain real exploits
         self.min_scan_length = 8
 
@@ -535,6 +553,9 @@ class InputSanitizationMiddleware:
                 logger.warning(
                     f"BLACKLISTED_IP_BLOCKED: {ip_address} attempted {request.method} {request.path}"
                 )
+                from src.mobile.http import is_mobile_api, mobile_json_error
+                if is_mobile_api(request):
+                    return mobile_json_error('blocked', 403)
                 return _render_403(request, 'Your IP address has been blocked. Contact an administrator if you believe this is an error.')
 
         # Skip pattern scanning for static files and certain paths
@@ -763,8 +784,11 @@ class InputSanitizationMiddleware:
         # ignore it in favour of CSP (which we set below). Explicitly disable it.
         response['X-XSS-Protection'] = '0'
 
-        # Referrer policy
-        response['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+        # Referrer policy. A view may only make it STRICTER: the mobile web-view
+        # handoff (src/mobile/handoff.py) sends `no-referrer` so its URL never
+        # leaks onward.
+        if response.get('Referrer-Policy') != 'no-referrer':
+            response['Referrer-Policy'] = 'strict-origin-when-cross-origin'
 
         # Permissions policy (limit access to sensitive browser features)
         response['Permissions-Policy'] = 'geolocation=(), microphone=(), camera=()'

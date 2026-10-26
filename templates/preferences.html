@@ -359,6 +359,34 @@
                     </label>
                 </div>
                 {% endif %}
+                <div class="flex items-center">
+                    {{ form.push_mentions }}
+                    <label for="{{ form.push_mentions.id_for_label }}" class="ml-3 text-sm">
+                        <span class="font-medium text-gray-700 dark:text-gray-300">{{ form.push_mentions.label }}</span>
+                        <p class="text-gray-500 dark:text-gray-400">When someone @mentions you in a chat</p>
+                    </label>
+                </div>
+                <div class="flex items-center">
+                    {{ form.push_excuses }}
+                    <label for="{{ form.push_excuses.id_for_label }}" class="ml-3 text-sm">
+                        <span class="font-medium text-gray-700 dark:text-gray-300">{{ form.push_excuses.label }}</span>
+                        <p class="text-gray-500 dark:text-gray-400">When an officer approves or denies your excuse</p>
+                    </label>
+                </div>
+                <div class="flex items-center">
+                    {{ form.push_reminders }}
+                    <label for="{{ form.push_reminders.id_for_label }}" class="ml-3 text-sm">
+                        <span class="font-medium text-gray-700 dark:text-gray-300">{{ form.push_reminders.label }}</span>
+                        <p class="text-gray-500 dark:text-gray-400">Reminders officers schedule for events and votes</p>
+                    </label>
+                </div>
+                <div class="flex items-center">
+                    {{ form.push_security }}
+                    <label for="{{ form.push_security.id_for_label }}" class="ml-3 text-sm">
+                        <span class="font-medium text-gray-700 dark:text-gray-300">{{ form.push_security.label }}</span>
+                        <p class="text-gray-500 dark:text-gray-400">Sign-ins, password changes and other changes to your account</p>
+                    </label>
+                </div>
             </div>
 
             <!-- Install App -->
