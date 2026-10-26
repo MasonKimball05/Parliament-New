@@ -275,7 +275,7 @@ def wrong_branch_message() -> str:
         return ('stamp-ledger: this checkout is the multi-chapter branch (it has '
                 'the .multi-chapter marker).\n'
                 '    Release stamps belong on main — run it in the main worktree '
-                '(~/Documents/GitHub/Parliament-main).\n'
+                '(~/projects/GitHub/Parliament-main).\n'
                 '    Nothing was changed. STAMP_ON_MULTI_CHAPTER=1 overrides.')
     return ''
 

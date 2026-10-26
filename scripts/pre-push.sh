@@ -28,7 +28,7 @@ set -uo pipefail
 cd "$(git rev-parse --show-toplevel)"
 
 # ⚠️ 09-28-26 — git EXPORTS its repository-location variables to hooks, and in
-# a LINKED WORKTREE (e.g. ~/Documents/GitHub/Parliament-main) GIT_DIR is an
+# a LINKED WORKTREE (e.g. ~/projects/GitHub/Parliament-main) GIT_DIR is an
 # absolute path. Every `git -C <tmpdir> …` a test runs then ignores `-C` and
 # acts on THIS repository instead: the ledger-check tests' throwaway
 # `git init` / `git commit` set `core.bare = true` on the real repo and put
