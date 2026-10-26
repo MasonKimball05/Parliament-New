@@ -3,8 +3,7 @@ from django.conf import settings
 from django.shortcuts import render, get_object_or_404
 from django.urls import reverse
 from django.utils import timezone
-from django.http import JsonResponse, HttpResponse, Http404
-from django.db import transaction, models
+from django.http import JsonResponse, HttpResponse
 from src.models import Event, EventSignup, ActivityLog, AttendanceExcuse
 from src.models_calendar_subscription import CalendarSubscription
 from src.feature_flag_decorators import require_page_enabled, require_feature_flag
@@ -18,6 +17,7 @@ import pytz
 from src.models.users import member_defer
 from src.utils.visibility import visible_to_q
 from src.decorators import officer_required
+from src import event_signups
 
 #: v3.18.4 — how many future events to load in order to show the five soonest
 #: VISIBLE ones. See the note at the `all_upcoming` queryset for why bounding
@@ -669,10 +669,10 @@ def calendar_subscription_feed(request, token):
 
         # Use event's updated timestamp if available, otherwise creation time
         ical_event.add('dtstamp', event.created_at)
-        ical_event.add('last-modified', event.created_at)
-
-        # Add sequence number for updates (calendar apps use this to detect changes)
-        ical_event.add('sequence', 0)
+        # v3.54.0 — both were fixed (created_at, 0), so a subscribed calendar
+        # never saw an edit. They now follow Event.updated_at.
+        ical_event.add('last-modified', event.updated_at or event.created_at)
+        ical_event.add('sequence', event.ical_sequence)
 
         cal.add_component(ical_event)
 
@@ -768,72 +768,13 @@ def event_signup(request, event_id):
     """Sign the current user up for an event (POST only)."""
     if request.method != 'POST':
         return JsonResponse({'success': False, 'error': 'Method not allowed'}, status=405)
-
-    # Lock the Event row so concurrent signups serialize through here.
-    with transaction.atomic():
-        event = get_object_or_404(
-            Event.objects.select_for_update(),
-            pk=event_id, is_active=True, archived=False, requires_signup=True,
-        )
-        # An event the member can't see on the calendar must not be
-        # reachable by id either — same 404 as a nonexistent event.
-        if not event.is_visible_to_user(request.user):
-            raise Http404
-
-        if not event.signups_open:
-            return JsonResponse({'success': False, 'error': 'Sign-ups are closed for this event.'}, status=400)
-
-        # Re-activate a cancelled signup or create fresh
-        signup, created = EventSignup.objects.get_or_create(
-            event=event,
-            user=request.user,
-            defaults={'is_cancelled': False, 'waitlist_position': None},
-        )
-        if not created:
-            if not signup.is_cancelled:
-                already_on = 'waitlist' if signup.waitlist_position is not None else 'sign-up list'
-                return JsonResponse({'success': False, 'error': f'You are already on the {already_on}.'}, status=400)
-            # Re-activating — reset cancellation state
-            signup.is_cancelled = False
-            signup.cancelled_at = None
-
-        # Determine whether a confirmed slot is available
-        confirmed_count = event.signups.filter(is_cancelled=False, waitlist_position__isnull=True).count()
-        slot_available = event.max_signups is None or confirmed_count < event.max_signups
-
-        if slot_available:
-            signup.waitlist_position = None
-            signup.save(update_fields=['is_cancelled', 'cancelled_at', 'waitlist_position'])
-            on_waitlist = False
-        elif event.allow_waitlist:
-            # Place on waitlist at the next available position
-            next_pos = (
-                event.signups
-                .filter(is_cancelled=False, waitlist_position__isnull=False)
-                .order_by('-waitlist_position')
-                .values_list('waitlist_position', flat=True)
-                .first() or 0
-            ) + 1
-            signup.waitlist_position = next_pos
-            signup.save(update_fields=['is_cancelled', 'cancelled_at', 'waitlist_position'])
-            on_waitlist = True
-        else:
-            if created:
-                signup.delete()
-            return JsonResponse({'success': False, 'error': 'This event is full.'}, status=400)
-
-        confirmed_count = event.signups.filter(is_cancelled=False, waitlist_position__isnull=True).count()
-        waitlist_count = event.signups.filter(is_cancelled=False, waitlist_position__isnull=False).count()
-
-    return JsonResponse({
-        'success': True,
-        'signup_count': confirmed_count,
-        'waitlist_count': waitlist_count,
-        'user_signed_up': True,
-        'on_waitlist': on_waitlist,
-        'waitlist_position': signup.waitlist_position,
-        'signup_full': event.max_signups is not None and confirmed_count >= event.max_signups,
-    })
+    # v3.54.0: the logic (row lock, waitlist, visibility 404) lives in
+    # src/event_signups.py, shared with the app's events/<id>/signup/.
+    try:
+        result = event_signups.sign_up(event_id, request.user)
+    except event_signups.SignupError as exc:
+        return JsonResponse({'success': False, 'error': str(exc)}, status=400)
+    return JsonResponse({'success': True, **result})
 
 
 @login_required
@@ -842,53 +783,11 @@ def event_cancel_signup(request, event_id):
     """Cancel the current user's signup for an event (POST only)."""
     if request.method != 'POST':
         return JsonResponse({'success': False, 'error': 'Method not allowed'}, status=405)
-
-    with transaction.atomic():
-        event = get_object_or_404(
-            Event.objects.select_for_update(),
-            pk=event_id, is_active=True, archived=False, requires_signup=True,
-        )
-        # An event the member can't see on the calendar must not be
-        # reachable by id either — same 404 as a nonexistent event.
-        if not event.is_visible_to_user(request.user):
-            raise Http404
-        signup = EventSignup.objects.filter(event=event, user=request.user, is_cancelled=False).first()
-        if not signup:
-            return JsonResponse({'success': False, 'error': 'You are not signed up for this event.'}, status=400)
-
-        was_confirmed = signup.waitlist_position is None
-        signup.is_cancelled = True
-        signup.cancelled_at = timezone.now()
-        signup.save(update_fields=['is_cancelled', 'cancelled_at'])
-
-        # If they held a confirmed slot, promote the first waitlisted person
-        if was_confirmed and event.allow_waitlist:
-            first_waiting = (
-                EventSignup.objects
-                .filter(event=event, is_cancelled=False, waitlist_position__isnull=False)
-                .order_by('waitlist_position')
-                .first()
-            )
-            if first_waiting:
-                first_waiting.waitlist_position = None
-                first_waiting.save(update_fields=['waitlist_position'])
-                # Compact remaining waitlist positions
-                EventSignup.objects.filter(
-                    event=event, is_cancelled=False, waitlist_position__isnull=False,
-                ).order_by('waitlist_position').update(
-                    waitlist_position=models.F('waitlist_position') - 1
-                )
-
-        confirmed_count = event.signups.filter(is_cancelled=False, waitlist_position__isnull=True).count()
-        waitlist_count = event.signups.filter(is_cancelled=False, waitlist_position__isnull=False).count()
-
-    return JsonResponse({
-        'success': True,
-        'signup_count': confirmed_count,
-        'waitlist_count': waitlist_count,
-        'user_signed_up': False,
-        'signup_full': event.max_signups is not None and confirmed_count >= event.max_signups,
-    })
+    try:
+        result = event_signups.cancel(event_id, request.user)
+    except event_signups.SignupError as exc:
+        return JsonResponse({'success': False, 'error': str(exc)}, status=400)
+    return JsonResponse({'success': True, **result})
 
 
 @login_required

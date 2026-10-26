@@ -24,6 +24,11 @@ class Event(models.Model):
     location = models.CharField(max_length=300, blank=True, help_text='Event location (physical or virtual)')
     created_by = models.ForeignKey('ParliamentUser', on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
+    # v3.54.0 — last content edit. Full saves (the edit form) set it; saves
+    # with update_fields (reminder/RSVP bookkeeping) don't unless they list
+    # it, and series edits stamp it by hand (bulk_update skips auto_now). The
+    # calendar feed's LAST-MODIFIED / SEQUENCE and the app's events/ read it.
+    updated_at = models.DateTimeField(auto_now=True)
     is_active = models.BooleanField(default=True, help_text='Uncheck to hide event from calendar')
     archived = models.BooleanField(default=False, help_text='Events older than 1 year are automatically archived')
     visible_to = models.JSONField(
@@ -252,6 +257,18 @@ class Event(models.Model):
             'details': self.description or '',
             'location': self.location or '',
         })
+
+    @property
+    def ical_sequence(self):
+        """
+        iCalendar SEQUENCE: must rise with every revision so subscribed
+        calendars replace their copy (v3.54.0; it was always 0, so edits were
+        ignored). Seconds between creation and the last edit: 0 for an
+        unedited event, larger after each edit, no stored counter to keep.
+        """
+        if not self.updated_at or not self.created_at:
+            return 0
+        return max(0, int((self.updated_at - self.created_at).total_seconds()))
 
     def is_visible_to_user(self, user):
         """Check if user should be able to see this event"""

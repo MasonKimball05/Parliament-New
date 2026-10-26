@@ -130,9 +130,15 @@ def apply_series_edit(event, before, changed_fields, scope, now=None):
     if delta or deadline_changed:
         fields.append('excuse_deadline')
     if others and fields:
+        from django.utils import timezone
         from src.models import Event
+        # bulk_update() skips auto_now, so stamp updated_at by hand: the
+        # calendar feed reads it to tell subscribed calendars these moved.
+        stamp = timezone.now()
+        for other in others:
+            other.updated_at = stamp
         with transaction.atomic():
-            Event.objects.bulk_update(others, fields)
+            Event.objects.bulk_update(others, fields + ['updated_at'])
     return len(others)
 
 

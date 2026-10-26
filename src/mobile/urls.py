@@ -9,7 +9,8 @@ without the full sign-in). Enforced by
 from django.urls import path
 
 from src.mobile import (
-    views_auth, views_devices, views_home, views_notifications, views_push, views_session,
+    views_auth, views_calendar, views_devices, views_home, views_notifications, views_push,
+    views_session,
 )
 
 app_name = 'mobile'
@@ -46,4 +47,10 @@ urlpatterns = [
          views_notifications.NotificationReadView.as_view(), name='mobile_notification_read'),
     path('notifications/read-all/', views_notifications.NotificationReadAllView.as_view(),
          name='mobile_notifications_read_all'),
+    path('events/', views_calendar.EventListView.as_view(), name='mobile_events'),
+    path('events/<int:event_id>/', views_calendar.EventDetailView.as_view(), name='mobile_event'),
+    path('events/<int:event_id>/signup/', views_calendar.EventSignupView.as_view(),
+         name='mobile_event_signup'),
+    path('calendar/subscription/', views_calendar.CalendarSubscriptionView.as_view(),
+         name='mobile_calendar_subscription'),
 ]
