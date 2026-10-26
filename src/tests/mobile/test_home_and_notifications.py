@@ -219,9 +219,7 @@ class HomeTests(_Base):
         with CaptureQueriesContext(connection) as ctx:
             self.assertEqual(self.get('home/').status_code, 200)
         # 3 for the page (ballots, events, announcements; nothing per row) plus
-        # 8 for authentication: device + TOTP + static + 2FA requirement, done
-        # once by the middlewares' effective_user() and again by DRF's
-        # MobileTokenAuthentication. That doubling is Phase 1's, on every
-        # mobile request; if it is fixed this budget drops to 7.
-        self.assertLessEqual(len(ctx.captured_queries), 11,
+        # 4 for authentication (device + TOTP + static + 2FA requirement), run
+        # once and shared by the middlewares and DRF (check_access_token).
+        self.assertLessEqual(len(ctx.captured_queries), 7,
                              '\n'.join(q['sql'][:120] for q in ctx.captured_queries))

@@ -16,7 +16,6 @@ off the session user, is unaffected; see the module docstring of
 makes the real, authoritative decision on the view.
 """
 from django.http import JsonResponse
-from django.utils import timezone
 
 MOBILE_API_PREFIX = '/api/mobile/'
 
@@ -39,19 +38,19 @@ def bearer_device(request):
     """
     The live ``MobileDevice`` behind this request's ``Authorization: Bearer``
     header, or None (no header, unknown/expired token, or the device is no
-    longer allowed). Cached on the request; issues at most one query.
+    longer allowed). Cached on the request. The check itself is
+    ``check_access_token``, shared with (and memoised for) DRF's
+    ``MobileTokenAuthentication``, so the view doesn't run it again.
     """
     if hasattr(request, '_mobile_bearer_device'):
         return request._mobile_bearer_device
     device = None
     parts = request.META.get('HTTP_AUTHORIZATION', '').split()
     if len(parts) == 2 and parts[0].lower() == 'bearer':
-        from src.models.mobile import MobileDevice, hash_secret
-        candidate = (MobileDevice.objects.select_related('user')
-                     .filter(access_hash=hash_secret(parts[1])).first())
-        if (candidate is not None and candidate.access_expires_at > timezone.now()
-                and candidate.still_allowed()[0]):
-            device = candidate
+        # The same check (and per-request memo) DRF's MobileTokenAuthentication
+        # uses, so the view's authentication doesn't repeat these queries.
+        from src.mobile.authentication import check_access_token
+        device, _ = check_access_token(request, parts[1])
     request._mobile_bearer_device = device
     return device
 

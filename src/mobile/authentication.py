@@ -22,6 +22,45 @@ from src.models.mobile import MobileDevice, hash_secret
 _SEEN_EVERY = timedelta(minutes=5)
 
 
+def check_access_token(request, raw):
+    """
+    The one decision on a raw access token: ``(device, None)`` if it is live
+    and the device is still allowed, else ``(None, (message, code))``.
+
+    Remembered on the underlying HttpRequest per token, because one request
+    asks twice: the site-wide middlewares (``src/mobile/http.py``
+    ``bearer_device``, for lockdown, quarantine, pledge pages...) run before
+    DRF, and then this class authenticates the view. Each check is 4 queries
+    (the device, plus ``still_allowed``'s second-factor lookups), so asking
+    once halves the auth cost of every mobile request. Same request, same
+    token, same answer: nothing is skipped, it is only not repeated.
+    """
+    if not raw or not isinstance(raw, str) or len(raw) > 200:
+        return None, ('Invalid token.', 'invalid_token')
+    http_request = getattr(request, '_request', request)
+    seen = getattr(http_request, '_mobile_token_checks', None)
+    if seen is None:
+        seen = {}
+        http_request._mobile_token_checks = seen
+    key = hash_secret(raw)
+    if key not in seen:
+        seen[key] = _check(key)
+    return seen[key]
+
+
+def _check(access_hash):
+    device = (MobileDevice.objects.select_related('user')
+              .filter(access_hash=access_hash).first())
+    if device is None:
+        return None, ('Invalid token.', 'invalid_token')
+    if device.access_expires_at <= timezone.now():
+        return None, ('Access token expired.', 'token_expired')
+    ok, reason = device.still_allowed()
+    if not ok:
+        return None, ('Signed out.', f'signed_out_{reason}')
+    return device, None
+
+
 class MobileTokenAuthentication(BaseAuthentication):
     keyword = 'Bearer'
 
@@ -39,17 +78,10 @@ class MobileTokenAuthentication(BaseAuthentication):
         with the client-facing code. Shared with ``/m/handoff/``, which also
         accepts the token as a POST form field (see ``src/mobile/handoff.py``).
         """
-        if not raw or not isinstance(raw, str) or len(raw) > 200:
-            raise AuthenticationFailed('Invalid token.', code='invalid_token')
-        device = (MobileDevice.objects.select_related('user')
-                  .filter(access_hash=hash_secret(raw)).first())
-        if device is None:
-            raise AuthenticationFailed('Invalid token.', code='invalid_token')
-        if device.access_expires_at <= timezone.now():
-            raise AuthenticationFailed('Access token expired.', code='token_expired')
-        ok, reason = device.still_allowed()
-        if not ok:
-            raise AuthenticationFailed('Signed out.', code=f'signed_out_{reason}')
+        device, error = check_access_token(request, raw)
+        if error:
+            message, code = error
+            raise AuthenticationFailed(message, code=code)
         now = timezone.now()
         if not device.last_seen_at or now - device.last_seen_at > _SEEN_EVERY:
             MobileDevice.objects.filter(pk=device.pk).update(last_seen_at=now)
