@@ -2,6 +2,39 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer base {
+  /* iOS Safari (and the app's web view) gives date/time inputs a native
+     minimum width that `w-full` doesn't override, so on a phone they spill
+     past their container (the announcement form's Publish Date, 10-27-26).
+     Dropping the native appearance lets them size like every other input;
+     the value stays left-aligned instead of centred. */
+  input[type="date"],
+  input[type="datetime-local"],
+  input[type="time"],
+  input[type="month"] {
+    -webkit-appearance: none;
+    appearance: none;
+    min-width: 0;
+    max-width: 100%;
+    min-height: 2.5rem;
+  }
+  input::-webkit-date-and-time-value {
+    text-align: left;
+  }
+}
+
+/* iOS zooms the page in when you focus a field whose text is under 16px, and
+   stays zoomed (in Safari and in the app's web view). Many forms use text-sm
+   inputs, so on phone widths every text field gets 16px. Outside @layer, and
+   !important, because it has to beat the text-sm/text-xs utilities. */
+@media (max-width: 767px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]):not([type="submit"]):not([type="button"]),
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
 @layer components {
   /* =====================================================================
      BUTTONS

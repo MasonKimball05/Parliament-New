@@ -1,6 +1,6 @@
 {
   "_comment": "SHA-256 hashes of self-hosted vendor files. Regenerate with: python manage.py check_env --update-hashes",
-  "_generated": "2026-09-24",
+  "_generated": "2026-10-27",
   "files": {
     "static/vendor/chart.min.js": {
       "source": "npm chart.js@3.9.1 dist/chart.min.js",
@@ -64,9 +64,9 @@
     "static/css/tailwind.css": {
       "source": "built locally via tailwindcss standalone CLI v3.4.17",
       "note": "Regenerate with: ./build_css.sh, then run python manage.py check_env --update-hashes",
-      "sha256": "d6ba3b672d7c5ce58ecbc4318e02513a1b7e74e3800a7610b2dc3c9a00b8c389",
-      "sri": "sha384-eiUdd3pgs9586WYEqHZrke+HGir75bA9Z4w27tNFywZXk48Wx5DwnldXR9h4bnXn",
-      "size": 181569
+      "sha256": "09eb82d1011f46fba3ec11ea70c5995ae25b583ec759884271525c7707d5fb9f",
+      "sri": "sha384-gIlCbLdLD38jwND54uWQYU9Gi4as59oRBwi4XzU4O2QCodLePn/7K3S9Npw+GjEY",
+      "size": 182306
     }
   }
 }

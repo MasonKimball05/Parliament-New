@@ -1,12 +1,13 @@
+from src.decorators import admin_required
 from django.shortcuts import redirect, get_object_or_404
-from django.contrib.auth.decorators import login_required, user_passes_test
+from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST
 from src.models import Event
 
 @login_required
-@user_passes_test(lambda u: u.is_admin)
+@admin_required
 @require_POST
 def archive_event(request, event_id):
     """Archive an event - admin only"""
@@ -23,7 +24,7 @@ def archive_event(request, event_id):
 
 
 @login_required
-@user_passes_test(lambda u: u.is_admin)
+@admin_required
 @require_POST
 def unarchive_event(request, event_id):
     """Unarchive an event - admin only"""

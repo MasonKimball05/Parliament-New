@@ -228,6 +228,8 @@
             font-size: 0.875rem;
             font-family: ui-monospace, monospace;
             color: #1f2937;
+            /* Long file paths break instead of widening the page on a phone. */
+            overflow-wrap: anywhere;
         }
         .dark .changelog-content code {
             background-color: #374151;

@@ -1,11 +1,11 @@
-from src.decorators import officer_or_advisor_required
+from src.decorators import admin_required
 from django.shortcuts import render
-from django.contrib.auth.decorators import login_required, user_passes_test
+from django.contrib.auth.decorators import login_required
 from src.models import Event
 from src.models.users import member_defer
 
 @login_required
-@user_passes_test(lambda u: u.is_admin)
+@admin_required
 def view_archived_events(request):
     """View archived events - admin only for record keeping"""
 
