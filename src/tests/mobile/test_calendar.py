@@ -9,6 +9,7 @@ reaches subscribed calendars (LAST-MODIFIED / SEQUENCE used to be fixed).
     python manage.py test src.tests.mobile.test_calendar
 """
 from datetime import datetime, timedelta
+from unittest.mock import patch
 
 import pytz
 from django.conf import settings
@@ -77,6 +78,28 @@ class EventListTests(_Base):
         self.event('Next day', when=local(nxt.year, nxt.month, nxt.day, 0, 30))
         r = self.get('events/', **{'from': today.isoformat(), 'to': last.isoformat()})
         self.assertEqual(self.titles(r), ['Late'])
+
+    def test_range_ends_at_local_midnight_when_the_clocks_change(self):
+        # Fixed dates, so this holds whatever day the suite runs. In Central
+        # time, 2026-11-01 is 25 hours long (clocks fall back) and 2027-03-14 is
+        # 23 (spring forward); the range must end at the next local midnight.
+        real_localtime = timezone.localtime
+        fake_now = local(2026, 10, 28)
+
+        def localtime(value=None, *args, **kwargs):
+            # "Today" is pinned (the API's window is a year around it); event
+            # times still convert for real.
+            return fake_now if value is None else real_localtime(value, *args, **kwargs)
+
+        with patch('src.mobile.views_calendar.timezone.localtime', side_effect=localtime):
+            self.event('Fall back, 23:30', when=local(2026, 11, 1, 23, 30))
+            self.event('Nov 2, 00:30', when=local(2026, 11, 2, 0, 30))
+            r = self.get('events/', **{'from': '2026-10-28', 'to': '2026-11-01'})
+            self.assertEqual(self.titles(r), ['Fall back, 23:30'])
+            self.event('Spring forward, 23:30', when=local(2027, 3, 14, 23, 30))
+            self.event('Mar 15, 00:30', when=local(2027, 3, 15, 0, 30))
+            r = self.get('events/', **{'from': '2027-03-14', 'to': '2027-03-14'})
+            self.assertEqual(self.titles(r), ['Spring forward, 23:30'])
 
     def test_bad_params(self):
         self.assertEqual(self.get('events/', **{'from': 'nope'}).json()['error'], 'invalid_request')

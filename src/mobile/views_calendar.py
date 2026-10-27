@@ -162,7 +162,10 @@ class EventListView(_CalendarBase):
             # Day boundaries in the CHAPTER's time zone, as the web calendar
             # groups them (see calendar_data_api).
             begin = tz.localize(datetime(start.year, start.month, start.day))
-            stop = tz.localize(datetime(end.year, end.month, end.day)) + timedelta(days=1)
+            # The NEXT day's local midnight, not midnight + 24h: a day the
+            # clocks change is 23 or 25 hours long.
+            after = end + timedelta(days=1)
+            stop = tz.localize(datetime(after.year, after.month, after.day))
             events = list(_events_qs()
                           .filter(date_time__gte=begin, date_time__lt=stop)
                           .filter(visible_to_q(request.user.member_type))

@@ -135,6 +135,22 @@ class MeTests(MobileTestCase):
         self.assertTrue(me['pages']['home'])
         self.assertEqual(set(me['pages']), {'home', 'vote', 'calendar', 'chat_index'})
         self.assertEqual(me['device']['verified_via'], 'password')
+        self.assertTrue(me['can_post_announcements'])
+
+    def test_can_post_announcements_matches_the_announcement_page(self):
+        # Same rule as officer_required on create_announcement: officers,
+        # chairs and admins; not members, advisors or pledges.
+        cases = [('m331', 'Chair', True), ('m332', 'Member', False),
+                 ('m333', 'Advisor', False), ('m334', 'Pledge', False)]
+        for uid, member_type, expected in cases:
+            with self.subTest(member_type=member_type):
+                user = make_user(uid, member_type=member_type)
+                access = self.login(user.username).json()['access_token']
+                self.assertIs(self.get_me(access).json()['can_post_announcements'], expected)
+                web = self.client_class()
+                web.force_login(user)
+                status = web.get('/officers/announcements/create/').status_code
+                self.assertEqual(status == 200, expected, status)
 
 
 class ThrottleTests(MobileTestCase):
