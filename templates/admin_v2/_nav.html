@@ -1,0 +1,18 @@
+{% load admin_v2_tags %}
+{% admin_v2_nav as groups %}
+<nav aria-label="Admin sections" class="py-4 text-sm">
+    {% for group in groups %}
+    <div class="mb-4">
+        <p class="px-4 mb-1 text-[11px] font-semibold tracking-wider uppercase text-gray-400 dark:text-gray-500">{{ group.title }}</p>
+        <ul>
+            {% for item in group.items %}
+            <li>
+                <a href="{{ item.url }}"
+                   class="flex items-center mx-2 px-2 py-1.5 rounded-md transition-colors {% if item.active %}bg-primary-50 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300 font-semibold{% else %}text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800{% endif %}"
+                   {% if item.active %}aria-current="page"{% endif %}>{{ item.label }}</a>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endfor %}
+</nav>

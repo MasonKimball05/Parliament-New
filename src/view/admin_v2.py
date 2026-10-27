@@ -45,6 +45,7 @@ from src.notification_service import notify_all_active_members
 from src.models.users import member_defer
 from src.kai_audit import exclude_kai_logs, redact_kai_logs
 from src.next_url import safe_referer
+from src.admin_v2_attention import attention_items
 
 
 _raw_allowed_ids = os.environ.get('ADMIN_V2_USER_IDS', os.environ.get('ADMIN_V2_USER_ID', ''))
@@ -866,6 +867,7 @@ def admin_v2_dashboard(request):
         'page_visit_summary': page_visit_summary,
         'celery_summary': celery_summary,
         'onboarding_stats': onboarding_stats,
+        'attention': attention_items(),
     }
 
     return render(request, 'admin_v2/dashboard.html', context)
@@ -896,6 +898,8 @@ def toggle_feature_flag(request, flag_id):
         except FeatureFlag.DoesNotExist:
             messages.error(request, 'Feature flag not found')
 
+    if request.POST.get('next') == 'maintenance':  # v3.58.1: the Maintenance page
+        return redirect('admin_v2_maintenance')
     return redirect('admin_v2_dashboard')
 
 
@@ -932,6 +936,8 @@ def toggle_page(request, toggle_id):
                 return JsonResponse({'error': 'Not found'}, status=404)
             messages.error(request, 'Page toggle not found')
 
+    if request.POST.get('next') == 'maintenance':  # v3.58.1: the Maintenance page
+        return redirect('admin_v2_maintenance')
     return redirect('admin_v2_dashboard')
 
 
@@ -2015,6 +2021,8 @@ def release_user_lockout(request, user_id):
     logger.info(
         f"Admin {request.user.username} released login lockouts for {user.username}"
     )
+    if request.POST.get('return_to') == 'member':  # v3.58.1: from the member page
+        return redirect('admin_v2_member', user_id=user_id)
     return redirect('admin_v2_user_login_security', user_id=user_id)
 
 

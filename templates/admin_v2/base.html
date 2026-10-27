@@ -1,102 +1,78 @@
 {% extends "base.html" %}
+{% load static_version %}
+
+{% comment %}
+Admin v2 layout (v3.58.1): a grouped sidebar instead of the old 13-tab bar,
+a ⌘K search over admin pages and members, and a slide-out drawer on phones.
+The sections live in src/admin_v2_nav.py (sidebar and search read the same
+list). No inline handlers: the drawer uses data-show / data-hide
+(static/js/base/data-actions.js) and the search is static/js/admin_v2/palette.js.
+{% endcomment %}
 
 {% block subnav %}
 <div class="bg-gray-900 dark:bg-gray-950 border-b border-gray-700 dark:border-gray-800 text-gray-300">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="flex items-center justify-between h-10 gap-4">
-            <!-- Left: label + quick links -->
-            <div class="flex items-center gap-0 overflow-x-auto scrollbar-none">
-                <!-- Admin v2 label -->
-                <span class="flex items-center gap-1.5 pr-3 mr-1 border-r border-gray-700 text-xs font-semibold tracking-widest text-red-400 uppercase whitespace-nowrap flex-shrink-0">
-                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
-                    </svg>
-                    Admin v2
-                </span>
+    <div class="px-4 sm:px-6 h-11 flex items-center gap-3">
+        <button type="button" data-show="#admin-v2-drawer" class="lg:hidden -ml-1 p-2 rounded-md hover:bg-gray-800" aria-label="Open admin menu">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+        </button>
+        <a href="{% url 'admin_v2_dashboard' %}" class="flex items-center gap-1.5 text-xs font-semibold tracking-widest text-red-400 uppercase whitespace-nowrap">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+            Admin
+        </a>
+        <button type="button" data-admin-search-open
+                class="flex-1 min-w-0 max-w-md flex items-center gap-2 px-3 py-1.5 rounded-md bg-gray-800 hover:bg-gray-700 text-sm text-gray-400 transition-colors">
+            <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+            <span class="truncate">Search<span class="hidden sm:inline"> pages and members</span></span>
+            <kbd class="ml-auto hidden sm:inline text-[11px] px-1.5 py-0.5 rounded bg-gray-700 text-gray-300">⌘K</kbd>
+        </button>
+        <a href="{% url 'admin_v2_logout' %}" class="ml-auto flex-shrink-0 flex items-center gap-1.5 text-xs text-gray-400 hover:text-red-400 transition-colors whitespace-nowrap">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+            <span class="hidden sm:inline">Exit admin</span>
+        </a>
+    </div>
+</div>
 
-                <!-- Nav links -->
-                <nav class="flex items-center">
-                    <a href="{% url 'admin_v2_dashboard' %}"
-                       class="px-3 h-10 flex items-center text-xs font-medium hover:bg-gray-800 hover:text-white transition-colors whitespace-nowrap
-                              {% if request.resolver_match.url_name == 'admin_v2_dashboard' %}text-white bg-gray-800{% endif %}">
-                        Dashboard
-                    </a>
-                    <a href="{% url 'admin_v2_security' %}"
-                       class="px-3 h-10 flex items-center text-xs font-medium hover:bg-gray-800 hover:text-white transition-colors whitespace-nowrap
-                              {% if 'security' in request.resolver_match.url_name %}text-white bg-gray-800{% endif %}">
-                        Security
-                    </a>
-                    <a href="{% url 'admin_v2_manage_users' %}"
-                       class="px-3 h-10 flex items-center text-xs font-medium hover:bg-gray-800 hover:text-white transition-colors whitespace-nowrap
-                              {% if request.resolver_match.url_name == 'admin_v2_manage_users' %}text-white bg-gray-800{% endif %}">
-                        Users
-                    </a>
-                    <a href="{% url 'admin_v2_manage_committees' %}"
-                       class="px-3 h-10 flex items-center text-xs font-medium hover:bg-gray-800 hover:text-white transition-colors whitespace-nowrap
-                              {% if request.resolver_match.url_name == 'admin_v2_manage_committees' %}text-white bg-gray-800{% endif %}">
-                        Committees
-                    </a>
-                    <a href="{% url 'admin_v2_notifications' %}"
-                       class="px-3 h-10 flex items-center text-xs font-medium hover:bg-gray-800 hover:text-white transition-colors whitespace-nowrap
-                              {% if 'notification' in request.resolver_match.url_name %}text-white bg-gray-800{% endif %}">
-                        Notifications
-                    </a>
-                    <a href="{% url 'admin_v2_email_logs' %}"
-                       class="px-3 h-10 flex items-center text-xs font-medium hover:bg-gray-800 hover:text-white transition-colors whitespace-nowrap
-                              {% if 'email' in request.resolver_match.url_name %}text-white bg-gray-800{% endif %}">
-                        Email Logs
-                    </a>
-                    <a href="{% url 'admin_v2_push_subscriptions' %}"
-                       class="px-3 h-10 flex items-center text-xs font-medium hover:bg-gray-800 hover:text-white transition-colors whitespace-nowrap
-                              {% if request.resolver_match.url_name == 'admin_v2_push_subscriptions' %}text-white bg-gray-800{% endif %}">
-                        Push
-                    </a>
-                    <a href="{% url 'admin_v2_two_factor' %}"
-                       class="px-3 h-10 flex items-center text-xs font-medium hover:bg-gray-800 hover:text-white transition-colors whitespace-nowrap
-                              {% if 'two_factor' in request.resolver_match.url_name %}text-white bg-gray-800{% endif %}">
-                        2FA
-                    </a>
-                    <a href="{% url 'admin_v2_manage_events' %}"
-                       class="px-3 h-10 flex items-center text-xs font-medium hover:bg-gray-800 hover:text-white transition-colors whitespace-nowrap
-                              {% if 'event' in request.resolver_match.url_name and 'admin_v2' in request.resolver_match.url_name %}text-white bg-gray-800{% endif %}">
-                        Events
-                    </a>
-                    <a href="{% url 'admin_v2_manage_legislation' %}"
-                       class="px-3 h-10 flex items-center text-xs font-medium hover:bg-gray-800 hover:text-white transition-colors whitespace-nowrap
-                              {% if 'legislation' in request.resolver_match.url_name %}text-white bg-gray-800{% endif %}">
-                        Legislation
-                    </a>
-                    <a href="{% url 'admin_v2_page_visits' %}"
-                       class="px-3 h-10 flex items-center text-xs font-medium hover:bg-gray-800 hover:text-white transition-colors whitespace-nowrap
-                              {% if request.resolver_match.url_name == 'admin_v2_page_visits' %}text-white bg-gray-800{% endif %}">
-                        Page Visits
-                    </a>
-                    <a href="{% url 'admin_v2_celery_health' %}"
-                       class="px-3 h-10 flex items-center text-xs font-medium hover:bg-gray-800 hover:text-white transition-colors whitespace-nowrap
-                              {% if request.resolver_match.url_name == 'admin_v2_celery_health' %}text-white bg-gray-800{% endif %}">
-                        Celery
-                    </a>
-                    <a href="{% url 'admin_api_tokens' %}"
-                       class="px-3 h-10 flex items-center text-xs font-medium hover:bg-gray-800 hover:text-white transition-colors whitespace-nowrap
-                              {% if 'api_token' in request.resolver_match.url_name %}text-white bg-gray-800{% endif %}">
-                        API
-                    </a>
-                </nav>
-            </div>
-
-            <!-- Right: logout -->
-            <a href="{% url 'admin_v2_logout' %}"
-               class="flex-shrink-0 flex items-center gap-1.5 text-xs text-gray-400 hover:text-red-400 transition-colors whitespace-nowrap">
-                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
-                </svg>
-                Exit Admin
-            </a>
+<!-- Phone / tablet: the same nav in a drawer -->
+<div id="admin-v2-drawer" class="hidden fixed inset-0 z-50 lg:hidden" role="dialog" aria-modal="true" aria-label="Admin menu">
+    <div class="absolute inset-0 bg-black/50" data-hide="#admin-v2-drawer"></div>
+    <div class="absolute inset-y-0 left-0 w-72 max-w-[85%] bg-white dark:bg-gray-900 shadow-xl overflow-y-auto">
+        <div class="flex items-center justify-between px-4 h-12 border-b border-gray-200 dark:border-gray-800">
+            <span class="text-sm font-semibold text-gray-900 dark:text-gray-100">Admin</span>
+            <button type="button" data-hide="#admin-v2-drawer" class="p-2 -mr-2 text-gray-500 hover:text-gray-800 dark:hover:text-gray-200" aria-label="Close admin menu">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
         </div>
+        {% include "admin_v2/_nav.html" %}
+    </div>
+</div>
+
+<!-- ⌘K search -->
+<div id="admin-v2-palette" class="hidden fixed inset-0 z-50" role="dialog" aria-modal="true" aria-label="Search admin"
+     data-search-url="{% url 'admin_v2_search' %}">
+    <div class="absolute inset-0 bg-black/50" data-admin-search-close></div>
+    <div class="relative mx-auto mt-16 sm:mt-24 w-[calc(100%-2rem)] max-w-xl bg-white dark:bg-gray-900 rounded-xl shadow-2xl overflow-hidden">
+        <div class="flex items-center gap-2 px-4 border-b border-gray-200 dark:border-gray-800">
+            <svg class="w-5 h-5 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+            <input id="admin-v2-search-input" type="search" autocomplete="off" spellcheck="false"
+                   placeholder="Search admin pages, members by name, username or #"
+                   class="flex-1 min-w-0 py-3 bg-transparent border-0 focus:ring-0 text-gray-900 dark:text-gray-100 placeholder-gray-400">
+        </div>
+        <ul id="admin-v2-search-results" class="max-h-[60vh] overflow-y-auto py-2" role="listbox"></ul>
+        <p class="px-4 py-2 text-[11px] text-gray-400 border-t border-gray-100 dark:border-gray-800">↑↓ to move · Enter to open · Esc to close</p>
     </div>
 </div>
 {% endblock %}
 
 {% block content %}
-{% block admin_content %}{% endblock %}
+<div class="lg:flex">
+    <aside class="hidden lg:block w-56 flex-shrink-0 border-r border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
+        <div class="sticky top-0 max-h-screen overflow-y-auto">
+            {% include "admin_v2/_nav.html" %}
+        </div>
+    </aside>
+    <div class="flex-1 min-w-0">
+        {% block admin_content %}{% endblock %}
+    </div>
+</div>
+<script src="{% static_v 'js/admin_v2/palette.js' %}"></script>
 {% endblock %}

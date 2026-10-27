@@ -1,0 +1,68 @@
+{% extends "admin_v2/base.html" %}
+
+{% block title %}Backups - Admin{% endblock %}
+
+{% block admin_content %}
+<div class="px-4 sm:px-6 py-6 max-w-5xl">
+    <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Backups</h1>
+    <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Nightly database backups and the restore drill that proves they work. Backups run from the server's timers, not from here.</p>
+
+    {% if failing %}
+    <div class="mt-5 rounded-xl p-4 bg-red-100 dark:bg-red-900/40 text-red-800 dark:text-red-200 text-sm" role="alert">
+        <p class="font-semibold">The last restore drill failed ({{ last_fail.sent_at|date:"M j, g:i A" }}).</p>
+        <p class="mt-1 break-words">{{ last_fail.details|truncatechars:400 }}</p>
+    </div>
+    {% elif stale %}
+    <div class="mt-5 rounded-xl p-4 bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-200 text-sm" role="alert">
+        The newest backup is {{ newest.modified|timesince }} old. The backup timer may have stopped.
+    </div>
+    {% endif %}
+
+    <div class="mt-5 grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4">
+            <p class="text-xs text-gray-500 dark:text-gray-400">Newest backup</p>
+            <p class="mt-1 text-lg font-bold text-gray-900 dark:text-gray-100">{% if newest %}{{ newest.modified|timesince }} ago{% else %}—{% endif %}</p>
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4">
+            <p class="text-xs text-gray-500 dark:text-gray-400">Last good restore drill</p>
+            <p class="mt-1 text-lg font-bold {% if last_ok %}text-green-700 dark:text-green-400{% else %}text-gray-900 dark:text-gray-100{% endif %}">{% if last_ok %}{{ last_ok.sent_at|timesince }} ago{% else %}Never{% endif %}</p>
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4">
+            <p class="text-xs text-gray-500 dark:text-gray-400">Backups kept</p>
+            <p class="mt-1 text-lg font-bold text-gray-900 dark:text-gray-100">{{ file_count }}</p>
+        </div>
+    </div>
+
+    <div class="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <section class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-5">
+            <h2 class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Backup folder</h2>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mb-3 break-all">{{ directory }}</p>
+            {% if error %}
+            <p class="text-sm text-gray-700 dark:text-gray-300">{{ error }} The restore drill results on the right still show whether backups are healthy.</p>
+            {% else %}
+            <ul class="divide-y divide-gray-100 dark:divide-gray-700 text-sm">
+                {% for f in files %}
+                <li class="py-1.5 flex justify-between gap-3"><span class="text-gray-900 dark:text-gray-100 truncate">{{ f.name }}</span><span class="text-gray-500 dark:text-gray-400 whitespace-nowrap">{{ f.size|filesizeformat }} · {{ f.modified|date:"M j" }}</span></li>
+                {% empty %}
+                <li class="py-1.5 text-gray-500 dark:text-gray-400">No backups in this folder.</li>
+                {% endfor %}
+            </ul>
+            {% endif %}
+        </section>
+
+        <section class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-5">
+            <h2 class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-3">Restore drills</h2>
+            <ul class="divide-y divide-gray-100 dark:divide-gray-700 text-sm">
+                {% for d in drills %}
+                <li class="py-2">
+                    <p class="{% if d.event_type == 'BACKUP_VERIFIED' %}text-green-700 dark:text-green-400{% else %}text-red-700 dark:text-red-400{% endif %} font-medium">{% if d.event_type == 'BACKUP_VERIFIED' %}Restored OK{% else %}Failed{% endif %} · {{ d.sent_at|date:"M j, g:i A" }}</p>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 break-words">{{ d.details|truncatechars:200 }}</p>
+                </li>
+                {% empty %}
+                <li class="py-2 text-gray-500 dark:text-gray-400">No drill has run yet. Install <code>parliament-backup-verify.timer</code>, or run <code>python manage.py verify_backup</code> on the server.</li>
+                {% endfor %}
+            </ul>
+        </section>
+    </div>
+</div>
+{% endblock %}

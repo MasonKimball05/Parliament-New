@@ -1,0 +1,149 @@
+{% extends "admin_v2/base.html" %}
+
+{% block title %}{{ member.get_display_name }} - Admin{% endblock %}
+
+{% block admin_content %}
+<div class="px-4 sm:px-6 py-6 max-w-6xl">
+    <a href="{% url 'admin_v2_manage_users' %}" class="text-sm text-primary-600 dark:text-primary-400 hover:underline">← Members</a>
+
+    <!-- Header -->
+    <div class="mt-3 bg-white dark:bg-gray-800 rounded-xl shadow-sm p-5 flex flex-col lg:flex-row lg:items-start gap-4">
+        <div class="flex-1 min-w-0">
+            <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100 break-words">{{ member.get_display_name }}</h1>
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">#{{ member.user_id }} · {{ member.username }}{% if member.email %} · {{ member.email }}{% endif %}</p>
+            <div class="mt-3 flex flex-wrap gap-2 text-xs font-medium">
+                <span class="px-2 py-1 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200">{{ member.member_type }}</span>
+                <span class="px-2 py-1 rounded-full {% if member.member_status == 'Active' %}bg-green-100 dark:bg-green-900/40 text-green-800 dark:text-green-300{% else %}bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200{% endif %}">{{ member.member_status }}</span>
+                {% if member.is_admin %}<span class="px-2 py-1 rounded-full bg-red-100 dark:bg-red-900/40 text-red-800 dark:text-red-300">Admin</span>{% endif %}
+                {% if member.is_quarantined %}<span class="px-2 py-1 rounded-full bg-orange-100 dark:bg-orange-900/40 text-orange-800 dark:text-orange-300">Quarantined</span>{% endif %}
+                {% if watch %}<span class="px-2 py-1 rounded-full bg-yellow-100 dark:bg-yellow-900/40 text-yellow-800 dark:text-yellow-300">Watched</span>{% endif %}
+                {% if lockouts %}<span class="px-2 py-1 rounded-full bg-red-100 dark:bg-red-900/40 text-red-800 dark:text-red-300">Locked out</span>{% endif %}
+            </div>
+        </div>
+        <div class="flex flex-wrap gap-2">
+            <a href="{% url 'admin_v2_edit_user_profile' member.user_id %}" class="btn-secondary btn-sm">Edit profile</a>
+            <a href="{% url 'admin_v2_user_login_security' member.user_id %}" class="btn-secondary btn-sm">Login security</a>
+            {% if lockouts %}
+            <form method="post" action="{% url 'admin_v2_release_user_lockout' member.user_id %}">{% csrf_token %}
+                <input type="hidden" name="return_to" value="member">
+                <button type="submit" class="btn-secondary btn-sm">Release lockout</button>
+            </form>
+            {% endif %}
+            <form method="post" action="{% url 'admin_v2_member_sign_out' member.user_id %}"
+                  data-confirm="Sign {{ member.get_display_name }} out of every browser and their app?">{% csrf_token %}
+                <button type="submit" class="btn-secondary btn-sm">Sign out everywhere</button>
+            </form>
+            {# The reset has options (reason, random or custom, email or not) and shows the new password there. #}
+            <a href="{% url 'admin_v2_user_login_security' member.user_id %}" class="btn-danger btn-sm">Reset password…</a>
+        </div>
+    </div>
+
+    <div class="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Profile -->
+        <section class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-5">
+            <h2 class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-3">Profile</h2>
+            <dl class="grid grid-cols-3 gap-x-3 gap-y-2 text-sm">
+                <dt class="text-gray-500 dark:text-gray-400">Phone</dt><dd class="col-span-2 text-gray-900 dark:text-gray-100">{{ member.phone_number|default:"—" }}</dd>
+                <dt class="text-gray-500 dark:text-gray-400">Pledge class</dt><dd class="col-span-2 text-gray-900 dark:text-gray-100">{{ member.pledge_class|default:"—" }}</dd>
+                <dt class="text-gray-500 dark:text-gray-400">Last seen</dt><dd class="col-span-2 text-gray-900 dark:text-gray-100">{{ member.last_seen_at|date:"M j, Y g:i A"|default:"Never" }}</dd>
+                <dt class="text-gray-500 dark:text-gray-400">Roles</dt>
+                <dd class="col-span-2 text-gray-900 dark:text-gray-100">{% for r in roles %}{{ r.name }}{% if not forloop.last %}, {% endif %}{% empty %}—{% endfor %}</dd>
+                <dt class="text-gray-500 dark:text-gray-400">Committees</dt>
+                <dd class="col-span-2 text-gray-900 dark:text-gray-100">{% for c in committees %}{{ c.name }}{% if c in chaired %} (chair){% endif %}{% if not forloop.last %}, {% endif %}{% empty %}—{% endfor %}</dd>
+            </dl>
+        </section>
+
+        <!-- Sign-in security -->
+        <section class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-5">
+            <h2 class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-3">Sign-in security</h2>
+            <dl class="grid grid-cols-3 gap-x-3 gap-y-2 text-sm">
+                <dt class="text-gray-500 dark:text-gray-400">2FA app</dt>
+                <dd class="col-span-2 {% if has_totp %}text-green-700 dark:text-green-400{% else %}text-gray-900 dark:text-gray-100{% endif %}">{% if has_totp %}On{% else %}Off{% endif %}</dd>
+                <dt class="text-gray-500 dark:text-gray-400">Passkeys</dt>
+                <dd class="col-span-2 text-gray-900 dark:text-gray-100">{% for p in passkeys %}{{ p.name }} (last used {{ p.last_used_at|date:"M j"|default:"never" }}){% if not forloop.last %}, {% endif %}{% empty %}None{% endfor %}</dd>
+                <dt class="text-gray-500 dark:text-gray-400">Failed (30d)</dt>
+                <dd class="col-span-2 {% if failed_30d %}text-red-700 dark:text-red-400 font-medium{% else %}text-gray-900 dark:text-gray-100{% endif %}">{{ failed_30d }}</dd>
+                {% if watch %}
+                <dt class="text-gray-500 dark:text-gray-400">Watch flag</dt>
+                <dd class="col-span-2 text-gray-900 dark:text-gray-100 break-words">{{ watch.reason }}</dd>
+                {% endif %}
+            </dl>
+        </section>
+
+        <!-- App devices -->
+        <section class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-5">
+            <h2 class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-3">App devices <span class="normal-case font-normal">({{ active_devices }} signed in)</span></h2>
+            <ul class="divide-y divide-gray-100 dark:divide-gray-700">
+                {% for d in devices %}
+                <li class="py-2 flex items-start gap-3 text-sm">
+                    <div class="flex-1 min-w-0">
+                        <p class="font-medium text-gray-900 dark:text-gray-100 {% if d.revoked_at %}line-through opacity-60{% endif %}">{{ d.get_platform_display }} · {{ d.device_name|default:"Unnamed device" }}</p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">
+                            v{{ d.app_version|default:"?" }} · {{ d.get_verified_via_display }} · since {{ d.created_at|date:"M j, Y" }}
+                            {% if d.revoked_at %}· signed out {{ d.revoked_at|date:"M j" }} ({{ d.revoked_reason }}){% else %}· last seen {{ d.last_seen_at|timesince|default:"never" }}{% if d.last_seen_at %} ago{% endif %}{% if d.push_token %} · push on{% endif %}{% endif %}
+                        </p>
+                    </div>
+                    {% if not d.revoked_at %}
+                    <form method="post" action="{% url 'admin_v2_member_revoke_device' member.user_id d.public_id %}"
+                          data-confirm="Sign this app install out?">{% csrf_token %}
+                        <button type="submit" class="text-xs text-red-600 dark:text-red-400 hover:underline px-2 py-1">Sign out</button>
+                    </form>
+                    {% endif %}
+                </li>
+                {% empty %}
+                <li class="py-2 text-sm text-gray-500 dark:text-gray-400">Never signed in to the app.</li>
+                {% endfor %}
+            </ul>
+        </section>
+
+        <!-- Web sessions -->
+        <section class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-5">
+            <h2 class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-3">Web sessions</h2>
+            <ul class="divide-y divide-gray-100 dark:divide-gray-700">
+                {% for s in sessions %}
+                <li class="py-2 text-sm">
+                    <p class="font-medium text-gray-900 dark:text-gray-100">{{ s.browser|default:"Browser" }} on {{ s.operating_system|default:"unknown" }}{% if s.device_type %} ({{ s.device_type }}){% endif %}</p>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">{{ s.location|default:"Unknown location" }} · active {{ s.last_activity|timesince }} ago · started {{ s.created_at|date:"M j" }}</p>
+                </li>
+                {% empty %}
+                <li class="py-2 text-sm text-gray-500 dark:text-gray-400">No open web sessions.</li>
+                {% endfor %}
+            </ul>
+        </section>
+
+        <!-- Recent sign-ins -->
+        <section class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-5">
+            <div class="flex items-center justify-between mb-3">
+                <h2 class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Recent sign-ins</h2>
+                <a href="{% url 'admin_v2_user_login_security' member.user_id %}" class="text-xs text-primary-600 dark:text-primary-400 hover:underline">All</a>
+            </div>
+            <ul class="divide-y divide-gray-100 dark:divide-gray-700">
+                {% for l in logins %}
+                <li class="py-2 flex items-center gap-2 text-sm">
+                    <span class="w-2 h-2 rounded-full flex-shrink-0 {% if l.status == 'success' %}bg-green-500{% else %}bg-red-500{% endif %}" aria-hidden="true"></span>
+                    <span class="text-gray-900 dark:text-gray-100">{{ l.timestamp|date:"M j, g:i A" }}</span>
+                    <span class="text-xs text-gray-500 dark:text-gray-400 truncate">{{ l.get_status_display }} · {{ l.location_display|default:"Unknown" }}{% if l.is_suspicious %} · suspicious{% endif %}</span>
+                </li>
+                {% empty %}
+                <li class="py-2 text-sm text-gray-500 dark:text-gray-400">No sign-ins recorded.</li>
+                {% endfor %}
+            </ul>
+        </section>
+
+        <!-- Activity -->
+        <section class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-5">
+            <h2 class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-3">Recent activity</h2>
+            <ul class="divide-y divide-gray-100 dark:divide-gray-700">
+                {% for a in activity %}
+                <li class="py-2 text-sm">
+                    <p class="text-gray-900 dark:text-gray-100 break-words">{{ a.description }}</p>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">{{ a.timestamp|date:"M j, g:i A" }} · {{ a.get_action_type_display }}</p>
+                </li>
+                {% empty %}
+                <li class="py-2 text-sm text-gray-500 dark:text-gray-400">No activity yet.</li>
+                {% endfor %}
+            </ul>
+        </section>
+    </div>
+</div>
+{% endblock %}

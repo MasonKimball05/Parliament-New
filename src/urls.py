@@ -150,6 +150,9 @@ from src.view.announcements import announcements_view
 from src.view.calendar import calendar_view, calendar_data_api, export_calendar_ical, export_event_ical, calendar_subscription_feed, get_calendar_subscription_url, regenerate_calendar_token, event_signup, event_cancel_signup, event_signup_list, event_signup_export
 from src.view.global_search import global_search
 from src.view.changelog import changelog, changelog_detail, roadmap
+from src.view import admin_v2_member as admin_v2_member_views
+from src.view import admin_v2_mobile as admin_v2_mobile_views
+from src.view import admin_v2_ops as admin_v2_ops_views
 from src.view.admin_v2 import (
     admin_v2_login, admin_v2_dashboard, toggle_feature_flag,
     toggle_page, admin_v2_logout, manage_legislation, delete_legislation,
@@ -1138,6 +1141,17 @@ urlpatterns = [
     path('admin-v2/committees/', admin_v2_manage_committees, name='admin_v2_manage_committees'),
     path('admin-v2/committees/<int:committee_id>/toggle/', toggle_committee_active, name='admin_v2_toggle_committee'),
     path('admin-v2/users/', manage_users, name='admin_v2_manage_users'),
+    # v3.58.1: ⌘K search and the member page (src/view/admin_v2_member.py)
+    path('admin-v2/search/', admin_v2_member_views.admin_v2_search, name='admin_v2_search'),
+    path('admin-v2/mobile/', admin_v2_mobile_views.admin_v2_mobile, name='admin_v2_mobile'),
+    path('admin-v2/mobile/test-push/', admin_v2_mobile_views.admin_v2_mobile_push, name='admin_v2_mobile_push'),
+    path('admin-v2/backups/', admin_v2_ops_views.admin_v2_backups, name='admin_v2_backups'),
+    path('admin-v2/maintenance/', admin_v2_ops_views.admin_v2_maintenance, name='admin_v2_maintenance'),
+    path('admin-v2/members/<str:user_id>/', admin_v2_member_views.admin_v2_member, name='admin_v2_member'),
+    path('admin-v2/members/<str:user_id>/sign-out/', admin_v2_member_views.admin_v2_member_sign_out,
+         name='admin_v2_member_sign_out'),
+    path('admin-v2/members/<str:user_id>/devices/<uuid:device_id>/revoke/',
+         admin_v2_member_views.admin_v2_member_revoke_device, name='admin_v2_member_revoke_device'),
     path('admin-v2/users/<str:user_id>/edit-profile/', edit_user_profile, name='admin_v2_edit_user_profile'),
     path('admin-v2/users/<str:user_id>/toggle-admin/', toggle_user_admin, name='admin_v2_toggle_user_admin'),
     path('admin-v2/users/<str:user_id>/remove-profile-picture/', remove_user_profile_picture, name='admin_v2_remove_user_profile_picture'),
