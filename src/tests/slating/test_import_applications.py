@@ -91,8 +91,9 @@ class GuessAndPreviewTests(_Base):
         r = self.client.post(self.url, self.mapping_post(r, step='preview'))
         items = {i['row']: i for i in r.context['items']}
         self.assertEqual(r.context['import_count'], 2)
-        self.assertEqual(items[2]['status'], 'skip')            # alpha's older answer
-        self.assertIn('row 5', items[2]['reason'])
+        self.assertEqual(items[2]['status'], 'skip')            # alpha's other form...
+        self.assertIn('Combined into one application with row 5', items[2]['reason'])
+        self.assertEqual(items[5]['merged_rows'], [2, 5])        # ...folded into row 5
         self.assertEqual(items[4]['reason'], 'No Parliament member matches "nobody@test.org".')
         self.assertIn('Already has an application', items[6]['reason'])
         self.assertEqual([f.label for f in r.context['not_asked']], ['Your goals for the chapter'])
@@ -126,15 +127,19 @@ class ImportTests(_Base):
         r = self.do_import()
         self.assertRedirects(r, reverse('slating_applications', args=[self.period.id]))
         alpha = SlatingApplication.objects.get(applicant=self.alpha)
-        # The newer of alpha's two answers (row 5) won.
-        self.assertEqual(alpha.position_preferences['first_choice'], [self.pres.id])
-        self.assertEqual(alpha.reported_gpa, Decimal('3.500'))
+        # Alpha's two forms (rows 2 and 5, different positions) are combined.
+        self.assertEqual(alpha.position_preferences['first_choice'], [self.vp.id, self.pres.id])
+        self.assertEqual(alpha.position_preferences['second_choice'], [self.treas.id])
+        self.assertEqual(alpha.reported_gpa, Decimal('3.500'))     # latest GPA
         self.assertEqual(alpha.status, 'submitted')
-        self.assertEqual(alpha.submitted_at.day, 22)
+        self.assertEqual(alpha.submitted_at.day, 20)               # first form
         self.assertIsNotNone(alpha.imported_at)
         self.assertEqual(alpha.import_not_asked, ['Your goals for the chapter'])
-        self.assertEqual(alpha.responses.get(field=self.why).text_value, 'Changed my mind')
+        why = alpha.responses.get(field=self.why).text_value
+        self.assertIn('Vice President, President, Treasurer: To help', why)
+        self.assertIn('President: Changed my mind', why)
         self.assertIn('Shirt size: L', alpha.review_notes)
+        self.assertIn('rows 2, 5, combined', alpha.review_notes)
         bravo = SlatingApplication.objects.get(applicant=self.bravo)
         self.assertEqual(bravo.position_preferences['first_choice'], [self.treas.id])
         self.assertEqual(bravo.gpa_level, bravo.calculate_gpa_level())
@@ -245,3 +250,59 @@ class DefaultPositionsTests(_Base):
                       'Constitution &amp; Bylaws Chair'):
             self.assertNotContains(page, title)
         self.assertContains(page, 'Vice President of Brotherhood')
+
+
+
+class OneFormPerPositionTests(_Base):
+    """The President's form took one submission per position (v3.58.0)."""
+
+    CSV = (
+        'Timestamp,Email Address,Position,GPA,Why do you want to serve?\n'
+        '10/20/2026 10:00:00,bravo@test.org,President,3.2,Lead the chapter\n'
+        '10/20/2026 10:05:00,bravo@test.org,Treasurer,3.2,Good with money\n'
+        '10/20/2026 10:10:00,bravo@test.org,Vice President,3.2,Lead the chapter\n'
+        '10/21/2026 09:00:00,bravo@test.org,Treasurer,3.2,Really good with money\n'
+    )
+
+    def test_forms_are_combined_and_a_resubmission_replaces(self):
+        r = self.upload(self.CSV)
+        r = self.client.post(self.url, self.mapping_post(r, step='preview'))
+        items = {i['row']: i for i in r.context['items']}
+        self.assertEqual(r.context['import_count'], 1)
+        self.assertIn('Replaced by a newer response for the same position in row 5', items[3]['reason'])
+        self.assertEqual(items[5]['merged_rows'], [2, 4, 5])
+        self.assertEqual(items[5]['position_titles']['first_choice'],
+                         ['President', 'Vice President', 'Treasurer'])
+        self.assertContains(r, 'combined from rows 2, 4, 5')
+
+        r = self.upload(self.CSV)
+        self.client.post(self.url, self.mapping_post(r, step='import', confirmed='1'))
+        app = SlatingApplication.objects.get(applicant=self.bravo)
+        self.assertEqual(app.position_preferences['first_choice'],
+                         [self.pres.id, self.vp.id, self.treas.id])
+        why = app.responses.get(field=self.why).text_value
+        self.assertIn('President: Lead the chapter', why)
+        self.assertIn('Vice President: Lead the chapter', why)
+        self.assertIn('Treasurer: Really good with money', why)
+        self.assertNotIn('Good with money', why.replace('Really good with money', ''))
+        self.assertEqual(app.reported_gpa, Decimal('3.200'))
+        self.assertEqual(SlatingApplication.objects.filter(applicant=self.bravo).count(), 1)
+
+    def test_identical_answers_are_kept_once(self):
+        csv = ('Email Address,Position,Why do you want to serve?\n'
+               'bravo@test.org,President,Same reason\n'
+               'bravo@test.org,Treasurer,Same reason\n')
+        r = self.upload(csv)
+        r = self.client.post(self.url, self.mapping_post(r, step='preview'))
+        item = [i for i in r.context['items'] if i['status'] == 'import'][0]
+        self.assertEqual(item['answers'][self.why], 'Same reason')
+
+    def test_differing_gpas_warn(self):
+        csv = ('Email Address,Position,GPA\n'
+               'bravo@test.org,President,3.1\n'
+               'bravo@test.org,Treasurer,3.3\n')
+        r = self.upload(csv)
+        r = self.client.post(self.url, self.mapping_post(r, step='preview'))
+        item = [i for i in r.context['items'] if i['status'] == 'import'][0]
+        self.assertEqual(item['gpa'], Decimal('3.300'))
+        self.assertTrue(any('Different GPAs' in w for w in item['warnings']))

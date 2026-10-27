@@ -24,8 +24,11 @@ Rules:
 
 * **Never overwrite.** A member who already has an application for the period
   (any status, drafts included) is skipped: what they did in Parliament wins.
-* **One application per member.** If a member answered the form more than once,
-  the latest response (by timestamp, else the later row) is used.
+* **One application per member.** The President's form took one submission
+  per position, so a member can have several rows. They're combined: every
+  position kept, a newer response for the same position replacing an older
+  one, differing text answers kept side by side labelled by position (see
+  ``_merge_per_member``).
 * **Imported = submitted.** Status ``submitted``, ``submitted_at`` from the
   form's timestamp when it parses, GPA level computed, GPA not verified (there
   is no screenshot). Required-field problems are warnings, not refusals: the
@@ -397,9 +400,6 @@ def plan(period, headers, rows, mapping, keep_unmapped=True):
                 item['positions'].setdefault(tier, []).extend(ids)
                 if leftover:
                     item['warnings'].append(f'Unrecognised position text: "{leftover}".')
-        if not any(item['positions'].get(t) for t in ('first_choice', 'second_choice', 'third_choice')):
-            item['warnings'].append('No positions matched.')
-
         for i, kind in sorted(mapping.items()):
             if kind.startswith('field_'):
                 field = fields.get(_int(kind[6:]))
@@ -410,53 +410,173 @@ def plan(period, headers, rows, mapping, keep_unmapped=True):
                     item['warnings'].append(warning)
                 if value not in (None, '', []):
                     item['answers'][field] = value
-        missing = [f.label for f in required if f not in item['answers'] and f.id not in missing_ids]
-        if missing:
-            item['warnings'].append('Missing required: ' + ', '.join(missing) + '.')
-
         if keep_unmapped:
             item['notes'] = [(headers[i], row[i].strip()) for i in range(len(headers))
                              if i not in mapping and row[i].strip()]
-        item['position_titles'] = {t: [titles[p] for p in ids] for t, ids in item['positions'].items()}
-        # Everything the application will contain, question by question, for
-        # the confirmation screen: the imported answer, "blank" (asked, no
-        # answer), or "not asked" (the outside form didn't have it).
-        review = []
-        for q in questions:
-            if q.id in missing_ids:
-                review.append({'label': q.label, 'state': 'not_asked', 'value': None})
-            elif q.field_type == 'gpa':
-                review.append({'label': q.label, 'state': 'answered' if item['gpa'] is not None else 'blank',
-                               'value': item['gpa']})
-            elif q.field_type == 'position_preference':
-                review.append({'label': q.label, 'state': 'positions', 'value': None})
-            else:
-                value = item['answers'].get(q)
-                if isinstance(value, list):
-                    value = ', '.join(str(v) for v in value)
-                review.append({'label': q.label, 'state': 'answered' if value not in (None, '') else 'blank',
-                               'value': value})
-        item['review'] = review
         item['status'] = 'import'
 
-    # One application per member: the latest response wins.
-    by_user = {}
+    _merge_per_member(out, titles)
     for item in out:
-        if item['status'] != 'import':
-            continue
-        key = item['applicant'].pk
-        prev = by_user.get(key)
-        if prev is None:
-            by_user[key] = item
-            continue
-        newer = item
-        if prev['submitted_at'] and item['submitted_at'] and prev['submitted_at'] > item['submitted_at']:
-            newer = prev
-        older = item if newer is prev else prev
-        older['status'] = 'skip'
-        older['reason'] = f'An answer from the same member in row {newer["row"]} is newer.'
-        by_user[key] = newer
+        if item['status'] == 'import':
+            _finish(item, titles, required, questions, missing_ids)
     return out
+
+
+TIERS = ('first_choice', 'second_choice', 'third_choice', 'do_not_want')
+#: Field types whose differing answers are kept side by side (labelled by
+#: position) when one member sent several forms; other types keep the latest.
+TEXT_TYPES = {'text', 'textarea'}
+
+
+def _order(item):
+    ts = item['submitted_at']
+    return (ts.timestamp() if ts else 0, item['row'])
+
+
+def _position_ids(item):
+    return frozenset(p for t in TIERS for p in item['positions'].get(t, []))
+
+
+def _label(item, titles):
+    names = [titles[p] for t in TIERS[:3] for p in item['positions'].get(t, []) if p in titles]
+    return ', '.join(names) or f'Row {item["row"]}'
+
+
+def _merge_per_member(items, titles):
+    """
+    One application per member (v3.58.0). The President's Google Form took
+    one submission PER POSITION, so a member running for three positions has
+    three rows. For each member:
+
+    * a newer response for the same position(s) replaces an older one (a
+      correction), and
+    * responses for different positions are combined: every position is
+      kept; text answers that differ are kept side by side, labelled with
+      their position; other answers keep the latest (with a warning); unmapped
+      answers go to the notes tagged with their position.
+
+    The combined application takes the earliest timestamp (when they first
+    applied). Rows folded in are marked skipped with the row they went into.
+    """
+    groups = {}
+    for item in items:
+        if item['status'] == 'import':
+            groups.setdefault(item['applicant'].pk, []).append(item)
+    for group in groups.values():
+        group.sort(key=_order)
+        # Same position(s) again → the newer response replaces the older.
+        latest = {}
+        for item in group:
+            key = _position_ids(item)
+            if key in latest:
+                old = latest[key]
+                old['status'] = 'skip'
+                old['reason'] = (f'Replaced by a newer response for the same position '
+                                 f'in row {item["row"]}.')
+            latest[key] = item
+        keep = [i for i in group if i['status'] == 'import']
+        if len(keep) < 2:
+            continue
+        primary = keep[-1]
+        _combine(primary, keep, titles)
+        for item in keep[:-1]:
+            item['status'] = 'skip'
+            item['reason'] = (f'Combined into one application with row {primary["row"]} '
+                              f'(one application per member).')
+
+
+def _combine(primary, parts, titles):
+    """Fold ``parts`` (oldest first, primary last) into ``primary``."""
+    # Each form's label, taken BEFORE primary's positions become the merged set
+    # (primary is one of the parts).
+    labels = {part['row']: _label(part, titles) for part in parts}
+    # Positions: every one, each in the highest tier any response put it in.
+    placed, positions = set(), {}
+    for tier in TIERS:
+        for part in parts:
+            for pid in part['positions'].get(tier, []):
+                if pid not in placed:
+                    placed.add(pid)
+                    positions.setdefault(tier, []).append(pid)
+    primary['positions'] = positions
+
+    # Answers, field by field.
+    answers, warnings = {}, []
+    fields = []
+    for part in parts:
+        for f in part['answers']:
+            if f not in fields:
+                fields.append(f)
+    for f in fields:
+        given = [(part, part['answers'][f]) for part in parts if f in part['answers']]
+        distinct = []
+        for _, v in given:
+            if v not in distinct:
+                distinct.append(v)
+        if len(distinct) == 1:
+            answers[f] = distinct[0]
+        elif f.field_type in TEXT_TYPES:
+            answers[f] = '\n\n'.join(f'{labels[part["row"]]}: {v}' for part, v in given)
+        elif f.field_type in ('multiselect', 'checkbox'):
+            merged = []
+            for _, v in given:
+                merged += [x for x in v if x not in merged]
+            answers[f] = merged
+        else:
+            answers[f] = given[-1][1]
+            warnings.append(f'Different answers to "{f.label}" across forms; kept the latest '
+                            f'(row {given[-1][0]["row"]}).')
+    primary['answers'] = answers
+
+    gpas = [part['gpa'] for part in parts if part['gpa'] is not None]
+    if gpas:
+        primary['gpa'] = gpas[-1]
+        if len(set(gpas)) > 1:
+            warnings.append(f'Different GPAs across forms ({", ".join(str(g) for g in gpas)}); '
+                            f'kept the latest.')
+    stamps = [part['submitted_at'] for part in parts if part['submitted_at']]
+    primary['submitted_at'] = min(stamps) if stamps else None
+
+    notes = []
+    for part in parts:
+        tag = labels[part['row']]
+        notes += [(f'[{tag}] {q}', a) for q, a in part['notes']]
+    primary['notes'] = notes
+
+    seen = set()
+    primary['warnings'] = [w for w in [w for part in parts for w in part['warnings']] + warnings
+                           if not (w in seen or seen.add(w))]
+    primary['merged_rows'] = [part['row'] for part in parts]
+
+
+def _finish(item, titles, required, questions, missing_ids):
+    """Warnings and the confirmation-screen view, on the final application."""
+    item.setdefault('merged_rows', [item['row']])
+    if not any(item['positions'].get(t) for t in TIERS[:3]):
+        item['warnings'].append('No positions matched.')
+    missing = [f.label for f in required if f not in item['answers'] and f.id not in missing_ids]
+    if missing:
+        item['warnings'].append('Missing required: ' + ', '.join(missing) + '.')
+    item['position_titles'] = {t: [titles[p] for p in ids] for t, ids in item['positions'].items()}
+    # Everything the application will contain, question by question, for the
+    # confirmation screen: the imported answer, "blank" (asked, no answer), or
+    # "not asked" (the outside form didn't have it).
+    review = []
+    for q in questions:
+        if q.id in missing_ids:
+            review.append({'label': q.label, 'state': 'not_asked', 'value': None})
+        elif q.field_type == 'gpa':
+            review.append({'label': q.label, 'state': 'answered' if item['gpa'] is not None else 'blank',
+                           'value': item['gpa']})
+        elif q.field_type == 'position_preference':
+            review.append({'label': q.label, 'state': 'positions', 'value': None})
+        else:
+            value = item['answers'].get(q)
+            if isinstance(value, list):
+                value = ', '.join(str(v) for v in value)
+            review.append({'label': q.label, 'state': 'answered' if value not in (None, '') else 'blank',
+                           'value': value})
+    item['review'] = review
 
 
 def commit(period, headers, rows, mapping, keep_unmapped, imported_by, request=None):
@@ -478,8 +598,11 @@ def commit(period, headers, rows, mapping, keep_unmapped, imported_by, request=N
             if user.pk in taken:
                 item['status'], item['reason'] = 'skip', 'Already has an application in Parliament (kept as is).'
                 continue
+            rows_used = item.get('merged_rows') or [item['row']]
+            where = (f'spreadsheet row {rows_used[0]}' if len(rows_used) == 1 else
+                     'spreadsheet rows ' + ', '.join(str(r) for r in rows_used) + ', combined')
             notes = [f'Imported from an outside form by {imported_by.get_display_name()} on {stamp} '
-                     f'(spreadsheet row {item["row"]}).']
+                     f'({where}).']
             if item['notes']:
                 notes.append('Answers not matched to a form field:')
                 notes += [f'• {q}: {a}' for q, a in item['notes']]

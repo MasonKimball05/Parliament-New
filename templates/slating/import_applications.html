@@ -32,6 +32,7 @@
             <li><strong>Google Forms:</strong> open the form → <em>Responses</em> → ⋮ → <em>Download responses (.csv)</em>.</li>
             <li><strong>Google Sheets / Excel:</strong> <em>File</em> → <em>Download</em> (or <em>Save As</em>) → <em>Comma-separated values (.csv)</em>.</li>
             <li>The first row must be the questions. Include a column that identifies each person — their email works best (turn on <em>Collect email addresses</em> in Google Forms).</li>
+            <li>If people sent one form per position, upload them all: each member's forms are combined into one application with every position they applied for.</li>
         </ul>
         <p class="text-sm text-gray-500 dark:text-gray-400">Nothing is saved until you review a preview. Members who already applied in Parliament are skipped, so their own application is never overwritten.</p>
         {% if not positions %}
@@ -122,7 +123,7 @@
                     <summary class="cursor-pointer px-4 py-3 flex flex-wrap items-center gap-2 text-sm">
                         <span class="px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300">Import</span>
                         <span class="font-medium text-gray-900 dark:text-white">{{ item.applicant.get_display_name }}</span>
-                        <span class="text-xs text-gray-500 dark:text-gray-400">{{ item.identity }} · row {{ item.row }}</span>
+                        <span class="text-xs text-gray-500 dark:text-gray-400">{{ item.identity }} · {% if item.merged_rows|length > 1 %}combined from rows {{ item.merged_rows|join:", " }}{% else %}row {{ item.row }}{% endif %}</span>
                         {% if item.warnings %}<span class="text-xs text-yellow-700 dark:text-yellow-300">⚠ {{ item.warnings|length }} note{{ item.warnings|length|pluralize }}</span>{% endif %}
                     </summary>
                     <div class="px-4 pb-4 space-y-3 text-sm">
