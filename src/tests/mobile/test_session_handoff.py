@@ -223,6 +223,8 @@ class InMobileAppLayoutTests(TestCase):
         self.assertTrue(r.context['in_mobile_app'])
         self.assertIn('User-Agent', r['Vary'])
         self.assertContains(r, 'shadow-lg relative z-10 hidden')
+        # No "install on your home screen" nudge inside the app itself.
+        self.assertNotContains(r, 'id="a2hs-banner"')
 
     def test_navbar_shown_for_a_browser(self):
         c = Client(HTTP_USER_AGENT='Mozilla/5.0 Safari')
@@ -230,6 +232,7 @@ class InMobileAppLayoutTests(TestCase):
         r = c.get(PROTECTED)
         self.assertFalse(r.context['in_mobile_app'])
         self.assertNotContains(r, 'shadow-lg relative z-10 hidden')
+        self.assertContains(r, 'id="a2hs-banner"')
 
     def test_handoff_session_is_in_mobile_app_without_the_ua(self):
         device, access, _ = make_device(self.user)

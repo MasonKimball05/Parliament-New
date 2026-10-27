@@ -803,8 +803,8 @@
         {% endfor %}
     {% endif %}
 
-    <!-- Add to Home Screen prompt (PWA install nudge) -->
-    {% if user.is_authenticated %}
+    <!-- Add to Home Screen prompt (PWA install nudge); not in the app's web view, which is already the app -->
+    {% if user.is_authenticated and not in_mobile_app %}
     <div id="a2hs-banner" class="hidden bg-primary-700 text-white px-4 py-3" role="alert">
         <div class="max-w-7xl mx-auto flex items-center justify-between gap-4">
             <div class="flex items-center gap-3">
