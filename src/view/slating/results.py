@@ -4,6 +4,7 @@ Slating Results Views
 View and publish election results.
 """
 
+from .tallies import individual_tallies
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
@@ -86,13 +87,9 @@ def view_results(request, period_id):
         passed_count = 0
         failed_count = 0
         pending_count = 0
+        tallies = individual_tallies(candidates)
         for candidate in candidates:
-            ind_votes = SlatingVote.objects.filter(slate_candidate=candidate)
-            individual_results[candidate.id] = {
-                'approve': ind_votes.filter(vote_choice='approve').count(),
-                'reject': ind_votes.filter(vote_choice='reject').count(),
-                'abstain': ind_votes.filter(vote_choice='abstain').count(),
-            }
+            individual_results[candidate.id] = tallies[candidate.id]
             if candidate.individual_passed is True:
                 passed_count += 1
             elif candidate.individual_passed is False:
@@ -125,12 +122,16 @@ def view_results(request, period_id):
         # Map position IDs to names
         if position_counts:
             positions = {p.id: p for p in SlatingPosition.objects.filter(id__in=position_counts.keys())}
+            # v3.57.0: the slate's candidates are already loaded; this was a
+            # query per objected-to position.
+            by_position = {}
+            for c in candidates:
+                by_position.setdefault(c.position_id, c)
             rejection_analysis = []
             for pos_id, count in position_counts.most_common():
                 pos = positions.get(pos_id)
                 if pos:
-                    # Find the candidate for this position
-                    candidate = candidates.filter(position_id=pos_id).first()
+                    candidate = by_position.get(pos_id)
                     rejection_analysis.append({
                         'position': pos.title,
                         'candidate_name': candidate.candidate_name if candidate else 'Unknown',

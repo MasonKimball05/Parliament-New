@@ -1,0 +1,190 @@
+{% extends 'slating/base_slating.html' %}
+
+{% block breadcrumbs %}
+<li>
+    <span class="mx-2 text-gray-400">/</span>
+    <a href="{% url 'slating_period_setup' period_id=period.id %}" class="text-gray-500 dark:text-gray-400 hover:text-primary-600">{{ period.name }}</a>
+</li>
+<li>
+    <span class="mx-2 text-gray-400">/</span>
+    <a href="{% url 'slating_applications' period_id=period.id %}" class="text-gray-500 dark:text-gray-400 hover:text-primary-600">Applications</a>
+</li>
+<li>
+    <span class="mx-2 text-gray-400">/</span>
+    <span class="text-gray-700 dark:text-gray-300">Import</span>
+</li>
+{% endblock %}
+
+{% block page_header %}
+<div>
+    <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Import Applications</h1>
+    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ period.name }} — bring in responses collected outside Parliament (Google Forms, Sheets, Excel)</p>
+</div>
+{% endblock %}
+
+{% block slating_content %}
+<div class="space-y-6">
+
+{% if step == 'upload' %}
+    <div class="bg-white dark:bg-gray-800 shadow rounded-lg p-6 space-y-4">
+        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">1. Upload the responses</h2>
+        <ul class="text-sm text-gray-600 dark:text-gray-300 list-disc pl-6 space-y-1">
+            <li><strong>Google Forms:</strong> open the form → <em>Responses</em> → ⋮ → <em>Download responses (.csv)</em>.</li>
+            <li><strong>Google Sheets / Excel:</strong> <em>File</em> → <em>Download</em> (or <em>Save As</em>) → <em>Comma-separated values (.csv)</em>.</li>
+            <li>The first row must be the questions. Include a column that identifies each person — their email works best (turn on <em>Collect email addresses</em> in Google Forms).</li>
+        </ul>
+        <p class="text-sm text-gray-500 dark:text-gray-400">Nothing is saved until you review a preview. Members who already applied in Parliament are skipped, so their own application is never overwritten.</p>
+        {% if not positions %}
+        <p class="text-sm text-yellow-700 dark:text-yellow-300">This period has no positions yet. <a class="underline" href="{% url 'slating_positions' period_id=period.id %}">Add positions</a> first so position choices can be matched.</p>
+        {% endif %}
+        <form method="post" enctype="multipart/form-data" class="flex flex-wrap items-center gap-3">
+            {% csrf_token %}
+            <input type="hidden" name="step" value="upload">
+            <input type="file" name="csv_file" accept=".csv,text/csv" required
+                class="block text-sm text-gray-700 dark:text-gray-300">
+            <button type="submit" class="inline-flex items-center px-4 py-2 rounded-md text-sm font-medium text-white bg-primary-600 hover:bg-primary-700">Continue</button>
+        </form>
+    </div>
+
+{% else %}
+    <form method="post" class="space-y-6">
+        {% csrf_token %}
+        <textarea name="csv_text" class="hidden" aria-hidden="true">{{ csv_text }}</textarea>
+
+        <div class="bg-white dark:bg-gray-800 shadow rounded-lg p-6 space-y-4">
+            <div class="flex items-center justify-between">
+                <h2 class="text-lg font-semibold text-gray-900 dark:text-white">2. Match the columns</h2>
+                <span class="text-sm text-gray-500 dark:text-gray-400">{{ row_count }} response{{ row_count|pluralize }}</span>
+            </div>
+            <p class="text-sm text-gray-600 dark:text-gray-300">Pick what each column is. Our guesses are filled in. A question you want to keep that isn't in your <a class="underline" href="{% url 'slating_form_builder' period_id=period.id %}">application form</a> can stay unmapped and be kept in the review notes.</p>
+            <div class="overflow-x-auto">
+                <table class="min-w-full text-sm">
+                    <thead>
+                        <tr class="text-left text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700">
+                            <th class="py-2 pr-4 font-medium">Column</th>
+                            <th class="py-2 pr-4 font-medium">Example answer</th>
+                            <th class="py-2 font-medium">Import as</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for col in columns %}
+                        <tr class="border-b border-gray-100 dark:border-gray-700 align-top">
+                            <td class="py-2 pr-4 text-gray-900 dark:text-white">{{ col.header }}</td>
+                            <td class="py-2 pr-4 text-gray-500 dark:text-gray-400">{{ col.sample|truncatechars:60 }}</td>
+                            <td class="py-2">
+                                <select name="col_{{ col.index }}" class="block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white text-sm">
+                                    {% for value, label in kind_options %}
+                                    <option value="{{ value }}" {% if value == col.kind %}selected{% endif %}>{{ label }}</option>
+                                    {% endfor %}
+                                </select>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                <input type="checkbox" name="keep_unmapped" value="1" {% if keep_unmapped %}checked{% endif %}>
+                Keep answers from unmapped columns in each application's review notes
+            </label>
+            <p class="text-xs text-gray-500 dark:text-gray-400">Position columns match position titles or codes ({% for p in positions %}{{ p.title }}{% if not forloop.last %}, {% endif %}{% empty %}none yet{% endfor %}). File-upload answers can't be imported; leave those columns unmapped to keep their links in the notes.</p>
+            <div class="flex gap-3">
+                <button type="submit" name="step" value="preview" formnovalidate class="inline-flex items-center px-4 py-2 rounded-md text-sm font-medium text-white bg-primary-600 hover:bg-primary-700">Preview import</button>
+                <a href="{% url 'slating_import_applications' period_id=period.id %}" class="inline-flex items-center px-4 py-2 rounded-md text-sm font-medium text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600">Start over</a>
+            </div>
+        </div>
+
+        {% if step == 'preview' %}
+        <div class="bg-white dark:bg-gray-800 shadow rounded-lg p-6 space-y-5">
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-white">3. Confirm</h2>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                <div class="p-3 rounded-lg bg-green-50 dark:bg-green-900/20 text-green-800 dark:text-green-300">
+                    <strong>{{ import_count }}</strong> member{{ import_count|pluralize }} will get an application, marked <em>Imported</em> and <em>Submitted</em>.
+                </div>
+                <div class="p-3 rounded-lg bg-gray-50 dark:bg-gray-700/50 text-gray-700 dark:text-gray-300">
+                    <strong>{{ skip_count }}</strong> row{{ skip_count|pluralize }} skipped (reasons below). Nobody's existing Parliament application is changed.
+                </div>
+            </div>
+
+            {% if not_asked %}
+            <div class="p-3 rounded-lg bg-yellow-50 dark:bg-yellow-900/20 text-sm text-yellow-800 dark:text-yellow-300">
+                <p class="font-medium">Your Parliament form asks {{ not_asked|length }} question{{ not_asked|length|pluralize }} the outside form didn't:</p>
+                <p class="mt-1">{% for f in not_asked %}{{ f.label }}{% if not forloop.last %} · {% endif %}{% endfor %}</p>
+                <p class="mt-1 text-xs">Imported applications show these as <em>Not asked on the outside form</em> (not blank), so reviewers can tell they weren't skipped. If one of these was asked under a different wording, map that column to it above and preview again.</p>
+            </div>
+            {% endif %}
+
+            <div class="space-y-2">
+                {% for item in items %}
+                {% if item.status == 'import' %}
+                <details class="rounded-lg border border-gray-200 dark:border-gray-700">
+                    <summary class="cursor-pointer px-4 py-3 flex flex-wrap items-center gap-2 text-sm">
+                        <span class="px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300">Import</span>
+                        <span class="font-medium text-gray-900 dark:text-white">{{ item.applicant.get_display_name }}</span>
+                        <span class="text-xs text-gray-500 dark:text-gray-400">{{ item.identity }} · row {{ item.row }}</span>
+                        {% if item.warnings %}<span class="text-xs text-yellow-700 dark:text-yellow-300">⚠ {{ item.warnings|length }} note{{ item.warnings|length|pluralize }}</span>{% endif %}
+                    </summary>
+                    <div class="px-4 pb-4 space-y-3 text-sm">
+                        {% for w in item.warnings %}<div class="text-yellow-700 dark:text-yellow-300">⚠ {{ w }}</div>{% endfor %}
+                        <dl class="grid grid-cols-1 sm:grid-cols-3 gap-x-4 gap-y-2">
+                            <dt class="text-gray-500 dark:text-gray-400">Submitted</dt>
+                            <dd class="sm:col-span-2 text-gray-900 dark:text-white">{% if item.submitted_at %}{{ item.submitted_at|date:"M j, Y g:i A" }}{% else %}now (no timestamp){% endif %}</dd>
+                            <dt class="text-gray-500 dark:text-gray-400">Positions</dt>
+                            <dd class="sm:col-span-2 text-gray-900 dark:text-white">
+                                {% if item.position_titles.first_choice %}<div><span class="text-xs text-gray-500">1st:</span> {{ item.position_titles.first_choice|join:", " }}</div>{% endif %}
+                                {% if item.position_titles.second_choice %}<div><span class="text-xs text-gray-500">2nd:</span> {{ item.position_titles.second_choice|join:", " }}</div>{% endif %}
+                                {% if item.position_titles.third_choice %}<div><span class="text-xs text-gray-500">3rd:</span> {{ item.position_titles.third_choice|join:", " }}</div>{% endif %}
+                                {% if item.position_titles.do_not_want %}<div><span class="text-xs text-gray-500">Does not want:</span> {{ item.position_titles.do_not_want|join:", " }}</div>{% endif %}
+                                {% if not item.position_titles.first_choice and not item.position_titles.second_choice and not item.position_titles.third_choice %}<span class="text-gray-400">None matched</span>{% endif %}
+                            </dd>
+                            <dt class="text-gray-500 dark:text-gray-400">GPA</dt>
+                            <dd class="sm:col-span-2 {% if item.gpa %}text-gray-900 dark:text-white{% else %}text-gray-400 italic{% endif %}">{% if item.gpa %}{{ item.gpa }} (unverified){% else %}None{% endif %}</dd>
+                            {% for q in item.review %}
+                            {% if q.state != 'positions' %}
+                            <dt class="text-gray-500 dark:text-gray-400">{{ q.label }}</dt>
+                            <dd class="sm:col-span-2 {% if q.state == 'answered' %}text-gray-900 dark:text-white{% else %}text-gray-400 italic{% endif %}">
+                                {% if q.state == 'answered' %}{{ q.value|linebreaksbr }}{% elif q.state == 'not_asked' %}Not asked on the outside form{% else %}No answer{% endif %}
+                            </dd>
+                            {% endif %}
+                            {% endfor %}
+                            {% if item.notes %}
+                            <dt class="text-gray-500 dark:text-gray-400">Kept in review notes</dt>
+                            <dd class="sm:col-span-2 text-gray-700 dark:text-gray-300 space-y-1">
+                                {% for q, a in item.notes %}<div><span class="text-xs text-gray-500">{{ q }}:</span> {{ a|linebreaksbr }}</div>{% endfor %}
+                            </dd>
+                            {% endif %}
+                        </dl>
+                    </div>
+                </details>
+                {% endif %}
+                {% endfor %}
+            </div>
+
+            {% if skip_count %}
+            <div>
+                <h3 class="text-sm font-semibold text-gray-900 dark:text-white mb-2">Skipped</h3>
+                <ul class="text-sm space-y-1">
+                    {% for item in items %}{% if item.status != 'import' %}
+                    <li class="text-gray-600 dark:text-gray-400"><span class="text-xs text-gray-500">Row {{ item.row }}</span> · {{ item.applicant.get_display_name|default:item.identity|default:"(no applicant)" }} — {{ item.reason }}</li>
+                    {% endif %}{% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+
+            {% if import_count %}
+            <label class="flex items-start gap-2 text-sm text-gray-800 dark:text-gray-200">
+                <input type="checkbox" name="confirmed" value="1" required class="mt-0.5">
+                I've checked who is getting an application and what's in it. GPAs stay unverified (there's no screenshot).
+            </label>
+            <button type="submit" name="step" value="import" class="inline-flex items-center px-4 py-2 rounded-md text-sm font-medium text-white bg-green-600 hover:bg-green-700">Import {{ import_count }} application{{ import_count|pluralize }}</button>
+            {% else %}
+            <p class="text-sm text-gray-600 dark:text-gray-300">Nothing to import with these settings.</p>
+            {% endif %}
+        </div>
+        {% endif %}
+    </form>
+{% endif %}
+
+</div>
+{% endblock %}

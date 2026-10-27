@@ -124,11 +124,26 @@ def _handle_application_submit(request, period, user, existing_app, form_fields,
     third_choice = request.POST.getlist('positions_third_choice')
     do_not_want = request.POST.getlist('positions_do_not_want')
 
+    # v3.57.0: was `int(p)` on whatever was posted — junk was a 500, and any
+    # position id (another period's) was stored. Only this period's active
+    # positions, each in its first tier only.
+    valid_ids = {p.id for p in positions}
+    seen = set()
+
+    def _tier(values):
+        out = []
+        for v in values:
+            pid = int(v) if str(v).isdigit() else None
+            if pid in valid_ids and pid not in seen:
+                seen.add(pid)
+                out.append(pid)
+        return out
+
     application.position_preferences = {
-        'first_choice': [int(p) for p in first_choice if p],
-        'second_choice': [int(p) for p in second_choice if p],
-        'third_choice': [int(p) for p in third_choice if p],
-        'do_not_want': [int(p) for p in do_not_want if p],
+        'first_choice': _tier(first_choice),
+        'second_choice': _tier(second_choice),
+        'third_choice': _tier(third_choice),
+        'do_not_want': _tier(do_not_want),
     }
 
     # Validate required: at least one position in any wanted tier

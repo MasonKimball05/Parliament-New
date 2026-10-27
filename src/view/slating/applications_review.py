@@ -12,7 +12,7 @@ from django.db.models import Count, Q
 from src.models import (
     SlatingPeriod, SlatingApplication, SlatingPosition, SlatingActivity
 )
-from .permissions import slating_committee_required, slating_chair_required
+from .permissions import can_manage_period, slating_committee_required, slating_chair_required
 from src.models.users import member_defer
 
 
@@ -99,6 +99,8 @@ def applications_list(request, period_id):
         'status_counts': status_counts,
         'status_choices': [s for s in SlatingApplication.STATUS_CHOICES if s[0] != 'draft'],
         'gpa_level_choices': SlatingApplication.GPA_LEVEL_CHOICES,
+        # v3.57.0: the Import button is for the people who manage the period.
+        'can_manage': can_manage_period(request.user, period),
     }
 
     return render(request, 'slating/applications_review.html', context)
@@ -182,6 +184,7 @@ def application_detail(request, period_id, app_id):
         'tiered_positions': tiered_positions,
         'interviews': interviews,
         'can_review': can_review,
+        'can_manage': can_manage_period(request.user, period),
         'status_choices': SlatingApplication.STATUS_CHOICES,
     }
 

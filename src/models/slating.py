@@ -466,6 +466,15 @@ class SlatingApplication(models.Model):
     )
     review_notes = models.TextField(blank=True, help_text='Confidential review notes')
 
+    # v3.57.0 — set when the application came from an outside form (Google
+    # Forms etc.) through Import Applications, not from the member. The
+    # application form's questions that outside form never asked are listed,
+    # so reviewers see "not asked" instead of a blank they'd read as skipped.
+    imported_at = models.DateTimeField(null=True, blank=True)
+    import_not_asked = models.JSONField(
+        default=list, blank=True,
+        help_text='Labels of application-form questions the outside form did not ask')
+
     class Meta:
         ordering = ['-submitted_at', '-created_at']
         unique_together = ['period', 'applicant']

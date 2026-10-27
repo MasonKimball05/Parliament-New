@@ -1,0 +1,58 @@
+{% extends 'slating/base_slating.html' %}
+
+{% block breadcrumbs %}
+<li>
+    <span class="mx-2 text-gray-400">/</span>
+    <a href="{% url 'slating_period_setup' period_id=period.id %}" class="text-gray-500 dark:text-gray-400 hover:text-primary-600">{{ period.name }}</a>
+</li>
+<li>
+    <span class="mx-2 text-gray-400">/</span>
+    <a href="{% url 'slating_app_detail' period_id=period.id app_id=application.id %}" class="text-gray-500 dark:text-gray-400 hover:text-primary-600">{{ application.applicant.name }}</a>
+</li>
+<li>
+    <span class="mx-2 text-gray-400">/</span>
+    <span class="text-gray-700 dark:text-gray-300">Fill in answers</span>
+</li>
+{% endblock %}
+
+{% block page_header %}
+<div>
+    <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Fill in answers</h1>
+    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ application.applicant.name }}'s imported application · {{ period.name }}</p>
+</div>
+{% endblock %}
+
+{% block slating_content %}
+<form method="post" class="bg-white dark:bg-gray-800 shadow rounded-lg p-6 space-y-5">
+    {% csrf_token %}
+    <p class="text-sm text-gray-600 dark:text-gray-300">This application came from an outside form. Type in answers you collected another way (for example, by asking the member), or correct an imported one. Changes are noted in the review notes and the slating activity log.</p>
+    {% for row in rows %}
+    <div>
+        <label for="field_{{ row.field.id }}" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+            {{ row.field.label }}{% if row.field.is_required %} <span class="text-red-500">*</span>{% endif %}
+            {% if row.not_asked %}<span class="ml-2 px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300">Not asked on the outside form</span>{% endif %}
+        </label>
+        {% if row.field.field_type == 'textarea' %}
+        <textarea name="field_{{ row.field.id }}" id="field_{{ row.field.id }}" rows="3"
+            class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white text-sm">{{ row.value }}</textarea>
+        {% else %}
+        <input type="text" name="field_{{ row.field.id }}" id="field_{{ row.field.id }}" value="{{ row.value }}"
+            class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white text-sm">
+        {% endif %}
+        {% if row.field.field_type == 'multiselect' or row.field.field_type == 'checkbox' %}
+        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Separate choices with commas.{% if row.field.options %} Options: {% for o in row.field.options %}{% if o.label %}{{ o.label }}{% else %}{{ o }}{% endif %}{% if not forloop.last %}, {% endif %}{% endfor %}{% endif %}</p>
+        {% elif row.field.field_type == 'select' or row.field.field_type == 'radio' %}
+        {% if row.field.options %}<p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Options: {% for o in row.field.options %}{% if o.label %}{{ o.label }}{% else %}{{ o }}{% endif %}{% if not forloop.last %}, {% endif %}{% endfor %}</p>{% endif %}
+        {% elif row.field.help_text %}
+        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ row.field.help_text }}</p>
+        {% endif %}
+    </div>
+    {% empty %}
+    <p class="text-sm text-gray-500 dark:text-gray-400">This period's application form has no questions that can be filled in here.</p>
+    {% endfor %}
+    <div class="flex gap-3">
+        <button type="submit" class="inline-flex items-center px-4 py-2 rounded-md text-sm font-medium text-white bg-primary-600 hover:bg-primary-700">Save answers</button>
+        <a href="{% url 'slating_app_detail' period_id=period.id app_id=application.id %}" class="inline-flex items-center px-4 py-2 rounded-md text-sm font-medium text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600">Cancel</a>
+    </div>
+</form>
+{% endblock %}

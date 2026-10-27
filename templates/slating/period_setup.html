@@ -299,15 +299,9 @@
                     <h3 class="text-base font-semibold text-gray-900 dark:text-white mb-1">Add Default Positions</h3>
                     <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">The following positions will be added. Any that already exist will be skipped.</p>
                     <ul class="space-y-1.5 mb-5">
-                        <li class="text-sm text-gray-700 dark:text-gray-300 flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full bg-primary-500 flex-shrink-0"></span>President</li>
-                        <li class="text-sm text-gray-700 dark:text-gray-300 flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full bg-primary-500 flex-shrink-0"></span>Executive Vice President</li>
-                        <li class="text-sm text-gray-700 dark:text-gray-300 flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full bg-primary-500 flex-shrink-0"></span>Vice President of Brotherhood</li>
-                        <li class="text-sm text-gray-700 dark:text-gray-300 flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full bg-primary-500 flex-shrink-0"></span>Vice President of Risk Management</li>
-                        <li class="text-sm text-gray-700 dark:text-gray-300 flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full bg-primary-500 flex-shrink-0"></span>Vice President of Education</li>
-                        <li class="text-sm text-gray-700 dark:text-gray-300 flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full bg-primary-500 flex-shrink-0"></span>Vice President of Recruitment</li>
-                        <li class="text-sm text-gray-700 dark:text-gray-300 flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full bg-primary-500 flex-shrink-0"></span>Vice President of Programming</li>
-                        <li class="text-sm text-gray-700 dark:text-gray-300 flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full bg-primary-500 flex-shrink-0"></span>Vice President of Finance</li>
-                        <li class="text-sm text-gray-700 dark:text-gray-300 flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full bg-primary-500 flex-shrink-0"></span>Vice President of Administration</li>
+                        {% for order, code, title in default_positions %}
+                        <li class="text-sm text-gray-700 dark:text-gray-300 flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full bg-primary-500 flex-shrink-0"></span>{{ title }}</li>
+                        {% endfor %}
                     </ul>
                     <div class="flex gap-3 justify-end">
                         <button type="button" class="js-close-positions-modal px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors">
@@ -623,6 +617,11 @@
                     class="flex items-center justify-between px-3 py-2 rounded-md text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
                     Applications
                     {% if period.status == 'deliberation' or period.status == 'nominations_closed' %}<span class="text-xs bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300 px-1.5 py-0.5 rounded">Now</span>{% endif %}
+                </a>
+                <a href="{% url 'slating_import_applications' period_id=period.id %}"
+                    class="flex items-center justify-between px-3 py-2 rounded-md text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                    Import Applications
+                    <span class="text-xs text-gray-400 dark:text-gray-500">Google Forms, CSV</span>
                 </a>
                 <a href="{% url 'slating_interviews' period_id=period.id %}"
                     class="flex items-center justify-between px-3 py-2 rounded-md text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">

@@ -81,17 +81,20 @@ def period_status(request, period_id):
         'status_display': period.get_status_display(),
     }
 
-    # Add stats for committee members
-    if period.slating_committee and (
-        period.slating_committee.is_member(request.user) or
-        request.user.is_admin
-    ):
-        data['stats'] = {
-            'applications': period.applications.exclude(status='draft').count(),
-            'pending_review': period.applications.filter(status='submitted').count(),
-            'interviewed': period.applications.filter(status='interviewed').count(),
-            'slated': period.applications.filter(status='slated').count(),
-        }
+    # Add stats for committee members.
+    # v3.57.0: these two gates said `request.user.is_admin`, bypassing the
+    # period lock (see permissions.py) — any site admin got application stats
+    # and, below, LIVE vote tallies while voting was still open.
+    from .permissions import can_manage_period, can_view_applications
+    if can_view_applications(request.user, period):
+        # One aggregate (was four COUNTs over the same table).
+        from django.db.models import Count, Q
+        data['stats'] = period.applications.aggregate(
+            applications=Count('pk', filter=~Q(status='draft')),
+            pending_review=Count('pk', filter=Q(status='submitted')),
+            interviewed=Count('pk', filter=Q(status='interviewed')),
+            slated=Count('pk', filter=Q(status='slated')),
+        )
 
     # Add voting stats if voting is open/closed
     if period.status in ['voting_open', 'voting_closed', 'results_published']:
@@ -107,10 +110,8 @@ def period_status(request, period_id):
             'total_ballots': total_ballots,
         }
 
-        # Only show vote tallies if results published or user is admin/chair
-        if period.status == 'results_published' or request.user.is_admin or (
-            period.slating_committee and period.slating_committee.is_chair(request.user)
-        ):
+        # Only show vote tallies if results published or the user manages the period
+        if period.status == 'results_published' or can_manage_period(request.user, period):
             votes = SlatingVote.objects.filter(
                 period=period,
                 voting_attempt=period.current_voting_attempt,

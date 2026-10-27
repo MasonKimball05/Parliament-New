@@ -233,33 +233,6 @@ def _handle_toggle_field(request, period):
     return redirect('slating_form_builder', period_id=period.id)
 
 
-@login_required
-@require_http_methods(["POST"])
-def reorder_fields(request):
-    """
-    API endpoint for drag-and-drop field reordering.
-    """
-    try:
-        period_id = request.POST.get('period_id')
-        order_data = json.loads(request.POST.get('order', '[]'))
-
-        period = get_object_or_404(SlatingPeriod, id=period_id)
-
-        # Check permission
-        if not request.user.is_admin:
-            if not (period.slating_committee and period.slating_committee.is_chair(request.user)):
-                return JsonResponse({'status': 'error', 'message': 'Permission denied'}, status=403)
-
-        # Update order
-        for idx, field_id in enumerate(order_data):
-            SlatingFormField.objects.filter(id=field_id, period=period).update(display_order=idx)
-
-        return JsonResponse({'status': 'success'})
-
-    except Exception as e:
-        return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
-
-
 def _handle_add_default_fields(request, period):
     """Add default form fields for a standard officer application."""
 

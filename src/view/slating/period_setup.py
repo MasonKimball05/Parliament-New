@@ -4,6 +4,8 @@ Slating Period Setup Views
 Create, edit, and manage slating periods.
 """
 
+from .position_manager import default_slate_positions
+from .tallies import individual_tallies
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
@@ -336,11 +338,11 @@ def edit_period(request, period_id):
                 ).defer(*member_defer('application__applicant', 'write_in_member')).order_by('display_order')
 
                 position_breakdown = []
-                for candidate in candidates_qs:
-                    ind_votes = SlatingVote.objects.filter(slate_candidate=candidate)
-                    a = ind_votes.filter(vote_choice='approve').count()
-                    r = ind_votes.filter(vote_choice='reject').count()
-                    ab = ind_votes.filter(vote_choice='abstain').count()
+                candidates_list = list(candidates_qs)
+                tallies = individual_tallies(candidates_list)
+                for candidate in candidates_list:
+                    t = tallies[candidate.id]
+                    a, r, ab = t['approve'], t['reject'], t['abstain']
                     counted = a + r
                     position_breakdown.append({
                         'position': candidate.position.title,
@@ -481,6 +483,9 @@ def edit_period(request, period_id):
         'eligible_managers': eligible_managers,
         'committee_members': committee_members,
         'write_in_js_data': write_in_js_data,
+        # v3.57.0: the "+ Default Positions" modal lists exactly what the
+        # button adds (it was a hardcoded list that had drifted).
+        'default_positions': default_slate_positions(),
     }
 
     return render(request, 'slating/period_setup.html', context)

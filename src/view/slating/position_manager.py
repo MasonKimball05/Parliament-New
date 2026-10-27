@@ -236,26 +236,16 @@ def delete_position(request, period_id, position_id):
     return redirect('slating_positions', period_id=period_id)
 
 
-@login_required
-@slating_chair_required
-def reorder_positions(request, period_id):
-    """
-    Reorder positions via AJAX.
-    """
-    if request.method != 'POST':
-        return JsonResponse({'status': 'error', 'message': 'POST required'}, status=405)
+#: Roles that are NOT slated (v3.57.0, Mason 10-26-26): Vice President of
+#: Administration, Vice President of Risk Management and the Constitution &
+#: Bylaws Chair. They stay roles (Role.DEFAULT_ROLES also seeds the chapter's
+#: roles); they're just not on the default slate.
+SLATE_EXCLUDED_ROLE_CODES = frozenset({'VPA', 'VPRM', 'CNB'})
 
-    try:
-        import json
-        period = get_object_or_404(SlatingPeriod, id=period_id)
-        order_data = json.loads(request.POST.get('order', '[]'))
 
-        for idx, position_id in enumerate(order_data):
-            SlatingPosition.objects.filter(id=position_id, period=period).update(display_order=idx)
-
-        return JsonResponse({'status': 'success'})
-    except Exception as e:
-        return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
+def default_slate_positions():
+    """(order, code, title) for "+ Default Positions", one list for the button and its modal."""
+    return [r for r in Role.DEFAULT_ROLES if r[1] not in SLATE_EXCLUDED_ROLE_CODES]
 
 
 @login_required
@@ -274,7 +264,7 @@ def copy_default_positions(request, period_id):
 
     # Add default roles as positions
     added = 0
-    for role_id, code, name in Role.DEFAULT_ROLES:
+    for role_id, code, name in default_slate_positions():
         if code not in existing_codes:
             try:
                 role = Role.objects.get(code=code)

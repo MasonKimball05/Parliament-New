@@ -13,7 +13,7 @@ from src.models import (
     SlatingPeriod, SlatingApplication, SlatingInterview,
     SlatingPosition, SlatingActivity, ParliamentUser
 )
-from .permissions import slating_committee_required, slating_chair_required
+from .permissions import can_manage_period, can_view_applications, slating_committee_required, slating_chair_required
 from src.models.users import member_defer, member_prefetch
 
 
@@ -80,13 +80,12 @@ def schedule_interview(request, app_id):
     application = get_object_or_404(SlatingApplication, id=app_id)
     period = application.period
 
-    # Check permissions - must be admin or committee chair
+    # Check permissions: the period's managers (slating manager, committee
+    # admin/chairs; a site admin only while the period isn't locked).
+    # v3.57.0: was `user.is_admin or chair`, which let any site admin into a
+    # locked period and left out the slating manager.
     user = request.user
-    is_authorized = user.is_admin
-    if not is_authorized and period.slating_committee:
-        is_authorized = period.slating_committee.is_chair(user)
-
-    if not is_authorized:
+    if not can_manage_period(user, period):
         messages.error(request, 'Only slating committee chairs can schedule interviews.')
         return redirect('slating_dashboard')
 
@@ -181,14 +180,12 @@ def complete_interview(request, interview_id):
     interview = get_object_or_404(SlatingInterview, id=interview_id)
     period = interview.application.period
 
-    # Check permissions - must be admin or committee member
+    # Check permissions: anyone who may read interview notes for this period.
+    # v3.57.0: was `user.is_admin or committee member/chair` — any site admin
+    # could read a LOCKED period's confidential interview notes (the GET
+    # returns them), which is exactly what the lock exists to prevent.
     user = request.user
-    is_authorized = user.is_admin
-    if not is_authorized and period.slating_committee:
-        committee = period.slating_committee
-        is_authorized = committee.is_member(user) or committee.is_chair(user)
-
-    if not is_authorized:
+    if not can_view_applications(user, period):
         messages.error(request, 'Only slating committee members can complete interviews.')
         return redirect('slating_dashboard')
 

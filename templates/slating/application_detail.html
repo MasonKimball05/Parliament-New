@@ -21,6 +21,7 @@
         <h1 class="text-2xl font-bold text-gray-900 dark:text-white">{{ application.applicant.name }}</h1>
         <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
             {{ application.applicant.user_id }} - {{ application.get_status_display }}
+            {% if application.imported_at %}<span class="ml-2 px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300" title="Imported from an outside form on {{ application.imported_at|date:'M j, Y' }}">Imported</span>{% endif %}
         </p>
     </div>
     <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium
@@ -121,6 +122,25 @@
                 {% endif %}
             </div>
         </div>
+
+        {% if application.imported_at and application.import_not_asked %}
+        <!-- v3.57.0: questions the outside form never asked -->
+        <div class="bg-white dark:bg-gray-800 shadow rounded-lg px-4 py-4 sm:px-6">
+            <h3 class="text-sm font-medium text-gray-900 dark:text-white">Not asked on the outside form</h3>
+            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">This application was imported on {{ application.imported_at|date:"M j, Y" }}. The form it came from didn't ask these questions, so there's no answer to show (not a skipped question):</p>
+            <ul class="mt-2 text-sm text-gray-700 dark:text-gray-300 list-disc pl-6">
+                {% for label in application.import_not_asked %}<li>{{ label }}</li>{% endfor %}
+            </ul>
+            {% if can_manage %}
+            <a href="{% url 'slating_fill_imported_answers' period_id=period.id app_id=application.id %}" class="mt-3 inline-flex items-center px-3 py-1.5 rounded-md text-sm font-medium text-white bg-primary-600 hover:bg-primary-700">Fill in answers</a>
+            {% endif %}
+        </div>
+        {% elif application.imported_at and can_manage %}
+        <div class="bg-white dark:bg-gray-800 shadow rounded-lg px-4 py-4 sm:px-6 flex items-center justify-between">
+            <p class="text-sm text-gray-600 dark:text-gray-300">Imported on {{ application.imported_at|date:"M j, Y" }}.</p>
+            <a href="{% url 'slating_fill_imported_answers' period_id=period.id app_id=application.id %}" class="inline-flex items-center px-3 py-1.5 rounded-md text-sm font-medium text-white bg-primary-600 hover:bg-primary-700">Edit answers</a>
+        </div>
+        {% endif %}
 
         <!-- Application Responses -->
         {% for section_name, responses in sections.items %}

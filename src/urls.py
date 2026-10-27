@@ -315,7 +315,7 @@ from src.view.slating import (
     slating_dashboard, create_period, edit_period, change_period_status,
     form_builder, manage_positions, add_position, edit_position, delete_position, copy_default_positions,
     apply_view, my_applications, withdraw_application,
-    applications_list, application_detail, submit_review, bulk_update_status,
+    applications_list, application_detail, submit_review, bulk_update_status, import_applications, fill_imported_answers,
     interview_list, schedule_interview, complete_interview, destroy_interview_notes,
     build_slate, approve_slate, slate_preview, view_approved_slate, edit_approved_slate, manual_results, copy_slate, assign_write_in, remove_write_in,
     slating_vote, individual_vote, close_voting, reset_votes,
@@ -1237,6 +1237,8 @@ urlpatterns = [
     path('slating/period/<int:period_id>/application/<int:app_id>/', application_detail, name='slating_app_detail'),
     path('slating/period/<int:period_id>/application/<int:app_id>/review/', submit_review, name='slating_submit_review'),
     path('slating/period/<int:period_id>/applications/bulk-update/', bulk_update_status, name='slating_bulk_update'),
+    path('slating/period/<int:period_id>/applications/import/', import_applications, name='slating_import_applications'),
+    path('slating/period/<int:period_id>/application/<int:app_id>/fill-in/', fill_imported_answers, name='slating_fill_imported_answers'),
 
     # Slating Interviews
     path('slating/period/<int:period_id>/interviews/', interview_list, name='slating_interviews'),
