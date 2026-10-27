@@ -14,7 +14,7 @@
     <meta name="theme-color" content="#003DA5">
 
     <!-- Tailwind CSS (self-hosted, no CDN) -->
-    <link rel="stylesheet" href="{% static 'css/tailwind.css' %}">
+    <link rel="stylesheet" href="{% static_v 'css/tailwind.css' %}">
 
     <!-- Alpine.js: hide x-cloak elements until Alpine initialises -->
     <style>[x-cloak]{display:none!important}</style>
@@ -921,7 +921,7 @@
     <script src="{% static_v 'js/alpinejs.min.js' %}" defer></script>
 
     <!-- Quick Actions Script -->
-    <script src="{% static 'js/quick-actions.js' %}"></script>
+    <script src="{% static_v 'js/quick-actions.js' %}"></script>
 
     <!-- Global Form Submit Protection (prevent double-clicks on slow connections) -->
     <script src="{% static_v 'js/base/double-submit.js' %}"></script>

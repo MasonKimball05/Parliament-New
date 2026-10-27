@@ -166,3 +166,48 @@
            disabled:opacity-50 disabled:cursor-not-allowed;
   }
 }
+
+/* Admin v2 tables on phones (v3.58.1, static/js/admin_v2/tables.js): each
+   row becomes a card, each cell a "Label  value" line. Cells hidden on small
+   screens with `hidden sm:table-cell` stay hidden. */
+@media (max-width: 639px) {
+  .admin-v2-content table.admin-v2-stack,
+  .admin-v2-content table.admin-v2-stack tbody { display: block; width: 100%; }
+  .admin-v2-content table.admin-v2-stack thead { display: none; }
+  .admin-v2-content table.admin-v2-stack tbody tr {
+    display: block;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid rgb(229 231 235);
+  }
+  .dark .admin-v2-content table.admin-v2-stack tbody tr { border-bottom-color: rgb(55 65 81); }
+  .admin-v2-content table.admin-v2-stack tbody td:not(.hidden) {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 0.2rem 0 !important;
+    border: 0 !important;
+    white-space: normal !important;
+    text-align: left !important;
+    min-width: 0;
+    overflow-wrap: break-word;
+  }
+  /* The value side takes the rest of the row; button groups wrap instead of
+     squeezing their labels one letter per line. */
+  .admin-v2-content table.admin-v2-stack tbody td > * { min-width: 0; }
+  .admin-v2-content table.admin-v2-stack tbody td .flex { flex-wrap: wrap; }
+  .admin-v2-content table.admin-v2-stack tbody td[data-label]::before {
+    content: attr(data-label);
+    flex: 0 0 6.5rem;
+    font-family: ui-sans-serif, system-ui, sans-serif;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: rgb(107 114 128);
+    padding-top: 0.15rem;
+  }
+  .admin-v2-content table.admin-v2-stack tbody td[data-label=""]::before { content: none; }
+  .admin-v2-content table.admin-v2-stack tbody tr.admin-v2-stack-full td { display: block; }
+  .admin-v2-content .overflow-x-auto:has(> table.admin-v2-stack) { overflow-x: visible; }
+}
+

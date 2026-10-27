@@ -70,9 +70,10 @@ list). No inline handlers: the drawer uses data-show / data-hide
             {% include "admin_v2/_nav.html" %}
         </div>
     </aside>
-    <div class="flex-1 min-w-0">
+    <div class="admin-v2-content flex-1 min-w-0">
         {% block admin_content %}{% endblock %}
     </div>
 </div>
 <script src="{% static_v 'js/admin_v2/palette.js' %}"></script>
+<script src="{% static_v 'js/admin_v2/tables.js' %}"></script>
 {% endblock %}

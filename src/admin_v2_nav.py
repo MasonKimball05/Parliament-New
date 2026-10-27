@@ -66,7 +66,6 @@ NAV = [
         ('Scheduled jobs', 'admin_v2_celery_health', (), 'celery workers queue tasks beat cron timers overdue'),
         ('Page visits', 'admin_v2_page_visits', (), 'analytics traffic'),
         ('API tokens', 'admin_api_tokens', ('admin_api_token_logs',), 'rest api keys'),
-        ('Static assets', 'site_monitor_static_assets', (), 'css js fingerprints cache'),
         ('URL explorer', 'admin_v2_url_explorer', (), 'routes urls endpoints'),
     ]),
 ]
