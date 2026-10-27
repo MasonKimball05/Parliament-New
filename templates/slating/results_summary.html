@@ -39,13 +39,13 @@
     <!-- Voting History -->
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
         <div class="px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-gray-700">
-            <h3 class="text-lg font-medium text-gray-900 dark:text-white">Voting History by Attempt</h3>
+            <h3 class="text-lg font-medium text-gray-900 dark:text-white">Voting History (every round, online + paper)</h3>
         </div>
         <div class="overflow-x-auto">
             <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                 <thead class="bg-gray-50 dark:bg-gray-700">
                     <tr>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Attempt</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Round</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Total</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Approve</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Reject</th>
@@ -57,8 +57,9 @@
                 <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                     {% for record in voting_history %}
                     <tr>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
-                            Attempt {{ record.attempt }}
+                        <td class="px-6 py-4 text-sm font-medium text-gray-900 dark:text-white">
+                            Round {{ record.attempt }}{% if record.label %}<div class="text-xs font-normal text-gray-500 dark:text-gray-400">{{ record.label }}</div>{% endif %}
+                            {% if record.paper %}<div class="text-xs font-normal text-gray-500 dark:text-gray-400">incl. {{ record.paper }} paper vote{{ record.paper|pluralize }}</div>{% endif %}
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{{ record.total }}</td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-green-600 dark:text-green-400">{{ record.approve }}</td>
@@ -68,14 +69,14 @@
                             {{ record.percentage|floatformat:1 }}%
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap">
-                            {% if record.passed %}
-                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
-                                Passed
-                            </span>
+                            {% if record.status == 'passed' %}
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">Passed</span>
+                            {% elif record.status == 'voided' %}
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300">Voided</span>
+                            {% elif record.status == 'open' %}
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">In progress</span>
                             {% else %}
-                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300">
-                                Failed
-                            </span>
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300">Failed</span>
                             {% endif %}
                         </td>
                     </tr>

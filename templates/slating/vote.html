@@ -47,7 +47,7 @@
         <div class="flex-1">
             <h3 class="text-base font-semibold text-yellow-900 dark:text-yellow-200">Voting Paused</h3>
             <p class="mt-1 text-sm text-yellow-800 dark:text-yellow-300">
-                Attempt {{ current_attempt }} was paused. Members cannot vote until you reopen the session.
+                Round {{ current_attempt }} was paused. Members cannot vote until you reopen the session.
                 You can also clear all votes from this attempt and start fresh.
             </p>
             <div class="mt-4 flex flex-wrap gap-3">
@@ -60,13 +60,17 @@
                     </button>
                 </form>
                 <form method="post" action="{% url 'slating_reset_votes' period_id=period.id %}"
-                    class="js-confirm-submit" data-confirm-msg="Clear all {{ current_attempt }} attempt votes? This cannot be undone.">
+                    class="js-confirm-submit" data-confirm-msg="Void round {{ current_attempt }}? Its votes stay in the history but won't count, and re-opening starts a new round.">
                     {% csrf_token %}
                     <button type="submit"
                         class="inline-flex items-center px-4 py-2 rounded-lg text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 transition-colors">
-                        Clear &amp; Reset Votes
+                        Void This Round
                     </button>
                 </form>
+                <a href="{% url 'slating_paper_ballots' period_id=period.id %}"
+                    class="inline-flex items-center px-4 py-2 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors">
+                    Paper Ballots
+                </a>
                 <a href="{% url 'slating_edit_approved_slate' period_id=period.id %}"
                     class="inline-flex items-center px-4 py-2 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors">
                     Edit Slate
@@ -153,6 +157,7 @@
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
         </svg>
         <h3 class="mt-2 text-sm font-medium text-green-800 dark:text-green-200">You have voted!</h3>
+        <p class="mt-1 text-sm text-green-700 dark:text-green-300">Results stay private until the slating committee announces them.</p>
         <p class="mt-1 text-sm text-green-700 dark:text-green-300">Thank you for participating in this election.</p>
 
         {% if is_committee and vote_tally %}

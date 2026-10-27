@@ -127,6 +127,8 @@ from src.models.slating import (
     SlatingBallot,
     SlatingVote,
     SlatingActivity,
+    SlatingRound,
+    SlatingPaperBallots,
 )
 
 # Service Hours
@@ -343,6 +345,8 @@ __all__ = [
     'SlatingAttendance',
     'SlatingBallot',
     'SlatingVote',
+    'SlatingRound',
+    'SlatingPaperBallots',
     'SlatingActivity',
     # Service Hours
     'ServicePeriod',

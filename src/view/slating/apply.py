@@ -310,8 +310,7 @@ def _handle_application_submit(request, period, user, existing_app, form_fields,
             user=user,
             action='application_submitted',
             details=f'{user.name} submitted application',
-            metadata={'application_id': application.id},
-            ip_address=request.META.get('REMOTE_ADDR')
+            metadata={'application_id': application.id}
         )
     else:
         messages.success(request, 'Your application has been saved as draft.')
@@ -364,8 +363,7 @@ def withdraw_application(request, app_id):
         user=request.user,
         action='application_submitted',  # Using existing action type
         details=f'{request.user.name} withdrew application',
-        metadata={'application_id': application.id, 'action': 'withdrawn'},
-        ip_address=request.META.get('REMOTE_ADDR')
+        metadata={'application_id': application.id, 'action': 'withdrawn'}
     )
 
     messages.success(request, 'Your application has been withdrawn.')

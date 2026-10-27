@@ -153,8 +153,7 @@ def _handle_add_field(request, period):
         user=request.user,
         action='form_field_added',
         details=f'Added form field: {label} ({field_type})',
-        metadata={'field_id': field.id, 'field_name': field_name},
-        ip_address=request.META.get('REMOTE_ADDR')
+        metadata={'field_id': field.id, 'field_name': field_name}
     )
 
     messages.success(request, f'Field "{label}" added successfully.')
@@ -197,8 +196,7 @@ def _handle_update_field(request, period):
         user=request.user,
         action='form_field_modified',
         details=f'Updated form field: {field.label}',
-        metadata={'field_id': field.id},
-        ip_address=request.META.get('REMOTE_ADDR')
+        metadata={'field_id': field.id}
     )
 
     messages.success(request, f'Field "{field.label}" updated.')
@@ -347,8 +345,7 @@ def _handle_add_default_fields(request, period):
         period=period,
         user=request.user,
         action='form_field_added',
-        details=f'Added {created_count} new, reactivated {reactivated_count} default form fields',
-        ip_address=request.META.get('REMOTE_ADDR')
+        details=f'Added {created_count} new, reactivated {reactivated_count} default form fields'
     )
 
     if reactivated_count > 0 and created_count > 0:

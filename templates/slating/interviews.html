@@ -60,9 +60,13 @@
                         {% for app in apps_without_interview %}
                         <li class="flex items-center justify-between">
                             <span>{{ app.applicant.name }}</span>
+                            {% if app.applicant.is_pledge %}
+                            <span class="ml-2 text-xs">Pledge — interview after initiation</span>
+                            {% else %}
                             <a href="{% url 'slating_schedule_interview' app_id=app.id %}" class="text-yellow-800 dark:text-yellow-200 underline hover:no-underline ml-2">
                                 Schedule
                             </a>
+                            {% endif %}
                         </li>
                         {% endfor %}
                     </ul>
@@ -150,5 +154,24 @@
         </div>
         {% endif %}
     </div>
+
+    {% if can_manage %}
+    <!-- v3.58.0: Destroy interview notes (the view existed; nothing linked to it) -->
+    <div class="bg-white dark:bg-gray-800 shadow rounded-lg p-6 border border-red-200 dark:border-red-800">
+        <h3 class="text-lg font-medium text-gray-900 dark:text-white">Destroy interview notes</h3>
+        {% if notes_remaining %}
+        <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">Permanently erases the confidential notes, strengths and concerns from all {{ notes_remaining }} interview{{ notes_remaining|pluralize }} in this period, as the bylaws require once the minutes are approved. Interview dates and who interviewed stay. This can't be undone.</p>
+        <form method="post" action="{% url 'slating_destroy_notes' period_id=period.id %}" class="mt-3 flex flex-wrap items-center gap-3">
+            {% csrf_token %}
+            <label for="destroy-confirm" class="text-sm text-gray-700 dark:text-gray-300">Type <strong>DESTROY</strong> to confirm:</label>
+            <input type="text" name="confirm" id="destroy-confirm" required autocomplete="off" pattern="DESTROY"
+                class="w-40 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white text-sm">
+            <button type="submit" class="inline-flex items-center px-4 py-2 rounded-md text-sm font-medium text-white bg-red-600 hover:bg-red-700">Destroy notes</button>
+        </form>
+        {% else %}
+        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">No interview notes left to destroy{% if interviews %} — they've already been destroyed{% endif %}.</p>
+        {% endif %}
+    </div>
+    {% endif %}
 </div>
 {% endblock %}

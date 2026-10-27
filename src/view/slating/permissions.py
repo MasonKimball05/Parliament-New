@@ -39,7 +39,11 @@ def _user_can_manage(user, period):
     """
     Returns True if the user has chair-level management access to the period.
     Does NOT check is_admin — callers decide whether admin bypass applies.
+    v3.58.0 (Mason): a pledge must be initiated before serving on the
+    slating committee, so committee/manager roles give a pledge nothing.
     """
+    if getattr(user, 'is_pledge', False):
+        return False
     if period.slating_manager_id and period.slating_manager_id == user.pk:
         return True
     if period.slating_committee:
@@ -55,7 +59,10 @@ def _user_can_view(user, period):
     """
     Returns True if the user has committee member read access to the period.
     Does NOT check is_admin — callers decide whether admin bypass applies.
+    Pledges get nothing (see _user_can_manage).
     """
+    if getattr(user, 'is_pledge', False):
+        return False
     if _user_can_manage(user, period):
         return True
     if period.slating_committee:

@@ -244,8 +244,7 @@ def approve_slate(request, period_id, slate_id=None):
         user=request.user,
         action='slate_created',
         details=f'Approved {slate_type} slate: {slate.name}',
-        metadata={'slate_id': slate.id, 'slate_type': slate_type},
-        ip_address=request.META.get('REMOTE_ADDR')
+        metadata={'slate_id': slate.id, 'slate_type': slate_type}
     )
 
     messages.success(request, f'Slate "{slate.name}" approved.')
@@ -390,8 +389,7 @@ def assign_write_in(request, period_id):
         period=period,
         user=request.user,
         action='position_added',
-        details=f'Write-in: {member.name} assigned to {position.title}',
-        ip_address=request.META.get('REMOTE_ADDR')
+        details=f'Write-in: {member.name} assigned to {position.title}'
     )
 
     messages.success(request, f'{member.name} added as write-in candidate for {position.title}. They will be voted on individually.')
@@ -448,6 +446,10 @@ def edit_approved_slate(request, period_id):
         old_candidate = slate.candidates.filter(position=position, is_runoff=False).first()
         old_name = old_candidate.candidate_name if old_candidate else '(vacant)'
         if old_candidate:
+            # v3.58.0: deleting the candidate cascades their votes; keep this
+            # round's counts for them in the round history first.
+            from .tallies import note_candidate_replaced
+            note_candidate_replaced(period, old_candidate)
             old_candidate.delete()
 
         # Assign new candidate
@@ -481,8 +483,7 @@ def edit_approved_slate(request, period_id):
             period=period,
             user=request.user,
             action='slate_edited',
-            details=f'{position.title}: replaced {old_name} with {new_name}',
-            ip_address=request.META.get('REMOTE_ADDR')
+            details=f'{position.title}: replaced {old_name} with {new_name}'
         )
 
         messages.success(request, f'{position.title} updated: {old_name} → {new_name}.')
@@ -656,8 +657,7 @@ def manual_results(request, period_id):
             user=request.user,
             action='voting_closed',
             details=f'Manual results recorded by {request.user.name}. Vote mode: {vote_mode}.',
-            metadata={'manual': True, 'vote_mode': vote_mode},
-            ip_address=request.META.get('REMOTE_ADDR')
+            metadata={'manual': True, 'vote_mode': vote_mode}
         )
 
         messages.success(request, 'Results recorded. You can now publish them.')

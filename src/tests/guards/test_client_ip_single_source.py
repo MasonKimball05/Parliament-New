@@ -77,18 +77,11 @@ ALLOWED = {
 #:
 #: This list must shrink to empty. It is here so the open question is visible in
 #: the diff instead of living in someone's memory.
-PENDING_DECISION = {
-    'view/slating/apply.py',
-    'view/slating/applications_review.py',
-    'view/slating/form_builder.py',
-    'view/slating/interview_manager.py',
-    'view/slating/period_setup.py',
-    'view/slating/position_manager.py',
-    'view/slating/results.py',
-    'view/slating/slate_builder.py',
-    'view/slating/transition.py',
-    'view/slating/vote.py',
-}
+#:
+#: DECIDED (Mason, 10-26-26, v3.58.0): slating records NO IP at all. The views
+#: stopped passing one, and migration 0068 cleared the socket addresses
+#: already stored. The list is empty; keep it that way.
+PENDING_DECISION = set()
 
 #: Test modules legitimately BUILD requests carrying these headers rather than
 #: reading them to decide something. Scanning them would flag every fixture.

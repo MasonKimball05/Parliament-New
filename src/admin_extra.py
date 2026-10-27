@@ -886,7 +886,9 @@ class SlatingVoteAdmin(ReadOnlyAdmin):
 
 @admin.register(SlatingActivity, site=admin_site)
 class SlatingActivityAdmin(ReadOnlyAdmin):
-    list_display = ('period', 'user', 'action', 'ip_address', 'timestamp')
+    # v3.58.0: slating records no IPs (Mason); the column and field are hidden.
+    list_display = ('period', 'user', 'action', 'timestamp')
+    exclude = ('ip_address',)
     list_filter = ('action',)
     search_fields = ('user__username', 'user__name', 'details')
     date_hierarchy = 'timestamp'

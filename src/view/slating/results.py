@@ -4,7 +4,7 @@ Slating Results Views
 View and publish election results.
 """
 
-from .tallies import individual_tallies
+from .tallies import individual_tallies, round_history, slate_tally
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
@@ -53,32 +53,24 @@ def view_results(request, period_id):
         'position', 'application__applicant', 'write_in_member'
     ).defer(*member_defer('application__applicant', 'write_in_member')).order_by('display_order')
 
-    # Calculate final results
-    total_ballots = SlatingBallot.objects.filter(
-        period=period,
-        voting_attempt=period.current_voting_attempt,
-        vote_type='slate'
-    ).count()
-
-    # Slate vote tally
-    slate_votes = SlatingVote.objects.filter(
-        period=period,
-        slate=slate
-    )
-
+    # Slate vote tally — v3.58.0: the CURRENT round (it counted every round
+    # together, so a re-vote's results included the failed round), plus the
+    # paper ballots the committee entered for it.
+    current = slate_tally(period, slate, period.current_voting_attempt)
+    slate_votes = SlatingVote.objects.filter(period=period, slate=slate,
+                                             voting_attempt=period.current_voting_attempt)
     vote_tally = {
-        'total': slate_votes.count(),
-        'approve': slate_votes.filter(vote_choice='approve').count(),
-        'reject': slate_votes.filter(vote_choice='reject').count(),
-        'abstain': slate_votes.filter(vote_choice='abstain').count(),
+        'total': current['total'],
+        'approve': current['approve'],
+        'reject': current['reject'],
+        'abstain': current['abstain'],
+        'approval_percentage': current['percentage'] or 0,
+        'online': current['online'],
+        'paper': current['paper'],
+        'paper_ballots': current['ballots_paper'],
     }
-
-    # Calculate percentage
-    counted_votes = vote_tally['approve'] + vote_tally['reject']
-    if counted_votes > 0:
-        vote_tally['approval_percentage'] = (vote_tally['approve'] / counted_votes) * 100
-    else:
-        vote_tally['approval_percentage'] = 0
+    total_ballots = current['ballots_online'] + current['ballots_paper']
+    history = round_history(period, slate)
 
     # Individual vote results (if applicable)
     individual_results = {}
@@ -87,9 +79,17 @@ def view_results(request, period_id):
         passed_count = 0
         failed_count = 0
         pending_count = 0
-        tallies = individual_tallies(candidates)
+        # Each position's counts from the round that decided it (v3.58.0):
+        # the latest non-voided round it was on the ballot in.
+        decided_in = {}
+        for rnd in history:
+            if rnd['status'] == 'voided':
+                continue
+            for row in rnd.get('positions', []):
+                decided_in[(row['position'], row['candidate'])] = row
         for candidate in candidates:
-            individual_results[candidate.id] = tallies[candidate.id]
+            row = decided_in.get((candidate.position.title, candidate.candidate_name))
+            individual_results[candidate.id] = row or {'approve': 0, 'reject': 0, 'abstain': 0}
             if candidate.individual_passed is True:
                 passed_count += 1
             elif candidate.individual_passed is False:
@@ -150,6 +150,7 @@ def view_results(request, period_id):
         'is_published': period.status == 'results_published',
         'is_committee': is_committee,
         'rejection_analysis': rejection_analysis,
+        'history': history,
     }
 
     return render(request, 'slating/results.html', context)
@@ -180,8 +181,7 @@ def publish_results(request, period_id):
         period=period,
         user=request.user,
         action='results_published',
-        details='Election results published',
-        ip_address=request.META.get('REMOTE_ADDR')
+        details='Election results published'
     )
 
     # Save to chapter documents if requested
@@ -238,11 +238,23 @@ def _save_results_to_documents(period, uploaded_by):
         'position', 'application__applicant', 'write_in_member'
     ).defer(*member_defer('application__applicant', 'write_in_member')).order_by('display_order')
 
-    # Calculate results
-    slate_votes = SlatingVote.objects.filter(
-        period=period,
-        slate=slate
-    )
+    # v3.58.0: built from the round history (every round kept, online and
+    # paper ballots counted separately). It used to count every round's slate
+    # votes together, so a re-vote's "official" results included the round
+    # that failed.
+    history = round_history(period, slate)
+    final = slate_tally(period, slate, period.current_voting_attempt)
+
+    def fmt_time(dt):
+        return localtime(dt).strftime('%b %d, %Y %I:%M %p') if dt else 'unknown'
+
+    def counts(c, paper=None, ballots_paper=0):
+        line = f"Approve {c['approve']}, Reject {c['reject']}, Abstain {c['abstain']}"
+        if paper and any(paper.values()):
+            line += (f"  (includes paper: Approve {paper['approve']}, Reject {paper['reject']}, "
+                     f"Abstain {paper['abstain']}"
+                     + (f"; {ballots_paper} paper ballot(s)" if ballots_paper else '') + ")")
+        return line
 
     # Generate document content
     content_lines = [
@@ -252,15 +264,14 @@ def _save_results_to_documents(period, uploaded_by):
         f"Election: {period.name}",
         f"Academic Term: {period.academic_term}",
         f"Published: {localtime(timezone.now()).strftime('%B %d, %Y at %I:%M %p %Z')}",
+        f"Required for passage: {period.required_approval_percentage}% of votes cast (abstentions not counted)",
         f"",
     ]
 
     if period.vote_type == 'individual':
-        # Per-position voting summary
         passed_count = sum(1 for c in candidates if c.individual_passed is True)
         failed_count = sum(1 for c in candidates if c.individual_passed is False)
-        total_count = candidates.count()
-        all_passed = failed_count == 0
+        total_count = len(list(candidates))
         content_lines.extend([
             f"VOTING MODE: Individual Position Votes",
             f"",
@@ -271,41 +282,57 @@ def _save_results_to_documents(period, uploaded_by):
         ])
         for candidate in candidates:
             status = "PASSED" if candidate.individual_passed else ("FAILED" if candidate.individual_passed is False else "PENDING")
-            content_lines.append(
-                f"  {candidate.position.title}: {candidate.candidate_name} — {status}"
-            )
+            content_lines.append(f"  {candidate.position.title}: {candidate.candidate_name} — {status}")
+        content_lines.append("")
     else:
-        approve_count = slate_votes.filter(vote_choice='approve').count()
-        reject_count = slate_votes.filter(vote_choice='reject').count()
-        abstain_count = slate_votes.filter(vote_choice='abstain').count()
-        total_votes = approve_count + reject_count + abstain_count
-        counted_votes = approve_count + reject_count
-        approval_percentage = (approve_count / counted_votes * 100) if counted_votes > 0 else 0
-        passed = approval_percentage >= period.required_approval_percentage
+        pct = final['percentage']
         content_lines.extend([
             f"VOTING MODE: Full Slate Vote",
             f"",
-            f"VOTING SUMMARY",
-            f"--------------",
-            f"Total Votes Cast: {total_votes}",
-            f"Approve: {approve_count}",
-            f"Reject: {reject_count}",
-            f"Abstain: {abstain_count}",
+            f"FINAL ROUND (round {period.current_voting_attempt})",
+            f"------------",
+            f"Total Votes Cast: {final['total']}",
+            f"  {counts(final, final['paper'], final['ballots_paper'])}",
+            f"Approval Rate: {pct:.1f}%" if pct is not None else "Approval Rate: n/a",
             f"",
-            f"Approval Rate: {approval_percentage:.1f}%",
-            f"Required for Passage: {period.required_approval_percentage}%",
-            f"",
-            f"RESULT: {'SLATE APPROVED' if passed else 'SLATE DID NOT PASS'}",
+            f"RESULT: {'SLATE APPROVED' if final['passed'] else 'SLATE DID NOT PASS'}",
             f"",
         ])
-        if passed:
-            content_lines.extend([f"ELECTED OFFICERS", f"----------------"])
-        else:
-            content_lines.extend([f"PROPOSED SLATE (Not Approved)", f"-----------------------------"])
+        content_lines.extend([f"ELECTED OFFICERS", f"----------------"] if final['passed']
+                             else [f"PROPOSED SLATE (Not Approved)", f"-----------------------------"])
         for candidate in candidates:
-            content_lines.append(
-                f"  {candidate.position.title}: {candidate.candidate_name}"
-            )
+            content_lines.append(f"  {candidate.position.title}: {candidate.candidate_name}")
+        content_lines.append("")
+
+    content_lines.extend([
+        f"VOTING HISTORY (every round, including failed and voided ones)",
+        f"--------------------------------------------------------------",
+    ])
+    if not history:
+        content_lines.append("  No online voting rounds (results recorded manually).")
+    for rnd in history:
+        label = {'passed': 'PASSED', 'failed': 'FAILED', 'voided': 'VOIDED (not counted)',
+                 'open': 'IN PROGRESS', 'closed': 'CLOSED'}.get(rnd['status'], rnd['status'].upper())
+        kind = 'individual positions' if rnd['vote_type'] == 'individual' else 'full slate'
+        content_lines.append(f"Round {rnd['attempt']} — {kind} — {label}")
+        content_lines.append(f"  Opened {fmt_time(rnd['opened_at'])}; closed {fmt_time(rnd['closed_at'])}")
+        if 'slate' in rnd:
+            sl = rnd['slate']
+            pct = sl.get('percentage')
+            content_lines.append(f"  {counts(sl, sl.get('paper'), sl.get('ballots_paper', 0))}"
+                                 + (f" — {pct:.1f}% approval" if pct is not None else ""))
+            content_lines.append(f"  Online ballots: {sl.get('ballots_online', 0)}")
+        for row in rnd.get('positions', []):
+            verdict = 'passed' if row['passed'] else ('failed' if row['passed'] is False else 'no votes')
+            content_lines.append(f"  {row['position']}: {row['candidate']} — "
+                                 f"{counts(row, row.get('paper'), row.get('ballots_paper', 0))} — {verdict}")
+        for ev in rnd.get('events', []):
+            if ev.get('event') == 'candidate_replaced':
+                content_lines.append(f"  Candidate replaced mid-round: {ev['position']} — {ev['candidate']} "
+                                     f"had Approve {ev['approve']}, Reject {ev['reject']}, Abstain {ev['abstain']}")
+        content_lines.append("")
+    content_lines.append("Paper ballots are counted by the slating committee for members who couldn't vote "
+                         "online, and are included in the totals above.")
 
     content_lines.extend([
         f"",
@@ -374,37 +401,27 @@ def results_summary(request, period_id):
     # Get all slates
     slates = period.slates.filter(is_approved=True).order_by('-created_at')
 
-    # Get voting history by attempt.
-    #
-    # v3.17.3: was three COUNTs per voting attempt — nine queries after three
-    # rounds, growing with every re-vote. One GROUP BY over (attempt, choice)
-    # covers every attempt at once. Found by the detail-route sweep; this page
-    # takes a period_id, so the zero-argument N+1 test never reached it.
-    _tally = {}
-    for row in (SlatingVote.objects
-                .filter(period=period, slate__isnull=False)
-                .values('voting_attempt', 'vote_choice')
-                .annotate(n=Count('pk'))):
-        _tally.setdefault(row['voting_attempt'], {})[row['vote_choice']] = row['n']
-
+    # Voting history — v3.58.0: every round from the round history (failed
+    # and voided rounds included, paper ballots counted and shown), one row
+    # per slate round or per position in an individual round.
     voting_history = []
-    for attempt in range(1, period.current_voting_attempt + 1):
-        _by_choice = _tally.get(attempt, {})
-        approve = _by_choice.get('approve', 0)
-        reject = _by_choice.get('reject', 0)
-        abstain = _by_choice.get('abstain', 0)
-        total = approve + reject + abstain
-        counted = approve + reject
-
-        voting_history.append({
-            'attempt': attempt,
-            'total': total,
-            'approve': approve,
-            'reject': reject,
-            'abstain': abstain,
-            'percentage': (approve / counted * 100) if counted > 0 else 0,
-            'passed': (approve / counted * 100) >= period.required_approval_percentage if counted > 0 else False,
-        })
+    primary = slates.filter(slate_type='primary').first()
+    for rnd in round_history(period, primary):
+        rows = [('', rnd['slate'])] if 'slate' in rnd else [
+            (f"{r['position']} — {r['candidate']}", r) for r in rnd.get('positions', [])]
+        for label, r in rows:
+            voting_history.append({
+                'attempt': rnd['attempt'],
+                'label': label,
+                'status': rnd['status'] if 'slate' in rnd or rnd['status'] in ('voided', 'open')
+                else ('passed' if r.get('passed') else 'failed'),
+                'total': r['approve'] + r['reject'] + r['abstain'],
+                'approve': r['approve'],
+                'reject': r['reject'],
+                'abstain': r['abstain'],
+                'paper': sum((r.get('paper') or {}).values()),
+                'percentage': r.get('percentage') or 0,
+            })
 
     # Get participation stats
     from src.models import ParliamentUser

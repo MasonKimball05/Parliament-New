@@ -125,10 +125,11 @@ class IndividualTallyTests(_Base):
                                          (self.c_pres, 'reject'), (self.c_vp, 'abstain')]):
             SlatingVote.objects.create(period=self.period, slate_candidate=c, vote_choice=choice,
                                        vote_hash=f'v{i}')
-        self.assertEqual(individual_tallies([self.c_pres, self.c_vp]), {
-            self.c_pres.id: {'approve': 2, 'reject': 1, 'abstain': 0},
-            self.c_vp.id: {'approve': 0, 'reject': 0, 'abstain': 1},
-        })
+        t = individual_tallies([self.c_pres, self.c_vp])
+        self.assertEqual({k: t[self.c_pres.id][k] for k in ('approve', 'reject', 'abstain')},
+                         {'approve': 2, 'reject': 1, 'abstain': 0})
+        self.assertEqual({k: t[self.c_vp.id][k] for k in ('approve', 'reject', 'abstain')},
+                         {'approve': 0, 'reject': 0, 'abstain': 1})
 
     def test_individual_double_submit_is_harmless(self):
         self.period.vote_type = 'individual'

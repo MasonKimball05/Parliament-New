@@ -169,6 +169,9 @@
                     <p class="text-sm text-gray-500 dark:text-gray-400">Abstain</p>
                 </div>
             </div>
+            {% if vote_tally.paper_ballots %}
+            <p class="mb-4 text-xs text-gray-500 dark:text-gray-400">Includes {{ vote_tally.paper_ballots }} paper ballot{{ vote_tally.paper_ballots|pluralize }} (Approve {{ vote_tally.paper.approve }}, Reject {{ vote_tally.paper.reject }}, Abstain {{ vote_tally.paper.abstain }}) counted by the slating committee.</p>
+            {% endif %}
 
             <!-- Progress Bar -->
             <div class="mb-4">
@@ -339,6 +342,32 @@
             {% endwith %}
             {% endif %}
             {% endwith %}
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+
+    <!-- Voting history (v3.58.0): every round, failed and voided ones included -->
+    {% if history|length > 1 or history.0.events %}
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm px-4 py-5 sm:p-6">
+        <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-3">Voting history</h3>
+        <ul class="space-y-3 text-sm">
+            {% for rnd in history %}
+            <li>
+                <div class="font-medium text-gray-900 dark:text-white">
+                    Round {{ rnd.attempt }} · {% if rnd.vote_type == 'individual' %}individual positions{% else %}full slate{% endif %} ·
+                    {% if rnd.status == 'voided' %}voided (not counted){% elif rnd.status == 'open' %}in progress{% else %}{{ rnd.status }}{% endif %}
+                </div>
+                {% if rnd.slate %}
+                <div class="text-gray-600 dark:text-gray-400">Approve {{ rnd.slate.approve }} · Reject {{ rnd.slate.reject }} · Abstain {{ rnd.slate.abstain }}{% if rnd.slate.ballots_paper %} · includes {{ rnd.slate.ballots_paper }} paper ballot{{ rnd.slate.ballots_paper|pluralize }}{% endif %}</div>
+                {% endif %}
+                {% for row in rnd.positions %}
+                <div class="text-gray-600 dark:text-gray-400">{{ row.position }} ({{ row.candidate }}): Approve {{ row.approve }} · Reject {{ row.reject }} · Abstain {{ row.abstain }}</div>
+                {% endfor %}
+                {% for ev in rnd.events %}
+                <div class="text-xs text-gray-500 dark:text-gray-400">Candidate replaced mid-round: {{ ev.position }} — {{ ev.candidate }} (Approve {{ ev.approve }}, Reject {{ ev.reject }}, Abstain {{ ev.abstain }})</div>
+                {% endfor %}
+            </li>
             {% endfor %}
         </ul>
     </div>

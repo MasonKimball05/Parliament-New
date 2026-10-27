@@ -5,7 +5,7 @@ Create, edit, and manage slating periods.
 """
 
 from .position_manager import default_slate_positions
-from .tallies import individual_tallies
+from .tallies import individual_tallies, open_round, slate_tally
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
@@ -68,7 +68,10 @@ def check_and_auto_transition_status(period):
         # Increment voting attempt when transitioning to voting_open
         if new_status == 'voting_open':
             period.current_voting_attempt += 1
-            period.save(update_fields=['status', 'current_voting_attempt'])
+            period.extra_settings = {k: v for k, v in (period.extra_settings or {}).items()
+                                     if k != 'round_ended'}
+            period.save(update_fields=['status', 'current_voting_attempt', 'extra_settings'])
+            open_round(period)
         else:
             period.save(update_fields=['status'])
 
@@ -135,8 +138,7 @@ def create_period(request):
             period=period,
             user=request.user,
             action='period_created',
-            details=f'Created slating period: {name}',
-            ip_address=request.META.get('REMOTE_ADDR')
+            details=f'Created slating period: {name}'
         )
 
         messages.success(request, f'Slating period "{name}" created successfully.')
@@ -275,8 +277,7 @@ def edit_period(request, period_id):
             logger = logging.getLogger('admin_actions')
             logger.info(
                 f"[SLATING] User {request.user.name} ({request.user.user_id}) "
-                f"deleted slating period: {period_name} (ID: {period_id}) "
-                f"from IP: {request.META.get('REMOTE_ADDR')}"
+                f"deleted slating period: {period_name} (ID: {period_id})"
             )
 
             messages.success(request, f'Slating period "{period_name}" has been deleted.')
@@ -330,7 +331,9 @@ def edit_period(request, period_id):
 
             if period.vote_type == 'individual':
                 # Individual position voting stats
-                ind_ballots = SlatingBallot.objects.filter(period=period, vote_type='individual')
+                # v3.58.0: this round only (rounds are kept now), plus paper.
+                ind_ballots = SlatingBallot.objects.filter(period=period, vote_type='individual',
+                                                           voting_attempt=current_attempt)
                 total_ballots = ind_ballots.values('voter').distinct().count()
 
                 candidates_qs = slate.candidates.filter(is_runoff=False).select_related(
@@ -339,18 +342,17 @@ def edit_period(request, period_id):
 
                 position_breakdown = []
                 candidates_list = list(candidates_qs)
-                tallies = individual_tallies(candidates_list)
+                tallies = individual_tallies(candidates_list, current_attempt, period)
                 for candidate in candidates_list:
                     t = tallies[candidate.id]
-                    a, r, ab = t['approve'], t['reject'], t['abstain']
-                    counted = a + r
                     position_breakdown.append({
                         'position': candidate.position.title,
                         'candidate_name': candidate.candidate_name,
-                        'approve': a,
-                        'reject': r,
-                        'abstain': ab,
-                        'approval_percentage': (a / counted * 100) if counted > 0 else 0,
+                        'approve': t['approve'],
+                        'reject': t['reject'],
+                        'abstain': t['abstain'],
+                        'paper': sum(t['paper'].values()),
+                        'approval_percentage': t['percentage'] or 0,
                     })
 
                 vote_stats = {
@@ -372,10 +374,10 @@ def edit_period(request, period_id):
                     voting_attempt=current_attempt
                 )
 
-                approve_count = votes.filter(vote_choice='approve').count()
-                reject_count = votes.filter(vote_choice='reject').count()
-                abstain_count = votes.filter(vote_choice='abstain').count()
-                total_votes = approve_count + reject_count + abstain_count
+                # v3.58.0: online + paper ballots, one grouped count.
+                t = slate_tally(period, slate, current_attempt)
+                approve_count, reject_count, abstain_count = t['approve'], t['reject'], t['abstain']
+                total_votes = t['total']
                 counted_votes = approve_count + reject_count
 
                 # Rejection analysis
@@ -402,6 +404,8 @@ def edit_period(request, period_id):
                 vote_stats = {
                     'vote_type': 'slate',
                     'total_ballots': ballots.count(),
+                    'paper_ballots': t['ballots_paper'],
+                    'paper_votes': sum(t['paper'].values()),
                     'approve': approve_count,
                     'reject': reject_count,
                     'abstain': abstain_count,
@@ -538,34 +542,32 @@ def change_period_status(request, period_id):
             period.quorum = int(quorum_raw)
         else:
             period.quorum = None
-        # Only start a new attempt when opening fresh, not when resuming after a pause
-        resuming_paused = old_status == 'deliberation' and period.current_voting_attempt > 0
+        # Only start a new round when opening fresh, not when resuming a pause.
+        # v3.58.0: a round that was CLOSED (failed) or VOIDED also starts a
+        # new one (`round_ended`, set by close_voting / reset_votes). Before,
+        # any deliberation → voting_open with attempt > 0 counted as a pause,
+        # so a failed round's ballots blocked members from voting again.
+        settings_ = dict(period.extra_settings or {})
+        resuming_paused = (old_status == 'deliberation' and period.current_voting_attempt > 0
+                           and not settings_.get('round_ended'))
         if not resuming_paused:
             period.current_voting_attempt += 1
-        # (Pausing does NOT decrement — attempt stays set so the paused state is detectable)
-
-        # For individual voting re-opens: clear ballots/votes only for positions that failed
-        # so members can vote again on those positions
-        if period.vote_type == 'individual' and resuming_paused:
-            slate = Slate.objects.filter(period=period, is_approved=True, slate_type='primary').first()
-            if slate:
-                failed_candidates = slate.candidates.filter(is_runoff=False, individual_passed=False)
-                failed_position_ids = list(failed_candidates.values_list('position_id', flat=True))
-                if failed_position_ids:
-                    SlatingBallot.objects.filter(
-                        period=period,
-                        vote_type='individual',
-                        position_id__in=failed_position_ids
-                    ).delete()
-                    SlatingVote.objects.filter(
-                        slate_candidate__in=failed_candidates
-                    ).delete()
-                    # Reset individual_passed so they appear as pending again
-                    failed_candidates.update(individual_passed=None, individual_votes_for=0, individual_votes_against=0)
+            settings_.pop('round_ended', None)
+            period.extra_settings = settings_
+            # Individual re-vote: failed positions go back on the ballot. Their
+            # earlier votes are KEPT (Mason: keep the history) — they belong
+            # to the previous round, and counts are per round now.
+            if period.vote_type == 'individual':
+                slate = Slate.objects.filter(period=period, is_approved=True, slate_type='primary').first()
+                if slate:
+                    slate.candidates.filter(is_runoff=False, individual_passed=False).update(
+                        individual_passed=None, individual_votes_for=0, individual_votes_against=0)
 
     # Update status
     period.status = new_status
     period.save()
+    if new_status == 'voting_open':
+        open_round(period)   # v3.58.0: the round's history record
 
     # Log activity
     SlatingActivity.objects.create(
@@ -573,8 +575,7 @@ def change_period_status(request, period_id):
         user=request.user,
         action='period_status_changed',
         details=f'Status changed from {old_status} to {new_status}',
-        metadata={'old_status': old_status, 'new_status': new_status},
-        ip_address=request.META.get('REMOTE_ADDR')
+        metadata={'old_status': old_status, 'new_status': new_status}
     )
 
     # Send notifications for key transitions

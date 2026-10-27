@@ -216,8 +216,7 @@ def submit_review(request, period_id, app_id):
                 user=request.user,
                 action='application_reviewed',
                 details=f'Changed {application.applicant.name} status from {old_status} to {new_status}',
-                metadata={'application_id': application.id, 'old_status': old_status, 'new_status': new_status},
-                ip_address=request.META.get('REMOTE_ADDR')
+                metadata={'application_id': application.id, 'old_status': old_status, 'new_status': new_status}
             )
 
     # Update review notes
@@ -272,8 +271,7 @@ def bulk_update_status(request, period_id):
         user=request.user,
         action='application_reviewed',
         details=f'Bulk updated {updated} applications to {new_status}',
-        metadata={'application_ids': app_ids, 'new_status': new_status},
-        ip_address=request.META.get('REMOTE_ADDR')
+        metadata={'application_ids': app_ids, 'new_status': new_status}
     )
 
     messages.success(request, f'Updated {updated} applications to {new_status}.')

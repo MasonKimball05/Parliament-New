@@ -59,11 +59,16 @@ def interview_list(request, period_id):
     if period.slating_committee:
         interviewers_list = list(period.slating_committee.members.all()) + \
                           list(period.slating_committee.chairs.all())
-        interviewers_list = list(set(interviewers_list))  # Remove duplicates
+        # Remove duplicates; pledges can't serve until initiated (v3.58.0)
+        interviewers_list = [m for m in set(interviewers_list) if not m.is_pledge]
 
     context = {
         'period': period,
         'interviews': interviews,
+        # v3.58.0: the "Destroy interview notes" section (managers only)
+        'can_manage': can_manage_period(request.user, period),
+        'notes_remaining': SlatingInterview.objects.filter(
+            application__period=period, notes_destroyed=False).count(),
         'apps_without_interview': apps_without_interview,
         'interviewers_list': interviewers_list,
         'status_filter': status_filter,
@@ -89,13 +94,21 @@ def schedule_interview(request, app_id):
         messages.error(request, 'Only slating committee chairs can schedule interviews.')
         return redirect('slating_dashboard')
 
+    # v3.58.0 (Mason): pledges may apply, but must be initiated before they're
+    # interviewed.
+    if application.applicant.is_pledge:
+        messages.error(request, f'{application.applicant.get_display_name()} is still a pledge. '
+                                'Pledges can apply, but must be initiated before they can be interviewed.')
+        return redirect('slating_interviews', period_id=period.id)
+
     if request.method == 'GET':
         # Get potential interviewers
         interviewers_list = []
         if period.slating_committee:
             interviewers_list = list(period.slating_committee.members.all()) + \
                               list(period.slating_committee.chairs.all())
-            interviewers_list = list(set(interviewers_list))
+            # Pledges can't serve on the committee until initiated (v3.58.0).
+            interviewers_list = [m for m in set(interviewers_list) if not m.is_pledge]
 
         # Check if AJAX request - return JSON for modal
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
@@ -150,7 +163,7 @@ def schedule_interview(request, app_id):
 
     # Set interviewers
     if interviewer_ids:
-        interviewers = ParliamentUser.objects.filter(user_id__in=interviewer_ids)
+        interviewers = ParliamentUser.objects.filter(user_id__in=interviewer_ids).exclude(member_type='Pledge')
         interview.interviewers.set(interviewers)
 
     # Update application status
@@ -164,8 +177,7 @@ def schedule_interview(request, app_id):
         user=request.user,
         action='interview_scheduled',
         details=f'Scheduled interview for {application.applicant.name}',
-        metadata={'application_id': application.id, 'interview_id': interview.id},
-        ip_address=request.META.get('REMOTE_ADDR')
+        metadata={'application_id': application.id, 'interview_id': interview.id}
     )
 
     messages.success(request, f'Interview scheduled for {application.applicant.name}.')
@@ -257,8 +269,7 @@ def complete_interview(request, interview_id):
             'application_id': interview.application.id,
             'interview_id': interview.id,
             'recommendation': interview.recommendation
-        },
-        ip_address=request.META.get('REMOTE_ADDR')
+        }
     )
 
     messages.success(request, f'Interview notes saved for {interview.application.applicant.name}.')
@@ -280,7 +291,7 @@ def destroy_interview_notes(request, period_id):
     # Confirm action
     if request.POST.get('confirm') != 'DESTROY':
         messages.error(request, 'Please type DESTROY to confirm.')
-        return redirect('slating_period_setup', period_id=period_id)
+        return redirect('slating_interviews', period_id=period_id)
 
     # Get all interviews with notes
     interviews = SlatingInterview.objects.filter(
@@ -299,9 +310,8 @@ def destroy_interview_notes(request, period_id):
         user=request.user,
         action='notes_destroyed',
         details=f'Destroyed confidential notes for {count} interviews',
-        metadata={'count': count},
-        ip_address=request.META.get('REMOTE_ADDR')
+        metadata={'count': count}
     )
 
     messages.success(request, f'Destroyed confidential notes for {count} interviews.')
-    return redirect('slating_period_setup', period_id=period_id)
+    return redirect('slating_interviews', period_id=period_id)

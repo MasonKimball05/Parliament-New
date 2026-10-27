@@ -161,7 +161,7 @@
                     {% else %}
                     <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300">
                         <svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                        Full Slate Vote — Paused (Attempt {{ period.current_voting_attempt }})
+                        Full Slate Vote — Paused (Round {{ period.current_voting_attempt }})
                     </span>
                     {% endif %}
                 </div>
@@ -205,7 +205,7 @@
                 {% else %}
                 <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
                     <svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                    Full Slate Vote — Attempt {{ period.current_voting_attempt }}
+                    Full Slate Vote — Round {{ period.current_voting_attempt }}
                 </span>
                 {% endif %}
             </div>
@@ -219,8 +219,12 @@
                         Pause Voting
                     </button>
                 </form>
+                <a href="{% url 'slating_paper_ballots' period_id=period.id %}"
+                    class="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors">
+                    Paper Ballots
+                </a>
                 <form method="post" action="{% url 'slating_close_voting' period_id=period.id %}"
-                    class="js-confirm-submit" data-confirm-msg="Close voting now and calculate results? This cannot be undone.">
+                    class="js-confirm-submit" data-confirm-msg="Close voting now and calculate results? Enter any paper ballots first. Results stay private until you publish them.">
                     {% csrf_token %}
                     <button type="submit"
                         class="inline-flex items-center px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg shadow-sm transition-colors">

@@ -113,8 +113,7 @@ def add_position(request, period_id):
         user=request.user,
         action='position_added',
         details=f'Added position: {title} ({code})',
-        metadata={'position_id': position.id},
-        ip_address=request.META.get('REMOTE_ADDR')
+        metadata={'position_id': position.id}
     )
 
     messages.success(request, f'Position "{title}" added.')
@@ -196,8 +195,7 @@ def edit_position(request, period_id, position_id):
         user=request.user,
         action='position_modified',
         details=f'Updated position: {position.title}',
-        metadata={'position_id': position.id},
-        ip_address=request.META.get('REMOTE_ADDR')
+        metadata={'position_id': position.id}
     )
 
     messages.success(request, f'Position "{position.title}" updated.')
@@ -287,8 +285,7 @@ def copy_default_positions(request, period_id):
             period=period,
             user=request.user,
             action='position_added',
-            details=f'Added {added} default positions',
-            ip_address=request.META.get('REMOTE_ADDR')
+            details=f'Added {added} default positions'
         )
     else:
         messages.info(request, 'All default positions already exist.')

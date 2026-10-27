@@ -11,6 +11,7 @@ from .position_manager import manage_positions, add_position, edit_position, del
 from .apply import apply_view, my_applications, withdraw_application
 from .applications_review import applications_list, application_detail, submit_review, bulk_update_status
 from .import_applications import fill_imported_answers, import_applications
+from .paper_ballots import record_paper_ballots
 from .interview_manager import interview_list, schedule_interview, complete_interview, destroy_interview_notes
 from .slate_builder import build_slate, approve_slate, slate_preview, view_approved_slate, copy_slate, assign_write_in, remove_write_in, edit_approved_slate, manual_results
 from .vote import slating_vote, individual_vote, close_voting, reset_votes
@@ -55,6 +56,7 @@ __all__ = [
     'bulk_update_status',
     'import_applications',
     'fill_imported_answers',
+    'record_paper_ballots',
 
     # Interview Management
     'interview_list',

@@ -946,6 +946,93 @@ class SlatingVote(models.Model):
         ordering = ['-voted_at']
 
 
+class SlatingRound(models.Model):
+    """
+    One round of chapter voting (v3.58.0): a ``voting_attempt`` number with its
+    outcome and a snapshot of its results.
+
+    Mason (10-26-26): keep the previous voting history even when voting is
+    reopened, and put it in the results export. Before this, re-opening
+    individual votes deleted the failed positions' votes, "Reset votes"
+    deleted the round, and replacing a candidate cascaded their votes away.
+    Rounds now keep their number and their raw votes, and ``results`` is
+    written when a round ends (closed or voided), so the history survives a
+    later slate edit. Paper ballots for the round are in SlatingPaperBallots.
+    """
+    STATUS_CHOICES = [
+        ('open', 'Open'),
+        ('passed', 'Passed'),
+        ('failed', 'Failed'),
+        ('voided', 'Voided'),
+        ('closed', 'Closed'),
+    ]
+    period = models.ForeignKey(SlatingPeriod, on_delete=models.CASCADE, related_name='rounds')
+    attempt = models.PositiveIntegerField()
+    vote_type = models.CharField(max_length=20, default='slate')
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='open')
+    opened_at = models.DateTimeField(auto_now_add=True)
+    closed_at = models.DateTimeField(null=True, blank=True)
+    closed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='+')
+    #: Snapshot at close: {'slate': {...}} or {'positions': [...]} (tallies.round_results).
+    results = models.JSONField(default=dict, blank=True)
+    #: Things that happened mid-round, e.g. a candidate replaced after votes.
+    events = models.JSONField(default=list, blank=True)
+
+    class Meta:
+        ordering = ['attempt']
+        constraints = [
+            models.UniqueConstraint(fields=['period', 'attempt'], name='slating_round_unique_attempt'),
+        ]
+
+    def __str__(self):
+        return f'{self.period.name} — round {self.attempt} ({self.status})'
+
+
+class SlatingPaperBallots(models.Model):
+    """
+    Paper ballots counted by the committee for one round (v3.58.0).
+
+    Members with tech problems have voted on paper, so the site's own count
+    can be short. The committee enters the paper totals here and every result
+    (closing the vote, the results page, the export) adds them to the online
+    votes, shown separately. ``slate_candidate`` is empty for a full-slate
+    vote and set for an individual-position vote. ``ballots`` is how many
+    paper ballots were cast (for turnout/quorum); a paper ballot holds no
+    voter identity, like an online SlatingVote.
+    """
+    period = models.ForeignKey(SlatingPeriod, on_delete=models.CASCADE, related_name='paper_ballots')
+    voting_attempt = models.PositiveIntegerField()
+    slate_candidate = models.ForeignKey(
+        'SlateCandidate', on_delete=models.SET_NULL, null=True, blank=True, related_name='paper_ballots')
+    #: Kept so the count still names its position if the candidate row goes.
+    position_title = models.CharField(max_length=200, blank=True)
+    candidate_name = models.CharField(max_length=200, blank=True)
+    ballots = models.PositiveIntegerField(default=0)
+    approve = models.PositiveIntegerField(default=0)
+    reject = models.PositiveIntegerField(default=0)
+    abstain = models.PositiveIntegerField(default=0)
+    note = models.CharField(max_length=300, blank=True)
+    recorded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='+')
+    recorded_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name_plural = 'Slating paper ballots'
+        constraints = [
+            models.UniqueConstraint(fields=['period', 'voting_attempt'],
+                                    condition=models.Q(slate_candidate__isnull=True),
+                                    name='slating_paper_unique_slate_round'),
+            models.UniqueConstraint(fields=['period', 'voting_attempt', 'slate_candidate'],
+                                    condition=models.Q(slate_candidate__isnull=False),
+                                    name='slating_paper_unique_candidate_round'),
+        ]
+
+    def __str__(self):
+        return f'Paper ballots, round {self.voting_attempt}'
+
+
 class SlatingActivity(models.Model):
     """
     Activity log for slating actions.

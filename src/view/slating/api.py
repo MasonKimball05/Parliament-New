@@ -143,10 +143,9 @@ def check_eligibility(request, period_id):
         eligibility['eligible'] = False
         eligibility['reasons'].append('Must be an active member.')
 
-    # Check member type
-    if user.member_type == 'Pledge':
-        eligibility['eligible'] = False
-        eligibility['reasons'].append('Pledges cannot apply for officer positions.')
+    # v3.58.0 (Mason): pledges CAN apply for slating. They must be initiated
+    # before they're interviewed (schedule_interview) or serve on the slating
+    # committee (permissions._user_can_view).
 
     # Check if already applied
     existing_app = SlatingApplication.objects.filter(

@@ -315,7 +315,7 @@ from src.view.slating import (
     slating_dashboard, create_period, edit_period, change_period_status,
     form_builder, manage_positions, add_position, edit_position, delete_position, copy_default_positions,
     apply_view, my_applications, withdraw_application,
-    applications_list, application_detail, submit_review, bulk_update_status, import_applications, fill_imported_answers,
+    applications_list, application_detail, submit_review, bulk_update_status, import_applications, fill_imported_answers, record_paper_ballots,
     interview_list, schedule_interview, complete_interview, destroy_interview_notes,
     build_slate, approve_slate, slate_preview, view_approved_slate, edit_approved_slate, manual_results, copy_slate, assign_write_in, remove_write_in,
     slating_vote, individual_vote, close_voting, reset_votes,
@@ -1265,6 +1265,7 @@ urlpatterns = [
     path('slating/period/<int:period_id>/vote/', slating_vote, name='slating_vote'),
     path('slating/period/<int:period_id>/vote/individual/', individual_vote, name='slating_vote_individual'),
     path('slating/period/<int:period_id>/close-voting/', close_voting, name='slating_close_voting'),
+    path('slating/period/<int:period_id>/paper-ballots/', record_paper_ballots, name='slating_paper_ballots'),
     path('slating/period/<int:period_id>/reset-votes/', reset_votes, name='slating_reset_votes'),
 
     # Slating Results

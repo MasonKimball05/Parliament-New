@@ -15,12 +15,22 @@ from src.models import (
     SlatingPeriod, Slate, SlatingBallot, SlatingVote,
     SlateCandidate, SlatingActivity, SlatingAttendance
 )
-from .tallies import individual_tallies
+from .tallies import end_round, individual_tallies, open_round, slate_tally
 from .permissions import voting_member_required, slating_chair_required, can_view_applications
 from src.view.webauthn import check_vote_reauth
 import hashlib
 import secrets
 from src.models.users import member_defer
+
+
+def _mark_round_ended(period):
+    """
+    v3.58.0: the round is over (closed or voided), so the next "open voting"
+    starts a NEW round instead of resuming this one. Pausing (voting_open →
+    deliberation) doesn't set this, so a pause still resumes the same round.
+    Kept in extra_settings to avoid a column for one flag.
+    """
+    period.extra_settings = {**(period.extra_settings or {}), 'round_ended': True}
 
 
 @login_required
@@ -162,26 +172,17 @@ def slating_vote(request, period_id):
             period=period,
             user=user,
             action='vote_cast',
-            details='Vote recorded',
-            ip_address=request.META.get('REMOTE_ADDR')
+            details='Vote recorded'
         )
 
         messages.success(request, 'Your vote has been recorded. Thank you for participating!')
         return redirect('slating_dashboard')
 
-    # GET - show voting form
-    show_tally = existing_ballot is not None
+    # GET - show voting form.
+    # v3.58.0 (Mason): no running tally for members, even after they vote —
+    # results stay hidden until the slating committee announces them
+    # (publish_results). Paper ballots may still be uncounted, too.
     vote_tally = None
-    if show_tally:
-        votes = SlatingVote.objects.filter(
-            period=period, slate=slate, voting_attempt=current_attempt
-        )
-        vote_tally = {
-            'total': votes.count(),
-            'approve': votes.filter(vote_choice='approve').count(),
-            'reject': votes.filter(vote_choice='reject').count(),
-            'abstain': votes.filter(vote_choice='abstain').count(),
-        }
 
     total_ballots = SlatingBallot.objects.filter(
         period=period, voting_attempt=current_attempt, vote_type='slate'
@@ -248,12 +249,16 @@ def individual_vote(request, period_id):
     decided_candidates = [c for c in all_candidates if c.individual_passed is not None]
     pending_candidates = [c for c in all_candidates if c.individual_passed is None]
 
-    # Which pending positions this user has already voted on in this round
+    # Which pending positions this user has already voted on in this round.
+    # v3.58.0: rounds are kept (not deleted on re-vote), so "this round" is
+    # the current voting_attempt — individual ballots carry it now.
+    current_attempt = period.current_voting_attempt
     voted_position_ids = set(
         SlatingBallot.objects.filter(
             period=period,
             voter=user,
             vote_type='individual',
+            voting_attempt=current_attempt,
             position_id__in=[c.position_id for c in pending_candidates]
         ).values_list('position_id', flat=True)
     )
@@ -291,7 +296,7 @@ def individual_vote(request, period_id):
         with transaction.atomic():
             SlatingPeriod.objects.select_for_update().only('pk').get(pk=period.pk)
             already = set(SlatingBallot.objects.filter(
-                period=period, voter=user, vote_type='individual',
+                period=period, voter=user, vote_type='individual', voting_attempt=current_attempt,
                 position_id__in=[c.position_id for c in unvoted],
             ).values_list('position_id', flat=True))
             for candidate in unvoted:
@@ -307,6 +312,7 @@ def individual_vote(request, period_id):
                     period=period,
                     voter=user,
                     vote_type='individual',
+                    voting_attempt=current_attempt,
                     position=candidate.position,
                     ballot_hash=ballot_hash
                 )
@@ -318,6 +324,7 @@ def individual_vote(request, period_id):
                 SlatingVote.objects.create(
                     period=period,
                     slate_candidate=candidate,
+                    voting_attempt=current_attempt,
                     vote_choice=choice,
                     vote_hash=vote_hash
                 )
@@ -326,8 +333,7 @@ def individual_vote(request, period_id):
             period=period,
             user=user,
             action='vote_cast',
-            details='Individual position votes recorded',
-            ip_address=request.META.get('REMOTE_ADDR')
+            details='Individual position votes recorded'
         )
 
         messages.success(request, 'Your votes have been recorded.')
@@ -387,7 +393,8 @@ def close_voting(request, period_id):
     if period.vote_type == 'individual':
         # Calculate per-position results
         candidates = list(slate.candidates.filter(is_runoff=False).select_related('position'))
-        tallies = individual_tallies(candidates)
+        # v3.58.0: this round only, online + paper ballots.
+        tallies = individual_tallies(candidates, current_attempt, period)
         passed_count = 0
         failed_count = 0
         for candidate in candidates:
@@ -414,18 +421,19 @@ def close_voting(request, period_id):
             else:
                 failed_count += 1
 
+        end_round(period, 'failed' if failed_count else 'passed', request.user, slate)
         if failed_count > 0:
             # Some positions failed — return to deliberation for re-vote on failing positions
             period.status = 'deliberation'
-            period.save(update_fields=['status'])
+            _mark_round_ended(period)
+            period.save(update_fields=['status', 'extra_settings'])
 
             SlatingActivity.objects.create(
                 period=period,
                 user=request.user,
                 action='voting_closed',
                 details=f'Individual voting: {passed_count} passed, {failed_count} failed. Returned to deliberation.',
-                metadata={'passed': passed_count, 'failed': failed_count, 'individual_voting': True},
-                ip_address=request.META.get('REMOTE_ADDR')
+                metadata={'passed': passed_count, 'failed': failed_count, 'individual_voting': True}
             )
 
             messages.warning(
@@ -443,15 +451,24 @@ def close_voting(request, period_id):
                 user=request.user,
                 action='voting_closed',
                 details=f'Individual voting complete — all {passed_count} positions passed.',
-                metadata={'passed': passed_count, 'individual_voting': True},
-                ip_address=request.META.get('REMOTE_ADDR')
+                metadata={'passed': passed_count, 'individual_voting': True}
             )
 
             messages.success(request, f'All {passed_count} positions passed. Review the results below.')
 
     else:
-        # Full slate vote — calculate and check pass/fail
-        slate.calculate_results()
+        # Full slate vote — this round's online votes + paper ballots
+        # (v3.58.0; was slate.calculate_results(), online only).
+        t = slate_tally(period, slate, current_attempt)
+        slate.total_votes = t['total']
+        slate.approval_votes = t['approve']
+        slate.rejection_votes = t['reject']
+        slate.abstain_votes = t['abstain']
+        slate.approval_percentage = t['percentage']
+        slate.passed = t['passed']
+        slate.save(update_fields=['total_votes', 'approval_votes', 'rejection_votes',
+                                  'abstain_votes', 'approval_percentage', 'passed'])
+        end_round(period, 'passed' if slate.passed else 'failed', request.user, slate)
 
         if slate.passed:
             period.status = 'voting_closed'
@@ -466,8 +483,7 @@ def close_voting(request, period_id):
                     'attempt': current_attempt,
                     'approval_percentage': float(slate.approval_percentage),
                     'passed': True
-                },
-                ip_address=request.META.get('REMOTE_ADDR')
+                }
             )
 
             messages.success(request, f'Voting closed. Slate passed with {slate.approval_percentage:.1f}% approval!')
@@ -483,15 +499,15 @@ def close_voting(request, period_id):
             slate.save(update_fields=['total_votes', 'approval_votes', 'rejection_votes', 'abstain_votes', 'approval_percentage', 'passed'])
 
             period.status = 'deliberation'
-            period.save(update_fields=['status'])
+            _mark_round_ended(period)
+            period.save(update_fields=['status', 'extra_settings'])
 
             SlatingActivity.objects.create(
                 period=period,
                 user=request.user,
                 action='voting_closed',
                 details=f'Slate failed attempt {current_attempt}. Returned to deliberation.',
-                metadata={'attempt': current_attempt, 'passed': False},
-                ip_address=request.META.get('REMOTE_ADDR')
+                metadata={'attempt': current_attempt, 'passed': False}
             )
 
             messages.warning(
@@ -506,8 +522,8 @@ def close_voting(request, period_id):
 @slating_chair_required
 def reset_votes(request, period_id):
     """
-    Clear all ballots and votes for the most recent voting attempt and
-    decrement the attempt counter. Only available during deliberation
+    Void the most recent (paused) voting round: it stays in the history,
+    marked voided, and doesn't count. Only available during deliberation
     (i.e. after a vote has been paused). Requires double confirmation.
     """
     if request.method != 'POST':
@@ -521,29 +537,25 @@ def reset_votes(request, period_id):
 
     attempt = period.current_voting_attempt
 
-    # Delete all ballots and votes for this attempt
-    deleted_ballots, _ = SlatingBallot.objects.filter(
-        period=period,
-        voting_attempt=attempt
-    ).delete()
-
-    deleted_votes, _ = SlatingVote.objects.filter(
-        period=period,
-        voting_attempt=attempt
-    ).delete()
-
-    # Reset attempt counter so re-opening doesn't skip a slot
-    period.current_voting_attempt = max(0, attempt - 1)
-    period.save(update_fields=['current_voting_attempt'])
+    # v3.58.0 (Mason: keep voting history): VOID the round instead of
+    # deleting it. Its ballots and votes stay, the round is recorded as
+    # voided with its counts in the history and the results export, and
+    # re-opening starts a new round number (the old one isn't reused, so
+    # its ballots can't block anyone from voting again).
+    slate = Slate.objects.filter(period=period, is_approved=True, slate_type='primary').first()
+    ballots = SlatingBallot.objects.filter(period=period, voting_attempt=attempt).count()
+    end_round(period, 'voided', request.user, slate)
+    _mark_round_ended(period)
+    period.save(update_fields=['extra_settings'])
 
     SlatingActivity.objects.create(
         period=period,
         user=request.user,
         action='voting_closed',
-        details=f'Votes reset: attempt {attempt} cleared ({deleted_ballots} ballots, {deleted_votes} votes deleted)',
-        metadata={'attempt': attempt, 'reset': True},
-        ip_address=request.META.get('REMOTE_ADDR')
+        details=f'Round {attempt} voided ({ballots} ballots kept in the history, not counted)',
+        metadata={'attempt': attempt, 'voided': True, 'ballots': ballots}
     )
 
-    messages.success(request, f'All {deleted_ballots} ballots from attempt {attempt} have been cleared. Voting can be re-opened fresh.')
+    messages.success(request, f'Round {attempt} voided. Its {ballots} ballot(s) stay in the voting history '
+                              'but won\'t count. Re-opening voting starts a fresh round.')
     return redirect('slating_period_setup', period_id=period_id)

@@ -94,8 +94,7 @@ def transition_officers(request, period_id):
                             user=request.user,
                             action='transition_scheduled',
                             details=f'Officer transition scheduled for {localtime(effective_datetime).strftime("%B %d, %Y at %I:%M %p %Z")}',
-                            metadata={'transition_data': transition_data},
-                            ip_address=request.META.get('REMOTE_ADDR')
+                            metadata={'transition_data': transition_data}
                         )
 
                         messages.success(
@@ -134,8 +133,7 @@ def transition_officers(request, period_id):
                 period=period,
                 user=request.user,
                 action='transition_cancelled',
-                details='Scheduled officer transition was cancelled',
-                ip_address=request.META.get('REMOTE_ADDR')
+                details='Scheduled officer transition was cancelled'
             )
 
             messages.info(request, 'Scheduled transition cancelled.')

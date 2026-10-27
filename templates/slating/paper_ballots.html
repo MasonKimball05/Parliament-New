@@ -1,0 +1,84 @@
+{% extends 'slating/base_slating.html' %}
+
+{% block breadcrumbs %}
+<li>
+    <span class="mx-2 text-gray-400">/</span>
+    <a href="{% url 'slating_period_setup' period_id=period.id %}" class="text-gray-500 dark:text-gray-400 hover:text-primary-600">{{ period.name }}</a>
+</li>
+<li>
+    <span class="mx-2 text-gray-400">/</span>
+    <span class="text-gray-700 dark:text-gray-300">Paper ballots</span>
+</li>
+{% endblock %}
+
+{% block page_header %}
+<div>
+    <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Paper ballots — round {{ attempt }}</h1>
+    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">For members who voted on paper (for example, because of tech problems). These are added to the online votes when you close this round, and shown separately in the results and the export.</p>
+</div>
+{% endblock %}
+
+{% block slating_content %}
+<form method="post" class="bg-white dark:bg-gray-800 shadow rounded-lg p-6 space-y-5">
+    {% csrf_token %}
+    {% if individual %}
+    <div>
+        <label for="ballots" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Number of paper ballots</label>
+        <input type="number" min="0" name="ballots" id="ballots" value="{{ ballots }}" class="mt-1 block w-32 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white text-sm">
+    </div>
+    <div class="overflow-x-auto">
+        <table class="min-w-full text-sm">
+            <thead>
+                <tr class="text-left text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700">
+                    <th class="py-2 pr-4 font-medium">Position</th>
+                    <th class="py-2 pr-4 font-medium">Approve</th>
+                    <th class="py-2 pr-4 font-medium">Reject</th>
+                    <th class="py-2 font-medium">Abstain</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in rows %}
+                <tr class="border-b border-gray-100 dark:border-gray-700">
+                    <td class="py-2 pr-4 text-gray-900 dark:text-white">{{ row.candidate.position.title }}<div class="text-xs text-gray-500 dark:text-gray-400">{{ row.candidate.candidate_name }}</div></td>
+                    <td class="py-2 pr-4"><input type="number" min="0" name="approve_{{ row.candidate.id }}" value="{{ row.counts.approve }}" class="w-24 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white text-sm"></td>
+                    <td class="py-2 pr-4"><input type="number" min="0" name="reject_{{ row.candidate.id }}" value="{{ row.counts.reject }}" class="w-24 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white text-sm"></td>
+                    <td class="py-2">{% if row.candidate.position.allow_abstain %}<input type="number" min="0" name="abstain_{{ row.candidate.id }}" value="{{ row.counts.abstain }}" class="w-24 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white text-sm">{% else %}<span class="text-gray-400">—</span>{% endif %}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="4" class="py-3 text-gray-500 dark:text-gray-400">No positions are on this round's ballot.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    {% with c=rows.0.counts %}
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div>
+            <label for="approve" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Approve</label>
+            <input type="number" min="0" name="approve" id="approve" value="{{ c.approve }}" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white text-sm">
+        </div>
+        <div>
+            <label for="reject" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Reject</label>
+            <input type="number" min="0" name="reject" id="reject" value="{{ c.reject }}" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white text-sm">
+        </div>
+        {% if allow_abstain %}
+        <div>
+            <label for="abstain" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Abstain</label>
+            <input type="number" min="0" name="abstain" id="abstain" value="{{ c.abstain }}" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white text-sm">
+        </div>
+        {% endif %}
+    </div>
+    <p class="text-xs text-gray-500 dark:text-gray-400">One choice per paper ballot, so the number of paper ballots is the total of these.</p>
+    {% endwith %}
+    {% endif %}
+    <div>
+        <label for="note" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Note (optional)</label>
+        <input type="text" name="note" id="note" maxlength="300" value="{{ note }}" placeholder="e.g. counted by the VP and the slating chair" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white text-sm">
+    </div>
+    <p class="text-sm text-gray-600 dark:text-gray-300">Saving replaces any paper counts already entered for this round. Make sure members who voted on paper didn't also vote online.</p>
+    <div class="flex gap-3">
+        <button type="submit" class="inline-flex items-center px-4 py-2 rounded-md text-sm font-medium text-white bg-primary-600 hover:bg-primary-700">Save paper ballots</button>
+        <a href="{% url 'slating_period_setup' period_id=period.id %}" class="inline-flex items-center px-4 py-2 rounded-md text-sm font-medium text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600">Cancel</a>
+    </div>
+</form>
+{% endblock %}

@@ -36,7 +36,7 @@
     {% if decided_candidates %}
     <div class="bg-white dark:bg-gray-800 shadow rounded-xl overflow-hidden">
         <div class="px-5 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
-            <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Already Decided</p>
+            <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Not on this ballot</p>
         </div>
         <ul class="divide-y divide-gray-200 dark:divide-gray-700">
             {% for candidate in decided_candidates %}
@@ -45,17 +45,8 @@
                     <p class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ candidate.position.title }}</p>
                     <p class="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{{ candidate.candidate_name }}</p>
                 </div>
-                {% if candidate.individual_passed %}
-                <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
-                    <svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-                    Passed
-                </span>
-                {% else %}
-                <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300">
-                    <svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-                    Failed
-                </span>
-                {% endif %}
+                {# v3.58.0: no pass/fail here — results stay private until the committee announces them #}
+                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300">Decided in an earlier round</span>
             </li>
             {% endfor %}
         </ul>
