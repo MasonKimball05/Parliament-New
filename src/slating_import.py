@@ -28,8 +28,10 @@ Rules:
   the latest response (by timestamp, else the later row) is used.
 * **Imported = submitted.** Status ``submitted``, ``submitted_at`` from the
   form's timestamp when it parses, GPA level computed, GPA not verified (there
-  is no screenshot). Required-field and eligibility problems are warnings, not
-  refusals: the committee reviews every application anyway.
+  is no screenshot). Required-field problems are warnings, not refusals: the
+  committee reviews every application anyway.
+* **Only members who could apply.** Inactive members, alumni and advisors are
+  skipped (v3.58.0, same rule as the apply page).
 * **Nothing lost.** With "keep unmapped answers" on, every answer that wasn't
   mapped to a form field goes into the application's review notes, under a
   heading that says it came from the import.
@@ -363,10 +365,15 @@ def plan(period, headers, rows, mapping, keep_unmapped=True):
         if user.pk in existing:
             item['reason'] = 'Already has an application in Parliament (kept as is).'
             continue
-        if user.member_status != 'Active':
-            item['warnings'].append(f'Member status is {user.member_status}.')
+        # v3.58.0: the same rule as the apply page (only active members; no
+        # inactive members, alumni or advisors). Pledges may apply.
+        from src.view.slating.permissions import applicant_ineligibility
+        reason = applicant_ineligibility(user)
+        if reason:
+            item['reason'] = reason
+            continue
         if user.is_pledge:
-            item['warnings'].append('Applicant is a pledge.')
+            item['warnings'].append('Applicant is a pledge (can apply; must be initiated before an interview).')
 
         if ts_col is not None:
             item['submitted_at'] = parse_timestamp(row[ts_col])

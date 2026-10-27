@@ -234,3 +234,58 @@ class DestroyNotesTests(_Base):
         interview.refresh_from_db()
         self.assertTrue(interview.notes_destroyed)
         self.assertNotIn('secret', interview.notes)
+
+
+class WhoCanApplyTests(_Base):
+    """v3.58.0: only active members apply — not inactive, alumni or advisors. Pledges may."""
+
+    def setUp(self):
+        super().setUp()
+        from src.models import SlatingPeriod, SlatingPosition
+        self.open_period = SlatingPeriod.objects.create(name='Spring', status='nominations_open')
+        self.position = SlatingPosition.objects.create(period=self.open_period, title='President', code='P')
+
+    def apply(self, user):
+        self.client.force_login(user)
+        return self.client.post(reverse('slating_apply', args=[self.open_period.id]), {
+            'action': 'submit', 'positions_first_choice': [str(self.position.id)]})
+
+    def test_ineligible_members_are_refused_everywhere(self):
+        from src.models import ParliamentUser
+        cases = [member('wa-inactive'), member('wa-alum'), member('wa-advisor', member_type='Advisor')]
+        ParliamentUser.objects.filter(pk=cases[0].pk).update(member_status='Inactive')
+        ParliamentUser.objects.filter(pk=cases[1].pk).update(member_status='Alumni')
+        for user in cases:
+            user.refresh_from_db()
+            self.apply(user)
+            self.assertFalse(SlatingApplication.objects.filter(applicant=user).exists(), user.user_id)
+            body = self.client.get(reverse('slating_api_eligibility', args=[self.open_period.id])).json()
+            self.assertFalse(body['eligible'], user.user_id)
+
+    def test_active_members_can_apply(self):
+        user = member('wa-active')
+        self.apply(user)
+        self.assertTrue(SlatingApplication.objects.filter(applicant=user).exists())
+
+    def test_pledges_can_apply_when_the_vpe_allows_the_page(self):
+        # Migration 0002 seeds a "Slating — Apply" pledge restriction (blocked
+        # for every phase); the VPE opens it from the education dashboard.
+        from src.models.education import PledgePageRestriction
+        from django.core.cache import cache
+        pledge = member('P-WA0001', member_type='Pledge')
+        self.assertEqual(self.apply(pledge).status_code, 403)
+        PledgePageRestriction.objects.filter(url_name='slating_apply').update(allowed_phases=['all'])
+        cache.clear()
+        self.apply(pledge)
+        self.assertTrue(SlatingApplication.objects.filter(applicant=pledge).exists())
+
+    def test_import_skips_ineligible_members(self):
+        from src import slating_import as si
+        from src.models import ParliamentUser
+        alum = member('wa-alum2', email='alum@test.org')
+        ParliamentUser.objects.filter(pk=alum.pk).update(member_status='Alumni')
+        member('wa-ok', email='ok@test.org')
+        headers, rows = si.parse_csv('Email,Position\nalum@test.org,President\nok@test.org,President\n')
+        items = si.plan(self.open_period, headers, rows, {0: 'applicant_email', 1: 'pos_first'})
+        self.assertEqual([i['status'] for i in items], ['skip', 'import'])
+        self.assertIn('Only active members', items[0]['reason'])

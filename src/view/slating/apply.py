@@ -32,6 +32,13 @@ def apply_view(request, period_id):
         messages.error(request, 'Applications are not currently open for this period.')
         return redirect('slating_dashboard')
 
+    # v3.58.0: only active members (not inactive, alumni or advisors).
+    from .permissions import applicant_ineligibility
+    reason = applicant_ineligibility(user)
+    if reason:
+        messages.error(request, reason)
+        return redirect('slating_dashboard')
+
     # Check for existing application
     existing_app = SlatingApplication.objects.filter(
         period=period, applicant=user

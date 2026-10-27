@@ -187,3 +187,20 @@ def can_view_applications(user, period):
     if user.is_admin and not _period_is_locked(period):
         return True
     return False
+
+
+def applicant_ineligibility(user):
+    """
+    Why ``user`` may not apply for slating, or None if they may (v3.58.0).
+
+    Mason (10-26-26): only active members apply — not inactive members,
+    alumni or advisors. Pledges may apply (v3.58.0); they must be initiated
+    before they're interviewed. Used by the apply page, the eligibility API
+    and Import Applications, so all three agree.
+    """
+    if user.member_status != 'Active':
+        status = (user.member_status or 'not active').lower()
+        return f'Only active members can apply for slating (this member is {status}).'
+    if user.member_type == 'Advisor':
+        return 'Advisors can\'t apply for slating.'
+    return None

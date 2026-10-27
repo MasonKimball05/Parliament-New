@@ -139,9 +139,11 @@ def check_eligibility(request, period_id):
     }
 
     # Check member status
-    if user.member_status != 'Active':
+    from .permissions import applicant_ineligibility
+    reason = applicant_ineligibility(user)
+    if reason:
         eligibility['eligible'] = False
-        eligibility['reasons'].append('Must be an active member.')
+        eligibility['reasons'].append(reason)
 
     # v3.58.0 (Mason): pledges CAN apply for slating. They must be initiated
     # before they're interviewed (schedule_interview) or serve on the slating
