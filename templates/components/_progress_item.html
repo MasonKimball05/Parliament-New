@@ -18,7 +18,7 @@
     <span class="item-label text-xs text-gray-600 dark:text-gray-300">{{ label }}</span>
     <span class="text-xs text-gray-400 dark:text-gray-500 ml-1 hidden sm:inline">{{ hint }}</span>
     {% if skippable %}
-    <button id="skip-btn-{{ item_key }}" onclick="skipProfileItem('{{ item_key }}')" class="ml-auto text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition underline flex-shrink-0">skip</button>
+    <button type="button" id="skip-btn-{{ item_key }}" data-skip-item="{{ item_key }}" class="ml-auto text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition underline flex-shrink-0 px-2 py-1.5 -my-1.5 -mr-2">skip</button>
     {% endif %}
 </div>
 {% endif %}

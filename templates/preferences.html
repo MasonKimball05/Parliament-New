@@ -534,7 +534,7 @@
             Getting Started
         </h2>
         <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Restart the page guides and home checklist to revisit the walkthrough of Parliament's features.</p>
-        <button onclick="restartOnboarding()" class="px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-white text-sm font-medium rounded-lg transition">
+        <button type="button" id="restart-onboarding-btn" class="px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-white text-sm font-medium rounded-lg transition">
             Restart Onboarding Tour
         </button>
         <script nonce="{{ request.csp_nonce }}">
@@ -546,6 +546,8 @@
                 if (r.ok) { window.location.href = '/onboarding/'; }
             });
         }
+        // Not onclick=: prod CSP blocks inline handlers (static/js/base/data-actions.js).
+        document.getElementById('restart-onboarding-btn').addEventListener('click', restartOnboarding);
         </script>
     </div>
 

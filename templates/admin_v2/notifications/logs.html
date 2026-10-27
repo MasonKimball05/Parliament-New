@@ -100,7 +100,7 @@
             </thead>
             <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                 {% for log in logs %}
-                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer" onclick="window.location='{% url 'admin_v2_notification_log_detail' log.id %}'">
+                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer" data-href="{% url 'admin_v2_notification_log_detail' log.id %}">
                     <td class="px-6 py-4">
                         <div class="text-sm font-medium text-gray-900 dark:text-gray-100">{{ log.title }}</div>
                         <div class="text-sm text-gray-500 dark:text-gray-400">{{ log.message|truncatechars:60 }}</div>

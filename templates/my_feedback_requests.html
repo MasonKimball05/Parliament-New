@@ -34,7 +34,7 @@
                 <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                     {% for item in feedback_requests %}
                     <tr class="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors cursor-pointer"
-                        onclick="window.location='{% url 'feedback_request_detail' item.id %}'">
+                        data-href="{% url 'feedback_request_detail' item.id %}">
                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">
                             #{{ item.id }}
                         </td>

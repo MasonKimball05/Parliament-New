@@ -45,7 +45,7 @@
                    class="mt-0.5 h-5 w-5 rounded border-gray-300 dark:border-gray-600 text-green-600 focus:ring-green-500"
                    data-status-id="{{ status.id }}"
                    {% if status.completed_at %}checked{% endif %}
-                   onchange="toggleItem(this)">
+                   data-toggle-item>
             <div class="flex-1 min-w-0">
                 <p class="text-sm text-gray-900 dark:text-gray-100 {% if status.completed_at %}line-through opacity-60{% endif %}"
                    id="item-text-{{ status.id }}">{{ status.item.text }}</p>
@@ -71,6 +71,10 @@
 </div>
 
 <script nonce="{{ request.csp_nonce }}">
+// Not onchange=: prod CSP blocks inline handlers (static/js/base/data-actions.js).
+document.addEventListener('change', function (e) {
+    if (e.target.matches('[data-toggle-item]')) toggleItem(e.target);
+});
 function toggleItem(checkbox) {
     const statusId = checkbox.dataset.statusId;
     checkbox.disabled = true;

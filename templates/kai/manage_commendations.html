@@ -38,7 +38,7 @@
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 mb-4">
       <form method="get" class="flex flex-wrap items-center gap-2">
         <label class="text-xs font-medium text-gray-600 dark:text-gray-400">Status</label>
-        <select name="status" onchange="this.form.submit()"
+        <select name="status" data-autosubmit
                 class="px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
           <option value="" {% if not status_filter %}selected{% endif %}>All</option>
           {% for value, label in status_choices %}

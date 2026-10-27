@@ -88,7 +88,8 @@
 
         <!-- Calendar Table -->
         <div class="p-2 sm:p-4 overflow-x-auto">
-            <div id="calendarGrid" class="grid grid-cols-7 gap-1 sm:gap-2 min-w-[500px]">
+            {# All 7 days fit a phone (10-27-26): min-w-[500px] at every width hid Fri/Sat off to the side. #}
+            <div id="calendarGrid" class="grid grid-cols-7 gap-0.5 sm:gap-2 sm:min-w-[500px]">
                 <!-- Day headers - abbreviated on mobile -->
                 <div class="text-center font-semibold text-gray-700 dark:text-gray-300 py-2 text-xs sm:text-sm"><span class="sm:hidden">S</span><span class="hidden sm:inline">Sun</span></div>
                 <div class="text-center font-semibold text-gray-700 dark:text-gray-300 py-2 text-xs sm:text-sm"><span class="sm:hidden">M</span><span class="hidden sm:inline">Mon</span></div>
@@ -101,7 +102,7 @@
                 <!-- Calendar days -->
                 {% for week in calendar %}
                     {% for day in week %}
-                        <div class="min-h-24 border border-gray-200 dark:border-gray-700 rounded-lg p-1 sm:p-2 {% if day == 0 %}bg-gray-50 dark:bg-gray-900{% elif day == today %}bg-blue-50 dark:bg-blue-900/30 border-blue-400 dark:border-blue-500{% else %}bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700{% endif %} transition">
+                        <div class="min-w-0 min-h-24 border border-gray-200 dark:border-gray-700 rounded-md sm:rounded-lg p-0.5 sm:p-2 {% if day == 0 %}bg-gray-50 dark:bg-gray-900{% elif day == today %}bg-blue-50 dark:bg-blue-900/30 border-blue-400 dark:border-blue-500{% else %}bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700{% endif %} transition">
                             {% if day != 0 %}
                                 <div class="text-right">
                                     <span class="{% if day == today %}bg-primary-600 text-white rounded-full px-1.5 sm:px-2 py-0.5 sm:py-1 text-xs sm:text-sm font-bold{% else %}text-gray-700 dark:text-gray-300 font-medium text-xs sm:text-sm{% endif %}">
@@ -128,7 +129,7 @@
 
         <!-- Legend -->
         <div class="px-6 py-4 bg-gray-50 dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 transition-colors duration-200">
-            <div class="flex items-center space-x-6 text-sm">
+            <div class="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
                 <div class="flex items-center">
                     <div class="w-4 h-4 bg-blue-50 dark:bg-blue-900/30 border border-blue-400 dark:border-blue-500 rounded mr-2"></div>
                     <span class="text-gray-700 dark:text-gray-300">Today</span>

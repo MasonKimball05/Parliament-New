@@ -126,25 +126,10 @@ INLINE_HANDLER_RE = re.compile(r'<[a-zA-Z][^>]*\b(?:onclick|onchange|onsubmit)\s
 #: incidentally while fixing the reported one. Fix a file, remove it here —
 #: do NOT add a new entry without also fixing it, the same rule as
 #: KNOWN_ORPHANS in test_reachable_pages.py.
-KNOWN_INLINE_HANDLER_OFFENDERS = frozenset({
-    'admin_v2/notifications/logs.html',
-    'base.html',
-    'committee/recruitment_candidate_list.html',
-    'committee/documents.html',
-    'committee/recruitment_dashboard.html',
-    'committee/recruitment_event_detail.html',
-    'components/_progress_item.html',
-    'components/profile_progress.html',
-    'includes/confirm_modal.html',
-    'kai/manage_commendations.html',
-    'my_feedback_requests.html',
-    'officer/manage_poll_qr.html',
-    'officer/manage_qr_checkin.html',
-    'officer/transition_checklist.html',
-    'preferences.html',
-    'service_hours/service_event_attendance.html',
-    'service_hours/service_event_detail.html',
-})
+#: Emptied in v3.58.1 (10-27-26): every one was rewired to data-* attributes
+#: handled by static/js/base/data-actions.js (or the page's own nonce'd
+#: script). Kept as an (empty) ratchet so the tests below still read the same.
+KNOWN_INLINE_HANDLER_OFFENDERS = frozenset()
 
 
 class NoInlineEventHandlerAttributesTests(SimpleTestCase):
@@ -191,7 +176,7 @@ class NoInlineEventHandlerAttributesTests(SimpleTestCase):
         cannot silently stay stale once a fix lands.
         """
         self.assertEqual(
-            len(KNOWN_INLINE_HANDLER_OFFENDERS), 17,
+            len(KNOWN_INLINE_HANDLER_OFFENDERS), 0,
             'KNOWN_INLINE_HANDLER_OFFENDERS changed size. If you fixed one of '
             'these files, remove its entry — do not just update this number.',
         )

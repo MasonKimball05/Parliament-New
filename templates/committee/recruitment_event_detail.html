@@ -209,7 +209,7 @@
         <h3 class="text-sm font-semibold text-red-700 dark:text-red-400 mb-2">Danger Zone</h3>
         <p class="text-sm text-gray-600 dark:text-gray-400 mb-3">Deleting this recruitment event also removes it from the chapter calendar. This cannot be undone.</p>
         <form method="post" action="{% url 'delete_recruitment_event' committee.code re.id %}"
-              onsubmit="return confirm('Delete this recruitment event?')">
+              data-confirm="Delete this recruitment event?">
             {% csrf_token %}
             <button type="submit" class="px-3 py-1.5 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-md">Delete Event</button>
         </form>

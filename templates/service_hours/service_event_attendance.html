@@ -97,7 +97,7 @@
             </button>
             <button type="submit" name="action" value="finalize"
                     id="finalize-btn"
-                    onclick="return confirm('Apply {{ se.hours_awarded }} hrs to checked members? This cannot be undone.')"
+                    data-confirm="Apply {{ se.hours_awarded }} hrs to checked members? This cannot be undone."
                     class="flex-1 px-4 py-2 text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed">
                 Finalize &amp; Apply Hours
             </button>

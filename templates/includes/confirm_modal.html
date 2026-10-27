@@ -11,11 +11,11 @@ Usage in templates:
     form_action='/delete/123/'
 %}
 
-Then trigger with JavaScript:
-<button onclick="ParliamentModal.open('deleteModal')">Delete</button>
-
-Or for inline delete buttons with dynamic URLs:
-<button onclick="confirmAction('deleteModal', '/delete/{{ item.id }}/')">Delete</button>
+Then trigger it from a nonce'd script (NOT an onclick= attribute: prod CSP
+blocks inline handlers, see static/js/base/data-actions.js):
+  btn.addEventListener('click', function () { ParliamentModal.open('deleteModal'); });
+or, for a dynamic URL:
+  btn.addEventListener('click', function () { confirmAction('deleteModal', btn.dataset.url); });
 {% endcomment %}
 
 <div id="{{ modal_id|default:'confirmModal' }}"

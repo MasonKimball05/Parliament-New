@@ -139,7 +139,7 @@
                                     {% endif %}
                                 </a>
                                 {% if unread_chat_count %}
-                                <button id="chat-dismiss-btn" onclick="dismissChatUnread(event)" title="Mark all read" aria-label="Mark all chats read" class="ml-0.5 text-primary-200 hover:text-white text-base leading-none focus:outline-none">×</button>
+                                <button type="button" id="chat-dismiss-btn" data-chat-dismiss title="Mark all read" aria-label="Mark all chats read" class="ml-0.5 text-primary-200 hover:text-white text-base leading-none focus:outline-none">×</button>
                                 {% endif %}
                             </span>
                             {% endif %}
@@ -352,7 +352,7 @@
                         💬 Chats{% if unread_chat_count %} <span id="chat-unread-badge-mobile" class="chat-unread-mobile inline-flex items-center justify-center ml-1 px-1.5 py-0.5 text-xs font-bold bg-red-500 rounded-full">{{ unread_chat_count }}</span>{% endif %}
                     </a>
                     {% if unread_chat_count %}
-                    <button onclick="dismissChatUnread(event)" title="Mark all read" aria-label="Mark all chats read" class="px-2 py-2 text-primary-200 hover:text-white text-base leading-none focus:outline-none">×</button>
+                    <button type="button" data-chat-dismiss title="Mark all read" aria-label="Mark all chats read" class="px-2 py-2 text-primary-200 hover:text-white text-base leading-none focus:outline-none">×</button>
                     {% endif %}
                 </span>
                 {% endif %}
@@ -932,6 +932,8 @@
 
     <!-- Modal Accessibility Utility -->
     <script src="{% static_v 'js/base/modal-a11y.js' %}"></script>
+    <!-- data-confirm / data-autosubmit / data-href ... (inline handlers are blocked by CSP) -->
+    <script src="{% static_v 'js/base/data-actions.js' %}"></script>
 
     {% block extra_js %}{% endblock %}
 
@@ -949,6 +951,10 @@
             });
         });
     }
+    // Not onclick=: prod CSP blocks inline handlers (static/js/base/data-actions.js).
+    document.querySelectorAll('[data-chat-dismiss]').forEach(function(btn) {
+        btn.addEventListener('click', dismissChatUnread);
+    });
     </script>
     {% endif %}
 

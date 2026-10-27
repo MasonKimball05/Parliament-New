@@ -3,7 +3,7 @@
 <div id="profile-progress-bar" class="bg-white dark:bg-gray-800 rounded-xl shadow-sm ring-1 ring-gray-200 dark:ring-gray-700 p-4 mb-4">
     <div class="flex items-center justify-between mb-2">
         <p class="text-sm font-semibold text-gray-800 dark:text-gray-200">Profile Setup</p>
-        <button onclick="document.getElementById('profile-progress-bar').style.display='none'" class="text-xs text-gray-400 hover:text-gray-600 transition">Hide</button>
+        <button type="button" data-hide="#profile-progress-bar" class="text-xs text-gray-400 hover:text-gray-600 transition px-2 py-1.5 -my-1.5 -mr-2">Hide</button>
     </div>
     <div class="space-y-1">
         {% include "components/_progress_item.html" with item_key="email" done=has_email label="Email address" hint="Add it in Account Settings" skippable=False skipped=skipped %}
@@ -59,6 +59,10 @@ function skipProfileItem(itemKey) {
         }
     });
 }
+// Not onclick=: prod CSP blocks inline handlers (static/js/base/data-actions.js).
+document.querySelectorAll('#profile-progress-bar [data-skip-item]').forEach(function(btn) {
+    btn.addEventListener('click', function() { skipProfileItem(btn.dataset.skipItem); });
+});
 </script>
 {% endwith %}
 {% endif %}
