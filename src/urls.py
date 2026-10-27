@@ -153,6 +153,10 @@ from src.view.changelog import changelog, changelog_detail, roadmap
 from src.view import admin_v2_member as admin_v2_member_views
 from src.view import admin_v2_mobile as admin_v2_mobile_views
 from src.view import admin_v2_ops as admin_v2_ops_views
+from src.view import admin_v2_bulk as admin_v2_bulk_views
+from src.view import admin_v2_activity as admin_v2_activity_views
+from src.view import admin_v2_exports as admin_v2_exports_views
+from src.view import admin_v2_trends as admin_v2_trends_views
 from src.view.admin_v2 import (
     admin_v2_login, admin_v2_dashboard, toggle_feature_flag,
     toggle_page, admin_v2_logout, manage_legislation, delete_legislation,
@@ -1146,7 +1150,16 @@ urlpatterns = [
     path('admin-v2/mobile/', admin_v2_mobile_views.admin_v2_mobile, name='admin_v2_mobile'),
     path('admin-v2/mobile/test-push/', admin_v2_mobile_views.admin_v2_mobile_push, name='admin_v2_mobile_push'),
     path('admin-v2/backups/', admin_v2_ops_views.admin_v2_backups, name='admin_v2_backups'),
+    path('admin-v2/trends/', admin_v2_trends_views.admin_v2_trends, name='admin_v2_trends'),
+    path('admin-v2/exports/', admin_v2_exports_views.admin_v2_exports, name='admin_v2_exports'),
+    path('admin-v2/exports/members.csv', admin_v2_exports_views.admin_v2_export_members, name='admin_v2_export_members'),
+    path('admin-v2/exports/attendance.csv', admin_v2_exports_views.admin_v2_export_attendance, name='admin_v2_export_attendance'),
+    path('admin-v2/exports/service-hours.csv', admin_v2_exports_views.admin_v2_export_service,
+         name='admin_v2_export_service'),
+    path('admin-v2/admin-activity/', admin_v2_activity_views.admin_v2_admin_activity, name='admin_v2_admin_activity'),
     path('admin-v2/maintenance/', admin_v2_ops_views.admin_v2_maintenance, name='admin_v2_maintenance'),
+    # before members/<user_id>/, which would match 'bulk'
+    path('admin-v2/members/bulk/', admin_v2_bulk_views.admin_v2_bulk_members, name='admin_v2_bulk_members'),
     path('admin-v2/members/<str:user_id>/', admin_v2_member_views.admin_v2_member, name='admin_v2_member'),
     path('admin-v2/members/<str:user_id>/sign-out/', admin_v2_member_views.admin_v2_member_sign_out,
          name='admin_v2_member_sign_out'),

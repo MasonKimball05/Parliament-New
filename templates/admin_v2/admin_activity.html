@@ -1,0 +1,53 @@
+{% extends "admin_v2/base.html" %}
+
+{% block title %}Admin activity - Admin{% endblock %}
+
+{% block admin_content %}
+<div class="px-4 sm:px-6 py-6 max-w-5xl">
+    <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Admin activity</h1>
+    <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">What admins changed: roles, profiles, switches, sign-outs, deletions. Routine sign-ins and votes are left out; the <a href="{% url 'admin_v2_audit_log' %}" class="text-primary-600 dark:text-primary-400 hover:underline">audit log</a> has everything.</p>
+
+    <form method="get" class="mt-5 bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
+        <label>
+            <span class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Admin</span>
+            <select name="actor" data-autosubmit class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 text-sm">
+                <option value="">Anyone</option>
+                {% for a in actors %}<option value="{{ a.user_id }}" {% if a.user_id == actor %}selected{% endif %}>{{ a.get_display_name }}</option>{% endfor %}
+            </select>
+        </label>
+        <label>
+            <span class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Action</span>
+            <select name="action" data-autosubmit class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 text-sm">
+                <option value="">Any</option>
+                {% for a in actions %}<option value="{{ a }}" {% if a == action %}selected{% endif %}>{{ a|cut:"_"|title }}</option>{% endfor %}
+            </select>
+        </label>
+        <label>
+            <span class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Search</span>
+            <input type="search" name="q" value="{{ q }}" placeholder="Member or text" class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 text-sm">
+        </label>
+    </form>
+
+    <ul class="mt-5 bg-white dark:bg-gray-800 rounded-xl shadow-sm divide-y divide-gray-100 dark:divide-gray-700">
+        {% for log in page %}
+        <li class="px-4 py-3 text-sm">
+            <p class="text-gray-900 dark:text-gray-100 break-words">{{ log.description }}</p>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                {{ log.timestamp|date:"M j, Y g:i A" }} · {{ log.user.get_display_name }} · {{ log.get_action_type_display }}
+                {% if log.object_type == 'ParliamentUser' and log.object_id %} · <a href="{% url 'admin_v2_member' log.object_id %}" class="text-primary-600 dark:text-primary-400 hover:underline">{{ log.object_repr|default:"member" }}</a>{% endif %}
+            </p>
+        </li>
+        {% empty %}
+        <li class="px-4 py-8 text-sm text-center text-gray-500 dark:text-gray-400">Nothing yet.</li>
+        {% endfor %}
+    </ul>
+
+    {% if page.has_other_pages %}
+    <nav class="mt-4 flex items-center justify-between text-sm" aria-label="Pages">
+        {% if page.has_previous %}<a class="btn-secondary btn-sm" href="?actor={{ actor }}&amp;action={{ action }}&amp;q={{ q|urlencode }}&amp;page={{ page.previous_page_number }}">Newer</a>{% else %}<span></span>{% endif %}
+        <span class="text-gray-500 dark:text-gray-400">Page {{ page.number }} of {{ page.paginator.num_pages }}</span>
+        {% if page.has_next %}<a class="btn-secondary btn-sm" href="?actor={{ actor }}&amp;action={{ action }}&amp;q={{ q|urlencode }}&amp;page={{ page.next_page_number }}">Older</a>{% else %}<span></span>{% endif %}
+    </nav>
+    {% endif %}
+</div>
+{% endblock %}

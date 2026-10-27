@@ -18,11 +18,12 @@ from django.shortcuts import render
 from django.utils import timezone
 
 from src.models import SecurityNotificationLog, SystemLockdown
-from src.models_feature_flags import FeatureFlag, PageToggle
+from src.models_feature_flags import FeatureFlag, PageToggle, SiteSetting
 from src.view.admin_v2 import require_admin_v2_auth
 
 STALE_AFTER = timedelta(hours=48)  # same limit as verify_backup --max-age-hours
 LIST_LIMIT = 15
+LEGACY_SETTINGS = ('chat_active_poll_interval', 'chat_inactive_poll_interval')
 
 
 def backup_files(directory):
@@ -76,6 +77,9 @@ def admin_v2_backups(request):
 
 @require_admin_v2_auth
 def admin_v2_maintenance(request):
+    from src.view.admin_v2 import seed_dashboard_defaults
+
+    seed_dashboard_defaults()  # same rows the dashboard used to create on first load
     flags = list(FeatureFlag.objects.order_by('category', 'display_name'))
     context = {
         'maintenance': next((f for f in flags if f.name == 'maintenance_mode'), None),
@@ -83,5 +87,7 @@ def admin_v2_maintenance(request):
         'lockdown': SystemLockdown.get_instance(),
         'flags': [f for f in flags if f.name != 'maintenance_mode'],
         'pages': list(PageToggle.objects.order_by('display_name')),
+        # Legacy chat polling keys (removed in v3.0.0) may still be in the table.
+        'settings': list(SiteSetting.objects.exclude(key__in=LEGACY_SETTINGS).order_by('category', 'display_name')),
     }
     return render(request, 'admin_v2/maintenance.html', context)

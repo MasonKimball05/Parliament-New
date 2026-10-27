@@ -46,6 +46,7 @@ from src.models.users import member_defer
 from src.kai_audit import exclude_kai_logs, redact_kai_logs
 from src.next_url import safe_referer
 from src.admin_v2_attention import attention_items
+from src.admin_v2_jobs import task_status
 
 
 _raw_allowed_ids = os.environ.get('ADMIN_V2_USER_IDS', os.environ.get('ADMIN_V2_USER_ID', ''))
@@ -421,6 +422,124 @@ def _seed_site_settings(defaults):
         for setting in missing:
             SiteSetting.invalidate_cache(setting.key)
 
+# v3.58.1: module level so the Maintenance page can seed the same rows
+# (src/view/admin_v2_ops.py). Was inline in admin_v2_dashboard.
+PUSH_FLAG_DEFAULTS = [
+    {
+        'name': 'push_notifications_enabled',
+        'display_name': 'Push Notifications (Master)',
+        'description': 'Master switch — disabling this stops all push notifications regardless of per-type settings.',
+        'category': 'communications',
+        'is_enabled': True,
+    },
+    {
+        'name': 'push_announcements',
+        'display_name': 'Push: Announcements',
+        'description': 'Send push notifications when a new announcement is posted.',
+        'category': 'communications',
+        'is_enabled': True,
+    },
+    {
+        'name': 'push_legislation',
+        'display_name': 'Push: Legislation / Votes',
+        'description': 'Send push notifications for new legislation and vote open/close events.',
+        'category': 'communications',
+        'is_enabled': True,
+    },
+    {
+        'name': 'push_events',
+        'display_name': 'Push: Events',
+        'description': 'Send push notifications for event reminders.',
+        'category': 'communications',
+        'is_enabled': True,
+    },
+    {
+        'name': 'push_slating',
+        'display_name': 'Push: Slating',
+        'description': 'Send push notifications for slating stage transitions.',
+        'category': 'communications',
+        'is_enabled': True,
+    },
+]
+
+
+CHAT_SETTINGS_DEFAULTS = [
+    {
+        'key': 'chat_active_users_poll_interval',
+        'display_name': 'Active Users Poll Interval',
+        'description': 'How often (in milliseconds) to refresh the active users list. Messages are real-time via WebSocket.',
+        'category': 'chat',
+        'setting_type': 'integer',
+        'default_value': '5000',
+    },
+]
+
+
+EVENT_REMINDER_DEFAULTS = [
+    {
+        'key': 'event_reminders_enabled',
+        'display_name': 'Event Reminder Notifications',
+        'description': 'Master switch for event push reminder notifications. When off, no reminders are sent regardless of per-event settings.',
+        'category': 'notifications',
+        'setting_type': 'boolean',
+        'default_value': 'true',
+    },
+    {
+        'key': 'event_reminder_default_hours',
+        'display_name': 'Default Reminder Lead Time (hours)',
+        'description': 'Default number of hours before an event to send the push reminder. Officers can override this per event.',
+        'category': 'notifications',
+        'setting_type': 'integer',
+        'default_value': '24',
+    },
+]
+
+
+
+def seed_dashboard_defaults():
+    """Create any missing push flags and dashboard site settings (one SELECT each when nothing is missing)."""
+    #
+    # v3.17.3: was `get_or_create` per flag — five uncached SELECTs (plus an
+    # INSERT each on first load) on every load of this dashboard. Worth being
+    # precise about why v3.17.1's flag caching did not help: that cached
+    # `FeatureFlag.is_feature_enabled`, and this code never calls it. It goes
+    # to the manager directly, so it bypassed the cache entirely — which is a
+    # reminder that "we cached the flag lookup" is only true of the lookup that
+    # was cached.
+    #
+    # One SELECT for the names that already exist, one bulk INSERT for the rest,
+    # and nothing at all in the common case where they are all present.
+    # `ignore_conflicts` covers the race with a concurrent officer, which is
+    # what get_or_create's own IntegrityError branch was doing.
+    _existing_push = set(
+        FeatureFlag.objects
+        .filter(name__in=[f['name'] for f in PUSH_FLAG_DEFAULTS])
+        .values_list('name', flat=True)
+    )
+    _missing_push = [
+        FeatureFlag(
+            name=flag_data['name'],
+            display_name=flag_data['display_name'],
+            description=flag_data['description'],
+            category=flag_data['category'],
+            is_enabled=flag_data['is_enabled'],
+        )
+        for flag_data in PUSH_FLAG_DEFAULTS
+        if flag_data['name'] not in _existing_push
+    ]
+    if _missing_push:
+        FeatureFlag.objects.bulk_create(_missing_push, ignore_conflicts=True)
+        # bulk_create does not send post_save, so the cache invalidation
+        # receivers in models_feature_flags.py never fire. Invalidate by hand —
+        # these names were just answered from the fail-open default and are
+        # cached as such.
+        for flag in _missing_push:
+            FeatureFlag.invalidate_cache(flag.name)
+        cache.delete('context_feature_flags')
+    # Both groups seeded together: one SELECT + one bulk INSERT for the lot.
+    _seed_site_settings(CHAT_SETTINGS_DEFAULTS + EVENT_REMINDER_DEFAULTS)
+
+
 @require_admin_v2_auth
 def admin_v2_dashboard(request):
     """
@@ -597,83 +716,8 @@ def admin_v2_dashboard(request):
         },
     }
 
-    push_flag_defaults = [
-        {
-            'name': 'push_notifications_enabled',
-            'display_name': 'Push Notifications (Master)',
-            'description': 'Master switch — disabling this stops all push notifications regardless of per-type settings.',
-            'category': 'communications',
-            'is_enabled': True,
-        },
-        {
-            'name': 'push_announcements',
-            'display_name': 'Push: Announcements',
-            'description': 'Send push notifications when a new announcement is posted.',
-            'category': 'communications',
-            'is_enabled': True,
-        },
-        {
-            'name': 'push_legislation',
-            'display_name': 'Push: Legislation / Votes',
-            'description': 'Send push notifications for new legislation and vote open/close events.',
-            'category': 'communications',
-            'is_enabled': True,
-        },
-        {
-            'name': 'push_events',
-            'display_name': 'Push: Events',
-            'description': 'Send push notifications for event reminders.',
-            'category': 'communications',
-            'is_enabled': True,
-        },
-        {
-            'name': 'push_slating',
-            'display_name': 'Push: Slating',
-            'description': 'Send push notifications for slating stage transitions.',
-            'category': 'communications',
-            'is_enabled': True,
-        },
-    ]
-
-    # Seed any missing push flags.
-    #
-    # v3.17.3: was `get_or_create` per flag — five uncached SELECTs (plus an
-    # INSERT each on first load) on every load of this dashboard. Worth being
-    # precise about why v3.17.1's flag caching did not help: that cached
-    # `FeatureFlag.is_feature_enabled`, and this code never calls it. It goes
-    # to the manager directly, so it bypassed the cache entirely — which is a
-    # reminder that "we cached the flag lookup" is only true of the lookup that
-    # was cached.
-    #
-    # One SELECT for the names that already exist, one bulk INSERT for the rest,
-    # and nothing at all in the common case where they are all present.
-    # `ignore_conflicts` covers the race with a concurrent officer, which is
-    # what get_or_create's own IntegrityError branch was doing.
-    _existing_push = set(
-        FeatureFlag.objects
-        .filter(name__in=[f['name'] for f in push_flag_defaults])
-        .values_list('name', flat=True)
-    )
-    _missing_push = [
-        FeatureFlag(
-            name=flag_data['name'],
-            display_name=flag_data['display_name'],
-            description=flag_data['description'],
-            category=flag_data['category'],
-            is_enabled=flag_data['is_enabled'],
-        )
-        for flag_data in push_flag_defaults
-        if flag_data['name'] not in _existing_push
-    ]
-    if _missing_push:
-        FeatureFlag.objects.bulk_create(_missing_push, ignore_conflicts=True)
-        # bulk_create does not send post_save, so the cache invalidation
-        # receivers in models_feature_flags.py never fire. Invalidate by hand —
-        # these names were just answered from the fail-open default and are
-        # cached as such.
-        for flag in _missing_push:
-            FeatureFlag.invalidate_cache(flag.name)
-        cache.delete('context_feature_flags')
+    # Push flags and site settings (v3.58.1: shared with the Maintenance page).
+    seed_dashboard_defaults()
 
     # Get feature flags grouped by category — one query instead of two per category.
     # v3.17.3: materialised once and reused for the push-notification card
@@ -687,52 +731,18 @@ def admin_v2_dashboard(request):
     # Get page toggles
     page_toggles = PageToggle.objects.all().order_by('display_name')
 
-    # Ensure chat settings exist
     # Note: chat_active_poll_interval and chat_inactive_poll_interval were removed in v3.0.0
     # — messages are now pushed via WebSocket (Django Channels), not polled.
-    chat_settings_defaults = [
-        {
-            'key': 'chat_active_users_poll_interval',
-            'display_name': 'Active Users Poll Interval',
-            'description': 'How often (in milliseconds) to refresh the active users list. Messages are real-time via WebSocket.',
-            'category': 'chat',
-            'setting_type': 'integer',
-            'default_value': '5000',
-        },
-    ]
-
     # Get chat settings (excludes legacy polling keys if they still exist in DB)
     chat_settings = SiteSetting.objects.filter(
         category='chat',
         key='chat_active_users_poll_interval',
     )
 
-    # Ensure event reminder settings exist
-    event_reminder_defaults = [
-        {
-            'key': 'event_reminders_enabled',
-            'display_name': 'Event Reminder Notifications',
-            'description': 'Master switch for event push reminder notifications. When off, no reminders are sent regardless of per-event settings.',
-            'category': 'notifications',
-            'setting_type': 'boolean',
-            'default_value': 'true',
-        },
-        {
-            'key': 'event_reminder_default_hours',
-            'display_name': 'Default Reminder Lead Time (hours)',
-            'description': 'Default number of hours before an event to send the push reminder. Officers can override this per event.',
-            'category': 'notifications',
-            'setting_type': 'integer',
-            'default_value': '24',
-        },
-    ]
-    # Both groups seeded together: one SELECT + one bulk INSERT for the lot.
-    _seed_site_settings(chat_settings_defaults + event_reminder_defaults)
+    # Event reminder settings
     event_reminder_settings = SiteSetting.objects.filter(
         key__in=['event_reminders_enabled', 'event_reminder_default_hours']
     ).order_by('key')
-
-    # Seed push notification feature flags
 
     # Push notification stats
     # v3.17.3: filtered in Python from the list fetched above rather than a
@@ -941,6 +951,11 @@ def toggle_page(request, toggle_id):
     return redirect('admin_v2_dashboard')
 
 
+def _settings_return(request):
+    """Where a switch/setting form goes back to (v3.58.1: the Maintenance page sends next=maintenance)."""
+    return 'admin_v2_maintenance' if request.POST.get('next') == 'maintenance' else 'admin_v2_dashboard'
+
+
 @require_admin_v2_auth
 def update_site_setting(request, setting_id):
     """
@@ -957,7 +972,7 @@ def update_site_setting(request, setting_id):
                     int(new_value)
                 except ValueError:
                     messages.error(request, f'Invalid value for {setting.display_name}. Must be a number.')
-                    return redirect('admin_v2_dashboard')
+                    return redirect(_settings_return(request))
             elif setting.setting_type == 'boolean':
                 new_value = 'true' if new_value.lower() in ('true', '1', 'yes', 'on') else 'false'
 
@@ -977,7 +992,7 @@ def update_site_setting(request, setting_id):
         except SiteSetting.DoesNotExist:
             messages.error(request, 'Setting not found')
 
-    return redirect('admin_v2_dashboard')
+    return redirect(_settings_return(request))
 
 
 @require_admin_v2_auth
@@ -4016,21 +4031,17 @@ def celery_health(request):
         else:
             schedule_str = 'Unknown schedule'
 
-        # Staleness: interval tasks are stale if last_run_at is >2× the interval ago;
-        # crontab tasks are considered stale if not run in the last 25 hours.
-        stale = False
-        if task.enabled and task.last_run_at:
-            if task.interval:
-                period_seconds = {'days': 86400, 'hours': 3600, 'minutes': 60, 'seconds': 1}
-                interval_secs = task.interval.every * period_seconds.get(task.interval.period, 60)
-                stale = (now - task.last_run_at).total_seconds() > interval_secs * 2
-            elif task.crontab:
-                stale = (now - task.last_run_at).total_seconds() > 90000  # 25 hours
+        # v3.58.1: overdue against the task's own schedule (src/admin_v2_jobs.py).
+        # The old rule called every crontab stale after 25 hours, so weekly
+        # tasks always looked broken.
+        status, next_due = task_status(task, now)
 
         task_rows.append({
             'task': task,
             'schedule_str': schedule_str,
-            'stale': stale,
+            'stale': status in ('overdue', 'never'),
+            'status': status,
+            'next_due': next_due,
         })
 
     return render(request, 'admin_v2/celery_health.html', {

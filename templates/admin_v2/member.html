@@ -53,6 +53,35 @@
             </dl>
         </section>
 
+        <!-- Chapter -->
+        <section class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-5 lg:col-span-2">
+            <h2 class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-3">Chapter</h2>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
+                <div>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">Attendance, last 90 days</p>
+                    {% with a=chapter.attendance %}
+                    <p class="text-2xl font-bold {% if a.rate is not None and a.rate < 75 %}text-amber-600 dark:text-amber-400{% else %}text-gray-900 dark:text-gray-100{% endif %}">{% if a.rate is None %}—{% else %}{{ a.rate }}%{% endif %}</p>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">{{ a.present }} present · {{ a.late }} late · {{ a.absent }} absent · {{ a.excused }} excused</p>
+                    {% endwith %}
+                </div>
+                <div>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">Excuses waiting for review</p>
+                    <p class="text-2xl font-bold text-gray-900 dark:text-gray-100">{{ chapter.excuses_pending }}</p>
+                </div>
+                <div>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">Service hours{% if chapter.service_period %} · {{ chapter.service_period.name }}{% endif %}</p>
+                    {% if chapter.service %}
+                    <p class="text-2xl font-bold text-gray-900 dark:text-gray-100">{{ chapter.service.approved_hours|floatformat:"-1" }} <span class="text-sm font-normal text-gray-500 dark:text-gray-400">of {{ chapter.service.expected_hours|floatformat:"-1" }}</span></p>
+                    <div class="mt-1 h-1.5 rounded-full bg-gray-200 dark:bg-gray-700" aria-hidden="true"><div class="h-1.5 rounded-full bg-primary-600" style="width: {{ chapter.service.progress_percent }}%"></div></div>
+                    {% if chapter.service.pending_hours %}<p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{{ chapter.service.pending_hours|floatformat:"-1" }} pending</p>{% endif %}
+                    {% else %}
+                    <p class="text-2xl font-bold text-gray-900 dark:text-gray-100">—</p>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">No service period set up.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </section>
+
         <!-- Sign-in security -->
         <section class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-5">
             <h2 class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-3">Sign-in security</h2>

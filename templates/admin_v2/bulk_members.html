@@ -1,0 +1,107 @@
+{% extends "admin_v2/base.html" %}
+
+{% block title %}Bulk edit members - Admin{% endblock %}
+
+{% block admin_content %}
+<div class="px-4 sm:px-6 py-6 max-w-6xl">
+    <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Bulk edit members</h1>
+    <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Filter, tick members, choose a change. You'll see every change before it's saved.</p>
+
+    <!-- Filters (GET) -->
+    <form method="get" class="mt-5 bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 grid grid-cols-2 md:grid-cols-5 gap-3 text-sm">
+        <label class="col-span-2 md:col-span-1">
+            <span class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Search</span>
+            <input type="search" name="q" value="{{ filters.q }}" placeholder="Name or #" class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 text-sm">
+        </label>
+        <label>
+            <span class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Status</span>
+            <select name="status" data-autosubmit class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 text-sm">
+                <option value="">Any (not Removed)</option>
+                {% for s in statuses %}<option value="{{ s }}" {% if filters.status == s %}selected{% endif %}>{{ s }}</option>{% endfor %}
+            </select>
+        </label>
+        <label>
+            <span class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Type</span>
+            <select name="type" data-autosubmit class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 text-sm">
+                <option value="">Any</option>
+                {% for t in types %}<option value="{{ t }}" {% if filters.type == t %}selected{% endif %}>{{ t }}</option>{% endfor %}
+            </select>
+        </label>
+        <label>
+            <span class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Pledge class</span>
+            <select name="pledge_class" data-autosubmit class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 text-sm">
+                <option value="">Any</option>
+                {% for p in pledge_classes %}<option value="{{ p }}" {% if filters.pledge_class == p %}selected{% endif %}>{{ p }}</option>{% endfor %}
+            </select>
+        </label>
+        <label>
+            <span class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Role</span>
+            <select name="role" data-autosubmit class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 text-sm">
+                <option value="">Any</option>
+                {% for r in roles %}<option value="{{ r.pk }}" {% if filters.role == r.pk|stringformat:"s" %}selected{% endif %}>{{ r.name }}</option>{% endfor %}
+            </select>
+        </label>
+        <noscript><button type="submit" class="btn-secondary">Filter</button></noscript>
+    </form>
+
+    <!-- Selection + action (POST → preview) -->
+    <form method="post" class="mt-5">
+        {% csrf_token %}
+        <input type="hidden" name="step" value="preview">
+        {% for k, v in filters.items %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endfor %}
+
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 flex flex-col lg:flex-row lg:items-end gap-3 text-sm">
+            <label class="flex-1">
+                <span class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Change</span>
+                <select name="bulk_action" required class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 text-sm">
+                    <option value="">Choose…</option>
+                    {% for key, label in actions.items %}<option value="{{ key }}">{{ label }}</option>{% endfor %}
+                </select>
+            </label>
+            <label class="flex-1">
+                <span class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Status (for Set status)</span>
+                <select name="value_status" class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 text-sm">
+                    {% for s in statuses %}<option value="{{ s }}">{{ s }}</option>{% endfor %}
+                </select>
+            </label>
+            <label class="flex-1">
+                <span class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Type (for Set member type)</span>
+                <select name="value_type" class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 text-sm">
+                    {% for t in types %}<option value="{{ t }}">{{ t }}</option>{% endfor %}
+                </select>
+            </label>
+            <label class="flex-1">
+                <span class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Role (for Add/Remove role)</span>
+                <select name="value_role" class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 text-sm">
+                    {% for r in roles %}<option value="{{ r.pk }}">{{ r.name }}{% if r.one_per_chapter %} (one per chapter){% endif %}</option>{% endfor %}
+                </select>
+            </label>
+            <button type="submit" class="btn-primary">Preview</button>
+        </div>
+
+        <div class="mt-4 bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+            <div class="px-4 py-2 border-b border-gray-100 dark:border-gray-700 flex items-center gap-3 text-sm">
+                <label class="flex items-center gap-2 font-medium text-gray-700 dark:text-gray-200">
+                    <input type="checkbox" data-check-all="ids" class="rounded"> Select all {{ members|length }}
+                </label>
+                {% if members|length == limit %}<span class="text-xs text-amber-600 dark:text-amber-400">Showing the first {{ limit }}; narrow the filters.</span>{% endif %}
+            </div>
+            <ul class="divide-y divide-gray-100 dark:divide-gray-700">
+                {% for m in members %}
+                <li>
+                    <label class="flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer">
+                        <input type="checkbox" name="ids" value="{{ m.user_id }}" class="rounded">
+                        <span class="flex-1 min-w-0">
+                            <span class="font-medium text-gray-900 dark:text-gray-100">{{ m.get_display_name }}</span>
+                            <span class="text-xs text-gray-500 dark:text-gray-400">#{{ m.user_id }} · {{ m.member_type }} · {{ m.member_status }}{% if m.pledge_class %} · {{ m.pledge_class }}{% endif %}</span>
+                        </span>
+                    </label>
+                </li>
+                {% empty %}
+                <li class="px-4 py-6 text-sm text-center text-gray-500 dark:text-gray-400">No members match.</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </form>
+</div>
+{% endblock %}

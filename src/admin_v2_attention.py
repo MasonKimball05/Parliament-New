@@ -12,7 +12,18 @@ from datetime import timedelta
 from django.urls import reverse
 from django.utils import timezone
 
+from src.admin_v2_jobs import overdue_tasks
+
 logger = logging.getLogger(__name__)
+
+
+def _backup_failing():
+    """1 when the newest restore drill result is a failure (src/view/admin_v2_ops.py)."""
+    from src.models import SecurityNotificationLog
+    last = (SecurityNotificationLog.objects
+            .filter(event_type__in=('BACKUP_VERIFIED', 'BACKUP_VERIFY_FAILED'))
+            .order_by('-sent_at').values_list('event_type', flat=True).first())
+    return int(last == 'BACKUP_VERIFY_FAILED')
 
 
 def _items():
@@ -47,6 +58,8 @@ def _items():
         ('warning', 'announcement email run(s) failed in 24h',
          lambda: AnnouncementEmailLog.objects.filter(status='failed', created_at__gte=day_ago).count(),
          'admin_v2_email_logs'),
+        ('critical', 'backup restore drill failed', _backup_failing, 'admin_v2_backups'),
+        ('warning', 'scheduled job(s) overdue', lambda: len(overdue_tasks(now)), 'admin_v2_celery_health'),
         ('info', 'API token request(s) waiting',
          lambda: APIToken.objects.filter(status=APIToken.STATUS_PENDING).count(), 'admin_api_tokens'),
         ('info', 'new bug report(s)', lambda: BugReport.objects.filter(status='new').count(), 'bug_admin'),

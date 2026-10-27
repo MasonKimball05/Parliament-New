@@ -1,5 +1,6 @@
 /* static/js/admin_v2/palette.js — v3.58.1.
- * The admin-v2 ⌘K search: admin pages (src/admin_v2_nav.py) and members, from
+ * The admin-v2 ⌘K search: admin pages (src/admin_v2_nav.py), members, and
+ * events / announcements / legislation by title, from
  * GET {data-search-url}?q=. Opens on ⌘K / Ctrl+K, "/" (outside a text field)
  * or the search button in the admin bar. Results are links; Enter opens the
  * highlighted one. No inline handlers (prod CSP), no innerHTML with server
@@ -53,7 +54,8 @@
         return li;
     }
 
-    function render(pages, members) {
+    function render(pages, members, content) {
+        content = content || [];
         list.textContent = '';
         items = [];
         active = -1;
@@ -73,7 +75,15 @@
                 items.push(li);
             });
         }
-        if (!pages.length && !members.length && input.value.trim()) {
+        if (content.length) {
+            list.appendChild(heading('Content'));
+            content.forEach(function (c) {
+                var li = row(c.label, c.meta, c.url);
+                list.appendChild(li);
+                items.push(li);
+            });
+        }
+        if (!pages.length && !members.length && !content.length && input.value.trim()) {
             var empty = document.createElement('li');
             empty.className = 'px-4 py-6 text-sm text-center text-gray-500';
             empty.textContent = 'No matches';
@@ -97,7 +107,7 @@
         var mine = ++seq;
         fetch(url + '?q=' + encodeURIComponent(q), { headers: { 'Accept': 'application/json' }, credentials: 'same-origin' })
             .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
-            .then(function (data) { if (mine === seq) render(data.pages || [], data.members || []); })
+            .then(function (data) { if (mine === seq) render(data.pages || [], data.members || [], data.content || []); })
             .catch(function () { if (mine === seq) render([], []); });
     }
 

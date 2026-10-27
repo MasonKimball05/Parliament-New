@@ -5,7 +5,7 @@
 {% block admin_content %}
 <div class="px-4 sm:px-6 py-6 max-w-5xl">
     <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Maintenance &amp; switches</h1>
-    <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Take the site down for maintenance, and turn features and pages on or off.</p>
+    <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Take the site down for maintenance, turn features and pages on or off, and change site settings.</p>
 
     <div class="mt-5 grid grid-cols-1 md:grid-cols-2 gap-4">
         <section class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-5">
@@ -46,6 +46,36 @@
                             class="min-w-[4rem] px-3 py-1.5 rounded-full text-xs font-semibold {% if f.is_enabled %}bg-green-100 dark:bg-green-900/40 text-green-800 dark:text-green-300{% else %}bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300{% endif %}">{% if f.is_enabled %}On{% else %}Off{% endif %}</button>
                 </form>
             </li>
+            {% endfor %}
+        </ul>
+    </section>
+
+    <section class="mt-6 bg-white dark:bg-gray-800 rounded-xl shadow-sm p-5">
+        <h2 class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-3">Settings</h2>
+        <ul class="divide-y divide-gray-100 dark:divide-gray-700">
+            {% for st in settings %}
+            <li class="py-3">
+                <form method="post" action="{% url 'update_site_setting' st.id %}" class="flex flex-col sm:flex-row sm:items-center gap-2">
+                    {% csrf_token %}<input type="hidden" name="next" value="maintenance">
+                    <label for="setting-{{ st.id }}" class="flex-1 min-w-0">
+                        <span class="block text-sm font-medium text-gray-900 dark:text-gray-100">{{ st.display_name }}</span>
+                        <span class="block text-xs text-gray-500 dark:text-gray-400">{{ st.description }}</span>
+                    </label>
+                    {% if st.setting_type == 'boolean' %}
+                    <select id="setting-{{ st.id }}" name="value" class="rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 text-sm">
+                        <option value="true" {% if st.value == 'true' %}selected{% endif %}>On</option>
+                        <option value="false" {% if st.value != 'true' %}selected{% endif %}>Off</option>
+                    </select>
+                    {% elif st.setting_type == 'integer' %}
+                    <input id="setting-{{ st.id }}" type="number" name="value" value="{{ st.value }}" class="w-32 rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 text-sm">
+                    {% else %}
+                    <input id="setting-{{ st.id }}" type="text" name="value" value="{{ st.value }}" class="sm:w-64 rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 text-sm">
+                    {% endif %}
+                    <button type="submit" class="btn-secondary btn-sm">Save</button>
+                </form>
+            </li>
+            {% empty %}
+            <li class="py-2 text-sm text-gray-500 dark:text-gray-400">No settings.</li>
             {% endfor %}
         </ul>
     </section>

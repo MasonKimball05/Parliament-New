@@ -1,0 +1,37 @@
+{% extends "admin_v2/base.html" %}
+
+{% block title %}Confirm bulk change - Admin{% endblock %}
+
+{% block admin_content %}
+<div class="px-4 sm:px-6 py-6 max-w-4xl">
+    <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Confirm: {{ action_label }}{% if action != 'clear_roles' %} · {{ value_label }}{% endif %}</h1>
+    <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">{{ will_change }} member(s) will change. Skipped rows say why. Nothing is saved until you apply.</p>
+
+    <ul class="mt-5 bg-white dark:bg-gray-800 rounded-xl shadow-sm divide-y divide-gray-100 dark:divide-gray-700">
+        {% for row in rows %}
+        <li class="px-4 py-2.5 flex items-center gap-3 text-sm">
+            <span class="flex-1 min-w-0 font-medium {% if row.skip %}text-gray-400 dark:text-gray-500{% else %}text-gray-900 dark:text-gray-100{% endif %}">{{ row.member.get_display_name }}</span>
+            {% if row.skip %}
+            <span class="text-xs text-gray-500 dark:text-gray-400">Skipped: {{ row.skip }}</span>
+            {% else %}
+            <span class="text-xs font-medium text-primary-700 dark:text-primary-300">{{ row.change }}</span>
+            {% endif %}
+        </li>
+        {% endfor %}
+    </ul>
+
+    <div class="mt-5 flex flex-wrap gap-2">
+        {% if will_change %}
+        <form method="post" data-confirm="Apply this change to {{ will_change }} member(s)?">
+            {% csrf_token %}
+            <input type="hidden" name="step" value="apply">
+            <input type="hidden" name="bulk_action" value="{{ action }}">
+            <input type="hidden" name="value" value="{{ value }}">
+            {% for row in rows %}<input type="hidden" name="ids" value="{{ row.member.user_id }}">{% endfor %}
+            <button type="submit" class="btn-primary">Apply to {{ will_change }} member(s)</button>
+        </form>
+        {% endif %}
+        <a href="{% url 'admin_v2_bulk_members' %}?{% for k, v in filters.items %}{{ k }}={{ v|urlencode }}&amp;{% endfor %}" class="btn-secondary">Back</a>
+    </div>
+</div>
+{% endblock %}

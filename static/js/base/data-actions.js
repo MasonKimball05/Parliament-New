@@ -15,6 +15,8 @@
  *   data-select-on-click      on an input: select its contents on click.
  *   data-show="#id"           on a button: remove `hidden` from the target.
  *   data-hide="#id"           on a button: add `hidden` to the target.
+ *   data-check-all="name"     on a checkbox: tick/untick every checkbox named
+ *                             `name` in the same form.
  *
  * Page-specific functions (skipProfileItem, toggleItem, ...) are wired by the
  * page's own nonce'd script instead.
@@ -66,6 +68,12 @@
 
     document.addEventListener('change', function (e) {
         var el = e.target;
+        if (el && el.hasAttribute && el.hasAttribute('data-check-all') && el.form) {
+            var name = el.getAttribute('data-check-all');
+            Array.prototype.forEach.call(el.form.elements, function (box) {
+                if (box.type === 'checkbox' && box.name === name) box.checked = el.checked;
+            });
+        }
         if (el && el.hasAttribute && el.hasAttribute('data-autosubmit') && el.form) {
             if (typeof el.form.requestSubmit === 'function') el.form.requestSubmit();
             else el.form.submit();

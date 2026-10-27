@@ -1,0 +1,56 @@
+{% extends "admin_v2/base.html" %}
+
+{% block title %}Exports - Admin{% endblock %}
+
+{% block admin_content %}
+<div class="px-4 sm:px-6 py-6 max-w-4xl">
+    <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Exports</h1>
+    <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Spreadsheets for the chapter's records. Each download is logged.</p>
+
+    <div class="mt-5 space-y-4">
+        <form method="get" action="{% url 'admin_v2_export_members' %}" class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-5 flex flex-col sm:flex-row sm:items-end gap-3">
+            <div class="flex-1">
+                <h2 class="font-semibold text-gray-900 dark:text-gray-100">Member roster</h2>
+                <p class="text-sm text-gray-500 dark:text-gray-400">Contact details, type and status, pledge class, roles, committees, admin, 2FA, app, last seen.</p>
+            </div>
+            <select name="status" class="rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 text-sm" aria-label="Status">
+                {% for s in statuses %}<option value="{{ s }}">{{ s }}</option>{% endfor %}<option value="">Everyone (not Removed)</option>
+            </select>
+            <button type="submit" class="btn-primary">Download CSV</button>
+        </form>
+
+        <form method="get" action="{% url 'admin_v2_export_attendance' %}" class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-5 flex flex-col sm:flex-row sm:items-end gap-3">
+            <div class="flex-1">
+                <h2 class="font-semibold text-gray-900 dark:text-gray-100">Attendance by member</h2>
+                <p class="text-sm text-gray-500 dark:text-gray-400">Required events in the period: present, late, absent, excused and rate.</p>
+            </div>
+            <select name="days" class="rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 text-sm" aria-label="Period">
+                <option value="30">Last 30 days</option><option value="90" selected>Last 90 days</option><option value="180">Last 6 months</option><option value="365">Last year</option>
+            </select>
+            <button type="submit" class="btn-primary">Download CSV</button>
+        </form>
+
+        <form method="get" action="{% url 'admin_v2_export_service' %}" class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-5 flex flex-col sm:flex-row sm:items-end gap-3">
+            <div class="flex-1">
+                <h2 class="font-semibold text-gray-900 dark:text-gray-100">Service hours by member</h2>
+                <p class="text-sm text-gray-500 dark:text-gray-400">Expected, approved, pending and remaining hours for a period.</p>
+            </div>
+            <select name="period" class="rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 text-sm" aria-label="Service period">
+                {% for p in periods %}<option value="{{ p.pk }}">{{ p.name }}</option>{% empty %}<option value="">No periods yet</option>{% endfor %}
+            </select>
+            <button type="submit" class="btn-primary">Download CSV</button>
+        </form>
+
+        <section class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-5">
+            <h2 class="font-semibold text-gray-900 dark:text-gray-100">Other exports</h2>
+            <ul class="mt-2 text-sm divide-y divide-gray-100 dark:divide-gray-700">
+                <li class="py-2"><a href="{% url 'export_directory' %}" class="text-primary-600 dark:text-primary-400 hover:underline">Member directory</a> <span class="text-gray-500 dark:text-gray-400">· what members see in the directory</span></li>
+                <li class="py-2"><a href="{% url 'export_user_list' %}" class="text-primary-600 dark:text-primary-400 hover:underline">Officer user list</a> <span class="text-gray-500 dark:text-gray-400">· the officers' member list</span></li>
+                <li class="py-2"><a href="{% url 'export_activity_logs' %}" class="text-primary-600 dark:text-primary-400 hover:underline">Activity logs</a> <span class="text-gray-500 dark:text-gray-400">· everything in the activity log</span></li>
+                <li class="py-2"><a href="{% url 'export_service_csv' %}" class="text-primary-600 dark:text-primary-400 hover:underline">Service hour submissions</a> <span class="text-gray-500 dark:text-gray-400">· every submission, one row each</span></li>
+                <li class="py-2"><a href="{% url 'export_calendar_ical' %}" class="text-primary-600 dark:text-primary-400 hover:underline">Calendar (.ics)</a> <span class="text-gray-500 dark:text-gray-400">· for Google or Apple Calendar</span></li>
+            </ul>
+        </section>
+    </div>
+</div>
+{% endblock %}

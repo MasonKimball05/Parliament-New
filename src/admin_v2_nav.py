@@ -15,11 +15,14 @@ from django.urls import NoReverseMatch, reverse
 NAV = [
     ('Overview', [
         ('Dashboard', 'admin_v2_dashboard', (), 'home overview stats attention'),
+        ('Trends', 'admin_v2_trends', (), 'charts graphs weekly sign ins app adoption failed logins'),
+        ('Admin activity', 'admin_v2_admin_activity', (), 'who changed what admins did changes history'),
     ]),
     ('People', [
         ('Members', 'admin_v2_manage_users', ('admin_v2_member', 'admin_v2_edit_user_profile',
                                               'admin_v2_user_login_security'),
          'users brothers profiles admin access'),
+        ('Bulk edit', 'admin_v2_bulk_members', (), 'bulk alumni year end transition status roles many'),
         ('Two-factor', 'admin_v2_two_factor', ('admin_v2_two_factor_update_policy',),
          '2fa totp otp policy'),
         ('Login history', 'admin_v2_login_history', (), 'sign in logins audit'),
@@ -45,7 +48,7 @@ NAV = [
     ('Security', [
         ('Security overview', 'admin_v2_security', (), 'security dashboard'),
         ('Alerts', 'admin_v2_security_alerts', (), 'security alerts warnings'),
-        ('Audit log', 'admin_v2_audit_log', (), 'audit trail changes who did what'),
+        ('Audit log', 'admin_v2_audit_log', (), 'audit trail everything'),
         ('Quarantine', 'admin_v2_quarantine', (), 'quarantined users'),
         ('Lockdown', 'admin_v2_lockdown', (), 'lockdown mode emergency'),
         ('IP allow list', 'admin_v2_ip_whitelist', (), 'whitelist ip'),
@@ -55,11 +58,12 @@ NAV = [
         ('Security emails', 'admin_v2_security_notifications', (), 'security notification log'),
     ]),
     ('System', [
+        ('Exports', 'admin_v2_exports', (), 'csv download spreadsheet roster attendance service hours'),
         ('Backups', 'admin_v2_backups', (), 'database backup restore verify'),
         ('System logs', 'view_logs', (), 'logs errors server log files'),
         ('Bug reports', 'bug_admin', ('bug_admin_update',), 'bugs bug tracker triage'),
         ('Maintenance', 'admin_v2_maintenance', (), 'maintenance mode feature flags pages settings'),
-        ('Celery', 'admin_v2_celery_health', (), 'workers queue tasks beat'),
+        ('Scheduled jobs', 'admin_v2_celery_health', (), 'celery workers queue tasks beat cron timers overdue'),
         ('Page visits', 'admin_v2_page_visits', (), 'analytics traffic'),
         ('API tokens', 'admin_api_tokens', ('admin_api_token_logs',), 'rest api keys'),
         ('Static assets', 'site_monitor_static_assets', (), 'css js fingerprints cache'),

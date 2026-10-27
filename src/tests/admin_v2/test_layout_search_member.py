@@ -227,3 +227,40 @@ class OpsTests(AdminV2TestCase):
         self.assertRedirects(r, reverse('admin_v2_maintenance'), fetch_redirect_response=False)
         flag.refresh_from_db()
         self.assertTrue(flag.is_enabled)
+
+
+class MemberChapterSummaryTests(AdminV2TestCase):
+
+    def test_attendance_rate_and_excuses(self):
+        from src.models import Attendance, AttendanceExcuse, Event
+        dana = make_user('av2-dana', name='Dana Doe')
+        events = [Event.objects.create(title=f'Meeting {i}', date_time=timezone.now() - timedelta(days=i + 1),
+                                       created_by=self.admin, requires_attendance=True) for i in range(4)]
+        for event, status in zip(events, ('present', 'late', 'absent', 'excused')):
+            Attendance.objects.create(event=event, user=dana, status=status, attendance_type='event')
+        # Older than 90 days: not counted.
+        old = Event.objects.create(title='Old', date_time=timezone.now() - timedelta(days=120),
+                                   created_by=self.admin, requires_attendance=True)
+        Attendance.objects.create(event=old, user=dana, status='absent', attendance_type='event')
+        AttendanceExcuse.objects.create(event=events[0], user=dana, reason='sick', status='pending')
+
+        r = self.client.get(reverse('admin_v2_member', args=['av2-dana']))
+        chapter = r.context['chapter']
+        self.assertEqual(chapter['attendance']['total'], 4)
+        self.assertEqual(chapter['attendance']['rate'], 50)
+        self.assertEqual(chapter['excuses_pending'], 1)
+        self.assertContains(r, '50%')
+
+
+class ContentSearchTests(AdminV2TestCase):
+
+    def test_events_announcements_legislation_by_title(self):
+        from src.models import Announcement, Event, Legislation
+        Event.objects.create(title='Founders Day Dinner', date_time=timezone.now(), created_by=self.admin)
+        Announcement.objects.create(title='Founders Day reminder', content='x', posted_by=self.admin)
+        Legislation.objects.create(title='Founders Day budget', description='x', posted_by=self.admin,
+                                   available_at=timezone.now())
+        data = self.client.get(reverse('admin_v2_search'), {'q': 'founders'}).json()
+        kinds = sorted(c['meta'].split(' · ')[0] for c in data['content'])
+        self.assertEqual(kinds, ['Announcement', 'Event', 'Legislation'])
+        self.assertEqual(self.client.get(reverse('admin_v2_search'), {'q': 'f'}).json()['content'], [])

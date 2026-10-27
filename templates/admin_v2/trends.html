@@ -1,0 +1,40 @@
+{% extends "admin_v2/base.html" %}
+{% load static static_version %}
+
+{% block title %}Trends - Admin{% endblock %}
+
+{% block admin_content %}
+<div class="px-4 sm:px-6 py-6 max-w-6xl">
+    <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Trends</h1>
+    <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Week by week, the last 12 weeks (weeks start Monday).</p>
+
+    <div class="mt-5 grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {% for s in data.series %}
+        <figure class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4">
+            <figcaption>
+                <p class="text-sm font-semibold text-gray-900 dark:text-gray-100">{{ s.title }}</p>
+                <p class="text-xs text-gray-500 dark:text-gray-400">This week: <span class="font-semibold text-gray-700 dark:text-gray-200">{{ s.latest }}</span> · 12 weeks: {{ s.total }}</p>
+            </figcaption>
+            <div class="relative h-48 mt-3">
+                <canvas data-trend="{{ s.id }}" role="img" aria-label="{{ s.title }}, weekly, last 12 weeks"></canvas>
+            </div>
+        </figure>
+        {% endfor %}
+    </div>
+
+    <details class="mt-5 bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 text-sm">
+        <summary class="cursor-pointer font-medium text-gray-700 dark:text-gray-200">Show the numbers</summary>
+        <div class="mt-3 overflow-x-auto">
+            <table class="min-w-full text-left">
+                <thead><tr class="text-xs text-gray-500 dark:text-gray-400"><th class="py-1 pr-4 font-medium">Week of</th>{% for s in data.series %}<th class="py-1 pr-4 font-medium">{{ s.title }}</th>{% endfor %}</tr></thead>
+                <tbody class="divide-y divide-gray-100 dark:divide-gray-700 text-gray-800 dark:text-gray-200">
+                    {% for row in rows %}<tr>{% for cell in row %}<td class="py-1 pr-4">{{ cell }}</td>{% endfor %}</tr>{% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </details>
+</div>
+{{ data|json_script:"trend-data" }}
+<script src="{% static 'vendor/chart.min.js' %}"></script>
+<script src="{% static_v 'js/admin_v2/trends.js' %}"></script>
+{% endblock %}

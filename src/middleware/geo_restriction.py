@@ -63,6 +63,9 @@ RESTRICTED_EXPORT_VIEWS = frozenset({
     'event_signup_export',            # v3.17.5 — see above
     'bulk_actions_kai_reports',       # v3.17.7 — POST-only, export_csv branch
     'admin_v2_clear_honeypot_logs',   # Bulk delete — too destructive from abroad
+    'admin_v2_export_members',        # v3.58.1 admin-v2 exports (src/view/admin_v2_exports.py)
+    'admin_v2_export_attendance',
+    'admin_v2_export_service',
 })
 
 #: Retained as belt-and-braces for anything that does not resolve to a named

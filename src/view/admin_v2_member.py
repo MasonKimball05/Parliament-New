@@ -61,7 +61,33 @@ def admin_v2_search(request):
         'meta': _member_meta(u),
         'url': reverse('admin_v2_member', args=[u.user_id]),
     } for u in users]
-    return JsonResponse({'pages': search_pages(q), 'members': members})
+    return JsonResponse({'pages': search_pages(q), 'members': members, 'content': search_content(term)})
+
+
+CONTENT_RESULTS = 6
+
+
+def search_content(term):
+    """Events, announcements and chapter legislation by title (titles only, newest first)."""
+    from src.models import Announcement, Event, Legislation
+
+    if len(term) < 2:
+        return []
+    hits = []
+    for e in Event.objects.filter(title__icontains=term).only('pk', 'title', 'date_time').order_by('-date_time')[:4]:
+        hits.append({'kind': 'Event', 'label': e.title, 'meta': f'Event · {e.date_time:%b %-d, %Y}',
+                     'url': reverse('edit_event', args=[e.pk]), 'when': e.date_time})
+    for a in (Announcement.objects.filter(title__icontains=term).only('pk', 'title', 'posted_at')
+              .order_by('-posted_at')[:4]):
+        hits.append({'kind': 'Announcement', 'label': a.title, 'meta': f'Announcement · {a.posted_at:%b %-d, %Y}',
+                     'url': reverse('edit_announcement', args=[a.pk]), 'when': a.posted_at})
+    for leg in (Legislation.objects.filter(title__icontains=term).only('pk', 'title', 'status', 'available_at')
+                .order_by('-available_at')[:4]):
+        hits.append({'kind': 'Legislation', 'label': leg.title,
+                     'meta': f'Legislation · {leg.get_status_display()}',
+                     'url': reverse('legislation_detail', args=[leg.pk]), 'when': leg.available_at})
+    hits.sort(key=lambda h: h['when'] or timezone.now(), reverse=True)
+    return [{k: h[k] for k in ('label', 'meta', 'url')} for h in hits[:CONTENT_RESULTS]]
 
 
 @require_admin_v2_auth
@@ -102,8 +128,40 @@ def admin_v2_member(request, user_id):
         'lockouts': lockouts,
         'watch': watch,
         'activity': activity,
+        'chapter': chapter_summary(member),
     }
     return render(request, 'admin_v2/member.html', context)
+
+
+def chapter_summary(member):
+    """
+    Attendance (last 90 days, the same rate as My attendance), excuses waiting
+    for review, and service hours for the current period (the same numbers as
+    the member's Service hours page). No vote participation: some votes are
+    anonymous, and who voted is not admin-page material.
+    """
+    from src.models import Attendance, AttendanceExcuse, ServicePeriod
+    from src.view.service_user_dashboard import get_user_service_stats
+
+    now = timezone.now()
+    records = list(Attendance.objects.filter(
+        user=member, attendance_type='event', event__requires_attendance=True, event__is_active=True,
+        event__date_time__lt=now, event__date_time__gte=now - timedelta(days=90),
+    ).values_list('status', flat=True))
+    total = len(records)
+    counts = {s: records.count(s) for s in ('present', 'late', 'absent', 'excused')}
+    attendance = {
+        'total': total, **counts,
+        'rate': round((counts['present'] + counts['late']) / total * 100) if total else None,
+    }
+    excuses_pending = AttendanceExcuse.objects.filter(user=member, status='pending').count()
+
+    today = timezone.localdate()
+    periods = ServicePeriod.objects.filter(is_active=True).order_by('-start_date')
+    period = periods.filter(start_date__lte=today, end_date__gte=today).first() or periods.first()
+    service = get_user_service_stats(member, period) if period else None
+    return {'attendance': attendance, 'excuses_pending': excuses_pending,
+            'service': service, 'service_period': period}
 
 
 def _log(request, member, description):
