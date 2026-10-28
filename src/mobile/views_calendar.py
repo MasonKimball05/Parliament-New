@@ -37,6 +37,7 @@ from src.mobile.api import MobileAPIView, check_web_page
 from src.models import AttendanceExcuse, Event, EventSignup
 from src.models.users import member_defer
 from src.models_calendar_subscription import CalendarSubscription
+from src.models_feature_flags import FeatureFlag
 from src.utils.visibility import visible_to_q
 
 DEFAULT_DAYS = 31
@@ -219,3 +220,41 @@ class CalendarSubscriptionView(MobileAPIView):
             'webcal_url': f'webcal://{host}{path}',
             'https_url': f'https://{host}{path}',
         })
+
+
+#: Error code and message for the app, by self_check_in's result. Prefixed:
+#: a bare ``expired`` is a signed-out reason to the app (its errors.ts).
+CHECKIN_ERRORS = {
+    'finalized': (409, 'Attendance for this event is already final.'),
+    'not_eligible': (403, 'Only active members check in this way. Ask an officer.'),
+    'expired': (410, 'That check-in code has expired. Ask an officer for a new one.'),
+}
+
+
+class EventCheckinView(MobileAPIView):
+    """
+    ``POST events/<id>/checkin/`` with ``{"token": ...}``: the QR self-check-in
+    (``src/view/event_checkin.py``), from the app's scanner or a scanned link.
+    """
+    web_page = 'event_qr_checkin'
+    web_page_toggle = False   # the web view has only the feature flags
+
+    def post(self, request, event_id):
+        from src.view.event_checkin import self_check_in
+
+        flags = FeatureFlag.resolve_many(['attendance_tracking', 'event_attendance',
+                                          'qr_attendance_checkin'])
+        if not all(flags.values()):
+            raise exceptions.PermissionDenied('Check-in is off.', code='feature_disabled')
+        token = request.data.get('token')
+        if not isinstance(token, str) or not token or len(token) > 128:
+            raise exceptions.ValidationError('token is required.', code='invalid_request')
+        event = Event.objects.filter(pk=event_id, requires_attendance=True).first()
+        if event is None:
+            raise exceptions.NotFound()
+        result, created = self_check_in(request, event, token)
+        if result != 'success':
+            status, detail = CHECKIN_ERRORS[result]
+            return Response({'error': f'checkin_{result}', 'detail': detail}, status=status)
+        return Response({'ok': True, 'already_checked_in': not created,
+                         'event': {'id': event.id, 'title': event.title}})

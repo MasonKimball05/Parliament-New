@@ -130,7 +130,10 @@ class MeTests(MobileTestCase):
         self.assertFalse(me['features']['chats'])
         self.assertTrue(me['features']['committee_voting'])   # unseeded flag fails open, like views
         self.assertEqual(set(me['features']), {
-            'chats', 'legislation_voting', 'committee_voting', 'calendar_subscriptions'})
+            'chats', 'legislation_voting', 'committee_voting', 'calendar_subscriptions',
+            'announcements', 'qr_checkin'})
+        # qr_attendance_checkin is disabled by default, so check-in is off until seeded.
+        self.assertFalse(me['features']['qr_checkin'])
         self.assertFalse(me['pages']['vote'])
         self.assertTrue(me['pages']['home'])
         self.assertEqual(set(me['pages']), {'home', 'vote', 'calendar', 'chat_index'})

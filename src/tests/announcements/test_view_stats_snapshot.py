@@ -284,6 +284,7 @@ class EveryCreationSiteSetsCountedInTargetTests(TestCase):
         'src/notifications.py',
         'src/view/notifications.py',
         'src/view/officer/manage_announcements.py',
+        'src/mobile/views_announcements.py',
     ]
 
     #: Matches the constructor (`UserAnnouncementView(...)`, used inside the

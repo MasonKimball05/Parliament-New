@@ -98,7 +98,7 @@ def _announcements(now, vis):
         'excerpt': a.content[:EXCERPT],
         'posted_at': a.posted_at.isoformat(),
         'posted_by': a.posted_by.get_display_name(),
-        'target': target,
+        'target': {**target, 'id': a.id},   # the app opens that announcement
     } for a in rows]
 
 

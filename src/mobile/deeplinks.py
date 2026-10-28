@@ -25,7 +25,8 @@ _RULES = [
     (re.compile(r'^/chats/$'), 'chat', None),          # the channel list
     (re.compile(r'^/calendar/$'), 'calendar', None),
     (re.compile(r'^/notifications/$'), 'notifications', None),
-    (re.compile(r'^/announcements/$'), 'home', None),
+    (re.compile(r'^/announcements/$'), 'announcements', None),
+    (re.compile(r'^/directory/$'), 'directory', None),
     (re.compile(r'^/home/$'), 'home', None),
     (re.compile(r'^/$'), 'home', None),
 ]

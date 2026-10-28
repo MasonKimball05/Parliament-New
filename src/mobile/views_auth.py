@@ -495,6 +495,10 @@ class MeView(MobileAPIView):
         from src.permissions import user_is_officer_or_chair
         user = request.user
         device = request.auth
+        # One query for every flag (FeatureFlag.resolve_many; same fail-open rules).
+        flags = FeatureFlag.resolve_many([
+            'chats', 'legislation_voting', 'committee_voting', 'calendar_subscriptions',
+            'announcements', 'attendance_tracking', 'event_attendance', 'qr_attendance_checkin'])
         return Response({
             'user_id': str(user.user_id),
             'username': user.username,
@@ -514,10 +518,14 @@ class MeView(MobileAPIView):
             # anything; see prune_dead_feature_flags.py). The calendar's real
             # gate is PageToggle('calendar'), in `pages` below.
             'features': {
-                'chats': FeatureFlag.is_feature_enabled('chats'),
-                'legislation_voting': FeatureFlag.is_feature_enabled('legislation_voting'),
-                'committee_voting': FeatureFlag.is_feature_enabled('committee_voting'),
-                'calendar_subscriptions': FeatureFlag.is_feature_enabled('calendar_subscriptions'),
+                'chats': flags['chats'],
+                'legislation_voting': flags['legislation_voting'],
+                'committee_voting': flags['committee_voting'],
+                'calendar_subscriptions': flags['calendar_subscriptions'],
+                'announcements': flags['announcements'],
+                # The QR self-check-in's three flags (event_qr_checkin).
+                'qr_checkin': (flags['attendance_tracking'] and flags['event_attendance']
+                               and flags['qr_attendance_checkin']),
             },
             'pages': {
                 'home': PageToggle.is_page_enabled('home'),

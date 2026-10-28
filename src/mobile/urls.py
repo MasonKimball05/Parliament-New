@@ -9,8 +9,8 @@ without the full sign-in). Enforced by
 from django.urls import path
 
 from src.mobile import (
-    views_auth, views_calendar, views_chat, views_devices, views_home, views_notifications,
-    views_push, views_session, views_votes,
+    views_announcements, views_auth, views_calendar, views_chat, views_devices, views_directory,
+    views_home, views_notifications, views_push, views_session, views_votes,
 )
 
 app_name = 'mobile'
@@ -51,6 +51,16 @@ urlpatterns = [
     path('events/<int:event_id>/', views_calendar.EventDetailView.as_view(), name='mobile_event'),
     path('events/<int:event_id>/signup/', views_calendar.EventSignupView.as_view(),
          name='mobile_event_signup'),
+    path('events/<int:event_id>/checkin/', views_calendar.EventCheckinView.as_view(),
+         name='mobile_event_checkin'),
+    path('announcements/', views_announcements.AnnouncementListView.as_view(),
+         name='mobile_announcements'),
+    path('announcements/<int:announcement_id>/', views_announcements.AnnouncementDetailView.as_view(),
+         name='mobile_announcement'),
+    path('members/', views_directory.MemberListView.as_view(), name='mobile_members'),
+    path('members/<str:user_id>/', views_directory.MemberCardView.as_view(), name='mobile_member'),
+    path('members/<str:user_id>/photo/', views_directory.MemberPhotoView.as_view(),
+         name='mobile_member_photo'),
     path('calendar/subscription/', views_calendar.CalendarSubscriptionView.as_view(),
          name='mobile_calendar_subscription'),
     path('votes/', views_votes.VoteListView.as_view(), name='mobile_votes'),

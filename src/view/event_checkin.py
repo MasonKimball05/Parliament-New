@@ -36,12 +36,23 @@ def event_qr_checkin(request, event_id, token):
     subsequently override.
     """
     event = get_object_or_404(Event, id=event_id, requires_attendance=True)
+    result, created = self_check_in(request, event, token)
+    status = {'finalized': 403, 'not_eligible': 403, 'expired': 410}.get(result, 200)
+    context = {'event': event, 'result': result}
+    if result == 'success':
+        context['already_checked_in'] = not created
+    return render(request, 'event_qr_checkin_result.html', context, status=status)
 
-    context = {'event': event}
 
+def self_check_in(request, event, token):
+    """
+    Mark ``request.user`` present at ``event`` for an open check-in window
+    ``token``. Returns ``(result, created)``: result is ``'success'``,
+    ``'finalized'``, ``'not_eligible'`` or ``'expired'``. Shared by the scan
+    target above and the app's ``events/<id>/checkin/`` (src/mobile).
+    """
     if event.attendance_finalized:
-        context['result'] = 'finalized'
-        return render(request, 'event_qr_checkin_result.html', context, status=403)
+        return 'finalized', False
 
     if request.user.member_status != 'Active':
         # Mirrors mark_event_attendance's own member list
@@ -49,13 +60,11 @@ def event_qr_checkin(request, event_id, token):
         # alumnus, or removed member scanning a valid code should not create
         # an attendance row that officer marking would never have created for
         # them either.
-        context['result'] = 'not_eligible'
-        return render(request, 'event_qr_checkin_result.html', context, status=403)
+        return 'not_eligible', False
 
     window = EventCheckinWindow.objects.filter(event=event, token=token).first()
     if not window or not window.is_open():
-        context['result'] = 'expired'
-        return render(request, 'event_qr_checkin_result.html', context, status=410)
+        return 'expired', False
 
     attendance, created = Attendance.objects.update_or_create(
         event=event,
@@ -81,10 +90,7 @@ def event_qr_checkin(request, event_id, token):
         object_id=event.id,
         object_repr=str(event),
     )
-
-    context['result'] = 'success'
-    context['already_checked_in'] = not created
-    return render(request, 'event_qr_checkin_result.html', context)
+    return 'success', created
 
 
 def event_checkin_embed_image(request, event_id, embed_token):

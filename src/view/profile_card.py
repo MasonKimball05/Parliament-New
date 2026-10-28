@@ -13,18 +13,23 @@ def _pledge_badge(member):
     return badge_context(member.pledge_class, member.pledge_class_greek)
 
 
+def card_queryset():
+    return (ParliamentUser.objects
+            .select_related('big_brother')
+            .prefetch_related('little_brothers', 'roles', 'role_history', 'committees', 'chair_roles'))
+
+
 @login_required
 def profile_card_json(request, user_id):
     try:
-        member = (
-            ParliamentUser.objects
-            .select_related('big_brother')
-            .prefetch_related('little_brothers', 'roles', 'role_history', 'committees', 'chair_roles')
-            .get(user_id=user_id)
-        )
+        member = card_queryset().get(user_id=user_id)
     except ParliamentUser.DoesNotExist:
         raise Http404
+    return JsonResponse(profile_card_data(member, request.user))
 
+
+def profile_card_data(member, viewer):
+    """The directory card for ``member`` as ``viewer`` sees it (also the app's members/<id>/)."""
     grad = ''
     if member.graduation_semester and member.graduation_year:
         grad = f'{member.graduation_semester} {member.graduation_year}'
@@ -94,7 +99,7 @@ def profile_card_json(request, user_id):
             committee_memberships.append({'name': c.name, 'role': 'Member'})
     committee_memberships.sort(key=lambda x: x['name'])
 
-    viewer_is_pledge = request.user.member_type == 'Pledge'
+    viewer_is_pledge = viewer.member_type == 'Pledge'
 
     data = {
         'user_id': '' if viewer_is_pledge else member.user_id,
@@ -128,5 +133,4 @@ def profile_card_json(request, user_id):
         'role_history': history,
         'committees': committee_memberships,
     }
-
-    return JsonResponse(data)
+    return data
