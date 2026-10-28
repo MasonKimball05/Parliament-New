@@ -353,6 +353,21 @@ class Command(BaseCommand):
                 'is_enabled': False,
             },
             {
+                'name': 'location_checkin',
+                'display_name': 'Location Check-In (app)',
+                'description': (
+                    'v3.60.0: the mobile app checks a member in when their phone is '
+                    'inside an event\'s check-in area (set by an officer on the event) '
+                    'from an hour before it starts until three hours after '
+                    '(src/location_checkin.py). Counts as present, like a QR scan, and '
+                    'never overwrites present/late or an officer\'s marking. OFF by '
+                    'default and in FeatureFlag.DISABLED_BY_DEFAULT, for the same '
+                    'reason as QR check-in: someone has to decide to allow it.'
+                ),
+                'category': 'features',
+                'is_enabled': False,
+            },
+            {
                 'name': 'excuse_system',
                 'display_name': 'Excuse System',
                 'description': (

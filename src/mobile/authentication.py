@@ -90,3 +90,48 @@ class MobileTokenAuthentication(BaseAuthentication):
 
     def authenticate_header(self, request):
         return self.keyword
+
+
+CHECKIN_KEY_HEADER = 'HTTP_X_CHECKIN_KEY'
+
+
+def check_checkin_key(request, raw):
+    """
+    The device behind a location check-in key (``X-Checkin-Key``), if it is
+    still allowed, else None. Same ``still_allowed`` rules as an access token:
+    revoking the phone, a password change or a removed member all end it.
+    """
+    if not raw or not isinstance(raw, str) or len(raw) > 200:
+        return None
+    http_request = getattr(request, '_request', request)
+    if hasattr(http_request, '_mobile_checkin_device'):
+        return http_request._mobile_checkin_device
+    device = (MobileDevice.objects.select_related('user')
+              .filter(checkin_key_hash=hash_secret(raw)).first())
+    if device is not None and not device.still_allowed()[0]:
+        device = None
+    http_request._mobile_checkin_device = device
+    return device
+
+
+class CheckinKeyAuthentication(BaseAuthentication):
+    """
+    For ``events/<id>/checkin/location/`` only (``CheckinKeyAPIView``). The
+    app's background geofence task runs while the phone may be locked, when
+    the Keychain won't release the access/refresh tokens (they are
+    WHEN_UNLOCKED). It holds this narrower key instead, which can do nothing
+    but check its member in, inside an area, inside a window.
+    """
+
+    def authenticate(self, request):
+        raw = request.META.get(CHECKIN_KEY_HEADER, '')
+        if not raw:
+            return None
+        device = check_checkin_key(request, raw)
+        if device is None:
+            raise AuthenticationFailed('Invalid check-in key.', code='invalid_checkin_key')
+        request.mobile_device = device
+        return (device.user, device)
+
+    def authenticate_header(self, request):
+        return 'Checkin-Key'

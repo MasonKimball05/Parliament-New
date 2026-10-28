@@ -1,0 +1,43 @@
+{% load static static_version %}
+{% comment %}
+  Location check-in area (v3.60.0), inside the event form's attendance panel.
+  The map (static/js/officer/checkin_area_map.js, Leaflet) writes the two hidden
+  coordinate fields; the radius select turns it on/off. Saved places come in
+  as JSON. Rendered only while the location_checkin flag is on.
+{% endcomment %}
+{% if checkin_enabled %}
+<div class="border-t border-primary-200 dark:border-primary-800 pt-3 space-y-3" data-checkin-area data-leaflet-images="{% static 'vendor/leaflet/images/' %}">
+    <link rel="stylesheet" href="{% static_v 'vendor/leaflet/leaflet.css' %}">
+    <div>
+        <p class="text-sm font-medium text-gray-700 dark:text-gray-300">Location check-in</p>
+        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+            Members with the app inside this circle are marked present automatically, from an hour
+            before the event until three hours after. Officers can still change anyone's attendance.
+        </p>
+    </div>
+    {{ form.checkin_latitude }}{{ form.checkin_longitude }}
+    <div class="flex flex-wrap items-center gap-2">
+        <label for="{{ form.checkin_radius_m.id_for_label }}" class="text-sm text-gray-700 dark:text-gray-300">Radius</label>
+        {{ form.checkin_radius_m }}
+        {% if checkin_places %}
+        <select data-checkin-place class="px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg text-sm" aria-label="Use a saved place">
+            <option value="">Saved places…</option>
+            {% for p in checkin_places %}<option value="{{ p.id }}">{{ p.name }}</option>{% endfor %}
+        </select>
+        {% endif %}
+        <button type="button" data-checkin-here class="px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">Use my location</button>
+    </div>
+    {% if form.checkin_radius_m.errors %}
+        <p class="text-sm text-red-600 dark:text-red-400">{{ form.checkin_radius_m.errors|first }}</p>
+    {% endif %}
+    <div data-checkin-map class="h-64 rounded-lg border border-gray-300 dark:border-gray-600 z-0" role="application" aria-label="Map: tap to place the check-in spot"></div>
+    <p class="text-xs text-gray-500 dark:text-gray-400" data-checkin-status aria-live="polite"></p>
+    <div>
+        <label for="{{ form.checkin_save_as.id_for_label }}" class="text-sm text-gray-700 dark:text-gray-300">{{ form.checkin_save_as.label }}</label>
+        {{ form.checkin_save_as }}
+    </div>
+    {{ checkin_places|json_script:"checkin-places" }}
+    <script src="{% static_v 'vendor/leaflet/leaflet.js' %}"></script>
+    <script src="{% static_v 'js/officer/checkin_area_map.js' %}"></script>
+</div>
+{% endif %}

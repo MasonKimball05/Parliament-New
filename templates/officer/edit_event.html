@@ -123,6 +123,8 @@ Two things worth keeping:
 
                     {% render_field form.excuse_deadline %}
 
+                    {% include "officer/_checkin_area.html" %}
+
                     {% if event.attendance_finalized %}
                     <div class="bg-green-100 dark:bg-green-900/30 border border-green-300 dark:border-green-700 rounded-md p-3">
                         <p class="text-sm text-green-800 dark:text-green-200 font-medium">

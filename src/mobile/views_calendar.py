@@ -31,13 +31,14 @@ from django.utils import timezone
 from rest_framework import exceptions
 from rest_framework.response import Response
 
-from src import event_signups
+from src import event_signups, location_checkin
 from src.feature_flag_decorators import check_feature_enabled
 from src.mobile.api import MobileAPIView, check_web_page
 from src.models import AttendanceExcuse, Event, EventSignup
 from src.models.users import member_defer
 from src.models_calendar_subscription import CalendarSubscription
 from src.models_feature_flags import FeatureFlag
+from src.permissions import user_is_officer_or_chair
 from src.utils.visibility import visible_to_q
 
 DEFAULT_DAYS = 31
@@ -184,7 +185,14 @@ class EventDetailView(_CalendarBase):
         event = _events_qs().filter(pk=event_id).first()
         if event is None or not event.is_visible_to_user(request.user):
             raise Http404
-        return Response({'event': _serialize([event], request.user)[0]})
+        data = _serialize([event], request.user)[0]
+        # Location check-in (v3.60.0): the area, and whether this member may set it.
+        on = location_checkin.enabled()
+        data['checkin_area'] = location_checkin.area_json(event) if on else None
+        data['can_manage_checkin'] = on and event.requires_attendance and user_is_officer_or_chair(request.user)
+        data['checked_in'] = bool(event.requires_attendance
+                                  and location_checkin.present_ids(request.user, [event]))
+        return Response({'event': data})
 
 
 class EventSignupView(_CalendarBase):

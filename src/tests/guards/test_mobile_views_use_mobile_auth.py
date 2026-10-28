@@ -20,13 +20,18 @@ The rule, checked for every URL pattern in the ``mobile`` namespace:
   ``PreAuthAPIView`` (per-IP / per-device throttles).
 
 Adding a pre-auth endpoint means adding its URL name here, on purpose.
+
+One more kind (v3.60.0): the location check-in, in ``CHECKIN_KEY``, which a
+background task calls while the phone is locked and so authenticates with the
+device's narrow check-in key: exactly ``[CheckinKeyAuthentication]``,
+``IsAuthenticated``, subclassing ``CheckinKeyAPIView``.
 """
 from django.test import SimpleTestCase
 from django.urls import URLPattern, URLResolver, get_resolver
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 
-from src.mobile.api import MobileAPIView, PreAuthAPIView
-from src.mobile.authentication import MobileTokenAuthentication
+from src.mobile.api import CheckinKeyAPIView, MobileAPIView, PreAuthAPIView
+from src.mobile.authentication import CheckinKeyAuthentication, MobileTokenAuthentication
 
 PRE_AUTH = {
     'mobile_auth_login',
@@ -35,6 +40,8 @@ PRE_AUTH = {
     'mobile_auth_passkey_complete',
     'mobile_auth_refresh',
 }
+
+CHECKIN_KEY = {'mobile_location_checkin'}
 
 
 def _mobile_patterns():
@@ -81,6 +88,12 @@ class MobileViewsUseMobileAuthTests(SimpleTestCase):
                                     f'[AllowAny] (has {perms})')
                 if not issubclass(cls, PreAuthAPIView):
                     problems.append(f'{name}: pre-auth view must subclass PreAuthAPIView')
+            elif name in CHECKIN_KEY:
+                if auth != [CheckinKeyAuthentication] or perms != [IsAuthenticated]:
+                    problems.append(f'{name}: must use exactly [CheckinKeyAuthentication] and '
+                                    f'[IsAuthenticated] (has {auth}, {perms})')
+                if not issubclass(cls, CheckinKeyAPIView):
+                    problems.append(f'{name}: must subclass CheckinKeyAPIView')
             else:
                 if auth != [MobileTokenAuthentication]:
                     problems.append(f'{name}: authentication_classes must be exactly '

@@ -10,7 +10,7 @@ from django.urls import path
 
 from src.mobile import (
     views_announcements, views_auth, views_calendar, views_chat, views_devices, views_directory,
-    views_home, views_notifications, views_push, views_session, views_votes,
+    views_home, views_location, views_notifications, views_push, views_session, views_votes,
 )
 
 app_name = 'mobile'
@@ -51,8 +51,19 @@ urlpatterns = [
     path('events/<int:event_id>/', views_calendar.EventDetailView.as_view(), name='mobile_event'),
     path('events/<int:event_id>/signup/', views_calendar.EventSignupView.as_view(),
          name='mobile_event_signup'),
+    path('events/checkin-areas/', views_location.CheckinAreaListView.as_view(),
+         name='mobile_checkin_areas'),
     path('events/<int:event_id>/checkin/', views_calendar.EventCheckinView.as_view(),
          name='mobile_event_checkin'),
+    # Authenticated by X-Checkin-Key, not Bearer (views_location, CheckinKeyAPIView).
+    path('events/<int:event_id>/checkin/location/', views_location.LocationCheckinView.as_view(),
+         name='mobile_location_checkin'),
+    path('events/<int:event_id>/checkin-area/', views_location.EventCheckinAreaView.as_view(),
+         name='mobile_event_checkin_area'),
+    path('checkin-places/', views_location.CheckinPlaceListView.as_view(), name='mobile_checkin_places'),
+    path('checkin-places/<int:place_id>/', views_location.CheckinPlaceView.as_view(),
+         name='mobile_checkin_place'),
+    path('devices/checkin-key/', views_location.CheckinKeyView.as_view(), name='mobile_device_checkin_key'),
     path('announcements/', views_announcements.AnnouncementListView.as_view(),
          name='mobile_announcements'),
     path('announcements/<int:announcement_id>/', views_announcements.AnnouncementDetailView.as_view(),

@@ -26,6 +26,46 @@
       "sri": "sha384-jzwsV9ieM/KUDMeo+d8dc+jm0GEl7ywPNwg10alB5BodVuC/Kx9RpEnyrl2Om9zH",
       "size": 37380
     },
+    "static/vendor/leaflet/images/marker-icon-2x.png": {
+      "sha256": "00179c4c1ee830d3a108412ae0d294f55776cfeb085c60129a39aa6fc4ae2528",
+      "sri": "sha384-bDEa1RhAAKIr/VQnMZ7gUhhXwmKYB4V0g8AsxOvCEPwGxfHCUEzAEMAEEzkjuxiA",
+      "size": 2464,
+      "source": "npm leaflet@1.9.4 dist/images/marker-icon-2x.png",
+      "version": "1.9.4",
+      "note": "from `npm pack leaflet@1.9.4` on 10-27-26 (the official npm release)"
+    },
+    "static/vendor/leaflet/images/marker-icon.png": {
+      "sha256": "574c3a5cca85f4114085b6841596d62f00d7c892c7b03f28cbfa301deb1dc437",
+      "sri": "sha384-wg83fCOXjBtqzFAWhTL9Sd9vmLUNhfEEzfmNUX9zwv2igKlz/YQbdapF4ObdxF+R",
+      "size": 1466,
+      "source": "npm leaflet@1.9.4 dist/images/marker-icon.png",
+      "version": "1.9.4",
+      "note": "from `npm pack leaflet@1.9.4` on 10-27-26 (the official npm release)"
+    },
+    "static/vendor/leaflet/images/marker-shadow.png": {
+      "sha256": "264f5c640339f042dd729062cfc04c17f8ea0f29882b538e3848ed8f10edb4da",
+      "sri": "sha384-dB8ivfvPGb1MSIzX8oWTakCxmq+VwqP/QL1TX4jT4INR3pM5T4FgF3Gx4mN3NTMq",
+      "size": 618,
+      "source": "npm leaflet@1.9.4 dist/images/marker-shadow.png",
+      "version": "1.9.4",
+      "note": "from `npm pack leaflet@1.9.4` on 10-27-26 (the official npm release)"
+    },
+    "static/vendor/leaflet/leaflet.css": {
+      "sha256": "a7837102824184820dfa198d1ebcd109ff6d0ff9a2672a074b9a1b4d147d04c6",
+      "sri": "sha384-sHL9NAb7lN7rfvG5lfHpm643Xkcjzp4jFvuavGOndn6pjVqS6ny56CAt3nsEVT4H",
+      "size": 14806,
+      "source": "npm leaflet@1.9.4 dist/leaflet.css",
+      "version": "1.9.4",
+      "note": "from `npm pack leaflet@1.9.4` on 10-27-26 (the official npm release)"
+    },
+    "static/vendor/leaflet/leaflet.js": {
+      "sha256": "db49d009c841f5ca34a888c96511ae936fd9f5533e90d8b2c4d57596f4e5641a",
+      "sri": "sha384-cxOPjt7s7Iz04uaHJceBmS+qpjv2JkIHNVcuOrM+YHwZOmJGBXI00mdUXEq65HTH",
+      "size": 147552,
+      "source": "npm leaflet@1.9.4 dist/leaflet.js",
+      "version": "1.9.4",
+      "note": "from `npm pack leaflet@1.9.4` on 10-27-26 (the official npm release)"
+    },
     "static/vendor/pageflip/LICENSE": {
       "sha256": "88d7b609a3be5efa2abe8648ddc35d5489579db5e06299545760df45c2c32d66",
       "sri": "sha384-uA4IUptdVH9/W9Lg1nNFQbvdsCfrgEey2HCrC0mW2PKp3WvJzkYNZj3CU1keyQuP",

@@ -28,7 +28,7 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.throttling import SimpleRateThrottle, UserRateThrottle
 from rest_framework.views import APIView, exception_handler as drf_exception_handler
 
-from src.mobile.authentication import MobileTokenAuthentication
+from src.mobile.authentication import CheckinKeyAuthentication, MobileTokenAuthentication
 from src.utils.security_utils import get_client_ip
 
 
@@ -174,6 +174,27 @@ class MobileAPIView(APIView):
     web_page = None
     #: False when that web page has no @require_page_enabled (so the app
     #: doesn't honour a toggle the site ignores).
+    web_page_toggle = True
+
+    def initial(self, request, *args, **kwargs):
+        super().initial(request, *args, **kwargs)
+        if self.web_page:
+            check_web_page(request.user, self.web_page, toggle=self.web_page_toggle)
+
+    def get_exception_handler(self):
+        return mobile_exception_handler
+
+
+class CheckinKeyAPIView(APIView):
+    """
+    The location check-in endpoint: authenticated by the device's check-in key
+    (``CheckinKeyAuthentication``) instead of a Bearer token, so the app's
+    background task can call it while the phone is locked. Nothing else uses it.
+    """
+    authentication_classes = [CheckinKeyAuthentication]
+    permission_classes = [IsAuthenticated]
+    throttle_classes = [MobileUserThrottle]
+    web_page = None
     web_page_toggle = True
 
     def initial(self, request, *args, **kwargs):

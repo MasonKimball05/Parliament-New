@@ -498,7 +498,8 @@ class MeView(MobileAPIView):
         # One query for every flag (FeatureFlag.resolve_many; same fail-open rules).
         flags = FeatureFlag.resolve_many([
             'chats', 'legislation_voting', 'committee_voting', 'calendar_subscriptions',
-            'announcements', 'attendance_tracking', 'event_attendance', 'qr_attendance_checkin'])
+            'announcements', 'attendance_tracking', 'event_attendance', 'qr_attendance_checkin',
+            'location_checkin'])
         return Response({
             'user_id': str(user.user_id),
             'username': user.username,
@@ -526,6 +527,9 @@ class MeView(MobileAPIView):
                 # The QR self-check-in's three flags (event_qr_checkin).
                 'qr_checkin': (flags['attendance_tracking'] and flags['event_attendance']
                                and flags['qr_attendance_checkin']),
+                # Location check-in (v3.60.0; src/location_checkin.FLAGS).
+                'location_checkin': (flags['attendance_tracking'] and flags['event_attendance']
+                                     and flags['location_checkin']),
             },
             'pages': {
                 'home': PageToggle.is_page_enabled('home'),

@@ -70,6 +70,9 @@ _NOT_SITE_PATHS = {
     # v3.49.0 — GroupMe API paths (src/groupme.py prefixes them with
     # https://api.groupme.com/v3), and the fake API in its tests.
     '/users/me', '/groups', '/bots', '/bots/destroy', '/bots/post',
+    # v3.60.0 — a path SUFFIX the mobile middleware helper compares against
+    # (src/mobile/http.py: the location check-in under /api/mobile/v1/events/<id>/).
+    '/checkin/location/',
     # URL *fragments* concatenated in JS: `base + '/approve/'`.
     '/approve/', '/reject/', '/revoke/', '/scopes/', '/notes/', '/notes/add/',
     '/delete/', '/delete/123/', '/update/', '/recruitment-permissions/',

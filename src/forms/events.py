@@ -1,6 +1,7 @@
 from django import forms
 
-from src.models import Event, Committee
+from src import location_checkin
+from src.models import CheckinPlace, Committee, Event
 
 
 class EventForm(forms.ModelForm):
@@ -45,6 +46,26 @@ class EventForm(forms.ModelForm):
         help_text='Select which days of the week for weekly recurring events'
     )
 
+    # Location check-in area (v3.60.0; templates/officer/_checkin_area.html).
+    # The map fills the two hidden coordinates; "Off" clears all three.
+    CHECKIN_RADII = [('', 'Off'), (25, '25 m'), (50, '50 m'), (100, '100 m'), (150, '150 m'),
+                     (200, '200 m'), (300, '300 m'), (500, '500 m')]
+    checkin_radius_m = forms.TypedChoiceField(
+        choices=CHECKIN_RADII, coerce=int, empty_value=None, required=False,
+        label='Location check-in',
+        widget=forms.Select(attrs={
+            'class': 'px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg',
+            'data-checkin-radius': '',
+        }),
+    )
+    checkin_save_as = forms.CharField(
+        max_length=80, required=False, label='Save this spot as',
+        widget=forms.TextInput(attrs={
+            'class': 'w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg',
+            'placeholder': 'e.g. Chapter room (optional)',
+        }),
+    )
+
     class Meta:
         model = Event
         fields = ['title', 'description', 'date_time', 'location', 'visible_to', 'is_active',
@@ -53,8 +74,11 @@ class EventForm(forms.ModelForm):
                   'is_recurring', 'recurrence_type', 'recurrence_interval', 'recurrence_unit',
                   'recurrence_days', 'recurrence_end_date',
                   'reminder_1_enabled', 'reminder_1_hours_before', 'reminder_1_email_enabled',
-                  'reminder_2_enabled', 'reminder_2_hours_before', 'reminder_2_email_enabled']
+                  'reminder_2_enabled', 'reminder_2_hours_before', 'reminder_2_email_enabled',
+                  'checkin_latitude', 'checkin_longitude', 'checkin_radius_m']
         widgets = {
+            'checkin_latitude': forms.HiddenInput(attrs={'data-checkin-lat': ''}),
+            'checkin_longitude': forms.HiddenInput(attrs={'data-checkin-lng': ''}),
             'title': forms.TextInput(attrs={
                 'class': 'w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent',
                 'placeholder': 'Enter event title'
@@ -190,6 +214,10 @@ class EventForm(forms.ModelForm):
         # Convert JSON field to list for form display
         if self.instance and self.instance.pk and self.instance.recurrence_days:
             self.initial['recurrence_days'] = [str(d) for d in self.instance.recurrence_days]
+        if not location_checkin.enabled():
+            # Off: leave any area already on the event exactly as it is.
+            for name in ('checkin_latitude', 'checkin_longitude', 'checkin_radius_m', 'checkin_save_as'):
+                self.fields.pop(name, None)
 
     def clean(self):
         cleaned = super().clean()
@@ -197,7 +225,41 @@ class EventForm(forms.ModelForm):
             val = cleaned.get(field)
             if val is not None and not (1 <= val <= 168):
                 self.add_error(field, 'Must be between 1 and 168 hours (1 week).')
+        self._clean_checkin_area(cleaned)
         return cleaned
+
+    def _clean_checkin_area(self, cleaned):
+        """All three set (a pin and a radius), or none: "Off" clears the pin."""
+        if 'checkin_radius_m' not in self.fields:
+            return
+        lat, lng = cleaned.get('checkin_latitude'), cleaned.get('checkin_longitude')
+        radius = cleaned.get('checkin_radius_m')
+        if not radius:
+            cleaned['checkin_latitude'] = cleaned['checkin_longitude'] = cleaned['checkin_radius_m'] = None
+            return
+        if lat is None or lng is None:
+            self.add_error('checkin_radius_m', 'Drop a pin on the map (or use your location) for the check-in area.')
+            return
+        try:
+            cleaned['checkin_latitude'], cleaned['checkin_longitude'], cleaned['checkin_radius_m'] = \
+                location_checkin.clean_point(lat, lng, radius)
+        except ValueError as e:
+            self.add_error('checkin_radius_m', str(e))
+
+    def save_checkin_place(self, user):
+        """Keep the event's check-in area as a named place, if the officer asked to."""
+        if 'checkin_save_as' not in self.fields:
+            return None
+        name = (self.cleaned_data.get('checkin_save_as') or '').strip()
+        if not name or not self.cleaned_data.get('checkin_radius_m'):
+            return None
+        place, _ = CheckinPlace.objects.update_or_create(name=name, defaults={
+            'latitude': self.cleaned_data['checkin_latitude'],
+            'longitude': self.cleaned_data['checkin_longitude'],
+            'radius_m': self.cleaned_data['checkin_radius_m'],
+            'created_by': user,
+        })
+        return place
 
     def save(self, commit=True):
         instance = super().save(commit=False)

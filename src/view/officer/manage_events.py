@@ -187,6 +187,10 @@ def generate_recurring_events(parent_event, max_occurrences=52):
             requires_attendance=parent_event.requires_attendance,
             allow_excuses=parent_event.allow_excuses,
             excuse_deadline=instance_excuse_deadline,
+            # v3.60.0 — every occurrence of a weekly meeting checks in at the same spot.
+            checkin_latitude=parent_event.checkin_latitude,
+            checkin_longitude=parent_event.checkin_longitude,
+            checkin_radius_m=parent_event.checkin_radius_m,
             created_by=parent_event.created_by,
             parent_event=parent_event,
             is_recurring=False,  # Child events are not recurring themselves
@@ -244,6 +248,20 @@ def _groupme_event_context(event=None, request=None):
     }
 
 
+def _checkin_context():
+    """The location check-in picker (v3.60.0): shown only when the flag is on."""
+    from src import location_checkin
+    from src.models import CheckinPlace
+    if not location_checkin.enabled():
+        return {'checkin_enabled': False}
+    return {
+        'checkin_enabled': True,
+        'checkin_places': [{'id': p.id, 'name': p.name, 'lat': float(p.latitude),
+                            'lng': float(p.longitude), 'radius': p.radius_m}
+                           for p in CheckinPlace.objects.all()],
+    }
+
+
 @login_required
 @officer_required
 def create_event(request):
@@ -254,6 +272,7 @@ def create_event(request):
             event = form.save(commit=False)
             event.created_by = request.user
             event.save()
+            form.save_checkin_place(request.user)
 
             # If this is a recurring event, generate instances
             recurring_instances = []
@@ -276,7 +295,7 @@ def create_event(request):
         form = EventForm()
 
     return render(request, 'officer/create_event.html', {
-        'form': form, **_groupme_event_context(request=request),
+        'form': form, **_groupme_event_context(request=request), **_checkin_context(),
     })
 
 @login_required
@@ -301,6 +320,7 @@ def edit_event(request, event_id):
         if form.is_valid():
             with transaction.atomic():
                 form.save()
+                form.save_checkin_place(request.user)
                 # v3.50.1 — which events this edit covers, worked out BEFORE
                 # apply_series_edit moves the others: after a move of more than
                 # one occurrence earlier, `date_time >= pivot` would drop the
@@ -336,7 +356,7 @@ def edit_event(request, event_id):
 
     return render(request, 'officer/edit_event.html', {
         'form': form, 'event': event, 'scope_counts': counts, 'scope': scope,
-        **_groupme_event_context(event, request),
+        **_groupme_event_context(event, request), **_checkin_context(),
     })
 
 @login_required

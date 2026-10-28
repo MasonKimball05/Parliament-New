@@ -158,6 +158,15 @@ class Event(models.Model):
         default=False,
         help_text='Mark as true when attendance has been finalized by an officer'
     )
+    # Location check-in (v3.60.0): members inside this circle while the event's
+    # check-in window is open are marked present by the app (src/location_checkin.py).
+    # All three set, or none.
+    checkin_latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    checkin_longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    checkin_radius_m = models.PositiveSmallIntegerField(
+        null=True, blank=True,
+        help_text='Check-in area radius in meters (members inside it are checked in by the app).',
+    )
     finalized_by = models.ForeignKey(
         'ParliamentUser',
         on_delete=models.SET_NULL,
@@ -1075,6 +1084,27 @@ class EventCheckinWindow(models.Model):
             expires_at__gt=dj_timezone.now(),
             closed_early_at__isnull=True,
         ).order_by('-opened_at').first()
+
+
+class CheckinPlace(models.Model):
+    """
+    A saved location check-in area (v3.60.0): "Chapter room", "The house". An
+    officer picks one for an event and its point and radius are COPIED onto the
+    event, so editing or deleting a place never moves past or current events.
+    """
+    name = models.CharField(max_length=80, unique=True)
+    latitude = models.DecimalField(max_digits=9, decimal_places=6)
+    longitude = models.DecimalField(max_digits=9, decimal_places=6)
+    radius_m = models.PositiveSmallIntegerField(default=100)
+    created_by = models.ForeignKey('ParliamentUser', on_delete=models.SET_NULL, null=True, blank=True,
+                                   related_name='checkin_places')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name
 
 
 class EventCheckinEmbed(models.Model):

@@ -51,6 +51,11 @@ def bearer_device(request):
         # uses, so the view's authentication doesn't repeat these queries.
         from src.mobile.authentication import check_access_token
         device, _ = check_access_token(request, parts[1])
+    elif request.path.endswith('/checkin/location/'):
+        # The location check-in's own key (CheckinKeyAuthentication), so these
+        # middlewares see its member too (lockdown, quarantine, maintenance).
+        from src.mobile.authentication import CHECKIN_KEY_HEADER, check_checkin_key
+        device = check_checkin_key(request, request.META.get(CHECKIN_KEY_HEADER, ''))
     request._mobile_bearer_device = device
     return device
 
