@@ -10,7 +10,8 @@ from src.models.mobile import MobileAuthTicket, MobileDevice
 from src.tests.mobile.sess_helpers import bearer, make_device, make_user
 
 SECRET_FIELDS = {'access_hash', 'refresh_hash', 'prev_refresh_hash', 'alt_refresh_hash',
-                 'retired_refresh_hashes', 'auth_fingerprint', 'push_token'}
+                 'retired_refresh_hashes', 'auth_fingerprint', 'push_token',
+                 'checkin_key_hash'}
 
 
 @override_settings(ALLOWED_HOSTS=['testserver', 'localhost'])

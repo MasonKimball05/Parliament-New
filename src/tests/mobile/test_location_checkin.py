@@ -111,6 +111,45 @@ class CheckinTests(_Base):
         self.assertTrue(self.checkin().json()['already_checked_in'])
         self.assertEqual(Attendance.objects.get(event=self.event, user=self.user).status, 'late')
 
+    def test_never_overwrites_an_officers_absent_or_excused(self):
+        # 10-28-26: an automatic four-hour check-in used to flip "absent" back to present.
+        for status in ('absent', 'excused'):
+            Attendance.objects.update_or_create(event=self.event, user=self.user, attendance_type='event',
+                                                defaults={'status': status, 'marked_by': self.officer})
+            r = self.checkin()
+            self.assertEqual(r.json()['error'], 'checkin_already_marked')
+            self.assertEqual(Attendance.objects.get(event=self.event, user=self.user).status, status)
+
+    def test_a_pending_row_is_filled_in(self):
+        Attendance.objects.create(event=self.event, user=self.user, attendance_type='event',
+                                  status='pending', marked_by=self.officer)
+        self.assertEqual(self.checkin().status_code, 200)
+        self.assertEqual(Attendance.objects.get(event=self.event, user=self.user).status, 'present')
+
+    def test_hidden_and_archived_events_are_not_found(self):
+        # 10-28-26: the lookup ignored visibility, so a hidden event could be located
+        # from the too_far distances and checked in to.
+        key = self.key()
+        hidden = self.meeting(visible_to=['Officer'])
+        for point in (FAR, NEAR):
+            r = self.checkin(point=point, event=hidden, key=key)
+            self.assertEqual(r.status_code, 404, r.content)
+            self.assertNotIn('distance_m', r.json())
+        archived = self.meeting(archived=True)
+        self.assertEqual(self.checkin(event=archived, key=key).status_code, 404)
+        self.assertFalse(Attendance.objects.filter(user=self.user).exists())
+
+    def test_non_finite_and_out_of_range_numbers_are_refused(self):
+        key = self.key()
+        for lat, lng, acc in (('nan', NEAR[1], 5), (NEAR[0], 'inf', 5), (91, NEAR[1], 5)):
+            r = self.api.post(API + f'events/{self.event.id}/checkin/location/',
+                              {'latitude': lat, 'longitude': lng, 'accuracy': acc},
+                              content_type='application/json', HTTP_X_CHECKIN_KEY=key)
+            self.assertEqual(r.status_code, 400, (lat, lng, r.content))
+        for acc in ('nan', 'inf', -1):
+            self.assertEqual(self.checkin(accuracy=acc, key=key).json()['error'], 'checkin_inaccurate')
+        self.assertFalse(Attendance.objects.filter(user=self.user).exists())
+
     def test_finalized_and_inactive_members(self):
         Event.objects.filter(pk=self.event.pk).update(attendance_finalized=True)
         self.assertEqual(self.checkin().json()['error'], 'checkin_finalized')

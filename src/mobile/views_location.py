@@ -15,6 +15,8 @@ Officers and chairs (the ``officer_required`` rule of the attendance pages):
   ``DELETE`` to turn location check-in off for the event.
 * ``GET/POST checkin-places/`` and ``DELETE checkin-places/<id>/``.
 """
+import math
+
 from django.db import IntegrityError
 from rest_framework import exceptions
 from rest_framework.response import Response
@@ -71,7 +73,18 @@ class LocationCheckinView(CheckinKeyAPIView):
         except (KeyError, TypeError, ValueError):
             raise exceptions.ValidationError('latitude, longitude and accuracy are numbers.',
                                              code='invalid_request')
-        event = Event.objects.filter(pk=event_id, requires_attendance=True, is_active=True).first()
+        # float('nan') / float('inf') parse; NaN slipped past every comparison (10-28-26).
+        if not (math.isfinite(lat) and math.isfinite(lng)
+                and -90 <= lat <= 90 and -180 <= lng <= 180):
+            raise exceptions.ValidationError('latitude, longitude and accuracy are numbers.',
+                                             code='invalid_request')
+        # Same events the member is shown in checkin-areas/ (visible to them, not
+        # archived) — otherwise a hidden event could be found, located from the
+        # too_far distances, and checked in to (10-28-26).
+        event = (Event.objects
+                 .filter(pk=event_id, requires_attendance=True, is_active=True, archived=False)
+                 .filter(lc.visible_to_q(request.user.member_type))
+                 .first())
         if event is None:
             raise exceptions.NotFound()
         result, created, distance = lc.location_check_in(request, request.user, event, lat, lng, accuracy)

@@ -1037,7 +1037,7 @@ from .models import MobileAuthTicket, MobileDevice  # noqa: E402
 @admin.register(MobileDevice, site=admin_site)
 class MobileDeviceAdmin(ViewDeleteAdmin):
     exclude = ('access_hash', 'refresh_hash', 'prev_refresh_hash', 'alt_refresh_hash',
-               'retired_refresh_hashes', 'auth_fingerprint', 'push_token')
+               'retired_refresh_hashes', 'auth_fingerprint', 'push_token', 'checkin_key_hash')
     list_display = ('user', 'platform', 'device_name', 'app_version', 'verified_via',
                     'created_at', 'last_seen_at', 'revoked_at', 'revoked_reason')
     list_filter = ('platform', 'verified_via', 'revoked_at')

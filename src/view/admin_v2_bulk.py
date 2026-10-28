@@ -138,7 +138,9 @@ def _apply(request, rows, action, value):
             elif action == 'remove_role':
                 m.roles.remove(role)
             elif action == 'clear_roles':
-                m.roles.clear()
+                # remove(), not clear(): clear() sends pk_set=None, so the Kai and
+                # Education permission resets in src/signals.py never ran (10-28-26).
+                m.roles.remove(*m.roles.all())
             ActivityLog.log_activity(
                 action_type='user_role_changed' if 'role' in action else 'user_edited',
                 user=request.user,

@@ -41,6 +41,7 @@ REFUSALS = {
     'no_area': (404, 'This event has no check-in area.'),
     'finalized': (409, 'Attendance for this event is already final.'),
     'not_eligible': (403, 'Only active members check in this way. Ask an officer.'),
+    'already_marked': (409, 'An officer has already marked your attendance for this event.'),
 }
 
 
@@ -125,8 +126,9 @@ def location_check_in(request, user, event, lat, lng, accuracy, now=None):
     """
     Check ``user`` in to ``event`` from a phone position. Returns
     ``(result, created, distance)``: result is ``'success'`` or a key of
-    REFUSALS. Never overwrites present/late, so a QR scan or an officer's
-    marking stays as it was.
+    REFUSALS. Only fills a missing or still-pending row, so a QR scan or an
+    officer's marking (present, late, absent or excused) stays as it was: an
+    automatic, four-hour check-in must not undo an officer's "absent" (10-28-26).
     """
     from src.models import ActivityLog, Attendance
     now = now or timezone.now()
@@ -139,7 +141,7 @@ def location_check_in(request, user, event, lat, lng, accuracy, now=None):
     opens, closes = window(event)
     if not opens <= now <= closes:
         return 'not_open', False, None
-    if accuracy is None or accuracy > MAX_ACCURACY_M:
+    if accuracy is None or not math.isfinite(accuracy) or accuracy < 0 or accuracy > MAX_ACCURACY_M:
         return 'inaccurate', False, None
     distance = distance_m(lat, lng, event.checkin_latitude, event.checkin_longitude)
     if distance - min(accuracy, ACCURACY_ALLOWANCE_M) > event.checkin_radius_m:
@@ -148,6 +150,9 @@ def location_check_in(request, user, event, lat, lng, accuracy, now=None):
     existing = Attendance.objects.filter(event=event, user=user, attendance_type='event').first()
     if existing and existing.status in ('present', 'late'):
         return 'success', False, round(distance)
+    if existing and existing.status != 'pending':
+        # An officer already marked this member absent or excused: leave it.
+        return 'already_marked', False, round(distance)
     Attendance.objects.update_or_create(
         event=event, user=user, attendance_type='event',
         defaults={

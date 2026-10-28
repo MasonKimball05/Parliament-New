@@ -137,8 +137,12 @@ def cast(user, legislation, choices, request=None):
     if votes is None:
         raise BallotError('already_voted', ALREADY_VOTED_MSG)
 
+    # Never the choice on an anonymous bill: this logger feeds django_actions.log,
+    # which /officers/system-logs/ shows to every officer (10-28-26).
+    _choice = ('(anonymous)' if legislation.anonymous_vote
+               else choices if is_multi_select(legislation) else repr(choices[0]))
     logging.getLogger('function_calls').info(
-        f"{user.username} voted {choices if is_multi_select(legislation) else repr(choices[0])} "
+        f"{user.username} voted {_choice} "
         f"on '{legislation.title}' (ID: {legislation.id}) at {timezone.now()}")
     meta = {'legislation_id': legislation.id, 'vote_mode': legislation.vote_mode,
             'anonymous': bool(legislation.anonymous_vote)}
@@ -231,8 +235,10 @@ def cast_committee(user, committee, legislation, choices, request=None):
         raise BallotError('already_voted', ALREADY_VOTED_MSG)
 
     multi = is_multi_select(legislation)
+    _choice = ('(anonymous)' if legislation.anonymous_vote
+               else choices if multi else repr(choices[0]))
     logging.getLogger('function_calls').info(
-        f"{user.username} voted {choices if multi else repr(choices[0])} on committee "
+        f"{user.username} voted {_choice} on committee "
         f"legislation '{legislation.title}' (ID: {legislation.id})")
     meta = {'legislation_id': legislation.id, 'vote_mode': legislation.vote_mode,
             'anonymous': bool(legislation.anonymous_vote), 'committee': committee.code}

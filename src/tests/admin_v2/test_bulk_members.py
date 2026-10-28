@@ -60,6 +60,20 @@ class BulkMembersTests(AdminV2TestCase):
         self.post('apply', 'clear_roles', ['bulk-b'])
         self.assertFalse(self.b.roles.exists())
 
+    def test_clear_roles_resets_kai_permissions_like_remove(self):
+        # 10-28-26: roles.clear() sends pk_set=None, so the Kai reset never ran and
+        # an outgoing Kai chair's grants survived "Remove all roles".
+        from src.models import Committee, KaiMemberPermission
+        # The Kai committee is tied to an Exec Board role (the reset only runs for those).
+        kai_role, _ = Role.objects.get_or_create(code='VPRM', defaults={'name': 'VP Risk Management'})
+        kai = Committee.objects.create(name='Kai X', code='KAIX', is_active=True,
+                                       is_kai_committee=True, role=kai_role)
+        self.a.roles.add(kai_role)
+        KaiMemberPermission.objects.create(committee=kai, user=self.b, can_view_report_list=True)
+        self.post('apply', 'clear_roles', ['bulk-a'])
+        self.assertFalse(self.a.roles.exists())
+        self.assertFalse(KaiMemberPermission.objects.filter(committee=kai).exists())
+
     def test_one_per_chapter_role(self):
         r = self.post('preview', 'add_role', ['bulk-a', 'bulk-b'], value_role=str(self.solo.pk))
         self.assertEqual(r.context['will_change'], 0)

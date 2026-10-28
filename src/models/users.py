@@ -594,7 +594,8 @@ class ParliamentUser(AbstractBaseUser):
         # leave the member half-scrubbed with some credentials still live.
         with transaction.atomic():
             self.save()
-            self.roles.clear()
+            # remove(), not clear(): see admin_v2_bulk (Kai/Education resets need pk_set).
+            self.roles.remove(*self.roles.all())
             self._delete_login_credentials()
 
     def _delete_login_credentials(self):
