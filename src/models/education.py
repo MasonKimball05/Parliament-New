@@ -209,7 +209,8 @@ class PledgeTask(models.Model):
                 return 'no date set'
             if self.activates_at <= timezone.now():
                 return 'live'
-            return f'goes live {self.activates_at.strftime("%-m/%-d at %-I:%M %p")}'
+            # Stored in UTC: show the chapter's time (10-28-26: 9 pm read "2 AM" the next day).
+            return f'goes live {timezone.localtime(self.activates_at).strftime("%-m/%-d at %-I:%M %p")}'
         return 'unknown'
 
     def __str__(self):

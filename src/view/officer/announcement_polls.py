@@ -328,7 +328,7 @@ def _export_poll_csv(poll, questions, responses):
         else:
             row = [
                 resp.respondent.get_display_name() if resp.respondent else '',
-                resp.submitted_at.strftime('%Y-%m-%d %H:%M'),
+                timezone.localtime(resp.submitted_at).strftime('%Y-%m-%d %H:%M'),
             ]
         # v3.16.2 perf: the caller prefetches `answers__selected_options`, but
         # `resp.answers.get(question=q)` bypasses the prefetch cache and fired

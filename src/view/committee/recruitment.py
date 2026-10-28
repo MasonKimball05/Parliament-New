@@ -1042,7 +1042,7 @@ def add_candidate_note(request, code, candidate_id):
         'note_id': note.pk,
         'author': request.user.get_display_name(),
         'body': note.body,
-        'created_at': note.created_at.strftime('%b %-d, %Y %-I:%M %p'),
+        'created_at': timezone.localtime(note.created_at).strftime('%b %-d, %Y %-I:%M %p'),
     })
 
 

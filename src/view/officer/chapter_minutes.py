@@ -1238,7 +1238,7 @@ def generate_minutes_pdf_buffer(minutes):
         ))
         elements.append(Spacer(1, 4))
 
-        edit_info = f"Last edited: {minutes.last_edit_at.strftime('%B %d, %Y at %I:%M %p')}"
+        edit_info = f"Last edited: {timezone.localtime(minutes.last_edit_at).strftime('%B %d, %Y at %I:%M %p')}"
         if minutes.last_edit_by:
             edit_info += f" by {minutes.last_edit_by.get_display_name()}"
         elements.append(Paragraph(edit_info, style_edit_notice))

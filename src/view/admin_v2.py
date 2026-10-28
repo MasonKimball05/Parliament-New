@@ -3105,7 +3105,7 @@ def quarantine_management(request):
                     admin=request.user,
                     expires_at=expires_at,
                 )
-                expiry_msg = f" (expires {expires_at.strftime('%Y-%m-%d %H:%M')})" if expires_at else ''
+                expiry_msg = f" (expires {timezone.localtime(expires_at).strftime('%Y-%m-%d %H:%M')})" if expires_at else ''
                 messages.success(request, f'Quarantined account: {user.name}{expiry_msg}')
                 logger.info(f"Admin {request.user.username} quarantined {user.name}: {reason}{expiry_msg}")
                 log_admin_action(

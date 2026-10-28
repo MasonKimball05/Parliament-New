@@ -658,7 +658,7 @@ def get_member_adjustments(request, period_id, member_id):
         'hours': float(adj.hours),
         'reason': adj.reason,
         'adjusted_by': adj.adjusted_by.name if adj.adjusted_by else 'System',
-        'created_at': adj.created_at.strftime('%b %d, %Y %I:%M %p')
+        'created_at': timezone.localtime(adj.created_at).strftime('%b %d, %Y %I:%M %p')
     } for adj in adjustments]
 
     total_adjusted = sum(adj.hours for adj in adjustments)

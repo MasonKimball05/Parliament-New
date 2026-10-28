@@ -890,7 +890,7 @@ def event_signup_export(request, event_id):
             s.waitlist_position or '',
             s.user.name,
             s.user.email,
-            s.signed_up_at.strftime('%Y-%m-%d %H:%M'),
+            timezone.localtime(s.signed_up_at).strftime('%Y-%m-%d %H:%M'),
         ])
 
     return response
