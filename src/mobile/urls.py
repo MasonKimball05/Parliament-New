@@ -10,7 +10,8 @@ from django.urls import path
 
 from src.mobile import (
     views_announcements, views_auth, views_calendar, views_chat, views_devices, views_directory,
-    views_home, views_location, views_my, views_notifications, views_push, views_session, views_votes,
+    views_excuses_polls, views_home, views_location, views_my, views_notifications, views_push, views_session,
+    views_votes,
 )
 
 app_name = 'mobile'
@@ -72,6 +73,11 @@ urlpatterns = [
     path('my/service-hours/', views_my.MyServiceHoursView.as_view(), name='mobile_my_service_hours'),
     path('documents/', views_my.DocumentListView.as_view(), name='mobile_documents'),
     path('documents/<int:document_id>/file/', views_my.DocumentFileView.as_view(), name='mobile_document_file'),
+    path('my/excuses/', views_excuses_polls.MyExcusesView.as_view(), name='mobile_my_excuses'),
+    path('my/excuses/<int:excuse_id>/cancel/', views_excuses_polls.MyExcuseCancelView.as_view(),
+         name='mobile_my_excuse_cancel'),
+    path('polls/', views_excuses_polls.PollListView.as_view(), name='mobile_polls'),
+    path('polls/<int:announcement_id>/', views_excuses_polls.PollView.as_view(), name='mobile_poll'),
     path('members/', views_directory.MemberListView.as_view(), name='mobile_members'),
     path('members/<str:user_id>/', views_directory.MemberCardView.as_view(), name='mobile_member'),
     path('members/<str:user_id>/photo/', views_directory.MemberPhotoView.as_view(),
