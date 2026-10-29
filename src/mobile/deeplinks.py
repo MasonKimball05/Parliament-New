@@ -27,6 +27,9 @@ _RULES = [
     (re.compile(r'^/notifications/$'), 'notifications', None),
     (re.compile(r'^/announcements/$'), 'announcements', None),
     (re.compile(r'^/directory/$'), 'directory', None),
+    (re.compile(r'^/my-attendance/$'), 'attendance', None),
+    (re.compile(r'^/service-hours/$'), 'service_hours', None),
+    (re.compile(r'^/chapter-documents/$'), 'documents', None),
     (re.compile(r'^/home/$'), 'home', None),
     (re.compile(r'^/$'), 'home', None),
 ]

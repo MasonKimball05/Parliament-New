@@ -236,6 +236,14 @@ def get_user_service_stats(user, period):
     }
 
 
+def current_service_period():
+    """The active period covering today, else the latest active one, else None
+    (the dashboard's and the app's my/service-hours/)."""
+    today = timezone.localdate()   # v3.17.4: calendar date, not UTC
+    active = ServicePeriod.objects.filter(is_active=True).order_by('-start_date')
+    return active.filter(start_date__lte=today, end_date__gte=today).first() or active.first()
+
+
 @login_required
 def user_service_dashboard(request):
     """
@@ -244,18 +252,8 @@ def user_service_dashboard(request):
     """
     user = request.user
 
-    # Get current and recent periods
-    today = timezone.localdate()   # v3.17.4: calendar date, not UTC
     active_periods = ServicePeriod.objects.filter(is_active=True).order_by('-start_date')
-
-    # Find current period (or most recent)
-    current_period = active_periods.filter(
-        start_date__lte=today,
-        end_date__gte=today
-    ).first()
-
-    if not current_period:
-        current_period = active_periods.first()
+    current_period = current_service_period()
 
     # Get stats for current period
     stats = None

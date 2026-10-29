@@ -10,7 +10,7 @@ from django.urls import path
 
 from src.mobile import (
     views_announcements, views_auth, views_calendar, views_chat, views_devices, views_directory,
-    views_home, views_location, views_notifications, views_push, views_session, views_votes,
+    views_home, views_location, views_my, views_notifications, views_push, views_session, views_votes,
 )
 
 app_name = 'mobile'
@@ -68,6 +68,10 @@ urlpatterns = [
          name='mobile_announcements'),
     path('announcements/<int:announcement_id>/', views_announcements.AnnouncementDetailView.as_view(),
          name='mobile_announcement'),
+    path('my/attendance/', views_my.MyAttendanceView.as_view(), name='mobile_my_attendance'),
+    path('my/service-hours/', views_my.MyServiceHoursView.as_view(), name='mobile_my_service_hours'),
+    path('documents/', views_my.DocumentListView.as_view(), name='mobile_documents'),
+    path('documents/<int:document_id>/file/', views_my.DocumentFileView.as_view(), name='mobile_document_file'),
     path('members/', views_directory.MemberListView.as_view(), name='mobile_members'),
     path('members/<str:user_id>/', views_directory.MemberCardView.as_view(), name='mobile_member'),
     path('members/<str:user_id>/photo/', views_directory.MemberPhotoView.as_view(),

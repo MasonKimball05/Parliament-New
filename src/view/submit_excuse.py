@@ -183,27 +183,12 @@ def cancel_excuse(request, excuse_id):
     return redirect('my_excuses')
 
 
-@login_required
-@require_feature_flag('attendance_tracking', 'event_attendance')
-def my_attendance(request):
+def attendance_overview(user, start_date, now):
     """
-    Personal attendance dashboard for members
-    Shows attendance history, stats, and comparison to chapter average
+    A member's attendance since ``start_date`` (None = all time): their counts
+    and rate, the chapter's rate over the same events, and one row per event.
+    Shared by My Attendance (below) and the app's ``my/attendance/``.
     """
-    now = timezone.now()
-
-    # Date range filter
-    range_filter = request.GET.get('range', '90')
-    try:
-        days = int(range_filter)
-    except ValueError:
-        days = 90
-
-    if days == 0:
-        start_date = None
-    else:
-        start_date = now - timedelta(days=days)
-
     # Get events that require attendance
     events_query = Event.objects.filter(
         requires_attendance=True,
@@ -216,7 +201,7 @@ def my_attendance(request):
 
     # Filter to events visible to this user
     all_events = events_query.order_by('-date_time')
-    events = [e for e in all_events if e.is_visible_to_user(request.user)]
+    events = [e for e in all_events if e.is_visible_to_user(user)]
 
     # ⚠️ v3.24.0 — READ ONCE, COUNT IN PYTHON. This block used to be five
     # separate `COUNT(*)` queries (total, present, late, absent, excused) over a
@@ -238,7 +223,7 @@ def my_attendance(request):
     event_ids = [e.pk for e in events]
     my_records = list(
         Attendance.objects
-        .filter(user=request.user, event_id__in=event_ids, attendance_type='event')
+        .filter(user=user, event_id__in=event_ids, attendance_type='event')
         .select_related('event')
     )
     record_by_event = {r.event_id: r for r in my_records}
@@ -291,7 +276,7 @@ def my_attendance(request):
     excuse_by_event = {
         ex.event_id: ex
         for ex in AttendanceExcuse.objects.filter(
-            user=request.user, event_id__in=event_ids,
+            user=user, event_id__in=event_ids,
         )
     }
 
@@ -303,6 +288,41 @@ def my_attendance(request):
             'status': record.status if record else 'not_marked',
             'excuse': excuse_by_event.get(event.pk),
         })
+
+    return {
+        'my_stats': my_stats,
+        'chapter_average': chapter_average,
+        'rate_difference': rate_difference,
+        'attendance_history': attendance_history,
+    }
+
+
+@login_required
+@require_feature_flag('attendance_tracking', 'event_attendance')
+def my_attendance(request):
+    """
+    Personal attendance dashboard for members
+    Shows attendance history, stats, and comparison to chapter average
+    """
+    now = timezone.now()
+
+    # Date range filter
+    range_filter = request.GET.get('range', '90')
+    try:
+        days = int(range_filter)
+    except ValueError:
+        days = 90
+
+    if days == 0:
+        start_date = None
+    else:
+        start_date = now - timedelta(days=days)
+
+    overview = attendance_overview(request.user, start_date, now)
+    my_stats = overview['my_stats']
+    chapter_average = overview['chapter_average']
+    rate_difference = overview['rate_difference']
+    attendance_history = overview['attendance_history']
 
     # Get stats by event series (recurring events)
     series_stats = []
