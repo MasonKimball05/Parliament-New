@@ -9,7 +9,8 @@ without the full sign-in). Enforced by
 from django.urls import path
 
 from src.mobile import (
-    views_announcements, views_auth, views_calendar, views_chat, views_devices, views_directory,
+    views_announcements, views_auth, views_calendar, views_chat, views_committees, views_devices,
+    views_directory,
     views_excuses_polls, views_home, views_location, views_my, views_notifications, views_push, views_session,
     views_votes,
 )
@@ -92,6 +93,16 @@ urlpatterns = [
          name='mobile_vote_reauth_passkey_begin'),
     path('votes/reauth/passkey/complete/', views_votes.PasskeyReauthCompleteView.as_view(),
          name='mobile_vote_reauth_passkey_complete'),
+    path('committees/', views_committees.CommitteeListView.as_view(), name='mobile_committees'),
+    path('committees/<str:code>/', views_committees.CommitteeDashboardView.as_view(), name='mobile_committee'),
+    path('committees/<str:code>/members/', views_committees.CommitteeMembersView.as_view(),
+         name='mobile_committee_members'),
+    path('committees/<str:code>/documents/', views_committees.CommitteeDocumentsView.as_view(),
+         name='mobile_committee_documents'),
+    path('committees/<str:code>/documents/<int:document_id>/file/',
+         views_committees.CommitteeDocumentFileView.as_view(), name='mobile_committee_document_file'),
+    path('committees/<str:code>/minutes/', views_committees.CommitteeMinutesView.as_view(),
+         name='mobile_committee_minutes'),
     path('committees/<str:code>/votes/', views_votes.CommitteeVoteListView.as_view(),
          name='mobile_committee_votes'),
     path('committees/<str:code>/votes/<int:legislation_id>/',

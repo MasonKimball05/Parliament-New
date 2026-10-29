@@ -32,6 +32,7 @@ _RULES = [
     (re.compile(r'^/chapter-documents/$'), 'documents', None),
     (re.compile(r'^/excuses/$'), 'excuses', None),
     (re.compile(r'^/polls/$'), 'polls', None),
+    (re.compile(r'^/committees/$'), 'committees', None),
     (re.compile(rf'^/announcements/{_INT}/poll/$'), 'poll', 1),
     (re.compile(r'^/home/$'), 'home', None),
     (re.compile(r'^/$'), 'home', None),
