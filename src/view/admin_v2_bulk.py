@@ -19,6 +19,8 @@ Refused, with the reason shown on the preview:
 * a one-per-chapter role for more than one member, or while someone outside
   the selection holds it.
 """
+from urllib.parse import urlencode
+
 from django.contrib import messages
 from django.db import transaction
 from django.db.models import Q
@@ -49,7 +51,9 @@ def _filtered(params):
     if params.get('pledge_class'):
         qs = qs.filter(pledge_class=params['pledge_class'])
     if params.get('role'):
-        qs = qs.filter(roles__pk=params['role'])
+        # v3.60.2: a non-numeric ?role= was a 500 (ValueError in the pk lookup).
+        role = str(params['role'])
+        qs = qs.filter(roles__pk=int(role)) if role.isdigit() else qs.none()
     q = (params.get('q') or '').strip()
     if q:
         qs = qs.filter(Q(name__icontains=q) | Q(username__icontains=q) | Q(preferred_name__icontains=q)
@@ -167,7 +171,11 @@ def admin_v2_bulk_members(request):
         members = list(ParliamentUser.objects.filter(user_id__in=ids).order_by('name'))
         if not members or action not in ACTIONS:
             messages.error(request, 'Pick at least one member and an action.')
-            return redirect(reverse('admin_v2_bulk_members') + '?' + request.POST.urlencode())
+            # v3.60.2: carry only the list filters back, never the whole POST
+            # (it held csrfmiddlewaretoken, which then sat in a GET URL: nginx
+            # logs, browser history).
+            keep = {k: v for k, v in filters.items() if v}
+            return redirect(reverse('admin_v2_bulk_members') + ('?' + urlencode(keep) if keep else ''))
         rows = plan(request.user, members, action, value)
         if request.POST.get('step') == 'apply':
             done = _apply(request, rows, action, value)

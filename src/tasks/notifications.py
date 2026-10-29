@@ -39,7 +39,7 @@ def notify_expiring_api_tokens():
 
         days_left = max(0, (token.expires_at - timezone.now()).days)
         label = f'{days_left} day{"s" if days_left != 1 else ""}'
-        expires_str = token.expires_at.strftime('%B %d, %Y')
+        expires_str = timezone.localtime(token.expires_at).strftime('%B %d, %Y')
 
         try:
             create_notification(

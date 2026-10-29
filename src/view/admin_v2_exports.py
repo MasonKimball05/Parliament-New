@@ -12,13 +12,15 @@ Every CSV goes through safe_csv_writer (spreadsheet formula injection), and
 the three views are in geo_restriction.RESTRICTED_EXPORT_VIEWS by these names.
 """
 from datetime import timedelta
+from decimal import Decimal
 
-from django.db.models import Count, Prefetch, Q
+from django.db.models import Count, Prefetch, Q, Sum
 from django.http import HttpResponse
 from django.shortcuts import render
 from django.utils import timezone
 
 from src.models import ActivityLog, ParliamentUser, ServicePeriod
+from src.models.service import ServiceHoursAdjustment, ServiceHoursSubmission
 from src.models.users import Role
 from src.utils.export_utils import safe_csv_writer
 from src.view.admin_v2 import require_admin_v2_auth
@@ -33,6 +35,15 @@ def _csv_response(request, name, kind):
     ActivityLog.log_activity(action_type='other', user=request.user,
                              description=f'{request.user.get_display_name()} exported {kind}', request=request)
     return response
+
+
+def _status(request):
+    """`?status=` limited to the known values ('' = everyone but Removed).
+
+    v3.60.2: the raw value went into the CSV's Content-Disposition filename.
+    """
+    status = request.GET.get('status', 'Active')
+    return status if status in STATUSES else ''
 
 
 def _members(status):
@@ -52,7 +63,7 @@ def admin_v2_exports(request):
 def admin_v2_export_members(request):
     from django_otp.plugins.otp_totp.models import TOTPDevice
 
-    status = request.GET.get('status', 'Active')
+    status = _status(request)
     members = list(_members(status).prefetch_related(
         Prefetch('roles', queryset=Role.objects.order_by('name')), 'committees'))
     totp = set(TOTPDevice.objects.filter(confirmed=True).values_list('user_id', flat=True))
@@ -80,7 +91,7 @@ def admin_v2_export_attendance(request):
         days = max(1, min(int(request.GET.get('days', 90)), 730))
     except ValueError:
         days = 90
-    status = request.GET.get('status', 'Active')
+    status = _status(request)
     now = timezone.now()
     window = Q(attendance_records__attendance_type='event', attendance_records__event__requires_attendance=True,
                attendance_records__event__is_active=True, attendance_records__event__date_time__lt=now,
@@ -107,16 +118,36 @@ def admin_v2_export_service(request):
     """Per member, for one service period: expected, approved, pending, remaining."""
     from src.view.service_user_dashboard import get_user_service_stats
 
-    period = ServicePeriod.objects.filter(pk=request.GET.get('period') or 0).first() \
+    raw = request.GET.get('period') or ''
+    # v3.60.2: a non-numeric ?period= was a 500.
+    period = (ServicePeriod.objects.filter(pk=int(raw)).first() if raw.isdigit() else None) \
         or ServicePeriod.objects.filter(is_active=True).order_by('-start_date').first()
     response = _csv_response(request, 'service_hours', f'service hours ({period.name if period else "no period"})')
     w = safe_csv_writer(response)
     w.writerow(['Number', 'Name', 'Period', 'Expected', 'Approved', 'Pending', 'Remaining', 'Progress %'])
     if period is None:
         return response
-    for m in _members(request.GET.get('status', 'Active')):
-        s = get_user_service_stats(m, period)
-        w.writerow([m.user_id, m.get_display_name(), period.name, s['expected_hours'], s['approved_hours'],
-                    s['pending_hours'], s['remaining_hours'], s['progress_percent']])
+    # v3.60.2: one aggregate query per table for the whole roster instead of
+    # get_user_service_stats() per member (~7 queries each, ~1,000 for 150).
+    # Same arithmetic as get_user_service_stats; kept in step by a test.
+    sub = (ServiceHoursSubmission.objects.filter(period=period)
+           .values('submitted_by_id', 'status').annotate(total=Sum('hours')))
+    approved, pending = {}, {}
+    for row in sub:
+        if row['status'] == 'approved':
+            approved[row['submitted_by_id']] = row['total'] or Decimal('0')
+        elif row['status'] == 'pending':
+            pending[row['submitted_by_id']] = row['total'] or Decimal('0')
+    adjusted = {r['member_id']: r['total'] or Decimal('0') for r in
+                ServiceHoursAdjustment.objects.filter(period=period).values('member_id').annotate(total=Sum('hours'))}
+    expected_map = dict(period.member_expectations.values_list('member_id', 'expected_hours'))
+    for m in _members(_status(request)):
+        approved_hours = approved.get(m.pk, Decimal('0')) + adjusted.get(m.pk, Decimal('0'))
+        expected = expected_map.get(m.pk, period.default_hours_required)
+        if expected > 0:
+            progress = min(100, int((approved_hours / expected) * 100))
+        else:
+            progress = 100 if approved_hours > 0 else 0
+        w.writerow([m.user_id, m.get_display_name(), period.name, expected, approved_hours,
+                    pending.get(m.pk, Decimal('0')), max(Decimal('0'), expected - approved_hours), progress])
     return response
-
