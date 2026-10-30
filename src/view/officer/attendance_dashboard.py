@@ -22,10 +22,13 @@ def attendance_dashboard(request):
     """
     Officer attendance dashboard with chapter-wide statistics
     """
-    now = timezone.now()
+    return render(request, 'officer/attendance_dashboard.html',
+                  attendance_dashboard_context(request.GET.get('range', '90')))
 
-    # Date range filter
-    range_filter = request.GET.get('range', '90')
+
+def attendance_dashboard_context(range_filter):
+    """The dashboard's numbers for a range ('30', '90', ..., '0' = all time); also the app's."""
+    now = timezone.now()
     try:
         days = int(range_filter)
     except ValueError:
@@ -250,7 +253,7 @@ def attendance_dashboard(request):
         'start_date': start_date,
     }
 
-    return render(request, 'officer/attendance_dashboard.html', context)
+    return context
 
 
 @login_required
@@ -262,10 +265,13 @@ def member_attendance_detail(request, user_id):
     """
     # v3.45.5: an unknown user_id is a 404 (it was a 500).
     member = get_object_or_404(ParliamentUser, user_id=user_id)
-    now = timezone.now()
+    return render(request, 'officer/member_attendance_detail.html',
+                  member_attendance_context(member, request.GET.get('range', '90')))
 
-    # Date range filter
-    range_filter = request.GET.get('range', '90')
+
+def member_attendance_context(member, range_filter):
+    """One member's attendance over a range, against the chapter's; also the app's."""
+    now = timezone.now()
     try:
         days = int(range_filter)
     except ValueError:
@@ -330,12 +336,12 @@ def member_attendance_detail(request, user_id):
 
     # Attendance history
     attendance_history = []
+    # One query each for the member's records and excuses, not two per event.
+    records_by_event = {r.event_id: r for r in member_attendance}
+    excuses_by_event = {x.event_id: x for x in AttendanceExcuse.objects.filter(event__in=events, user=member)}
     for event in events:
-        record = member_attendance.filter(event=event).first()
-        excuse = AttendanceExcuse.objects.filter(
-            event=event,
-            user=member
-        ).first()
+        record = records_by_event.get(event.pk)
+        excuse = excuses_by_event.get(event.pk)
 
         attendance_history.append({
             'event': event,
@@ -351,4 +357,4 @@ def member_attendance_detail(request, user_id):
         'range_filter': range_filter,
     }
 
-    return render(request, 'officer/member_attendance_detail.html', context)
+    return context

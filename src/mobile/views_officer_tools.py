@@ -254,3 +254,176 @@ class ReportFileView(_OfficersAndAdvisors):
         apply_disposition(response, content_type, name)
         response['Cache-Control'] = 'private, no-store'
         return response
+
+
+# ── Attendance dashboard ─────────────────────────────────────────────────────
+
+#: The website dashboard's ranges (days; 0 = all time).
+ATTENDANCE_RANGES = ['30', '90', '180', '365', '0']
+
+
+def _range(request):
+    r = request.query_params.get('range', '90')
+    return r if r in ATTENDANCE_RANGES else '90'
+
+
+def _need_attendance():
+    if not (check_feature_enabled('attendance_tracking') and check_feature_enabled('event_attendance')):
+        raise exceptions.PermissionDenied('Attendance tracking is off.', code='feature_disabled')
+
+
+class AttendanceDashboardView(_Officers):
+    """``GET officer/attendance-dashboard/?range=``: ``attendance_dashboard``'s numbers."""
+    web_page = 'attendance_dashboard'
+
+    def get(self, request):
+        _need_attendance()
+        from src.view.officer.attendance_dashboard import attendance_dashboard_context
+        c = attendance_dashboard_context(_range(request))
+        return Response({
+            'range': c['range_filter'],
+            'ranges': ATTENDANCE_RANGES,
+            'chapter': c['chapter_stats'],
+            'months': c['monthly_trends'],
+            'series': c['event_series_stats'],
+            'recent': [{
+                'id': r['event'].id, 'title': r['event'].title, 'date_time': r['event'].date_time.isoformat(),
+                'rate': r['attendance_rate'], 'present': r['present_count'], 'total': r['total_count'],
+            } for r in c['recent_events']],
+            'members': [{
+                'user_id': m['member'].user_id, 'name': m['member'].get_display_name(),
+                'role_number': m['member'].role_number or '', 'photo': photo_path(m['member']),
+                'total': m['total'], 'present': m['present'], 'late': m['late'],
+                'absent': m['absent'], 'excused': m['excused'], 'rate': m['attendance_rate'],
+            } for m in c['member_stats']],
+            'pending_excuses': c['pending_excuses'],
+        })
+
+
+class MemberAttendanceView(_Officers):
+    """``GET officer/attendance-dashboard/<user_id>/?range=``: ``member_attendance_detail``."""
+    web_page = 'officer_member_attendance'
+
+    def get(self, request, user_id):
+        _need_attendance()
+        from src.view.officer.attendance_dashboard import member_attendance_context
+        member = get_object_or_404(ParliamentUser, user_id=user_id)
+        c = member_attendance_context(member, _range(request))
+        return Response({
+            'range': c['range_filter'],
+            'ranges': ATTENDANCE_RANGES,
+            'member': {'user_id': member.user_id, 'name': member.get_display_name(),
+                       'role_number': member.role_number or '', 'photo': photo_path(member),
+                       'member_type': member.member_type},
+            'stats': c['member_stats'],
+            'chapter_average': c['chapter_average'],
+            'history': [{
+                'event': {'id': h['event'].id, 'title': h['event'].title,
+                          'date_time': h['event'].date_time.isoformat()},
+                'status': h['status'],
+                'excuse': ({'status': h['excuse'].status, 'reason': h['excuse'].reason}
+                           if h['excuse'] else None),
+            } for h in c['attendance_history']],
+        })
+
+
+# ── Polls on announcements ───────────────────────────────────────────────────
+
+def _poll_json(poll):
+    return {
+        'title': poll.title,
+        'description': poll.description,
+        'is_anonymous': poll.is_anonymous,
+        'is_open': poll.is_open,
+        'closes_at': poll.closes_at.isoformat() if poll.closes_at else None,
+        'accepting': poll.is_accepting_responses(),
+        'questions': [{
+            'id': q.id, 'text': q.text, 'type': q.question_type, 'required': q.is_required,
+            'options': [{'id': o.id, 'text': o.text} for o in q.options.all()],
+        } for q in poll.questions.prefetch_related('options').all()],
+    }
+
+
+class OfficerPollView(_Officers):
+    """
+    ``GET/PUT/DELETE officer/announcements/<id>/poll/``: an announcement's poll
+    (``create_or_edit_poll``), saved through ``src/poll_editing.save_poll``.
+    """
+    web_page = 'create_or_edit_poll'
+
+    def _announcement(self, announcement_id):
+        from src.models import Announcement
+        return get_object_or_404(Announcement.objects.select_related('poll'), pk=announcement_id)
+
+    def get(self, request, announcement_id):
+        a = self._announcement(announcement_id)
+        poll = getattr(a, 'poll', None)
+        return Response({'announcement': {'id': a.id, 'title': a.title}, 'poll': _poll_json(poll) if poll else None})
+
+    def put(self, request, announcement_id):
+        from django.utils.dateparse import parse_datetime
+        from src.mobile.views_excuses_polls import BadRequest
+        from src.poll_editing import save_poll
+        a = self._announcement(announcement_id)
+        body = request.data if isinstance(request.data, dict) else {}
+        closes_at = parse_datetime(body['closes_at']) if body.get('closes_at') else None
+        if body.get('closes_at') and closes_at is None:
+            raise BadRequest('That closing time isn’t a date.', code='invalid')
+        try:
+            poll = save_poll(a, request.user, {**body, 'closes_at': closes_at})
+        except ValueError as e:
+            raise BadRequest(str(e), code='invalid')
+        return Response({'poll': _poll_json(poll)})
+
+    def delete(self, request, announcement_id):
+        a = self._announcement(announcement_id)
+        poll = getattr(a, 'poll', None)
+        if poll is not None:
+            poll.delete()
+        return Response({'ok': True})
+
+
+class OfficerPollResultsView(_Officers):
+    """``GET officer/announcements/<id>/poll/results/``: ``poll_results``, same anonymity rules."""
+    web_page = 'poll_results'
+
+    def get(self, request, announcement_id):
+        from src.models import AnnouncementPoll
+        from src.poll_editing import poll_results_data
+        poll = get_object_or_404(AnnouncementPoll.objects.select_related('announcement'),
+                                 announcement_id=announcement_id)
+        d = poll_results_data(poll)
+
+        def person(u):
+            return {'user_id': u.user_id, 'name': u.get_display_name()}
+
+        responses = None
+        if d['responses'] is not None:
+            responses = [{
+                'respondent': person(r.respondent) if r.respondent_id else None,
+                'submitted_at': r.submitted_at.isoformat(),
+                'answers': [{
+                    'question_id': a.question_id,
+                    'options': [o.text for o in a.selected_options.all()],
+                    'text': a.text_answer,
+                } for a in r.answers.all()],
+            } for r in d['responses']]
+        return Response({
+            'poll': _poll_json(poll),
+            'respondent_count': d['respondent_count'],
+            'closed': d['poll_is_closed'],
+            'questions': [{
+                'id': qs['question'].id,
+                'text': qs['question'].text,
+                'type': qs['question'].question_type,
+                'options': [{'text': o.text, 'count': n} for o, n in qs.get('option_counts', {}).items()],
+                'total': qs.get('total_answers'),
+                'text_answers': qs.get('text_answers'),
+            } for qs in d['question_stats']],
+            'responses': responses,
+            'respondents': ([person(u) for u in d['anon_respondent_users']]
+                            if d['anon_respondent_users'] is not None else None),
+            'non_respondents': ([person(u) for u in d['non_respondents']]
+                                if d['non_respondents'] is not None else None),
+            'non_respondents_partial': d['non_respondents_partial'],
+        })

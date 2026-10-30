@@ -320,3 +320,28 @@ class OfficerToolsTests(_Base):
         self.assertEqual(r.status_code, 200)
         self.assertEqual(b''.join(r.streaming_content), b'%PDF-1')
         d.document.delete(save=False)
+
+
+class AttendanceDashboardTests(_Base):
+
+    def test_dashboard_and_member_history(self):
+        e = Event.objects.create(title='Chapter', description='d', created_by=self.officer,
+                                 date_time=timezone.now() - timedelta(days=2), requires_attendance=True)
+        Attendance.objects.create(event=e, user=self.member, attendance_type='event', status='present')
+        AttendanceExcuse.objects.create(event=e, user=self.officer, reason='Exam', status='approved')
+        body = self.call('get', 'officer/attendance-dashboard/?range=30').json()
+        self.assertEqual(body['range'], '30')
+        self.assertEqual(body['chapter']['present'], 1)
+        row = next(m for m in body['members'] if m['user_id'] == 'mem-1')
+        self.assertEqual((row['present'], row['rate']), (1, 100.0))
+        self.assertEqual(self.call('get', 'officer/attendance-dashboard/?range=bogus').json()['range'], '90')
+        detail = self.call('get', 'officer/attendance-dashboard/off-1/').json()
+        self.assertEqual(detail['history'][0]['status'], 'not_marked')
+        self.assertEqual(detail['history'][0]['excuse']['status'], 'approved')
+        self.assertEqual(self.call('get', 'officer/attendance-dashboard/', access=self.member_access).status_code, 403)
+
+    def test_website_pages_still_render(self):
+        from django.urls import reverse
+        self.client.force_login(self.officer)
+        self.assertEqual(self.client.get(reverse('attendance_dashboard') + '?range=0').status_code, 200)
+        self.assertEqual(self.client.get(reverse('officer_member_attendance', args=['mem-1'])).status_code, 200)
