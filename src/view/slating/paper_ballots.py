@@ -38,6 +38,36 @@ def round_accepts_paper(period):
     return period.status == 'deliberation' and not (period.extra_settings or {}).get('round_ended')
 
 
+def _paper_entries(period, slate):
+    """
+    One entry per thing to count on this round's position ballot
+    (src/slating_rounds.py): a pass/fail nominee (approve / reject / abstain),
+    or each candidate or floor nominee of a pick-one (votes for them, with the
+    position's abstentions on its first row).
+    """
+    from src.slating_rounds import KIND_APPROVE, ballot_config, ballot_options, ballot_states, position_states
+    config = ballot_config(period)
+    entries = []
+    for state in ballot_states(period, position_states(period, slate), config):
+        options, abstain = ballot_options(state, config)
+        if state.kind == KIND_APPROVE:
+            entries.append({'key': f'c{state.primary.id}', 'position': state.position.title,
+                            'name': state.primary.candidate_name, 'candidate': state.primary, 'nominee': None,
+                            'pick': False, 'abstain_input': abstain})
+            continue
+        by_key = {o.key: o for o in state.options()}
+        by_key.update({f'n{n.id}': n for n in state.nominees})
+        for i, key in enumerate(options):
+            o = by_key[key]
+            nominee = o if not hasattr(o, 'key') else o.nominee
+            candidate = None if nominee is not None else o.candidate
+            entries.append({'key': key, 'position': state.position.title,
+                            'name': nominee.name if nominee is not None else candidate.candidate_name,
+                            'candidate': candidate, 'nominee': nominee, 'pick': True,
+                            'abstain_input': abstain and i == 0})
+    return entries
+
+
 def _num(post, key):
     raw = (post.get(key) or '').strip()
     if raw == '':
@@ -57,18 +87,24 @@ def record_paper_ballots(request, period_id):
     attempt = period.current_voting_attempt
     slate = Slate.objects.filter(period=period, is_approved=True, slate_type='primary').first()
     individual = period.vote_type == 'individual'
-    candidates = (list(slate.candidates.filter(is_runoff=False, individual_passed__isnull=True)
-                       .select_related('position', 'application__applicant', 'write_in_member')
-                       .order_by('display_order')) if (slate and individual) else [])
-    existing = {p.slate_candidate_id: p for p in
+    entries = _paper_entries(period, slate) if (slate and individual) else []
+    existing = {(p.slate_candidate_id, p.nominee_id): p for p in
                 SlatingPaperBallots.objects.filter(period=period, voting_attempt=attempt)}
 
     if request.method == 'POST':
         try:
             if individual:
                 ballots = _num(request.POST, 'ballots')
-                rows = [(c, {k: _num(request.POST, f'{k}_{c.id}') for k in CHOICES}) for c in candidates]
-                over = [c.position.title for c, n in rows if sum(n.values()) > ballots]
+                rows = []
+                for e in entries:
+                    counts = {'approve': _num(request.POST, f'approve_{e["key"]}'),
+                              'reject': _num(request.POST, f'reject_{e["key"]}') if not e['pick'] else 0,
+                              'abstain': _num(request.POST, f'abstain_{e["key"]}') if e['abstain_input'] else 0}
+                    rows.append((e, counts))
+                per_position = {}
+                for e, n in rows:
+                    per_position[e['position']] = per_position.get(e['position'], 0) + sum(n.values())
+                over = [pos for pos, total in per_position.items() if total > ballots]
                 if over:
                     messages.error(request, f'More votes than paper ballots ({ballots}) for: ' + ', '.join(over) + '.')
                     return redirect('slating_paper_ballots', period_id=period.id)
@@ -82,17 +118,19 @@ def record_paper_ballots(request, period_id):
         note = (request.POST.get('note') or '').strip()[:300]
         with transaction.atomic():
             SlatingPeriod.objects.select_for_update().only('pk').get(pk=period.pk)
-            for cand, n in rows:
+            for e, n in rows:
                 SlatingPaperBallots.objects.update_or_create(
-                    period=period, voting_attempt=attempt, slate_candidate=cand,
+                    period=period, voting_attempt=attempt,
+                    slate_candidate=e['candidate'] if e else None, nominee=e['nominee'] if e else None,
                     defaults={**n, 'ballots': ballots, 'note': note, 'recorded_by': request.user,
-                              'position_title': cand.position.title if cand else '',
-                              'candidate_name': cand.candidate_name if cand else ''})
+                              'position_title': e['position'] if e else '',
+                              'candidate_name': e['name'] if e else ''})
             SlatingActivity.objects.create(
                 period=period, user=request.user, action='vote_cast',
                 details=f'Paper ballots recorded for round {attempt}: {ballots} ballot(s)',
                 metadata={'paper_ballots': ballots, 'attempt': attempt,
-                          'counts': [{'position': c.position.title if c else 'slate', **n} for c, n in rows]},
+                          'counts': [{'position': e['position'] if e else 'slate',
+                                      'candidate': e['name'] if e else '', **n} for e, n in rows]},
             )
         messages.success(request, f'Saved {ballots} paper ballot(s) for round {attempt}. '
                                   'They\'ll be counted when you close the vote.')
@@ -100,11 +138,13 @@ def record_paper_ballots(request, period_id):
 
     if individual:
         any_row = next(iter(existing.values()), None)
-        rows = [{'candidate': c, 'counts': {k: getattr(existing.get(c.id), k, 0) for k in CHOICES}}
-                for c in candidates]
+        rows = []
+        for e in entries:
+            row = existing.get((e['candidate'].id if e['candidate'] else None, e['nominee'].id if e['nominee'] else None))
+            rows.append({**e, 'counts': {k: getattr(row, k, 0) for k in CHOICES}})
         ballots = any_row.ballots if any_row else 0
     else:
-        slate_row = existing.get(None)
+        slate_row = existing.get((None, None))
         rows = [{'candidate': None, 'counts': {k: getattr(slate_row, k, 0) for k in CHOICES}}]
         ballots = slate_row.ballots if slate_row else 0
     note = next((p.note for p in existing.values() if p.note), '')

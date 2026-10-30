@@ -99,19 +99,23 @@ class RoundHistoryTests(_Voting):
         self.period.save()
         self.client.force_login(self.voter)
         url = reverse('slating_vote_individual', args=[self.period.id])
-        self.client.post(url, {f'vote_{self.c_pres.id}': 'approve', f'vote_{self.c_vp.id}': 'reject',
+        self.client.post(url, {f'vote_{self.pres.id}': 'approve', f'vote_{self.vp.id}': 'reject',
                                'password': PW})
         self.close()
         self.c_vp.refresh_from_db()
         self.assertIs(self.c_vp.individual_passed, False)
+        # 10-29-26: a position round names its positions (src/slating_rounds.py).
         self.set_status('voting_open', vote_type='individual')
+        self.refresh()
+        self.assertEqual(self.period.current_voting_attempt, 1)          # refused: none chosen
+        self.set_status('voting_open', vote_type='individual', ballot_positions=[self.vp.id])
         self.refresh()
         self.assertEqual(self.period.current_voting_attempt, 2)
         self.c_vp.refresh_from_db()
         self.assertIsNone(self.c_vp.individual_passed)
         self.assertEqual(SlatingVote.objects.filter(slate_candidate=self.c_vp).count(), 1)  # kept
         self.client.force_login(self.voter)
-        self.client.post(url, {f'vote_{self.c_vp.id}': 'approve', 'password': PW})
+        self.client.post(url, {f'vote_{self.vp.id}': 'approve', 'password': PW})
         self.close()
         self.c_vp.refresh_from_db()
         self.assertIs(self.c_vp.individual_passed, True)   # round 2 only: 1 approve
@@ -123,7 +127,7 @@ class RoundHistoryTests(_Voting):
         self.period.save()
         self.client.force_login(self.voter)
         self.client.post(reverse('slating_vote_individual', args=[self.period.id]),
-                         {f'vote_{self.c_pres.id}': 'reject', f'vote_{self.c_vp.id}': 'approve',
+                         {f'vote_{self.pres.id}': 'reject', f'vote_{self.vp.id}': 'approve',
                           'password': PW})
         self.as_manager()
         self.client.post(reverse('slating_edit_approved_slate', args=[self.period.id]),
@@ -168,7 +172,7 @@ class PaperBallotTests(_Voting):
         self.period.save()
         self.as_manager()
         self.client.post(reverse('slating_paper_ballots', args=[self.period.id]),
-                         {'ballots': '2', f'approve_{self.c_pres.id}': '3'})
+                         {'ballots': '2', f'approve_c{self.c_pres.id}': '3'})
         self.assertFalse(SlatingPaperBallots.objects.exists())
 
     def test_not_for_non_managers(self):

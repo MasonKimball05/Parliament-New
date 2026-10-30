@@ -5,7 +5,7 @@ This module provides views for the modular officer slating system.
 """
 
 from .dashboard import slating_dashboard
-from .period_setup import create_period, edit_period, change_period_status
+from .period_setup import create_period, edit_period, change_period_status, position_action
 from .form_builder import form_builder
 from .position_manager import manage_positions, add_position, edit_position, delete_position, copy_default_positions
 from .apply import apply_view, my_applications, withdraw_application
@@ -33,6 +33,7 @@ __all__ = [
     'create_period',
     'edit_period',
     'change_period_status',
+    'position_action',
 
     # Form Builder
     'form_builder',

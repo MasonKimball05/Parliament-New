@@ -8,16 +8,15 @@ Implements secret ballot with configurable approval threshold.
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from django.contrib.auth import authenticate
-from django.utils import timezone
 from src.models import (
     SlatingPeriod, Slate, SlatingBallot,
-    SlateCandidate, SlatingActivity, SlatingAttendance
+    SlatingActivity, SlatingAttendance
 )
-from .tallies import end_round, individual_tallies, open_round, slate_tally
+from .tallies import end_round
 from .permissions import voting_member_required, slating_chair_required, can_view_applications
 from src.view.webauthn import check_vote_reauth
-from src.slating_ballots import SlatingBallotError, cast_individual, cast_slate
+from src.slating_ballots import SlatingBallotError, cast_individual, cast_slate, individual_ballot
+from src.slating_rounds import slate_rows
 from src.models.users import member_defer
 
 
@@ -75,7 +74,7 @@ def slating_vote(request, period_id):
         context = {
             'period': period,
             'slate': slate,
-            'candidates': candidates,
+            'candidates': slate_rows(period, slate),   # 10-29-26: one row per position (run-offs: both names)
             'current_attempt': current_attempt,
             'voting_paused': True,
             'is_committee': is_committee,
@@ -133,7 +132,7 @@ def slating_vote(request, period_id):
     context = {
         'period': period,
         'slate': slate,
-        'candidates': candidates,
+        'candidates': slate_rows(period, slate),   # 10-29-26: one row per position (run-offs: both names)
         'current_attempt': current_attempt,
         'has_voted': existing_ballot is not None,
         'total_ballots': total_ballots,
@@ -180,30 +179,9 @@ def individual_vote(request, period_id):
         messages.error(request, 'No slate available for voting.')
         return redirect('slating_dashboard')
 
-    # All primary candidates ordered for display
-    all_candidates = list(
-        slate.candidates.filter(is_runoff=False)
-        .select_related('position', 'application__applicant', 'write_in_member').defer(*member_defer('application__applicant', 'write_in_member'))
-        .order_by('display_order')
-    )
-
-    # Separate already-decided positions from ones still needing a vote
-    decided_candidates = [c for c in all_candidates if c.individual_passed is not None]
-    pending_candidates = [c for c in all_candidates if c.individual_passed is None]
-
-    # Which pending positions this user has already voted on in this round.
-    # v3.58.0: rounds are kept (not deleted on re-vote), so "this round" is
-    # the current voting_attempt — individual ballots carry it now.
-    current_attempt = period.current_voting_attempt
-    voted_position_ids = set(
-        SlatingBallot.objects.filter(
-            period=period,
-            voter=user,
-            vote_type='individual',
-            voting_attempt=current_attempt,
-            position_id__in=[c.position_id for c in pending_candidates]
-        ).values_list('position_id', flat=True)
-    )
+    # This round's ballot: the positions the chair put on it (src/slating_rounds.py),
+    # pass/fail or pick-one (run-off, floor nominations).
+    decided, ballot, voted_position_ids, config = individual_ballot(period, slate, user)
 
     if request.method == 'POST':
         # Identity confirmation: password, or passkey (v3.13.3)
@@ -214,8 +192,8 @@ def individual_vote(request, period_id):
 
         # The checks and the locked write: src/slating_ballots.py (shared with the app).
         try:
-            cast_individual(user, period, pending_candidates, voted_position_ids,
-                            lambda c: request.POST.get(f'vote_{c.id}'))
+            cast_individual(user, period, ballot, voted_position_ids, config,
+                            lambda s: request.POST.get(f'vote_{s.position.id}'))
         except SlatingBallotError as e:
             for msg in e.messages:
                 messages.error(request, msg)
@@ -224,13 +202,23 @@ def individual_vote(request, period_id):
         messages.success(request, 'Your votes have been recorded.')
         return redirect('slating_dashboard')
 
-    # GET — build rows for pending positions only; decided positions shown separately
+    # GET — this round's positions; decided positions shown separately (no results)
+    from src.slating_rounds import KIND_APPROVE, ballot_options, round_threshold
     rows = []
-    for candidate in pending_candidates:
+    for state in ballot:
+        options, allow_abstain = ballot_options(state, config)
+        names = {o.key: o.name for o in state.options()}
+        names.update({f'n{n.id}': n.name for n in state.nominees})
         rows.append({
-            'candidate': candidate,
-            'voted': candidate.position_id in voted_position_ids,
-            'allow_abstain': candidate.position.allow_abstain,
+            'state': state,
+            'position': state.position,
+            'pass_fail': state.kind == KIND_APPROVE,
+            'nominee': state.primary.candidate_name if state.primary else '',
+            'is_write_in': bool(state.primary and state.primary.is_write_in),
+            'choices': [{'key': k, 'name': names.get(k, k)} for k in options],
+            'kind_label': {'runoff': 'Run-off', 'nominations': 'Floor nominations'}.get(state.kind, ''),
+            'voted': state.position.id in voted_position_ids,
+            'allow_abstain': allow_abstain,
         })
 
     all_voted = all(r['voted'] for r in rows) if rows else True
@@ -239,9 +227,9 @@ def individual_vote(request, period_id):
         'period': period,
         'slate': slate,
         'rows': rows,
-        'decided_candidates': decided_candidates,
+        'decided_positions': decided,
         'all_voted': all_voted,
-        'required_percentage': period.required_approval_percentage,
+        'required_percentage': round_threshold(period, config),
         'has_passkeys': user.webauthn_credentials.exists(),
     }
 
@@ -252,7 +240,8 @@ def individual_vote(request, period_id):
 @slating_chair_required
 def close_voting(request, period_id):
     """
-    Close voting and calculate results.
+    Close the open round and decide what it decides (src/slating_rounds.py:
+    a passed slate elects its nominees; a position round elects its winners).
     """
     if request.method != 'POST':
         return redirect('slating_period_setup', period_id=period_id)
@@ -263,144 +252,38 @@ def close_voting(request, period_id):
         messages.error(request, 'Voting is not currently open.')
         return redirect('slating_period_setup', period_id=period_id)
 
-    slate = Slate.objects.filter(
-        period=period,
-        is_approved=True,
-        slate_type='primary'
-    ).first()
-
-    if not slate:
-        messages.error(request, 'No slate found.')
+    from src.slating_rounds import RoundError, close_round
+    try:
+        summary = close_round(period, request.user)
+    except RoundError as e:
+        messages.error(request, str(e))
         return redirect('slating_period_setup', period_id=period_id)
 
-    current_attempt = period.current_voting_attempt
-
-    if period.vote_type == 'individual':
-        # Calculate per-position results
-        candidates = list(slate.candidates.filter(is_runoff=False).select_related('position'))
-        # v3.58.0: this round only, online + paper ballots.
-        tallies = individual_tallies(candidates, current_attempt, period)
-        passed_count = 0
-        failed_count = 0
-        for candidate in candidates:
-            if candidate.individual_passed is not None:
-                # Already decided in a previous round — don't recalculate
-                if candidate.individual_passed:
-                    passed_count += 1
-                else:
-                    failed_count += 1
-                continue
-            approve = tallies[candidate.id]['approve']
-            reject = tallies[candidate.id]['reject']
-            counted = approve + reject
-            if counted > 0:
-                pct = (approve / counted) * 100
-                candidate.individual_passed = pct >= period.required_approval_percentage
-            else:
-                candidate.individual_passed = False
-            candidate.individual_votes_for = approve
-            candidate.individual_votes_against = reject
-            candidate.save(update_fields=['individual_passed', 'individual_votes_for', 'individual_votes_against'])
-            if candidate.individual_passed:
-                passed_count += 1
-            else:
-                failed_count += 1
-
-        end_round(period, 'failed' if failed_count else 'passed', request.user, slate)
-        if failed_count > 0:
-            # Some positions failed — return to deliberation for re-vote on failing positions
-            period.status = 'deliberation'
-            _mark_round_ended(period)
-            period.save(update_fields=['status', 'extra_settings'])
-
-            SlatingActivity.objects.create(
-                period=period,
-                user=request.user,
-                action='voting_closed',
-                details=f'Individual voting: {passed_count} passed, {failed_count} failed. Returned to deliberation.',
-                metadata={'passed': passed_count, 'failed': failed_count, 'individual_voting': True}
-            )
-
-            messages.warning(
-                request,
-                f'{passed_count} position(s) passed, {failed_count} did not. '
-                'Passed positions are locked. Re-open voting to vote on the remaining positions.'
-            )
-        else:
-            # All positions passed
-            period.status = 'voting_closed'
-            period.save(update_fields=['status'])
-
-            SlatingActivity.objects.create(
-                period=period,
-                user=request.user,
-                action='voting_closed',
-                details=f'Individual voting complete — all {passed_count} positions passed.',
-                metadata={'passed': passed_count, 'individual_voting': True}
-            )
-
-            messages.success(request, f'All {passed_count} positions passed. Review the results below.')
-
-    else:
-        # Full slate vote — this round's online votes + paper ballots
-        # (v3.58.0; was slate.calculate_results(), online only).
-        t = slate_tally(period, slate, current_attempt)
-        slate.total_votes = t['total']
-        slate.approval_votes = t['approve']
-        slate.rejection_votes = t['reject']
-        slate.abstain_votes = t['abstain']
-        slate.approval_percentage = t['percentage']
-        slate.passed = t['passed']
-        slate.save(update_fields=['total_votes', 'approval_votes', 'rejection_votes',
-                                  'abstain_votes', 'approval_percentage', 'passed'])
-        end_round(period, 'passed' if slate.passed else 'failed', request.user, slate)
-
-        if slate.passed:
-            period.status = 'voting_closed'
-            period.save(update_fields=['status'])
-
-            SlatingActivity.objects.create(
-                period=period,
-                user=request.user,
-                action='voting_closed',
-                details=f'Slate passed with {slate.approval_percentage:.1f}% approval',
-                metadata={
-                    'attempt': current_attempt,
-                    'approval_percentage': float(slate.approval_percentage),
-                    'passed': True
-                }
-            )
-
-            messages.success(request, f'Voting closed. Slate passed with {slate.approval_percentage:.1f}% approval!')
-
-        else:
-            # Slate failed — reset and return to deliberation
-            slate.total_votes = 0
-            slate.approval_votes = 0
-            slate.rejection_votes = 0
-            slate.abstain_votes = 0
-            slate.approval_percentage = None
-            slate.passed = None
-            slate.save(update_fields=['total_votes', 'approval_votes', 'rejection_votes', 'abstain_votes', 'approval_percentage', 'passed'])
-
-            period.status = 'deliberation'
-            _mark_round_ended(period)
-            period.save(update_fields=['status', 'extra_settings'])
-
-            SlatingActivity.objects.create(
-                period=period,
-                user=request.user,
-                action='voting_closed',
-                details=f'Slate failed attempt {current_attempt}. Returned to deliberation.',
-                metadata={'attempt': current_attempt, 'passed': False}
-            )
-
-            messages.warning(
-                request,
-                'Slate did not pass. You can re-open voting as full slate or switch to individual position votes.'
-            )
-
+    for line in round_summary_lines(summary):
+        (messages.success if summary['finished'] else messages.info)(request, line)
     return redirect('slating_results', period_id=period_id)
+
+
+def round_summary_lines(summary):
+    """What closing a round decided, in words (the web's messages and the app's alert)."""
+    lines = []
+    slate = summary.get('slate')
+    if slate is not None:
+        pct = slate['percentage']
+        lines.append(f'The slate {"passed" if slate["passed"] else "did not pass"}'
+                     + (f' with {pct:.1f}% approval.' if pct is not None else ' (no votes counted).'))
+    else:
+        for d in summary['decided']:
+            lines.append(f'{d["position"]}: {d["winner"]} selected.')
+        for d in summary['undecided']:
+            t = d['tally']
+            why = 'tied' if t.get('tie') else 'no one reached the threshold' if t['kind'] != 'approve' else 'did not pass'
+            lines.append(f'{d["position"]}: {why}.')
+    if summary['finished']:
+        lines.append('Every position is decided. Review the results, then publish them.')
+    elif summary['remaining']:
+        lines.append('Still to decide: ' + ', '.join(summary['remaining']) + '. Open the next round when ready.')
+    return lines
 
 
 @login_required

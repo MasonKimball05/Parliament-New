@@ -6,8 +6,9 @@ unchanged in behaviour:
 
 * a slate ballot is approve / reject (with at least one objected position on
   this slate) / abstain when the period allows it;
-* individual ballots need a valid choice for every position still undecided
-  and not yet voted on this round;
+* individual ballots need a valid choice for every position on this round's
+  ballot (src/slating_rounds.py: pass/fail, or pick-one for a run-off or floor
+  nominations) not yet voted on this round;
 * both are written under a lock on the period row, re-checking "already voted"
   inside it (v3.57.0: the ballots' unique constraint can't catch a double slate
   ballot, and a double individual submit used to 500), as a SlatingBallot (who
@@ -86,27 +87,39 @@ def cast_slate(user, period, slate, candidates, vote_choice, rejected_raw):
 
 
 def individual_ballot(period, slate, user):
-    """(decided, pending, voted_position_ids) for the individual-vote screen, this round."""
-    candidates = list(slate_candidates(slate).filter(is_runoff=False))
-    decided = [c for c in candidates if c.individual_passed is not None]
-    pending = [c for c in candidates if c.individual_passed is None]
+    """
+    (decided, ballot, voted_position_ids, config) for a position round: the
+    positions already decided (shown without results), the undecided ones the
+    chair put on this round's ballot (src/slating_rounds.py), and which of
+    those this member has voted on this round.
+    """
+    from src.slating_rounds import ballot_config, ballot_states, position_states
+    states = position_states(period, slate)
+    config = ballot_config(period)
+    ballot = ballot_states(period, states, config)
+    decided = [s for s in states if s.decided]
     voted = set(SlatingBallot.objects.filter(
         period=period, voter=user, vote_type='individual', voting_attempt=period.current_voting_attempt,
-        position_id__in=[c.position_id for c in pending]).values_list('position_id', flat=True))
-    return decided, pending, voted
+        position_id__in=[s.position.id for s in ballot]).values_list('position_id', flat=True))
+    return decided, ballot, voted, config
 
 
-def cast_individual(user, period, pending, voted_position_ids, choice_for):
-    """Record a vote on every pending position not yet voted. `choice_for(candidate)` → the choice."""
-    unvoted = [c for c in pending if c.position_id not in voted_position_ids]
-    choices, errors = {}, []
-    for candidate in unvoted:
-        choice = choice_for(candidate)
-        allowed = ['approve', 'reject'] + (['abstain'] if candidate.position.allow_abstain else [])
-        if choice not in allowed:
-            errors.append(f'Please select a valid vote for {candidate.position.title}.')
+def cast_individual(user, period, ballot, voted_position_ids, config, choice_for):
+    """
+    Record a vote on every position on this round's ballot not yet voted.
+    `choice_for(state)` → 'approve' / 'reject' / 'abstain' for a pass/fail
+    position, or an option key ('c<id>' / 'n<id>') or 'abstain' for a pick-one.
+    """
+    from src.slating_rounds import KIND_APPROVE, ballot_options
+    unvoted = [s for s in ballot if s.position.id not in voted_position_ids]
+    chosen, errors = {}, []
+    for state in unvoted:
+        choice = choice_for(state)
+        options, abstain = ballot_options(state, config)
+        if choice not in options + (['abstain'] if abstain else []):
+            errors.append(f'Please select a valid vote for {state.position.title}.')
         else:
-            choices[candidate.id] = choice
+            chosen[state.position.id] = choice
     if errors:
         raise SlatingBallotError('invalid_choice', errors[0], errors)
 
@@ -115,19 +128,26 @@ def cast_individual(user, period, pending, voted_position_ids, choice_for):
         SlatingPeriod.objects.select_for_update().only('pk').get(pk=period.pk)
         already = set(SlatingBallot.objects.filter(
             period=period, voter=user, vote_type='individual', voting_attempt=attempt,
-            position_id__in=[c.position_id for c in unvoted]).values_list('position_id', flat=True))
-        for candidate in unvoted:
-            if candidate.position_id in already:
+            position_id__in=[s.position.id for s in unvoted]).values_list('position_id', flat=True))
+        for state in unvoted:
+            if state.position.id in already:
                 continue
+            choice = chosen[state.position.id]
             SlatingBallot.objects.create(
                 period=period, voter=user, vote_type='individual', voting_attempt=attempt,
-                position=candidate.position,
+                position=state.position,
                 ballot_hash=hashlib.sha256(
-                    f'{user.user_id}:{period.id}:{candidate.id}:{secrets.token_hex(16)}'.encode()).hexdigest())
-            SlatingVote.objects.create(
-                period=period, slate_candidate=candidate, voting_attempt=attempt,
-                vote_choice=choices[candidate.id],
-                vote_hash=hashlib.sha256(
-                    f'{secrets.token_hex(32)}:{timezone.now().isoformat()}'.encode()).hexdigest())
+                    f'{user.user_id}:{period.id}:{state.position.id}:{secrets.token_hex(16)}'.encode()).hexdigest())
+            vote = {'period': period, 'voting_attempt': attempt, 'position': state.position,
+                    'vote_hash': hashlib.sha256(
+                        f'{secrets.token_hex(32)}:{timezone.now().isoformat()}'.encode()).hexdigest()}
+            if state.kind == KIND_APPROVE:
+                SlatingVote.objects.create(**vote, slate_candidate=state.primary, vote_choice=choice)
+            elif choice == 'abstain':
+                SlatingVote.objects.create(**vote, vote_choice='abstain')
+            elif choice.startswith('n'):
+                SlatingVote.objects.create(**vote, nominee_id=int(choice[1:]), vote_choice='approve')
+            else:
+                SlatingVote.objects.create(**vote, slate_candidate_id=int(choice[1:]), vote_choice='approve')
     SlatingActivity.objects.create(period=period, user=user, action='vote_cast',
                                    details='Individual position votes recorded')

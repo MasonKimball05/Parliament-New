@@ -4,6 +4,7 @@ Slating Results Views
 View and publish election results.
 """
 
+from src.slating_rounds import position_states
 from .tallies import individual_tallies, round_history, slate_tally
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
@@ -151,6 +152,8 @@ def view_results(request, period_id):
         'is_committee': is_committee,
         'rejection_analysis': rejection_analysis,
         'history': history,
+        # 10-29-26: each position's outcome (run-offs, floor nominations included).
+        'outcomes': position_states(period, slate),
     }
 
     return render(request, 'slating/results.html', context)

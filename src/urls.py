@@ -321,6 +321,7 @@ from src.view.debug_panel import (
 )
 from src.view.slating import (
     slating_dashboard, create_period, edit_period, change_period_status,
+    position_action as slating_position_action,
     form_builder, manage_positions, add_position, edit_position, delete_position, copy_default_positions,
     apply_view, my_applications, withdraw_application,
     applications_list, application_detail, submit_review, bulk_update_status, import_applications, fill_imported_answers, record_paper_ballots,
@@ -1246,6 +1247,7 @@ urlpatterns = [
     path('slating/period/<int:period_id>/', edit_period, name='slating_period_detail'),
     path('slating/period/<int:period_id>/setup/', edit_period, name='slating_period_setup'),
     path('slating/period/<int:period_id>/status/', change_period_status, name='slating_change_status'),
+    path('slating/period/<int:period_id>/position-action/', slating_position_action, name='slating_position_action'),
 
     # Slating Form Builder
     path('slating/period/<int:period_id>/form-builder/', form_builder, name='slating_form_builder'),

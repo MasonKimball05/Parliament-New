@@ -5,12 +5,14 @@ Create, edit, and manage slating periods.
 """
 
 from .position_manager import default_slate_positions
-from .tallies import individual_tallies, open_round, slate_tally
+from .tallies import open_round, slate_tally
+from src.slating_rounds import election_context
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.utils import timezone
 from django.http import JsonResponse
+from django.urls import reverse
 from src.models import (
     SlatingPeriod, SlatingActivity, Committee, ParliamentUser,
     Slate, SlatingAttendance, SlatingBallot, SlatingVote, SlatingPosition
@@ -336,24 +338,18 @@ def edit_period(request, period_id):
                                                            voting_attempt=current_attempt)
                 total_ballots = ind_ballots.values('voter').distinct().count()
 
-                candidates_qs = slate.candidates.filter(is_runoff=False).select_related(
-                    'position', 'application__applicant', 'write_in_member'
-                ).defer(*member_defer('application__applicant', 'write_in_member')).order_by('display_order')
-
-                position_breakdown = []
-                candidates_list = list(candidates_qs)
-                tallies = individual_tallies(candidates_list, current_attempt, period)
-                for candidate in candidates_list:
-                    t = tallies[candidate.id]
-                    position_breakdown.append({
-                        'position': candidate.position.title,
-                        'candidate_name': candidate.candidate_name,
-                        'approve': t['approve'],
-                        'reject': t['reject'],
-                        'abstain': t['abstain'],
-                        'paper': sum(t['paper'].values()),
-                        'approval_percentage': t['percentage'] or 0,
-                    })
+                # 10-29-26: this round's ballot positions, run-offs and floor
+                # nominees included (the same rows as the round's snapshot).
+                from .tallies import round_results
+                position_breakdown = [{
+                    'position': row['position'],
+                    'candidate_name': row['candidate'],
+                    'approve': row['approve'],
+                    'reject': row['reject'],
+                    'abstain': row['abstain'],
+                    'paper': 0,
+                    'approval_percentage': row['percentage'] or 0,
+                } for row in round_results(period, current_attempt, slate, 'individual')['positions']]
 
                 vote_stats = {
                     'vote_type': 'individual',
@@ -472,6 +468,7 @@ def edit_period(request, period_id):
             else:
                 write_in_js_data = '{}'
 
+    election = election_context(period)
     context = {
         'period': period,
         'is_new': False,
@@ -490,9 +487,56 @@ def edit_period(request, period_id):
         # v3.57.0: the "+ Default Positions" modal lists exactly what the
         # button adds (it was a hardcoded list that had drifted).
         'default_positions': default_slate_positions(),
+        # 10-29-26: positions, rounds and floor nominations (src/slating_rounds.py).
+        'election': election,
+        'nominee_members': (list(ParliamentUser.objects.filter(
+            member_status='Active', member_type__in=['Member', 'Chair', 'Officer']).order_by('name'))
+            if any(s.kind == 'nominations' for s in election['states']) else []),
     }
 
     return render(request, 'slating/period_setup.html', context)
+
+
+@login_required
+@slating_chair_required
+def position_action(request, period_id):
+    """
+    The chair's per-position controls (10-29-26): floor nominations on/off,
+    nominees (add, accepted, remove), and recording what the chapter decided
+    for a position (a tie, a tabled run-off) or leaving it unfilled.
+    """
+    from src.slating_rounds import (
+        RoundError, add_nominee, decide_manually, remove_nominee, set_nominee_accepted, set_open_nominations,
+    )
+    period = get_object_or_404(SlatingPeriod, id=period_id)
+    if request.method != 'POST':
+        return redirect('slating_period_setup', period_id=period_id)
+    action = request.POST.get('action')
+    pid = request.POST.get('position_id', '')
+    position_id = int(pid) if pid.isdigit() else None
+    nid = request.POST.get('nominee_id', '')
+    nominee_id = int(nid) if nid.isdigit() else None
+    try:
+        if action in ('nominations_on', 'nominations_off'):
+            set_open_nominations(period, request.user, position_id, action == 'nominations_on')
+        elif action == 'add_nominee':
+            member = ParliamentUser.objects.filter(user_id=request.POST.get('member_id'), member_status='Active').first()
+            if member is None:
+                raise RoundError('not_found', 'Choose an active member.')
+            add_nominee(period, request.user, position_id, member, accepted=request.POST.get('accepted') == 'on')
+        elif action in ('accept_nominee', 'unaccept_nominee'):
+            set_nominee_accepted(period, nominee_id, action == 'accept_nominee')
+        elif action == 'remove_nominee':
+            remove_nominee(period, nominee_id)
+        elif action == 'decide':
+            decide_manually(period, request.user, position_id, request.POST.get('choice', ''), request.POST.get('reason'))
+        else:
+            raise RoundError('invalid', 'Unknown action.')
+    except RoundError as e:
+        messages.error(request, str(e))
+    else:
+        messages.success(request, 'Saved.')
+    return redirect(f"{reverse('slating_period_setup', args=[period_id])}#positions")
 
 
 @login_required
@@ -528,46 +572,24 @@ def change_period_status(request, period_id):
             return redirect('slating_period_setup', period_id=period_id)
 
     if new_status == 'voting_open':
-        # Must have an approved slate
-        if not period.slates.filter(is_approved=True, slate_type='primary').exists():
-            messages.error(request, 'Approve a primary slate before opening voting.')
+        # 10-29-26: one copy, shared with the app (open_voting_round below).
+        from src.slating_rounds import RoundError
+        try:
+            open_voting_round(
+                period, request.user, old_status, request.POST.get('vote_type', 'slate'),
+                request.POST.getlist('ballot_positions'), request.POST.get('threshold') or None,
+                (request.POST.get('abstain') == 'on') if request.POST.get('abstain_set') else None,
+                {k[len('nominees_'):]: request.POST.getlist(k) for k in request.POST if k.startswith('nominees_')},
+                request.POST.get('quorum', ''))
+        except RoundError as e:
+            messages.error(request, str(e))
             return redirect('slating_period_setup', period_id=period_id)
-        # Save vote type chosen at open-voting time
-        vote_type = request.POST.get('vote_type', 'slate')
-        if vote_type in dict(SlatingPeriod.VOTE_TYPE_CHOICES):
-            period.vote_type = vote_type
-        # Save quorum if provided
-        quorum_raw = request.POST.get('quorum', '').strip()
-        if quorum_raw.isdigit() and int(quorum_raw) > 0:
-            period.quorum = int(quorum_raw)
-        else:
-            period.quorum = None
-        # Only start a new round when opening fresh, not when resuming a pause.
-        # v3.58.0: a round that was CLOSED (failed) or VOIDED also starts a
-        # new one (`round_ended`, set by close_voting / reset_votes). Before,
-        # any deliberation → voting_open with attempt > 0 counted as a pause,
-        # so a failed round's ballots blocked members from voting again.
-        settings_ = dict(period.extra_settings or {})
-        resuming_paused = (old_status == 'deliberation' and period.current_voting_attempt > 0
-                           and not settings_.get('round_ended'))
-        if not resuming_paused:
-            period.current_voting_attempt += 1
-            settings_.pop('round_ended', None)
-            period.extra_settings = settings_
-            # Individual re-vote: failed positions go back on the ballot. Their
-            # earlier votes are KEPT (Mason: keep the history) — they belong
-            # to the previous round, and counts are per round now.
-            if period.vote_type == 'individual':
-                slate = Slate.objects.filter(period=period, is_approved=True, slate_type='primary').first()
-                if slate:
-                    slate.candidates.filter(is_runoff=False, individual_passed=False).update(
-                        individual_passed=None, individual_votes_for=0, individual_votes_against=0)
+        messages.success(request, f'Period status changed to {period.get_status_display()}.')
+        return redirect('slating_period_setup', period_id=period_id)
 
     # Update status
     period.status = new_status
     period.save()
-    if new_status == 'voting_open':
-        open_round(period)   # v3.58.0: the round's history record
 
     # Log activity
     SlatingActivity.objects.create(
@@ -581,8 +603,6 @@ def change_period_status(request, period_id):
     # Send notifications for key transitions
     if new_status == 'nominations_open':
         _notify_nominations_open(period, request.user)
-    elif new_status == 'voting_open':
-        _notify_voting_open(period, request.user)
     elif new_status == 'results_published':
         _notify_results_published(period, request.user)
         # Save results to chapter documents
@@ -605,6 +625,51 @@ def change_period_status(request, period_id):
 
     messages.success(request, f'Period status changed to {period.get_status_display()}.')
     return redirect('slating_period_setup', period_id=period_id)
+
+
+def open_voting_round(period, user, old_status, vote_type, positions=None, threshold=None, abstain=None,
+                      nominees=None, quorum=''):
+    """
+    Open chapter voting (the web's Open voting and the app's): the next round,
+    or a paused one resumed. 10-29-26 — the round's ballot (full slate, or the
+    positions the chair chose with its threshold, abstain option and floor
+    nominees) is checked and stored by src/slating_rounds.py.
+    Raises RoundError with a message for the chair.
+    """
+    from src.slating_rounds import RoundError, start_round, validate_round
+    if not period.slates.filter(is_approved=True, slate_type='primary').exists():
+        raise RoundError('no_slate', 'Approve a primary slate before opening voting.')
+    if vote_type in dict(SlatingPeriod.VOTE_TYPE_CHOICES):
+        period.vote_type = vote_type
+    quorum = str(quorum or '').strip()
+    period.quorum = int(quorum) if quorum.isdigit() and int(quorum) > 0 else None
+    # Only start a new round when opening fresh, not when resuming a pause.
+    # v3.58.0: a round that was CLOSED (failed) or VOIDED also starts a
+    # new one (`round_ended`, set by close_voting / reset_votes). Before,
+    # any deliberation → voting_open with attempt > 0 counted as a pause,
+    # so a failed round's ballots blocked members from voting again.
+    settings_ = dict(period.extra_settings or {})
+    resuming_paused = (old_status == 'deliberation' and period.current_voting_attempt > 0
+                       and not settings_.get('round_ended'))
+    config = None
+    if not resuming_paused:
+        config = validate_round(period, period.vote_type, positions, threshold, abstain, nominees)
+        period.current_voting_attempt += 1
+        settings_.pop('round_ended', None)
+        period.extra_settings = settings_
+        # Earlier rounds' votes are KEPT (Mason: keep the history) — they
+        # belong to their round, and counts are per round now.
+    period.status = 'voting_open'
+    period.save()
+    open_round(period)   # v3.58.0: the round's history record
+    if config is not None:
+        start_round(period, config)
+    SlatingActivity.objects.create(
+        period=period, user=user, action='period_status_changed',
+        details=f'Status changed from {old_status} to voting_open',
+        metadata={'old_status': old_status, 'new_status': 'voting_open',
+                  'round': period.current_voting_attempt, 'ballot': config or {}})
+    _notify_voting_open(period, user)
 
 
 def _notify_nominations_open(period, exclude_user):

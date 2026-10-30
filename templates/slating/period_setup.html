@@ -107,49 +107,13 @@
                 </button>
             </form>
             {% elif period.status == 'deliberation' and period.current_voting_attempt == 0 %}
-            <form id="openVotingForm" method="post" action="{% url 'slating_change_status' period_id=period.id %}">
-                {% csrf_token %}
-                <input type="hidden" name="status" value="voting_open">
-                <input type="hidden" name="vote_type" id="voteTypeInput" value="">
-                <div class="flex flex-col gap-2">
-                    <div class="flex items-center gap-3">
-                        <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Vote type</p>
-                        <button type="button" id="clearVoteType" style="display:none"
-                            class="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors">
-                            × clear
-                        </button>
-                    </div>
-                    <div class="flex flex-wrap gap-2">
-                        <button type="button" id="voteType-slate"
-                            class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:border-gray-400 transition-colors">
-                            <svg id="check-slate" class="w-3 h-3" style="display:none" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
-                            </svg>
-                            Full Slate
-                        </button>
-                        <button type="button" id="voteType-individual"
-                            class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:border-gray-400 transition-colors">
-                            <svg id="check-individual" class="w-3 h-3" style="display:none" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
-                            </svg>
-                            Individual
-                        </button>
-                    </div>
-                    <div class="flex items-center gap-2">
-                        <label for="quorumInput" class="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">Quorum (optional):</label>
-                        <input type="number" name="quorum" id="quorumInput" min="1" placeholder="e.g. 15"
-                            class="w-20 text-xs border border-gray-300 dark:border-gray-600 rounded-md px-2 py-1.5 bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
-                    </div>
-                    <button type="button" id="openVotingBtn" disabled
-                        class="inline-flex items-center px-4 py-2 text-white text-sm font-medium rounded-lg shadow-sm transition-colors opacity-50 cursor-not-allowed" style="background:#9ca3af">
-                        <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-                        </svg>
-                        Open Voting
-                    </button>
-                </div>
-            </form>
+            {# 10-29-26: round 1 is always the full slate (src/slating_rounds.py). #}
+            {% include 'slating/_next_round.html' %}
             {% elif period.status == 'deliberation' and period.current_voting_attempt > 0 %}
+            {% if election.round_ended %}
+            {# The last round was closed (or voided): the chair chooses the next one. #}
+            {% include 'slating/_next_round.html' %}
+            {% else %}
             {# Voting was paused — show resume or reset options #}
             <div class="flex flex-col gap-3">
                 <div class="flex items-center gap-2 flex-wrap">
@@ -195,6 +159,7 @@
                 </div>
                 <p class="text-xs text-gray-400 dark:text-gray-500">Voting was paused. Reset votes first to change the vote type.</p>
             </div>
+            {% endif %}
             {% elif period.status == 'voting_open' %}
             <div class="mb-2">
                 {% if period.vote_type == 'individual' %}
@@ -386,6 +351,8 @@
     {% endif %}
 </div>
 {% endif %}
+
+{% if election.states %}{% include 'slating/_positions_panel.html' %}{% endif %}
 
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
     {# ─── Main: Settings Form ─── #}

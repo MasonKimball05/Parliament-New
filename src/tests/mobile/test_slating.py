@@ -85,10 +85,10 @@ class SlatingAppTests(_Base):
         self.period.save()
         ballot = self.call('get', self.vote_path()).json()
         self.assertEqual([p['position'] for p in ballot['positions']], ['President', 'VP'])
-        r = self.call('post', self.vote_path(), {'password': PW, 'choices': {str(self.c_pres.id): 'approve'}})
+        r = self.call('post', self.vote_path(), {'password': PW, 'choices': {str(self.pres.id): 'approve'}})
         self.assertEqual(r.json()['error'], 'invalid_choice')          # VP left blank
         r = self.call('post', self.vote_path(), {'password': PW, 'choices': {
-            str(self.c_pres.id): 'approve', str(self.c_vp.id): 'reject'}})
+            str(self.pres.id): 'approve', str(self.vp.id): 'reject'}})
         self.assertEqual(r.status_code, 200, r.content)
         self.assertEqual(SlatingBallot.objects.filter(vote_type='individual').count(), 2)
         self.assertTrue(all(p['voted'] for p in self.call('get', self.vote_path()).json()['positions']))
@@ -144,13 +144,14 @@ class RunoffTests(_Base):
     def ballot(self, access):
         return self.api.get(f'{API}slating/periods/{self.period.id}/vote/', **bearer(access)).json()
 
-    def close_and_reopen(self, vote_type):
+    def close_and_reopen(self, vote_type, positions=()):
         from django.urls import reverse
         self.chair.post(reverse('slating_close_voting', args=[self.period.id]))
         self.period.refresh_from_db()
         self.assertEqual(self.period.status, 'deliberation')
         self.chair.post(reverse('slating_change_status', args=[self.period.id]),
-                        {'status': 'voting_open', 'vote_type': vote_type})
+                        {'status': 'voting_open', 'vote_type': vote_type,
+                         'ballot_positions': [p.id for p in positions]})
         self.period.refresh_from_db()
         self.assertEqual(self.period.status, 'voting_open')
 
@@ -171,12 +172,12 @@ class RunoffTests(_Base):
     def test_individual_runoff_only_failed_positions(self):
         self.period.vote_type = 'individual'
         self.period.save()
-        pres, vp = str(self.c_pres.id), str(self.c_vp.id)
+        pres, vp = str(self.pres.id), str(self.vp.id)
         for access in (self.access, self.access2):
             r = self.cast(access, {'choices': {pres: 'approve', vp: 'reject'}})
             self.assertEqual(r.status_code, 200, r.content)
 
-        self.close_and_reopen('individual')
+        self.close_and_reopen('individual', [self.vp])                     # the chair re-runs VP only
         self.c_pres.refresh_from_db()
         self.c_vp.refresh_from_db()
         self.assertTrue(self.c_pres.individual_passed)
@@ -185,8 +186,85 @@ class RunoffTests(_Base):
         b = self.ballot(self.access)
         self.assertEqual(b['attempt'], 2)
         self.assertEqual([(p['position'], p['voted']) for p in b['positions']], [('VP', False)])
-        self.assertEqual([(d['position'], d['passed']) for d in b['decided']], [('President', True)])
+        self.assertEqual([d['position'] for d in b['decided']], ['President'])        # no result shown
         # Only the open position needs (and takes) a choice this round.
         self.assertEqual(self.cast(self.access, {'choices': {vp: 'approve'}}).status_code, 200)
         self.assertEqual(SlatingBallot.objects.filter(vote_type='individual', voting_attempt=2).count(), 1)
         self.assertEqual(self.cast(self.access, {'choices': {vp: 'approve'}}).json()['error'], 'already_voted')
+
+
+
+@override_settings(ALLOWED_HOSTS=['testserver', 'localhost'])
+class ChairAppTests(_Base):
+    """The slating chair runs rounds from the app with the web's own rules (src/slating_rounds.py)."""
+
+    def setUp(self):
+        super().setUp()
+        from src.models import SlateCandidate, SlatingPosition
+        self.api = Client()
+        self.chair_access = make_device(self.manager)[1]
+        self.voter_access = make_device(self.voter)[1]
+        self.runoff_member = member('sr-ro')
+        SlateCandidate.objects.create(slate=self.slate, position=self.vp, is_runoff=True,
+                                      write_in_member=self.runoff_member)
+        self.treas = SlatingPosition.objects.create(period=self.period, title='Treasurer', code='T',
+                                                    display_order=9)
+
+    def chair(self, path='', body=None, access=None):
+        url = f'{API}slating/periods/{self.period.id}/chair/{path}'
+        kw = bearer(access or self.chair_access)
+        if body is None:
+            return self.api.get(url, **kw)
+        return self.api.post(url, json.dumps(body), content_type='application/json', **kw)
+
+    def test_members_cant_run_the_vote(self):
+        self.assertEqual(self.chair(access=self.voter_access).status_code, 403)
+        self.assertEqual(self.chair('close/', {}, access=self.voter_access).status_code, 403)
+
+    def test_close_slate_then_open_runoff_and_nominations(self):
+        body = self.chair().json()
+        kinds = {p['title']: p['kind'] for p in body['positions']}
+        self.assertEqual(kinds, {'President': 'approve', 'VP': 'runoff', 'Treasurer': 'vacant'})
+        self.assertTrue(body['can_close'])
+
+        self.api.post(f'{API}slating/periods/{self.period.id}/vote/',
+                      json.dumps({'choice': 'approve', 'password': PW}), content_type='application/json',
+                      **bearer(self.voter_access))
+        r = self.chair('close/', {})
+        self.assertEqual(r.status_code, 200, r.content)
+        self.assertIn('The slate passed', r.json()['summary'][0])
+        pos = {p['title']: p for p in r.json()['positions']}
+        self.assertEqual(pos['President']['winner'], self.voter.name)
+        self.assertIsNone(pos['VP']['winner'])
+
+        # Floor nominations for the vacant Treasurer, with an accepted nominee.
+        self.chair('positions/', {'action': 'nominations_on', 'position_id': self.treas.id})
+        r = self.chair('positions/', {'action': 'add_nominee', 'position_id': self.treas.id,
+                                      'user_id': self.voter.user_id, 'accepted': True})
+        nominees = {p['title']: p for p in r.json()['positions']}['Treasurer']['nominees']
+        self.assertEqual([(n['user_id'], n['accepted']) for n in nominees], [(self.voter.user_id, True)])
+
+        # Open the VP run-off (no abstain); members see a pick-one ballot.
+        r = self.chair('open/', {'vote_type': 'individual', 'positions': [self.vp.id], 'abstain': False})
+        self.assertEqual(r.status_code, 200, r.content)
+        ballot = self.api.get(f'{API}slating/periods/{self.period.id}/vote/', **bearer(self.voter_access)).json()
+        row = ballot['positions'][0]
+        self.assertEqual((row['position'], row['kind'], row['allow_abstain']), ('VP', 'runoff', False))
+        self.assertEqual([o['name'] for o in row['options']], [self.manager.name, self.runoff_member.name])
+        r = self.api.post(f'{API}slating/periods/{self.period.id}/vote/',
+                          json.dumps({'choices': {str(self.vp.id): row['options'][1]['key']}, 'password': PW}),
+                          content_type='application/json', **bearer(self.voter_access))
+        self.assertEqual(r.status_code, 200, r.content)
+        r = self.chair('close/', {})
+        self.assertEqual({p['title']: p['winner'] for p in r.json()['positions']}['VP'], self.runoff_member.name)
+
+    def test_open_refusals_and_chapter_decision(self):
+        self.chair('close/', {})                                           # no votes: slate fails
+        r = self.chair('open/', {'vote_type': 'individual', 'positions': []})
+        self.assertEqual(r.json()['error'], 'no_positions')
+        r = self.chair('positions/', {'action': 'decide', 'position_id': self.pres.id,
+                                      'choice': f'c{self.c_pres.id}', 'reason': ''})
+        self.assertEqual(r.json()['error'], 'reason_required')
+        r = self.chair('positions/', {'action': 'decide', 'position_id': self.pres.id,
+                                      'choice': f'c{self.c_pres.id}', 'reason': 'Chapter vote by hand'})
+        self.assertEqual({p['title']: p['winner'] for p in r.json()['positions']}['President'], self.voter.name)

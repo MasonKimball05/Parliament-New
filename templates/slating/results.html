@@ -40,6 +40,24 @@
 
 {% block slating_content %}
 <div class="max-w-4xl mx-auto space-y-6">
+    {% if outcomes %}
+    {# 10-29-26: who holds each position, however it was decided (src/slating_rounds.py). #}
+    <div class="bg-white dark:bg-gray-800 shadow rounded-xl overflow-hidden">
+        <div class="px-5 py-3 border-b border-gray-200 dark:border-gray-700">
+            <h2 class="text-sm font-semibold text-gray-900 dark:text-white">Officers</h2>
+        </div>
+        <ul class="divide-y divide-gray-100 dark:divide-gray-700">
+            {% for s in outcomes %}
+            <li class="px-5 py-3 flex items-center justify-between text-sm">
+                <span class="font-medium text-gray-700 dark:text-gray-300">{{ s.position.title }}</span>
+                <span class="{% if s.winner %}text-gray-900 dark:text-white font-semibold{% else %}text-gray-500 dark:text-gray-400{% endif %}">
+                    {% if s.winner %}{{ s.winner.name }}{% elif s.unfilled %}Left unfilled{% else %}Not yet decided{% endif %}
+                </span>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
     {% if period.status == 'voting_open' and is_committee %}
     <!-- Live Voting Banner -->
     <div class="bg-primary-50 dark:bg-primary-900/30 border border-primary-200 dark:border-primary-800 rounded-lg p-4">

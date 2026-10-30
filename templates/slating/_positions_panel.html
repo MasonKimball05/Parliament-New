@@ -1,0 +1,111 @@
+{# 10-29-26 — each position's state, floor nominations, and the chapter's own decisions (src/slating_rounds.py). #}
+<div id="positions" class="bg-white dark:bg-gray-800 shadow rounded-xl overflow-hidden mb-6">
+    <div class="px-5 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+        <h2 class="text-sm font-semibold text-gray-900 dark:text-white">Positions</h2>
+        <span class="text-xs text-gray-500 dark:text-gray-400">{{ election.undecided|length }} still to decide</span>
+    </div>
+    <ul class="divide-y divide-gray-100 dark:divide-gray-700">
+        {% for s in election.states %}
+        <li class="px-5 py-3 text-sm">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                    <p class="font-medium text-gray-900 dark:text-white">{{ s.position.title }}
+                        <span class="ml-1 text-xs font-normal text-gray-500 dark:text-gray-400">
+                            {% if s.kind == 'runoff' %}Run-off: {{ s.primary.candidate_name }} / {{ s.runoff.candidate_name }}
+                            {% elif s.kind == 'nominations' %}Floor nominations
+                            {% elif s.kind == 'vacant' %}No nominee
+                            {% else %}{{ s.primary.candidate_name }}{% endif %}
+                        </span>
+                    </p>
+                </div>
+                <span class="text-xs font-medium px-2 py-0.5 rounded-full
+                    {% if s.winner %}bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300
+                    {% elif s.unfilled %}bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300
+                    {% elif s.position.id in election.on_ballot %}bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300
+                    {% elif s.failed_last %}bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300
+                    {% else %}bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300{% endif %}">
+                    {% if s.winner %}Elected: {{ s.winner.name }}{% elif s.unfilled %}Left unfilled{% elif s.position.id in election.on_ballot %}On this ballot{% elif s.failed_last %}Failed — renominate{% else %}Undecided{% endif %}
+                </span>
+            </div>
+
+            {% if not s.decided %}
+            <div class="mt-2 flex flex-wrap gap-3 text-xs">
+                {% if s.kind != 'runoff' %}
+                <form method="post" action="{% url 'slating_position_action' period_id=period.id %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="position_id" value="{{ s.position.id }}">
+                    {% if s.kind == 'nominations' %}
+                    <input type="hidden" name="action" value="nominations_off">
+                    <button type="submit" class="text-gray-600 dark:text-gray-300 hover:underline">Close floor nominations</button>
+                    {% else %}
+                    <input type="hidden" name="action" value="nominations_on">
+                    <button type="submit" class="text-primary-600 dark:text-primary-400 hover:underline">Open floor nominations</button>
+                    {% endif %}
+                </form>
+                {% endif %}
+            </div>
+            {% endif %}
+
+            {% if s.kind == 'nominations' %}
+            <div class="mt-2 ml-1 space-y-1">
+                {% for n in s.all_nominees %}
+                <div class="flex flex-wrap items-center gap-2 text-xs text-gray-700 dark:text-gray-300">
+                    <span class="font-medium">{{ n.name }}</span>
+                    {% if n.elected %}<span class="text-green-700 dark:text-green-300">elected</span>
+                    {% elif n.accepted %}<span class="text-gray-500">accepted</span>
+                    {% else %}<span class="text-yellow-700 dark:text-yellow-300">hasn't accepted</span>{% endif %}
+                    {% if not s.decided %}
+                    <form method="post" action="{% url 'slating_position_action' period_id=period.id %}" class="inline">
+                        {% csrf_token %}
+                        <input type="hidden" name="nominee_id" value="{{ n.id }}">
+                        <input type="hidden" name="action" value="{% if n.accepted %}unaccept_nominee{% else %}accept_nominee{% endif %}">
+                        <button type="submit" class="text-primary-600 dark:text-primary-400 hover:underline">{% if n.accepted %}Mark not accepted{% else %}Mark accepted{% endif %}</button>
+                    </form>
+                    <form method="post" action="{% url 'slating_position_action' period_id=period.id %}" class="inline">
+                        {% csrf_token %}
+                        <input type="hidden" name="nominee_id" value="{{ n.id }}">
+                        <input type="hidden" name="action" value="remove_nominee">
+                        <button type="submit" class="text-red-600 dark:text-red-400 hover:underline">Remove</button>
+                    </form>
+                    {% endif %}
+                </div>
+                {% empty %}
+                <p class="text-xs text-gray-500 dark:text-gray-400">No nominees yet. Take nominations from the floor; a nominee must accept before he's on a ballot.</p>
+                {% endfor %}
+                {% if not s.decided %}
+                <form method="post" action="{% url 'slating_position_action' period_id=period.id %}" class="flex flex-wrap items-center gap-2 pt-1">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="add_nominee">
+                    <input type="hidden" name="position_id" value="{{ s.position.id }}">
+                    <select name="member_id" required class="text-xs border border-gray-300 dark:border-gray-600 rounded-md px-2 py-1 bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                        <option value="">Nominate a member…</option>
+                        {% for m in nominee_members %}<option value="{{ m.user_id }}">{{ m.name }}</option>{% endfor %}
+                    </select>
+                    <label class="inline-flex items-center gap-1 text-xs text-gray-600 dark:text-gray-300"><input type="checkbox" name="accepted" checked class="h-3.5 w-3.5 rounded">Accepted</label>
+                    <button type="submit" class="text-xs px-2 py-1 rounded-md bg-primary-600 text-white hover:bg-primary-700">Add nominee</button>
+                </form>
+                {% endif %}
+            </div>
+            {% endif %}
+
+            {% if s.kind != 'vacant' or s.unfilled %}
+            <details class="mt-2">
+                <summary class="text-xs text-gray-500 dark:text-gray-400 cursor-pointer">Record the chapter’s decision</summary>
+                <form method="post" action="{% url 'slating_position_action' period_id=period.id %}" class="mt-2 flex flex-wrap items-center gap-2">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="decide">
+                    <input type="hidden" name="position_id" value="{{ s.position.id }}">
+                    <select name="choice" required class="text-xs border border-gray-300 dark:border-gray-600 rounded-md px-2 py-1 bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                        {% for o in s.options %}<option value="{{ o.key }}">{{ o.name }}</option>{% endfor %}
+                        <option value="unfilled">Leave it unfilled</option>
+                    </select>
+                    <input type="text" name="reason" required maxlength="300" placeholder="What the chapter decided (e.g. a tie, settled by vote of the chapter)"
+                        class="flex-1 min-w-[16rem] text-xs border border-gray-300 dark:border-gray-600 rounded-md px-2 py-1 bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                    <button type="submit" class="text-xs px-2 py-1 rounded-md border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700">Record</button>
+                </form>
+            </details>
+            {% endif %}
+        </li>
+        {% endfor %}
+    </ul>
+</div>

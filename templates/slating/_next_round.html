@@ -1,0 +1,73 @@
+{# 10-29-26 — open the next voting round (src/slating_rounds.py; Bylaws Art. II §3). #}
+<form method="post" action="{% url 'slating_change_status' period_id=period.id %}" class="flex flex-col gap-3">
+    {% csrf_token %}
+    <input type="hidden" name="status" value="voting_open">
+    {% if not election.has_rounds %}
+    <input type="hidden" name="vote_type" value="slate">
+    <p class="text-sm text-gray-600 dark:text-gray-300">The first ballot is always the <strong>full slate</strong> — pass or fail, {{ period.required_approval_percentage }}% to pass. Run-offs and floor nominations come after it passes.</p>
+    {% else %}
+    <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Next round</p>
+    <div class="flex flex-col gap-2">
+        {% if election.slate_possible %}
+        <label class="flex items-start gap-2 text-sm text-gray-800 dark:text-gray-200">
+            <input type="radio" name="vote_type" value="slate" class="mt-0.5 h-4 w-4 text-primary-600">
+            <span><strong>Full slate again</strong> — every undecided nominee, pass/fail.</span>
+        </label>
+        {% endif %}
+        <label class="flex items-start gap-2 text-sm text-gray-800 dark:text-gray-200">
+            <input type="radio" name="vote_type" value="individual" checked class="mt-0.5 h-4 w-4 text-primary-600">
+            <span><strong>Positions</strong> — the ones ticked below. The bylaws take them one at a time, in slate order.</span>
+        </label>
+    </div>
+    <div class="rounded-lg border border-gray-200 dark:border-gray-700 divide-y divide-gray-100 dark:divide-gray-700">
+        {% for s in election.selectable %}
+        <div class="px-3 py-2">
+            <label class="flex items-center gap-2 text-sm text-gray-800 dark:text-gray-200">
+                <input type="checkbox" name="ballot_positions" value="{{ s.position.id }}" {% if s.position.id == election.default_position %}checked{% endif %} class="h-4 w-4 rounded text-primary-600">
+                <span class="font-medium">{{ s.position.title }}</span>
+                <span class="text-xs text-gray-500 dark:text-gray-400">
+                    {% if s.kind == 'runoff' %}Run-off: {{ s.primary.candidate_name }} or {{ s.runoff.candidate_name }}
+                    {% elif s.kind == 'nominations' %}Floor nominations ({{ s.nominees|length }} accepted)
+                    {% else %}{{ s.primary.candidate_name }}{% if s.failed_last %} — failed last ballot; renominate first{% endif %}{% endif %}
+                </span>
+            </label>
+            {% if s.kind == 'nominations' and s.nominees %}
+            <div class="ml-6 mt-1 flex flex-wrap gap-3">
+                {% for n in s.nominees %}
+                <label class="inline-flex items-center gap-1 text-xs text-gray-600 dark:text-gray-300">
+                    <input type="checkbox" name="nominees_{{ s.position.id }}" value="{{ n.id }}" checked class="h-3.5 w-3.5 rounded text-primary-600">{{ n.name }}
+                </label>
+                {% endfor %}
+                <span class="text-xs text-gray-400">(untick to narrow, e.g. to the top two)</span>
+            </div>
+            {% endif %}
+        </div>
+        {% empty %}
+        <p class="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">No undecided position can go on a ballot. Renominate a vacant position on the slate, or open nominations for it below.</p>
+        {% endfor %}
+    </div>
+    <div class="flex flex-wrap items-center gap-4">
+        <label class="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-300">Threshold
+            <select name="threshold" class="text-xs border border-gray-300 dark:border-gray-600 rounded-md px-2 py-1.5 bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                <option value="">{{ period.required_approval_percentage }}% (normal)</option>
+                <option value="51">51% (final ballot)</option>
+            </select>
+        </label>
+        <input type="hidden" name="abstain_set" value="1">
+        <label class="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-300">
+            <input type="checkbox" name="abstain" {% if election.default_abstain %}checked{% endif %} class="h-4 w-4 rounded text-primary-600">
+            Allow abstaining <span class="text-gray-400">(run-offs, a true division and the top-two ballot have none)</span>
+        </label>
+    </div>
+    {% endif %}
+    <div class="flex items-center gap-2">
+        <label for="quorumNext" class="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">Quorum (optional):</label>
+        <input type="number" name="quorum" id="quorumNext" min="1" value="{{ period.quorum|default_if_none:'' }}" placeholder="e.g. 15"
+            class="w-20 text-xs border border-gray-300 dark:border-gray-600 rounded-md px-2 py-1.5 bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+    </div>
+    <div>
+        <button type="submit" class="inline-flex items-center px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium rounded-lg shadow-sm transition-colors">
+            Open voting{% if election.has_rounds %} — round {{ period.current_voting_attempt|add:1 }}{% endif %}
+        </button>
+    </div>
+</form>

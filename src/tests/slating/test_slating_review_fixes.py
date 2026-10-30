@@ -136,7 +136,7 @@ class IndividualTallyTests(_Base):
         self.period.save()
         self.client.force_login(self.voter)
         url = reverse('slating_vote_individual', args=[self.period.id])
-        data = {f'vote_{self.c_pres.id}': 'approve', f'vote_{self.c_vp.id}': 'approve', 'password': PW}
+        data = {f'vote_{self.pres.id}': 'approve', f'vote_{self.vp.id}': 'approve', 'password': PW}
         self.client.post(url, data)
         self.client.post(url, data)
         self.assertEqual(SlatingBallot.objects.filter(voter=self.voter).count(), 2)

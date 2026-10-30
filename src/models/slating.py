@@ -295,6 +295,17 @@ class SlatingPosition(models.Model):
         help_text='Allow members to abstain when voting on this position individually'
     )
 
+    #: 10-29-26 — Bylaws Art. II §2 (10) / §3 (5): the committee left the
+    #: position without a nominee, so after the slate passes the chair takes
+    #: nominations from the floor (SlatingNominee) and the chapter elects one.
+    open_nominations = models.BooleanField(
+        default=False,
+        help_text='Left without a nominee: the chapter elects one from floor nominations after the slate passes',
+    )
+    #: The chapter couldn't fill it (Bylaws §3 (5)(g)(iv)): left blank for the
+    #: committee to bring back to a later chapter meeting.
+    left_unfilled = models.BooleanField(default=False)
+
     class Meta:
         ordering = ['display_order', 'title']
         unique_together = ['period', 'code']
@@ -816,6 +827,37 @@ class SlateCandidate(models.Model):
         return f"{self.candidate_name} for {self.position.title}{suffix}"
 
 
+class SlatingNominee(models.Model):
+    """
+    A member nominated from the floor for a position the committee left
+    without a nominee (10-29-26; Bylaws Art. II §3 (5)). A nominee must accept
+    before being considered, so only accepted nominees go on a ballot.
+    ``elected`` is set when a ballot (or the chair) decides the position.
+    """
+    period = models.ForeignKey(SlatingPeriod, on_delete=models.CASCADE, related_name='nominees')
+    position = models.ForeignKey(SlatingPosition, on_delete=models.CASCADE, related_name='nominees')
+    member = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+                               related_name='slating_nominations')
+    accepted = models.BooleanField(default=False)
+    elected = models.BooleanField(null=True)
+    added_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True,
+                                 blank=True, related_name='+')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['created_at']
+        constraints = [
+            models.UniqueConstraint(fields=['position', 'member'], name='slating_nominee_unique_member'),
+        ]
+
+    @property
+    def name(self):
+        return self.member.name
+
+    def __str__(self):
+        return f'{self.member.name} for {self.position.title}'
+
+
 class SlatingAttendance(models.Model):
     """
     Tracks which members are marked present for a slating period's voting session.
@@ -928,6 +970,15 @@ class SlatingVote(models.Model):
         related_name='votes'
     )
 
+    #: 10-29-26: the position this vote is about (position rounds), and for a
+    #: floor-nomination ballot, the nominee chosen. A pick on a run-off or
+    #: nominations ballot is vote_choice 'approve' on the chosen candidate or
+    #: nominee; an abstention there names only the position.
+    position = models.ForeignKey(
+        'SlatingPosition', on_delete=models.CASCADE, null=True, blank=True, related_name='votes')
+    nominee = models.ForeignKey(
+        'SlatingNominee', on_delete=models.CASCADE, null=True, blank=True, related_name='votes')
+
     voting_attempt = models.IntegerField(default=1)
     vote_choice = models.CharField(max_length=10, choices=VOTE_CHOICES)
 
@@ -979,6 +1030,11 @@ class SlatingRound(models.Model):
     results = models.JSONField(default=dict, blank=True)
     #: Things that happened mid-round, e.g. a candidate replaced after votes.
     events = models.JSONField(default=list, blank=True)
+    #: 10-29-26 — what this round was opened with (src/slating_rounds.py):
+    #: {'positions': [ids], 'threshold': 60, 'abstain': bool,
+    #:  'nominees': {"<position id>": [nominee ids]}}. Empty for a full-slate
+    #: round and for rounds opened before this existed.
+    ballot = models.JSONField(default=dict, blank=True)
 
     class Meta:
         ordering = ['attempt']
@@ -1006,6 +1062,9 @@ class SlatingPaperBallots(models.Model):
     voting_attempt = models.PositiveIntegerField()
     slate_candidate = models.ForeignKey(
         'SlateCandidate', on_delete=models.SET_NULL, null=True, blank=True, related_name='paper_ballots')
+    #: 10-29-26: a floor nominee's paper count (nominations ballots).
+    nominee = models.ForeignKey(
+        'SlatingNominee', on_delete=models.SET_NULL, null=True, blank=True, related_name='paper_ballots')
     #: Kept so the count still names its position if the candidate row goes.
     position_title = models.CharField(max_length=200, blank=True)
     candidate_name = models.CharField(max_length=200, blank=True)
@@ -1022,8 +1081,11 @@ class SlatingPaperBallots(models.Model):
         verbose_name_plural = 'Slating paper ballots'
         constraints = [
             models.UniqueConstraint(fields=['period', 'voting_attempt'],
-                                    condition=models.Q(slate_candidate__isnull=True),
+                                    condition=models.Q(slate_candidate__isnull=True, nominee__isnull=True),
                                     name='slating_paper_unique_slate_round'),
+            models.UniqueConstraint(fields=['period', 'voting_attempt', 'nominee'],
+                                    condition=models.Q(nominee__isnull=False),
+                                    name='slating_paper_unique_nominee_round'),
             models.UniqueConstraint(fields=['period', 'voting_attempt', 'slate_candidate'],
                                     condition=models.Q(slate_candidate__isnull=False),
                                     name='slating_paper_unique_candidate_round'),

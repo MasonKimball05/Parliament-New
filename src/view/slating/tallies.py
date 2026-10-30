@@ -100,27 +100,43 @@ def round_results(period, attempt, slate=None, vote_type=None):
     """The snapshot stored on SlatingRound.results when a round ends."""
     vote_type = vote_type or period.vote_type
     if vote_type == 'individual':
-        if slate is None:
-            return {'positions': []}
-        cands = list(slate.candidates.filter(is_runoff=False)
-                     .select_related('position', 'application__applicant', 'write_in_member')
-                     .order_by('display_order'))
-        voted = set(SlatingVote.objects.filter(slate_candidate__in=cands, voting_attempt=attempt)
-                    .values_list('slate_candidate_id', flat=True))
-        papered = set(SlatingPaperBallots.objects.filter(period=period, voting_attempt=attempt)
-                      .values_list('slate_candidate_id', flat=True))
-        tallies = individual_tallies(cands, attempt, period)
+        # 10-29-26: one row per option of each position on that round's ballot
+        # (src/slating_rounds.py) — the nominee of a pass/fail position, or each
+        # candidate / floor nominee of a pick-one.
+        from src.slating_rounds import KIND_APPROVE, position_states, position_tally
+        rnd = SlatingRound.objects.filter(period=period, attempt=attempt).first()
+        config = dict(rnd.ballot or {}) if rnd is not None else {}
+        on_ballot = set(config.get('positions') or [])
+        voted = set(SlatingVote.objects.filter(period=period, voting_attempt=attempt)
+                    .exclude(position__isnull=True).values_list('position_id', flat=True))
+        voted |= set(SlatingVote.objects.filter(period=period, voting_attempt=attempt, position__isnull=True,
+                                                slate_candidate__isnull=False)
+                     .values_list('slate_candidate__position_id', flat=True))
         positions = []
-        for c in cands:
-            if c.id not in voted and c.id not in papered:
-                continue   # not on this round's ballot (decided earlier)
-            t = tallies[c.id]
-            positions.append({
-                'position': c.position.title, 'candidate': c.candidate_name,
-                'approve': t['approve'], 'reject': t['reject'], 'abstain': t['abstain'],
-                'online': t['online'], 'paper': t['paper'], 'ballots_paper': t['ballots_paper'],
-                'percentage': t['percentage'], 'passed': t['passed'],
-            })
+        for state in position_states(period, slate):
+            if state.position.id not in on_ballot and state.position.id not in voted:
+                continue   # not on this round's ballot
+            t = position_tally(period, state, attempt, config)
+            if state.kind == KIND_APPROVE:
+                if state.primary is None:
+                    continue
+                positions.append({
+                    'position': state.position.title, 'candidate': state.primary.candidate_name,
+                    'kind': state.kind, 'approve': t['approve'], 'reject': t['reject'],
+                    'abstain': t['abstain'], 'online': t['online'], 'paper': {}, 'ballots_paper': 0,
+                    'percentage': t['percentage'], 'passed': t['passed'], 'threshold': t['threshold'],
+                })
+                continue
+            names = {o.key: o.name for o in state.options()}
+            names.update({f'n{n.id}': n.name for n in state.all_nominees})
+            for key, n in t['picks'].items():
+                positions.append({
+                    'position': state.position.title, 'candidate': names.get(key, key), 'kind': state.kind,
+                    'approve': n, 'reject': 0, 'abstain': t['abstain'], 'online': {}, 'paper': {},
+                    'ballots_paper': 0,
+                    'percentage': (n / t['total'] * 100) if t['total'] else None,
+                    'passed': (key == t['winner']) if t['total'] else None, 'threshold': t['threshold'],
+                })
         return {'positions': positions}
     t = slate_tally(period, slate, attempt)
     return {'slate': {k: t[k] for k in ('approve', 'reject', 'abstain', 'total', 'online', 'paper',

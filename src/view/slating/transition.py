@@ -18,7 +18,7 @@ from django.utils.dateparse import parse_datetime
 from django.utils.timezone import localtime
 
 from src.models import (
-    SlatingPeriod, Slate, SlateCandidate, ParliamentUser, Role,
+    SlatingPeriod, Slate, ParliamentUser, Role,
     SlatingPosition, SlatingActivity
 )
 from src.decorators import admin_required
@@ -183,25 +183,24 @@ def transition_officers(request, period_id):
 
 def build_auto_assignments(period):
     """
-    Build a dict of position_id -> applicant based on slate results.
+    Build a dict of position_id -> member from the election's winners.
+
+    10-29-26: read from src/slating_rounds.py — who won each position however
+    it was decided (the slate, a pass/fail ballot, a run-off, floor nominations,
+    or the chapter's own decision). It used to walk every candidate on a passed
+    slate, so a run-off candidate overwrote the primary, and a write-in (who
+    has no application) crashed it.
     """
-    assignments = {}
-
-    # Get winning candidates from passed slate
-    passed_slate = period.slates.filter(passed=True).first()
-    if passed_slate:
-        for candidate in passed_slate.candidates.select_related('position', 'application__applicant').defer(*member_defer('application__applicant')):
-            assignments[candidate.position_id] = candidate.application.applicant
-    else:
-        # Check for individual voting results
-        individual_winners = SlateCandidate.objects.filter(
-            slate__period=period,
-            individual_passed=True
-        ).select_related('position', 'application__applicant').defer(*member_defer('application__applicant'))
-
-        for candidate in individual_winners:
-            assignments[candidate.position_id] = candidate.application.applicant
-
+    from src.slating_rounds import winners
+    assignments = winners(period)
+    if not assignments:
+        # A slate passed before 10-29-26, when passing it didn't mark its nominees.
+        passed_slate = period.slates.filter(passed=True).first()
+        if passed_slate:
+            for c in passed_slate.candidates.filter(is_runoff=False).select_related(
+                    'application__applicant', 'write_in_member').defer(
+                    *member_defer('application__applicant', 'write_in_member')):
+                assignments[c.position_id] = c.application.applicant if c.application_id else c.write_in_member
     return assignments
 
 
