@@ -1,5 +1,5 @@
 """
-Admin v2: Backups and Maintenance (v3.58.1).
+Admin v2: Backups and Maintenance (v4.1.0).
 
 Backups: the nightly timer (backup_database.sh / backup_db) writes pg_dump
 archives, and verify_backup restores the newest one into a throwaway database

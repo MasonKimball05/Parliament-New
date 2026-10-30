@@ -102,7 +102,10 @@ def added_commits() -> dict[str, str]:
             sha = line[1:].strip()
         elif line.strip() and sha:
             name = Path(line.strip()).name
-            if VERSION_FILE.match(name):
+            # Only changelogs still in the tree, as `src.W003` sees them: v4.0.0
+            # merged and removed 26 (v3.52.0–v3.71.3), and without this the
+            # tool wrote their ledger rows back on every run.
+            if VERSION_FILE.match(name) and (CHANGELOG_DIR / name).exists():
                 # `git log` walks newest-first; the first hit for a path is the
                 # most recent addition, which is the right answer for "when did
                 # this file enter the tree as it now stands".

@@ -1,5 +1,5 @@
 """
-Admin v2: ⌘K search and the member page (v3.58.1).
+Admin v2: ⌘K search and the member page (v4.1.0).
 
 The member page puts everything about one member on one screen: profile,
 roles and committees, two-factor and passkeys, web sessions and app devices

@@ -1,5 +1,5 @@
 """
-Event sign-ups: join, leave, and the waitlist (v3.54.0).
+Event sign-ups: join, leave, and the waitlist (v4.0.0).
 
 The one implementation behind the website's sign-up buttons
 (``src/view/calendar.py`` ``event_signup`` / ``event_cancel_signup``) and the
@@ -80,7 +80,7 @@ def sign_up(event_id, user):
         # own row out: get_or_create above has already saved it as confirmed,
         # so counting it took the last slot from whoever was claiming it (on
         # an N-slot event the Nth sign-up was waitlisted or refused as full;
-        # fixed v3.54.0).
+        # fixed v4.0.0).
         confirmed_count = (event.signups
                            .filter(is_cancelled=False, waitlist_position__isnull=True)
                            .exclude(pk=signup.pk).count())

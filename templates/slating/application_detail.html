@@ -124,7 +124,7 @@
         </div>
 
         {% if application.imported_at and application.import_not_asked %}
-        <!-- v3.57.0: questions the outside form never asked -->
+        <!-- v4.0.0: questions the outside form never asked -->
         <div class="bg-white dark:bg-gray-800 shadow rounded-lg px-4 py-4 sm:px-6">
             <h3 class="text-sm font-medium text-gray-900 dark:text-white">Not asked on the outside form</h3>
             <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">This application was imported on {{ application.imported_at|date:"M j, Y" }}. The form it came from didn't ask these questions, so there's no answer to show (not a skipped question):</p>

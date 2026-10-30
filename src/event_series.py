@@ -46,7 +46,7 @@ SERIES_FIELDS = (
     'requires_signup', 'max_signups', 'signups_open', 'allow_waitlist',
     'reminder_1_enabled', 'reminder_1_hours_before', 'reminder_1_email_enabled',
     'reminder_2_enabled', 'reminder_2_hours_before', 'reminder_2_email_enabled',
-    # The check-in area belongs to the meeting, like its location (v3.60.0).
+    # The check-in area belongs to the meeting, like its location (v4.1.0).
     'checkin_latitude', 'checkin_longitude', 'checkin_radius_m',
     # Timed check-in and study hours (10-30-26).
     'checkin_min_minutes', 'is_study_hours', 'duration_minutes',

@@ -1,5 +1,5 @@
 """
-Admin v2 navigation: the one list the sidebar and the search both read (v3.58.1).
+Admin v2 navigation: the one list the sidebar and the search both read (v4.1.0).
 
 Before, admin-v2 was a single row of 13 tabs, and several admin tools lived
 elsewhere on the site (system logs, bug triage, the static-asset monitor) with

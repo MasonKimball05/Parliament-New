@@ -21,7 +21,7 @@ The rule, checked for every URL pattern in the ``mobile`` namespace:
 
 Adding a pre-auth endpoint means adding its URL name here, on purpose.
 
-One more kind (v3.60.0): the location check-in, in ``CHECKIN_KEY``, which a
+One more kind (v4.1.0): the location check-in, in ``CHECKIN_KEY``, which a
 background task calls while the phone is locked and so authenticates with the
 device's narrow check-in key: exactly ``[CheckinKeyAuthentication]``,
 ``IsAuthenticated``, subclassing ``CheckinKeyAPIView``.

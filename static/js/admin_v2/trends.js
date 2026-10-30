@@ -1,4 +1,4 @@
-/* static/js/admin_v2/trends.js — v3.58.1. The admin Trends page.
+/* static/js/admin_v2/trends.js — v4.1.0. The admin Trends page.
  * One single-series bar chart per <canvas data-trend="id">, data from the
  * json_script #trend-data. Colors: one hue, validated with the dataviz
  * palette checks (light #2a56b8 on white, dark #4a72c9 on gray-800); the

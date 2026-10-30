@@ -1,5 +1,5 @@
 """
-v3.52.0 follow-up (10-26-26 auto-run): ``tasks.prune_expired_mobile_auth_tickets``.
+v4.0.0 follow-up (10-26-26 auto-run): ``tasks.prune_expired_mobile_auth_tickets``.
 
 ``MobileAuthTicket`` rows are minted on every web-view open, socket, 2FA step
 and (unauthenticated) passkey begin, and nothing deleted them. The task keeps

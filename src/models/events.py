@@ -24,7 +24,7 @@ class Event(models.Model):
     location = models.CharField(max_length=300, blank=True, help_text='Event location (physical or virtual)')
     created_by = models.ForeignKey('ParliamentUser', on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
-    # v3.54.0 — last content edit. Full saves (the edit form) set it; saves
+    # v4.0.0 — last content edit. Full saves (the edit form) set it; saves
     # with update_fields (reminder/RSVP bookkeeping) don't unless they list
     # it, and series edits stamp it by hand (bulk_update skips auto_now). The
     # calendar feed's LAST-MODIFIED / SEQUENCE and the app's events/ read it.
@@ -158,7 +158,7 @@ class Event(models.Model):
         default=False,
         help_text='Mark as true when attendance has been finalized by an officer'
     )
-    # Location check-in (v3.60.0): members inside this circle while the event's
+    # Location check-in (v4.1.0): members inside this circle while the event's
     # check-in window is open are marked present by the app (src/location_checkin.py).
     # All three set, or none.
     checkin_latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
@@ -287,7 +287,7 @@ class Event(models.Model):
     def ical_sequence(self):
         """
         iCalendar SEQUENCE: must rise with every revision so subscribed
-        calendars replace their copy (v3.54.0; it was always 0, so edits were
+        calendars replace their copy (v4.0.0; it was always 0, so edits were
         ignored). Seconds between creation and the last edit: 0 for an
         unedited event, larger after each edit, no stored counter to keep.
         """
@@ -1104,7 +1104,7 @@ class EventCheckinWindow(models.Model):
 
 class CheckinPlace(models.Model):
     """
-    A saved location check-in area (v3.60.0): "Chapter room", "The house". An
+    A saved location check-in area (v4.1.0): "Chapter room", "The house". An
     officer picks one for an event and its point and radius are COPIED onto the
     event, so editing or deleting a place never moves past or current events.
     """

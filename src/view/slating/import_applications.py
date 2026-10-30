@@ -1,5 +1,5 @@
 """
-Import applications from another app's CSV export (v3.57.0).
+Import applications from another app's CSV export (v4.0.0).
 
 GET  → upload form.
 POST step=upload  → parse the file, show the column mapping (guessed).
@@ -114,7 +114,7 @@ def import_applications(request, period_id):
 @slating_chair_required
 def fill_imported_answers(request, period_id, app_id):
     """
-    Let a manager type in answers on an IMPORTED application (v3.57.0): the
+    Let a manager type in answers on an IMPORTED application (v4.0.0): the
     questions the outside form never asked, or a correction to an imported
     answer. Only imported applications — a member's own application is theirs,
     and is never edited on their behalf. Each save is logged (SlatingActivity)

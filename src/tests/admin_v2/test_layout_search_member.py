@@ -1,5 +1,5 @@
 """
-v3.58.1 admin-v2: grouped sidebar, ⌘K search, member page, "Needs attention".
+v4.1.0 admin-v2: grouped sidebar, ⌘K search, member page, "Needs attention".
 """
 from datetime import timedelta
 from unittest import mock

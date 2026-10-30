@@ -1,5 +1,5 @@
 """
-Chat actions: send, edit, delete, read (v3.56.0).
+Chat actions: send, edit, delete, read (v4.0.0).
 
 The one implementation behind the website's chat endpoints
 (``src/view/chat/channel_chat.py``) and the app's ``chat/`` endpoints

@@ -1,5 +1,5 @@
 """
-Admin v2: what admins did (v3.58.1).
+Admin v2: what admins did (v4.1.0).
 
 The full audit log mixes every member's sign-ins, votes and page views with
 the handful of rows that matter when you ask "who changed this?". This feed is

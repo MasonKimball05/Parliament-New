@@ -1,4 +1,4 @@
-"""v3.58.1: overdue scheduled jobs use each task's own schedule."""
+"""v4.1.0: overdue scheduled jobs use each task's own schedule."""
 from datetime import timedelta
 
 from django.urls import reverse

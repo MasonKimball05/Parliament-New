@@ -669,7 +669,7 @@ def calendar_subscription_feed(request, token):
 
         # Use event's updated timestamp if available, otherwise creation time
         ical_event.add('dtstamp', event.created_at)
-        # v3.54.0 — both were fixed (created_at, 0), so a subscribed calendar
+        # v4.0.0 — both were fixed (created_at, 0), so a subscribed calendar
         # never saw an edit. They now follow Event.updated_at.
         ical_event.add('last-modified', event.updated_at or event.created_at)
         ical_event.add('sequence', event.ical_sequence)
@@ -768,7 +768,7 @@ def event_signup(request, event_id):
     """Sign the current user up for an event (POST only)."""
     if request.method != 'POST':
         return JsonResponse({'success': False, 'error': 'Method not allowed'}, status=405)
-    # v3.54.0: the logic (row lock, waitlist, visibility 404) lives in
+    # v4.0.0: the logic (row lock, waitlist, visibility 404) lives in
     # src/event_signups.py, shared with the app's events/<id>/signup/.
     try:
         result = event_signups.sign_up(event_id, request.user)

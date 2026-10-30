@@ -1,5 +1,5 @@
 """
-Mobile plan, Phase 3 — chapter ballots from the app (v3.55.0), and the shared
+Mobile plan, Phase 3 — chapter ballots from the app (v4.0.0), and the shared
 ballot code the website now uses too (src/ballots.py).
 
 What must hold: the app casts through the same rules as the web form
@@ -158,7 +158,7 @@ class CastWithPasswordTests(_Base):
         self.assertEqual(r.json()['choices_count'], 2)
 
     def test_off_ballot_bills_refused_on_both_sides(self):
-        # v3.55.0: the web form used to accept a tabled bill whose voting
+        # v4.0.0: the web form used to accept a tabled bill whose voting
         # wasn't marked closed.
         tabled = self.legislation('Tabled', status='tabled')
         r = self.cast(bill=tabled)

@@ -477,7 +477,7 @@ class SlatingApplication(models.Model):
     )
     review_notes = models.TextField(blank=True, help_text='Confidential review notes')
 
-    # v3.57.0 — set when the application came from an outside form (Google
+    # v4.0.0 — set when the application came from an outside form (Google
     # Forms etc.) through Import Applications, not from the member. The
     # application form's questions that outside form never asked are listed,
     # so reviewers see "not asked" instead of a blank they'd read as skipped.
@@ -999,7 +999,7 @@ class SlatingVote(models.Model):
 
 class SlatingRound(models.Model):
     """
-    One round of chapter voting (v3.58.0): a ``voting_attempt`` number with its
+    One round of chapter voting (v4.0.0): a ``voting_attempt`` number with its
     outcome and a snapshot of its results.
 
     Mason (10-26-26): keep the previous voting history even when voting is
@@ -1048,7 +1048,7 @@ class SlatingRound(models.Model):
 
 class SlatingPaperBallots(models.Model):
     """
-    Paper ballots counted by the committee for one round (v3.58.0).
+    Paper ballots counted by the committee for one round (v4.0.0).
 
     Members with tech problems have voted on paper, so the site's own count
     can be short. The committee enters the paper totals here and every result

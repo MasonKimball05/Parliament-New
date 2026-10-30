@@ -1,5 +1,5 @@
 """
-Is a scheduled job overdue? (v3.58.1)
+Is a scheduled job overdue? (v4.1.0)
 
 Shared by the Scheduled jobs (Celery) page and the dashboard's "Needs
 attention". Before, the page treated every crontab task as daily ("stale after

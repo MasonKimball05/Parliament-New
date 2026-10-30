@@ -1155,7 +1155,7 @@ urlpatterns = [
     path('admin-v2/committees/', admin_v2_manage_committees, name='admin_v2_manage_committees'),
     path('admin-v2/committees/<int:committee_id>/toggle/', toggle_committee_active, name='admin_v2_toggle_committee'),
     path('admin-v2/users/', manage_users, name='admin_v2_manage_users'),
-    # v3.58.1: ⌘K search and the member page (src/view/admin_v2_member.py)
+    # v4.1.0: ⌘K search and the member page (src/view/admin_v2_member.py)
     path('admin-v2/search/', admin_v2_member_views.admin_v2_search, name='admin_v2_search'),
     path('admin-v2/mobile/', admin_v2_mobile_views.admin_v2_mobile, name='admin_v2_mobile'),
     path('admin-v2/mobile/test-push/', admin_v2_mobile_views.admin_v2_mobile_push, name='admin_v2_mobile_push'),

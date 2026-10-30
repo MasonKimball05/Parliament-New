@@ -1,4 +1,4 @@
-/* static/js/base/data-actions.js — v3.58.1 (10-27-26).
+/* static/js/base/data-actions.js — v4.1.0 (10-27-26).
  * Delegated replacements for inline onclick=/onchange=/onsubmit= attributes.
  *
  * Prod CSP has no 'unsafe-inline' in script-src (src/middleware/security.py),

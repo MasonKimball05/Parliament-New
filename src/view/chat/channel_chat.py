@@ -9,7 +9,7 @@ from src.models.users import member_defer
 from src import chat_service
 
 
-# v3.56.0: these live in src/chat_service.py (shared with the app); the old
+# v4.0.0: these live in src/chat_service.py (shared with the app); the old
 # names stay importable for callers and tests.
 _ws_broadcast = chat_service.ws_broadcast
 _parse_mentions = chat_service.parse_mentions
@@ -229,7 +229,7 @@ def send_channel_message(request, channel_id=None, code=None):
     else:
         return JsonResponse({'error': 'Invalid channel identifier'}, status=400)
 
-    # v3.56.0: write check, rate limit, mentions, push and broadcast are
+    # v4.0.0: write check, rate limit, mentions, push and broadcast are
     # chat_service.send_message (shared with the app).
     try:
         message = chat_service.send_message(channel, request.user, request.POST.get('message', ''))

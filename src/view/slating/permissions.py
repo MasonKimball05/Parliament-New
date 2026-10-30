@@ -39,7 +39,7 @@ def _user_can_manage(user, period):
     """
     Returns True if the user has chair-level management access to the period.
     Does NOT check is_admin — callers decide whether admin bypass applies.
-    v3.58.0 (Mason): a pledge must be initiated before serving on the
+    v4.0.0 (Mason): a pledge must be initiated before serving on the
     slating committee, so committee/manager roles give a pledge nothing.
     """
     if getattr(user, 'is_pledge', False):
@@ -191,10 +191,10 @@ def can_view_applications(user, period):
 
 def applicant_ineligibility(user):
     """
-    Why ``user`` may not apply for slating, or None if they may (v3.58.0).
+    Why ``user`` may not apply for slating, or None if they may (v4.0.0).
 
     Mason (10-26-26): only active members apply — not inactive members,
-    alumni or advisors. Pledges may apply (v3.58.0); they must be initiated
+    alumni or advisors. Pledges may apply (v4.0.0); they must be initiated
     before they're interviewed. Used by the apply page, the eligibility API
     and Import Applications, so all three agree.
     """

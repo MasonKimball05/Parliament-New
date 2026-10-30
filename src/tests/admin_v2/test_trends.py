@@ -1,4 +1,4 @@
-"""v3.58.1 admin-v2 trends: weekly counts with zero-filled weeks."""
+"""v4.1.0 admin-v2 trends: weekly counts with zero-filled weeks."""
 from datetime import timedelta
 
 from django.urls import reverse

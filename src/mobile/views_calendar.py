@@ -186,7 +186,7 @@ class EventDetailView(_CalendarBase):
         if event is None or not event.is_visible_to_user(request.user):
             raise Http404
         data = _serialize([event], request.user)[0]
-        # Location check-in (v3.60.0): the area, and whether this member may set it.
+        # Location check-in (v4.1.0): the area, and whether this member may set it.
         on = location_checkin.enabled()
         data['checkin_area'] = location_checkin.area_json(event) if on else None
         data['can_manage_checkin'] = on and event.requires_attendance and user_is_officer_or_chair(request.user)

@@ -1,5 +1,5 @@
 """
-v3.54.0 — Event.updated_at.
+v4.0.0 — Event.updated_at.
 
 Added nullable, backfilled to created_at (so no existing event looks edited
 and subscribed calendars don't all refresh at once), then made auto_now.

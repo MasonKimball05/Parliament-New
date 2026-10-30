@@ -102,7 +102,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         try:
             channel = ChatChannel.objects.get(id=channel_id)
             if via_app:
-                # v3.56.0 — an app (ticket) socket gets what the app's chat
+                # v4.0.0 — an app (ticket) socket gets what the app's chat
                 # endpoints give: the chats flag, and the plain read rule with
                 # NO admin override (the app has no "View All" mode, so an
                 # admin's phone must not tail channels they aren't in).

@@ -1,5 +1,5 @@
 """
-v3.60.2 (10-29-26 auto-run): admin-v2 items from the 10-28 review.
+v4.2.0 (10-29-26 auto-run): admin-v2 items from the 10-28 review.
 
 - The service-hours export ran get_user_service_stats() per member (~7
   queries each). It now aggregates once; the numbers must match the
@@ -10,7 +10,7 @@ v3.60.2 (10-29-26 auto-run): admin-v2 items from the 10-28 review.
 - Bulk edit's "nothing selected" redirect copied the whole POST, including
   csrfmiddlewaretoken, into a GET URL.
 
-    python manage.py test src.tests.admin_v2.test_v3_60_2_hardening
+    python manage.py test src.tests.admin_v2.test_v4_2_0_hardening
 """
 import csv
 import io

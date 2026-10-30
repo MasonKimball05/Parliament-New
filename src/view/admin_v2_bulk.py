@@ -1,5 +1,5 @@
 """
-Admin v2: bulk member changes (v3.58.1).
+Admin v2: bulk member changes (v4.1.0).
 
 End-of-year transitions (seniors to Alumni, officers handing roles over) used
 to be one Edit Profile page per member. Here: filter, tick, choose an action,
@@ -51,7 +51,7 @@ def _filtered(params):
     if params.get('pledge_class'):
         qs = qs.filter(pledge_class=params['pledge_class'])
     if params.get('role'):
-        # v3.60.2: a non-numeric ?role= was a 500 (ValueError in the pk lookup).
+        # v4.2.0: a non-numeric ?role= was a 500 (ValueError in the pk lookup).
         role = str(params['role'])
         qs = qs.filter(roles__pk=int(role)) if role.isdigit() else qs.none()
     q = (params.get('q') or '').strip()
@@ -171,7 +171,7 @@ def admin_v2_bulk_members(request):
         members = list(ParliamentUser.objects.filter(user_id__in=ids).order_by('name'))
         if not members or action not in ACTIONS:
             messages.error(request, 'Pick at least one member and an action.')
-            # v3.60.2: carry only the list filters back, never the whole POST
+            # v4.2.0: carry only the list filters back, never the whole POST
             # (it held csrfmiddlewaretoken, which then sat in a GET URL: nginx
             # logs, browser history).
             keep = {k: v for k, v in filters.items() if v}

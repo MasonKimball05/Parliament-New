@@ -168,7 +168,7 @@ def committee_vote(request, code):
 
     # Handle voting
     # v3.13.3: action=cast_vote + explicit can_vote errors — see vote_view.py
-    # v3.55.0: eligibility, validation, the locked insert and the activity log
+    # v4.0.0: eligibility, validation, the locked insert and the activity log
     # are src/ballots.py (shared with the app); re-auth and messages stay here.
     is_vote_post = request.method == 'POST' and (
         request.POST.get('action') == 'cast_vote'

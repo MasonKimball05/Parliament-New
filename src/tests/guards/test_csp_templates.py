@@ -126,7 +126,7 @@ INLINE_HANDLER_RE = re.compile(r'<[a-zA-Z][^>]*\b(?:onclick|onchange|onsubmit)\s
 #: incidentally while fixing the reported one. Fix a file, remove it here —
 #: do NOT add a new entry without also fixing it, the same rule as
 #: KNOWN_ORPHANS in test_reachable_pages.py.
-#: Emptied in v3.58.1 (10-27-26): every one was rewired to data-* attributes
+#: Emptied in v4.1.0 (10-27-26): every one was rewired to data-* attributes
 #: handled by static/js/base/data-actions.js (or the page's own nonce'd
 #: script). Kept as an (empty) ratchet so the tests below still read the same.
 KNOWN_INLINE_HANDLER_OFFENDERS = frozenset()

@@ -46,7 +46,7 @@ class EventForm(forms.ModelForm):
         help_text='Select which days of the week for weekly recurring events'
     )
 
-    # Location check-in area (v3.60.0; templates/officer/_checkin_area.html).
+    # Location check-in area (v4.1.0; templates/officer/_checkin_area.html).
     # The map fills the two hidden coordinates; "Off" clears all three.
     CHECKIN_RADII = [('', 'Off'), (25, '25 m'), (50, '50 m'), (100, '100 m'), (150, '150 m'),
                      (200, '200 m'), (300, '300 m'), (500, '500 m')]

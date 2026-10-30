@@ -1,5 +1,5 @@
 """
-Site CSS/JS links must change URL when the file changes (v3.58.1).
+Site CSS/JS links must change URL when the file changes (v4.1.0).
 
 nginx serves /static/ with `immutable` and a 30-day expiry (see
 src/templatetags/static_version.py), and file names are not hashed. A

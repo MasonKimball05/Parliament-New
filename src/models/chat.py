@@ -153,7 +153,7 @@ class ChatChannel(models.Model):
         v3.17.3 batched `get_unread_count` (one receipt lookup + one COUNT per
         channel) into two queries, but the second fetched a row for EVERY
         undeleted message in the channels and compared timestamps in Python,
-        so its cost grew with the whole chat history. v3.56.0: the database
+        so its cost grew with the whole chat history. v4.0.0: the database
         counts. Each message is joined to this user's receipt marker for its
         channel; no receipt, or a receipt with no marker message, means
         everything is unread (get_unread_count's two fallback branches).

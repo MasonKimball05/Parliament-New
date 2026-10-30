@@ -1,5 +1,5 @@
 """
-Admin v2: the mobile app (v3.58.1).
+Admin v2: the mobile app (v4.1.0).
 
 Who has the app, which versions are out there, whether push is set up, and a
 test push to one member. Before this the only push page in admin-v2 was the

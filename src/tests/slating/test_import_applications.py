@@ -1,5 +1,5 @@
 """
-v3.57.0 — Import slating applications from an outside form's CSV.
+v4.0.0 — Import slating applications from an outside form's CSV.
 
 The President collected applications in a Google Form before using Parliament;
 those members must not have to apply again. What must hold: only the period's
@@ -238,7 +238,7 @@ class FillInAnswersTests(_Base):
 
 
 class DefaultPositionsTests(_Base):
-    """v3.57.0: VP Administration, VP Risk Management and the C&B Chair aren't slated."""
+    """v4.0.0: VP Administration, VP Risk Management and the C&B Chair aren't slated."""
 
     def test_defaults_skip_the_unslated_roles_and_the_modal_agrees(self):
         fresh = SlatingPeriod.objects.create(name='Spring 2027', slating_manager=self.manager)
@@ -254,7 +254,7 @@ class DefaultPositionsTests(_Base):
 
 
 class OneFormPerPositionTests(_Base):
-    """The President's form took one submission per position (v3.58.0)."""
+    """The President's form took one submission per position (v4.0.0)."""
 
     CSV = (
         'Timestamp,Email Address,Position,GPA,Why do you want to serve?\n'

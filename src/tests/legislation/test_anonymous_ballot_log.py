@@ -1,5 +1,5 @@
 """
-10-28-26 — the shared ballot code (v3.55.0 `src/ballots.py`) logged
+10-28-26 — the shared ballot code (v4.0.0 `src/ballots.py`) logged
 "<username> voted 'no' on '<bill>'" to the `function_calls` logger for every
 bill. That logger writes django_actions.log, which /officers/system-logs/ shows
 to every officer — so an anonymous bill's ballots were readable by name.

@@ -1,5 +1,5 @@
 """
-v3.57.0 — fixes from the slating review (10-26-26).
+v4.0.0 — fixes from the slating review (10-26-26).
 
 * Locked periods: site admins no longer read interview notes, schedule
   interviews or see live tallies through views that checked `is_admin`.

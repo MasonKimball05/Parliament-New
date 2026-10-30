@@ -54,7 +54,7 @@ def view_results(request, period_id):
         'position', 'application__applicant', 'write_in_member'
     ).defer(*member_defer('application__applicant', 'write_in_member')).order_by('display_order')
 
-    # Slate vote tally — v3.58.0: the CURRENT round (it counted every round
+    # Slate vote tally — v4.0.0: the CURRENT round (it counted every round
     # together, so a re-vote's results included the failed round), plus the
     # paper ballots the committee entered for it.
     current = slate_tally(period, slate, period.current_voting_attempt)
@@ -80,7 +80,7 @@ def view_results(request, period_id):
         passed_count = 0
         failed_count = 0
         pending_count = 0
-        # Each position's counts from the round that decided it (v3.58.0):
+        # Each position's counts from the round that decided it (v4.0.0):
         # the latest non-voided round it was on the ballot in.
         decided_in = {}
         for rnd in history:
@@ -123,7 +123,7 @@ def view_results(request, period_id):
         # Map position IDs to names
         if position_counts:
             positions = {p.id: p for p in SlatingPosition.objects.filter(id__in=position_counts.keys())}
-            # v3.57.0: the slate's candidates are already loaded; this was a
+            # v4.0.0: the slate's candidates are already loaded; this was a
             # query per objected-to position.
             by_position = {}
             for c in candidates:
@@ -241,7 +241,7 @@ def _save_results_to_documents(period, uploaded_by):
         'position', 'application__applicant', 'write_in_member'
     ).defer(*member_defer('application__applicant', 'write_in_member')).order_by('display_order')
 
-    # v3.58.0: built from the round history (every round kept, online and
+    # v4.0.0: built from the round history (every round kept, online and
     # paper ballots counted separately). It used to count every round's slate
     # votes together, so a re-vote's "official" results included the round
     # that failed.
@@ -404,7 +404,7 @@ def results_summary(request, period_id):
     # Get all slates
     slates = period.slates.filter(is_approved=True).order_by('-created_at')
 
-    # Voting history — v3.58.0: every round from the round history (failed
+    # Voting history — v4.0.0: every round from the round history (failed
     # and voided rounds included, paper ballots counted and shown), one row
     # per slate round or per position in an individual round.
     voting_history = []

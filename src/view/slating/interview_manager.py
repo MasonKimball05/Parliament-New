@@ -59,13 +59,13 @@ def interview_list(request, period_id):
     if period.slating_committee:
         interviewers_list = list(period.slating_committee.members.all()) + \
                           list(period.slating_committee.chairs.all())
-        # Remove duplicates; pledges can't serve until initiated (v3.58.0)
+        # Remove duplicates; pledges can't serve until initiated (v4.0.0)
         interviewers_list = [m for m in set(interviewers_list) if not m.is_pledge]
 
     context = {
         'period': period,
         'interviews': interviews,
-        # v3.58.0: the "Destroy interview notes" section (managers only)
+        # v4.0.0: the "Destroy interview notes" section (managers only)
         'can_manage': can_manage_period(request.user, period),
         'notes_remaining': SlatingInterview.objects.filter(
             application__period=period, notes_destroyed=False).count(),
@@ -87,14 +87,14 @@ def schedule_interview(request, app_id):
 
     # Check permissions: the period's managers (slating manager, committee
     # admin/chairs; a site admin only while the period isn't locked).
-    # v3.57.0: was `user.is_admin or chair`, which let any site admin into a
+    # v4.0.0: was `user.is_admin or chair`, which let any site admin into a
     # locked period and left out the slating manager.
     user = request.user
     if not can_manage_period(user, period):
         messages.error(request, 'Only slating committee chairs can schedule interviews.')
         return redirect('slating_dashboard')
 
-    # v3.58.0 (Mason): pledges may apply, but must be initiated before they're
+    # v4.0.0 (Mason): pledges may apply, but must be initiated before they're
     # interviewed.
     if application.applicant.is_pledge:
         messages.error(request, f'{application.applicant.get_display_name()} is still a pledge. '
@@ -107,7 +107,7 @@ def schedule_interview(request, app_id):
         if period.slating_committee:
             interviewers_list = list(period.slating_committee.members.all()) + \
                               list(period.slating_committee.chairs.all())
-            # Pledges can't serve on the committee until initiated (v3.58.0).
+            # Pledges can't serve on the committee until initiated (v4.0.0).
             interviewers_list = [m for m in set(interviewers_list) if not m.is_pledge]
 
         # Check if AJAX request - return JSON for modal
@@ -193,7 +193,7 @@ def complete_interview(request, interview_id):
     period = interview.application.period
 
     # Check permissions: anyone who may read interview notes for this period.
-    # v3.57.0: was `user.is_admin or committee member/chair` — any site admin
+    # v4.0.0: was `user.is_admin or committee member/chair` — any site admin
     # could read a LOCKED period's confidential interview notes (the GET
     # returns them), which is exactly what the lock exists to prevent.
     user = request.user

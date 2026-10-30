@@ -1,5 +1,5 @@
 """
-v3.52.0 client-contract fixes found while building the app:
+v4.0.0 client-contract fixes found while building the app:
 
 * ``/m/handoff/`` takes the access token as the POST field ``access_token``
   (Android's web view drops headers on a POST load), never from the query string;

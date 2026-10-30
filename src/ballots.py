@@ -1,5 +1,5 @@
 """
-Casting a chapter ballot (v3.55.0).
+Casting a chapter ballot (v4.0.0).
 
 The one implementation behind the website's vote form (``src/view/vote_view.py``
 ``cast_vote``) and the app's ``votes/<id>/cast/`` (``src/mobile/views_votes.py``).
@@ -124,7 +124,7 @@ def cast(user, legislation, choices, request=None):
         raise BallotError('voting_closed', "Voting on this legislation has ended.")
     if not legislation.voting_has_started():
         raise BallotError('not_started', "Voting has not started yet on this legislation.")
-    # v3.55.0: the web form only checked the two flags above, so a hand-built
+    # v4.0.0: the web form only checked the two flags above, so a hand-built
     # POST could vote on a tabled, removed or pending bill whose voting was
     # never marked closed. Same rule as the Home page's "pending votes".
     if not Legislation.objects.open_for_voting().filter(pk=legislation.pk).exists():
@@ -177,7 +177,7 @@ def cast(user, legislation, choices, request=None):
 
 # ── Committee ballots ───────────────────────────────────────────────────────
 # Same shape as the chapter functions above, moved out of
-# src/view/committee/vote.py (v3.55.0). Differences from chapter ballots, all
+# src/view/committee/vote.py (v4.0.0). Differences from chapter ballots, all
 # as the web had them: eligibility is the committee's voting_members (not
 # member type), there is no receipt, and the lock re-checks voting_closed
 # because a chair can end the vote mid-request.
@@ -210,7 +210,7 @@ def cast_committee(user, committee, legislation, choices, request=None):
         raise BallotError('voting_closed', "Voting on this legislation has ended.")
     if not legislation.voting_has_started():
         raise BallotError('not_started', "Voting has not started yet on this legislation.")
-    # v3.55.0: a removed bill whose voting was never closed took ballots.
+    # v4.0.0: a removed bill whose voting was never closed took ballots.
     if legislation.status == 'removed':
         raise BallotError('not_open', "This legislation isn't open for voting.")
 

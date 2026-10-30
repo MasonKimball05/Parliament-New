@@ -1,5 +1,5 @@
 """
-Admin v2: exports (v3.58.1).
+Admin v2: exports (v4.1.0).
 
 One page for every download an admin needs. Three CSVs are new here (the
 member roster with admin columns, attendance per member, service hours per
@@ -40,7 +40,7 @@ def _csv_response(request, name, kind):
 def _status(request):
     """`?status=` limited to the known values ('' = everyone but Removed).
 
-    v3.60.2: the raw value went into the CSV's Content-Disposition filename.
+    v4.2.0: the raw value went into the CSV's Content-Disposition filename.
     """
     status = request.GET.get('status', 'Active')
     return status if status in STATUSES else ''
@@ -119,7 +119,7 @@ def admin_v2_export_service(request):
     from src.view.service_user_dashboard import get_user_service_stats
 
     raw = request.GET.get('period') or ''
-    # v3.60.2: a non-numeric ?period= was a 500.
+    # v4.2.0: a non-numeric ?period= was a 500.
     period = (ServicePeriod.objects.filter(pk=int(raw)).first() if raw.isdigit() else None) \
         or ServicePeriod.objects.filter(is_active=True).order_by('-start_date').first()
     response = _csv_response(request, 'service_hours', f'service hours ({period.name if period else "no period"})')
@@ -127,7 +127,7 @@ def admin_v2_export_service(request):
     w.writerow(['Number', 'Name', 'Period', 'Expected', 'Approved', 'Pending', 'Remaining', 'Progress %'])
     if period is None:
         return response
-    # v3.60.2: one aggregate query per table for the whole roster instead of
+    # v4.2.0: one aggregate query per table for the whole roster instead of
     # get_user_service_stats() per member (~7 queries each, ~1,000 for 150).
     # Same arithmetic as get_user_service_stats; kept in step by a test.
     sub = (ServiceHoursSubmission.objects.filter(period=period)

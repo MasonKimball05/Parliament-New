@@ -187,7 +187,7 @@ def generate_recurring_events(parent_event, max_occurrences=52):
             requires_attendance=parent_event.requires_attendance,
             allow_excuses=parent_event.allow_excuses,
             excuse_deadline=instance_excuse_deadline,
-            # v3.60.0 — every occurrence of a weekly meeting checks in at the same spot.
+            # v4.1.0 — every occurrence of a weekly meeting checks in at the same spot.
             checkin_latitude=parent_event.checkin_latitude,
             checkin_longitude=parent_event.checkin_longitude,
             checkin_radius_m=parent_event.checkin_radius_m,
@@ -249,7 +249,7 @@ def _groupme_event_context(event=None, request=None):
 
 
 def _checkin_context():
-    """The location check-in picker (v3.60.0): shown only when the flag is on."""
+    """The location check-in picker (v4.1.0): shown only when the flag is on."""
     from src import location_checkin
     from src.models import CheckinPlace
     if not location_checkin.enabled():

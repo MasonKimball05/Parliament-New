@@ -333,7 +333,7 @@ def edit_period(request, period_id):
 
             if period.vote_type == 'individual':
                 # Individual position voting stats
-                # v3.58.0: this round only (rounds are kept now), plus paper.
+                # v4.0.0: this round only (rounds are kept now), plus paper.
                 ind_ballots = SlatingBallot.objects.filter(period=period, vote_type='individual',
                                                            voting_attempt=current_attempt)
                 total_ballots = ind_ballots.values('voter').distinct().count()
@@ -370,7 +370,7 @@ def edit_period(request, period_id):
                     voting_attempt=current_attempt
                 )
 
-                # v3.58.0: online + paper ballots, one grouped count.
+                # v4.0.0: online + paper ballots, one grouped count.
                 t = slate_tally(period, slate, current_attempt)
                 approve_count, reject_count, abstain_count = t['approve'], t['reject'], t['abstain']
                 total_votes = t['total']
@@ -484,7 +484,7 @@ def edit_period(request, period_id):
         'eligible_managers': eligible_managers,
         'committee_members': committee_members,
         'write_in_js_data': write_in_js_data,
-        # v3.57.0: the "+ Default Positions" modal lists exactly what the
+        # v4.0.0: the "+ Default Positions" modal lists exactly what the
         # button adds (it was a hardcoded list that had drifted).
         'default_positions': default_slate_positions(),
         # 10-29-26: positions, rounds and floor nominations (src/slating_rounds.py).
@@ -644,7 +644,7 @@ def open_voting_round(period, user, old_status, vote_type, positions=None, thres
     quorum = str(quorum or '').strip()
     period.quorum = int(quorum) if quorum.isdigit() and int(quorum) > 0 else None
     # Only start a new round when opening fresh, not when resuming a pause.
-    # v3.58.0: a round that was CLOSED (failed) or VOIDED also starts a
+    # v4.0.0: a round that was CLOSED (failed) or VOIDED also starts a
     # new one (`round_ended`, set by close_voting / reset_votes). Before,
     # any deliberation → voting_open with attempt > 0 counted as a pause,
     # so a failed round's ballots blocked members from voting again.
@@ -661,7 +661,7 @@ def open_voting_round(period, user, old_status, vote_type, positions=None, thres
         # belong to their round, and counts are per round now.
     period.status = 'voting_open'
     period.save()
-    open_round(period)   # v3.58.0: the round's history record
+    open_round(period)   # v4.0.0: the round's history record
     if config is not None:
         start_round(period, config)
     SlatingActivity.objects.create(

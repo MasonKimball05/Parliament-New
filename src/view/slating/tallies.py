@@ -1,9 +1,9 @@
 """
-Slating vote counts: one place, per round, online + paper (v3.57.0, v3.58.0).
+Slating vote counts: one place, per round, online + paper (v4.0.0, v4.0.0).
 
 Every result in slating is computed here: closing the vote, the setup page's
 live stats, the results page, the results summary and the export saved to
-Chapter Documents. Before v3.58.0 those each counted for themselves, and two of
+Chapter Documents. Before v4.0.0 those each counted for themselves, and two of
 them (the results page and the export) added every round together, so a
 re-vote's "official" results included the round that failed.
 
@@ -74,7 +74,7 @@ def individual_tallies(candidates, attempt=None, period=None):
     """
     {candidate id: {'approve', 'reject', 'abstain', 'online', 'paper', ...}} for
     one round. ``attempt`` None counts every round's online votes and no paper
-    (the pre-v3.58.0 behaviour, kept for callers that don't know the round).
+    (the pre-v4.0.0 behaviour, kept for callers that don't know the round).
     """
     candidates = list(candidates)
     ids = [c.id for c in candidates]

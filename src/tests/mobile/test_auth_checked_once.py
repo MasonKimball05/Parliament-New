@@ -1,5 +1,5 @@
 """
-v3.53.0 — a mobile request checks its access token once.
+v4.0.0 — a mobile request checks its access token once.
 
 The site-wide middlewares (``bearer_device``) and DRF's
 ``MobileTokenAuthentication`` both need the answer; they share

@@ -482,7 +482,7 @@ def check_vote_password(user, password, request):
     """
     The vote password confirmation, with its per-member failure limit.
     Returns (ok, error_message). Shared by the web form and the app's
-    votes/<id>/cast/ (v3.55.0), so failures in either count toward one limit.
+    votes/<id>/cast/ (v4.0.0), so failures in either count toward one limit.
     """
     from django.core.cache import cache
     key = f'vote_pw_attempts_{user.pk}'

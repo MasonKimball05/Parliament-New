@@ -1,5 +1,5 @@
 """
-Archived events are admin-only (v3.58.1, 10-27-26).
+Archived events are admin-only (v4.1.0, 10-27-26).
 
 The three views used `user_passes_test(lambda u: u.is_admin)`, which answers a
 signed-in non-admin with a redirect to the LOGIN page, as if they were signed

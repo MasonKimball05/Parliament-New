@@ -1,5 +1,5 @@
 """
-Admin v2 dashboard: "Needs attention" (v3.58.1).
+Admin v2 dashboard: "Needs attention" (v4.1.0).
 
 One short list of things an admin should act on, each a count with a link to
 the page that handles it. Only non-zero items are shown, so an empty strip

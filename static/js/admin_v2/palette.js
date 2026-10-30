@@ -1,4 +1,4 @@
-/* static/js/admin_v2/palette.js — v3.58.1.
+/* static/js/admin_v2/palette.js — v4.1.0.
  * The admin-v2 ⌘K search: admin pages (src/admin_v2_nav.py), members, and
  * events / announcements / legislation by title, from
  * GET {data-search-url}?q=. Opens on ⌘K / Ctrl+K, "/" (outside a text field)

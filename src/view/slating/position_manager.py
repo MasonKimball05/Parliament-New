@@ -234,7 +234,7 @@ def delete_position(request, period_id, position_id):
     return redirect('slating_positions', period_id=period_id)
 
 
-#: Roles that are NOT slated (v3.57.0, Mason 10-26-26): Vice President of
+#: Roles that are NOT slated (v4.0.0, Mason 10-26-26): Vice President of
 #: Administration, Vice President of Risk Management and the Constitution &
 #: Bylaws Chair. They stay roles (Role.DEFAULT_ROLES also seeds the chapter's
 #: roles); they're just not on the default slate.

@@ -82,7 +82,7 @@ def period_status(request, period_id):
     }
 
     # Add stats for committee members.
-    # v3.57.0: these two gates said `request.user.is_admin`, bypassing the
+    # v4.0.0: these two gates said `request.user.is_admin`, bypassing the
     # period lock (see permissions.py) — any site admin got application stats
     # and, below, LIVE vote tallies while voting was still open.
     from .permissions import can_manage_period, can_view_applications
@@ -145,7 +145,7 @@ def check_eligibility(request, period_id):
         eligibility['eligible'] = False
         eligibility['reasons'].append(reason)
 
-    # v3.58.0 (Mason): pledges CAN apply for slating. They must be initiated
+    # v4.0.0 (Mason): pledges CAN apply for slating. They must be initiated
     # before they're interviewed (schedule_interview) or serve on the slating
     # committee (permissions._user_can_view).
 

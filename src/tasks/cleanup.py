@@ -176,7 +176,7 @@ def prune_old_csp_violations():
         return 0
 
 
-#: v3.52.0 follow-up (10-26-26 auto-run): how long a dead mobile ticket is kept.
+#: v4.0.0 follow-up (10-26-26 auto-run): how long a dead mobile ticket is kept.
 #: Every ticket lives 5 minutes at most (MobileAuthTicket.TTL), so a day is
 #: only there to make a sign-in problem from earlier today still visible in
 #: the admin.

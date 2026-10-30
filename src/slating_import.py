@@ -1,5 +1,5 @@
 """
-Import slating applications from another app's export (v3.57.0).
+Import slating applications from another app's export (v4.0.0).
 
 Mason (10-26-26): the President collected officer applications in his own
 Google Form before anyone knew Parliament had slating, and members who already
@@ -34,7 +34,7 @@ Rules:
   is no screenshot). Required-field problems are warnings, not refusals: the
   committee reviews every application anyway.
 * **Only members who could apply.** Inactive members, alumni and advisors are
-  skipped (v3.58.0, same rule as the apply page).
+  skipped (v4.0.0, same rule as the apply page).
 * **Nothing lost.** With "keep unmapped answers" on, every answer that wasn't
   mapped to a form field goes into the application's review notes, under a
   heading that says it came from the import.
@@ -368,7 +368,7 @@ def plan(period, headers, rows, mapping, keep_unmapped=True):
         if user.pk in existing:
             item['reason'] = 'Already has an application in Parliament (kept as is).'
             continue
-        # v3.58.0: the same rule as the apply page (only active members; no
+        # v4.0.0: the same rule as the apply page (only active members; no
         # inactive members, alumni or advisors). Pledges may apply.
         from src.view.slating.permissions import applicant_ineligibility
         reason = applicant_ineligibility(user)
@@ -444,7 +444,7 @@ def _label(item, titles):
 
 def _merge_per_member(items, titles):
     """
-    One application per member (v3.58.0). The President's Google Form took
+    One application per member (v4.0.0). The President's Google Form took
     one submission PER POSITION, so a member running for three positions has
     three rows. For each member:
 

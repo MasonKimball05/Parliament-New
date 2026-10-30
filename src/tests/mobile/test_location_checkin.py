@@ -1,5 +1,5 @@
 """
-v3.60.0 — location check-in (src/location_checkin.py, src/mobile/views_location.py).
+v4.1.0 — location check-in (src/location_checkin.py, src/mobile/views_location.py).
 
 A member's phone inside an event's check-in area, inside its window, marks
 them present (counted like a QR scan). The check-in endpoint authenticates

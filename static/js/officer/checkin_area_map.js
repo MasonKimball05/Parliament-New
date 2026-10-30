@@ -1,5 +1,5 @@
 /*
- * Location check-in area picker (v3.60.0) for the event form
+ * Location check-in area picker (v4.1.0) for the event form
  * (templates/officer/_checkin_area.html). Tap the map, use this device's
  * location, or pick a saved place; the radius select draws the circle and
  * "Off" removes it. Writes the hidden checkin_latitude / checkin_longitude.

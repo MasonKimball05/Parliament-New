@@ -1,4 +1,4 @@
-/* static/js/admin_v2/tables.js — v3.58.1.
+/* static/js/admin_v2/tables.js — v4.1.0.
  * Phone layout for admin-v2 tables. Thirteen admin pages are wide tables
  * that a phone could only show two or three columns of, sideways-scrolling
  * for the rest. This copies each column's heading onto its cells as

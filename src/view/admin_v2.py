@@ -422,7 +422,7 @@ def _seed_site_settings(defaults):
         for setting in missing:
             SiteSetting.invalidate_cache(setting.key)
 
-# v3.58.1: module level so the Maintenance page can seed the same rows
+# v4.1.0: module level so the Maintenance page can seed the same rows
 # (src/view/admin_v2_ops.py). Was inline in admin_v2_dashboard.
 PUSH_FLAG_DEFAULTS = [
     {
@@ -742,7 +742,7 @@ def admin_v2_dashboard(request):
         },
     }
 
-    # Push flags and site settings (v3.58.1: shared with the Maintenance page).
+    # Push flags and site settings (v4.1.0: shared with the Maintenance page).
     seed_dashboard_defaults()
 
     # Get feature flags grouped by category — one query instead of two per category.
@@ -934,7 +934,7 @@ def toggle_feature_flag(request, flag_id):
         except FeatureFlag.DoesNotExist:
             messages.error(request, 'Feature flag not found')
 
-    if request.POST.get('next') == 'maintenance':  # v3.58.1: the Maintenance page
+    if request.POST.get('next') == 'maintenance':  # v4.1.0: the Maintenance page
         return redirect('admin_v2_maintenance')
     return redirect('admin_v2_dashboard')
 
@@ -972,13 +972,13 @@ def toggle_page(request, toggle_id):
                 return JsonResponse({'error': 'Not found'}, status=404)
             messages.error(request, 'Page toggle not found')
 
-    if request.POST.get('next') == 'maintenance':  # v3.58.1: the Maintenance page
+    if request.POST.get('next') == 'maintenance':  # v4.1.0: the Maintenance page
         return redirect('admin_v2_maintenance')
     return redirect('admin_v2_dashboard')
 
 
 def _settings_return(request):
-    """Where a switch/setting form goes back to (v3.58.1: the Maintenance page sends next=maintenance)."""
+    """Where a switch/setting form goes back to (v4.1.0: the Maintenance page sends next=maintenance)."""
     return 'admin_v2_maintenance' if request.POST.get('next') == 'maintenance' else 'admin_v2_dashboard'
 
 
@@ -2062,7 +2062,7 @@ def release_user_lockout(request, user_id):
     logger.info(
         f"Admin {request.user.username} released login lockouts for {user.username}"
     )
-    if request.POST.get('return_to') == 'member':  # v3.58.1: from the member page
+    if request.POST.get('return_to') == 'member':  # v4.1.0: from the member page
         return redirect('admin_v2_member', user_id=user_id)
     return redirect('admin_v2_user_login_security', user_id=user_id)
 
@@ -4057,7 +4057,7 @@ def celery_health(request):
         else:
             schedule_str = 'Unknown schedule'
 
-        # v3.58.1: overdue against the task's own schedule (src/admin_v2_jobs.py).
+        # v4.1.0: overdue against the task's own schedule (src/admin_v2_jobs.py).
         # The old rule called every crontab stale after 25 hours, so weekly
         # tasks always looked broken.
         status, next_due = task_status(task, now)

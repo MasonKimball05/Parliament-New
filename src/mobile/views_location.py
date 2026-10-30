@@ -1,5 +1,5 @@
 """
-Location check-in for the app (v3.60.0; rules in ``src/location_checkin.py``).
+Location check-in for the app (v4.1.0; rules in ``src/location_checkin.py``).
 
 Members:
 * ``GET events/checkin-areas/`` — the areas the app should watch (next 7 days,

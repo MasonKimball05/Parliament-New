@@ -1,5 +1,5 @@
 """
-Paper ballots (v3.58.0).
+Paper ballots (v4.0.0).
 
 Mason (10-26-26): "We've had to use paper ballots sometimes for people who had
 tech issues, so not all votes may be reflected on the site." The committee

@@ -7,7 +7,7 @@ One request for the whole screen:
   first (up to 5). Only for members who can vote, with the Vote page open
   to them; otherwise ``null``, so the app can tell "nothing to vote on" from
   "no Votes tab". (Not the ``legislation_voting`` flag: that gates managing
-  bills, not voting, on the web too; corrected v3.55.0.)
+  bills, not voting, on the web too; corrected v4.0.0.)
   Committee ballots arrive with the Votes endpoints.
 * ``events`` — the next 3 events the member may see.
 * ``announcements`` — the latest 3 published announcements they may see.

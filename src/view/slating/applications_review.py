@@ -99,7 +99,7 @@ def applications_list(request, period_id):
         'status_counts': status_counts,
         'status_choices': [s for s in SlatingApplication.STATUS_CHOICES if s[0] != 'draft'],
         'gpa_level_choices': SlatingApplication.GPA_LEVEL_CHOICES,
-        # v3.57.0: the Import button is for the people who manage the period.
+        # v4.0.0: the Import button is for the people who manage the period.
         'can_manage': can_manage_period(request.user, period),
     }
 

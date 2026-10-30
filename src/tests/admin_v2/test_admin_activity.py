@@ -1,4 +1,4 @@
-"""v3.58.1 admin activity feed: admin actions only, routine rows and non-admins left out."""
+"""v4.1.0 admin activity feed: admin actions only, routine rows and non-admins left out."""
 from django.urls import reverse
 
 from src.models import ActivityLog

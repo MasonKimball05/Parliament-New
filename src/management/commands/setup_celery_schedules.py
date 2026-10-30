@@ -173,7 +173,7 @@ SCHEDULES = [
     {
         'name': 'Prune expired mobile sign-in tickets',
         'task': 'tasks.prune_expired_mobile_auth_tickets',
-        'crontab': {'hour': '3', 'minute': '16'},  # 3:16 AM Central daily (v3.52.0)
+        'crontab': {'hour': '3', 'minute': '16'},  # 3:16 AM Central daily (v4.0.0)
     },
     {
         'name': 'Notify expiring API tokens',

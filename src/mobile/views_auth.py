@@ -546,7 +546,7 @@ class MeView(MobileAPIView):
                 # The QR self-check-in's three flags (event_qr_checkin).
                 'qr_checkin': (flags['attendance_tracking'] and flags['event_attendance']
                                and flags['qr_attendance_checkin']),
-                # Location check-in (v3.60.0; src/location_checkin.FLAGS).
+                # Location check-in (v4.1.0; src/location_checkin.FLAGS).
                 'location_checkin': (flags['attendance_tracking'] and flags['event_attendance']
                                      and flags['location_checkin']),
             },

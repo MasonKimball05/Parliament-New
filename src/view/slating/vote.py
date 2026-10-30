@@ -22,7 +22,7 @@ from src.models.users import member_defer
 
 def _mark_round_ended(period):
     """
-    v3.58.0: the round is over (closed or voided), so the next "open voting"
+    v4.0.0: the round is over (closed or voided), so the next "open voting"
     starts a NEW round instead of resuming this one. Pausing (voting_open →
     deliberation) doesn't set this, so a pause still resumes the same round.
     Kept in extra_settings to avoid a column for one flag.
@@ -120,7 +120,7 @@ def slating_vote(request, period_id):
         return redirect('slating_dashboard')
 
     # GET - show voting form.
-    # v3.58.0 (Mason): no running tally for members, even after they vote —
+    # v4.0.0 (Mason): no running tally for members, even after they vote —
     # results stay hidden until the slating committee announces them
     # (publish_results). Paper ballots may still be uncounted, too.
     vote_tally = None
@@ -305,7 +305,7 @@ def reset_votes(request, period_id):
 
     attempt = period.current_voting_attempt
 
-    # v3.58.0 (Mason: keep voting history): VOID the round instead of
+    # v4.0.0 (Mason: keep voting history): VOID the round instead of
     # deleting it. Its ballots and votes stay, the round is recorded as
     # voided with its counts in the history and the results export, and
     # re-opening starts a new round number (the old one isn't reused, so

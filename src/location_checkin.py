@@ -1,5 +1,5 @@
 """
-Location check-in (v3.60.0): a member whose phone is inside an event's
+Location check-in (v4.1.0): a member whose phone is inside an event's
 check-in area while its window is open is marked present, as if they had
 scanned the officer's QR code (src/view/event_checkin.py).
 

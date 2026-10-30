@@ -110,7 +110,7 @@ class MobileDevice(models.Model):
     login_geo_suspicious = models.BooleanField(default=False)
 
     auth_fingerprint = models.CharField(max_length=128)
-    # Location check-in key (v3.60.0): hash of a second, narrow secret the app
+    # Location check-in key (v4.1.0): hash of a second, narrow secret the app
     # keeps where a background task can read it while the phone is locked. It
     # only works on events/<id>/checkin/location/ (CheckinKeyAuthentication).
     checkin_key_hash = models.CharField(max_length=64, blank=True, db_index=True)

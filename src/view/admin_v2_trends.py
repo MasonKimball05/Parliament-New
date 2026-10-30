@@ -1,5 +1,5 @@
 """
-Admin v2: trends (v3.58.1).
+Admin v2: trends (v4.1.0).
 
 Three weekly counts over the last 12 weeks, one chart each (one series, one
 hue, so no legend; the title names it):

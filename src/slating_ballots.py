@@ -10,7 +10,7 @@ unchanged in behaviour:
   ballot (src/slating_rounds.py: pass/fail, or pick-one for a run-off or floor
   nominations) not yet voted on this round;
 * both are written under a lock on the period row, re-checking "already voted"
-  inside it (v3.57.0: the ballots' unique constraint can't catch a double slate
+  inside it (v4.0.0: the ballots' unique constraint can't catch a double slate
   ballot, and a double individual submit used to 500), as a SlatingBallot (who
   voted) and a separate SlatingVote (what was chosen) that share no key, so the
   choice can't be traced back to the voter.
@@ -62,7 +62,7 @@ def cast_slate(user, period, slate, candidates, vote_choice, rejected_raw):
         raise SlatingBallotError('invalid_choice', 'Invalid vote choice.')
     rejected = []
     if vote_choice == 'reject':
-        # v3.57.0: only this slate's positions; junk is ignored, not a 500.
+        # v4.0.0: only this slate's positions; junk is ignored, not a 500.
         on_slate = {c.position_id for c in candidates}
         raw = [str(p) for p in (rejected_raw or [])]
         rejected = sorted({int(p) for p in raw if p.isdigit() and int(p) in on_slate})

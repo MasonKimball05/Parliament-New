@@ -167,7 +167,7 @@
   }
 }
 
-/* Admin v2 tables on phones (v3.58.1, static/js/admin_v2/tables.js): each
+/* Admin v2 tables on phones (v4.1.0, static/js/admin_v2/tables.js): each
    row becomes a card, each cell a "Label  value" line. Cells hidden on small
    screens with `hidden sm:table-cell` stay hidden. */
 @media (max-width: 639px) {

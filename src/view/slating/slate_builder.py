@@ -446,7 +446,7 @@ def edit_approved_slate(request, period_id):
         old_candidate = slate.candidates.filter(position=position, is_runoff=False).first()
         old_name = old_candidate.candidate_name if old_candidate else '(vacant)'
         if old_candidate:
-            # v3.58.0: deleting the candidate cascades their votes; keep this
+            # v4.0.0: deleting the candidate cascades their votes; keep this
             # round's counts for them in the round history first.
             from .tallies import note_candidate_replaced
             note_candidate_replaced(period, old_candidate)

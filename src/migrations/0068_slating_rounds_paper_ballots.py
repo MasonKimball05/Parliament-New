@@ -6,7 +6,7 @@ from django.db import migrations, models
 
 
 def clear_slating_ips(apps, schema_editor):
-    # v3.58.0 (Mason): slating activity doesn't record IPs. The stored values
+    # v4.0.0 (Mason): slating activity doesn't record IPs. The stored values
     # were nginx's socket address anyway, never a member's.
     apps.get_model('src', 'SlatingActivity').objects.exclude(ip_address=None).update(ip_address=None)
 

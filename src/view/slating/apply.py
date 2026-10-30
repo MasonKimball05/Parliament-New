@@ -32,7 +32,7 @@ def apply_view(request, period_id):
         messages.error(request, 'Applications are not currently open for this period.')
         return redirect('slating_dashboard')
 
-    # v3.58.0: only active members (not inactive, alumni or advisors).
+    # v4.0.0: only active members (not inactive, alumni or advisors).
     from .permissions import applicant_ineligibility
     reason = applicant_ineligibility(user)
     if reason:
@@ -131,7 +131,7 @@ def _handle_application_submit(request, period, user, existing_app, form_fields,
     third_choice = request.POST.getlist('positions_third_choice')
     do_not_want = request.POST.getlist('positions_do_not_want')
 
-    # v3.57.0: was `int(p)` on whatever was posted — junk was a 500, and any
+    # v4.0.0: was `int(p)` on whatever was posted — junk was a 500, and any
     # position id (another period's) was stored. Only this period's active
     # positions, each in its first tier only.
     valid_ids = {p.id for p in positions}

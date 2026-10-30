@@ -1,5 +1,5 @@
 """
-Mobile plan, Phase 3 — the Chat endpoints (v3.56.0), the shared chat service
+Mobile plan, Phase 3 — the Chat endpoints (v4.0.0), the shared chat service
 the web chat now uses (src/chat_service.py), the one-query unread_map, and
 app (ticket) sockets losing the admin "View All" override.
 
@@ -293,7 +293,7 @@ HOST = (b'host', b'testserver')
 
 @override_settings(ALLOWED_HOSTS=['testserver', 'localhost'])
 class AppSocketHasNoViewAllTests(TransactionTestCase):
-    """v3.56.0 — an admin's app socket can't tail a channel they aren't in."""
+    """v4.0.0 — an admin's app socket can't tail a channel they aren't in."""
 
     def setUp(self):
         from Parliament.asgi import application

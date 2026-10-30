@@ -20,7 +20,7 @@ import logging
 
 def _attendance_can_vote(user):
     """Present/late within the last 3 hours AND a voting-eligible member type
-    (excludes pledges). The rule lives in src/ballots.py (v3.55.0), shared
+    (excludes pledges). The rule lives in src/ballots.py (v4.0.0), shared
     with the app's Votes endpoints.
     """
     return ballots.can_cast_now(user)
@@ -288,7 +288,7 @@ def cast_vote(request):
     """v3.14.1 split — ballot casting (re-auth, validation, receipt mint).
 
     Was multiplexed into vote_view behind action=cast_vote; the vote forms
-    on vote.html post here. v3.55.0: eligibility, validation, the locked
+    on vote.html post here. v4.0.0: eligibility, validation, the locked
     insert, the activity log and the receipt are src/ballots.py, shared with
     the app; this view keeps the web's re-auth and its messages.
     """

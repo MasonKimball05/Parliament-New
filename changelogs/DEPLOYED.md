@@ -234,32 +234,11 @@ which predate this file and are more specific than their commit dates.
 | v3.51.8 | *not deployed* | `504e84b` | See `changelogs/v3.51.8.md`. |
 | v3.51.9 | *not deployed* | `bea4dec` | See `changelogs/v3.51.9.md`. |
 | v3.51.10 | *not deployed* | `453bdf6` | See `changelogs/v3.51.10.md`. |
-| v3.52.0 | *not deployed* | `33bb171` | See `changelogs/v3.52.0.md`. |
-| v3.53.0 | *not deployed* | `a12e006` | See `changelogs/v3.53.0.md`. |
-| v3.54.0 | *not deployed* | `c88998e` | See `changelogs/v3.54.0.md`. |
-| v3.55.0 | *not deployed* | `0688bfc` | See `changelogs/v3.55.0.md`. |
-| v3.56.0 | *not deployed* | `a174dc0` | See `changelogs/v3.56.0.md`. |
-| v3.57.0 | *not deployed* | `72a50a0` | See `changelogs/v3.57.0.md`. |
-| v3.58.0 | *not deployed* | `a03d355` | See `changelogs/v3.58.0.md`. |
-| v3.58.1 | *not deployed* | `87d6f50` | See `changelogs/v3.58.1.md`. |
-| v3.59.0 | *not deployed* | `bd49f2e` | See `changelogs/v3.59.0.md`. |
-| v3.60.0 | *not deployed* | `0430a01` | See `changelogs/v3.60.0.md`. |
-| v3.60.1 | *not deployed* | `241e3cc` | See `changelogs/v3.60.1.md`. |
-| v3.60.2 | *not deployed* | `2896926` | See `changelogs/v3.60.2.md`. |
-| v3.61.0 | *not deployed* | `bf06746` | See `changelogs/v3.61.0.md`. |
-| v3.62.0 | *not deployed* | `842a8bc` | See `changelogs/v3.62.0.md`. |
-| v3.63.0 | *not deployed* | `11d9645` | See `changelogs/v3.63.0.md`. |
-| v3.64.0 | *not deployed* | `9683d26` | See `changelogs/v3.64.0.md`. |
-| v3.65.0 | *not deployed* | `d9354ca` | See `changelogs/v3.65.0.md`. |
-| v3.66.0 | *not deployed* | `34b7d4a` | See `changelogs/v3.66.0.md`. |
-| v3.67.0 | *not deployed* | `57ba489` | See `changelogs/v3.67.0.md`. |
-| v3.68.0 | *not deployed* | `cecd3c9` | See `changelogs/v3.68.0.md`. |
-| v3.69.0 | *not deployed* | `a0600df` | See `changelogs/v3.69.0.md`. |
-| v3.70.0 | *not deployed* | `74ed657` | See `changelogs/v3.70.0.md`. |
-| v3.71.0 | *not deployed* | `8f65583` | See `changelogs/v3.71.0.md`. |
-| v3.71.1 | *not deployed* | `29b0c7f` | See `changelogs/v3.71.1.md`. |
-| v3.71.2 | *not deployed* | `44dcfc2` | See `changelogs/v3.71.2.md`. |
-| v3.71.3 | *not deployed* | `e8e33e3` | See `changelogs/v3.71.3.md`. |
+| v4.0.0 | *not deployed* | `0493881` | See `changelogs/v4.0.0.md`. |
+| v4.1.0 | *not deployed* | `0493881` | See `changelogs/v4.1.0.md`. |
+| v4.1.1 | *not deployed* | `0493881` | See `changelogs/v4.1.1.md`. |
+| v4.2.0 | *not deployed* | `0493881` | See `changelogs/v4.2.0.md`. |
+| v4.3.0 | *not deployed* | `0493881` | See `changelogs/v4.3.0.md`. |
 
 > **‡ 10-19-26 — Mason: "All deployments are live on prod."** Every row marked ‡
 > had been left *not deployed* while it shipped. He deploys as he goes; the exact

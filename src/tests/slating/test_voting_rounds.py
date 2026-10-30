@@ -1,5 +1,5 @@
 """
-v3.58.0 — slating voting history, paper ballots, hidden results, no IPs,
+v4.0.0 — slating voting history, paper ballots, hidden results, no IPs,
 pledge rules, and the destroy-notes button (Mason, 10-26-26).
 
     python manage.py test src.tests.slating.test_voting_rounds
@@ -241,7 +241,7 @@ class DestroyNotesTests(_Base):
 
 
 class WhoCanApplyTests(_Base):
-    """v3.58.0: only active members apply — not inactive, alumni or advisors. Pledges may."""
+    """v4.0.0: only active members apply — not inactive, alumni or advisors. Pledges may."""
 
     def setUp(self):
         super().setUp()

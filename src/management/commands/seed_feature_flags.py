@@ -356,7 +356,7 @@ class Command(BaseCommand):
                 'name': 'location_checkin',
                 'display_name': 'Location Check-In (app)',
                 'description': (
-                    'v3.60.0: the mobile app checks a member in when their phone is '
+                    'v4.1.0: the mobile app checks a member in when their phone is '
                     'inside an event\'s check-in area (set by an officer on the event) '
                     'from an hour before it starts until three hours after '
                     '(src/location_checkin.py). Counts as present, like a QR scan, and '

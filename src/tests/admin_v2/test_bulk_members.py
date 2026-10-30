@@ -1,4 +1,4 @@
-"""v3.58.1 admin-v2 bulk member changes: preview, apply, refusals."""
+"""v4.1.0 admin-v2 bulk member changes: preview, apply, refusals."""
 from django.urls import reverse
 
 from src.models import ActivityLog

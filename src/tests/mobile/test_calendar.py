@@ -1,5 +1,5 @@
 """
-Mobile plan, Phase 3 — the Calendar endpoints, and Event.updated_at (v3.54.0).
+Mobile plan, Phase 3 — the Calendar endpoints, and Event.updated_at (v4.0.0).
 
 The app must see exactly the events the web calendar shows, sign up through
 the same code (lock, waitlist, 404 for hidden events), and honour the same
@@ -198,7 +198,7 @@ class EventSignupTests(_Base):
         self.assertIsNone(mine.waitlist_position)
 
     def test_the_last_slot_can_be_taken(self):
-        # v3.54.0 regression: the member's own just-created row was counted as
+        # v4.0.0 regression: the member's own just-created row was counted as
         # a taken slot, so the Nth sign-up on an N-slot event was waitlisted
         # (or refused as full). Checked through the web button too, which
         # shares the code (src/event_signups.py).
@@ -262,7 +262,7 @@ class CalendarSubscriptionTests(_Base):
 
 
 class FeedSeesEditsTests(TestCase):
-    """v3.54.0 — Event.updated_at drives the feed's LAST-MODIFIED and SEQUENCE."""
+    """v4.0.0 — Event.updated_at drives the feed's LAST-MODIFIED and SEQUENCE."""
 
     def setUp(self):
         self.user = make_user('cal-feed')
