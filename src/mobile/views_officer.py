@@ -50,6 +50,7 @@ from src.models import (
 )
 from src.models.users import member_defer
 from src.permissions import user_is_officer_or_chair
+from src.roll_call import roll_call_key
 
 PAGE_SIZE = 25
 ATTENDANCE_LOOKBACK = timedelta(days=14)
@@ -424,7 +425,9 @@ class OfficerAttendanceView(_OfficerView):
         return get_object_or_404(Event.objects.select_related('committee'), pk=event_id, requires_attendance=True)
 
     def _roster(self, event):
-        members = list(event.required_members().order_by('name'))
+        # Roll call order, as the website's chapter minutes call it: members by
+        # roll number, then pledges by last name. The app can re-sort by last name.
+        members = sorted(event.required_members(), key=roll_call_key)
         records = {a.user_id: a for a in Attendance.objects.filter(event=event, attendance_type='event')}
         excuses = {x.user_id: x for x in AttendanceExcuse.objects.filter(event=event)}
         rows = []
@@ -434,6 +437,8 @@ class OfficerAttendanceView(_OfficerView):
             rows.append({
                 'user_id': m.user_id,
                 'name': m.get_display_name(),
+                'role_number': m.role_number or '',
+                'is_pledge': m.member_type == 'Pledge',
                 'photo': photo_path(m),
                 'status': record.status if record else ('excused' if approved else 'pending'),
                 'note': (record.notes or '') if record else '',

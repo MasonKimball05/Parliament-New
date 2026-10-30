@@ -17,6 +17,7 @@ from django.utils import timezone
 
 from src.models import Announcement, Attendance, AttendanceExcuse, Committee, Event
 from src.tests.mobile.sess_helpers import bearer, make_device, make_user
+from src.models import ParliamentUser
 from src.tests.mobile.test_home_and_notifications import flag
 
 API = '/api/mobile/v1/'
@@ -223,6 +224,22 @@ class ExcuseAndAttendanceTests(_Base):
         self.assertEqual(r.json()['error'], 'finalized')
         self.assertEqual(Attendance.objects.get(event=self.event, user=self.member).status, 'present')
         self.assertIsNotNone(other)
+
+    def test_roster_is_in_roll_call_order(self):
+        ParliamentUser.objects.filter(pk='off-1').update(role_number='10', name='Zed Officer')
+        ParliamentUser.objects.filter(pk='mem-1').update(role_number='2', name='Amy Member')
+        make_user('mem-9', name='Bo Unnumbered')
+        make_user('pl-1', name='Al Zulu', member_type='Pledge')
+        make_user('pl-2', name='Cy Adams', member_type='Pledge')
+        rows = self.call('get', f'officer/events/{self.event.id}/attendance/').json()['members']
+        order = [r['user_id'] for r in rows]
+        # Roll numbers as numbers (2 before 10), the unnumbered after, then pledges by last name.
+        self.assertEqual(order[:2], ['mem-1', 'off-1'])
+        self.assertEqual(order[-2:], ['pl-2', 'pl-1'])
+        self.assertLess(order.index('mem-9'), order.index('pl-2'))
+        first = rows[0]
+        self.assertEqual((first['role_number'], first['is_pledge']), ('2', False))
+        self.assertTrue(rows[-1]['is_pledge'])
 
     def test_attendance_needs_the_flags(self):
         flag('event_attendance', False)
