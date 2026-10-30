@@ -120,6 +120,9 @@ def committee_home(request, code):
         'is_vp': is_vp,
         'is_committee_admin': is_committee_admin,
         'can_manage': can_manage,
+        # Designations a chair can hand out (Member Permissions, 10-29-26).
+        'can_manage_documents': can_manage or permissions.can_upload_docs,
+        'can_manage_members': can_manage or permissions.can_manage_members,
         # Eligible lists for modal
         'eligible_members': eligible_members,
         'eligible_chairs': eligible_chairs,

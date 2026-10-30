@@ -3,9 +3,9 @@ from django.contrib import messages
 from django.http import HttpResponseForbidden
 from django.shortcuts import render, redirect, get_object_or_404
 from src.models import Committee, CommitteePermissions, ParliamentUser
-from src.decorators import committee_chair_required
+from src.view.committee.member_permissions import can_manage_members
 
-@committee_chair_required
+
 @login_required
 def committee_manage_members(request, code):
     committee = get_object_or_404(Committee, code=code)
@@ -14,12 +14,12 @@ def committee_manage_members(request, code):
         committee=committee
     ).first()
 
-    # Allow site admins, committee admin, or committee chairs to bypass permission checks
-    is_committee_admin = committee.is_vp(request.user)
-    is_chair = committee.chairs.filter(pk=request.user.pk).exists()
-    if not request.user.is_admin and not is_committee_admin and not is_chair:
-        if not perm or not perm.can_manage_members:
-            return HttpResponseForbidden("You cannot manage committee members.")
+    # Chairs (incl. exec board), the VP, site admins, and members a chair has
+    # let manage members (Member Permissions page, 10-29-26). This was behind
+    # @committee_chair_required, so the can_manage_members check below it
+    # could never let anyone else in.
+    if not can_manage_members(request.user, committee):
+        return HttpResponseForbidden("You cannot manage committee members.")
 
     # Exclude pledges from available users for committee membership
     all_users = ParliamentUser.active.exclude(member_type='Pledge')

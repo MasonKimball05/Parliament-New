@@ -35,6 +35,7 @@ from src.mobile.deeplinks import _committee_channel_id
 from src.models import ChapterMinutes, Committee, CommitteeDocument, CommitteePermissions
 from src.models.users import member_defer
 from src.utils.content_disposition import apply_disposition
+from src.view.committee.member_permissions import can_designate
 
 RECENT_DOCUMENTS = 5
 DOCUMENT_LIMIT = 200
@@ -207,6 +208,14 @@ class CommitteeDashboardView(_CommitteeView):
             ]
             if check_feature_enabled('chats'):
                 links.append(web('Chat permissions', reverse('manage_chat_permissions', args=[code]), 'tool'))
+            if can_designate(user, committee):
+                links.append(web('Member permissions', reverse('committee_member_permissions', args=[code]), 'tool'))
+        elif not committee.is_archived:
+            # Members a chair has designated (Member Permissions page).
+            if perm.can_upload_docs:
+                links.append(web('Upload a document', reverse('upload_document', args=[code]), 'tool'))
+            if perm.can_manage_members:
+                links.append(web('Manage members', reverse('manage_members', args=[code]), 'tool'))
         if access.can_view_minutes:
             links.append(web('Write minutes', reverse('committee_minutes_list', args=[code]), 'tool'))
 

@@ -15,8 +15,9 @@ from src.utils.file_validation import validate_uploaded_file
 def committee_upload_document(request, code):  # Make sure this says 'code' not 'id'
     committee = get_object_or_404(Committee, code=code)
 
-    # Check permissions
-    if not committee.is_chair(request.user):
+    # Chairs, or members a chair has let manage documents.
+    from src.view.committee.member_permissions import can_manage_documents
+    if not can_manage_documents(request.user, committee):
         messages.error(request, 'Only committee chairs can upload documents.')
         return redirect('committee_home', code=code)
 
@@ -94,7 +95,8 @@ def committee_replace_document(request, code, document_id):
     committee = get_object_or_404(Committee, code=code)
     document = get_object_or_404(CommitteeDocument, id=document_id, committee=committee)
 
-    if not committee.is_chair(request.user):
+    from src.view.committee.member_permissions import can_manage_documents
+    if not can_manage_documents(request.user, committee):
         messages.error(request, 'Only committee chairs can replace documents.')
         return redirect('committee_documents', code=code)
 

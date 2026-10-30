@@ -13,8 +13,9 @@ def toggle_document_publish(request, code, document_id):
     committee = get_object_or_404(Committee, code=code)
     document = get_object_or_404(CommitteeDocument, id=document_id, committee=committee)
 
-    # Check permissions - only chairs can toggle publish status
-    if not committee.is_chair(request.user):
+    # Check permissions - chairs, and members a chair has let manage documents
+    from src.view.committee.member_permissions import can_manage_documents
+    if not can_manage_documents(request.user, committee):
         # Log unauthorized attempt
         log_security_event(
             event_type='UNAUTHORIZED_DOCUMENT_PUBLISH',

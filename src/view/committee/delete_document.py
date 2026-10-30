@@ -15,11 +15,10 @@ def delete_committee_document(request, code, document_id):
     
     user = request.user
     
-    # Check permissions - only VPs and chairs can delete
-    is_vp = committee.is_vp(user)
-    is_chair = committee.is_chair(user)
-    
-    if not (is_vp or is_chair):
+    # Check permissions - VPs, chairs, and members a chair has let manage documents
+    from src.view.committee.member_permissions import can_manage_documents
+
+    if not can_manage_documents(user, committee):
         # Log unauthorized attempt
         log_security_event(
             event_type='UNAUTHORIZED_DOCUMENT_DELETE',

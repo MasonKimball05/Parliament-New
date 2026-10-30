@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}Member Permissions - {{ committee.name }}{% endblock %}
+{% block content %}
+<div class="container mx-auto px-4 py-8 max-w-4xl">
+    <div class="mb-6">
+        <a href="{% url 'committee_home' committee.code %}" class="text-primary-600 dark:text-primary-400 hover:underline">← Back to Committee</a>
+    </div>
+
+    <div class="bg-gradient-to-br from-primary-600 via-primary-700 to-primary-800 rounded-xl shadow-lg p-4 sm:p-5 mb-6 text-white relative overflow-hidden">
+        <div class="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-yellow-400/60 to-transparent pointer-events-none"></div>
+        <h1 class="text-2xl sm:text-3xl font-bold">Member Permissions</h1>
+        <p class="text-sm text-white/75 mt-0.5">Choose who on {{ committee.name }} can take minutes, manage documents and manage members. Chairs can always do all three.</p>
+    </div>
+
+    {% if rows %}
+    <form method="post" class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+        {% csrf_token %}
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead class="bg-gray-50 dark:bg-gray-700/50 text-gray-600 dark:text-gray-300">
+                    <tr>
+                        <th class="text-left font-medium px-4 py-3">Member</th>
+                        {% for field, label in designations %}
+                        <th class="text-center font-medium px-4 py-3">{{ label }}</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+                    {% for row in rows %}
+                    <tr>
+                        <td class="px-4 py-3 text-gray-900 dark:text-gray-100">{{ row.member.get_display_name }}</td>
+                        {% for field, label, on in row.flags %}
+                        <td class="px-4 py-3 text-center">
+                            <input type="checkbox" name="{{ field }}_{{ row.member.pk }}" aria-label="{{ label }}: {{ row.member.get_display_name }}"
+                                   class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500" {% if on %}checked{% endif %}>
+                        </td>
+                        {% endfor %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div class="px-4 py-3 bg-gray-50 dark:bg-gray-700/50 flex justify-end">
+            <button type="submit" class="btn-primary">Save permissions</button>
+        </div>
+    </form>
+    {% else %}
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 text-gray-500 dark:text-gray-400">
+        This committee has no members besides its chairs yet.
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

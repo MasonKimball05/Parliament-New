@@ -58,6 +58,7 @@ from src.view.committee.vote import committee_vote, create_committee_runoff
 from src.view.committee.vote_result import committee_vote_result
 from src.view.committee.delete_vote import delete_committee_vote
 from src.view.committee.manage_members import committee_manage_members
+from src.view.committee.member_permissions import committee_member_permissions
 from src.view.committee.upload_document import committee_upload_document, committee_replace_document
 from src.view.committee.add_member import committee_add_member
 from src.view.committee.remove_member import committee_remove_member
@@ -823,6 +824,8 @@ urlpatterns = [
     path('committee/<str:code>/vote/<int:legislation_id>/runoff/', create_committee_runoff, name='create_committee_runoff'),
     path('committee/<str:code>/vote/<int:legislation_id>/delete/', delete_committee_vote, name='delete_committee_vote'),
     path('committee/<str:code>/manage-members/', committee_manage_members, name='manage_members'),
+    path('committee/<str:code>/member-permissions/', committee_member_permissions,
+         name='committee_member_permissions'),
     path('committee/<str:code>/upload-document/', committee_upload_document, name='upload_document'),
 
     # New committee action URLs

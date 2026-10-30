@@ -325,20 +325,13 @@ def _require_education_permission_or_404(access, key):
     return None
 
 
-@login_required
-@require_page_enabled('committee_home')
-def education_home(request, code):
-    committee, access = _education_committee_or_404(code, request.user)
-    is_chair = access['is_chair']
-
-    # v3.39.0 — backstop for the every-minute beat job, so a timed big reveal
-    # is never shown here as "pending" after its time has passed.
-    from src.big_reveal import reveal_due_bigs
-    reveal_due_bigs()
-
-    phases = ['all', '1', '2', '3']
-    phase_labels = {'all': 'All Phases', '1': 'Phase 1', '2': 'Phase 2', '3': 'Phase 3'}
-
+def education_overview(committee):
+    """
+    The education dashboard's numbers, shared by `education_home` and the app's
+    dashboard (src/mobile/views_education.py) so the two cannot disagree: the
+    task list, the active pledges, the task × pledge grid, each pledge's
+    progress and points so far (with manual adjustments), and the meetings.
+    """
     tasks = (PledgeTask.objects.filter(is_active=True)
              # v3.17.3: created_by joined but never rendered by education.html
              # 09-22-26: `song` joined too — the grid shows the linked song's
@@ -401,17 +394,6 @@ def education_home(request, code):
             'total': len(applicable_required),
             'percent': round(completed / len(applicable_required) * 100) if applicable_required else 0,
         })
-
-    # Page access restrictions (VPE settings panel)
-    page_restrictions = PledgePageRestriction.objects.all().order_by('display_name', 'url_name')
-    from src.middleware.pledge_pages import restrictable_url_names
-
-    # Quiz questions keyed by task_pk (only for quiz-type tasks)
-    quiz_task_pks = [t.pk for t in tasks if t.task_type == 'quiz']
-    quiz_questions_map = {}
-    if quiz_task_pks:
-        for q in PledgeTaskQuestion.objects.filter(task_id__in=quiz_task_pks).order_by('display_order'):
-            quiz_questions_map.setdefault(q.task_id, []).append(q)
 
     # Meetings (v3.20.0). Upcoming first, then the most recent past ones —
     # a chair opening this page is either planning the next meeting or taking
@@ -568,6 +550,49 @@ def education_home(request, code):
             }
             for a in pledge_adjustments
         ]
+
+    return {
+        'tasks': tasks,
+        'pledges': pledges,
+        'completion_map': completion_map,
+        'task_rows': task_rows,
+        'pledge_summaries': pledge_summaries,
+        'upcoming_meetings': upcoming_meetings,
+        'past_meetings': past_meetings,
+        'adjustments_history': adjustments_history,
+    }
+
+
+@login_required
+@require_page_enabled('committee_home')
+def education_home(request, code):
+    committee, access = _education_committee_or_404(code, request.user)
+    is_chair = access['is_chair']
+
+    # v3.39.0 — backstop for the every-minute beat job, so a timed big reveal
+    # is never shown here as "pending" after its time has passed.
+    from src.big_reveal import reveal_due_bigs
+    reveal_due_bigs()
+
+    phases = ['all', '1', '2', '3']
+    phase_labels = {'all': 'All Phases', '1': 'Phase 1', '2': 'Phase 2', '3': 'Phase 3'}
+
+    overview = education_overview(committee)
+    tasks, pledges = overview['tasks'], overview['pledges']
+    task_rows, pledge_summaries = overview['task_rows'], overview['pledge_summaries']
+    upcoming_meetings, past_meetings = overview['upcoming_meetings'], overview['past_meetings']
+    adjustments_history = overview['adjustments_history']
+
+    # Page access restrictions (VPE settings panel)
+    page_restrictions = PledgePageRestriction.objects.all().order_by('display_name', 'url_name')
+    from src.middleware.pledge_pages import restrictable_url_names
+
+    # Quiz questions keyed by task_pk (only for quiz-type tasks)
+    quiz_task_pks = [t.pk for t in tasks if t.task_type == 'quiz']
+    quiz_questions_map = {}
+    if quiz_task_pks:
+        for q in PledgeTaskQuestion.objects.filter(task_id__in=quiz_task_pks).order_by('display_order'):
+            quiz_questions_map.setdefault(q.task_id, []).append(q)
 
     # Absence requests awaiting a decision (v3.21.0). Pending only: a decided
     # one is history and belongs on the meeting, not in the chair's queue.
@@ -1521,26 +1546,11 @@ def education_meeting_attendance(request, code, meeting_pk):
     })
 
 
-@login_required
-@require_page_enabled('committee_home')
-def education_pledge_detail(request, code, pledge_pk):
+def pledge_progress(committee, pledge):
     """
-    Everything about one pledge, on one page (v3.20.2).
-
-    ⚠️ WHY THIS EXISTS. The dashboard is a task × pledge grid: excellent for
-    "who has not done task 4", useless for "how is Jack doing". Before a
-    progress conversation — or an initiation vote — a VPE wants one page: his
-    tasks and marks, what is overdue, which meetings he came to and which he
-    missed, and the points that follow from both. Answering that meant reading
-    across a grid and doing arithmetic in your head.
-
-    Read-only on purpose. Marking still happens on the grid and the attendance
-    page, so there is one place to change each thing and this page cannot
-    disagree with them.
+    One pledge's tasks, marks, attendance and points: the pledge detail page's
+    numbers, shared with the app (src/mobile/views_education.py).
     """
-    committee, access = _education_committee_or_404(code, request.user)
-    is_chair = access['is_chair']
-    pledge = get_object_or_404(ParliamentUser, pk=pledge_pk, member_type='Pledge')
     from src.pledge_phases import task_unlocked
 
     tasks = list(
@@ -1603,10 +1613,7 @@ def education_pledge_detail(request, code, pledge_pk):
         row['points_scaled'] = is_scaled(row['task'])
     task_points = sum(row['points_earned'] for row in task_rows)
 
-    return render(request, 'committee/education_pledge_detail.html', {
-        'committee': committee,
-        'is_chair': is_chair,
-        'access': access,
+    return {
         'pledge': pledge,
         'task_rows': task_rows,
         'required_total': len(required),
@@ -1621,6 +1628,34 @@ def education_pledge_detail(request, code, pledge_pk):
         'attendance_points': attendance_points,
         'task_points': task_points,
         'total_points': task_points + attendance_points,
+    }
+
+
+@login_required
+@require_page_enabled('committee_home')
+def education_pledge_detail(request, code, pledge_pk):
+    """
+    Everything about one pledge, on one page (v3.20.2).
+
+    ⚠️ WHY THIS EXISTS. The dashboard is a task × pledge grid: excellent for
+    "who has not done task 4", useless for "how is Jack doing". Before a
+    progress conversation — or an initiation vote — a VPE wants one page: his
+    tasks and marks, what is overdue, which meetings he came to and which he
+    missed, and the points that follow from both. Answering that meant reading
+    across a grid and doing arithmetic in your head.
+
+    Read-only on purpose. Marking still happens on the grid and the attendance
+    page, so there is one place to change each thing and this page cannot
+    disagree with them.
+    """
+    committee, access = _education_committee_or_404(code, request.user)
+    is_chair = access['is_chair']
+    pledge = get_object_or_404(ParliamentUser, pk=pledge_pk, member_type='Pledge')
+    return render(request, 'committee/education_pledge_detail.html', {
+        'committee': committee,
+        'is_chair': is_chair,
+        'access': access,
+        **pledge_progress(committee, pledge),
     })
 
 
