@@ -38,13 +38,18 @@
         {% if not positions %}
         <p class="text-sm text-yellow-700 dark:text-yellow-300">This period has no positions yet. <a class="underline" href="{% url 'slating_positions' period_id=period.id %}">Add positions</a> first so position choices can be matched.</p>
         {% endif %}
-        <form method="post" enctype="multipart/form-data" class="flex flex-wrap items-center gap-3">
-            {% csrf_token %}
-            <input type="hidden" name="step" value="upload">
-            <input type="file" name="csv_file" accept=".csv,text/csv" required
+        {# The file input sits outside the form, and the script below posts the file's text instead (v4.3.0): core.js resends any form with a file input over fetch(), which follows only redirects, so this step's page was dropped and Continue did nothing. #}
+        <div class="flex flex-wrap items-center gap-3">
+            <input type="file" id="csv-file" accept=".csv,text/csv"
                 class="block text-sm text-gray-700 dark:text-gray-300">
-            <button type="submit" class="inline-flex items-center px-4 py-2 rounded-md text-sm font-medium text-white bg-primary-600 hover:bg-primary-700">Continue</button>
-        </form>
+            <form method="post" id="csv-upload-form">
+                {% csrf_token %}
+                <input type="hidden" name="step" value="upload">
+                <textarea name="csv_text" class="hidden" aria-hidden="true"></textarea>
+                <button type="submit" disabled class="inline-flex items-center px-4 py-2 rounded-md text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed">Continue</button>
+            </form>
+            <span id="csv-file-error" class="hidden text-sm text-red-600 dark:text-red-400"></span>
+        </div>
     </div>
 
 {% else %}
@@ -188,4 +193,47 @@
 {% endif %}
 
 </div>
+{% endblock %}
+
+{% block slating_js %}
+<script nonce="{{ request.csp_nonce }}">
+(function () {
+    var picker = document.getElementById('csv-file');
+    var form = document.getElementById('csv-upload-form');
+    if (!picker || !form) return;
+    var text = form.querySelector('textarea[name="csv_text"]');
+    var button = form.querySelector('button[type="submit"]');
+    var error = document.getElementById('csv-file-error');
+
+    function fail(message) {
+        error.textContent = message;
+        error.classList.remove('hidden');
+    }
+
+    // Read on choosing, so Continue is a plain post of the text. UTF-8
+    // first, then Windows-1252 (Excel's "CSV" on Windows), as the server's
+    // decode() does for an uploaded file.
+    picker.addEventListener('change', function () {
+        text.value = '';
+        button.disabled = true;
+        error.classList.add('hidden');
+        var file = picker.files[0];
+        if (!file) return;
+        if (file.size > {{ max_bytes }}) return fail('That file is larger than 2 MB.');
+        file.arrayBuffer().then(function (buffer) {
+            var decoded;
+            try {
+                decoded = new TextDecoder('utf-8', { fatal: true }).decode(buffer);
+            } catch (e) {
+                decoded = new TextDecoder('windows-1252').decode(buffer);
+            }
+            if (!decoded.trim()) return fail('That file is empty.');
+            text.value = decoded;
+            button.disabled = false;
+        }).catch(function () {
+            fail("Couldn't read that file. Choose it again.");
+        });
+    });
+})();
+</script>
 {% endblock %}

@@ -86,6 +86,21 @@ class GuessAndPreviewTests(_Base):
         self.assertEqual(kinds, ['timestamp', 'applicant_email', 'pos_first', 'pos_second', 'gpa',
                                  f'field_{self.why.id}', ''])
 
+    def test_the_page_posts_the_files_text(self):
+        # v4.3.0: the upload form holds no file input (core.js resent those
+        # over fetch() and dropped this step's page); the browser reads the
+        # file and posts its text.
+        page = self.client.get(self.url).content.decode()
+        form = page[page.index('id="csv-upload-form"'):]
+        form = form[:form.index('</form>')]
+        self.assertNotIn('type="file"', form)
+        self.assertIn('name="csv_text"', form)
+        r = self.client.post(self.url, {'step': 'upload', 'csv_text': '\ufeff' + GOOGLE_CSV})
+        self.assertEqual(r.context['step'], 'map')
+        self.assertEqual(r.context['columns'][0]['kind'], 'timestamp')
+        r = self.client.post(self.url, {'step': 'upload', 'csv_text': '  '})
+        self.assertEqual(r.context['step'], 'upload')
+
     def test_preview_is_the_confirmation_and_writes_nothing(self):
         r = self.upload()
         r = self.client.post(self.url, self.mapping_post(r, step='preview'))
