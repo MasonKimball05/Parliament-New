@@ -9,7 +9,7 @@ without the full sign-in). Enforced by
 from django.urls import path
 
 from src.mobile import (
-    views_announcements, views_auth, views_calendar, views_chat, views_committees, views_devices,
+    views_announcements, views_auth, views_calendar, views_chat, views_cnb, views_committees, views_devices,
     views_directory, views_education, views_excuses_polls, views_home, views_location, views_my,
     views_notifications, views_push, views_recruitment, views_session, views_votes,
 )
@@ -92,6 +92,9 @@ urlpatterns = [
          name='mobile_vote_reauth_passkey_begin'),
     path('votes/reauth/passkey/complete/', views_votes.PasskeyReauthCompleteView.as_view(),
          name='mobile_vote_reauth_passkey_complete'),
+    path('cnb/', views_cnb.CnbDocumentsView.as_view(), name='mobile_cnb'),
+    path('cnb/resolutions/', views_cnb.CnbResolutionListView.as_view(), name='mobile_cnb_resolutions'),
+    path('cnb/resolutions/<int:resolution_id>/', views_cnb.CnbResolutionView.as_view(), name='mobile_cnb_resolution'),
     path('committees/', views_committees.CommitteeListView.as_view(), name='mobile_committees'),
     path('committees/<str:code>/', views_committees.CommitteeDashboardView.as_view(), name='mobile_committee'),
     path('committees/<str:code>/members/', views_committees.CommitteeMembersView.as_view(),
