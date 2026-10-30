@@ -560,9 +560,9 @@ urlpatterns = [
     # Officer Pages
     path('officers/', officer_home, name='officer_home'),
     path('officers/chapter-stats/', chapter_stats, name='chapter_stats'),
-    path('officers/mobile-app/', mobile_app, name='mobile_app'),
+    path('officers/mobile-app/', mobile_app, name='officer_mobile_app'),
     path('officers/events/<int:event_id>/time/', event_time, name='event_time'),
-    path('officers/mobile-app/places/<int:place_id>/', mobile_app_place, name='mobile_app_place'),
+    path('officers/mobile-app/places/<int:place_id>/', mobile_app_place, name='officer_mobile_app_place'),
     path('my-tasks/', my_pledge_tasks, name='my_pledge_tasks'),
     path('my-tasks/quiz/<int:task_pk>/', pledge_take_quiz, name='pledge_take_quiz'),
     path('my-tasks/quiz/<int:task_pk>/results/', pledge_quiz_analysis, name='pledge_quiz_analysis'),

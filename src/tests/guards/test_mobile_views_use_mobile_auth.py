@@ -41,7 +41,7 @@ PRE_AUTH = {
     'mobile_auth_refresh',
 }
 
-CHECKIN_KEY = {'mobile_location_checkin'}
+CHECKIN_KEY = {'mobile_location_checkin', 'mobile_location_leave'}
 
 
 def _mobile_patterns():

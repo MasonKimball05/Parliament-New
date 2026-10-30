@@ -66,6 +66,10 @@ _CALL_RE = re.compile(r'\{[{%][^{}%]*?\b([A-Za-z_][\w.]*\.(?:count|exists))\b')
 #: If you are adding one, say which — "it looks like a dict" is how this class of
 #: bug survives.
 ALLOWED = {
+    # src/view/officer/mobile_app.py builds both as plain dicts: `states`
+    # ({'key', 'label', 'count'}) in _notifications, `versions` in _versions.
+    ('officer/mobile_app.html', 's.count'),
+    ('officer/mobile_app.html', 'v.count'),
     # APIRequestLog.response_summary is a JSONField whose documented structure is
     # {"count": N, "sample": [...]} — src/models/api.py:132-133. Dict key.
     ('admin_v2/api_token_logs.html', 'log.response_summary.count'),

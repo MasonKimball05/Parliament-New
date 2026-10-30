@@ -113,45 +113,51 @@ def create_chapter_minutes(request):
             except Event.DoesNotExist:
                 pass
 
-        minutes = ChapterMinutes.objects.create(
-            title=title,
-            date=minutes_date,
-            start_time=start_time,
-            event=event,
-            created_by=request.user,
-            status='draft',
-        )
-
-        # Create initial empty text section
-        MinutesSection.objects.create(
-            minutes=minutes,
-            section_type='text',
-            order=0,
-            content='',
-        )
-
-        ActivityLog.log_activity(
-            action_type='other',
-            user=request.user,
-            description=f'Created chapter minutes: {title}',
-            request=request,
-            object_type='ChapterMinutes',
-            object_id=minutes.id,
-            object_repr=str(minutes),
-        )
-
+        minutes = create_minutes(request, title, minutes_date, start_time, event)
         messages.success(request, f'Minutes session "{title}" created.')
         return redirect('edit_chapter_minutes', minutes_id=minutes.id)
 
     return redirect('chapter_minutes_list')
 
 
-@login_required
-@officer_required
-def edit_chapter_minutes(request, minutes_id):
-    """Main editor page for chapter minutes"""
-    minutes = get_object_or_404(ChapterMinutes, id=minutes_id, committee__isnull=True)
+def create_minutes(request, title, minutes_date, start_time, event):
+    """A new draft with one empty text section (logged). Shared with the app."""
+    minutes = ChapterMinutes.objects.create(
+        title=title,
+        date=minutes_date,
+        start_time=start_time,
+        event=event,
+        created_by=request.user,
+        status='draft',
+    )
 
+    # Create initial empty text section
+    MinutesSection.objects.create(
+        minutes=minutes,
+        section_type='text',
+        order=0,
+        content='',
+    )
+
+    ActivityLog.log_activity(
+        action_type='other',
+        user=request.user,
+        description=f'Created chapter minutes: {title}',
+        request=request,
+        object_type='ChapterMinutes',
+        object_id=minutes.id,
+        object_repr=str(minutes),
+    )
+    return minutes
+
+
+def minutes_editor_state(minutes):
+    """
+    The editor's sections, and the roll call (members in roll call order with
+    each one's status: saved, else the linked event's, else an approved
+    excuse, else pending), plus the member choices for motion authors. Shared
+    with the app (src/mobile/views_minutes.py).
+    """
     # Get all active members for attendance, INCLUDING advisors (09-16-26,
     # Mason: an advisor has been given a roll number in the chapter and
     # needs to be callable during roll call same as everyone else — see
@@ -232,7 +238,6 @@ def edit_chapter_minutes(request, minutes_id):
         sections_data.append(s)
 
     # Get events for linking (recent + upcoming, closest to now first)
-    events = _linkable_events()
 
     # Build excuse and event attendance maps when linked to an event
     excuse_map = {}  # user_id -> {status, reason}
@@ -309,6 +314,18 @@ def edit_chapter_minutes(request, minutes_id):
         for m in members
     ]
 
+    return sections_data, member_list, member_choices
+
+
+@login_required
+@officer_required
+def edit_chapter_minutes(request, minutes_id):
+    """Main editor page for chapter minutes"""
+    minutes = get_object_or_404(ChapterMinutes, id=minutes_id, committee__isnull=True)
+
+    sections_data, member_list, member_choices = minutes_editor_state(minutes)
+    events = _linkable_events()
+
     context = {
         'minutes': minutes,
         'sections_json': json.dumps(sections_data),
@@ -352,6 +369,17 @@ def update_minutes_event(request, minutes_id):
         except Event.DoesNotExist:
             return JsonResponse({'error': 'That event no longer exists.'}, status=400)
 
+    link_minutes_event(request, minutes, event, data.get('edit_reason', ''))
+
+    return JsonResponse({
+        'success': True,
+        'message': f'Linked to "{event.title}".' if event else 'Event unlinked.',
+        'event': {'id': event.id, 'title': event.title} if event else None,
+    })
+
+
+def link_minutes_event(request, minutes, event, edit_reason=''):
+    """Link the minutes to ``event`` (or unlink with None); logged, PDF regenerated if published. Shared with the app."""
     minutes.event = event
 
     # Same edit-tracking as save_minutes_data/save_minutes_attendance —
@@ -361,8 +389,7 @@ def update_minutes_event(request, minutes_id):
         minutes.edited_after_publish = True
         minutes.last_edit_at = timezone.now()
         minutes.last_edit_by = request.user
-        minutes.last_edit_reason = data.get(
-            'edit_reason',
+        minutes.last_edit_reason = edit_reason or (
             f'Linked event changed to "{event.title}"' if event else 'Event unlinked'
         )
 
@@ -392,12 +419,6 @@ def update_minutes_event(request, minutes_id):
             minutes.published_document.document.delete(save=False)
         minutes.published_document.document.save(file_name, ContentFile(pdf_buffer.read()), save=True)
 
-    return JsonResponse({
-        'success': True,
-        'message': f'Linked to "{event.title}".' if event else 'Event unlinked.',
-        'event': {'id': event.id, 'title': event.title} if event else None,
-    })
-
 
 @login_required
 @officer_required
@@ -408,9 +429,20 @@ def save_minutes_data(request, minutes_id):
 
     try:
         data = json.loads(request.body)
-        sections_data = data.get('sections', [])
     except (json.JSONDecodeError, KeyError):
         return JsonResponse({'error': 'Invalid data.'}, status=400)
+    is_published = save_minutes_sections(request, minutes, data)
+    return JsonResponse({'success': True, 'message': 'Minutes saved.', 'was_published': is_published})
+
+
+def save_minutes_sections(request, minutes, data):
+    """
+    Replace the minutes' sections (text, header, section_end and motions) and
+    end time from ``data`` (the editor's JSON); track an edit to published
+    minutes and regenerate their PDF. Returns whether they were published.
+    Shared with the app.
+    """
+    sections_data = data.get('sections', []) or []
 
     # Track edits to published minutes
     is_published = minutes.status == 'published'
@@ -492,7 +524,7 @@ def save_minutes_data(request, minutes_id):
             minutes.published_document.document.delete(save=False)
         minutes.published_document.document.save(file_name, ContentFile(pdf_buffer.read()), save=True)
 
-    return JsonResponse({'success': True, 'message': 'Minutes saved.', 'was_published': is_published})
+    return is_published
 
 
 @login_required
@@ -504,9 +536,20 @@ def save_minutes_attendance(request, minutes_id):
 
     try:
         data = json.loads(request.body)
-        attendance_list = data.get('attendance', [])
     except (json.JSONDecodeError, KeyError):
         return JsonResponse({'error': 'Invalid data.'}, status=400)
+    save_roll_call(request, minutes, data)
+    return JsonResponse({'success': True, 'message': 'Attendance saved.'})
+
+
+def save_roll_call(request, minutes, data):
+    """
+    Save the roll call (``data['attendance']``: [{user_id, status, ...}]) on
+    the minutes and sync it to attendance records (the linked event's, else a
+    standalone record for today), approving a pending excuse marked excused.
+    Shared with the app.
+    """
+    attendance_list = data.get('attendance', []) or []
 
     # Track edits to published minutes
     if minutes.status == 'published':
@@ -617,8 +660,6 @@ def save_minutes_attendance(request, minutes_id):
             minutes.published_document.document.delete(save=False)
         minutes.published_document.document.save(file_name, ContentFile(pdf_buffer.read()), save=True)
 
-    return JsonResponse({'success': True, 'message': 'Attendance saved.'})
-
 
 @login_required
 @officer_required
@@ -631,7 +672,15 @@ def publish_chapter_minutes(request, minutes_id):
         messages.warning(request, 'These minutes are already published.')
         return redirect('edit_chapter_minutes', minutes_id=minutes.id)
 
-    visibility = request.POST.get('visibility', 'all_members')
+    publish_minutes(request, minutes, request.POST.get('visibility', 'all_members'))
+    messages.success(request, f'Minutes "{minutes.title}" published to chapter documents.')
+    return redirect('edit_chapter_minutes', minutes_id=minutes.id)
+
+
+def publish_minutes(request, minutes, visibility):
+    """Publish the minutes as a PDF in chapter documents. Shared with the app."""
+    if visibility not in dict(ChapterMinutes.VISIBILITY_CHOICES):
+        visibility = 'all_members'
 
     # Generate PDF using the shared helper
     pdf_buffer = generate_minutes_pdf_buffer(minutes)
@@ -667,8 +716,7 @@ def publish_chapter_minutes(request, minutes_id):
         object_repr=str(minutes),
     )
 
-    messages.success(request, f'Minutes "{minutes.title}" published to chapter documents.')
-    return redirect('edit_chapter_minutes', minutes_id=minutes.id)
+    return doc
 
 
 def generate_minutes_pdf_buffer(minutes):
@@ -1293,11 +1341,23 @@ def delete_chapter_minutes(request, minutes_id):
     """Delete chapter minutes (officers can delete drafts, admins can delete any)"""
     minutes = get_object_or_404(ChapterMinutes, id=minutes_id, committee__isnull=True)
 
+    error = delete_minutes(request, minutes)
+    if error:
+        messages.error(request, error)
+        return redirect('chapter_minutes_list')
+    messages.success(request, f'Minutes "{minutes.title}" deleted successfully.')
+    return redirect('chapter_minutes_list')
+
+
+def delete_minutes(request, minutes):
+    """
+    Delete the minutes and their published document; officers only drafts,
+    admins any. Returns an error message, or None. Shared with the app.
+    """
     # Check permissions: officers can only delete drafts, admins can delete any
     is_admin = request.user.is_admin
     if minutes.status == 'published' and not is_admin:
-        messages.error(request, 'Only administrators can delete published minutes.')
-        return redirect('chapter_minutes_list')
+        return 'Only administrators can delete published minutes.'
 
     title = minutes.title
     minutes_date = minutes.date
@@ -1316,12 +1376,10 @@ def delete_chapter_minutes(request, minutes_id):
         description=f'Deleted chapter minutes: {title} ({minutes_date})',
         request=request,
         object_type='ChapterMinutes',
-        object_id=minutes_id,
+        object_id=minutes.pk,
         object_repr=f'{title} ({minutes_date})',
     )
 
     # Delete the minutes
     minutes.delete()
-
-    messages.success(request, f'Minutes "{title}" deleted successfully.')
-    return redirect('chapter_minutes_list')
+    return None

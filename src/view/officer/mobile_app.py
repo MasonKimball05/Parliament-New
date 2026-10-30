@@ -213,7 +213,7 @@ def rename_place(request, place, raw_name):
 @officer_required
 def mobile_app_place(request, place_id):
     """POST: rename (``name``) or delete (``delete``) a saved check-in place."""
-    back = reverse('mobile_app') + '?tab=location'
+    back = reverse('officer_mobile_app') + '?tab=location'
     if request.method != 'POST':
         return redirect(back)
     place = get_object_or_404(CheckinPlace, pk=place_id)

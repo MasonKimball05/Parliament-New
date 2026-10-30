@@ -47,7 +47,7 @@ class MobileAppTests(TestCase):
         self.client.force_login(self.officer)
 
     def rows(self, **params):
-        r = self.client.get(reverse('mobile_app'), params)
+        r = self.client.get(reverse('officer_mobile_app'), params)
         self.assertEqual(r.status_code, 200)
         return {row['member'].pk: row for row in r.context['rows']}, r
 
@@ -71,10 +71,10 @@ class MobileAppTests(TestCase):
 
     def test_members_are_refused(self):
         self.client.force_login(self.none)
-        r = self.client.get(reverse('mobile_app'))
+        r = self.client.get(reverse('officer_mobile_app'))
         self.assertNotEqual(r.status_code, 200)
         place = CheckinPlace.objects.create(name='House', latitude=Decimal('1'), longitude=Decimal('2'))
-        self.client.post(reverse('mobile_app_place', args=[place.id]), {'delete': '1'})
+        self.client.post(reverse('officer_mobile_app_place', args=[place.id]), {'delete': '1'})
         self.assertTrue(CheckinPlace.objects.filter(pk=place.pk).exists())
 
     def test_location_tab_and_places(self):
@@ -84,7 +84,7 @@ class MobileAppTests(TestCase):
                                          checkin_longitude=Decimal('-88.2'), checkin_radius_m=80)
         without = Event.objects.create(title='Retreat', description='d', created_by=self.officer, date_time=soon,
                                        requires_attendance=True)
-        r = self.client.get(reverse('mobile_app'), {'tab': 'location'})
+        r = self.client.get(reverse('officer_mobile_app'), {'tab': 'location'})
         self.assertEqual(r.status_code, 200)
         areas = {row['event'].pk: row['has_area'] for row in r.context['events']}
         self.assertEqual(areas, {with_area.pk: True, without.pk: False})
@@ -92,7 +92,7 @@ class MobileAppTests(TestCase):
 
         house = CheckinPlace.objects.create(name='House', latitude=Decimal('40.1'), longitude=Decimal('-88.2'))
         CheckinPlace.objects.create(name='Library', latitude=Decimal('40.2'), longitude=Decimal('-88.3'))
-        url = reverse('mobile_app_place', args=[house.id])
+        url = reverse('officer_mobile_app_place', args=[house.id])
         self.client.post(url, {'name': 'Library'})                        # taken: refused
         house.refresh_from_db()
         self.assertEqual(house.name, 'House')
@@ -106,7 +106,7 @@ class MobileAppTests(TestCase):
         self.assertTrue(ActivityLog.objects.filter(object_type='CheckinPlace').exists())
 
     def test_versions_tab(self):
-        r = self.client.get(reverse('mobile_app'), {'tab': 'versions'})
+        r = self.client.get(reverse('officer_mobile_app'), {'tab': 'versions'})
         self.assertEqual(r.status_code, 200)
         versions = {(v['platform'], v['version']): v['members'] for v in r.context['versions']}
         self.assertEqual(versions[('iOS', '1.0.0')], ['Ann On', 'Ollie Off'])   # signed-out phones aren't counted

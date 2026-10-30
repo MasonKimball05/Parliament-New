@@ -515,7 +515,7 @@ class OfficerMobileAppView(_OfficerView):
     (it's a chapter's worth of rows): who gets the app's notifications, location
     check-in (status, upcoming attendance events, saved places) and app versions.
     """
-    web_page = 'mobile_app'
+    web_page = 'officer_mobile_app'
 
     def get(self, request):
         from src import location_checkin as lc
@@ -567,7 +567,7 @@ class OfficerMobileAppView(_OfficerView):
 
 class OfficerCheckinPlaceView(_OfficerView):
     """``PATCH officer/mobile-app/places/<id>/`` ``{name}`` renames; ``DELETE`` deletes (logged)."""
-    web_page = 'mobile_app'
+    web_page = 'officer_mobile_app'
 
     def patch(self, request, place_id):
         from src.view.officer.mobile_app import rename_place

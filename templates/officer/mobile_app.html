@@ -160,14 +160,14 @@
       <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm divide-y divide-gray-200 dark:divide-gray-700">
         {% for place in places %}
         <div class="px-6 py-4 flex flex-col sm:flex-row sm:items-center gap-3">
-          <form method="post" action="{% url 'mobile_app_place' place.id %}" class="flex items-center gap-2 flex-1">
+          <form method="post" action="{% url 'officer_mobile_app_place' place.id %}" class="flex items-center gap-2 flex-1">
             {% csrf_token %}
             <input type="text" name="name" value="{{ place.name }}" maxlength="80" aria-label="Place name"
                    class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg text-sm">
             <button type="submit" class="px-3 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 text-sm rounded-lg transition-colors">Rename</button>
           </form>
           <span class="text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">{{ place.radius_m }} m · {{ place.latitude|floatformat:5 }}, {{ place.longitude|floatformat:5 }}</span>
-          <form method="post" action="{% url 'mobile_app_place' place.id %}" data-confirm="Delete {{ place.name }}? Events that used it keep their area.">
+          <form method="post" action="{% url 'officer_mobile_app_place' place.id %}" data-confirm="Delete {{ place.name }}? Events that used it keep their area.">
             {% csrf_token %}
             <input type="hidden" name="delete" value="1">
             <button type="submit" class="px-3 py-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 text-sm rounded-lg transition-colors">Delete</button>
