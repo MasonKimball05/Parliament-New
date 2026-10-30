@@ -205,7 +205,16 @@ class EducationPledgeView(_EducationView):
                 'points': r.points_earned,
             } for r in data['attendance']],
             'phases': list(PHASES),
+            'study': _study_json(pledge),
         })
+
+
+def _study_json(member):
+    """This week's study hours (src/location_time.py) against the weekly requirement, if any."""
+    from src.location_time import study_week
+    week = study_week(member)
+    return {'week_start': week['week_start'].isoformat(), 'minutes': week['minutes'],
+            'required_minutes': week['required_minutes']}
 
 
 class EducationTaskView(_EducationView):

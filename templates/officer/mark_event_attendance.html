@@ -43,6 +43,20 @@
         </div>
     </div>
 
+    <!-- Timed check-in (10-30-26): time each member spent inside the area -->
+    {% if event.checkin_min_minutes %}
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div>
+            <span class="font-semibold text-gray-900 dark:text-white">Timed check-in</span>
+            <span class="ml-2 text-sm text-gray-500 dark:text-gray-400">Members are marked present after {{ event.checkin_min_minutes }} min inside the check-in area.</span>
+        </div>
+        <a href="{% url 'event_time' event.id %}"
+           class="inline-flex items-center px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-sm font-medium transition">
+            Time &amp; adjustments
+        </a>
+    </div>
+    {% endif %}
+
     <!-- QR self-check-in (v3.27.0) -->
     {% if qr_checkin_enabled and not event.attendance_finalized %}
     <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">

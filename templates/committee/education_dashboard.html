@@ -21,6 +21,7 @@
             + Add Task
           </button>
           {% endif %}
+          <a href="{% url 'education_study_hours' code=committee.code %}" class="bg-white/20 hover:bg-white/30 text-white text-sm font-semibold px-4 py-2 rounded-lg transition">Study Hours</a>
           <a href="{% url 'committee_home' code=committee.code %}" class="text-primary-200 hover:text-white text-sm">← Committee Home</a>
         </div>
       </div>

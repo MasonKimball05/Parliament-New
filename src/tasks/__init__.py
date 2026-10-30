@@ -59,6 +59,7 @@ from src.tasks.db_health import (
     monitor_db_connection_pressure,
 )
 from src.tasks.education import (
+    location_time_tick,
     reveal_due_bigs,
 )
 from src.tasks.mobile_push import (
@@ -91,6 +92,7 @@ __all__ = [
     'send_daily_digest',
     'check_weak_passwords',
     'monitor_db_connection_pressure',
+    'location_time_tick',
     'reveal_due_bigs',
     'dispatch_announcement_to_groupme',
     'send_groupme_message',

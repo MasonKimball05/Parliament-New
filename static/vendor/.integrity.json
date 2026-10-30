@@ -104,9 +104,9 @@
     "static/css/tailwind.css": {
       "source": "built locally via tailwindcss standalone CLI v3.4.17",
       "note": "Regenerate with: ./build_css.sh, then run python manage.py check_env --update-hashes",
-      "sha256": "36878302b5e4817223bc858fec16b63521b73b212f432953e8780dc1d34b81f5",
-      "sri": "sha384-lVciegFgJu48mg+vCLZalr5J5VmO4FyYmcNR6MDTa+iwzKeCk0iV89HPjD5s2pri",
-      "size": 184375
+      "sha256": "34dc1e71234cb70498378b18f6e03cb93a4697716aa4d343c5b983db9375a558",
+      "sri": "sha384-6oSIWqF+Dw8OEgBFJEhuFoOQ1UZkdfI3kOSN/iOJNWOTdl6pSbnqdW+S6J+QepWD",
+      "size": 184333
     }
   }
 }

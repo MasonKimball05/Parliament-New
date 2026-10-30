@@ -36,6 +36,36 @@
         <label for="{{ form.checkin_save_as.id_for_label }}" class="text-sm text-gray-700 dark:text-gray-300">{{ form.checkin_save_as.label }}</label>
         {{ form.checkin_save_as }}
     </div>
+    {# Timed check-in (10-30-26, src/location_time.py) #}
+    {% if form.checkin_min_minutes %}
+    <div class="space-y-1">
+        <div class="flex flex-wrap items-center gap-2">
+            <label for="{{ form.checkin_min_minutes.id_for_label }}" class="text-sm text-gray-700 dark:text-gray-300">{{ form.checkin_min_minutes.label }}</label>
+            {{ form.checkin_min_minutes }}
+        </div>
+        <p class="text-xs text-gray-500 dark:text-gray-400">
+            With a time set, members are marked present once they've spent that long inside the circle (visits add up), not as soon as they arrive.
+        </p>
+    </div>
+    <div class="border-t border-primary-200 dark:border-primary-800 pt-3 space-y-2">
+        <div class="flex items-start">
+            {{ form.is_study_hours }}
+            <label for="{{ form.is_study_hours.id_for_label }}" class="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                <span class="font-medium">Study hours</span>
+                <span class="block text-gray-500 dark:text-gray-400 text-xs mt-1">
+                    Time members spend inside the circle, from the start for as long as it lasts, counts toward their study hours. Takes no attendance.
+                </span>
+            </label>
+        </div>
+        <div class="flex flex-wrap items-center gap-2 ml-6">
+            <label for="{{ form.duration_minutes.id_for_label }}" class="text-sm text-gray-700 dark:text-gray-300">{{ form.duration_minutes.label }}</label>
+            {{ form.duration_minutes }}
+        </div>
+        {% if form.is_study_hours.errors %}
+            <p class="text-sm text-red-600 dark:text-red-400">{{ form.is_study_hours.errors|first }}</p>
+        {% endif %}
+    </div>
+    {% endif %}
     {{ checkin_places|json_script:"checkin-places" }}
     <script src="{% static_v 'vendor/leaflet/leaflet.js' %}"></script>
     <script src="{% static_v 'js/officer/checkin_area_map.js' %}"></script>

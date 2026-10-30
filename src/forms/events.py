@@ -66,6 +66,27 @@ class EventForm(forms.ModelForm):
         }),
     )
 
+    # Timed check-in (10-30-26, src/location_time.py): a minimum stay, or
+    # study hours that count time spent inside the area.
+    CHECKIN_MINUTES = [('', 'Arriving is enough'), (15, '15 minutes'), (30, '30 minutes'),
+                       (45, '45 minutes'), (60, '1 hour'), (90, '1½ hours'), (120, '2 hours')]
+    checkin_min_minutes = forms.TypedChoiceField(
+        choices=CHECKIN_MINUTES, coerce=int, empty_value=None, required=False,
+        label='Time needed at the event',
+        widget=forms.Select(attrs={
+            'class': 'px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg',
+        }),
+    )
+    STUDY_LENGTHS = [(60, '1 hour'), (90, '1½ hours'), (120, '2 hours'), (180, '3 hours'), (240, '4 hours'),
+                     (300, '5 hours'), (360, '6 hours'), (480, '8 hours'), (720, '12 hours')]
+    duration_minutes = forms.TypedChoiceField(
+        choices=STUDY_LENGTHS, coerce=int, empty_value=None, required=False, initial=180,
+        label='Study hours last',
+        widget=forms.Select(attrs={
+            'class': 'px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg',
+        }),
+    )
+
     class Meta:
         model = Event
         fields = ['title', 'description', 'date_time', 'location', 'visible_to', 'is_active',
@@ -75,10 +96,14 @@ class EventForm(forms.ModelForm):
                   'recurrence_days', 'recurrence_end_date',
                   'reminder_1_enabled', 'reminder_1_hours_before', 'reminder_1_email_enabled',
                   'reminder_2_enabled', 'reminder_2_hours_before', 'reminder_2_email_enabled',
-                  'checkin_latitude', 'checkin_longitude', 'checkin_radius_m']
+                  'checkin_latitude', 'checkin_longitude', 'checkin_radius_m',
+                  'checkin_min_minutes', 'is_study_hours', 'duration_minutes']
         widgets = {
             'checkin_latitude': forms.HiddenInput(attrs={'data-checkin-lat': ''}),
             'checkin_longitude': forms.HiddenInput(attrs={'data-checkin-lng': ''}),
+            'is_study_hours': forms.CheckboxInput(attrs={
+                'class': 'h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded',
+            }),
             'title': forms.TextInput(attrs={
                 'class': 'w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent',
                 'placeholder': 'Enter event title'
@@ -216,7 +241,8 @@ class EventForm(forms.ModelForm):
             self.initial['recurrence_days'] = [str(d) for d in self.instance.recurrence_days]
         if not location_checkin.enabled():
             # Off: leave any area already on the event exactly as it is.
-            for name in ('checkin_latitude', 'checkin_longitude', 'checkin_radius_m', 'checkin_save_as'):
+            for name in ('checkin_latitude', 'checkin_longitude', 'checkin_radius_m', 'checkin_save_as',
+                         'checkin_min_minutes', 'is_study_hours', 'duration_minutes'):
                 self.fields.pop(name, None)
 
     def clean(self):
@@ -226,7 +252,29 @@ class EventForm(forms.ModelForm):
             if val is not None and not (1 <= val <= 168):
                 self.add_error(field, 'Must be between 1 and 168 hours (1 week).')
         self._clean_checkin_area(cleaned)
+        self._clean_timed_checkin(cleaned)
         return cleaned
+
+    def _clean_timed_checkin(self, cleaned):
+        """
+        Study hours need a check-in area and a length, and take no attendance;
+        a minimum stay needs an area and attendance. Without an area, neither.
+        """
+        if 'is_study_hours' not in self.fields:
+            return
+        has_area = bool(cleaned.get('checkin_radius_m'))
+        if cleaned.get('is_study_hours'):
+            if not has_area:
+                self.add_error('is_study_hours', 'Study hours need a check-in area: set one on the map.')
+            if not cleaned.get('duration_minutes'):
+                cleaned['duration_minutes'] = 180
+            cleaned['requires_attendance'] = False
+            cleaned['allow_excuses'] = False
+            cleaned['checkin_min_minutes'] = None
+            return
+        cleaned['duration_minutes'] = None
+        if cleaned.get('checkin_min_minutes') and not (has_area and cleaned.get('requires_attendance')):
+            cleaned['checkin_min_minutes'] = None
 
     def _clean_checkin_area(self, cleaned):
         """All three set (a pin and a radius), or none: "Off" clears the pin."""

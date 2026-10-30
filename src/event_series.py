@@ -48,6 +48,8 @@ SERIES_FIELDS = (
     'reminder_2_enabled', 'reminder_2_hours_before', 'reminder_2_email_enabled',
     # The check-in area belongs to the meeting, like its location (v3.60.0).
     'checkin_latitude', 'checkin_longitude', 'checkin_radius_m',
+    # Timed check-in and study hours (10-30-26).
+    'checkin_min_minutes', 'is_study_hours', 'duration_minutes',
 )
 
 # Copied onto a promoted root when the old root is deleted but occurrences remain.

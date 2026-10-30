@@ -7,7 +7,11 @@ Members:
 * ``POST devices/checkin-key/`` — a new check-in key for this phone (replacing
   any old one). Shown once; only its hash is stored.
 * ``POST events/<id>/checkin/location/`` with ``{latitude, longitude,
-  accuracy}`` and the ``X-Checkin-Key`` header — the check-in itself.
+  accuracy}`` and the ``X-Checkin-Key`` header — the check-in itself. For a
+  timed event (a minimum stay, or study hours: ``src/location_time.py``) it
+  starts a visit instead, and the response carries the minutes so far.
+* ``POST events/<id>/checkin/location/leave/`` (same key) — the phone left a
+  timed event's area: the visit ends.
 
 Officers and chairs (the ``officer_required`` rule of the attendance pages):
 * ``PUT events/<id>/checkin-area/`` with ``{latitude, longitude, radius_m}``
@@ -21,7 +25,10 @@ from django.db import IntegrityError
 from rest_framework import exceptions
 from rest_framework.response import Response
 
+from django.db.models import Q
+
 from src import location_checkin as lc
+from src import location_time as lt
 from src.mobile.api import CheckinKeyAPIView, MobileAPIView
 from src.models import ActivityLog, CheckinPlace, Event
 from src.models.mobile import MobileDevice, hash_secret, new_secret
@@ -60,6 +67,43 @@ class CheckinKeyView(MobileAPIView):
         return Response({'key': raw})
 
 
+def _member_event(request, event_id):
+    # Same events the member is shown in checkin-areas/ (visible to them, not
+    # archived) — otherwise a hidden event could be found, located from the
+    # too_far distances, and checked in to (10-28-26).
+    event = (Event.objects
+             .filter(Q(requires_attendance=True) | Q(is_study_hours=True),
+                     pk=event_id, is_active=True, archived=False)
+             .filter(lc.visible_to_q(request.user.member_type))
+             .first())
+    if event is None:
+        raise exceptions.NotFound()
+    return event
+
+
+def _timed_fields(user, event):
+    from src.models import Attendance
+    present = Attendance.objects.filter(event=event, user=user, attendance_type='event',
+                                        status__in=('present', 'late')).exists()
+    return {'min_minutes': event.checkin_min_minutes, 'study_hours': event.is_study_hours,
+            'inside': lt.open_visit(user, event) is not None, 'checked_in': present}
+
+
+class LocationLeaveView(CheckinKeyAPIView):
+    web_page = 'event_qr_checkin'
+    web_page_toggle = False
+
+    def post(self, request, event_id):
+        _need_feature()
+        event = _member_event(request, event_id)
+        if not lt.is_timed(event):
+            return Response({'ok': True, 'timed': False})
+        got = lt.record_leave(request, request.user, event)
+        return Response({'ok': True, 'timed': True, 'minutes': got,
+                         'event': {'id': event.id, 'title': event.title},
+                         **_timed_fields(request.user, event)})
+
+
 class LocationCheckinView(CheckinKeyAPIView):
     web_page = 'event_qr_checkin'   # the QR scan target: same pledge rules
     web_page_toggle = False
@@ -78,15 +122,16 @@ class LocationCheckinView(CheckinKeyAPIView):
                 and -90 <= lat <= 90 and -180 <= lng <= 180):
             raise exceptions.ValidationError('latitude, longitude and accuracy are numbers.',
                                              code='invalid_request')
-        # Same events the member is shown in checkin-areas/ (visible to them, not
-        # archived) — otherwise a hidden event could be found, located from the
-        # too_far distances, and checked in to (10-28-26).
-        event = (Event.objects
-                 .filter(pk=event_id, requires_attendance=True, is_active=True, archived=False)
-                 .filter(lc.visible_to_q(request.user.member_type))
-                 .first())
-        if event is None:
-            raise exceptions.NotFound()
+        event = _member_event(request, event_id)
+        if lt.is_timed(event):
+            result, got, distance = lt.record_enter(request, request.user, event, lat, lng, accuracy)
+            if result != 'success':
+                status, detail = lc.REFUSALS[result]
+                return Response({'error': f'checkin_{result}', 'detail': detail, 'distance_m': distance},
+                                status=status)
+            return Response({'ok': True, 'timed': True, 'minutes': got, 'distance_m': distance,
+                             'event': {'id': event.id, 'title': event.title},
+                             **_timed_fields(request.user, event)})
         result, created, distance = lc.location_check_in(request, request.user, event, lat, lng, accuracy)
         if result != 'success':
             status, detail = lc.REFUSALS[result]

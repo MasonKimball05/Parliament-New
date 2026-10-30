@@ -240,6 +240,7 @@ def _get_education_access(user, committee):
             'can_view_submissions': True,
             'can_grade_submissions': True,
             'can_manage_tasks': True,
+            'can_adjust_time': True,
         }
     try:
         perm = EducationMemberPermission.objects.get(committee=committee, user=user)
@@ -250,6 +251,7 @@ def _get_education_access(user, committee):
             'can_view_submissions': False,
             'can_grade_submissions': False,
             'can_manage_tasks': False,
+            'can_adjust_time': False,
         }
     return {
         'is_chair': False,
@@ -257,6 +259,7 @@ def _get_education_access(user, committee):
         'can_view_submissions': perm.can_view_submissions,
         'can_grade_submissions': perm.can_grade_submissions,
         'can_manage_tasks': perm.can_manage_tasks,
+        'can_adjust_time': perm.can_adjust_time,
     }
 
 
@@ -280,6 +283,7 @@ def _education_committee_or_404(code, user):
         access['can_view_submissions']
         or access['can_grade_submissions']
         or access['can_manage_tasks']
+        or access['can_adjust_time']
     )
     if not has_any_access:
         raise Http404
@@ -302,6 +306,7 @@ def _require_education_permission(access, key, message=None):
         'can_view_submissions': 'view this',
         'can_grade_submissions': 'grade quizzes',
         'can_manage_tasks': 'manage tasks',
+        'can_adjust_time': 'adjust study hours',
     }
     return JsonResponse(
         {'error': message or f"You don't have permission to {labels.get(key, 'do that')}."},

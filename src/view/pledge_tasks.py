@@ -278,8 +278,25 @@ def build_pledge_tasks_context(pledge):
         'meetings_attended': meetings_attended,
         'task_points': task_points,
         'total_points': task_points + attendance_points,
+        # Study hours this week (10-30-26, src/location_time.py), against the
+        # weekly requirement the VP of Education set, if any.
+        'study': _study_context(pledge),
     }
     return context
+
+
+def _study_context(pledge):
+    from src.location_time import study_week
+    week = study_week(pledge)
+    if not week['required_minutes'] and not week['minutes']:
+        return None
+    req = week['required_minutes']
+    return {
+        **week,
+        'hours': round(week['minutes'] / 60, 1),
+        'required_hours': round(req / 60, 1) if req else None,
+        'percent': min(100, round(100 * week['minutes'] / req)) if req else None,
+    }
 
 
 @login_required

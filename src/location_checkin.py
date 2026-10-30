@@ -96,18 +96,27 @@ def upcoming_areas(user, now=None):
     now = now or timezone.now()
     if user.member_status != 'Active':
         return []
+    from django.db.models import Q
+    from src import location_time as lt
     rows = list(Event.objects
-                .filter(is_active=True, archived=False, requires_attendance=True,
-                        attendance_finalized=False, checkin_radius_m__isnull=False,
+                .filter(Q(requires_attendance=True, attendance_finalized=False) | Q(is_study_hours=True),
+                        is_active=True, archived=False, checkin_radius_m__isnull=False,
                         checkin_latitude__isnull=False, checkin_longitude__isnull=False,
-                        date_time__gt=now - WINDOW_AFTER, date_time__lt=now + LOOKAHEAD)
+                        date_time__gt=now - max(WINDOW_AFTER, lt.MAX_STUDY_SPAN), date_time__lt=now + LOOKAHEAD)
                 .filter(visible_to_q(user.member_type))
-                .only('id', 'title', 'date_time', 'checkin_latitude', 'checkin_longitude', 'checkin_radius_m')
-                .order_by('date_time')[:MAX_AREAS])
+                .only('id', 'title', 'date_time', 'checkin_latitude', 'checkin_longitude', 'checkin_radius_m',
+                      'checkin_min_minutes', 'is_study_hours', 'duration_minutes', 'attendance_finalized')
+                .order_by('date_time')[:MAX_AREAS * 3])   # some may have closed (below)
     done = present_ids(user, rows)
     out = []
+    from src.models import LocationVisit
+    inside = set(LocationVisit.objects.filter(user=user, event__in=rows, left_at__isnull=True)
+                 .values_list('event_id', flat=True))
     for e in rows:
-        opens, closes = window(e)
+        timed = lt.is_timed(e)
+        opens, closes = lt.window(e) if timed else window(e)
+        if closes <= now:
+            continue
         out.append({
             'id': e.id,
             'title': e.title,
@@ -118,8 +127,14 @@ def upcoming_areas(user, now=None):
             'opens_at': opens.isoformat(),
             'closes_at': closes.isoformat(),
             'checked_in': e.id in done,
+            # Timed events (src/location_time.py): the app reports leaving too.
+            'timed': timed,
+            'min_minutes': e.checkin_min_minutes,
+            'study_hours': e.is_study_hours,
+            'inside': e.id in inside,
+            'minutes': lt.minutes(user, e) if timed else None,
         })
-    return out
+    return out[:MAX_AREAS]
 
 
 def location_check_in(request, user, event, lat, lng, accuracy, now=None):

@@ -37,6 +37,11 @@ SCHEDULES = [
     # timed to a ritual; My Tasks and the education dashboard also apply due
     # reveals on load, so a stopped beat delays the profile, not the pledge.
     {
+        'name': 'Timed location check-in',
+        'task': 'tasks.location_time_tick',
+        'interval': {'every': 2, 'period': IntervalSchedule.MINUTES},
+    },
+    {
         'name': 'Reveal due pledge bigs',
         'task': 'tasks.reveal_due_bigs',
         'interval': {'every': 1, 'period': IntervalSchedule.MINUTES},

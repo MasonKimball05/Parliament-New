@@ -711,6 +711,14 @@ class EducationMemberPermission(models.Model):
                   'attendance, review absence requests, and edit pledge page restrictions',
     )
 
+    #: Study hours and timed check-ins (10-30-26): add or remove a member's
+    #: minutes at an event, and set members' weekly study hours.
+    can_adjust_time = models.BooleanField(
+        default=False,
+        help_text='Can add or remove time members spent at study hours and timed check-ins, '
+                  'and set weekly study hours requirements',
+    )
+
     granted_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,

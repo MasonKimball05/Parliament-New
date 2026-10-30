@@ -105,6 +105,26 @@
     </div>
     {% endif %}
 
+    <!-- Study hours this week (10-30-26) -->
+    {% if study %}
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm px-6 py-4 space-y-2">
+      <div class="flex items-center justify-between gap-4 flex-wrap">
+        <div>
+          <p class="text-xs uppercase tracking-wide text-gray-400 dark:text-gray-500">Study hours this week</p>
+          <p class="text-2xl font-bold text-gray-900 dark:text-white leading-tight">
+            {{ study.hours }}{% if study.required_hours %} <span class="text-base font-normal text-gray-500 dark:text-gray-400">of {{ study.required_hours }} h</span>{% else %} h{% endif %}
+          </p>
+        </div>
+        <p class="text-sm text-gray-500 dark:text-gray-400">Counted while you're at a study hours location with the app.</p>
+      </div>
+      {% if study.percent is not None %}
+      <div class="h-2 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
+        <div class="h-2 {% if study.percent >= 100 %}bg-green-500{% else %}bg-primary-500{% endif %}" style="width: {{ study.percent }}%"></div>
+      </div>
+      {% endif %}
+    </div>
+    {% endif %}
+
     <!-- Upcoming meetings — date, time, location and homework in one card,
          so a pledge does not have to cross-reference the calendar. -->
     {% if upcoming_meetings %}

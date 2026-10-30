@@ -167,6 +167,22 @@ class Event(models.Model):
         null=True, blank=True,
         help_text='Check-in area radius in meters (members inside it are checked in by the app).',
     )
+    # Time-based location check-in (10-30-26, src/location_time.py).
+    checkin_min_minutes = models.PositiveSmallIntegerField(
+        null=True, blank=True,
+        help_text='Minutes a member must spend inside the check-in area to be marked present. '
+                  'Blank: arriving is enough.',
+    )
+    is_study_hours = models.BooleanField(
+        default=False,
+        help_text='Study hours: time members spend inside the check-in area between the start '
+                  'and end counts toward their study hours. Takes no attendance.',
+    )
+    duration_minutes = models.PositiveSmallIntegerField(
+        null=True, blank=True,
+        help_text='How long study hours last from the start (a length, not an end time, so a '
+                  'recurring series carries it to every occurrence).',
+    )
     finalized_by = models.ForeignKey(
         'ParliamentUser',
         on_delete=models.SET_NULL,
@@ -1184,3 +1200,65 @@ class EventCheckinEmbed(models.Model):
     def revoke(self):
         self.revoked_at = dj_timezone.now()
         self.save(update_fields=['revoked_at'])
+
+
+class LocationVisit(models.Model):
+    """
+    One stay inside an event's check-in area (10-30-26, src/location_time.py):
+    from the phone's arrival until it reported leaving. ``left_at`` is null
+    while the member is (as far as the server knows) still inside; time counts
+    only within the event's window, so a stay whose "left" never arrived stops
+    counting when the window closes (and ``left_unconfirmed`` marks it for
+    officers to check).
+    """
+    event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name='location_visits')
+    user = models.ForeignKey('ParliamentUser', on_delete=models.CASCADE, related_name='location_visits')
+    entered_at = models.DateTimeField()
+    left_at = models.DateTimeField(null=True, blank=True)
+    left_unconfirmed = models.BooleanField(
+        default=False, help_text='The phone never reported leaving; closed when the window ended.')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['entered_at']
+        indexes = [models.Index(fields=['event', 'user']), models.Index(fields=['left_at'])]
+
+    def __str__(self):
+        return f'{self.user_id} at {self.event_id} from {self.entered_at:%Y-%m-%d %H:%M}'
+
+
+class LocationTimeAdjustment(models.Model):
+    """
+    A manual change to how long a member was at an event (add or remove
+    minutes), by an officer or someone the VP of Education allowed
+    (``EducationMemberPermission.can_adjust_time``). Append-only, with a reason.
+    """
+    event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name='location_time_adjustments')
+    user = models.ForeignKey('ParliamentUser', on_delete=models.CASCADE, related_name='location_time_adjustments')
+    minutes = models.SmallIntegerField(help_text='Minutes added (negative to remove).')
+    reason = models.CharField(max_length=300)
+    adjusted_by = models.ForeignKey('ParliamentUser', on_delete=models.SET_NULL, null=True,
+                                    related_name='location_time_adjustments_made')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['created_at']
+
+    def __str__(self):
+        return f'{self.minutes:+d} min for {self.user_id} at {self.event_id}'
+
+
+class StudyHoursRequirement(models.Model):
+    """
+    Weekly study hours a member is asked to log (10-30-26): set per member by
+    the VP of Education or someone they allowed. Members without one just see
+    their totals.
+    """
+    user = models.OneToOneField('ParliamentUser', on_delete=models.CASCADE, related_name='study_requirement')
+    weekly_minutes = models.PositiveSmallIntegerField()
+    set_by = models.ForeignKey('ParliamentUser', on_delete=models.SET_NULL, null=True,
+                               related_name='study_requirements_set')
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f'{self.user_id}: {self.weekly_minutes} min/week'

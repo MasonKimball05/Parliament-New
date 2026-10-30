@@ -75,6 +75,9 @@ from src.models.announcements import (
 # Events
 from src.models.events import (
     Event,
+    LocationVisit,
+    LocationTimeAdjustment,
+    StudyHoursRequirement,
     EventSignup,
     Attendance,
     AttendanceExcuse,
@@ -313,6 +316,9 @@ __all__ = [
     'EventReminderRecipient',
     'EventCheckinWindow',
     'CheckinPlace',
+    'LocationVisit',
+    'LocationTimeAdjustment',
+    'StudyHoursRequirement',
     'EventCheckinEmbed',
     # Chat
     'ChatChannel',

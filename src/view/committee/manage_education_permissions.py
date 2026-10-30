@@ -31,6 +31,7 @@ EDUCATION_PERM_FIELDS = [
     'can_view_submissions',
     'can_grade_submissions',
     'can_manage_tasks',
+    'can_adjust_time',
 ]
 
 

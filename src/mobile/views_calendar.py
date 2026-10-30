@@ -192,6 +192,21 @@ class EventDetailView(_CalendarBase):
         data['can_manage_checkin'] = on and event.requires_attendance and user_is_officer_or_chair(request.user)
         data['checked_in'] = bool(event.requires_attendance
                                   and location_checkin.present_ids(request.user, [event]))
+        # Timed check-in (10-30-26, src/location_time.py): this member's time so far.
+        from src import location_time
+        data['timed_checkin'] = None
+        if on and location_checkin.has_area(event) and location_time.is_timed(event):
+            opens, closes = location_time.window(event)
+            can_adjust = location_time.can_adjust(request.user)
+            data['timed_checkin'] = {
+                'min_minutes': event.checkin_min_minutes,
+                'study_hours': event.is_study_hours,
+                'opens_at': opens.isoformat(),
+                'closes_at': closes.isoformat(),
+                'minutes': location_time.minutes(request.user, event),
+                'inside': location_time.open_visit(request.user, event) is not None,
+                'time_path': reverse('event_time', args=[event.id]) if can_adjust else None,
+            }
         # Officer tools (Phase 3h, views_officer): edit the event, take attendance.
         officer = user_is_officer_or_chair(request.user)
         data['can_manage'] = officer

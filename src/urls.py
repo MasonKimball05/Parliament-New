@@ -202,6 +202,7 @@ from src.view.officer.set_member_house import set_member_house
 from src.view.officer.set_member_big import set_member_big
 from src.view.officer.chapter_stats import chapter_stats
 from src.view.officer.mobile_app import mobile_app, mobile_app_place
+from src.view.study_hours import education_study_hours, event_time
 from src.view.pledge_tasks import (
     my_pledge_tasks, pledge_take_quiz, pledge_request_absence, pledge_quiz_analysis,
 )
@@ -560,6 +561,7 @@ urlpatterns = [
     path('officers/', officer_home, name='officer_home'),
     path('officers/chapter-stats/', chapter_stats, name='chapter_stats'),
     path('officers/mobile-app/', mobile_app, name='mobile_app'),
+    path('officers/events/<int:event_id>/time/', event_time, name='event_time'),
     path('officers/mobile-app/places/<int:place_id>/', mobile_app_place, name='mobile_app_place'),
     path('my-tasks/', my_pledge_tasks, name='my_pledge_tasks'),
     path('my-tasks/quiz/<int:task_pk>/', pledge_take_quiz, name='pledge_take_quiz'),
@@ -972,6 +974,7 @@ urlpatterns = [
 
     # Education dashboard (pledge tracker + page access controls)
     path('committee/<str:code>/education/', education_home, name='education_home'),
+    path('committee/<str:code>/education/study-hours/', education_study_hours, name='education_study_hours'),
     path('committee/<str:code>/education/tasks/add/', education_add_task, name='education_add_task'),
     path('committee/<str:code>/education/tasks/<int:task_pk>/edit/', education_edit_task, name='education_edit_task'),
     path('committee/<str:code>/education/tasks/<int:task_pk>/toggle/<str:pledge_pk>/', education_toggle_completion, name='education_toggle_completion'),

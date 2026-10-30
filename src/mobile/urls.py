@@ -58,6 +58,8 @@ urlpatterns = [
     path('events/<int:event_id>/checkin/', views_calendar.EventCheckinView.as_view(),
          name='mobile_event_checkin'),
     # Authenticated by X-Checkin-Key, not Bearer (views_location, CheckinKeyAPIView).
+    path('events/<int:event_id>/checkin/location/leave/', views_location.LocationLeaveView.as_view(),
+         name='mobile_location_leave'),
     path('events/<int:event_id>/checkin/location/', views_location.LocationCheckinView.as_view(),
          name='mobile_location_checkin'),
     path('events/<int:event_id>/checkin-area/', views_location.EventCheckinAreaView.as_view(),
