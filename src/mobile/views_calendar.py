@@ -192,6 +192,13 @@ class EventDetailView(_CalendarBase):
         data['can_manage_checkin'] = on and event.requires_attendance and user_is_officer_or_chair(request.user)
         data['checked_in'] = bool(event.requires_attendance
                                   and location_checkin.present_ids(request.user, [event]))
+        # Officer tools (Phase 3h, views_officer): edit the event, take attendance.
+        officer = user_is_officer_or_chair(request.user)
+        data['can_manage'] = officer
+        data['can_take_attendance'] = bool(
+            officer and event.requires_attendance
+            and check_feature_enabled('attendance_tracking') and check_feature_enabled('event_attendance'))
+        data['attendance_finalized'] = event.attendance_finalized
         return Response({'event': data})
 
 

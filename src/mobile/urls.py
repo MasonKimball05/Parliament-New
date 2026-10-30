@@ -11,7 +11,7 @@ from django.urls import path
 from src.mobile import (
     views_announcements, views_auth, views_calendar, views_chat, views_cnb, views_committees, views_devices,
     views_directory, views_education, views_excuses_polls, views_home, views_location, views_my,
-    views_notifications, views_push, views_recruitment, views_session, views_votes,
+    views_notifications, views_officer, views_push, views_recruitment, views_session, views_votes,
 )
 
 app_name = 'mobile'
@@ -92,6 +92,20 @@ urlpatterns = [
          name='mobile_vote_reauth_passkey_begin'),
     path('votes/reauth/passkey/complete/', views_votes.PasskeyReauthCompleteView.as_view(),
          name='mobile_vote_reauth_passkey_complete'),
+    path('officer/', views_officer.OfficerHubView.as_view(), name='mobile_officer'),
+    path('officer/announcements/', views_officer.OfficerAnnouncementListView.as_view(),
+         name='mobile_officer_announcements'),
+    path('officer/announcements/recipients/', views_officer.OfficerAnnouncementRecipientsView.as_view(),
+         name='mobile_officer_announcement_recipients'),
+    path('officer/announcements/<int:announcement_id>/', views_officer.OfficerAnnouncementView.as_view(),
+         name='mobile_officer_announcement'),
+    path('officer/events/', views_officer.OfficerEventCreateView.as_view(), name='mobile_officer_events'),
+    path('officer/events/<int:event_id>/', views_officer.OfficerEventView.as_view(), name='mobile_officer_event'),
+    path('officer/events/<int:event_id>/attendance/', views_officer.OfficerAttendanceView.as_view(),
+         name='mobile_officer_attendance'),
+    path('officer/excuses/', views_officer.OfficerExcuseListView.as_view(), name='mobile_officer_excuses'),
+    path('officer/excuses/<int:excuse_id>/', views_officer.OfficerExcuseReviewView.as_view(),
+         name='mobile_officer_excuse'),
     path('cnb/', views_cnb.CnbDocumentsView.as_view(), name='mobile_cnb'),
     path('cnb/resolutions/', views_cnb.CnbResolutionListView.as_view(), name='mobile_cnb_resolutions'),
     path('cnb/resolutions/<int:resolution_id>/', views_cnb.CnbResolutionView.as_view(), name='mobile_cnb_resolution'),

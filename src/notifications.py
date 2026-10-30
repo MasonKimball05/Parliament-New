@@ -51,6 +51,29 @@ def get_site_url():
     return getattr(settings, 'SITE_URL', 'https://am-parliament.org').rstrip('/')
 
 
+def announcement_email_recipients(visible_to):
+    """
+    The members `send_announcement_notification` emails for an announcement
+    visible to `visible_to`: ACTIVE members of those types ('Member' includes
+    chairs and officers; none means everyone) with an email address who haven't
+    turned announcement emails off. For the app's "Email N members?" check
+    before posting (mobile.views_officer). Same filters as the send below;
+    `test_officer.AnnouncementTests.test_recipient_count_matches_the_send` holds
+    the two together.
+    """
+    users = ParliamentUser.objects.filter(member_status='Active')
+    if visible_to:
+        member_types = list(visible_to)
+        if 'Member' in member_types:
+            member_types.extend(['Chair', 'Officer'])
+        users = users.filter(member_type__in=member_types)
+    return users.filter(
+        email__isnull=False
+    ).filter(
+        Q(preferences__prefs__email__announcements=True) | Q(preferences__isnull=True)
+    ).exclude(email='')
+
+
 def send_announcement_notification(announcement, initiated_by=None):
     """
     Send email notification to all ACTIVE users who should see this announcement.
