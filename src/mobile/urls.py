@@ -11,7 +11,8 @@ from django.urls import path
 from src.mobile import (
     views_announcements, views_auth, views_calendar, views_chat, views_cnb, views_committees, views_devices,
     views_directory, views_education, views_excuses_polls, views_home, views_location, views_my,
-    views_notifications, views_officer, views_push, views_recruitment, views_session, views_slating, views_songbook,
+    views_notifications, views_officer, views_officer_tools, views_push, views_recruitment, views_session,
+    views_slating, views_songbook,
     views_votes,
 )
 
@@ -97,6 +98,18 @@ urlpatterns = [
          name='mobile_vote_reauth_passkey_complete'),
     path('officer/', views_officer.OfficerHubView.as_view(), name='mobile_officer'),
     path('officer/mobile-app/', views_officer.OfficerMobileAppView.as_view(), name='mobile_officer_mobile_app'),
+    path('officer/attendance-events/', views_officer_tools.AttendanceEventsView.as_view(),
+         name='mobile_officer_attendance_events'),
+    path('officer/stats/', views_officer_tools.ChapterStatsView.as_view(), name='mobile_officer_stats'),
+    path('officer/members/', views_officer_tools.MemberListView.as_view(), name='mobile_officer_members'),
+    path('officer/contact/', views_officer_tools.ContactListView.as_view(), name='mobile_officer_contact'),
+    path('officer/contact/read-all/', views_officer_tools.ContactReadAllView.as_view(),
+         name='mobile_officer_contact_read_all'),
+    path('officer/contact/<int:pk>/read/', views_officer_tools.ContactReadView.as_view(),
+         name='mobile_officer_contact_read'),
+    path('officer/reports/', views_officer_tools.ReportListView.as_view(), name='mobile_officer_reports'),
+    path('officer/reports/<int:document_id>/file/', views_officer_tools.ReportFileView.as_view(),
+         name='mobile_officer_report_file'),
     path('officer/mobile-app/places/<int:place_id>/', views_officer.OfficerCheckinPlaceView.as_view(),
          name='mobile_officer_checkin_place'),
     path('officer/announcements/', views_officer.OfficerAnnouncementListView.as_view(),

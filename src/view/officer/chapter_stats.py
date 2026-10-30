@@ -21,19 +21,26 @@ from src.models import (
 STATS_DAY_OPTIONS = [30, 90, 180, 365]
 
 
+def clean_days(raw):
+    """The date-range param: one of STATS_DAY_OPTIONS, else 90."""
+    try:
+        days = int(raw if raw is not None else 90)
+    except (ValueError, TypeError):
+        return 90
+    return days if days in STATS_DAY_OPTIONS else 90
+
+
 @login_required
 @officer_required
 def chapter_stats(request):
+    days = clean_days(request.GET.get('days', 90))
+    return render(request, 'officer/chapter_stats.html', chapter_stats_context(days))
+
+
+def chapter_stats_context(days):
+    """Everything the Chapter Stats page shows for the last ``days`` days (also the app's officer/stats/)."""
     now = timezone.now()
     one_year_ago = now - timedelta(days=365)
-
-    # ── Date-range param ───────────────────────────────────────────────────
-    try:
-        days = int(request.GET.get('days', 90))
-    except (ValueError, TypeError):
-        days = 90
-    if days not in STATS_DAY_OPTIONS:
-        days = 90
     cutoff = now - timedelta(days=days)
     period_label = f'{days} days'
 
@@ -270,4 +277,4 @@ def chapter_stats(request):
         'day_options': STATS_DAY_OPTIONS,
         'period_label': period_label,
     }
-    return render(request, 'officer/chapter_stats.html', context)
+    return context

@@ -272,3 +272,51 @@ class MobileAppTests(_Base):
 
     def test_members_are_refused(self):
         self.assertEqual(self.call('get', 'officer/mobile-app/', access=self.member_access).status_code, 403)
+
+
+class OfficerToolsTests(_Base):
+    """More officer pages in the app (src/mobile/views_officer_tools.py)."""
+
+    def test_attendance_events(self):
+        past = Event.objects.create(title='Past', description='d', created_by=self.officer,
+                                    date_time=timezone.now() - timedelta(days=1), requires_attendance=True)
+        Event.objects.create(title='Soon', description='d', created_by=self.officer,
+                             date_time=timezone.now() + timedelta(days=1), requires_attendance=True)
+        body = self.call('get', 'officer/attendance-events/').json()
+        self.assertEqual([e['title'] for e in body['upcoming']], ['Soon'])
+        self.assertEqual(body['past'][0]['id'], past.id)
+        self.assertIn('present', body['past'][0]['stats'])
+        self.assertEqual(self.call('get', 'officer/attendance-events/', access=self.member_access).status_code, 403)
+
+    def test_stats_and_members(self):
+        stats = self.call('get', 'officer/stats/?days=30').json()
+        self.assertEqual(stats['days'], 30)
+        self.assertIn('attendance', stats)
+        self.assertEqual(self.call('get', 'officer/stats/?days=7').json()['days'], 90)    # not an option
+        members = {m['user_id']: m for m in self.call('get', 'officer/members/').json()['members']}
+        self.assertIn('mem-1', members)
+        self.assertIn('last_login', members['mem-1'])
+
+    def test_contact_messages(self):
+        from src.models import ContactSubmission
+        a = ContactSubmission.objects.create(name='Pat', email='p@example.com', message='Hi')
+        ContactSubmission.objects.create(name='Sam', email='s@example.com', message='Hello')
+        body = self.call('get', 'officer/contact/').json()
+        self.assertEqual(body['unread'], 2)
+        self.assertTrue(self.call('post', f'officer/contact/{a.id}/read/', {}).json()['message']['is_read'])
+        self.assertEqual(self.call('post', 'officer/contact/read-all/', {}).json()['marked'], 1)
+        self.assertEqual(self.call('get', 'officer/contact/', access=self.member_access).status_code, 403)
+
+    def test_reports_include_unpublished(self):
+        from django.core.files.base import ContentFile
+        from src.models import Committee, CommitteeDocument
+        c = Committee.objects.create(name='Finance', code='FIN')
+        d = CommitteeDocument(committee=c, title='Budget', uploaded_by=self.officer, document_type='report')
+        d.document.save('budget.pdf', ContentFile(b'%PDF-1'), save=True)
+        body = self.call('get', 'officer/reports/').json()
+        row = body['documents'][0]
+        self.assertEqual((row['title'], row['published']), ('Budget', False))
+        r = self.call('get', row['file'])
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(b''.join(r.streaming_content), b'%PDF-1')
+        d.document.delete(save=False)

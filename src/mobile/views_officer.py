@@ -46,7 +46,7 @@ from src.mobile.api import MobileAPIView
 from src.mobile.views_directory import photo_path
 from src.mobile.views_excuses_polls import BadRequest
 from src.models import (
-    ActivityLog, Announcement, Attendance, AttendanceExcuse, CheckinPlace, Committee, Event,
+    ActivityLog, Announcement, Attendance, AttendanceExcuse, CheckinPlace, Committee, ContactSubmission, Event,
 )
 from src.models.users import member_defer
 from src.permissions import user_is_officer_or_chair
@@ -126,6 +126,7 @@ class OfficerHubView(_OfficerView):
             'attendance': [{'id': e.id, 'title': e.title, 'date_time': e.date_time.isoformat()}
                            for e in attendance],
             'features': {'attendance': _attendance_on(), 'excuses': _excuses_on()},
+            'unread_contact': ContactSubmission.objects.filter(is_read=False).count(),
         })
 
 
