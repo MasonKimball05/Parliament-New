@@ -47,3 +47,18 @@ class MemberPermissionsTests(TestCase):
         self.client.post(self.url, {})      # unticked = taken away
         perm.refresh_from_db()
         self.assertFalse(perm.can_upload_docs)
+
+    def test_minute_taker_sees_and_opens_minutes(self):
+        advisor = make_user('mp-adv')
+        self.c.advisors.add(advisor)
+        minutes = reverse('committee_minutes_list', args=['FIN'])
+        self.client.force_login(advisor)
+        self.assertEqual(self.client.get(minutes).status_code, 302)      # not a member: sent back
+        self.client.force_login(self.chair)
+        self.client.post(self.url, {'can_take_minutes_mp-adv': 'on'})
+        self.client.force_login(advisor)
+        self.assertEqual(self.client.get(minutes).status_code, 200)
+        self.client.force_login(self.chair)
+        self.client.post(self.url, {'can_take_minutes_mp-mem': 'on'})
+        self.client.force_login(self.member)
+        self.assertContains(self.client.get(reverse('committee_home', args=['FIN'])), minutes)

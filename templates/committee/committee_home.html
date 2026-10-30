@@ -363,7 +363,13 @@
                 </svg>
                 Member Permissions
             </a>
-            {% elif can_manage_documents or can_manage_members %}
+            {% elif can_manage_documents or can_manage_members or can_take_minutes %}
+            {% if can_take_minutes %}
+            <a href="{% url 'committee_minutes_list' committee.code %}"
+               class="flex items-center gap-2 px-4 py-3 bg-gray-50 dark:bg-gray-700/50 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-sm font-medium">
+                Minutes
+            </a>
+            {% endif %}
             {% if can_manage_documents %}
             <a href="{% url 'upload_document' committee.code %}"
                class="flex items-center gap-2 px-4 py-3 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors text-sm font-medium">

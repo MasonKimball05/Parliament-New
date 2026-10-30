@@ -35,6 +35,7 @@ from src.mobile.deeplinks import _committee_channel_id
 from src.models import ChapterMinutes, Committee, CommitteeDocument, CommitteePermissions
 from src.models.users import member_defer
 from src.utils.content_disposition import apply_disposition
+from src.view.committee.committee_minutes_editor import is_committee_member_or_above
 from src.view.committee.member_permissions import can_designate
 
 RECENT_DOCUMENTS = 5
@@ -69,8 +70,7 @@ class _Access:
                         or user.is_admin or self.is_committee_admin)
         self.can_manage = self.is_chair or self.is_vp or user.is_admin or self.is_committee_admin
         # committee_minutes_list: members, chairs (incl. exec board), officers, admins.
-        self.can_view_minutes = (self.is_member or committee.is_chair(user)
-                                 or user.member_type == 'Officer' or user.is_admin)
+        self.can_view_minutes = is_committee_member_or_above(user, committee, is_committee_member=self.is_member)
 
     def roles(self):
         return [name for name, on in (('VP', self.is_vp), ('Chair', self.is_chair),

@@ -45,7 +45,9 @@ def is_committee_member_or_above(user, committee, is_committee_member=None):
     if is_committee_member is None:
         is_committee_member = committee.is_member(user)
     return (is_committee_member or committee.is_chair(user)
-            or user.member_type == 'Officer' or user.is_admin)
+            or user.member_type == 'Officer' or user.is_admin
+            # A designated minute-taker (Member Permissions) may be an advisor.
+            or CommitteePermissions.objects.filter(committee=committee, user=user, can_take_minutes=True).exists())
 
 
 def can_edit_committee_minutes(user, committee):
