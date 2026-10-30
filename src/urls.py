@@ -201,6 +201,7 @@ from src.view.officer.role_knowledge_base import (
 from src.view.officer.set_member_house import set_member_house
 from src.view.officer.set_member_big import set_member_big
 from src.view.officer.chapter_stats import chapter_stats
+from src.view.officer.mobile_app import mobile_app, mobile_app_place
 from src.view.pledge_tasks import (
     my_pledge_tasks, pledge_take_quiz, pledge_request_absence, pledge_quiz_analysis,
 )
@@ -558,6 +559,8 @@ urlpatterns = [
     # Officer Pages
     path('officers/', officer_home, name='officer_home'),
     path('officers/chapter-stats/', chapter_stats, name='chapter_stats'),
+    path('officers/mobile-app/', mobile_app, name='mobile_app'),
+    path('officers/mobile-app/places/<int:place_id>/', mobile_app_place, name='mobile_app_place'),
     path('my-tasks/', my_pledge_tasks, name='my_pledge_tasks'),
     path('my-tasks/quiz/<int:task_pk>/', pledge_take_quiz, name='pledge_take_quiz'),
     path('my-tasks/quiz/<int:task_pk>/results/', pledge_quiz_analysis, name='pledge_quiz_analysis'),

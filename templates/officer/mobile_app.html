@@ -1,0 +1,229 @@
+{% extends "base.html" %}
+
+{% block title %}Mobile App — Parliament{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gray-50 dark:bg-gray-900">
+
+  <!-- Header -->
+  <div class="bg-gradient-to-r from-primary-600 via-primary-700 to-primary-800 text-white py-8 shadow-lg">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 class="text-3xl font-bold mb-1">Mobile App</h1>
+          <p class="text-primary-100 text-sm">Notifications, location check-in and app versions</p>
+        </div>
+        <a href="{% url 'officer_home' %}" class="text-primary-200 hover:text-white text-sm whitespace-nowrap">← Officer Home</a>
+      </div>
+      <div class="flex flex-wrap gap-2 mt-6">
+        {% for key, label in tabs %}
+        <a href="?tab={{ key }}"
+           class="px-4 py-2 rounded-lg text-sm font-medium transition {% if tab == key %}bg-white text-primary-700{% else %}text-white hover:bg-white/20{% endif %}">{{ label }}</a>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+
+    {% if messages %}
+    <div class="space-y-2">
+      {% for message in messages %}
+      <div class="rounded-lg px-4 py-3 text-sm {% if message.tags == 'error' %}bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400{% else %}bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400{% endif %}">{{ message }}</div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if tab == 'notifications' %}
+    <!-- ── Notifications ─────────────────────────────────────────────── -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      {% for s in states %}
+      <a href="?tab=notifications&state={% if state_filter == s.key %}all{% else %}{{ s.key }}{% endif %}"
+         class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-5 border-l-4 hover:shadow-md transition-shadow
+                {% if s.key == 'on' %}border-green-500{% elif s.key == 'off' %}border-amber-500{% elif s.key == 'signed_out' %}border-red-500{% else %}border-gray-300{% endif %}
+                {% if state_filter == s.key %}ring-2 ring-primary-500{% endif %}">
+        <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">{{ s.label }}</p>
+        <p class="text-3xl font-bold text-gray-900 dark:text-white">{{ s.count }}</p>
+      </a>
+      {% endfor %}
+    </div>
+
+    <p class="text-sm text-gray-600 dark:text-gray-400">
+      {{ total }} active member{{ total|pluralize }}{% if on_rate is not None %}, {{ on_rate }}% with notifications on{% endif %}.
+      <span class="font-medium">Notifications on</span> means a signed-in phone that can receive them;
+      <span class="font-medium">notifications off</span> means they use the app but declined notifications or turned them off in iOS Settings.
+      Kinds a member turned off in Preferences are listed beside them.
+      {% if state_filter != 'all' %}<a href="?tab=notifications" class="text-primary-600 dark:text-primary-400 hover:underline">Show everyone</a>{% endif %}
+    </p>
+
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700 text-sm">
+          <thead class="bg-gray-50 dark:bg-gray-700/50">
+            <tr>
+              <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Member</th>
+              <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Status</th>
+              <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Devices</th>
+              <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Turned off</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+            {% for r in rows %}
+            <tr>
+              <td class="px-6 py-3 text-gray-900 dark:text-white">
+                {{ r.member.get_display_name }}{% if r.member.role_number %} <span class="text-gray-400">#{{ r.member.role_number }}</span>{% endif %}
+                <div class="text-xs text-gray-500 dark:text-gray-400">{{ r.member.member_type }}</div>
+              </td>
+              <td class="px-6 py-3">
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                  {% if r.state == 'on' %}bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400{% elif r.state == 'off' %}bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400{% elif r.state == 'signed_out' %}bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400{% else %}bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300{% endif %}">
+                  {{ r.state_label }}
+                </span>
+              </td>
+              <td class="px-6 py-3 text-gray-600 dark:text-gray-400">
+                {% for d in r.devices %}
+                <div>{{ d.platform }}{% if d.app_version %} · app {{ d.app_version }}{% endif %}{% if not d.push %} · notifications off{% endif %} · seen {{ d.last_seen|timesince }} ago</div>
+                {% empty %}—{% endfor %}
+              </td>
+              <td class="px-6 py-3 text-gray-600 dark:text-gray-400">
+                {% if r.state == 'on' %}{% if r.muted %}{{ r.muted|join:", " }}{% else %}Nothing{% endif %}{% else %}—{% endif %}
+              </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="4" class="px-6 py-8 text-center text-gray-500 dark:text-gray-400">No one here.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    {% elif tab == 'location' %}
+    <!-- ── Location check-in ─────────────────────────────────────────── -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-5 border-l-4 {% if location_on %}border-green-500{% else %}border-gray-300{% endif %}">
+      <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Location check-in</p>
+      <p class="text-lg font-bold text-gray-900 dark:text-white">{% if location_on %}On{% else %}Off{% endif %}</p>
+      <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">
+        {% if location_on %}
+          Members whose phone is inside an event's check-in area while check-in is open (an hour before the start until three hours after) are marked present.
+        {% else %}
+          It needs the {{ location_flags|join:", " }} feature flags on{% if user.is_admin %} (<a href="{% url 'admin_v2_dashboard' %}" class="text-primary-600 dark:text-primary-400 hover:underline">Admin dashboard</a>){% else %}; ask an admin{% endif %}.
+        {% endif %}
+      </p>
+    </div>
+
+    <div>
+      <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-1">Attendance events, next {{ upcoming_days }} days</h2>
+      <p class="text-sm text-gray-600 dark:text-gray-400 mb-3">
+        {% if without_area %}{{ without_area }} without a check-in area. {% endif %}Set an area in the event's form, under Attendance.
+      </p>
+      <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700 text-sm">
+            <thead class="bg-gray-50 dark:bg-gray-700/50">
+              <tr>
+                <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Event</th>
+                <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">When</th>
+                <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Check-in area</th>
+                <th class="px-6 py-3"></th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+              {% for row in events %}
+              <tr>
+                <td class="px-6 py-3 text-gray-900 dark:text-white">{{ row.event.title }}</td>
+                <td class="px-6 py-3 text-gray-600 dark:text-gray-400 whitespace-nowrap">{{ row.event.date_time|date:"D, M j · g:i A" }}</td>
+                <td class="px-6 py-3">
+                  {% if row.has_area %}
+                  <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">{{ row.event.checkin_radius_m }} m</span>
+                  {% else %}
+                  <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300">None</span>
+                  {% endif %}
+                </td>
+                <td class="px-6 py-3 text-right whitespace-nowrap">
+                  <a href="{% url 'edit_event' row.event.id %}" class="text-primary-600 dark:text-primary-400 hover:underline">{% if row.has_area %}Edit{% else %}Set an area{% endif %}</a>
+                </td>
+              </tr>
+              {% empty %}
+              <tr><td colspan="4" class="px-6 py-8 text-center text-gray-500 dark:text-gray-400">No attendance events coming up.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-1">Saved places</h2>
+      <p class="text-sm text-gray-600 dark:text-gray-400 mb-3">
+        Saved from the event form ("Save this spot as"). Picking one copies its spot onto the event, so renaming or deleting a place never moves an event.
+      </p>
+      <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm divide-y divide-gray-200 dark:divide-gray-700">
+        {% for place in places %}
+        <div class="px-6 py-4 flex flex-col sm:flex-row sm:items-center gap-3">
+          <form method="post" action="{% url 'mobile_app_place' place.id %}" class="flex items-center gap-2 flex-1">
+            {% csrf_token %}
+            <input type="text" name="name" value="{{ place.name }}" maxlength="80" aria-label="Place name"
+                   class="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg text-sm">
+            <button type="submit" class="px-3 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 text-sm rounded-lg transition-colors">Rename</button>
+          </form>
+          <span class="text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">{{ place.radius_m }} m · {{ place.latitude|floatformat:5 }}, {{ place.longitude|floatformat:5 }}</span>
+          <form method="post" action="{% url 'mobile_app_place' place.id %}" data-confirm="Delete {{ place.name }}? Events that used it keep their area.">
+            {% csrf_token %}
+            <input type="hidden" name="delete" value="1">
+            <button type="submit" class="px-3 py-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 text-sm rounded-lg transition-colors">Delete</button>
+          </form>
+        </div>
+        {% empty %}
+        <p class="px-6 py-8 text-center text-gray-500 dark:text-gray-400 text-sm">No saved places yet.</p>
+        {% endfor %}
+      </div>
+    </div>
+
+    {% else %}
+    <!-- ── App versions ──────────────────────────────────────────────── -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-5">
+        <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">iPhone update notice</p>
+        <p class="text-sm text-gray-700 dark:text-gray-300">
+          Latest build: <span class="font-semibold">{{ update_ios.latest_build|default:"not set" }}</span> ·
+          minimum: <span class="font-semibold">{{ update_ios.min_build|default:"not set" }}</span>
+        </p>
+      </div>
+      <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-5">
+        <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Android update notice</p>
+        <p class="text-sm text-gray-700 dark:text-gray-300">
+          Latest build: <span class="font-semibold">{{ update_android.latest_build|default:"not set" }}</span> ·
+          minimum: <span class="font-semibold">{{ update_android.min_build|default:"not set" }}</span>
+        </p>
+      </div>
+    </div>
+    <p class="text-sm text-gray-600 dark:text-gray-400">
+      After a build reaches TestFlight, set its build number as the latest build so older installs show "Update available"{% if user.is_admin %} (<a href="{% url 'admin_v2_dashboard' %}" class="text-primary-600 dark:text-primary-400 hover:underline">Admin dashboard</a>, Site settings){% else %}. An admin sets it{% endif %}.
+    </p>
+
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700 text-sm">
+          <thead class="bg-gray-50 dark:bg-gray-700/50">
+            <tr>
+              <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Version</th>
+              <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Members</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+            {% for v in versions %}
+            <tr>
+              <td class="px-6 py-3 text-gray-900 dark:text-white whitespace-nowrap">{{ v.platform }} · {{ v.version }} <span class="text-gray-400">({{ v.count }})</span></td>
+              <td class="px-6 py-3 text-gray-600 dark:text-gray-400">{{ v.members|join:", " }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="2" class="px-6 py-8 text-center text-gray-500 dark:text-gray-400">No one is signed in to the app yet.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
