@@ -141,6 +141,24 @@ class DirectoryTests(_Base):
         self.assertEqual(self.api.get(API + 'members/p3b-1/photo/').status_code, 401)
         self.user.profile_picture.delete(save=False)
 
+    def test_photo_path_is_versioned_by_the_stored_file(self):
+        self.user.profile_picture = SimpleUploadedFile('me.png', b'\x89PNG fake', content_type='image/png')
+        self.user.save(update_fields=['profile_picture'])
+        path = self.get('members/p3b-1/').json()['member']['photo']
+        self.assertRegex(path, r'^members/p3b-1/photo/\?v=[0-9a-f]{12}$')
+        rows = {m['user_id']: m for m in self.get('members/').json()['members']}
+        self.assertEqual(rows['p3b-1']['photo'], path)
+        self.assertEqual(self.get('me/').json()['photo'], path)
+        response = self.get(path)                                       # the query is ignored
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('immutable', response['Cache-Control'])
+        old = self.user.profile_picture
+        self.user.profile_picture = SimpleUploadedFile('other.png', b'\x89PNG new', content_type='image/png')
+        self.user.save(update_fields=['profile_picture'])
+        self.assertNotEqual(self.get('members/p3b-1/').json()['member']['photo'], path)
+        old.storage.delete(old.name)
+        self.user.profile_picture.delete(save=False)
+
 
 class CheckinTests(_Base):
 

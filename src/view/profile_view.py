@@ -1,3 +1,5 @@
+import os
+import uuid
 from ..models import ActivityLog, ParliamentUser, UserPreferences
 from ..decorators import log_function_call
 from django.contrib import messages
@@ -90,7 +92,14 @@ def profile_view(request):
                     if user.profile_picture:
                         user.profile_picture.delete()
 
-                    user.profile_picture = request.FILES['profile_picture']
+                    upload = request.FILES['profile_picture']
+                    original_name = upload.name
+                    # 10-29-26: a fresh name every time. The old file is deleted
+                    # first, so a second "image.jpg" would otherwise reuse the
+                    # same name, and the app (which caches photos by name, see
+                    # mobile.views_directory.photo_path) would keep the old one.
+                    upload.name = f'{uuid.uuid4().hex[:16]}{os.path.splitext(original_name)[1].lower()}'
+                    user.profile_picture = upload
                     user.save(update_fields=['profile_picture'])
                     logger.info(f"{user.username} uploaded a new profile picture")
                     ActivityLog.log_activity(
@@ -101,7 +110,7 @@ def profile_view(request):
                         object_type='ParliamentUser',
                         object_id=user.pk,
                         object_repr=user.name,
-                        metadata={'action': 'uploaded', 'filename': request.FILES['profile_picture'].name},
+                        metadata={'action': 'uploaded', 'filename': original_name},
                     )
                     messages.success(request, "Profile picture uploaded successfully.")
                 except ValidationError as e:

@@ -140,6 +140,21 @@ class MeTests(MobileTestCase):
         self.assertEqual(me['device']['verified_via'], 'password')
         self.assertTrue(me['can_post_announcements'])
 
+    def test_app_update_comes_from_site_settings(self):
+        from src.models_feature_flags import SiteSetting
+        from src.view.admin_v2 import APP_UPDATE_DEFAULTS, seed_dashboard_defaults
+        user = make_user('m321')
+        access = self.login(user.username).json()['access_token']
+        self.assertEqual(self.get_me(access).json()['app_update'], {'latest_build': 0, 'min_build': 0, 'url': ''})
+        seed_dashboard_defaults()
+        self.assertEqual(SiteSetting.objects.filter(key__startswith='mobile_').count(), len(APP_UPDATE_DEFAULTS))
+        SiteSetting.set_setting('mobile_ios_latest_build', 14)
+        SiteSetting.set_setting('mobile_ios_min_build', 9)
+        SiteSetting.set_setting('mobile_ios_update_url', 'https://testflight.apple.com/join/abc')
+        SiteSetting.set_setting('mobile_android_latest_build', 99)
+        self.assertEqual(self.get_me(access).json()['app_update'],          # the device is iOS
+                         {'latest_build': 14, 'min_build': 9, 'url': 'https://testflight.apple.com/join/abc'})
+
     def test_can_post_announcements_matches_the_announcement_page(self):
         # Same rule as officer_required on create_announcement: officers,
         # chairs and admins; not members, advisors or pledges.

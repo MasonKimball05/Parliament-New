@@ -496,6 +496,32 @@ EVENT_REMINDER_DEFAULTS = [
 
 
 
+#: The app's "Update available" notice (src/mobile/views_auth.app_update).
+#: Build numbers are the ones TestFlight / Play Console show (EAS increments
+#: them); 0 = off.
+APP_UPDATE_DEFAULTS = [
+    {
+        'key': f'mobile_{platform}_{name}',
+        'display_name': f'App ({label}): {title}',
+        'description': description,
+        'category': 'general',
+        'setting_type': kind,
+        'default_value': default,
+    }
+    for platform, label, store in (('ios', 'iPhone', 'TestFlight or the App Store'),
+                                    ('android', 'Android', 'the Play Store'))
+    for name, title, kind, default, description in (
+        ('latest_build', 'latest build', 'integer', '0',
+         f'Build number of the newest release on {store}. Older installs show "Update available". 0 = off.'),
+        ('min_build', 'minimum build', 'integer', '0',
+         'Installs older than this build must update before using the app. 0 = off.'),
+        ('update_url', 'update link', 'string', '',
+         f'Where "Update" opens: a TestFlight public link, or the app\'s page on {store}. '
+         'Blank opens the TestFlight app (iPhone) or the Play Store.'),
+    )
+]
+
+
 def seed_dashboard_defaults():
     """Create any missing push flags and dashboard site settings (one SELECT each when nothing is missing)."""
     #
@@ -537,7 +563,7 @@ def seed_dashboard_defaults():
             FeatureFlag.invalidate_cache(flag.name)
         cache.delete('context_feature_flags')
     # Both groups seeded together: one SELECT + one bulk INSERT for the lot.
-    _seed_site_settings(CHAT_SETTINGS_DEFAULTS + EVENT_REMINDER_DEFAULTS)
+    _seed_site_settings(CHAT_SETTINGS_DEFAULTS + EVENT_REMINDER_DEFAULTS + APP_UPDATE_DEFAULTS)
 
 
 @require_admin_v2_auth

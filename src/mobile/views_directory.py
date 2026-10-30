@@ -13,6 +13,7 @@ The app's Directory (mobile plan, Phase 3b).
 A pledge viewer gets no roll numbers or member ids in the list either, the
 card's rule applied to the list too.
 """
+import hashlib
 import mimetypes
 
 from django.http import FileResponse
@@ -28,8 +29,18 @@ from src.view.profile_card import card_queryset, profile_card_data
 GROUPS = ('Officer', 'Chair', 'Member', 'Pledge', 'Advisor')
 
 
-def _photo_path(m):
-    return f'members/{m.user_id}/photo/' if m.profile_picture else None
+def photo_path(m):
+    """
+    The member's photo URL for the app, or None. ``?v=`` changes whenever the
+    picture does (10-29-26): the app keeps photos on the phone and downloads one
+    again only when this path changes. The stored file name is the version;
+    uploads get a fresh name each time (profile_view), and the photo view
+    ignores the query.
+    """
+    if not m.profile_picture:
+        return None
+    version = hashlib.sha256(m.profile_picture.name.encode()).hexdigest()[:12]
+    return f'members/{m.user_id}/photo/?v={version}'
 
 
 def _row(m, viewer_is_pledge):
@@ -43,7 +54,7 @@ def _row(m, viewer_is_pledge):
         'email': m.email or '',
         'phone': m.phone_number or '',
         'roles': [r.name for r in m.roles.all()],
-        'photo': _photo_path(m),
+        'photo': photo_path(m),
     }
 
 
@@ -73,7 +84,7 @@ class MemberCardView(_DirectoryBase):
         if member is None:
             raise exceptions.NotFound()
         card = profile_card_data(member, request.user)
-        card['photo'] = _photo_path(member)
+        card['photo'] = photo_path(member)
         return Response({'member': card})
 
 
@@ -89,5 +100,7 @@ class MemberPhotoView(_DirectoryBase):
             raise exceptions.NotFound()
         content_type = mimetypes.guess_type(member.profile_picture.name)[0] or 'application/octet-stream'
         response = FileResponse(handle, content_type=content_type)
-        response['Cache-Control'] = 'private, max-age=86400'
+        # A versioned path (photo_path's ?v=) never changes content.
+        response['Cache-Control'] = ('private, max-age=31536000, immutable' if request.GET.get('v')
+                                     else 'private, max-age=86400')
         return response

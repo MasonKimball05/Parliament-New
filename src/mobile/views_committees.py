@@ -32,6 +32,7 @@ from rest_framework.response import Response
 from src.feature_flag_decorators import check_feature_enabled
 from src.mobile.api import MobileAPIView
 from src.mobile.deeplinks import _committee_channel_id
+from src.mobile.views_directory import photo_path
 from src.models import ChapterMinutes, Committee, CommitteeDocument, CommitteePermissions
 from src.models.users import member_defer
 from src.utils.content_disposition import apply_disposition
@@ -52,7 +53,7 @@ def _person(user):
     return {
         'user_id': user.user_id,
         'name': user.get_display_name(),
-        'photo': f'members/{user.user_id}/photo/' if user.profile_picture else None,
+        'photo': photo_path(user),
     }
 
 

@@ -60,6 +60,7 @@ from rest_framework.response import Response
 from src import login_pipeline as lp
 from src.mobile.api import MobileAPIView, PreAuthAPIView
 from src.mobile.tokens import create_device, rotate, token_response
+from src.mobile.views_directory import photo_path
 from src.models.mobile import MobileAuthTicket, MobileDevice
 from src.utils.security_utils import get_client_ip, run_post_auth_pipeline
 
@@ -488,6 +489,23 @@ def _links(user):
     return {'education': education_dashboard_url(user)}
 
 
+def app_update(platform):
+    """
+    The newest build of the app and the oldest one still allowed, for the
+    app's "Update available" notice (10-29-26). Set in Admin v2 → Site
+    Settings (``APP_UPDATE_DEFAULTS``) after a build reaches testers:
+    TestFlight can't be asked what its latest build is, so the server says.
+    0 means "not set" (no notice).
+    """
+    from src.models_feature_flags import SiteSetting
+    prefix = 'mobile_android' if platform == 'android' else 'mobile_ios'
+    return {
+        'latest_build': SiteSetting.get_setting(f'{prefix}_latest_build', 0) or 0,
+        'min_build': SiteSetting.get_setting(f'{prefix}_min_build', 0) or 0,
+        'url': SiteSetting.get_setting(f'{prefix}_update_url', '') or '',
+    }
+
+
 class MeView(MobileAPIView):
 
     def get(self, request):
@@ -505,6 +523,7 @@ class MeView(MobileAPIView):
             'username': user.username,
             'name': user.name,
             'display_name': user.get_display_name(),
+            'photo': photo_path(user),
             'member_type': user.member_type,
             'member_status': user.member_status,
             'is_officer': bool(user.is_officer),
@@ -538,6 +557,7 @@ class MeView(MobileAPIView):
                 'chat_index': PageToggle.is_page_enabled('chat_index'),
             },
             'links': _links(user),
+            'app_update': app_update(device.platform),
             'device': {
                 'device_id': str(device.public_id),
                 'platform': device.platform,
