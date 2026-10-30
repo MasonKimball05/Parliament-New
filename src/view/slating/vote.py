@@ -10,16 +10,14 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.contrib.auth import authenticate
 from django.utils import timezone
-from django.db import transaction
 from src.models import (
-    SlatingPeriod, Slate, SlatingBallot, SlatingVote,
+    SlatingPeriod, Slate, SlatingBallot,
     SlateCandidate, SlatingActivity, SlatingAttendance
 )
 from .tallies import end_round, individual_tallies, open_round, slate_tally
 from .permissions import voting_member_required, slating_chair_required, can_view_applications
 from src.view.webauthn import check_vote_reauth
-import hashlib
-import secrets
+from src.slating_ballots import SlatingBallotError, cast_individual, cast_slate
 from src.models.users import member_defer
 
 
@@ -111,69 +109,13 @@ def slating_vote(request, period_id):
             messages.error(request, reauth_error)
             return redirect('slating_vote', period_id=period_id)
 
-        vote_choice = request.POST.get('vote_choice')
-        valid_choices = ['approve', 'reject']
-        if period.allow_abstain:
-            valid_choices.append('abstain')
-        if vote_choice not in valid_choices:
-            messages.error(request, 'Invalid vote choice.')
+        # The checks and the locked write: src/slating_ballots.py (shared with the app).
+        try:
+            cast_slate(user, period, slate, candidates, request.POST.get('vote_choice'),
+                       request.POST.getlist('rejected_positions'))
+        except SlatingBallotError as e:
+            messages.error(request, str(e))
             return redirect('slating_vote', period_id=period_id)
-
-        rejected_positions = []
-        if vote_choice == 'reject':
-            # v3.57.0: was `[int(p) for p in ...]` — junk was a 500, and any
-            # position id (another period's) was stored. Only this slate's.
-            on_slate = {c.position_id for c in candidates}
-            raw = request.POST.getlist('rejected_positions')
-            rejected_positions = sorted({int(p) for p in raw if p.isdigit() and int(p) in on_slate})
-            if not rejected_positions:
-                messages.error(request, 'Please select at least one position you are objecting to.')
-                return redirect('slating_vote', period_id=period_id)
-
-        # v3.57.0: one locked, atomic step. The "already voted" check above
-        # ran unlocked, and the ballots' unique constraint can't catch a double
-        # slate ballot (its `position` is NULL, and Postgres treats NULLs as
-        # distinct), so two quick submits recorded two ballots and two votes.
-        # Locking the period row serialises voters; the re-check inside the
-        # lock is the real guard, and the ballot and its vote land together.
-        with transaction.atomic():
-            SlatingPeriod.objects.select_for_update().only('pk').get(pk=period.pk)
-            if SlatingBallot.objects.filter(period=period, voter=user, voting_attempt=current_attempt,
-                                            vote_type='slate').exists():
-                messages.error(request, 'You have already voted in this round.')
-                return redirect('slating_vote', period_id=period_id)
-
-            ballot_hash = hashlib.sha256(
-                f"{user.user_id}:{period_id}:{current_attempt}:{secrets.token_hex(16)}".encode()
-            ).hexdigest()
-
-            SlatingBallot.objects.create(
-                period=period,
-                voter=user,
-                voting_attempt=current_attempt,
-                vote_type='slate',
-                ballot_hash=ballot_hash
-            )
-
-            vote_hash = hashlib.sha256(
-                f"{secrets.token_hex(32)}:{timezone.now().isoformat()}".encode()
-            ).hexdigest()
-
-            SlatingVote.objects.create(
-                period=period,
-                slate=slate,
-                voting_attempt=current_attempt,
-                vote_choice=vote_choice,
-                rejected_positions=rejected_positions,
-                vote_hash=vote_hash
-            )
-
-        SlatingActivity.objects.create(
-            period=period,
-            user=user,
-            action='vote_cast',
-            details='Vote recorded'
-        )
 
         messages.success(request, 'Your vote has been recorded. Thank you for participating!')
         return redirect('slating_dashboard')
@@ -270,71 +212,14 @@ def individual_vote(request, period_id):
             messages.error(request, reauth_error)
             return redirect('slating_vote_individual', period_id=period_id)
 
-        # Validate: every unvoted pending position must have a selection
-        unvoted = [c for c in pending_candidates if c.position_id not in voted_position_ids]
-        valid_choices_per = {}
-        errors = []
-        for candidate in unvoted:
-            choice = request.POST.get(f'vote_{candidate.id}')
-            allowed = ['approve', 'reject']
-            if candidate.position.allow_abstain:
-                allowed.append('abstain')
-            if choice not in allowed:
-                errors.append(f'Please select a valid vote for {candidate.position.title}.')
-            else:
-                valid_choices_per[candidate.id] = choice
-
-        if errors:
-            for e in errors:
-                messages.error(request, e)
+        # The checks and the locked write: src/slating_ballots.py (shared with the app).
+        try:
+            cast_individual(user, period, pending_candidates, voted_position_ids,
+                            lambda c: request.POST.get(f'vote_{c.id}'))
+        except SlatingBallotError as e:
+            for msg in e.messages:
+                messages.error(request, msg)
             return redirect('slating_vote_individual', period_id=period_id)
-
-        # Record votes — v3.57.0: atomically, under the period lock, and only
-        # for positions still unvoted once the lock is held (a double submit
-        # used to hit the ballots' unique constraint as a 500, and a failure
-        # partway through left some positions recorded and others not).
-        with transaction.atomic():
-            SlatingPeriod.objects.select_for_update().only('pk').get(pk=period.pk)
-            already = set(SlatingBallot.objects.filter(
-                period=period, voter=user, vote_type='individual', voting_attempt=current_attempt,
-                position_id__in=[c.position_id for c in unvoted],
-            ).values_list('position_id', flat=True))
-            for candidate in unvoted:
-                if candidate.position_id in already:
-                    continue
-                choice = valid_choices_per[candidate.id]
-
-                ballot_hash = hashlib.sha256(
-                    f"{user.user_id}:{period_id}:{candidate.id}:{secrets.token_hex(16)}".encode()
-                ).hexdigest()
-
-                SlatingBallot.objects.create(
-                    period=period,
-                    voter=user,
-                    vote_type='individual',
-                    voting_attempt=current_attempt,
-                    position=candidate.position,
-                    ballot_hash=ballot_hash
-                )
-
-                vote_hash = hashlib.sha256(
-                    f"{secrets.token_hex(32)}:{timezone.now().isoformat()}".encode()
-                ).hexdigest()
-
-                SlatingVote.objects.create(
-                    period=period,
-                    slate_candidate=candidate,
-                    voting_attempt=current_attempt,
-                    vote_choice=choice,
-                    vote_hash=vote_hash
-                )
-
-        SlatingActivity.objects.create(
-            period=period,
-            user=user,
-            action='vote_cast',
-            details='Individual position votes recorded'
-        )
 
         messages.success(request, 'Your votes have been recorded.')
         return redirect('slating_dashboard')
