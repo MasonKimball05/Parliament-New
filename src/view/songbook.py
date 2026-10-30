@@ -30,6 +30,35 @@ def can_manage_songs(user):
     return user.roles.filter(code='CHOIR').exists()
 
 
+def song_audio_path(song):
+    """
+    The song's audio file on disk, or None: MEDIA_ROOT first, then
+    exportable_media, each with a realpath guard against traversal. Shared
+    with the app's ``songbook/songs/<id>/audio/`` (src/mobile/views_songbook.py).
+    """
+    if not song.audio_file:
+        return None
+    relative_path = song.audio_file.name
+    for root in (settings.MEDIA_ROOT, os.path.join(settings.BASE_DIR, 'exportable_media')):
+        root = os.path.realpath(root)
+        path = os.path.realpath(os.path.join(root, relative_path))
+        if path.startswith(root + os.sep) and os.path.exists(path):
+            return path
+    return None
+
+
+def exportable_media_url(filename):
+    """The site URL of a file in exportable_media, or None if it isn't on disk (see songbook_list)."""
+    if not os.path.exists(os.path.join(settings.BASE_DIR, 'exportable_media', filename)):
+        return None
+    return reverse('serve_exportable_media', args=[filename])
+
+
+#: The two PDFs the songbook page links to when they are on disk.
+SHEET_MUSIC_PDF = 'BTP Sheet Music.pdf'
+SONGBOOK_PDF = 'Beta Theta Pi Song Book Revised 2005.pdf'
+
+
 @login_required
 @log_function_call
 def songbook_list(request):
@@ -80,14 +109,8 @@ def songbook_list(request):
     #
     # Note the two spellings that are both correct and must not be unified: the
     # on-disk DIRECTORY is still `exportable_media`, only the URL is hyphenated.
-    def _exportable_media_url(filename):
-        path = os.path.join(settings.BASE_DIR, 'exportable_media', filename)
-        if not os.path.exists(path):
-            return None
-        return reverse('serve_exportable_media', args=[filename])
-
-    sheet_music_url = _exportable_media_url('BTP Sheet Music.pdf')
-    songbook_url = _exportable_media_url('Beta Theta Pi Song Book Revised 2005.pdf')
+    sheet_music_url = exportable_media_url(SHEET_MUSIC_PDF)
+    songbook_url = exportable_media_url(SONGBOOK_PDF)
 
     return render(request, 'songbook.html', {
         'songs': page_obj,
@@ -297,22 +320,9 @@ def serve_song_audio(request, pk):
     if not song.audio_file:
         raise Http404("No audio file for this song")
 
-    # Get the relative path stored in the database
-    relative_path = song.audio_file.name
-
-    # Check media folder first, with realpath guard against traversal
-    media_root = os.path.realpath(settings.MEDIA_ROOT)
-    exportable_root = os.path.realpath(os.path.join(settings.BASE_DIR, 'exportable_media'))
-
-    media_path = os.path.realpath(os.path.join(settings.MEDIA_ROOT, relative_path))
-    if media_path.startswith(media_root + os.sep) and os.path.exists(media_path):
-        file_path = media_path
-    else:
-        exportable_path = os.path.realpath(os.path.join(settings.BASE_DIR, 'exportable_media', relative_path))
-        if exportable_path.startswith(exportable_root + os.sep) and os.path.exists(exportable_path):
-            file_path = exportable_path
-        else:
-            raise Http404("Audio file not found")
+    file_path = song_audio_path(song)
+    if file_path is None:
+        raise Http404("Audio file not found")
 
     # Determine content type
     content_type, _ = mimetypes.guess_type(file_path)

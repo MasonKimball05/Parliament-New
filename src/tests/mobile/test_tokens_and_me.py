@@ -136,7 +136,7 @@ class MeTests(MobileTestCase):
         self.assertFalse(me['features']['qr_checkin'])
         self.assertFalse(me['pages']['vote'])
         self.assertTrue(me['pages']['home'])
-        self.assertEqual(set(me['pages']), {'home', 'vote', 'calendar', 'chat_index'})
+        self.assertEqual(set(me['pages']), {'home', 'vote', 'calendar', 'chat_index', 'quote_book'})
         self.assertEqual(me['device']['verified_via'], 'password')
         self.assertTrue(me['can_post_announcements'])
 

@@ -11,7 +11,8 @@ from django.urls import path
 from src.mobile import (
     views_announcements, views_auth, views_calendar, views_chat, views_cnb, views_committees, views_devices,
     views_directory, views_education, views_excuses_polls, views_home, views_location, views_my,
-    views_notifications, views_officer, views_push, views_recruitment, views_session, views_slating, views_votes,
+    views_notifications, views_officer, views_push, views_recruitment, views_session, views_slating, views_songbook,
+    views_votes,
 )
 
 app_name = 'mobile'
@@ -120,6 +121,15 @@ urlpatterns = [
          name='mobile_slating_chair_close'),
     path('slating/periods/<int:period_id>/chair/positions/', views_slating.SlatingChairPositionView.as_view(),
          name='mobile_slating_chair_positions'),
+    path('songbook/', views_songbook.SongbookView.as_view(), name='mobile_songbook'),
+    path('songbook/songs/<int:song_id>/', views_songbook.SongView.as_view(), name='mobile_song'),
+    path('songbook/songs/<int:song_id>/audio/', views_songbook.SongAudioView.as_view(), name='mobile_song_audio'),
+    path('songbook/pdf/<str:key>/', views_songbook.SongbookPdfView.as_view(), name='mobile_songbook_pdf'),
+    path('quote-book/', views_songbook.QuoteBookView.as_view(), name='mobile_quote_book'),
+    path('quote-book/members/', views_songbook.QuoteMembersView.as_view(), name='mobile_quote_members'),
+    path('quote-book/flagged/', views_songbook.QuoteFlaggedView.as_view(), name='mobile_quote_flagged'),
+    path('quote-book/<int:quote_id>/flag/', views_songbook.QuoteFlagView.as_view(), name='mobile_quote_flag'),
+    path('quote-book/<int:quote_id>/restore/', views_songbook.QuoteRestoreView.as_view(), name='mobile_quote_restore'),
     path('cnb/', views_cnb.CnbDocumentsView.as_view(), name='mobile_cnb'),
     path('cnb/resolutions/', views_cnb.CnbResolutionListView.as_view(), name='mobile_cnb_resolutions'),
     path('cnb/resolutions/<int:resolution_id>/', views_cnb.CnbResolutionView.as_view(), name='mobile_cnb_resolution'),

@@ -555,6 +555,7 @@ class MeView(MobileAPIView):
                 'vote': PageToggle.is_page_enabled('vote'),
                 'calendar': PageToggle.is_page_enabled('calendar'),
                 'chat_index': PageToggle.is_page_enabled('chat_index'),
+                'quote_book': PageToggle.is_page_enabled('quote_book'),
             },
             'links': _links(user),
             'app_update': app_update(device.platform),
