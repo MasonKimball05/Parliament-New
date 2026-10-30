@@ -46,7 +46,7 @@ from src.mobile.api import MobileAPIView
 from src.mobile.views_directory import photo_path
 from src.mobile.views_excuses_polls import BadRequest
 from src.models import (
-    ActivityLog, Announcement, Attendance, AttendanceExcuse, Committee, Event,
+    ActivityLog, Announcement, Attendance, AttendanceExcuse, CheckinPlace, Committee, Event,
 )
 from src.models.users import member_defer
 from src.permissions import user_is_officer_or_chair
@@ -504,3 +504,80 @@ class OfficerAttendanceView(_OfficerView):
                     description=f'Finalized attendance for {event.title}',
                     request=request, object_type='Event', object_id=event.id, object_repr=str(event))
         return self._response(event)
+
+
+# ── Mobile App (the officer portal's page, src/view/officer/mobile_app.py) ────
+
+class OfficerMobileAppView(_OfficerView):
+    """
+    ``GET officer/mobile-app/``: the website's Mobile App page in one response
+    (it's a chapter's worth of rows): who gets the app's notifications, location
+    check-in (status, upcoming attendance events, saved places) and app versions.
+    """
+    web_page = 'mobile_app'
+
+    def get(self, request):
+        from src import location_checkin as lc
+        from src.view.officer import mobile_app as page
+        rows = page.member_push_states(page._members())
+        counts = {key: 0 for key, _ in page.STATES}
+        for _, state, _, _ in rows:
+            counts[state] += 1
+        loc = page._location()
+        versions = page._versions(rows)
+        return Response({
+            'notifications': {
+                'states': [{'key': k, 'label': label, 'count': counts[k]} for k, label in page.STATES],
+                'members': [{
+                    'user_id': m.user_id,
+                    'name': m.get_display_name(),
+                    'role_number': m.role_number or '',
+                    'member_type': m.member_type,
+                    'photo': photo_path(m),
+                    'state': state,
+                    'devices': [{
+                        'platform': d.get_platform_display(),
+                        'app_version': d.app_version,
+                        'push': bool(d.push_token),
+                        'last_seen': (d.last_seen_at or d.created_at).isoformat(),
+                    } for d in live],
+                    'muted': muted,
+                } for m, state, live, muted in rows],
+            },
+            'location': {
+                'on': loc['location_on'],
+                'flags': list(lc.FLAGS),
+                'days': loc['upcoming_days'],
+                'events': [{
+                    'id': r['event'].id,
+                    'title': r['event'].title,
+                    'date_time': r['event'].date_time.isoformat(),
+                    'has_area': r['has_area'],
+                    'radius_m': r['event'].checkin_radius_m if r['has_area'] else None,
+                } for r in loc['events']],
+                'places': [{'id': p.id, 'name': p.name, 'radius_m': p.radius_m} for p in loc['places']],
+            },
+            'versions': {
+                'versions': versions['versions'],
+                'update': {'ios': versions['update_ios'], 'android': versions['update_android']},
+            },
+        })
+
+
+class OfficerCheckinPlaceView(_OfficerView):
+    """``PATCH officer/mobile-app/places/<id>/`` ``{name}`` renames; ``DELETE`` deletes (logged)."""
+    web_page = 'mobile_app'
+
+    def patch(self, request, place_id):
+        from src.view.officer.mobile_app import rename_place
+        place = get_object_or_404(CheckinPlace, pk=place_id)
+        body = request.data if isinstance(request.data, dict) else {}
+        error = rename_place(request, place, str(body.get('name') or ''))
+        if error:
+            raise BadRequest(error, code='invalid')
+        return Response({'id': place.id, 'name': place.name, 'radius_m': place.radius_m})
+
+    def delete(self, request, place_id):
+        from src.view.officer.mobile_app import delete_place
+        delete_place(request, get_object_or_404(CheckinPlace, pk=place_id))
+        return Response({'ok': True})

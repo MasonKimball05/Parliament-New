@@ -181,6 +181,34 @@ def mobile_app(request):
     return render(request, 'officer/mobile_app.html', context)
 
 
+def delete_place(request, place):
+    """Delete a saved check-in place (logged). Events keep their copied areas."""
+    name, pk = place.name, place.pk
+    place.delete()
+    ActivityLog.log_activity(
+        action_type='other', user=request.user, description=f'Deleted check-in place "{name}"',
+        request=request, object_type='CheckinPlace', object_id=pk)
+    return name
+
+
+def rename_place(request, place, raw_name):
+    """Rename a saved place (logged). Returns an error message, or None."""
+    name = (raw_name or '').strip()[:80]
+    if not name:
+        return 'A place needs a name.'
+    if name == place.name:
+        return None
+    if CheckinPlace.objects.filter(name=name).exclude(pk=place.pk).exists():
+        return f'There’s already a place called “{name}”.'
+    old = place.name
+    place.name = name
+    place.save(update_fields=['name'])
+    ActivityLog.log_activity(
+        action_type='other', user=request.user, description=f'Renamed check-in place "{old}" to "{name}"',
+        request=request, object_type='CheckinPlace', object_id=place.pk)
+    return None
+
+
 @login_required
 @officer_required
 def mobile_app_place(request, place_id):
@@ -190,26 +218,13 @@ def mobile_app_place(request, place_id):
         return redirect(back)
     place = get_object_or_404(CheckinPlace, pk=place_id)
     if request.POST.get('delete'):
-        name = place.name
-        place.delete()
-        ActivityLog.log_activity(
-            action_type='other', user=request.user, description=f'Deleted check-in place "{name}"',
-            request=request, object_type='CheckinPlace', object_id=place_id)
+        name = delete_place(request, place)
         messages.success(request, f'Deleted “{name}”. Events that used it keep their area.')
         return redirect(back)
-    name = (request.POST.get('name') or '').strip()[:80]
-    if not name:
-        messages.error(request, 'A place needs a name.')
-        return redirect(back)
-    if name != place.name:
-        if CheckinPlace.objects.filter(name=name).exclude(pk=place.pk).exists():
-            messages.error(request, f'There’s already a place called “{name}”.')
-            return redirect(back)
-        old = place.name
-        place.name = name
-        place.save(update_fields=['name'])
-        ActivityLog.log_activity(
-            action_type='other', user=request.user, description=f'Renamed check-in place "{old}" to "{name}"',
-            request=request, object_type='CheckinPlace', object_id=place_id)
-        messages.success(request, f'Renamed to “{name}”.')
+    old = place.name
+    error = rename_place(request, place, request.POST.get('name'))
+    if error:
+        messages.error(request, error)
+    elif place.name != old:
+        messages.success(request, f'Renamed to “{place.name}”.')
     return redirect(back)

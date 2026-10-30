@@ -244,3 +244,31 @@ class ExcuseAndAttendanceTests(_Base):
     def test_attendance_needs_the_flags(self):
         flag('event_attendance', False)
         self.assertEqual(self.call('get', f'officer/events/{self.event.id}/attendance/').status_code, 403)
+
+
+class MobileAppTests(_Base):
+    """officer/mobile-app/: the officer portal's Mobile App page for the app."""
+
+    def test_overview_and_places(self):
+        from decimal import Decimal
+        from src.models import CheckinPlace
+        device, _, _ = make_device(self.member)
+        device.push_token = 'ExponentPushToken[x]'
+        device.save(update_fields=['push_token'])
+        body = self.call('get', 'officer/mobile-app/').json()
+        rows = {m['user_id']: m for m in body['notifications']['members']}
+        self.assertEqual(rows['mem-1']['state'], 'on')
+        self.assertEqual(rows['mem-1']['devices'][0]['platform'], 'iOS')
+        self.assertIn('places', body['location'])
+        self.assertTrue(body['versions']['versions'])
+
+        place = CheckinPlace.objects.create(name='House', latitude=Decimal('1'), longitude=Decimal('2'))
+        CheckinPlace.objects.create(name='Library', latitude=Decimal('1'), longitude=Decimal('2'))
+        path = f'officer/mobile-app/places/{place.id}/'
+        self.assertEqual(self.call('patch', path, {'name': 'Library'}).status_code, 400)
+        self.assertEqual(self.call('patch', path, {'name': 'The House'}).json()['name'], 'The House')
+        self.assertEqual(self.call('delete', path).status_code, 200)
+        self.assertFalse(CheckinPlace.objects.filter(pk=place.pk).exists())
+
+    def test_members_are_refused(self):
+        self.assertEqual(self.call('get', 'officer/mobile-app/', access=self.member_access).status_code, 403)
