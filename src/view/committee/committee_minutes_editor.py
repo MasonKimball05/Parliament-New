@@ -84,51 +84,34 @@ def can_edit_specific_minutes(user, committee, minutes, can_edit_any=None):
     return False
 
 
-@login_required
-def committee_minutes_list(request, code):
-    """List all committee minutes (drafts and published)"""
-    committee = get_object_or_404(Committee, code=code)
+# ── Shared with the app (src/mobile/views_committee_minutes.py, v4.3.0) ──────
+# The editor's work, out of the web views so the website and the app do the
+# same thing. Permission checks stay with each caller.
 
-    if not is_committee_member_or_above(request.user, committee):
-        messages.error(request, 'You do not have permission to view this committee\'s minutes.')
-        return redirect('committee_home', code=code)
-
-    minutes_list = ChapterMinutes.objects.filter(
-        committee=committee
-    ).order_by('-date', '-start_time')
-
-    # Any committee member can create minutes
-    can_create = is_committee_member_or_above(request.user, committee)
-    # Only chairs/admins/secretaries can edit any minutes
-    can_edit = can_edit_committee_minutes(request.user, committee)
-
-    context = {
-        'committee': committee,
-        'minutes_list': minutes_list,
-        'can_create': can_create,
-        'can_edit': can_edit,
-    }
-    return render(request, 'committee/minutes_list.html', context)
+def _pdf_file_name(committee, minutes, stamped=False):
+    ts = f"_{timezone.now().strftime('%Y%m%d%H%M%S')}" if stamped else ''
+    return (f"Committee_Minutes_{committee.code}_{minutes.date.strftime('%Y-%m-%d')}_"
+            f"{minutes.title.replace(' ', '_')}{ts}.pdf")
 
 
-@login_required
-@require_http_methods(["POST"])
-def create_committee_minutes(request, code):
-    """Create a new committee minutes session and redirect to the editor"""
-    committee = get_object_or_404(Committee, code=code)
+def _regenerate_published_pdf(committee, minutes, sync_details=False):
+    """A published session's PDF, rebuilt after an edit (and its document's title/description)."""
+    if not (minutes.status == 'published' and minutes.published_document):
+        return
+    doc = minutes.published_document
+    pdf_buffer = generate_minutes_pdf_buffer(minutes)
+    if doc.document:
+        doc.document.delete(save=False)
+    doc.document.save(_pdf_file_name(committee, minutes, stamped=True), ContentFile(pdf_buffer.read()), save=True)
+    if sync_details:
+        # Keep CommitteeDocument title/description in sync with current minutes data
+        doc.title = f"Committee Minutes - {committee.name} - {minutes.title} ({minutes.date.strftime('%m/%d/%Y')})"
+        doc.description = f"Committee meeting minutes for {committee.name} on {minutes.date.strftime('%B %d, %Y')}"
+        doc.save(update_fields=['title', 'description'])
 
-    if not is_committee_member_or_above(request.user, committee):
-        messages.error(request, 'You do not have permission to create minutes for this committee.')
-        return redirect('committee_minutes_list', code=code)
 
-    title = request.POST.get('title', '').strip()
-    minutes_date = request.POST.get('date', '')
-    start_time = request.POST.get('start_time', '')
-
-    if not title or not minutes_date or not start_time:
-        messages.error(request, 'Title, date, and start time are required.')
-        return redirect('committee_minutes_list', code=code)
-
+def create_committee_minutes_record(request, committee, title, minutes_date, start_time):
+    """A new draft session with one empty text section. Logged."""
     minutes = ChapterMinutes.objects.create(
         title=title,
         date=minutes_date,
@@ -137,7 +120,6 @@ def create_committee_minutes(request, code):
         created_by=request.user,
         status='draft',
     )
-
     # Create initial empty text section
     MinutesSection.objects.create(
         minutes=minutes,
@@ -145,7 +127,6 @@ def create_committee_minutes(request, code):
         order=0,
         content='',
     )
-
     ActivityLog.log_activity(
         action_type='other',
         user=request.user,
@@ -155,50 +136,32 @@ def create_committee_minutes(request, code):
         object_id=minutes.id,
         object_repr=str(minutes),
     )
-
-    messages.success(request, f'Minutes session "{title}" created.')
-    return redirect('edit_committee_minutes', code=code, minutes_id=minutes.id)
+    return minutes
 
 
-@login_required
-def edit_committee_minutes(request, code, minutes_id):
-    """Main editor page for committee minutes"""
-    committee = get_object_or_404(Committee, code=code)
-
-    minutes = get_object_or_404(ChapterMinutes, id=minutes_id, committee=committee)
-
-    if not can_edit_specific_minutes(request.user, committee, minutes):
-        messages.error(request, 'You do not have permission to edit this committee\'s minutes.')
-        return redirect('committee_minutes_list', code=code)
-
-    # Get committee members for attendance (members + chairs, deduplicated,
-    # excluding advisors, sorted by last name) — v3.29.4: now the shared
-    # `Committee.attendance_eligible_members()` helper, also used by
-    # committee-scoped calendar events (`Event.required_members()`).
+def committee_editor_state(committee, minutes):
+    """
+    (sections, roll call, member choices) for the editor. The roll call is
+    the committee's attendance-eligible members (v3.29.4: the shared
+    `Committee.attendance_eligible_members()`, also used by committee-scoped
+    calendar events), non-pledges then pledges, each by last name, with the
+    status saved on the minutes (else pending). No event or excuse
+    integration for committees.
+    """
     def get_last_name(user):
         """Extract last name from full name for sorting"""
         parts = user.name.strip().split()
         return parts[-1].lower() if parts else ''
 
     all_members = committee.attendance_eligible_members()
-
     # Sort: non-pledges first (by last name), then pledges (by last name)
-    non_pledges = sorted(
-        [m for m in all_members if m.member_type != 'Pledge'],
-        key=get_last_name
-    )
-    pledges = sorted(
-        [m for m in all_members if m.member_type == 'Pledge'],
-        key=get_last_name
-    )
+    non_pledges = sorted([m for m in all_members if m.member_type != 'Pledge'], key=get_last_name)
+    pledges = sorted([m for m in all_members if m.member_type == 'Pledge'], key=get_last_name)
     members = non_pledges + pledges
 
     # Get existing sections with related motions
-    sections = minutes.sections.all().select_related('motion').order_by('order')
-
-    # Build sections data for the template/JS
     sections_data = []
-    for section in sections:
+    for section in minutes.sections.all().select_related('motion').order_by('order'):
         s = {
             'id': section.id,
             'type': section.section_type,
@@ -229,64 +192,25 @@ def edit_committee_minutes(request, code, minutes_id):
             }
         sections_data.append(s)
 
-    # Build member data for attendance (no event/excuse integration for committees)
-    attendance_data = minutes.attendance_data or []
-    attendance_map = {str(a['user_id']): a['status'] for a in attendance_data}
-
-    member_list = []
-    for member in members:
-        uid = str(member.user_id)
-        status = attendance_map.get(uid, 'pending')
-        entry = {
-            'user_id': member.user_id,
-            'name': member.get_display_name(),
-            'member_type': member.member_type,
-            'status': status,
-        }
-        member_list.append(entry)
-
+    attendance_map = {str(a['user_id']): a['status'] for a in (minutes.attendance_data or [])}
+    member_list = [{
+        'user_id': member.user_id,
+        'name': member.get_display_name(),
+        'member_type': member.member_type,
+        'status': attendance_map.get(str(member.user_id), 'pending'),
+    } for member in members]
     # Member choices for motion author dropdown (committee members only)
-    member_choices = [
-        {'user_id': m.user_id, 'name': m.get_display_name()}
-        for m in members
-    ]
-
-    context = {
-        'minutes': minutes,
-        'sections_json': json.dumps(sections_data),
-        'members_json': json.dumps(member_list),
-        'member_choices_json': json.dumps(member_choices),
-        'events': [],  # No event linking for committees
-        'has_linked_event': False,
-        'end_time_value': minutes.end_time.strftime('%H:%M') if minutes.end_time else '',
-        'is_published': minutes.status == 'published',
-        'motion_type_choices': MinutesMotion.MOTION_TYPE_CHOICES,
-        'vote_method_choices': MinutesMotion.VOTE_METHOD_CHOICES,
-        'result_choices': MinutesMotion.RESULT_CHOICES,
-        'caucus_type_choices': MinutesMotion.CAUCUS_TYPE_CHOICES,
-        # Committee-specific context
-        'is_committee_minutes': True,
-        'committee': committee,
-    }
-    return render(request, 'officer/chapter_minutes_editor.html', context)
+    member_choices = [{'user_id': m.user_id, 'name': m.get_display_name()} for m in members]
+    return sections_data, member_list, member_choices
 
 
-@login_required
-@require_POST
-def save_committee_minutes_data(request, code, minutes_id):
-    """AJAX endpoint to save all sections (text + motions) for committee minutes"""
-    committee = get_object_or_404(Committee, code=code)
-    minutes = get_object_or_404(ChapterMinutes, id=minutes_id, committee=committee)
-
-    if not can_edit_specific_minutes(request.user, committee, minutes):
-        return JsonResponse({'error': 'Permission denied.'}, status=403)
-
-    try:
-        data = json.loads(request.body)
-        sections_data = data.get('sections', [])
-    except (json.JSONDecodeError, KeyError):
-        return JsonResponse({'error': 'Invalid data.'}, status=400)
-
+def save_committee_sections(request, committee, minutes, data):
+    """
+    Replace every section (text + motions) with ``data['sections']``, set
+    ``end_time`` ('' clears it), and record an edit to published minutes
+    (``edit_reason``), regenerating their PDF. Returns whether it was published.
+    """
+    sections_data = data.get('sections', [])
     # Track edits to published minutes
     is_published = minutes.status == 'published'
     edit_reason = data.get('edit_reason', '')
@@ -357,36 +281,17 @@ def save_committee_minutes_data(request, code, minutes_id):
     minutes.save()
 
     # If published and has a linked document, regenerate the PDF and sync metadata
-    if is_published and minutes.published_document:
-        pdf_buffer = generate_minutes_pdf_buffer(minutes)
-        ts = timezone.now().strftime('%Y%m%d%H%M%S')
-        file_name = f"Committee_Minutes_{committee.code}_{minutes.date.strftime('%Y-%m-%d')}_{minutes.title.replace(' ', '_')}_{ts}.pdf"
-        if minutes.published_document.document:
-            minutes.published_document.document.delete(save=False)
-        minutes.published_document.document.save(file_name, ContentFile(pdf_buffer.read()), save=True)
-        # Keep CommitteeDocument title/description in sync with current minutes data
-        minutes.published_document.title = f"Committee Minutes - {committee.name} - {minutes.title} ({minutes.date.strftime('%m/%d/%Y')})"
-        minutes.published_document.description = f"Committee meeting minutes for {committee.name} on {minutes.date.strftime('%B %d, %Y')}"
-        minutes.published_document.save(update_fields=['title', 'description'])
-
-    return JsonResponse({'success': True, 'message': 'Minutes saved.', 'was_published': is_published})
+    _regenerate_published_pdf(committee, minutes, sync_details=True)
+    return is_published
 
 
-@login_required
-@require_POST
-def save_committee_minutes_attendance(request, code, minutes_id):
-    """AJAX endpoint to save attendance data for committee minutes"""
-    committee = get_object_or_404(Committee, code=code)
-    minutes = get_object_or_404(ChapterMinutes, id=minutes_id, committee=committee)
-
-    if not can_edit_specific_minutes(request.user, committee, minutes):
-        return JsonResponse({'error': 'Permission denied.'}, status=403)
-
-    try:
-        data = json.loads(request.body)
-        attendance_list = data.get('attendance', [])
-    except (json.JSONDecodeError, KeyError):
-        return JsonResponse({'error': 'Invalid data.'}, status=400)
+def save_committee_attendance(request, committee, minutes, data):
+    """
+    Save the roll call (``data['attendance']``: [{user_id, name, status}])
+    on the minutes and as committee Attendance records for today. Logged;
+    an edit to published minutes is recorded and their PDF regenerated.
+    """
+    attendance_list = data.get('attendance', [])
 
     # Track edits to published minutes
     if minutes.status == 'published':
@@ -441,14 +346,192 @@ def save_committee_minutes_attendance(request, code, minutes_id):
     )
 
     # If published and has a linked document, regenerate the PDF
-    if minutes.status == 'published' and minutes.published_document:
-        pdf_buffer = generate_minutes_pdf_buffer(minutes)
-        ts = timezone.now().strftime('%Y%m%d%H%M%S')
-        file_name = f"Committee_Minutes_{committee.code}_{minutes.date.strftime('%Y-%m-%d')}_{minutes.title.replace(' ', '_')}_{ts}.pdf"
-        if minutes.published_document.document:
-            minutes.published_document.document.delete(save=False)
-        minutes.published_document.document.save(file_name, ContentFile(pdf_buffer.read()), save=True)
+    _regenerate_published_pdf(committee, minutes)
 
+
+def publish_committee_minutes_record(request, committee, minutes, visibility, also_publish_to_chapter):
+    """Publish as a PDF in the committee's documents (and optionally the chapter's). Logged."""
+    pdf_buffer = generate_minutes_pdf_buffer(minutes)
+
+    # Create CommitteeDocument linked to the committee
+    doc = CommitteeDocument.objects.create(
+        committee=committee,
+        title=f"Committee Minutes - {committee.name} - {minutes.title} ({minutes.date.strftime('%m/%d/%Y')})",
+        description=f"Committee meeting minutes for {committee.name} on {minutes.date.strftime('%B %d, %Y')}",
+        uploaded_by=request.user,
+        document_type='minutes',
+        meeting_date=minutes.date,
+        published_to_chapter=also_publish_to_chapter,
+        visibility=visibility,
+    )
+    doc.document.save(_pdf_file_name(committee, minutes), ContentFile(pdf_buffer.read()), save=True)
+
+    # Update minutes status
+    minutes.status = 'published'
+    minutes.published_document = doc
+    minutes.publish_visibility = visibility
+    minutes.save(update_fields=['status', 'published_document', 'publish_visibility'])
+
+    ActivityLog.log_activity(
+        action_type='other',
+        user=request.user,
+        description=f'Published committee minutes ({committee.code}): {minutes.title}',
+        request=request,
+        object_type='ChapterMinutes',
+        object_id=minutes.id,
+        object_repr=str(minutes),
+    )
+    return doc
+
+
+def delete_committee_minutes_record(request, committee, minutes):
+    """
+    Delete a session, its sections and its published document. Only admins
+    delete published minutes: returns that refusal's message, else None.
+    """
+    if minutes.status == 'published' and not request.user.is_admin:
+        return 'Only administrators can delete published minutes.'
+    minutes_id, title, minutes_date = minutes.id, minutes.title, minutes.date
+
+    # Delete linked published document
+    if minutes.published_document:
+        minutes.published_document.delete()
+
+    # Delete all related sections (cascades to motions)
+    minutes.sections.all().delete()
+
+    ActivityLog.log_activity(
+        action_type='other',
+        user=request.user,
+        description=f'Deleted committee minutes ({committee.code}): {title} ({minutes_date})',
+        request=request,
+        object_type='ChapterMinutes',
+        object_id=minutes_id,
+        object_repr=f'{title} ({minutes_date})',
+    )
+    minutes.delete()
+    return None
+
+
+@login_required
+def committee_minutes_list(request, code):
+    """List all committee minutes (drafts and published)"""
+    committee = get_object_or_404(Committee, code=code)
+
+    if not is_committee_member_or_above(request.user, committee):
+        messages.error(request, 'You do not have permission to view this committee\'s minutes.')
+        return redirect('committee_home', code=code)
+
+    minutes_list = ChapterMinutes.objects.filter(
+        committee=committee
+    ).order_by('-date', '-start_time')
+
+    # Any committee member can create minutes
+    can_create = is_committee_member_or_above(request.user, committee)
+    # Only chairs/admins/secretaries can edit any minutes
+    can_edit = can_edit_committee_minutes(request.user, committee)
+
+    context = {
+        'committee': committee,
+        'minutes_list': minutes_list,
+        'can_create': can_create,
+        'can_edit': can_edit,
+    }
+    return render(request, 'committee/minutes_list.html', context)
+
+
+@login_required
+@require_http_methods(["POST"])
+def create_committee_minutes(request, code):
+    """Create a new committee minutes session and redirect to the editor"""
+    committee = get_object_or_404(Committee, code=code)
+
+    if not is_committee_member_or_above(request.user, committee):
+        messages.error(request, 'You do not have permission to create minutes for this committee.')
+        return redirect('committee_minutes_list', code=code)
+
+    title = request.POST.get('title', '').strip()
+    minutes_date = request.POST.get('date', '')
+    start_time = request.POST.get('start_time', '')
+
+    if not title or not minutes_date or not start_time:
+        messages.error(request, 'Title, date, and start time are required.')
+        return redirect('committee_minutes_list', code=code)
+
+    minutes = create_committee_minutes_record(request, committee, title, minutes_date, start_time)
+    messages.success(request, f'Minutes session "{title}" created.')
+    return redirect('edit_committee_minutes', code=code, minutes_id=minutes.id)
+
+
+@login_required
+def edit_committee_minutes(request, code, minutes_id):
+    """Main editor page for committee minutes"""
+    committee = get_object_or_404(Committee, code=code)
+
+    minutes = get_object_or_404(ChapterMinutes, id=minutes_id, committee=committee)
+
+    if not can_edit_specific_minutes(request.user, committee, minutes):
+        messages.error(request, 'You do not have permission to edit this committee\'s minutes.')
+        return redirect('committee_minutes_list', code=code)
+
+    sections_data, member_list, member_choices = committee_editor_state(committee, minutes)
+    context = {
+        'minutes': minutes,
+        'sections_json': json.dumps(sections_data),
+        'members_json': json.dumps(member_list),
+        'member_choices_json': json.dumps(member_choices),
+        'events': [],  # No event linking for committees
+        'has_linked_event': False,
+        'end_time_value': minutes.end_time.strftime('%H:%M') if minutes.end_time else '',
+        'is_published': minutes.status == 'published',
+        'motion_type_choices': MinutesMotion.MOTION_TYPE_CHOICES,
+        'vote_method_choices': MinutesMotion.VOTE_METHOD_CHOICES,
+        'result_choices': MinutesMotion.RESULT_CHOICES,
+        'caucus_type_choices': MinutesMotion.CAUCUS_TYPE_CHOICES,
+        # Committee-specific context
+        'is_committee_minutes': True,
+        'committee': committee,
+    }
+    return render(request, 'officer/chapter_minutes_editor.html', context)
+
+
+@login_required
+@require_POST
+def save_committee_minutes_data(request, code, minutes_id):
+    """AJAX endpoint to save all sections (text + motions) for committee minutes"""
+    committee = get_object_or_404(Committee, code=code)
+    minutes = get_object_or_404(ChapterMinutes, id=minutes_id, committee=committee)
+
+    if not can_edit_specific_minutes(request.user, committee, minutes):
+        return JsonResponse({'error': 'Permission denied.'}, status=403)
+
+    try:
+        data = json.loads(request.body)
+        data.get('sections', [])
+    except (json.JSONDecodeError, KeyError, AttributeError):
+        return JsonResponse({'error': 'Invalid data.'}, status=400)
+
+    is_published = save_committee_sections(request, committee, minutes, data)
+    return JsonResponse({'success': True, 'message': 'Minutes saved.', 'was_published': is_published})
+
+
+@login_required
+@require_POST
+def save_committee_minutes_attendance(request, code, minutes_id):
+    """AJAX endpoint to save attendance data for committee minutes"""
+    committee = get_object_or_404(Committee, code=code)
+    minutes = get_object_or_404(ChapterMinutes, id=minutes_id, committee=committee)
+
+    if not can_edit_specific_minutes(request.user, committee, minutes):
+        return JsonResponse({'error': 'Permission denied.'}, status=403)
+
+    try:
+        data = json.loads(request.body)
+        data.get('attendance', [])
+    except (json.JSONDecodeError, KeyError, AttributeError):
+        return JsonResponse({'error': 'Invalid data.'}, status=400)
+
+    save_committee_attendance(request, committee, minutes, data)
     return JsonResponse({'success': True, 'message': 'Attendance saved.'})
 
 
@@ -470,40 +553,7 @@ def publish_committee_minutes(request, code, minutes_id):
 
     visibility = request.POST.get('visibility', 'committee_only')
     also_publish_to_chapter = request.POST.get('publish_to_chapter') == 'on'
-
-    # Generate PDF
-    pdf_buffer = generate_minutes_pdf_buffer(minutes)
-    file_name = f"Committee_Minutes_{committee.code}_{minutes.date.strftime('%Y-%m-%d')}_{minutes.title.replace(' ', '_')}.pdf"
-    pdf_file = ContentFile(pdf_buffer.read())
-
-    # Create CommitteeDocument linked to the committee
-    doc = CommitteeDocument.objects.create(
-        committee=committee,
-        title=f"Committee Minutes - {committee.name} - {minutes.title} ({minutes.date.strftime('%m/%d/%Y')})",
-        description=f"Committee meeting minutes for {committee.name} on {minutes.date.strftime('%B %d, %Y')}",
-        uploaded_by=request.user,
-        document_type='minutes',
-        meeting_date=minutes.date,
-        published_to_chapter=also_publish_to_chapter,
-        visibility=visibility,
-    )
-    doc.document.save(file_name, pdf_file, save=True)
-
-    # Update minutes status
-    minutes.status = 'published'
-    minutes.published_document = doc
-    minutes.publish_visibility = visibility
-    minutes.save(update_fields=['status', 'published_document', 'publish_visibility'])
-
-    ActivityLog.log_activity(
-        action_type='other',
-        user=request.user,
-        description=f'Published committee minutes ({committee.code}): {minutes.title}',
-        request=request,
-        object_type='ChapterMinutes',
-        object_id=minutes.id,
-        object_repr=str(minutes),
-    )
+    publish_committee_minutes_record(request, committee, minutes, visibility, also_publish_to_chapter)
 
     msg = f'Minutes "{minutes.title}" published to committee documents.'
     if also_publish_to_chapter:
@@ -526,14 +576,13 @@ def download_committee_minutes_pdf(request, code, minutes_id):
     minutes = get_object_or_404(ChapterMinutes, id=minutes_id, committee=committee)
     buf = generate_minutes_pdf_buffer(minutes)
 
-    file_name = f"Committee_Minutes_{committee.code}_{minutes.date.strftime('%Y-%m-%d')}_{minutes.title.replace(' ', '_')}.pdf"
     response = HttpResponse(buf.read(), content_type='application/pdf')
     # v3.45.2: the minutes title is in the filename, so let Django quote it.
     # A raw f-string breaks on a quote mark and on any character outside
     # Latin-1 (an em dash or a curly apostrophe is enough).
     from django.utils.http import content_disposition_header
     response['Content-Disposition'] = content_disposition_header(
-        not request.GET.get('preview'), file_name
+        not request.GET.get('preview'), _pdf_file_name(committee, minutes)
     )
     return response
 
@@ -549,33 +598,11 @@ def delete_committee_minutes(request, code, minutes_id):
         return redirect('committee_minutes_list', code=code)
 
     minutes = get_object_or_404(ChapterMinutes, id=minutes_id, committee=committee)
-
-    # Only admins can delete published minutes
-    if minutes.status == 'published' and not request.user.is_admin:
-        messages.error(request, 'Only administrators can delete published minutes.')
-        return redirect('committee_minutes_list', code=code)
-
     title = minutes.title
-    minutes_date = minutes.date
-
-    # Delete linked published document
-    if minutes.published_document:
-        minutes.published_document.delete()
-
-    # Delete all related sections (cascades to motions)
-    minutes.sections.all().delete()
-
-    ActivityLog.log_activity(
-        action_type='other',
-        user=request.user,
-        description=f'Deleted committee minutes ({committee.code}): {title} ({minutes_date})',
-        request=request,
-        object_type='ChapterMinutes',
-        object_id=minutes_id,
-        object_repr=f'{title} ({minutes_date})',
-    )
-
-    minutes.delete()
+    error = delete_committee_minutes_record(request, committee, minutes)
+    if error:
+        messages.error(request, error)
+        return redirect('committee_minutes_list', code=code)
 
     messages.success(request, f'Minutes "{title}" deleted successfully.')
     return redirect('committee_minutes_list', code=code)

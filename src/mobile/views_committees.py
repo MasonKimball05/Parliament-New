@@ -36,7 +36,9 @@ from src.mobile.views_directory import photo_path
 from src.models import ChapterMinutes, Committee, CommitteeDocument, CommitteePermissions
 from src.models.users import member_defer
 from src.utils.content_disposition import apply_disposition
-from src.view.committee.committee_minutes_editor import is_committee_member_or_above
+from src.view.committee.committee_minutes_editor import (
+    can_edit_committee_minutes, can_edit_specific_minutes, is_committee_member_or_above,
+)
 from src.view.committee.member_permissions import can_designate
 
 RECENT_DOCUMENTS = 5
@@ -315,6 +317,7 @@ class CommitteeMinutesView(_CommitteeView):
         committee, access = self.committee(request, code)
         if not access.can_view_minutes:
             raise exceptions.PermissionDenied('You can’t view this committee’s minutes.', code='no_access')
+        can_edit_any = can_edit_committee_minutes(user, committee)
         rows = (ChapterMinutes.objects.filter(committee=committee)
                 .select_related('published_document')
                 .order_by('-date', '-start_time')[:MINUTES_LIMIT])
@@ -331,5 +334,12 @@ class CommitteeMinutesView(_CommitteeView):
                 'status': m.status,
                 'document': _document_json(doc, code) if visible else None,
                 'edit_path': reverse('edit_committee_minutes', args=[code, m.id]),
+                # v4.3.0: the app's editor (views_committee_minutes).
+                'can_edit': can_edit_specific_minutes(user, committee, m, can_edit_any=can_edit_any),
             })
-        return Response({'minutes': out})
+        # Any member or above may start minutes, as on the website.
+        return Response({'minutes': out, 'can_create': True})
+
+    def post(self, request, code):
+        from src.mobile import views_committee_minutes
+        return views_committee_minutes.create(self, request, code)
