@@ -189,7 +189,11 @@ class TheEntitlementCheckIsShared(TestCase):
     """
 
     def test_both_pledge_facing_task_views_call_the_predicate(self):
-        for view in (pledge_tasks.pledge_take_quiz, pledge_tasks.pledge_quiz_analysis):
+        from src.mobile import views_pledge
+        # 10-30-26 — and the app's: both of its quiz views reach the task
+        # through `_PledgeView.quiz`, which asks the predicate.
+        for view in (pledge_tasks.pledge_take_quiz, pledge_tasks.pledge_quiz_analysis,
+                     views_pledge._PledgeView.quiz):
             with self.subTest(view=view.__name__):
                 self.assertIn(
                     'pledge_may_see_task', inspect.getsource(view),

@@ -48,19 +48,46 @@ def _items(agenda):
     return agenda.items.select_related('presenter').defer(*member_defer('presenter'))
 
 
+def visible_agendas(user):
+    """
+    The 50 newest agendas ``user`` may read, split into upcoming (soonest
+    first) and past. Officers see drafts too; members published ones only.
+    Shared with the app (src/mobile/views_agendas.py).
+    """
+    qs = MeetingAgenda.objects.select_related('event', 'minutes')
+    if not _is_officer(user):
+        qs = qs.filter(status='published')
+    today = timezone.localdate()
+    agendas = list(qs.order_by('-date', '-start_time')[:50])
+    return [a for a in agendas if a.date >= today][::-1], [a for a in agendas if a.date < today]
+
+
+def create_agenda_record(request, title, date, start_time, event, standard_order):
+    """A new agenda (with the standard order of business if asked), logged. Validation is the caller's."""
+    with transaction.atomic():
+        agenda = MeetingAgenda.objects.create(title=title, date=date, start_time=start_time,
+                                              event=event, created_by=request.user)
+        if standard_order:
+            labels = dict(AgendaItem.ITEM_TYPES)
+            AgendaItem.objects.bulk_create([
+                AgendaItem(agenda=agenda, order=i, item_type=t, title=labels[t])
+                for i, t in enumerate(AgendaItem.STANDARD_ORDER)
+            ])
+    ActivityLog.log_activity(action_type='other', user=request.user, request=request,
+                             description=f'Created meeting agenda: {title}',
+                             object_type='MeetingAgenda', object_id=agenda.pk, object_repr=str(agenda))
+    return agenda
+
+
 @login_required
 @require_feature_flag(FLAG)
 def agenda_list(request):
     """Officers see every agenda (drafts too); members see published ones."""
     officer = _is_officer(request.user)
-    qs = MeetingAgenda.objects.select_related('event', 'minutes')
-    if not officer:
-        qs = qs.filter(status='published')
-    today = timezone.localdate()
-    agendas = list(qs.order_by('-date', '-start_time')[:50])
+    upcoming, past = visible_agendas(request.user)
     return render(request, 'meetings/agenda_list.html', {
-        'upcoming': [a for a in agendas if a.date >= today][::-1],
-        'past': [a for a in agendas if a.date < today],
+        'upcoming': upcoming,
+        'past': past,
         'is_officer': officer,
         # Same helper as the minutes create modal — it already fixed recurring
         # instances crowding tonight's meeting out of the dropdown (v3.29.3).
@@ -100,18 +127,8 @@ def create_agenda(request):
     event_id = _parse(int, request.POST.get('event'))
     if event_id:
         event = Event.objects.filter(pk=event_id).first()
-    with transaction.atomic():
-        agenda = MeetingAgenda.objects.create(title=title, date=date, start_time=start_time,
-                                              event=event, created_by=request.user)
-        if request.POST.get('standard_order') == 'on':
-            labels = dict(AgendaItem.ITEM_TYPES)
-            AgendaItem.objects.bulk_create([
-                AgendaItem(agenda=agenda, order=i, item_type=t, title=labels[t])
-                for i, t in enumerate(AgendaItem.STANDARD_ORDER)
-            ])
-    ActivityLog.log_activity(action_type='other', user=request.user, request=request,
-                             description=f'Created meeting agenda: {title}',
-                             object_type='MeetingAgenda', object_id=agenda.pk, object_repr=str(agenda))
+    agenda = create_agenda_record(request, title, date, start_time, event,
+                                  request.POST.get('standard_order') == 'on')
     return redirect('edit_agenda', agenda_id=agenda.pk)
 
 
@@ -128,21 +145,47 @@ def edit_agenda(request, agenda_id):
     })
 
 
-def _item_fields(request, item):
-    t = request.POST.get('item_type') or item.item_type
+def apply_item_fields(data, item):
+    """
+    Set an agenda item's fields from ``data`` (the web form's POST, or the
+    app's JSON body: anything with ``.get``). Shared with the app.
+    """
+    t = data.get('item_type') or item.item_type
     item.item_type = t if t in dict(AgendaItem.ITEM_TYPES) else 'custom'
     # Type first: a blank title falls back to the type's label.
-    item.title = ((request.POST.get('title') or '').strip() or item.get_item_type_display())[:MAX_TITLE]
-    item.notes = (request.POST.get('notes') or '').strip()[:MAX_NOTES]
-    item.presenter_text = (request.POST.get('presenter_text') or '').strip()[:200]
-    presenter_id = request.POST.get('presenter') or ''
+    item.title = (str(data.get('title') or '').strip() or item.get_item_type_display())[:MAX_TITLE]
+    item.notes = str(data.get('notes') or '').strip()[:MAX_NOTES]
+    item.presenter_text = str(data.get('presenter_text') or '').strip()[:200]
+    presenter_id = data.get('presenter') or ''
     item.presenter = (ParliamentUser.objects.filter(pk=presenter_id, is_active=True).first()
                       if presenter_id else None)
     try:
-        d = int(request.POST.get('duration_minutes') or 0)
+        d = int(data.get('duration_minutes') or 0)
         item.duration_minutes = d if 0 < d <= 600 else None
-    except ValueError:
+    except (TypeError, ValueError):
         item.duration_minutes = None
+
+
+def add_item(agenda, data):
+    """A new item at the end of the agenda."""
+    nxt = (agenda.items.aggregate(m=Max('order'))['m'] or 0) + 1
+    item = AgendaItem(agenda=agenda, order=nxt)
+    apply_item_fields(data, item)
+    item.save()
+    return item
+
+
+def move_item(item, direction):
+    """Swap ``item`` with its neighbour (``'up'`` or ``'down'``), renumbering the agenda."""
+    siblings = list(item.agenda.items.order_by('order', 'pk'))
+    i = siblings.index(item)
+    j = i - 1 if direction == 'up' else i + 1
+    if 0 <= j < len(siblings):
+        siblings[i], siblings[j] = siblings[j], siblings[i]
+        for n, s in enumerate(siblings):
+            if s.order != n:
+                s.order = n
+                s.save(update_fields=['order'])
 
 
 @login_required
@@ -151,10 +194,7 @@ def _item_fields(request, item):
 @require_POST
 def add_agenda_item(request, agenda_id):
     agenda = get_object_or_404(MeetingAgenda, pk=agenda_id)
-    nxt = (agenda.items.aggregate(m=Max('order'))['m'] or 0) + 1
-    item = AgendaItem(agenda=agenda, order=nxt)
-    _item_fields(request, item)
-    item.save()
+    add_item(agenda, request.POST)
     return redirect('edit_agenda', agenda_id=agenda.pk)
 
 
@@ -168,19 +208,20 @@ def update_agenda_item(request, agenda_id, item_id):
     if action == 'delete':
         item.delete()
     elif action in ('up', 'down'):
-        siblings = list(item.agenda.items.order_by('order', 'pk'))
-        i = siblings.index(item)
-        j = i - 1 if action == 'up' else i + 1
-        if 0 <= j < len(siblings):
-            siblings[i], siblings[j] = siblings[j], siblings[i]
-            for n, s in enumerate(siblings):
-                if s.order != n:
-                    s.order = n
-                    s.save(update_fields=['order'])
+        move_item(item, action)
     else:
-        _item_fields(request, item)
+        apply_item_fields(request.POST, item)
         item.save()
     return redirect('edit_agenda', agenda_id=agenda_id)
+
+
+def change_status(agenda, status):
+    """Draft or publish the agenda. False (nothing saved) for an unknown status. Shared with the app."""
+    if status not in dict(MeetingAgenda.STATUS_CHOICES):
+        return False
+    agenda.status = status
+    agenda.save(update_fields=['status', 'updated_at'])
+    return True
 
 
 @login_required
@@ -190,9 +231,7 @@ def update_agenda_item(request, agenda_id, item_id):
 def set_agenda_status(request, agenda_id):
     agenda = get_object_or_404(MeetingAgenda, pk=agenda_id)
     status = request.POST.get('status')
-    if status in dict(MeetingAgenda.STATUS_CHOICES):
-        agenda.status = status
-        agenda.save(update_fields=['status', 'updated_at'])
+    if change_status(agenda, status):
         messages.success(request, 'Agenda published — members can now see it.' if status == 'published'
                          else 'Agenda moved back to draft.')
     return redirect('edit_agenda', agenda_id=agenda.pk)
@@ -210,13 +249,25 @@ def start_minutes_from_agenda(request, agenda_id):
     minutes rather than making another.
     """
     get_object_or_404(MeetingAgenda, pk=agenda_id)
+    minutes, created = start_minutes(request, agenda_id)
+    if created:
+        messages.success(request, 'Minutes started from the agenda.')
+    return redirect('edit_chapter_minutes', minutes_id=minutes.pk)
+
+
+def start_minutes(request, agenda_id):
+    """
+    The agenda's minutes draft, created if it has none (one header per item,
+    then a text block holding the presenter and notes). Returns ``(minutes,
+    created)``. Shared with the app.
+    """
     with transaction.atomic():
         # 09-25-26 (auto-run finding) — lock the row before the idempotency
         # check. Unlocked, a double-click could pass `if agenda.minutes_id`
         # twice and create two drafts, one orphaned.
         agenda = MeetingAgenda.objects.select_for_update().get(pk=agenda_id)
         if agenda.minutes_id:
-            return redirect('edit_chapter_minutes', minutes_id=agenda.minutes_id)
+            return agenda.minutes, False
         minutes = ChapterMinutes.objects.create(
             title=agenda.title, date=agenda.date, start_time=agenda.start_time,
             event=agenda.event, created_by=request.user, status='draft',
@@ -242,5 +293,4 @@ def start_minutes_from_agenda(request, agenda_id):
     ActivityLog.log_activity(action_type='other', user=request.user, request=request,
                              description=f'Started minutes from agenda: {agenda.title}',
                              object_type='ChapterMinutes', object_id=minutes.pk, object_repr=str(minutes))
-    messages.success(request, 'Minutes started from the agenda.')
-    return redirect('edit_chapter_minutes', minutes_id=minutes.pk)
+    return minutes, True

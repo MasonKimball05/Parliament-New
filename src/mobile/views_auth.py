@@ -517,7 +517,7 @@ class MeView(MobileAPIView):
         flags = FeatureFlag.resolve_many([
             'chats', 'legislation_voting', 'committee_voting', 'calendar_subscriptions',
             'announcements', 'attendance_tracking', 'event_attendance', 'qr_attendance_checkin',
-            'location_checkin'])
+            'location_checkin', 'meeting_agendas'])
         return Response({
             'user_id': str(user.user_id),
             'username': user.username,
@@ -549,6 +549,8 @@ class MeView(MobileAPIView):
                 # Location check-in (v4.1.0; src/location_checkin.FLAGS).
                 'location_checkin': (flags['attendance_tracking'] and flags['event_attendance']
                                      and flags['location_checkin']),
+                # Meeting agendas (agendas/; the web pages' only gate).
+                'meeting_agendas': flags['meeting_agendas'],
             },
             'pages': {
                 'home': PageToggle.is_page_enabled('home'),

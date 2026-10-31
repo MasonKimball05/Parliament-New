@@ -299,6 +299,72 @@ def _study_context(pledge):
     }
 
 
+def save_quiz_answers(pledge, task, questions, answers):
+    """
+    Save a pledge's quiz answers (``{question pk: text}``) and send the task
+    for review. Returns the errors (a blank answer each), saving nothing if
+    there are any. Shared with the app (src/mobile/views_pledge.py). Whether
+    the pledge may sit this quiz is the caller's check (pledge_may_see_task).
+    """
+    errors = []
+    cleaned = {}
+    # Numbered by position, the way the quiz page numbers them
+    # (forloop.counter). display_order is only a sort key: it can start
+    # at 0 or 1, repeat, or have gaps.
+    for number, q in enumerate(questions, start=1):
+        text = str(answers.get(q.pk) or '').strip()
+        if not text:
+            errors.append(f'Please answer question {number}.')
+        cleaned[q.pk] = text
+    if errors:
+        return errors
+
+    # Save answers (update existing if somehow partial)
+    for q in questions:
+        PledgeQuizAnswer.objects.update_or_create(
+            question=q,
+            pledge=pledge,
+            defaults={'answer_text': cleaned[q.pk]},
+        )
+
+    # Create or update completion → pending (awaiting chair review).
+    #
+    # ⚠️ v3.20.0 — THE SCORE IS CLEARED WITH IT, AND THAT MATTERS MORE
+    # THAN IT LOOKS. `already_submitted` is "has this pledge answered
+    # every question", so **a chair adding a question to a quiz reopens
+    # it for everyone who had already sat it** — including pledges a
+    # chair had already marked and scored.
+    #
+    # Before scoring existed, that reset `completed` → `pending`, which
+    # is arguably right: there are new answers to read. With scoring it
+    # would have left the OLD mark attached to the NEW answers, so a
+    # pledge's page would read "50/60" beside answers nobody had graded,
+    # and the grading page would show a score for a submission the chair
+    # had never seen.
+    #
+    # A stale grade is worse than no grade, so the mark goes when the
+    # answers change. `src/test_education_scoring_and_meetings.py` pins
+    # both halves.
+    PledgeTaskCompletion.objects.update_or_create(
+        task=task,
+        pledge=pledge,
+        defaults={'status': 'pending', 'score': None},
+    )
+    return []
+
+
+def quiz_state(pledge, task):
+    """``(questions, {question pk: answer text}, already_submitted, completion)`` for the quiz page."""
+    questions = list(task.questions.all())
+    existing_answers = {
+        a.question_id: a.answer_text
+        for a in PledgeQuizAnswer.objects.filter(question__task=task, pledge=pledge)
+    }
+    already_submitted = bool(questions) and len(existing_answers) == len(questions)
+    completion = PledgeTaskCompletion.objects.filter(task=task, pledge=pledge).first()
+    return questions, existing_answers, already_submitted, completion
+
+
 @login_required
 def pledge_take_quiz(request, task_pk):
     """
@@ -326,63 +392,14 @@ def pledge_take_quiz(request, task_pk):
     if not pledge_may_see_task(request.user, task):
         return render(request, 'pledge/quiz_not_available.html', {'task': task})
 
-    questions = list(task.questions.all())
+    questions, existing_answers, already_submitted, completion = quiz_state(request.user, task)
     if not questions:
         return render(request, 'pledge/quiz_not_available.html', {'task': task, 'no_questions': True})
 
-    # Check if already submitted
-    existing_answers = {
-        a.question_id: a.answer_text
-        for a in PledgeQuizAnswer.objects.filter(question__task=task, pledge=request.user)
-    }
-    already_submitted = len(existing_answers) == len(questions)
-
-    completion = PledgeTaskCompletion.objects.filter(task=task, pledge=request.user).first()
-
     if request.method == 'POST' and not already_submitted:
-        errors = []
-        answers = {}
-        # Numbered by position, the way the quiz page numbers them
-        # (forloop.counter). display_order is only a sort key: it can start
-        # at 0 or 1, repeat, or have gaps.
-        for number, q in enumerate(questions, start=1):
-            text = request.POST.get(f'answer_{q.pk}', '').strip()
-            if not text:
-                errors.append(f'Please answer question {number}.')
-            answers[q.pk] = text
-
+        errors = save_quiz_answers(request.user, task, questions,
+                                   {q.pk: request.POST.get(f'answer_{q.pk}', '') for q in questions})
         if not errors:
-            # Save answers (update existing if somehow partial)
-            for q in questions:
-                PledgeQuizAnswer.objects.update_or_create(
-                    question=q,
-                    pledge=request.user,
-                    defaults={'answer_text': answers[q.pk]},
-                )
-
-            # Create or update completion → pending (awaiting chair review).
-            #
-            # ⚠️ v3.20.0 — THE SCORE IS CLEARED WITH IT, AND THAT MATTERS MORE
-            # THAN IT LOOKS. `already_submitted` is "has this pledge answered
-            # every question", so **a chair adding a question to a quiz reopens
-            # it for everyone who had already sat it** — including pledges a
-            # chair had already marked and scored.
-            #
-            # Before scoring existed, that reset `completed` → `pending`, which
-            # is arguably right: there are new answers to read. With scoring it
-            # would have left the OLD mark attached to the NEW answers, so a
-            # pledge's page would read "50/60" beside answers nobody had graded,
-            # and the grading page would show a score for a submission the chair
-            # had never seen.
-            #
-            # A stale grade is worse than no grade, so the mark goes when the
-            # answers change. `src/test_education_scoring_and_meetings.py` pins
-            # both halves.
-            PledgeTaskCompletion.objects.update_or_create(
-                task=task,
-                pledge=request.user,
-                defaults={'status': 'pending', 'score': None},
-            )
             return redirect('my_pledge_tasks')
 
         return render(request, 'pledge/take_quiz.html', {
@@ -432,30 +449,37 @@ def pledge_request_absence(request, meeting_pk):
     meeting = get_object_or_404(
         EducationMeeting.objects.select_related('event'), pk=meeting_pk
     )
+    error = request_absence(request.user, meeting, request.POST.get('reason'))
+    if error:
+        messages.error(request, error)
+        return redirect('my_pledge_tasks')
+    messages.success(request, 'Absence request sent to your educator.')
+    return redirect('my_pledge_tasks')
+
+
+def request_absence(pledge, meeting, reason):
+    """
+    File (or re-file) a pledge's absence request for a meeting. Returns an
+    error message, or None once saved. Shared with the app.
+
+    ⚠️ ONLY FOR MEETINGS THAT HAVE NOT HAPPENED: see pledge_request_absence.
+    """
     if meeting.event.date_time < timezone.now():
-        messages.error(
-            request,
-            'That meeting has already happened. Speak to your educator if the '
-            'attendance recorded for it is wrong.',
-        )
-        return redirect('my_pledge_tasks')
-
-    reason = (request.POST.get('reason') or '').strip()
+        return ('That meeting has already happened. Speak to your educator if the '
+                'attendance recorded for it is wrong.')
+    reason = str(reason or '').strip()
     if not reason:
-        messages.error(request, 'Please say why you cannot attend.')
-        return redirect('my_pledge_tasks')
-
+        return 'Please say why you cannot attend.'
     # `update_or_create` so a second submission edits the first rather than
     # hitting the unique constraint with a 500 — and it resets the status,
     # because a re-asked request has not been decided on its new reason.
     EducationAbsenceRequest.objects.update_or_create(
         meeting=meeting,
-        pledge=request.user,
+        pledge=pledge,
         defaults={'reason': reason, 'status': 'pending',
                   'reviewed_by': None, 'reviewed_at': None, 'review_note': ''},
     )
-    messages.success(request, 'Absence request sent to your educator.')
-    return redirect('my_pledge_tasks')
+    return None
 
 
 @login_required
