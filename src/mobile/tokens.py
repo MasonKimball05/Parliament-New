@@ -34,7 +34,7 @@ after the other one has moved on revokes the device and alerts the member.
 import logging
 from datetime import timedelta
 
-from django.db import transaction
+from django.db import connection, transaction
 from django.db.models import Q
 from django.utils import timezone
 
@@ -143,7 +143,11 @@ def rotate(raw_refresh):
                     reused = device
             else:
                 # Rare path (an unknown token): a JSON containment scan.
-                reused = base.filter(retired_refresh_hashes__contains=[h]).first()
+                # SQLite (the pre-push run) has no JSON contains, so scan there.
+                if connection.features.supports_json_field_contains:
+                    reused = base.filter(retired_refresh_hashes__contains=[h]).first()
+                else:
+                    reused = next((d for d in base if h in (d.retired_refresh_hashes or [])), None)
                 if reused is None:
                     return None, None, 'invalid'
             if reused is not None:
