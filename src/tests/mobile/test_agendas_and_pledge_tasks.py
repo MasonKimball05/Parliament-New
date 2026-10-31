@@ -158,7 +158,10 @@ class PledgeTaskTests(_Base):
             self.assertEqual((r.status_code, r.json()['error']), (403, 'forbidden'), path)
 
     def test_my_tasks(self):
-        PledgeTaskCompletion.objects.create(task=self.task, pledge=self.pledge, status='completed')
+        PledgeTaskCompletion.objects.create(task=self.task, pledge=self.pledge, status='completed',
+                                            completed_at=timezone.now(), score=8)
+        self.task.max_score = 10
+        self.task.save(update_fields=['max_score'])
         hidden = PledgeTask.objects.create(title='Not yours', points=1)
         hidden.assigned_to.add(self.other)
         body = self.call('get', url('mobile_pledge_tasks'), self.access).json()
@@ -168,6 +171,9 @@ class PledgeTaskTests(_Base):
         self.assertEqual(body['progress']['required_done'], 1)
         self.assertEqual(body['points']['tasks'], 10)
         self.assertIsNone(body['big'])
+        creed = next(t for g in body['phases'] for t in g['tasks'] if t['title'] == 'Learn the creed')
+        self.assertEqual((creed['completion']['score_percent'], creed['completion']['score_display']), (80, '8/10'))
+        self.assertIsNotNone(creed['completion']['completed_at'])
 
     def test_take_a_quiz(self):
         r = self.call('get', url('mobile_pledge_quiz', self.quiz.id), self.access)
@@ -208,6 +214,7 @@ class PledgeTaskTests(_Base):
                                     date_time=timezone.now() - timedelta(days=5))
         edu = Committee.objects.create(name='Education', code='EDU', is_education_committee=True, is_active=True)
         meeting = EducationMeeting.objects.create(event=soon, committee=edu, points=5)
+        meeting.homework.add(self.task)
         old = EducationMeeting.objects.create(event=past, committee=edu, points=5)
         r = self.call('post', url('mobile_pledge_absence', meeting.id), self.access, {'reason': ''})
         self.assertEqual(r.status_code, 400)
@@ -218,6 +225,8 @@ class PledgeTaskTests(_Base):
         self.assertEqual(EducationAbsenceRequest.objects.get(pledge=self.pledge).reason, 'Exam')
         body = self.call('get', url('mobile_pledge_tasks'), self.access).json()
         self.assertEqual(body['upcoming_meetings'][0]['absence_request']['reason'], 'Exam')
+        self.assertEqual(body['upcoming_meetings'][0]['homework'], [
+            {'id': self.task.id, 'title': 'Learn the creed', 'due_date': None}])
 
     def test_website_quiz_still_works(self):
         self.client.force_login(self.pledge)

@@ -117,25 +117,19 @@ def search_pages(query, user):
     return matching_pages
 
 
-@login_required
-@require_feature_flag('global_search')
-def global_search(request):
+def search_everything(query, user):
     """
-    Search across all content types in Parliament system
+    Every result group the search page shows for ``query`` (non-empty,
+    stripped), as ``(results, kai_can_view_details)``. ``results`` maps a
+    group key to a list, in the order the page renders them; empty groups are
+    left out. Shared by the page below and the app's ``search/``
+    (src/mobile/views_search.py), so the two can't disagree on who sees what.
     """
-    query = request.GET.get('q', '').strip()
-
-    if not query:
-        return render(request, 'global_search.html', {
-            'query': query,
-            'results': {}
-        })
-
     results = {}
     now = timezone.now()
 
     # Search Pages first (navigation)
-    matching_pages = search_pages(query, request.user)
+    matching_pages = search_pages(query, user)
     if matching_pages:
         results['pages'] = matching_pages[:8]
 
@@ -163,7 +157,7 @@ def global_search(request):
         Q(publish_at__isnull=True) | Q(publish_at__lte=now)
     ).order_by('-posted_at')
     # Filter by visibility
-    announcements = [a for a in all_announcements if a.is_visible_to_user(request.user)][:10]
+    announcements = [a for a in all_announcements if a.is_visible_to_user(user)][:10]
     if announcements:
         results['announcements'] = announcements
 
@@ -176,7 +170,7 @@ def global_search(request):
         archived=False
     ).order_by('-date_time')
     # Filter by visibility
-    events = [e for e in all_events if e.is_visible_to_user(request.user)][:10]
+    events = [e for e in all_events if e.is_visible_to_user(user)][:10]
     if events:
         results['events'] = events
 
@@ -212,7 +206,7 @@ def global_search(request):
             is_active=True,
         ).select_related('committee')
     )
-    readable = ChatChannel.access_map(chat_channels, request.user)
+    readable = ChatChannel.access_map(chat_channels, user)
     accessible_channels = [c for c in chat_channels if readable.get(c.pk)]
 
     if accessible_channels:
@@ -221,9 +215,9 @@ def global_search(request):
     # Search Committee Documents (title, description)
     # Only show documents from committees the user has access to
     user_committees = Committee.objects.filter(
-        Q(members=request.user) |
-        Q(chairs=request.user) |
-        Q(advisors=request.user)
+        Q(members=user) |
+        Q(chairs=user) |
+        Q(advisors=user)
     ).distinct()
 
     committee_docs = list(CommitteeDocument.objects.filter(
@@ -234,7 +228,7 @@ def global_search(request):
         results['committee_documents'] = committee_docs
 
     # Search Users (name, username) - only for officers
-    if request.user.is_officer:
+    if user.is_officer:
         # ⚠️ v3.25.0 — `role_number` IS WHAT A MEMBER IS CALLED. Searching
         # `user_id` alone found everyone only because, until v3.23.0, initiation
         # copied the roll number INTO the primary key. It no longer does: a
@@ -253,7 +247,7 @@ def global_search(request):
             results['users'] = users
 
     # Search Slating Periods (for admins/officers)
-    if request.user.is_officer or request.user.is_admin:
+    if user.is_officer or user.is_admin:
         slating_periods = list(SlatingPeriod.objects.filter(
             Q(name__icontains=query) | Q(description__icontains=query)
         ).order_by('-created_at')[:5])
@@ -273,7 +267,7 @@ def global_search(request):
     # it first meant every searcher on the site — including pledges who can
     # never match this branch — paid for it. Now only Kai-cleared users do.
     #
-    # Deliberately NOT short-circuited on `request.user.committees.filter(
+    # Deliberately NOT short-circuited on `user.committees.filter(
     # is_kai_committee=True).exists()`: a KaiMemberPermission row is not
     # guaranteed to imply membership of the committee's `members` M2M (the
     # permission UI also lists chairs and voting_members, and the AJAX grant
@@ -283,7 +277,7 @@ def global_search(request):
     kai_can_view_details = False
     kai_committee = Committee.objects.filter(is_kai_committee=True).first()
     if kai_committee is not None:
-        kai_access = _get_kai_access(request.user, kai_committee)
+        kai_access = _get_kai_access(user, kai_committee)
         if kai_access['can_view_report_list'] and FeatureFlag.is_feature_enabled('kai_reports'):
             # Only search the allegation body for users cleared to read
             # details; list-only users match on title alone.
@@ -301,7 +295,7 @@ def global_search(request):
             kai_reports = list(
                 KaiReport.objects
                 .filter(kai_q)
-                .exclude(pk__in=_recused_case_ids(request.user))
+                .exclude(pk__in=_recused_case_ids(user))
                 .order_by('-submitted_at')[:10]
             )
             if kai_reports:
@@ -311,6 +305,25 @@ def global_search(request):
                 # view refuses to *search* for list-only reviewers — so the
                 # template must gate on the same flag. See global_search.html.
                 kai_can_view_details = kai_access['can_view_report_details']
+
+    return results, kai_can_view_details
+
+
+@login_required
+@require_feature_flag('global_search')
+def global_search(request):
+    """
+    Search across all content types in Parliament system
+    """
+    query = request.GET.get('q', '').strip()
+
+    if not query:
+        return render(request, 'global_search.html', {
+            'query': query,
+            'results': {}
+        })
+
+    results, kai_can_view_details = search_everything(query, request.user)
 
     # All result values are now lists — len() is free, no extra DB queries
     total_count = sum(len(v) for v in results.values())

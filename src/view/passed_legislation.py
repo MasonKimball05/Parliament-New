@@ -73,18 +73,22 @@ def _dedupe_latest_per_user(rows):
             latest.append(att)
     return latest
 
-@login_required
-@require_page_enabled('passed_legislation')
-@log_function_call
-def passed_legislation(request):
-    # Get filter from query params (default to 'all')
-    status_filter = request.GET.get('status', 'all')
-    now = timezone.now()
+# v4.4.0: the page's logic lives in the plain functions below so the app's
+# endpoint (src/mobile/views_passed_legislation.py) lists exactly what this page
+# lists — the same tabs, counts, order, tallies and personal ballots. The view
+# at the bottom only reads the request and renders.
 
-    # Base queryset - all non-removed legislation
-    all_legislation = Legislation.objects.filter(is_active=True).exclude(status='removed')
+#: The page's tabs. Anything else falls through to the "All Closed" queryset.
+STATUS_FILTERS = ('all', 'pending', 'active', 'passed', 'failed', 'tabled', 'personal')
 
-    # Apply status filter
+
+def base_legislation():
+    """Base queryset - all non-removed legislation."""
+    return Legislation.objects.filter(is_active=True).exclude(status='removed')
+
+
+def _tab_queries(user, now):
+    """(pending_q, active_q) for this member at this moment."""
     # v3.13.3: most legislation has voting_starts_at=NULL (the vote-page
     # upload and committee push don't set it — voting then starts at
     # available_at), and NULL fails both __gt and __lte, so those items were
@@ -94,106 +98,126 @@ def passed_legislation(request):
     # matching the vote page, which promises scheduled legislation is "not yet
     # visible to others" (previously any member could preview scheduled items
     # here).
-    _pending_q = Q(status='pending') | (
+    pending_q = Q(status='pending') | (
         Q(voting_closed=False) & (
             Q(voting_starts_at__gt=now) |
             Q(voting_starts_at__isnull=True, available_at__gt=now) |
             # manual-open mode: voting waits for the author (v3.13.3)
             Q(voting_starts_at__isnull=True, voting_manual_open=True)
-        ) & (Q(available_at__lte=now) | Q(posted_by=request.user))
+        ) & (Q(available_at__lte=now) | Q(posted_by=user))
     )
-    _active_q = Q(status='active') | (
+    active_q = Q(status='active') | (
         Q(voting_closed=False) & (
             Q(voting_starts_at__lte=now) |
             Q(voting_starts_at__isnull=True, available_at__lte=now,
               voting_manual_open=False)
         )
     )
+    return pending_q, active_q
 
-    personal_ballots = None
+
+def filter_status(all_legislation, status_filter, user, now):
+    """The tab's rows, in the tab's order (none for the Personal tab)."""
+    pending_q, active_q = _tab_queries(user, now)
     if status_filter == 'personal':
-        # v3.14.0: Personal tab — your own ballots, results, and receipts.
-        # Receipts are stateless (regenerated on demand) and verifiable for
-        # RECEIPT_MAX_AGE_DAYS; older ballots show an expired notice instead.
-        from src.utils.vote_receipts import make_receipt, RECEIPT_MAX_AGE_DAYS
-        my_votes = (Vote.objects.filter(user=request.user)
-                    .select_related('legislation')
-                    .order_by('-id'))
-        _grouped = {}
-        for v in my_votes:
-            _grouped.setdefault(v.legislation_id, []).append(v)
-        cutoff = now - timedelta(days=RECEIPT_MAX_AGE_DAYS)
-        personal_ballots = []
-        for rows in _grouped.values():
-            leg = rows[0].legislation
-            cast_at = rows[0].cast_at
-            fresh = bool(cast_at and cast_at >= cutoff)
-            personal_ballots.append({
-                'legislation': leg,
-                'choices': [r.vote_choice for r in rows],
-                'cast_at': cast_at,
-                'receipt': make_receipt(request.user, leg, rows, cast_at=cast_at) if fresh else None,
-                'receipt_expired': bool(cast_at and cast_at < cutoff),
-            })
-        personal_ballots.sort(
-            key=lambda b: b['cast_at'] or now - timedelta(days=3650), reverse=True)
-        queryset = all_legislation.none()
-    elif status_filter == 'pending':
+        return all_legislation.none()
+    if status_filter == 'pending':
         # Pending: voting hasn't started yet
-        queryset = all_legislation.filter(_pending_q).order_by('-available_at')
-    elif status_filter == 'active':
+        return all_legislation.filter(pending_q).order_by('-available_at')
+    if status_filter == 'active':
         # Active: voting is open
-        queryset = all_legislation.filter(_active_q).exclude(
+        return all_legislation.filter(active_q).exclude(
             status__in=['tabled', 'removed']).order_by('-available_at')
-    elif status_filter == 'passed':
-        queryset = all_legislation.filter(Q(status='passed') | Q(passed=True, voting_closed=True)).order_by('-voting_ended_at')
-    elif status_filter == 'failed':
-        queryset = all_legislation.filter(
+    if status_filter == 'passed':
+        return all_legislation.filter(Q(status='passed') | Q(passed=True, voting_closed=True)).order_by('-voting_ended_at')
+    if status_filter == 'failed':
+        return all_legislation.filter(
             Q(status='failed') |
             (Q(passed=False) & Q(voting_closed=True))
         ).exclude(status__in=['passed', 'tabled', 'removed']).order_by('-voting_ended_at')
-    elif status_filter == 'tabled':
-        queryset = all_legislation.filter(status='tabled').order_by('-available_at')
-    else:
-        # All - show closed legislation (passed + failed)
-        queryset = all_legislation.filter(voting_closed=True).order_by('-voting_ended_at')
+    if status_filter == 'tabled':
+        return all_legislation.filter(status='tabled').order_by('-available_at')
+    # All - show closed legislation (passed + failed)
+    return all_legislation.filter(voting_closed=True).order_by('-voting_ended_at')
 
-    # Count for each status tab.
-    #
-    # v3.17.2: was six separate COUNT round trips over the same table, one per
-    # tab. They are six different predicates, but conditional aggregation
-    # evaluates all of them in a single pass — `Count` with a `filter=` counts
-    # only the rows matching that Q. The `personal` tab counts a different table
-    # so it stays its own query.
+
+def status_counts(all_legislation, user, now):
+    """
+    Count for each status tab.
+
+    v3.17.2: was six separate COUNT round trips over the same table, one per
+    tab. They are six different predicates, but conditional aggregation
+    evaluates all of them in a single pass — `Count` with a `filter=` counts
+    only the rows matching that Q. The `personal` tab counts a different table
+    so it stays its own query.
+    """
+    pending_q, active_q = _tab_queries(user, now)
     _passed_q = Q(status='passed') | Q(passed=True, voting_closed=True)
     _failed_q = (
         (Q(status='failed') | (Q(passed=False) & Q(voting_closed=True)))
         & ~Q(status__in=['passed', 'tabled', 'removed'])
     )
-    _active_tab_q = _active_q & ~Q(status__in=['tabled', 'removed', 'pending'])
+    _active_tab_q = active_q & ~Q(status__in=['tabled', 'removed', 'pending'])
 
     # Aliases are prefixed because an aggregate may not share a name with a model
     # field — `passed` is both a tab and a BooleanField, and Django rejects the
     # collision with "Cannot compute Count('passed'): 'passed' is an aggregate".
     _counts = all_legislation.aggregate(
         n_all=Count('pk', filter=Q(voting_closed=True), distinct=True),
-        n_pending=Count('pk', filter=_pending_q, distinct=True),
+        n_pending=Count('pk', filter=pending_q, distinct=True),
         n_active=Count('pk', filter=_active_tab_q, distinct=True),
         n_passed=Count('pk', filter=_passed_q, distinct=True),
         n_failed=Count('pk', filter=_failed_q, distinct=True),
         n_tabled=Count('pk', filter=Q(status='tabled'), distinct=True),
     )
-    status_counts = {
+    return {
         'all': _counts['n_all'],
         'pending': _counts['n_pending'],
         'active': _counts['n_active'],
         'passed': _counts['n_passed'],
         'failed': _counts['n_failed'],
         'tabled': _counts['n_tabled'],
-        'personal': Vote.objects.filter(user=request.user)
+        'personal': Vote.objects.filter(user=user)
                         .values('legislation').distinct().count(),
     }
 
+
+def personal_ballots(user, now):
+    """
+    v3.14.0: Personal tab — your own ballots, results, and receipts.
+    Receipts are stateless (regenerated on demand) and verifiable for
+    RECEIPT_MAX_AGE_DAYS; older ballots show an expired notice instead.
+    """
+    from src.utils.vote_receipts import make_receipt, RECEIPT_MAX_AGE_DAYS
+    my_votes = (Vote.objects.filter(user=user)
+                .select_related('legislation')
+                .order_by('-id'))
+    _grouped = {}
+    for v in my_votes:
+        _grouped.setdefault(v.legislation_id, []).append(v)
+    cutoff = now - timedelta(days=RECEIPT_MAX_AGE_DAYS)
+    ballots = []
+    for rows in _grouped.values():
+        leg = rows[0].legislation
+        cast_at = rows[0].cast_at
+        fresh = bool(cast_at and cast_at >= cutoff)
+        ballots.append({
+            'legislation': leg,
+            'choices': [r.vote_choice for r in rows],
+            'cast_at': cast_at,
+            'receipt': make_receipt(user, leg, rows, cast_at=cast_at) if fresh else None,
+            'receipt_expired': bool(cast_at and cast_at < cutoff),
+        })
+    ballots.sort(
+        key=lambda b: b['cast_at'] or now - timedelta(days=3650), reverse=True)
+    return ballots
+
+
+def legislation_page(queryset, status_filter, page_number):
+    """
+    One page (20) of a tab's queryset as the page's display dicts:
+    ``(paginator, page_obj, rows)``.
+    """
     # Annotate vote counts onto the queryset so the loop makes zero per-leg
     # count queries for yes/no/abstain/total. Historical overrides are applied
     # after, so the annotated values serve as fallbacks only.
@@ -264,14 +288,14 @@ def passed_legislation(request):
     # Paginating the *queryset* means the joins and prefetch above apply to the
     # 20 rows on screen, `windows` spans ~20 meetings instead of the whole
     # archive, and the attendance scan below is bounded. `status_counts` is
-    # deliberately computed further up, on the unpaginated queryset, because the
+    # deliberately computed separately, on the unpaginated queryset, because the
     # tab badges must count everything.
     #
     # NOTE the two page objects: `page_obj` pages Legislation instances and
     # exists only to drive includes/pagination.html; the template iterates
     # `passed_legislation`, which is the list of display dicts built below.
     paginator = Paginator(queryset, 20)
-    page_obj = paginator.get_page(request.GET.get('page'))
+    page_obj = paginator.get_page(page_number)
     legislation_list = list(page_obj.object_list)
 
     # Attendance was one query per legislation — `_present_members_in_window`
@@ -446,16 +470,128 @@ def passed_legislation(request):
         if present_members:
             logger.debug('%s present members: %d', leg.title, len(present_members))
 
-    # Pagination happened before the loop above (see the note there). `passed`
-    # is already just this page's rows; `page_obj` drives the page controls.
+    return paginator, page_obj, passed
+
+
+@login_required
+@require_page_enabled('passed_legislation')
+@log_function_call
+def passed_legislation(request):
+    # Get filter from query params (default to 'all')
+    status_filter = request.GET.get('status', 'all')
+    now = timezone.now()
+    all_legislation = base_legislation()
+    queryset = filter_status(all_legislation, status_filter, request.user, now)
+    ballots = personal_ballots(request.user, now) if status_filter == 'personal' else None
+    counts = status_counts(all_legislation, request.user, now)
+    paginator, page_obj, rows = legislation_page(queryset, status_filter, request.GET.get('page'))
+
+    # Pagination happens before the rows are built (see legislation_page).
+    # `rows` is already just this page's rows; `page_obj` drives the page controls.
     return render(request, 'passed_legislation.html', {
-        'passed_legislation': passed,
+        'passed_legislation': rows,
         'page_obj': page_obj,
         'total_count': paginator.count,
         'status_filter': status_filter,
-        'status_counts': status_counts,
-        'personal_ballots': personal_ballots,
+        'status_counts': counts,
+        'personal_ballots': ballots,
     })
+
+
+def legislation_result(legislation):
+    """
+    The detail page's results: ``vote_result``, plus ``individual_votes`` and
+    ``present_members`` when the page shows them (keys absent otherwise).
+    Shared with the app's detail endpoint (v4.4.0).
+    """
+    context = {}
+    # v3.17.3: `select_related('user')` here fed one thing — the voter's
+    # name in the individual-votes table. Narrow it to the display columns
+    # rather than joining all ~43 ParliamentUser columns per ballot.
+    # See MEMBER_DISPLAY_FIELDS in src/models/users.py.
+    votes = (
+        Vote.objects.filter(legislation=legislation)
+        .select_related('user')
+        .only('id', 'user_id', 'legislation_id', 'vote_choice', 'cast_at',
+              *(f'user__{f}' for f in MEMBER_DISPLAY_FIELDS))
+    )
+
+
+    # v3.17.3: one GROUP BY replaces what was up to `len(options) + 4`
+    # separate COUNT round trips — one per plurality option, plus yes/no/
+    # abstain/total. This is the third site of the pattern v3.17.1 and
+    # v3.17.2 each fixed once; the shape is identical to the tally in
+    # view_legislation_history.
+    # Built from a plain queryset rather than off `votes` above: .values()
+    # discards select_related/only anyway, and keeping them separate makes
+    # it obvious that this is an aggregate, not a row fetch.
+    tally = {
+        row['vote_choice']: row['n']
+        for row in Vote.objects.filter(legislation=legislation)
+                               .values('vote_choice')
+                               .annotate(n=Count('id'))
+    }
+    cast_total = sum(tally.values())
+
+    if legislation.vote_mode == 'plurality':
+        options = legislation.plurality_options or []
+        vote_counts = {opt: tally.get(opt, 0) for opt in options}
+        winner = max(vote_counts, key=vote_counts.get) if vote_counts else None
+        context['vote_result'] = {
+            'mode': 'plurality',
+            'options': vote_counts,
+            'winner': winner,
+            'total': cast_total,
+        }
+
+    elif legislation.vote_mode == 'piecewise':
+        yes = legislation.historical_yes_votes if legislation.historical_yes_votes is not None else tally.get('yes', 0)
+        no  = legislation.historical_no_votes  if legislation.historical_no_votes  is not None else tally.get('no', 0)
+        abstain = legislation.historical_abstain_votes if legislation.historical_abstain_votes is not None else tally.get('abstain', 0)
+        required = legislation.required_number or 0
+        context['vote_result'] = {
+            'mode': 'piecewise',
+            'yes': yes,
+            'no': no,
+            'abstain': abstain,
+            'required_yes': required,
+            'passed': yes >= required,
+            'total': yes + no + abstain,
+        }
+
+    else:  # percentage
+        yes = legislation.historical_yes_votes if legislation.historical_yes_votes is not None else tally.get('yes', 0)
+        no  = legislation.historical_no_votes  if legislation.historical_no_votes  is not None else tally.get('no', 0)
+        abstain = legislation.historical_abstain_votes if legislation.historical_abstain_votes is not None else tally.get('abstain', 0)
+        countable = yes + no
+        yes_pct = (yes / countable * 100) if countable > 0 else 0
+        required_pct = int(legislation.required_percentage)
+        context['vote_result'] = {
+            'mode': 'percentage',
+            'yes': yes,
+            'no': no,
+            'abstain': abstain,
+            'yes_percentage': "{:.0f}%".format(yes_pct),
+            'yes_pct_num': round(yes_pct, 1),
+            'required_percentage': required_pct,
+            'passed': yes_pct >= required_pct,
+            'total': yes + no + abstain,
+        }
+
+    # Individual votes (only if not anonymous and votes exist in DB).
+    # v3.17.3: `votes.exists()` then `votes.count()` were two more round
+    # trips asking what the tally above already answered.
+    if not legislation.anonymous_vote and cast_total > 0:
+        context['individual_votes'] = list(votes.order_by('user__name'))
+
+    # Present members: look back 6 hours from when voting ended
+    total_cast = cast_total
+    if total_cast > 0:
+        vote_end = legislation.voting_ended_at or legislation.voting_starts_at or legislation.available_at
+        vote_start = vote_end - timedelta(hours=6)
+        context['present_members'] = _present_members_in_window(vote_start, vote_end)
+
+    return context
 
 
 class PassedLegislationDetailView(LoginRequiredMixin, DetailView):
@@ -469,92 +605,7 @@ class PassedLegislationDetailView(LoginRequiredMixin, DetailView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        legislation = self.object
-        # v3.17.3: `select_related('user')` here fed one thing — the voter's
-        # name in the individual-votes table. Narrow it to the display columns
-        # rather than joining all ~43 ParliamentUser columns per ballot.
-        # See MEMBER_DISPLAY_FIELDS in src/models/users.py.
-        votes = (
-            Vote.objects.filter(legislation=legislation)
-            .select_related('user')
-            .only('id', 'user_id', 'legislation_id', 'vote_choice', 'cast_at',
-                  *(f'user__{f}' for f in MEMBER_DISPLAY_FIELDS))
-        )
-
-        # v3.17.3: one GROUP BY replaces what was up to `len(options) + 4`
-        # separate COUNT round trips — one per plurality option, plus yes/no/
-        # abstain/total. This is the third site of the pattern v3.17.1 and
-        # v3.17.2 each fixed once; the shape is identical to the tally in
-        # view_legislation_history.
-        # Built from a plain queryset rather than off `votes` above: .values()
-        # discards select_related/only anyway, and keeping them separate makes
-        # it obvious that this is an aggregate, not a row fetch.
-        tally = {
-            row['vote_choice']: row['n']
-            for row in Vote.objects.filter(legislation=legislation)
-                                   .values('vote_choice')
-                                   .annotate(n=Count('id'))
-        }
-        cast_total = sum(tally.values())
-
-        if legislation.vote_mode == 'plurality':
-            options = legislation.plurality_options or []
-            vote_counts = {opt: tally.get(opt, 0) for opt in options}
-            winner = max(vote_counts, key=vote_counts.get) if vote_counts else None
-            context['vote_result'] = {
-                'mode': 'plurality',
-                'options': vote_counts,
-                'winner': winner,
-                'total': cast_total,
-            }
-
-        elif legislation.vote_mode == 'piecewise':
-            yes = legislation.historical_yes_votes if legislation.historical_yes_votes is not None else tally.get('yes', 0)
-            no  = legislation.historical_no_votes  if legislation.historical_no_votes  is not None else tally.get('no', 0)
-            abstain = legislation.historical_abstain_votes if legislation.historical_abstain_votes is not None else tally.get('abstain', 0)
-            required = legislation.required_number or 0
-            context['vote_result'] = {
-                'mode': 'piecewise',
-                'yes': yes,
-                'no': no,
-                'abstain': abstain,
-                'required_yes': required,
-                'passed': yes >= required,
-                'total': yes + no + abstain,
-            }
-
-        else:  # percentage
-            yes = legislation.historical_yes_votes if legislation.historical_yes_votes is not None else tally.get('yes', 0)
-            no  = legislation.historical_no_votes  if legislation.historical_no_votes  is not None else tally.get('no', 0)
-            abstain = legislation.historical_abstain_votes if legislation.historical_abstain_votes is not None else tally.get('abstain', 0)
-            countable = yes + no
-            yes_pct = (yes / countable * 100) if countable > 0 else 0
-            required_pct = int(legislation.required_percentage)
-            context['vote_result'] = {
-                'mode': 'percentage',
-                'yes': yes,
-                'no': no,
-                'abstain': abstain,
-                'yes_percentage': "{:.0f}%".format(yes_pct),
-                'yes_pct_num': round(yes_pct, 1),
-                'required_percentage': required_pct,
-                'passed': yes_pct >= required_pct,
-                'total': yes + no + abstain,
-            }
-
-        # Individual votes (only if not anonymous and votes exist in DB).
-        # v3.17.3: `votes.exists()` then `votes.count()` were two more round
-        # trips asking what the tally above already answered.
-        if not legislation.anonymous_vote and cast_total > 0:
-            context['individual_votes'] = list(votes.order_by('user__name'))
-
-        # Present members: look back 6 hours from when voting ended
-        total_cast = cast_total
-        if total_cast > 0:
-            vote_end = legislation.voting_ended_at or legislation.voting_starts_at or legislation.available_at
-            vote_start = vote_end - timedelta(hours=6)
-            context['present_members'] = _present_members_in_window(vote_start, vote_end)
-
+        context.update(legislation_result(self.object))
         return context
 
 

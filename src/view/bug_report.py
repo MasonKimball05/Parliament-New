@@ -191,8 +191,13 @@ def my_bug_reports(request):
     """
     View user's own bug reports
     """
-    bug_reports = BugReport.objects.filter(submitted_by=request.user).order_by('-submitted_at')
-    return render(request, 'my_bug_reports.html', {'bug_reports': bug_reports})
+    return render(request, 'my_bug_reports.html', {'bug_reports': own_bug_reports(request.user)})
+
+
+def own_bug_reports(user):
+    """A member's own bug reports, newest first: my_bug_reports and the app's
+    list (src/mobile/views_support_history.py)."""
+    return BugReport.objects.filter(submitted_by=user).order_by('-submitted_at')
 
 
 @login_required

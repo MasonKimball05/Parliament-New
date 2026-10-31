@@ -12,6 +12,19 @@ from src.feature_flag_decorators import require_page_enabled
 from src.pledge_classes import badge_context, is_original_founder
 
 
+#: Each house's dot color (the template's .house-dot-* classes; the app uses these).
+HOUSE_COLORS = {
+    'Smith': '#6366f1',
+    'Duncan': '#f59e0b',
+    'Knox': '#10b981',
+    'Marshall': '#ef4444',
+    'Linton': '#8b5cf6',
+    'Hardin': '#0ea5e9',
+    'Ryan': '#f97316',
+    'Gordon': '#14b8a6',
+}
+
+
 def _get_historian_role():
     role, _ = Role.objects.get_or_create(
         code='HIST',
@@ -79,6 +92,77 @@ def _find_implied_members(house_members, member_by_id):
     return implied
 
 
+def house_map_data():
+    """
+    The house map's trees and counts, shared by the web page and the app
+    (src/mobile/views_house_map.py) so the two can't drift.
+
+    Returns ``(houses, all_members, unassigned)``: one dict per house in
+    HOUSE_CHOICES order with ``code``, ``label``, ``total``, ``active`` and
+    ``trees``; every member row loaded (name order); and the members counted
+    as unassigned.
+    """
+    house_choices = ParliamentUser.HOUSE_CHOICES
+    house_codes = {c[0] for c in house_choices}
+
+    all_members = list(
+        ParliamentUser.objects
+        .select_related('big_brother')
+        .order_by('name')
+    )
+
+    member_by_id = {m.user_id: m for m in all_members}
+
+    # Build little_map: big_user_id -> [little_member, ...]
+    all_little_map = {}
+    for m in all_members:
+        if m.big_brother_id:
+            all_little_map.setdefault(m.big_brother_id, []).append(m)
+
+    members_by_house = {}
+    for m in all_members:
+        if m.house in house_codes:
+            members_by_house.setdefault(m.house, []).append(m)
+
+    houses = []
+
+    for code, label in house_choices:
+        house_members = members_by_house.get(code, [])
+
+        # Extend upward: include houseless ancestors of house-assigned members
+        implied = _find_implied_members(house_members, member_by_id)
+
+        # Roots: in the implied set, but whose big is NOT also implied
+        roots = [
+            m for m in implied.values()
+            if not m.big_brother_id or m.big_brother_id not in implied
+        ]
+        roots.sort(key=lambda m: m.get_display_name())
+
+        trees = [_build_tree(r, all_little_map, code) for r in roots]
+
+        total = sum(_count_tree(t) for t in trees)
+        active = sum(1 for m in house_members if m.member_status == 'Active')
+
+        houses.append({
+            'code': code,
+            'label': label,
+            'total': total,
+            'active': active,
+            'trees': trees,
+        })
+
+    # v3.41.0: computed from the rows already loaded (no COUNT query). Leaves
+    # out Removed members and the 1800s original founders — nobody knows
+    # their houses, so they'd sit here forever.
+    unassigned = [
+        m for m in all_members
+        if not m.house and m.member_status != 'Removed'
+        and not is_original_founder(m.pledge_class, m.pledge_class_greek)
+    ]
+    return houses, all_members, unassigned
+
+
 @login_required
 @require_page_enabled('house_map')
 @log_function_call
@@ -105,68 +189,12 @@ def house_map(request):
         return redirect('house_map')
 
     house_choices = ParliamentUser.HOUSE_CHOICES
-    house_codes = {c[0] for c in house_choices}
-
-    all_members = list(
-        ParliamentUser.objects
-        .select_related('big_brother')
-        .order_by('name')
-    )
-
-    member_by_id = {m.user_id: m for m in all_members}
-
-    # Build little_map: big_user_id -> [little_member, ...]
-    all_little_map = {}
-    for m in all_members:
-        if m.big_brother_id:
-            all_little_map.setdefault(m.big_brother_id, []).append(m)
-
-    members_by_house = {}
-    for m in all_members:
-        if m.house in house_codes:
-            members_by_house.setdefault(m.house, []).append(m)
-
-    houses_template = []
-    houses_js = []
-
-    for code, label in house_choices:
-        house_members = members_by_house.get(code, [])
-
-        # Extend upward: include houseless ancestors of house-assigned members
-        implied = _find_implied_members(house_members, member_by_id)
-
-        # Roots: in the implied set, but whose big is NOT also implied
-        roots = [
-            m for m in implied.values()
-            if not m.big_brother_id or m.big_brother_id not in implied
-        ]
-        roots.sort(key=lambda m: m.get_display_name())
-
-        trees = [_build_tree(r, all_little_map, code) for r in roots]
-
-        total = sum(_count_tree(t) for t in trees)
-        active = sum(1 for m in house_members if m.member_status == 'Active')
-
-        houses_template.append({
-            'code': code,
-            'label': label,
-            'total': total,
-            'active': active,
-        })
-
-        houses_js.append({
-            'code': code,
-            'trees': trees,
-        })
-
-    # v3.41.0: computed from the rows already loaded (no COUNT query). Leaves
-    # out Removed members and the 1800s original founders — nobody knows
-    # their houses, so they'd sit here forever.
-    unassigned = [
-        m for m in all_members
-        if not m.house and m.member_status != 'Removed'
-        and not is_original_founder(m.pledge_class, m.pledge_class_greek)
+    houses, all_members, unassigned = house_map_data()
+    houses_template = [
+        {k: h[k] for k in ('code', 'label', 'total', 'active')} for h in houses
     ]
+    houses_js = [{'code': h['code'], 'trees': h['trees']} for h in houses]
+
     can_set_house = _can_set_house(request.user)
 
     # Quick-manage panel data (house managers only): who's unassigned, plus

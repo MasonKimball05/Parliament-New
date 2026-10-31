@@ -15,6 +15,7 @@ from src.mobile import (
     views_agendas, views_committee_minutes, views_minutes, views_pledge, views_slating, views_songbook,
     views_votes, views_legislation_history, views_preferences,
     views_roberts_rules, views_profile, views_groupme, views_support,
+    views_house_map, views_kai, views_support_history, views_passed_legislation, views_search,
 )
 
 app_name = 'mobile'
@@ -172,6 +173,10 @@ urlpatterns = [
     # Report a bug + Feedback (v4.4.0, src/mobile/views_support.py)
     path('support/bug-report/', views_support.BugReportView.as_view(), name='mobile_bug_report'),
     path('support/feedback/', views_support.FeedbackView.as_view(), name='mobile_feedback'),
+    # My bug reports, My submissions, Ideas board (v4.4.0, views_support_history.py)
+    path('support/bug-reports/', views_support_history.MyBugReportsView.as_view(), name='mobile_my_bug_reports'),
+    path('support/feedback/mine/', views_support_history.MyFeedbackView.as_view(), name='mobile_my_feedback'),
+    path('support/feedback/ideas/', views_support_history.FeedbackIdeasView.as_view(), name='mobile_feedback_ideas'),
     # GroupMe bot dashboard (v4.4.0, src/mobile/views_groupme.py)
     path('officer/groupme/', views_groupme.GroupMeDashboardView.as_view(), name='mobile_groupme'),
     path('officer/groupme/settings/', views_groupme.GroupMeSettingsView.as_view(), name='mobile_groupme_settings'),
@@ -203,6 +208,16 @@ urlpatterns = [
     path('profile/academics/<str:kind>/<int:index>/', views_profile.AcademicItemView.as_view(),
          name='mobile_profile_academic'),
     path('roberts-rules/', views_roberts_rules.RobertsRulesView.as_view(), name='mobile_roberts_rules'),  # v4.4.0
+    path('house-map/', views_house_map.HouseMapView.as_view(), name='mobile_house_map'),  # v4.4.0
+    path('search/', views_search.SearchView.as_view(), name='mobile_search'),  # v4.4.0
+    # Legislation tracker (v4.4.0, views_passed_legislation.py)
+    path('legislation/passed/', views_passed_legislation.PassedLegislationView.as_view(),
+         name='mobile_passed_legislation'),
+    path('legislation/passed/<int:legislation_id>/', views_passed_legislation.PassedLegislationDetailView.as_view(),
+         name='mobile_passed_legislation_detail'),
+    # My Kai reports (v4.4.0, views_kai.py)
+    path('kai/', views_kai.KaiDashboardView.as_view(), name='mobile_kai'),
+    path('kai/reports/<int:report_id>/', views_kai.KaiReportView.as_view(), name='mobile_kai_report'),
     path('preferences/', views_preferences.PreferencesView.as_view(), name='mobile_preferences'),  # v4.4.0
     # My Work / legislation history (src/mobile/views_legislation_history.py, v4.4.0)
     path('legislation/history/', views_legislation_history.LegislationHistoryView.as_view(),

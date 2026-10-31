@@ -57,6 +57,16 @@ def _song_json(song):
     }
 
 
+def _my_completion_json(c):
+    # The education side's completion, plus what this page shows of it:
+    # "Completed Oct 3" and the score's percentage (which colours the pill).
+    out = _completion_json(c)
+    if out is not None:
+        out['completed_at'] = c.completed_at.isoformat() if c.completed_at else None
+        out['score_percent'] = c.score_percent
+    return out
+
+
 def _absence_json(req):
     if req is None:
         return None
@@ -95,7 +105,7 @@ class MyTasksView(_PledgeView):
                 'required_total': g['required_total'],
                 'tasks': [{
                     **_task_json(i['task']),
-                    'completion': _completion_json(i['completion']),
+                    'completion': _my_completion_json(i['completion']),
                     'overdue': i['overdue'],
                     'points_earned': i['points_earned'],
                     'points_scaled': i['points_scaled'],
@@ -106,7 +116,9 @@ class MyTasksView(_PledgeView):
             'upcoming_meetings': [{
                 **_meeting_json(m),
                 'description': m.event.description or '',
-                'homework': [{'id': t.id, 'title': t.title} for t in m.homework.all()],
+                'homework': [{'id': t.id, 'title': t.title,
+                              'due_date': t.due_date.isoformat() if t.due_date else None}
+                             for t in m.homework.all()],
                 'absence_request': _absence_json(m.my_absence_request),
             } for m in ctx['upcoming_meetings']],
             'attendance': [{

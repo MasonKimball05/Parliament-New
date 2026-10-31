@@ -178,22 +178,23 @@ def my_feedback_requests(request):
     View the user's own feedback submissions — both feature ideas and
     support tickets together, private to them (same as my_bug_reports).
     """
-    feedback_requests = FeedbackRequest.objects.filter(submitted_by=request.user).order_by('-submitted_at')
-    return render(request, 'my_feedback_requests.html', {'feedback_requests': feedback_requests})
+    return render(request, 'my_feedback_requests.html', {'feedback_requests': own_feedback_requests(request.user)})
 
 
-@login_required
-def feedback_tracker(request):
+def own_feedback_requests(user):
+    """A member's own ideas and tickets, newest first: my_feedback_requests and
+    the app's list (src/mobile/views_support_history.py)."""
+    return FeedbackRequest.objects.filter(submitted_by=user).order_by('-submitted_at')
+
+
+def feature_ideas(status_filter='', priority_filter=''):
     """
-    Public feature-ideas board. Support tickets are NEVER listed here —
-    filtered out at the queryset level, not just hidden in the template,
-    since a ticket can carry the kind of personal detail ("I'm locked out of
-    my account because...") nobody else in the chapter should see.
+    The ideas board's rows (feedback_tracker, and the app's board in
+    src/mobile/views_support_history.py): feature ideas only, never support
+    tickets, in progress first, then acknowledged, new, resolved, won't do,
+    duplicate; newest first within each.
     """
     from django.db.models import Case, When, Value, IntegerField
-
-    status_filter = request.GET.get('status', '')
-    priority_filter = request.GET.get('priority', '')
 
     status_order = Case(
         When(status='in_progress', then=Value(1)),
@@ -214,14 +215,38 @@ def feedback_tracker(request):
         ideas = ideas.filter(status=status_filter)
     if priority_filter:
         ideas = ideas.filter(priority=priority_filter)
+    return ideas
 
+
+def feature_idea_counts():
+    """The board's four summary cards (unfiltered)."""
     idea_base = FeedbackRequest.objects.filter(request_type='feature_idea')
-    total_count = idea_base.count()
-    new_count = idea_base.filter(status='new').count()
-    in_progress_count = idea_base.filter(status__in=['acknowledged', 'in_progress']).count()
-    resolved_count = idea_base.filter(status='resolved').count()
+    return {
+        'total_count': idea_base.count(),
+        'new_count': idea_base.filter(status='new').count(),
+        'in_progress_count': idea_base.filter(status__in=['acknowledged', 'in_progress']).count(),
+        'resolved_count': idea_base.filter(status='resolved').count(),
+    }
 
-    can_manage = str(request.user.user_id) == '73'
+
+def can_manage_feedback(user):
+    """The feedback admin (user_id 73), as feedback_tracker decides it."""
+    return str(user.user_id) == '73'
+
+
+@login_required
+def feedback_tracker(request):
+    """
+    Public feature-ideas board. Support tickets are NEVER listed here —
+    filtered out at the queryset level, not just hidden in the template,
+    since a ticket can carry the kind of personal detail ("I'm locked out of
+    my account because...") nobody else in the chapter should see.
+    """
+    status_filter = request.GET.get('status', '')
+    priority_filter = request.GET.get('priority', '')
+
+    ideas = feature_ideas(status_filter, priority_filter)
+    can_manage = can_manage_feedback(request.user)
 
     context = {
         'feedback_requests': ideas,
@@ -229,10 +254,7 @@ def feedback_tracker(request):
         'priority_choices': FeedbackRequest.PRIORITY_CHOICES,
         'current_status': status_filter,
         'current_priority': priority_filter,
-        'total_count': total_count,
-        'new_count': new_count,
-        'in_progress_count': in_progress_count,
-        'resolved_count': resolved_count,
+        **feature_idea_counts(),
         'can_manage': can_manage,
     }
     return render(request, 'feedback_tracker.html', context)

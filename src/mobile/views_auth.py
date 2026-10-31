@@ -517,7 +517,7 @@ class MeView(MobileAPIView):
         flags = FeatureFlag.resolve_many([
             'chats', 'legislation_voting', 'committee_voting', 'calendar_subscriptions',
             'announcements', 'attendance_tracking', 'event_attendance', 'qr_attendance_checkin',
-            'location_checkin', 'meeting_agendas'])
+            'location_checkin', 'meeting_agendas', 'global_search'])
         return Response({
             'user_id': str(user.user_id),
             'username': user.username,
@@ -551,6 +551,8 @@ class MeView(MobileAPIView):
                                      and flags['location_checkin']),
                 # Meeting agendas (agendas/; the web pages' only gate).
                 'meeting_agendas': flags['meeting_agendas'],
+                # Search (v4.4.0; search/ and the web page's only gate).
+                'global_search': flags['global_search'],
             },
             'pages': {
                 'home': PageToggle.is_page_enabled('home'),
@@ -558,6 +560,7 @@ class MeView(MobileAPIView):
                 'calendar': PageToggle.is_page_enabled('calendar'),
                 'chat_index': PageToggle.is_page_enabled('chat_index'),
                 'quote_book': PageToggle.is_page_enabled('quote_book'),
+                'house_map': PageToggle.is_page_enabled('house_map'),  # v4.4.0
             },
             'links': _links(user),
             'app_update': app_update(device.platform),

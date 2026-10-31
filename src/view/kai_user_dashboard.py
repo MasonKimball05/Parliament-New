@@ -30,15 +30,15 @@ ELIGIBLE_OUTCOMES = [
 ]
 
 
-@login_required
-def user_kai_dashboard(request):
+def member_dashboard(user):
     """
-    User's personal Kai dashboard showing their submitted reports
-    and reports where they are the accused.
-    This is the main entry point when clicking the Kai button on home page.
-    """
-    user = request.user
+    What the member's Kai dashboard lists for ``user``: the cases they filed,
+    the cases they're named in (once addressed), their pending requests, the
+    cases they stand in on, and whether they may open the review list.
 
+    The one definition of the dashboard's who-sees-what, shared by
+    ``user_kai_dashboard`` and the app (``src/mobile/views_kai.py``).
+    """
     # Get all reports submitted by this user
     submitted_reports = KaiReport.objects.filter(
         submitted_by=user
@@ -82,7 +82,7 @@ def user_kai_dashboard(request):
         .order_by('-appointed_at', '-created_at')
     )
 
-    context = {
+    return {
         'submitted_reports': submitted_reports,
         'accused_reports': accused_reports,
         'pending_closures': pending_closures,
@@ -90,27 +90,28 @@ def user_kai_dashboard(request):
         'standin_recusals': standin_recusals,
     }
 
-    return render(request, 'kai/user_dashboard.html', context)
-
 
 @login_required
-def user_view_report(request, report_id):
+def user_kai_dashboard(request):
     """
-    User view of their own submitted report details.
-    Shows status, dates, deliberation outcome, and custom field responses.
-    Also accessible by the accused user (targeted_to).
+    User's personal Kai dashboard showing their submitted reports
+    and reports where they are the accused.
+    This is the main entry point when clicking the Kai button on home page.
     """
-    user = request.user
+    return render(request, 'kai/user_dashboard.html', member_dashboard(request.user))
 
-    # Allow access if user is submitter or accused
-    report = get_object_or_404(
-        KaiReport,
-        Q(submitted_by=user) | Q(targeted_to=user),
-        id=report_id
-    )
 
-    is_submitter = report.submitted_by == user
-    is_accused = report.targeted_to == user
+def member_report_context(report, user):
+    """
+    Everything the member's view of one case shows ``user`` (its submitter or
+    the accused): custom responses, requests, the redacted activity feed, the
+    closure / drop / appeal eligibility and the appeal window.
+
+    Shared by ``user_view_report`` and the app (``src/mobile/views_kai.py``).
+    The caller has already scoped ``report`` to the user.
+    """
+    is_submitter = report.submitted_by_id == user.pk
+    is_accused = report.targeted_to_id == user.pk
 
     # Get custom field responses
     custom_responses = report.custom_responses.select_related('field').order_by(
@@ -144,7 +145,7 @@ def user_view_report(request, report_id):
 
     can_appeal, appeal_reason = KaiAppeal.can_file(report, user)
 
-    context = {
+    return {
         'report': report,
         'custom_responses': custom_responses,
         'closure_requests': closure_requests,
@@ -168,7 +169,24 @@ def user_view_report(request, report_id):
         'appeals': report.appeals.select_related('filed_by').defer(*member_defer('filed_by')),
     }
 
-    return render(request, 'kai/user_view_report.html', context)
+
+@login_required
+def user_view_report(request, report_id):
+    """
+    User view of their own submitted report details.
+    Shows status, dates, deliberation outcome, and custom field responses.
+    Also accessible by the accused user (targeted_to).
+    """
+    user = request.user
+
+    # Allow access if user is submitter or accused
+    report = get_object_or_404(
+        KaiReport,
+        Q(submitted_by=user) | Q(targeted_to=user),
+        id=report_id
+    )
+
+    return render(request, 'kai/user_view_report.html', member_report_context(report, user))
 
 
 @login_required

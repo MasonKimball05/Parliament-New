@@ -91,6 +91,16 @@ Governed **only** by in-app `KaiMemberPermission` grants. All seven Kai models
 are deliberately unregistered from `/admin/`, so the admin columns are ➖ by
 design — that gap is intentional and must not be "fixed".
 
+**API (v4.4.0):** the ➖ in the API column predates `src/mobile/views_kai.py`,
+the app's member view of `/kai/` and `/kai/my-report/<id>/`. It sends a member
+only their own cases (`member_dashboard` / `member_report_context`, shared with
+the web views): `targeted_to` to both parties as the pages do, **never
+`submitted_by` to the accused**, activity as label and time only (no `details`,
+no author, no notes rows), and a pending case 404s to the accused (the
+dashboard's rule; the web case page itself still loads it). Search's Kai group
+(`src/mobile/views_search.py`) goes through `search_everything`, the web
+search's own function, so `_kai_search_q` and recusal apply unchanged.
+
 | Field | In-app | Filter/search | CSV | Bulk | Admin | Admin CSV | API | Search | Dev rows | Case activity | Audit log |
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | `KaiReport.description` | ✅ `can_view_report_details` | ✅ `_kai_search_q` + `redacted_case_ids` | ✅ `_kai_csv_row` | ✅ `_kai_csv_row` | ➖ | ➖ | ➖ | ✅ gated on `_get_kai_access` | ➖ withheld | ➖ never in `details` | ➖ never in a description |
