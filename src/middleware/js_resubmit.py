@@ -75,6 +75,9 @@ _RESUBMIT_HEADER_KEY = 'HTTP_X_PARLIAMENT_RESUBMIT'
 #: to relay" rather than passing through for the browser to follow.
 _REDIRECT_STATUSES = (301, 302, 303, 307, 308)
 
+#: Shown when the view re-rendered the form in place and said nothing.
+_NOT_SAVED_TEXT = 'Your submission was not saved. Please check the form and try again.'
+
 
 class JsResubmitEnvelopeMiddleware:
     """
@@ -134,6 +137,14 @@ class JsResubmitEnvelopeMiddleware:
                     'text': str(message),
                     'level': message.tags or 'info',
                 })
+
+        # v4.3.0 — a view that re-rendered in place without queuing a
+        # message (a form whose errors only appear beside its fields) gave
+        # the JS nothing to show and nowhere to go: the submit did nothing.
+        # Views should call `src.utils.form_messages.queue_form_errors`;
+        # this is the backstop for one that doesn't.
+        if redirect_to is None and not payload_messages:
+            payload_messages.append({'text': _NOT_SAVED_TEXT, 'level': 'error'})
 
         return JsonResponse({
             'redirect': redirect_to,

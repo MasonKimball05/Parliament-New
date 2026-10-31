@@ -23,6 +23,8 @@ survives exactly once, not zero times (the bug) and not twice (the
 naive "just don't consume it" non-fix, which would double-show it on
 whatever page the browser's own subsequent navigation lands on).
 """
+import json
+
 from django.conf import settings
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client, TestCase
@@ -210,3 +212,92 @@ class PassthroughTests(TestCase):
         )
         self.assertEqual(response.status_code, 403)
         self.assertNotEqual(response.get('Content-Type', '').split(';')[0], 'application/json')
+
+
+class FormErrorsReachTheEnvelopeTests(TestCase):
+    """
+    v4.3.0 — these file-upload views re-rendered an invalid form with its
+    errors beside the fields and queued no message, so the envelope came
+    back `{redirect: null, messages: []}` and the submit did nothing on
+    screen. Each now queues its form errors (`queue_form_errors`).
+    """
+
+    def setUp(self):
+        from datetime import date, timedelta
+        from decimal import Decimal
+        from src.models import PassedResolution, ServiceHoursSubmission, ServicePeriod, Song
+
+        self.admin = make_user('resubmit-admin', member_type='Officer', is_admin=True)
+        self.client = Client()
+        self.client.force_login(self.admin)
+        today = date.today()
+        self.period = ServicePeriod.objects.create(
+            name='Envelope Period', start_date=today - timedelta(days=30),
+            end_date=today + timedelta(days=30), default_hours_required=Decimal('10.00'),
+        )
+        self.song = Song.objects.create(title='Alma Mater', lyrics='La la')
+        self.resolution = PassedResolution.objects.create(
+            title='R1', description='d', date_passed=today)
+        self.submission = ServiceHoursSubmission.objects.create(
+            period=self.period, submitted_by=self.admin, hours=Decimal('2'),
+            service_date=today, organization='Food bank', description='Sorting', status='pending')
+
+    def _envelope(self, url, data):
+        response = self.client.post(url, data, **RESUBMIT_HEADER)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response['Content-Type'].split(';')[0], 'application/json')
+        envelope = response.json()
+        self.assertIsNone(envelope['redirect'])
+        return envelope['messages']
+
+    def assert_says(self, url, data, text):
+        found = self._envelope(url, data)
+        self.assertTrue(found, f'{url}: no message in the envelope')
+        self.assertTrue(all(m['level'] == 'error' for m in found))
+        self.assertTrue(any(text in m['text'] for m in found), found)
+
+    def test_songbook(self):
+        self.assert_says(reverse('song_create'), {'lyrics': 'x'}, 'This field is required.')
+        self.assert_says(reverse('song_edit', args=[self.song.pk]), {'lyrics': 'x'}, 'This field is required.')
+
+    def test_resolutions(self):
+        self.assert_says(reverse('create_resolution'), {'title': 'R'}, 'This field is required.')
+        self.assert_says(reverse('edit_resolution', args=[self.resolution.pk]), {'title': 'R'}, 'This field is required.')
+
+    def test_service_hours(self):
+        data = {'period': self.period.pk, 'organization': 'Food bank', 'description': 'Sorting'}
+        self.assert_says(reverse('submit_service_hours'), data, 'This field is required.')
+        self.assert_says(reverse('edit_service_submission', args=[self.submission.pk]), data, 'This field is required.')
+
+    def test_kai_forms(self):
+        self.assert_says(reverse('submit_kai_commendation'), {'title': 'Great', 'description': 'd'}, 'This field is required.')
+        self.assert_says(reverse('submit_kai_report'), {}, 'This field is required.')
+
+    def test_the_message_names_the_field(self):
+        found = self._envelope(reverse('song_create'), {'lyrics': 'x'})
+        self.assertTrue(any(m['text'].startswith('Song Title:') for m in found), found)
+
+
+class SilentRenderFallbackTests(TestCase):
+    """A view that re-renders in place and queues nothing still gets a toast."""
+
+    def _call(self, response):
+        from django.http import HttpResponse
+        from django.test import RequestFactory
+        from src.middleware.js_resubmit import JsResubmitEnvelopeMiddleware
+
+        request = RequestFactory().post(reverse('song_create'), **RESUBMIT_HEADER)
+        result = JsResubmitEnvelopeMiddleware(lambda r: response or HttpResponse('<form></form>'))(request)
+        return json.loads(result.content)
+
+    def test_a_silent_render_gets_the_not_saved_message(self):
+        data = self._call(None)
+        self.assertIsNone(data['redirect'])
+        self.assertEqual(len(data['messages']), 1)
+        self.assertEqual(data['messages'][0]['level'], 'error')
+        self.assertIn('not saved', data['messages'][0]['text'])
+
+    def test_a_silent_redirect_gets_no_message(self):
+        from django.http import HttpResponseRedirect
+        data = self._call(HttpResponseRedirect(reverse('songbook')))
+        self.assertEqual(data, {'redirect': reverse('songbook'), 'messages': []})

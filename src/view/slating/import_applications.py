@@ -33,6 +33,7 @@ def _context(period, **extra):
         'kind_options': ([('', '— Ignore —')] + list(si.FIXED_KINDS)
                          + [(f'field_{f.id}', f'Form field: {f.label}') for f in fields]),
         'positions': list(period.positions.filter(is_active=True).order_by('display_order')),
+        'max_bytes': si.MAX_BYTES,
         **extra,
     }
 
@@ -47,12 +48,20 @@ def import_applications(request, period_id):
     step = request.POST.get('step')
     try:
         if step == 'upload':
+            # The page reads the file in the browser and posts its text
+            # (`csv_text`): a form holding a file input is resent by
+            # core.js's CSRF guard over fetch(), which follows only a
+            # redirect and dropped this step's page, so "Continue" did
+            # nothing (v4.3.0). The file itself is still accepted.
             upload = request.FILES.get('csv_file')
-            if upload is None:
-                raise si.ImportError_('Choose a CSV file to upload.')
-            if upload.size > si.MAX_BYTES:
-                raise si.ImportError_('That file is larger than 2 MB.')
-            csv_text = si.decode(upload.read())
+            if upload is not None:
+                if upload.size > si.MAX_BYTES:
+                    raise si.ImportError_('That file is larger than 2 MB.')
+                csv_text = si.decode(upload.read())
+            else:
+                csv_text = request.POST.get('csv_text', '').lstrip('﻿')
+                if not csv_text.strip():
+                    raise si.ImportError_('Choose a CSV file to upload.')
         else:
             csv_text = request.POST.get('csv_text', '')
         headers, rows = si.parse_csv(csv_text)
@@ -80,7 +89,7 @@ def import_applications(request, period_id):
             return render(request, 'slating/import_applications.html', ctx)
 
     if step == 'preview':
-        items = si.plan(period, headers, rows, mapping, keep_unmapped)
+        items = si.plan(period, headers, rows, mapping, keep_unmapped, request.POST)
         ctx.update(step='preview', items=items,
                    not_asked=si.not_asked(period, mapping),
                    import_count=sum(1 for i in items if i['status'] == 'import'),
@@ -90,7 +99,7 @@ def import_applications(request, period_id):
     if step == 'import' and request.POST.get('confirmed') != '1':
         messages.error(request, "Tick the box confirming you've checked who is getting an "
                                 "application and what's in it.")
-        items = si.plan(period, headers, rows, mapping, keep_unmapped)
+        items = si.plan(period, headers, rows, mapping, keep_unmapped, request.POST)
         ctx.update(step='preview', items=items, not_asked=si.not_asked(period, mapping),
                    import_count=sum(1 for i in items if i['status'] == 'import'),
                    skip_count=sum(1 for i in items if i['status'] != 'import'))
@@ -98,7 +107,7 @@ def import_applications(request, period_id):
 
     if step == 'import':
         done, skipped = si.commit(period, headers, rows, mapping, keep_unmapped,
-                                  request.user, request)
+                                  request.user, request, request.POST)
         if done:
             messages.success(request, f'Imported {len(done)} application(s). '
                                       f'{len(skipped)} row(s) skipped.')

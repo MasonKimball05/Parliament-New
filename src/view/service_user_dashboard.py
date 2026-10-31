@@ -24,6 +24,7 @@ from src.models import (
     ServiceMemberExpectation
 )
 from src.forms import ServiceHoursSubmissionForm
+from src.utils.form_messages import queue_form_errors
 from src.models.users import member_defer
 
 logger = logging.getLogger('function_calls')
@@ -569,6 +570,7 @@ def submit_service_hours(request):
                 messages.success(request, f'Successfully submitted {submission.hours} service hours{auto_approved}.')
 
             return redirect('user_service_dashboard')
+        queue_form_errors(request, form)
     else:
         form = ServiceHoursSubmissionForm()
 
@@ -674,6 +676,7 @@ def edit_service_submission(request, submission_id):
                 messages.success(request, 'Submission updated successfully.')
 
             return redirect('user_service_dashboard')
+        queue_form_errors(request, form)
     else:
         form = ServiceHoursSubmissionForm(instance=submission)
 

@@ -44,7 +44,7 @@ Rules:
 import csv
 import io
 import re
-from datetime import datetime
+from datetime import datetime, timedelta, timezone as dt_timezone
 from decimal import Decimal, InvalidOperation
 
 from django.db import transaction
@@ -243,16 +243,40 @@ def _int(value):
 
 
 _TS_FORMATS = ('%m/%d/%Y %H:%M:%S', '%m/%d/%Y %H:%M', '%Y-%m-%d %H:%M:%S', '%Y-%m-%dT%H:%M:%S',
-               '%Y-%m-%d %H:%M', '%m/%d/%Y', '%Y-%m-%d')
+               '%Y-%m-%d %H:%M', '%Y-%m-%dT%H:%M', '%m/%d/%Y', '%Y-%m-%d',
+               # v4.3.0: Google Forms' own export ("2026/10/06 9:31:59 AM EST")
+               # and 12-hour times generally.
+               '%Y/%m/%d %I:%M:%S %p', '%Y/%m/%d %I:%M %p', '%Y/%m/%d %H:%M:%S', '%Y/%m/%d %H:%M',
+               '%Y/%m/%d', '%m/%d/%Y %I:%M:%S %p', '%m/%d/%Y %I:%M %p')
+
+#: Hours from UTC for the zone abbreviations a form export may end with.
+_TZ_HOURS = {'UTC': 0, 'GMT': 0, 'EST': -5, 'EDT': -4, 'CST': -6, 'CDT': -5, 'MST': -7,
+             'MDT': -6, 'PST': -8, 'PDT': -7, 'AKST': -9, 'AKDT': -8, 'HST': -10}
+_TZ_SUFFIX = re.compile(r'\s+(?:(?P<abbr>[A-Za-z]{2,4})|(?:GMT|UTC)(?P<sign>[+-])(?P<h>\d{1,2})(?::?(?P<m>\d{2}))?)$')
 
 
 def parse_timestamp(text):
+    """
+    A response time, or None. A trailing zone ("EST", "GMT-5") is honoured;
+    without one the time is taken as the site's local time.
+    """
     text = (text or '').strip()
+    tz = None
+    m = _TZ_SUFFIX.search(text)
+    if m and m.group('abbr') and m.group('abbr').upper() not in ('AM', 'PM'):
+        hours = _TZ_HOURS.get(m.group('abbr').upper())
+        if hours is None:
+            return None
+        tz, text = dt_timezone(timedelta(hours=hours)), text[:m.start()]
+    elif m and m.group('sign'):
+        offset = timedelta(hours=int(m.group('h')), minutes=int(m.group('m') or 0))
+        tz, text = dt_timezone(offset if m.group('sign') == '+' else -offset), text[:m.start()]
     for fmt in _TS_FORMATS:
         try:
-            return timezone.make_aware(datetime.strptime(text, fmt))
+            parsed = datetime.strptime(text, fmt)
         except ValueError:
             continue
+        return parsed.replace(tzinfo=tz) if tz else timezone.make_aware(parsed)
     return None
 
 
@@ -330,14 +354,17 @@ def _convert(field, text):
     return text, None
 
 
-def plan(period, headers, rows, mapping, keep_unmapped=True):
+def plan(period, headers, rows, mapping, keep_unmapped=True, fixes=None):
     """
     What importing would do, row by row. No writes. Returns a list of dicts:
     {row, applicant, status ('import'|'skip'), reason, warnings, positions,
-     gpa, submitted_at, answers {field: value}, notes}.
+     gpa, submitted_at, answers {field: value}, notes, fixed, fix}.
+
+    ``fixes`` is the preview's POST: positions, submitted time and GPA the
+    manager set by hand (see ``_apply_fixes``).
     """
     fields = {f.id: f for f in importable_fields(period)}
-    positions = list(period.positions.filter(is_active=True))
+    positions = list(period.positions.filter(is_active=True).order_by('display_order', 'id'))
     titles = {p.id: p.title for p in positions}
     id_col, id_kind = next(((i, k) for i, k in mapping.items() if k in IDENTITY_KINDS), (None, None))
     ts_col = next((i for i, k in mapping.items() if k == 'timestamp'), None)
@@ -418,8 +445,73 @@ def plan(period, headers, rows, mapping, keep_unmapped=True):
     _merge_per_member(out, titles)
     for item in out:
         if item['status'] == 'import':
+            _apply_fixes(item, fixes, positions)
             _finish(item, titles, required, questions, missing_ids)
     return out
+
+
+def _local_input(dt):
+    """A datetime as a ``datetime-local`` input's value."""
+    return timezone.localtime(dt).strftime('%Y-%m-%dT%H:%M') if dt else ''
+
+
+def _apply_fixes(item, fixes, positions):
+    """
+    Corrections typed on the preview (v4.3.0), for what the CSV got wrong:
+    positions, submitted time and GPA. Each control posts its value
+    (``fix_<member>_…``) beside the value the CSV gave (``was_<member>_…``);
+    only a value that differs is a correction. So remapping a column and
+    previewing again still re-reads the CSV, and the import, which re-plans
+    from the POST, applies the same corrections the preview showed.
+
+    Also leaves ``item['fix']``: what the page's controls start from.
+    """
+    pk = item['applicant'].pk
+    tier_of = {pid: t for t in TIERS for pid in item['positions'].get(t, [])}
+    parsed = {'submitted': _local_input(item['submitted_at']),
+              'gpa': '' if item['gpa'] is None else str(item['gpa'].normalize()),
+              'positions': {p.id: tier_of.get(p.id, '') for p in positions}}
+    item['fixed'] = []
+    get = (fixes or {}).get
+
+    def changed(key):
+        was = get(f'was_{pk}_{key}')
+        return was is not None and get(f'fix_{pk}_{key}', '').strip() != was
+
+    if any(changed(f'pos_{p.id}') for p in positions):
+        chosen = {t: [] for t in TIERS}
+        for p in positions:
+            tier = get(f'fix_{pk}_pos_{p.id}', '')
+            if tier in chosen:
+                chosen[tier].append(p.id)
+        item['positions'] = {t: ids for t, ids in chosen.items() if ids}
+        item['warnings'] = [w for w in item['warnings'] if not w.startswith('Unrecognised position text')]
+        item['fixed'].append('positions')
+    if changed('submitted'):
+        item['submitted_at'] = parse_timestamp(get(f'fix_{pk}_submitted'))
+        item['warnings'] = [w for w in item['warnings'] if not w.startswith("Couldn't read the timestamp")]
+        item['fixed'].append('submitted time')
+    if changed('gpa'):
+        raw = get(f'fix_{pk}_gpa', '').strip()
+        item['warnings'] = [w for w in item['warnings']
+                            if not w.startswith(('GPA "', 'Different GPAs'))]
+        try:
+            gpa = Decimal(raw) if raw else None
+            if gpa is not None and not Decimal('0') <= gpa <= Decimal('5'):
+                raise InvalidOperation
+            item['gpa'] = None if gpa is None else gpa.quantize(Decimal('0.001'))
+        except InvalidOperation:
+            item['gpa'] = None
+            item['warnings'].append(f'GPA "{raw}" isn\'t a number from 0 to 5 (left blank).')
+        item['fixed'].append('GPA')
+
+    tier_of = {pid: t for t in TIERS for pid in item['positions'].get(t, [])}
+    item['fix'] = {
+        'submitted': _local_input(item['submitted_at']), 'was_submitted': parsed['submitted'],
+        'gpa': '' if item['gpa'] is None else str(item['gpa'].normalize()), 'was_gpa': parsed['gpa'],
+        'positions': [{'id': p.id, 'title': p.title, 'tier': tier_of.get(p.id, ''),
+                       'was': parsed['positions'][p.id]} for p in positions],
+    }
 
 
 TIERS = ('first_choice', 'second_choice', 'third_choice', 'do_not_want')
@@ -579,12 +671,12 @@ def _finish(item, titles, required, questions, missing_ids):
     item['review'] = review
 
 
-def commit(period, headers, rows, mapping, keep_unmapped, imported_by, request=None):
+def commit(period, headers, rows, mapping, keep_unmapped, imported_by, request=None, fixes=None):
     """Write the rows ``plan`` marks for import. Returns (imported, skipped)."""
     from src.models import (
         ActivityLog, SlatingActivity, SlatingApplication, SlatingApplicationResponse,
     )
-    items = plan(period, headers, rows, mapping, keep_unmapped)
+    items = plan(period, headers, rows, mapping, keep_unmapped, fixes)
     ready = [i for i in items if i['status'] == 'import']
     not_asked_labels = [f.label for f in not_asked(period, mapping)]
     now = timezone.now()
@@ -603,6 +695,8 @@ def commit(period, headers, rows, mapping, keep_unmapped, imported_by, request=N
                      'spreadsheet rows ' + ', '.join(str(r) for r in rows_used) + ', combined')
             notes = [f'Imported from an outside form by {imported_by.get_display_name()} on {stamp} '
                      f'({where}).']
+            if item['fixed']:
+                notes.append(f'Set by hand during the import: {", ".join(item["fixed"])}.')
             if item['notes']:
                 notes.append('Answers not matched to a form field:')
                 notes += [f'• {q}: {a}' for q, a in item['notes']]

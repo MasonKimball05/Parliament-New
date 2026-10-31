@@ -19,6 +19,7 @@ from src.forms import KaiReportForm
 from src.decorators import log_function_call
 from src.feature_flag_decorators import require_feature_flag
 from src.utils.file_validation import validate_uploaded_file
+from src.utils.form_messages import queue_form_errors
 from src.models.users import member_defer
 
 logger = logging.getLogger('src')
@@ -200,6 +201,7 @@ Please log in to the Kai Committee page to review this report.
 
                 messages.success(request, 'Your Kai report has been submitted successfully! The Kai chair(s) have been notified.')
                 return redirect('home')
+            queue_form_errors(request, form)
         else:
             form = KaiReportForm()
 

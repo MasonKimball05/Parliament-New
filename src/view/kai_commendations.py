@@ -28,6 +28,7 @@ from src.models import (
     KaiCommendationFieldResponse, KaiFormField, ParliamentUser,
 )
 from src.utils.file_validation import validate_uploaded_file
+from src.utils.form_messages import queue_form_errors
 
 logger = logging.getLogger('src')
 
@@ -130,6 +131,7 @@ def submit_kai_commendation(request):
                 'Your commendation has been submitted. The Kai chair(s) have been notified.',
             )
             return redirect('home')
+        queue_form_errors(request, form)
     else:
         form = KaiCommendationForm()
 
