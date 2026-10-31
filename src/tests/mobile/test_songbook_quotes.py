@@ -65,6 +65,8 @@ class SongbookTests(_Base):
         self.assertEqual([s['title'] for s in body['songs']], ['Marching Song'])   # inactive hidden
         s = body['songs'][0]
         self.assertEqual((s['first_line'], s['has_audio'], s['category_id']), ('We march on', True, self.hymns.id))
+        self.assertEqual(s['audio_ext'], '.mp3')                   # for the app's "Play all"
+        self.assertEqual(s['updated_at'], self.song.updated_at.isoformat())
         self.assertEqual(body['categories'][0]['color'], 'green')
         self.assertFalse(body['can_manage'])
 

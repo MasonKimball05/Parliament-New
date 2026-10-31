@@ -89,6 +89,10 @@ class SongbookView(MobileAPIView):
                 'title': s.title,
                 'category_id': s.category_id,
                 'has_audio': bool(s.audio_file),
+                # v4.4.0: what the app's "Play all" needs to fetch each recording
+                # (the same as the song's own page gives).
+                'audio_ext': (os.path.splitext(s.audio_file.name)[1].lower() or '.mp3') if s.audio_file else '',
+                'updated_at': s.updated_at.isoformat(),
                 # The first line, for the list (and so a search can match lyrics).
                 'first_line': next((ln.strip() for ln in s.lyrics.splitlines() if ln.strip()), ''),
                 'lyrics': s.lyrics,
