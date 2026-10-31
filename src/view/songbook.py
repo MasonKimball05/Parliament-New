@@ -15,6 +15,7 @@ import os
 import logging
 import mimetypes
 from src.models.users import member_defer
+from src.utils.form_messages import queue_form_errors
 
 logger = logging.getLogger('function_calls')
 
@@ -154,6 +155,7 @@ def song_create(request):
             logger.info(f"{request.user.username} added song: {song.title}")
             messages.success(request, f'Song "{song.title}" has been added to the songbook.')
             return redirect('song_detail', pk=song.pk)
+        queue_form_errors(request, form)
     else:
         form = SongForm()
 
@@ -182,6 +184,7 @@ def song_edit(request, pk):
             logger.info(f"{request.user.username} edited song: {song.title}")
             messages.success(request, f'Song "{song.title}" has been updated.')
             return redirect('song_detail', pk=song.pk)
+        queue_form_errors(request, form)
     else:
         form = SongForm(instance=song)
 

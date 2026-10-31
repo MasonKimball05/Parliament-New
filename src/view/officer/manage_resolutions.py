@@ -7,6 +7,7 @@ from src.forms import PassedResolutionForm, ResolutionSectionImpactForm
 from src.decorators import admin_required
 from django.core.exceptions import ValidationError
 from src.utils.file_validation import validate_uploaded_file
+from src.utils.form_messages import queue_form_errors
 
 
 @login_required
@@ -44,6 +45,7 @@ def create_resolution(request):
             resolution.save()
             messages.success(request, f'Resolution "{resolution.title}" created successfully!')
             return redirect('manage_section_impacts', resolution_id=resolution.id)
+        queue_form_errors(request, form)
     else:
         form = PassedResolutionForm()
 
@@ -78,6 +80,7 @@ def edit_resolution(request, resolution_id):
             form.save()
             messages.success(request, f'Resolution "{resolution.title}" updated successfully!')
             return redirect('manage_resolutions')
+        queue_form_errors(request, form)
     else:
         form = PassedResolutionForm(instance=resolution)
 
