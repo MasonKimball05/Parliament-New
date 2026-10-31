@@ -124,12 +124,13 @@
             <div class="space-y-2">
                 {% for item in items %}
                 {% if item.status == 'import' %}
-                <details class="rounded-lg border border-gray-200 dark:border-gray-700">
+                <details class="rounded-lg border border-gray-200 dark:border-gray-700" {% if item.warnings or item.fixed %}open{% endif %}>
                     <summary class="cursor-pointer px-4 py-3 flex flex-wrap items-center gap-2 text-sm">
                         <span class="px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300">Import</span>
                         <span class="font-medium text-gray-900 dark:text-white">{{ item.applicant.get_display_name }}</span>
                         <span class="text-xs text-gray-500 dark:text-gray-400">{{ item.identity }} · {% if item.merged_rows|length > 1 %}combined from rows {{ item.merged_rows|join:", " }}{% else %}row {{ item.row }}{% endif %}</span>
                         {% if item.warnings %}<span class="text-xs text-yellow-700 dark:text-yellow-300">⚠ {{ item.warnings|length }} note{{ item.warnings|length|pluralize }}</span>{% endif %}
+                        {% if item.fixed %}<span class="text-xs text-primary-700 dark:text-primary-300">Fixed by hand: {{ item.fixed|join:", " }}</span>{% endif %}
                     </summary>
                     <div class="px-4 pb-4 space-y-3 text-sm">
                         {% for w in item.warnings %}<div class="text-yellow-700 dark:text-yellow-300">⚠ {{ w }}</div>{% endfor %}
@@ -161,6 +162,48 @@
                             </dd>
                             {% endif %}
                         </dl>
+                        {# v4.3.0: correct what the CSV got wrong. Each control posts beside the CSV's own value (was_…); only a change counts, and the import re-plans with the same POST. #}
+                        {% with pk=item.applicant.pk fix=item.fix %}
+                        <div class="rounded-md bg-gray-50 dark:bg-gray-700/40 p-3 space-y-3">
+                            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Fix this application</p>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <label class="block">
+                                    <span class="text-xs text-gray-500 dark:text-gray-400">Submitted (blank = now)</span>
+                                    <input type="datetime-local" name="fix_{{ pk }}_submitted" value="{{ fix.submitted }}"
+                                           class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white text-sm">
+                                    <input type="hidden" name="was_{{ pk }}_submitted" value="{{ fix.was_submitted }}">
+                                </label>
+                                <label class="block">
+                                    <span class="text-xs text-gray-500 dark:text-gray-400">GPA (0–5, blank = none)</span>
+                                    <input type="text" inputmode="decimal" name="fix_{{ pk }}_gpa" value="{{ fix.gpa }}"
+                                           class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white text-sm">
+                                    <input type="hidden" name="was_{{ pk }}_gpa" value="{{ fix.was_gpa }}">
+                                </label>
+                            </div>
+                            {% if fix.positions %}
+                            <div>
+                                <span class="text-xs text-gray-500 dark:text-gray-400">Positions</span>
+                                <div class="mt-1 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                    {% for p in fix.positions %}
+                                    <label class="flex items-center justify-between gap-2">
+                                        <span class="text-gray-900 dark:text-white">{{ p.title }}</span>
+                                        <select name="fix_{{ pk }}_pos_{{ p.id }}" class="rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white text-sm">
+                                            <option value="" {% if not p.tier %}selected{% endif %}>—</option>
+                                            <option value="first_choice" {% if p.tier == 'first_choice' %}selected{% endif %}>1st choice</option>
+                                            <option value="second_choice" {% if p.tier == 'second_choice' %}selected{% endif %}>2nd choice</option>
+                                            <option value="third_choice" {% if p.tier == 'third_choice' %}selected{% endif %}>3rd choice</option>
+                                            <option value="do_not_want" {% if p.tier == 'do_not_want' %}selected{% endif %}>Does not want</option>
+                                        </select>
+                                        <input type="hidden" name="was_{{ pk }}_pos_{{ p.id }}" value="{{ p.was }}">
+                                    </label>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                            {% endif %}
+                            <button type="submit" name="step" value="preview" formnovalidate class="inline-flex items-center px-3 py-1.5 rounded-md text-sm font-medium text-primary-700 dark:text-primary-300 bg-white dark:bg-gray-800 border border-primary-300 dark:border-primary-700 hover:bg-primary-50 dark:hover:bg-gray-700">Update preview</button>
+                            <p class="text-xs text-gray-500 dark:text-gray-400">Other answers can be corrected after the import with <em>Fill in answers</em> on the application.</p>
+                        </div>
+                        {% endwith %}
                     </div>
                 </details>
                 {% endif %}

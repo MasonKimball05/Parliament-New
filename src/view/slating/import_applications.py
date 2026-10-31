@@ -89,7 +89,7 @@ def import_applications(request, period_id):
             return render(request, 'slating/import_applications.html', ctx)
 
     if step == 'preview':
-        items = si.plan(period, headers, rows, mapping, keep_unmapped)
+        items = si.plan(period, headers, rows, mapping, keep_unmapped, request.POST)
         ctx.update(step='preview', items=items,
                    not_asked=si.not_asked(period, mapping),
                    import_count=sum(1 for i in items if i['status'] == 'import'),
@@ -99,7 +99,7 @@ def import_applications(request, period_id):
     if step == 'import' and request.POST.get('confirmed') != '1':
         messages.error(request, "Tick the box confirming you've checked who is getting an "
                                 "application and what's in it.")
-        items = si.plan(period, headers, rows, mapping, keep_unmapped)
+        items = si.plan(period, headers, rows, mapping, keep_unmapped, request.POST)
         ctx.update(step='preview', items=items, not_asked=si.not_asked(period, mapping),
                    import_count=sum(1 for i in items if i['status'] == 'import'),
                    skip_count=sum(1 for i in items if i['status'] != 'import'))
@@ -107,7 +107,7 @@ def import_applications(request, period_id):
 
     if step == 'import':
         done, skipped = si.commit(period, headers, rows, mapping, keep_unmapped,
-                                  request.user, request)
+                                  request.user, request, request.POST)
         if done:
             messages.success(request, f'Imported {len(done)} application(s). '
                                       f'{len(skipped)} row(s) skipped.')

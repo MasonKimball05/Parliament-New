@@ -321,3 +321,91 @@ class OneFormPerPositionTests(_Base):
         item = [i for i in r.context['items'] if i['status'] == 'import'][0]
         self.assertEqual(item['gpa'], Decimal('3.300'))
         self.assertTrue(any('Different GPAs' in w for w in item['warnings']))
+
+
+class TimestampTests(TestCase):
+    """v4.3.0: Google Forms' own export ends in a 12-hour time and a zone."""
+
+    def test_google_forms_export(self):
+        from datetime import datetime, timezone as dt_timezone
+        utc = datetime(2026, 10, 6, 14, 31, 59, tzinfo=dt_timezone.utc)
+        self.assertEqual(si.parse_timestamp('2026/10/06 9:31:59 AM EST'), utc)
+        self.assertEqual(si.parse_timestamp('2026/10/06 10:31:59 AM EDT'), utc)
+        self.assertEqual(si.parse_timestamp('2026/10/06 9:31:59 AM GMT-5'), utc)
+        self.assertEqual(si.parse_timestamp('10/06/2026 2:31:59 PM UTC'), utc)
+        self.assertIsNotNone(si.parse_timestamp('2026/10/06 9:31:59 AM'))
+        self.assertIsNone(si.parse_timestamp('2026/10/06 9:31:59 AM XYZ'))
+        self.assertIsNone(si.parse_timestamp('sometime'))
+
+
+class FixOnPreviewTests(_Base):
+    """v4.3.0: positions, submitted time and GPA can be corrected on the preview."""
+
+    CSV = ('Timestamp,Email Address,Position,GPA\n'
+           'yesterday,bravo@test.org,Recruitment brotherhood,abc\n')
+
+    def preview(self, **extra):
+        r = self.upload(self.CSV)
+        self.base = self.mapping_post(r, step='preview')
+        r = self.client.post(self.url, self.base)
+        self.item = [i for i in r.context['items'] if i['status'] == 'import'][0]
+        return r
+
+    def fixed_post(self, step, **extra):
+        pk = self.bravo.pk
+        data = dict(self.base, step=step)
+        fix = self.item['fix']
+        data[f'was_{pk}_submitted'] = fix['was_submitted']
+        data[f'fix_{pk}_submitted'] = fix['submitted']
+        data[f'was_{pk}_gpa'] = fix['was_gpa']
+        data[f'fix_{pk}_gpa'] = fix['gpa']
+        for p in fix['positions']:
+            data[f'was_{pk}_pos_{p["id"]}'] = p['was']
+            data[f'fix_{pk}_pos_{p["id"]}'] = p['tier']
+        data.update({k.replace('PK', str(pk)): v for k, v in extra.items()})
+        return data
+
+    def test_the_problems_show_with_controls(self):
+        r = self.preview()
+        self.assertTrue(any(w.startswith("Couldn't read the timestamp") for w in self.item['warnings']))
+        self.assertTrue(any(w.startswith('Unrecognised position text') for w in self.item['warnings']))
+        self.assertIn('No positions matched.', self.item['warnings'])
+        self.assertContains(r, f'name="fix_{self.bravo.pk}_pos_{self.pres.id}"')
+        self.assertContains(r, f'name="fix_{self.bravo.pk}_submitted"')
+
+    def test_unchanged_controls_change_nothing(self):
+        self.preview()
+        r = self.client.post(self.url, self.fixed_post('preview'))
+        item = [i for i in r.context['items'] if i['status'] == 'import'][0]
+        self.assertEqual(item['fixed'], [])
+        self.assertIn('No positions matched.', item['warnings'])
+
+    def test_fixes_clear_the_warnings_and_are_imported(self):
+        self.preview()
+        extra = {f'fix_PK_pos_{self.treas.id}': 'first_choice',
+                 f'fix_PK_pos_{self.pres.id}': 'do_not_want',
+                 'fix_PK_submitted': '2026-10-06T09:31', 'fix_PK_gpa': '3.25'}
+        r = self.client.post(self.url, self.fixed_post('preview', **extra))
+        item = [i for i in r.context['items'] if i['status'] == 'import'][0]
+        self.assertEqual(item['fixed'], ['positions', 'submitted time', 'GPA'])
+        self.assertEqual(item['warnings'], [])
+        self.assertContains(r, 'Fixed by hand: positions, submitted time, GPA')
+
+        self.client.post(self.url, self.fixed_post('import', confirmed='1', **extra))
+        app = SlatingApplication.objects.get(applicant=self.bravo)
+        self.assertEqual(app.position_preferences['first_choice'], [self.treas.id])
+        self.assertEqual(app.position_preferences['do_not_want'], [self.pres.id])
+        self.assertEqual(app.reported_gpa, Decimal('3.250'))
+        from django.utils import timezone
+        self.assertEqual(timezone.localtime(app.submitted_at).strftime('%Y-%m-%d %H:%M'), '2026-10-06 09:31')
+        self.assertIn('Set by hand during the import: positions, submitted time, GPA.', app.review_notes)
+
+    def test_a_remapped_column_is_read_again(self):
+        # The controls still hold the CSV's first reading; a new mapping wins.
+        self.preview()
+        data = self.fixed_post('preview')
+        data['col_2'] = ''   # stop reading the position column
+        r = self.client.post(self.url, data)
+        item = [i for i in r.context['items'] if i['status'] == 'import'][0]
+        self.assertEqual(item['fixed'], [])
+        self.assertFalse(any(w.startswith('Unrecognised') for w in item['warnings']))
