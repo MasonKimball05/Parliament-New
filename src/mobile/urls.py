@@ -16,6 +16,7 @@ from src.mobile import (
     views_votes, views_legislation_history, views_preferences,
     views_roberts_rules, views_profile, views_groupme, views_support,
     views_house_map, views_kai, views_support_history, views_passed_legislation, views_search,
+    views_role_kb, views_officer_events, views_service_hours, views_service_review, views_changelog,
 )
 
 app_name = 'mobile'
@@ -140,6 +141,22 @@ urlpatterns = [
          name='mobile_officer_poll_results'),
     path('officer/announcements/<int:announcement_id>/', views_officer.OfficerAnnouncementView.as_view(),
          name='mobile_officer_announcement'),
+    # All / archived events (v4.4.0, views_officer_events.py)
+    path('officer/events/all/', views_officer_events.OfficerAllEventsView.as_view(), name='mobile_officer_events_all'),
+    path('officer/events/archived/', views_officer_events.OfficerArchivedEventsView.as_view(),
+         name='mobile_officer_events_archived'),
+    path('officer/events/<int:event_id>/archive/', views_officer_events.OfficerArchiveEventView.as_view(),
+         name='mobile_officer_event_archive'),
+    path('officer/events/<int:event_id>/unarchive/', views_officer_events.OfficerUnarchiveEventView.as_view(),
+         name='mobile_officer_event_unarchive'),
+    # Service hours review (v4.4.0, views_service_review.py)
+    path('officer/service-hours/', views_service_review.ServiceDashboardView.as_view(), name='mobile_officer_service'),
+    path('officer/service-hours/submissions/', views_service_review.ServiceSubmissionListView.as_view(),
+         name='mobile_officer_service_submissions'),
+    path('officer/service-hours/submissions/bulk/', views_service_review.ServiceSubmissionBulkView.as_view(),
+         name='mobile_officer_service_bulk'),
+    path('officer/service-hours/submissions/<int:submission_id>/', views_service_review.ServiceSubmissionView.as_view(),
+         name='mobile_officer_service_submission'),
     path('officer/events/', views_officer.OfficerEventCreateView.as_view(), name='mobile_officer_events'),
     path('officer/events/<int:event_id>/', views_officer.OfficerEventView.as_view(), name='mobile_officer_event'),
     path('officer/events/<int:event_id>/attendance/', views_officer.OfficerAttendanceView.as_view(),
@@ -210,6 +227,18 @@ urlpatterns = [
     path('roberts-rules/', views_roberts_rules.RobertsRulesView.as_view(), name='mobile_roberts_rules'),  # v4.4.0
     path('house-map/', views_house_map.HouseMapView.as_view(), name='mobile_house_map'),  # v4.4.0
     path('search/', views_search.SearchView.as_view(), name='mobile_search'),  # v4.4.0
+    # Role knowledge base, What's new + roadmap (v4.4.0)
+    path('role-knowledge-base/', views_role_kb.RoleKnowledgeBaseIndexView.as_view(), name='role_kb_index'),
+    path('role-knowledge-base/<int:role_id>/', views_role_kb.RoleKnowledgeBaseView.as_view(), name='role_kb'),
+    path('changelog/', views_changelog.ChangelogView.as_view(), name='mobile_changelog'),
+    path('changelog/<str:version>/', views_changelog.ChangelogVersionView.as_view(), name='mobile_changelog_version'),
+    path('roadmap/', views_changelog.RoadmapView.as_view(), name='mobile_roadmap'),
+    # Logging service hours (v4.4.0, views_service_hours.py)
+    path('service-hours/form/', views_service_hours.ServiceHoursFormView.as_view(), name='mobile_service_hours_form'),
+    path('service-hours/submissions/', views_service_hours.ServiceSubmissionsView.as_view(),
+         name='mobile_service_submissions'),
+    path('service-hours/submissions/<int:submission_id>/', views_service_hours.ServiceSubmissionDetailView.as_view(),
+         name='mobile_service_submission'),
     # Legislation tracker (v4.4.0, views_passed_legislation.py)
     path('legislation/passed/', views_passed_legislation.PassedLegislationView.as_view(),
          name='mobile_passed_legislation'),

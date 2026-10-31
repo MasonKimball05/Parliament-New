@@ -6,6 +6,17 @@ from django.http import JsonResponse
 from django.views.decorators.http import require_POST
 from src.models import Event
 
+
+def set_event_archived(event, archived):
+    """
+    Archive (and hide) or unarchive (and show) an event. Shared with the app
+    (src/mobile/views_officer_events.py).
+    """
+    event.archived = archived
+    event.is_active = not archived
+    event.save()
+
+
 @login_required
 @admin_required
 @require_POST
@@ -13,9 +24,7 @@ def archive_event(request, event_id):
     """Archive an event - admin only"""
     event = get_object_or_404(Event, id=event_id)
 
-    event.archived = True
-    event.is_active = False
-    event.save()
+    set_event_archived(event, True)
 
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
         return JsonResponse({'success': True, 'archived': True})
@@ -30,9 +39,7 @@ def unarchive_event(request, event_id):
     """Unarchive an event - admin only"""
     event = get_object_or_404(Event, id=event_id)
 
-    event.archived = False
-    event.is_active = True
-    event.save()
+    set_event_archived(event, False)
 
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
         return JsonResponse({'success': True, 'archived': False})

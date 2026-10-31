@@ -47,9 +47,10 @@ from src.mobile.views_directory import photo_path
 from src.mobile.views_excuses_polls import BadRequest
 from src.models import (
     ActivityLog, Announcement, Attendance, AttendanceExcuse, CheckinPlace, Committee, ContactSubmission, Event,
+    ServiceHoursSubmission,
 )
 from src.models.users import member_defer
-from src.permissions import user_is_officer_or_chair
+from src.permissions import user_is_officer_or_chair, user_is_vpp
 from src.roll_call import roll_call_key
 
 PAGE_SIZE = 25
@@ -119,6 +120,7 @@ class OfficerHubView(_OfficerView):
     def get(self, request):
         now = timezone.now()
         attendance = list(_awaiting_attendance(now)[:10]) if _attendance_on() else []
+        can_review_service = user_is_vpp(request.user)
         return Response({
             'pending_excuses': (AttendanceExcuse.objects.filter(status='pending').count()
                                 if _excuses_on() else None),
@@ -127,6 +129,10 @@ class OfficerHubView(_OfficerView):
                            for e in attendance],
             'features': {'attendance': _attendance_on(), 'excuses': _excuses_on()},
             'unread_contact': ContactSubmission.objects.filter(is_read=False).count(),
+            # Service hours review (views_service_review): vpp_required's rule.
+            'can_review_service': can_review_service,
+            'pending_service': (ServiceHoursSubmission.objects.filter(status='pending').count()
+                                if can_review_service else None),
         })
 
 

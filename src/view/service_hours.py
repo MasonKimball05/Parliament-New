@@ -29,12 +29,16 @@ from src.models.users import member_defer
 logger = logging.getLogger('function_calls')
 
 
-@vpp_required
-def service_dashboard(request):
-    """
-    VPP analytics dashboard for service hours.
-    Shows statistics, charts, and recent submissions.
-    """
+# ── Shared with the app (src/mobile/views_service_review.py) ────────────────
+#
+# The dashboard, the submissions list and the approve/reject steps live in
+# these functions so the website and the app compute and record exactly the
+# same thing. The views below only add rendering, messages and redirects.
+
+def resolve_dashboard_period(selected_period_id=None):
+    """The period the dashboard shows: `?period=` if it exists, else the
+    active period covering today, else the latest active one. Returns
+    (period or None, every period newest first)."""
     # Get current period
     today = timezone.localdate()   # v3.17.4: calendar date, not UTC
     current_period = ServicePeriod.objects.filter(
@@ -50,12 +54,15 @@ def service_dashboard(request):
     all_periods = ServicePeriod.objects.all().order_by('-start_date')
 
     # Allow period selection via query param
-    selected_period_id = request.GET.get('period')
     if selected_period_id:
         selected_period = ServicePeriod.objects.filter(id=selected_period_id).first()
         if selected_period:
             current_period = selected_period
+    return current_period, all_periods
 
+
+def dashboard_data(current_period):
+    """(stats, member_progress, recent_submissions) for one period."""
     stats = {}
     member_progress = []
     recent_submissions = []
@@ -158,30 +165,14 @@ def service_dashboard(request):
             'submitted_by', 'reviewed_by'
         ).defer(*member_defer('submitted_by', 'reviewed_by')).order_by('-submitted_at')[:10]
 
-    context = {
-        'current_period': current_period,
-        'all_periods': all_periods,
-        'stats': stats,
-        'member_progress': member_progress,
-        'recent_submissions': recent_submissions,
-    }
-
-    return render(request, 'service_hours/dashboard.html', context)
+    return stats, member_progress, recent_submissions
 
 
-@vpp_required
-def view_service_submissions(request):
-    """
-    List all service hour submissions with filtering.
-    """
+def filtered_submissions(period_id=None, status=None, member_id=None):
+    """Every submission, newest first, narrowed by the list page's filters."""
     submissions = ServiceHoursSubmission.objects.select_related(
         'period', 'submitted_by', 'reviewed_by'
     ).defer(*member_defer('submitted_by', 'reviewed_by')).order_by('-submitted_at')
-
-    # Filters
-    period_id = request.GET.get('period')
-    status = request.GET.get('status')
-    member_id = request.GET.get('member')
 
     if period_id:
         submissions = submissions.filter(period_id=period_id)
@@ -189,37 +180,25 @@ def view_service_submissions(request):
         submissions = submissions.filter(status=status)
     if member_id:
         submissions = submissions.filter(submitted_by_id=member_id)
+    return submissions
 
-    # This page was unbounded — every submission ever made, rendered in
-    # one response, with no Paginator. Paginate the filtered queryset
-    # first, so everything below (the batch-count annotation) only ever
-    # works over one page's worth of rows rather than the whole table.
-    # Known, accepted limitation this introduces: the template's "select
-    # all N" button for a multi-date batch only checks checkboxes present
-    # in the current page's DOM, so a batch that straddles a page boundary
-    # would under-select. Rows are ordered by `-submitted_at` and a batch's
-    # rows share (near-)identical timestamps, so in practice a batch's rows
-    # stay contiguous and this would only bite a single submission of more
-    # than 50 dates at once — not worth the added complexity of a
-    # cross-page AJAX select for that case.
-    paginator = Paginator(submissions, 50)
-    page_number = request.GET.get('page')
-    page_obj = paginator.get_page(page_number)
 
-    # v3.29.23 — Mason: "for submissions submitted for multiple days can
-    # you add a way for the approver to approve all the ones submitted
-    # together at once?" Every row from one multi-date submit shares a
-    # `batch_id` (see submit_service_hours). Materialize the page here so a
-    # `batch_pending_count`/`batch_total_count` can be attached to each row
-    # in two grouped queries instead of one query per distinct batch on the
-    # page. The batch-count queries below are scoped by `batch_id`, not by
-    # what's on this page, so a batch split across two pages still reports
-    # accurate counts regardless of which page is being viewed.
-    submissions = list(page_obj.object_list)
+def attach_batch_counts(submissions):
+    """Set `batch_pending_count` / `batch_total_count` on each row (a list).
+
+    v3.29.23 — Mason: "for submissions submitted for multiple days can
+    you add a way for the approver to approve all the ones submitted
+    together at once?" Every row from one multi-date submit shares a
+    `batch_id` (see submit_service_hours). The counts are attached to each
+    row in two grouped queries instead of one query per distinct batch on
+    the page. They are scoped by `batch_id`, not by what's on this page, so
+    a batch split across two pages still reports accurate counts regardless
+    of which page is being viewed.
+    """
     batch_ids = {s.batch_id for s in submissions if s.batch_id}
     if batch_ids:
         # Only PENDING siblings are what "approve/reject together" can
-        # actually act on — bulk_actions_service already restricts itself
+        # actually act on — bulk_review_submissions already restricts itself
         # to status='pending', so this is the count that decides whether
         # the "select all in this batch" control has anything to do.
         pending_counts = dict(
@@ -239,6 +218,163 @@ def view_service_submissions(request):
     for s in submissions:
         s.batch_pending_count = pending_counts.get(s.batch_id, 0) if s.batch_id else 0
         s.batch_total_count = total_counts.get(s.batch_id, 0) if s.batch_id else 0
+    return submissions
+
+
+REJECT_NEEDS_NOTES = 'Please provide a reason for rejection.'
+
+
+def review_submission(submission, reviewer, action, notes):
+    """Approve or reject one submission, with its activity-log row.
+
+    `action` is 'approve' or 'reject'. Returns an error message (and changes
+    nothing) when a rejection has no notes, else None.
+    """
+    if action == 'approve':
+        submission.status = 'approved'
+        submission.reviewed_by = reviewer
+        submission.reviewed_at = timezone.now()
+        submission.reviewer_notes = notes
+        submission.save(update_fields=['status', 'reviewed_by', 'reviewed_at', 'reviewer_notes'])
+
+        ServiceActivity.objects.create(
+            submission=submission,
+            user=reviewer,
+            action='approved',
+            details=notes or 'Approved by VPP'
+        )
+
+    elif action == 'reject':
+        if not notes:
+            return REJECT_NEEDS_NOTES
+
+        submission.status = 'rejected'
+        submission.reviewed_by = reviewer
+        submission.reviewed_at = timezone.now()
+        submission.reviewer_notes = notes
+        submission.save(update_fields=['status', 'reviewed_by', 'reviewed_at', 'reviewer_notes'])
+
+        ServiceActivity.objects.create(
+            submission=submission,
+            user=reviewer,
+            action='rejected',
+            details=notes
+        )
+    return None
+
+
+def bulk_review_submissions(submission_ids, reviewer, action):
+    """Approve or reject every still-pending submission in `submission_ids`.
+    Returns how many were changed."""
+    submissions = ServiceHoursSubmission.objects.filter(
+        id__in=submission_ids,
+        status='pending'
+    )
+
+    count = 0
+    for submission in submissions:
+        if action == 'approve':
+            submission.status = 'approved'
+            submission.reviewed_by = reviewer
+            submission.reviewed_at = timezone.now()
+            submission.save(update_fields=['status', 'reviewed_by', 'reviewed_at'])
+
+            ServiceActivity.objects.create(
+                submission=submission,
+                user=reviewer,
+                action='approved',
+                details='Bulk approved'
+            )
+            count += 1
+
+        elif action == 'reject':
+            submission.status = 'rejected'
+            submission.reviewed_by = reviewer
+            submission.reviewed_at = timezone.now()
+            submission.reviewer_notes = 'Rejected via bulk action'
+            submission.save(update_fields=['status', 'reviewed_by', 'reviewed_at', 'reviewer_notes'])
+
+            ServiceActivity.objects.create(
+                submission=submission,
+                user=reviewer,
+                action='rejected',
+                details='Bulk rejected'
+            )
+            count += 1
+    return count
+
+
+def submission_detail_data(submission):
+    """(activity_log, custom_responses) for the review page."""
+    # Get activity log
+    activity_log = ServiceActivity.objects.filter(
+        submission=submission
+    ).select_related('user').defer(*member_defer('user')).order_by('-timestamp')
+
+    # Get custom field responses
+    custom_responses = ServiceFieldResponse.objects.filter(
+        submission=submission
+    ).select_related('field').order_by('field__display_order')
+    return activity_log, custom_responses
+
+
+def submission_queryset():
+    return ServiceHoursSubmission.objects.select_related(
+        'period', 'submitted_by', 'reviewed_by').defer(*member_defer('submitted_by', 'reviewed_by'))
+
+
+# ── Pages ────────────────────────────────────────────────────────────────────
+
+@vpp_required
+def service_dashboard(request):
+    """
+    VPP analytics dashboard for service hours.
+    Shows statistics, charts, and recent submissions.
+    """
+    current_period, all_periods = resolve_dashboard_period(request.GET.get('period'))
+    stats, member_progress, recent_submissions = dashboard_data(current_period)
+
+    context = {
+        'current_period': current_period,
+        'all_periods': all_periods,
+        'stats': stats,
+        'member_progress': member_progress,
+        'recent_submissions': recent_submissions,
+    }
+
+    return render(request, 'service_hours/dashboard.html', context)
+
+
+@vpp_required
+def view_service_submissions(request):
+    """
+    List all service hour submissions with filtering.
+    """
+    # Filters
+    period_id = request.GET.get('period')
+    status = request.GET.get('status')
+    member_id = request.GET.get('member')
+
+    submissions = filtered_submissions(period_id, status, member_id)
+
+    # This page was unbounded — every submission ever made, rendered in
+    # one response, with no Paginator. Paginate the filtered queryset
+    # first, so everything below (the batch-count annotation) only ever
+    # works over one page's worth of rows rather than the whole table.
+    # Known, accepted limitation this introduces: the template's "select
+    # all N" button for a multi-date batch only checks checkboxes present
+    # in the current page's DOM, so a batch that straddles a page boundary
+    # would under-select. Rows are ordered by `-submitted_at` and a batch's
+    # rows share (near-)identical timestamps, so in practice a batch's rows
+    # stay contiguous and this would only bite a single submission of more
+    # than 50 dates at once — not worth the added complexity of a
+    # cross-page AJAX select for that case.
+    paginator = Paginator(submissions, 50)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
+    # Materialize the page so the batch counts can be attached to each row.
+    submissions = attach_batch_counts(list(page_obj.object_list))
 
     # Get filter options
     all_periods = ServicePeriod.objects.all().order_by('-start_date')
@@ -262,62 +398,25 @@ def manage_service_submission(request, submission_id):
     """
     View and approve/reject a single submission.
     """
-    submission = get_object_or_404(
-        ServiceHoursSubmission.objects.select_related('period', 'submitted_by', 'reviewed_by').defer(*member_defer('submitted_by', 'reviewed_by')),
-        id=submission_id
-    )
+    submission = get_object_or_404(submission_queryset(), id=submission_id)
 
     if request.method == 'POST':
         action = request.POST.get('action')
         notes = request.POST.get('reviewer_notes', '').strip()
 
-        if action == 'approve':
-            submission.status = 'approved'
-            submission.reviewed_by = request.user
-            submission.reviewed_at = timezone.now()
-            submission.reviewer_notes = notes
-            submission.save(update_fields=['status', 'reviewed_by', 'reviewed_at', 'reviewer_notes'])
-
-            ServiceActivity.objects.create(
-                submission=submission,
-                user=request.user,
-                action='approved',
-                details=notes or 'Approved by VPP'
-            )
-
-            messages.success(request, f'Approved {submission.hours} hours for {submission.submitted_by.name}.')
-
-        elif action == 'reject':
-            if not notes:
-                messages.error(request, 'Please provide a reason for rejection.')
+        if action in ('approve', 'reject'):
+            error = review_submission(submission, request.user, action, notes)
+            if error:
+                messages.error(request, error)
                 return redirect('manage_service_submission', submission_id=submission_id)
-
-            submission.status = 'rejected'
-            submission.reviewed_by = request.user
-            submission.reviewed_at = timezone.now()
-            submission.reviewer_notes = notes
-            submission.save(update_fields=['status', 'reviewed_by', 'reviewed_at', 'reviewer_notes'])
-
-            ServiceActivity.objects.create(
-                submission=submission,
-                user=request.user,
-                action='rejected',
-                details=notes
-            )
-
-            messages.warning(request, f'Rejected submission from {submission.submitted_by.name}.')
+            if action == 'approve':
+                messages.success(request, f'Approved {submission.hours} hours for {submission.submitted_by.name}.')
+            else:
+                messages.warning(request, f'Rejected submission from {submission.submitted_by.name}.')
 
         return redirect('view_service_submissions')
 
-    # Get activity log
-    activity_log = ServiceActivity.objects.filter(
-        submission=submission
-    ).select_related('user').defer(*member_defer('user')).order_by('-timestamp')
-
-    # Get custom field responses
-    custom_responses = ServiceFieldResponse.objects.filter(
-        submission=submission
-    ).select_related('field').order_by('field__display_order')
+    activity_log, custom_responses = submission_detail_data(submission)
 
     context = {
         'submission': submission,
@@ -343,41 +442,7 @@ def bulk_actions_service(request):
         messages.error(request, 'No submissions selected.')
         return redirect('view_service_submissions')
 
-    submissions = ServiceHoursSubmission.objects.filter(
-        id__in=submission_ids,
-        status='pending'
-    )
-
-    count = 0
-    for submission in submissions:
-        if action == 'approve':
-            submission.status = 'approved'
-            submission.reviewed_by = request.user
-            submission.reviewed_at = timezone.now()
-            submission.save(update_fields=['status', 'reviewed_by', 'reviewed_at'])
-
-            ServiceActivity.objects.create(
-                submission=submission,
-                user=request.user,
-                action='approved',
-                details='Bulk approved'
-            )
-            count += 1
-
-        elif action == 'reject':
-            submission.status = 'rejected'
-            submission.reviewed_by = request.user
-            submission.reviewed_at = timezone.now()
-            submission.reviewer_notes = 'Rejected via bulk action'
-            submission.save(update_fields=['status', 'reviewed_by', 'reviewed_at', 'reviewer_notes'])
-
-            ServiceActivity.objects.create(
-                submission=submission,
-                user=request.user,
-                action='rejected',
-                details='Bulk rejected'
-            )
-            count += 1
+    count = bulk_review_submissions(submission_ids, request.user, action)
 
     if action == 'approve':
         messages.success(request, f'Approved {count} submission(s).')

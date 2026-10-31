@@ -42,30 +42,12 @@ from src.permissions import user_is_officer_or_chair
 logger = logging.getLogger(__name__)
 
 
-@login_required
-def role_knowledge_base_index(request):
+def role_knowledge_base_index_data(query=''):
     """
-    List every Role with a link to its knowledge base page — the general
-    entry point for the "everyone can read" access Mason chose. Without
-    this, the feature was only reachable by an officer following a link
-    from an officer-only page; a plain member had no way to discover it.
-
-    Deliberately open to any logged-in member, same as the pages it links to.
-
-    Supports `?q=` (09-17-26, added once the feature was expected to grow
-    past a handful of short pages) — a case-insensitive substring match
-    against the role's name, its current holders' names, and the CURRENT
-    revision's content only (not every past revision — matching against
-    history the page doesn't display would surface a role for a word a
-    visitor can't actually find once they click through). Filtered in
-    Python over the same small, already-fetched candidate set the rest of
-    this view uses (10 formal roles today — see the module docstring for
-    why this feature is scoped to just those), same tradeoff
-    `_linkable_events()` (chapter_minutes.py) makes for an identically
-    small candidate set.
+    The index's rows, ``([{'role', 'holders', 'has_content'}, ...], total_roles)``,
+    filtered by ``query`` as the view's docstring describes. Shared with the
+    app's ``role-knowledge-base/`` (src/mobile/views_role_kb.py).
     """
-    query = (request.GET.get('q') or '').strip()
-
     roles = list(Role.objects.all().order_by('name'))
 
     # One query for all holders instead of one per role — same N+1 shape
@@ -120,11 +102,61 @@ def role_knowledge_base_index(request):
             'has_content': role.id in has_content_ids,
         })
 
+    return roles_data, len(roles)
+
+
+@login_required
+def role_knowledge_base_index(request):
+    """
+    List every Role with a link to its knowledge base page — the general
+    entry point for the "everyone can read" access Mason chose. Without
+    this, the feature was only reachable by an officer following a link
+    from an officer-only page; a plain member had no way to discover it.
+
+    Deliberately open to any logged-in member, same as the pages it links to.
+
+    Supports `?q=` (09-17-26, added once the feature was expected to grow
+    past a handful of short pages) — a case-insensitive substring match
+    against the role's name, its current holders' names, and the CURRENT
+    revision's content only (not every past revision — matching against
+    history the page doesn't display would surface a role for a word a
+    visitor can't actually find once they click through). Filtered in
+    Python over the same small, already-fetched candidate set the rest of
+    this view uses (10 formal roles today — see the module docstring for
+    why this feature is scoped to just those), same tradeoff
+    `_linkable_events()` (chapter_minutes.py) makes for an identically
+    small candidate set.
+    """
+    query = (request.GET.get('q') or '').strip()
+    roles_data, total_roles = role_knowledge_base_index_data(query)
     return render(request, 'role_knowledge_base_index.html', {
         'roles_data': roles_data,
         'query': query,
-        'total_roles': len(roles),
+        'total_roles': total_roles,
     })
+
+
+def role_knowledge_base_page_data(role, user):
+    """
+    A role's page: ``{'role', 'knowledge_base', 'current_revision', 'can_edit',
+    'revision_count'}``. Never creates a row (module docstring). Shared with
+    the app's ``role-knowledge-base/<id>/`` (src/mobile/views_role_kb.py).
+    """
+    kb = RoleKnowledgeBase.objects.filter(role=role).first()
+
+    current_revision = None
+    if kb is not None:
+        current_revision = (
+            kb.revisions.select_related('edited_by').defer(*member_defer('edited_by')).first()
+        )
+
+    return {
+        'role': role,
+        'knowledge_base': kb,
+        'current_revision': current_revision,
+        'can_edit': user_is_officer_or_chair(user),
+        'revision_count': kb.revisions.count() if kb is not None else 0,
+    }
 
 
 @login_required
@@ -135,21 +167,7 @@ def role_knowledge_base(request, role_id):
     doesn't exist yet (empty state instead); see module docstring.
     """
     role = get_object_or_404(Role, id=role_id)
-    kb = RoleKnowledgeBase.objects.filter(role=role).first()
-
-    current_revision = None
-    if kb is not None:
-        current_revision = (
-            kb.revisions.select_related('edited_by').defer(*member_defer('edited_by')).first()
-        )
-
-    context = {
-        'role': role,
-        'knowledge_base': kb,
-        'current_revision': current_revision,
-        'can_edit': user_is_officer_or_chair(request.user),
-        'revision_count': kb.revisions.count() if kb is not None else 0,
-    }
+    context = role_knowledge_base_page_data(role, request.user)
     return render(request, 'officer/role_knowledge_base.html', context)
 
 

@@ -40,7 +40,9 @@ def _body(request):
 
 
 def _event_json(e):
-    return {'id': e.id, 'title': e.title, 'date_time': e.date_time.isoformat()} if e else None
+    # location: the agenda page's header shows the linked event's (10-31-26).
+    return {'id': e.id, 'title': e.title, 'date_time': e.date_time.isoformat(),
+            'location': e.location} if e else None
 
 
 def _summary(a):

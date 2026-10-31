@@ -61,6 +61,19 @@ class AgendaTests(_Base):
         r = self.call('post', url('mobile_agendas'), self.officer_access, {'title': 'x', 'date': 'soon'})
         self.assertEqual(r.status_code, 400)
 
+    def test_linked_event_and_its_location(self):
+        """The agenda page's header shows the linked event's location."""
+        event = Event.objects.create(title='Chapter', date_time=timezone.now() + timedelta(days=2),
+                                     location='Room 101', created_by=self.officer)
+        r = self.call('post', url('mobile_agendas'), self.officer_access, {
+            'title': 'Linked', 'date': date.today().isoformat(), 'start_time': '19:00', 'event_id': event.id})
+        self.assertEqual(r.status_code, 201, r.content)
+        self.assertEqual((r.json()['agenda']['event']['id'], r.json()['agenda']['event']['location']),
+                         (event.id, 'Room 101'))
+        self.assertEqual(r.json()['items'], [])   # no standard order asked for
+        self.assertTrue(r.json()['is_officer'])
+        self.assertIn('item_types', r.json())
+
     def test_members_see_published_agendas_only(self):
         listed = self.call('get', url('mobile_agendas'), self.member_access).json()
         self.assertEqual(listed['upcoming'], [])

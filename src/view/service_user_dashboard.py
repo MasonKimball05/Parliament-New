@@ -30,7 +30,7 @@ from src.models.users import member_defer
 logger = logging.getLogger('function_calls')
 
 
-def _validated_upload(request, field, value):
+def _validated_upload(field, value, notes):
     """
     v3.19.7 — validate a custom-field upload, or drop it with a message.
 
@@ -50,6 +50,11 @@ def _validated_upload(request, field, value):
     are the same eight lines twice, and this codebase's recurring failure is a
     rule applied at the site where it was written and not at the site it was
     copied to — the edit path here is exactly that, one release later.
+
+    v4.4.0: the problem goes into `notes` (``(level, text)`` pairs) instead of
+    straight to ``messages``, so the app's API (src/mobile/views_service_hours.py)
+    can return it; the web views queue the same notes as messages
+    (`_queue_notes`), in the same order, with the same text.
     """
     from django.core.exceptions import ValidationError
 
@@ -60,9 +65,15 @@ def _validated_upload(request, field, value):
     try:
         validate_uploaded_file(value)
     except ValidationError as exc:
-        messages.error(request, f'{field.label}: {"; ".join(exc.messages)}')
+        notes.append(('error', f'{field.label}: {"; ".join(exc.messages)}'))
         return None
     return value
+
+
+def _queue_notes(request, notes):
+    """The web views' half of `notes`: each one as a flash message, in order."""
+    for level, text in notes:
+        getattr(messages, level)(request, text)
 
 
 def _notify_vpp_new_submission(submission, is_resubmission=False):
@@ -332,7 +343,7 @@ def user_view_submission(request, submission_id):
 MAX_EXTRA_SERVICE_DATES = 59
 
 
-def _extra_service_entries_from_post(request, exclude):
+def _extra_service_entries_from_post(data, exclude, notes):
     """
     v3.29.23 — Mason: "instead of assuming that it is x hours exactly each
     day can it instead require the person to enter the number of hours
@@ -354,11 +365,14 @@ def _extra_service_entries_from_post(request, exclude):
     hours value is something the member will expect to see reflected, so
     silently discarding it would look like data loss rather than input
     hygiene.
+
+    v4.4.0: reads `data` (``request.POST``, or the app's equivalent QueryDict)
+    and puts its warnings in `notes` — see `_validated_upload`.
     """
     seen_dates = {exclude}
     result = []
-    raw_dates = request.POST.getlist('extra_dates')[:MAX_EXTRA_SERVICE_DATES]
-    raw_hours = request.POST.getlist('extra_hours')[:MAX_EXTRA_SERVICE_DATES]
+    raw_dates = data.getlist('extra_dates')[:MAX_EXTRA_SERVICE_DATES]
+    raw_hours = data.getlist('extra_hours')[:MAX_EXTRA_SERVICE_DATES]
     for raw_date, raw_hour in zip(raw_dates, raw_hours):
         raw_date = (raw_date or '').strip()
         if not raw_date:
@@ -374,16 +388,16 @@ def _extra_service_entries_from_post(request, exclude):
         try:
             parsed_hours = Decimal(raw_hour)
         except (InvalidOperation, ValueError):
-            messages.warning(
-                request,
+            notes.append((
+                'warning',
                 f"{parsed_date.strftime('%b %d, %Y')}: no valid hours entered — this date was skipped."
-            )
+            ))
             continue
         if not (0 < parsed_hours <= 24):
-            messages.warning(
-                request,
+            notes.append((
+                'warning',
                 f"{parsed_date.strftime('%b %d, %Y')}: hours must be more than 0 and no more than 24 — this date was skipped."
-            )
+            ))
             continue
 
         seen_dates.add(parsed_date)
@@ -391,7 +405,7 @@ def _extra_service_entries_from_post(request, exclude):
     return result
 
 
-def _save_custom_field_responses(request, custom_fields, submission):
+def _save_custom_field_responses(data, files, custom_fields, submission, notes):
     """
     Extracted from `submit_service_hours` unchanged (v3.29.22) so it can
     run once for the primary submission and be reused — via
@@ -405,7 +419,7 @@ def _save_custom_field_responses(request, custom_fields, submission):
     saved = []
     for field in custom_fields:
         field_name = f'custom_{field.field_name}'
-        value = request.POST.get(field_name) or request.FILES.get(field_name)
+        value = data.get(field_name) or files.get(field_name)
 
         if value:
             response = ServiceFieldResponse(submission=submission, field=field)
@@ -418,14 +432,14 @@ def _save_custom_field_responses(request, custom_fields, submission):
                 except Exception:
                     response.text_value = value
             elif field.field_type in ['multiselect', 'checkbox']:
-                response.json_value = request.POST.getlist(field_name)
+                response.json_value = data.getlist(field_name)
             elif field.field_type == 'file':
                 # v3.19.7 — was assigned straight from request.FILES.
                 # See `_validated_upload` for why, and for the one
                 # sentence that matters: the submission's own attachment
                 # is validated by `ServiceHoursSubmissionForm`, and this
                 # field writes to the directory next door.
-                response.file_value = _validated_upload(request, field, value)
+                response.file_value = _validated_upload(field, value, notes)
 
             response.save()
             saved.append(response)
@@ -456,6 +470,107 @@ def _clone_custom_field_responses(responses, submission):
         clone.save()
 
 
+def service_custom_fields():
+    """The officer-defined fields on the submit and edit forms (the built-in
+    ones are `ServiceHoursSubmissionForm`'s), in the forms' order."""
+    return ServiceFormField.objects.filter(is_active=True, is_builtin=False).order_by('section', 'display_order')
+
+
+def create_service_submissions(user, form, data, files, custom_fields, notes):
+    """
+    v4.4.0 — the body of `submit_service_hours` after `form.is_valid()`, moved
+    here unchanged so the website and the app (``POST
+    service-hours/submissions/``, src/mobile/views_service_hours.py) save a
+    submission the same way. `data`/`files` are ``request.POST``/``FILES`` (or
+    the app's equivalent); anything the member should be told besides success
+    goes into `notes`. Returns every row created, the primary one first.
+    """
+    extra_entries = _extra_service_entries_from_post(data, form.cleaned_data['service_date'], notes)
+
+    submission = form.save(commit=False)
+    submission.submitted_by = user
+    # v3.29.23 — only assigned when there's actually a second date;
+    # a single-date submission keeps batch_id=None, same as before
+    # this field existed.
+    if extra_entries:
+        submission.batch_id = uuid.uuid4()
+
+    # Set initial status based on period's approval requirement
+    if submission.period.requires_approval:
+        submission.status = 'pending'
+    else:
+        submission.status = 'approved'
+        submission.reviewed_at = timezone.now()
+
+    submission.save()
+    all_submissions = [submission]
+
+    # One clone per additional (date, hours) pair, sharing
+    # everything except `service_date`/`hours` (and, necessarily,
+    # `pk`/`submitted_at`). v3.29.23: hours is now whatever the
+    # member entered for that specific date, not a copy of the
+    # primary submission's hours.
+    for extra_date, extra_hours in extra_entries:
+        clone = ServiceHoursSubmission(
+            period=submission.period,
+            submitted_by=user,
+            hours=extra_hours,
+            service_date=extra_date,
+            organization=submission.organization,
+            description=submission.description,
+            status=submission.status,
+            reviewed_at=submission.reviewed_at,
+            batch_id=submission.batch_id,
+        )
+        if submission.attachment:
+            # Point at the already-uploaded file rather than
+            # re-assigning it — see _clone_custom_field_responses's
+            # docstring for why this is the correct choice here,
+            # not just the cheaper one.
+            clone.attachment.name = submission.attachment.name
+        clone.save()
+        all_submissions.append(clone)
+
+    # Save custom field responses for the primary submission, then
+    # copy the resulting VALUES onto every clone.
+    primary_responses = _save_custom_field_responses(data, files, custom_fields, submission, notes)
+    for clone in all_submissions[1:]:
+        _clone_custom_field_responses(primary_responses, clone)
+
+    # Log activity — once per submission row, so each date's
+    # approval/edit history is independently auditable.
+    multi_date_note = f' (multi-date submission, {len(all_submissions)} dates)' if len(all_submissions) > 1 else ''
+    for target in all_submissions:
+        ServiceActivity.objects.create(
+            submission=target,
+            user=user,
+            action='created',
+            details=f'Submitted {target.hours} hours for {target.organization}{multi_date_note}'
+        )
+
+    # Notify VPP once for the whole batch, not once per date.
+    if submission.period.requires_approval:
+        _notify_vpp_new_submissions(all_submissions)
+
+    return all_submissions
+
+
+def service_submitted_message(all_submissions):
+    """The success line after `create_service_submissions` (web flash and app alert)."""
+    submission = all_submissions[0]
+    total_hours = sum((s.hours for s in all_submissions), Decimal('0'))
+    auto_approved = ' (Auto-approved)' if submission.status == 'approved' else ' for approval'
+    if len(all_submissions) > 1:
+        # v3.29.23: hours can differ per date now, so this no
+        # longer claims one uniform per-date number — just the
+        # count of dates and the combined total.
+        return (
+            f'Successfully submitted service hours for {len(all_submissions)} dates '
+            f'({total_hours} hours total){auto_approved}.'
+        )
+    return f'Successfully submitted {submission.hours} service hours{auto_approved}.'
+
+
 @login_required
 def submit_service_hours(request):
     """
@@ -472,6 +587,8 @@ def submit_service_hours(request):
     service, and the activity log is per-row. A single row covering N
     dates would need to redefine all four; N rows sharing everything but
     `service_date` needs none of them touched.
+
+    v4.4.0: the saving is `create_service_submissions`, shared with the app.
     """
     user = request.user
 
@@ -482,93 +599,17 @@ def submit_service_hours(request):
         return redirect('user_service_dashboard')
 
     # Get custom form fields (exclude built-in fields which are rendered by the Django form)
-    custom_fields = ServiceFormField.objects.filter(is_active=True, is_builtin=False).order_by('section', 'display_order')
+    custom_fields = service_custom_fields()
 
     if request.method == 'POST':
         form = ServiceHoursSubmissionForm(request.POST, request.FILES)
 
         if form.is_valid():
-            extra_entries = _extra_service_entries_from_post(request, exclude=form.cleaned_data['service_date'])
-
-            submission = form.save(commit=False)
-            submission.submitted_by = user
-            # v3.29.23 — only assigned when there's actually a second date;
-            # a single-date submission keeps batch_id=None, same as before
-            # this field existed.
-            if extra_entries:
-                submission.batch_id = uuid.uuid4()
-
-            # Set initial status based on period's approval requirement
-            if submission.period.requires_approval:
-                submission.status = 'pending'
-            else:
-                submission.status = 'approved'
-                submission.reviewed_at = timezone.now()
-
-            submission.save()
-            all_submissions = [submission]
-
-            # One clone per additional (date, hours) pair, sharing
-            # everything except `service_date`/`hours` (and, necessarily,
-            # `pk`/`submitted_at`). v3.29.23: hours is now whatever the
-            # member entered for that specific date, not a copy of the
-            # primary submission's hours.
-            for extra_date, extra_hours in extra_entries:
-                clone = ServiceHoursSubmission(
-                    period=submission.period,
-                    submitted_by=user,
-                    hours=extra_hours,
-                    service_date=extra_date,
-                    organization=submission.organization,
-                    description=submission.description,
-                    status=submission.status,
-                    reviewed_at=submission.reviewed_at,
-                    batch_id=submission.batch_id,
-                )
-                if submission.attachment:
-                    # Point at the already-uploaded file rather than
-                    # re-assigning it — see _clone_custom_field_responses's
-                    # docstring for why this is the correct choice here,
-                    # not just the cheaper one.
-                    clone.attachment.name = submission.attachment.name
-                clone.save()
-                all_submissions.append(clone)
-
-            # Save custom field responses for the primary submission, then
-            # copy the resulting VALUES onto every clone.
-            primary_responses = _save_custom_field_responses(request, custom_fields, submission)
-            for clone in all_submissions[1:]:
-                _clone_custom_field_responses(primary_responses, clone)
-
-            # Log activity — once per submission row, so each date's
-            # approval/edit history is independently auditable.
-            multi_date_note = f' (multi-date submission, {len(all_submissions)} dates)' if len(all_submissions) > 1 else ''
-            for target in all_submissions:
-                ServiceActivity.objects.create(
-                    submission=target,
-                    user=user,
-                    action='created',
-                    details=f'Submitted {target.hours} hours for {target.organization}{multi_date_note}'
-                )
-
-            # Notify VPP once for the whole batch, not once per date.
-            if submission.period.requires_approval:
-                _notify_vpp_new_submissions(all_submissions)
-
-            total_hours = sum((s.hours for s in all_submissions), Decimal('0'))
-            auto_approved = ' (Auto-approved)' if submission.status == 'approved' else ' for approval'
-            if len(all_submissions) > 1:
-                # v3.29.23: hours can differ per date now, so this no
-                # longer claims one uniform per-date number — just the
-                # count of dates and the combined total.
-                messages.success(
-                    request,
-                    f'Successfully submitted service hours for {len(all_submissions)} dates '
-                    f'({total_hours} hours total){auto_approved}.'
-                )
-            else:
-                messages.success(request, f'Successfully submitted {submission.hours} service hours{auto_approved}.')
-
+            notes = []
+            all_submissions = create_service_submissions(
+                user, form, request.POST, request.FILES, custom_fields, notes)
+            _queue_notes(request, notes)
+            messages.success(request, service_submitted_message(all_submissions))
             return redirect('user_service_dashboard')
         queue_form_errors(request, form)
     else:
@@ -583,11 +624,90 @@ def submit_service_hours(request):
     return render(request, 'service_hours/submit_hours.html', context)
 
 
+def update_service_submission(user, form, data, files, custom_fields, was_rejected, notes):
+    """
+    v4.4.0 — the body of `edit_service_submission` after `form.is_valid()`,
+    moved here unchanged so the website and the app (``POST
+    service-hours/submissions/<id>/``) update a submission the same way.
+    `was_rejected` is the status BEFORE the form was bound. Returns the
+    submission.
+    """
+    submission = form.save(commit=False)
+
+    # If was rejected, resubmit for approval
+    if was_rejected and submission.period.requires_approval:
+        submission.status = 'pending'
+        submission.reviewer_notes = ''  # Clear old rejection notes
+
+    submission.save()
+
+    # Update custom field responses
+    for field in custom_fields:
+        field_name = f'custom_{field.field_name}'
+        value = data.get(field_name) or files.get(field_name)
+
+        # Get or create response
+        response, created = ServiceFieldResponse.objects.get_or_create(
+            submission=submission,
+            field=field,
+            defaults={}
+        )
+
+        if value:
+            if field.field_type in ['text', 'textarea', 'date', 'select', 'radio']:
+                response.text_value = value
+            elif field.field_type == 'number':
+                try:
+                    response.number_value = Decimal(value)
+                except Exception:
+                    response.text_value = value
+            elif field.field_type in ['multiselect', 'checkbox']:
+                response.json_value = data.getlist(field_name)
+            elif field.field_type == 'file':
+                # v3.19.7 — see `_validated_upload`. This is the edit
+                # path; the create path above had the same gap, which is
+                # the usual shape — a rule applied where it was written
+                # and not where it was copied.
+                response.file_value = _validated_upload(field, value, notes)
+            response.save()
+        elif not created:
+            # Clear existing value if empty
+            response.delete()
+
+    # Log activity
+    action = 'resubmitted' if was_rejected else 'updated'
+    ServiceActivity.objects.create(
+        submission=submission,
+        user=user,
+        action=action,
+        details=f'Updated submission to {submission.hours} hours for {submission.organization}'
+    )
+
+    # Notify VPP when a rejected submission is resubmitted for approval
+    if was_rejected and submission.status == 'pending':
+        _notify_vpp_new_submission(submission, is_resubmission=True)
+
+    return submission
+
+
+def service_updated_message(was_rejected):
+    """The success line after `update_service_submission`."""
+    if was_rejected:
+        return 'Submission updated and resubmitted for approval.'
+    return 'Submission updated successfully.'
+
+
+#: The refusal when a submission can't be edited (web flash and app error).
+SERVICE_NOT_EDITABLE = 'This submission cannot be edited because it has been approved.'
+
+
 @login_required
 def edit_service_submission(request, submission_id):
     """
     Edit a pending or rejected submission.
     Only allows editing if submission hasn't been approved yet.
+
+    v4.4.0: the saving is `update_service_submission`, shared with the app.
     """
     user = request.user
 
@@ -598,11 +718,11 @@ def edit_service_submission(request, submission_id):
     )
 
     if not submission.can_edit():
-        messages.error(request, 'This submission cannot be edited because it has been approved.')
+        messages.error(request, SERVICE_NOT_EDITABLE)
         return redirect('user_view_service_submission', submission_id=submission_id)
 
     # Get custom form fields (exclude built-in fields which are rendered by the Django form)
-    custom_fields = ServiceFormField.objects.filter(is_active=True, is_builtin=False).order_by('section', 'display_order')
+    custom_fields = service_custom_fields()
 
     # Get existing custom responses
     existing_responses = {
@@ -615,66 +735,10 @@ def edit_service_submission(request, submission_id):
         form = ServiceHoursSubmissionForm(request.POST, request.FILES, instance=submission)
 
         if form.is_valid():
-            submission = form.save(commit=False)
-
-            # If was rejected, resubmit for approval
-            if was_rejected and submission.period.requires_approval:
-                submission.status = 'pending'
-                submission.reviewer_notes = ''  # Clear old rejection notes
-
-            submission.save()
-
-            # Update custom field responses
-            for field in custom_fields:
-                field_name = f'custom_{field.field_name}'
-                value = request.POST.get(field_name) or request.FILES.get(field_name)
-
-                # Get or create response
-                response, created = ServiceFieldResponse.objects.get_or_create(
-                    submission=submission,
-                    field=field,
-                    defaults={}
-                )
-
-                if value:
-                    if field.field_type in ['text', 'textarea', 'date', 'select', 'radio']:
-                        response.text_value = value
-                    elif field.field_type == 'number':
-                        try:
-                            response.number_value = Decimal(value)
-                        except Exception:
-                            response.text_value = value
-                    elif field.field_type in ['multiselect', 'checkbox']:
-                        response.json_value = request.POST.getlist(field_name)
-                    elif field.field_type == 'file':
-                        # v3.19.7 — see `_validated_upload`. This is the edit
-                        # path; the create path above had the same gap, which is
-                        # the usual shape — a rule applied where it was written
-                        # and not where it was copied.
-                        response.file_value = _validated_upload(request, field, value)
-                    response.save()
-                elif not created:
-                    # Clear existing value if empty
-                    response.delete()
-
-            # Log activity
-            action = 'resubmitted' if was_rejected else 'updated'
-            ServiceActivity.objects.create(
-                submission=submission,
-                user=user,
-                action=action,
-                details=f'Updated submission to {submission.hours} hours for {submission.organization}'
-            )
-
-            # Notify VPP when a rejected submission is resubmitted for approval
-            if was_rejected and submission.status == 'pending':
-                _notify_vpp_new_submission(submission, is_resubmission=True)
-
-            if was_rejected:
-                messages.success(request, 'Submission updated and resubmitted for approval.')
-            else:
-                messages.success(request, 'Submission updated successfully.')
-
+            notes = []
+            update_service_submission(user, form, request.POST, request.FILES, custom_fields, was_rejected, notes)
+            _queue_notes(request, notes)
+            messages.success(request, service_updated_message(was_rejected))
             return redirect('user_service_dashboard')
         queue_form_errors(request, form)
     else:

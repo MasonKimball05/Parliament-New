@@ -98,6 +98,72 @@ def parse_version(filename):
     return (major, minor, patch, suffix)
 
 
+#: The markdown extensions both changelog pages render with (and the app's
+#: blocks are made from — src/mobile/views_changelog.py).
+MARKDOWN_EXTENSIONS = ['tables', 'fenced_code', 'codehilite', 'toc', 'nl2br']
+
+
+def render_markdown(text, hard_breaks=True):
+    """A changelog file's markdown as the page's HTML.
+
+    The files are hard-wrapped, so ``nl2br`` breaks sentences mid-line; the
+    app (a narrow screen) asks for ``hard_breaks=False`` and lets text flow.
+    """
+    extensions = MARKDOWN_EXTENSIONS if hard_breaks else [e for e in MARKDOWN_EXTENSIONS if e != 'nl2br']
+    return markdown.Markdown(extensions=extensions).convert(text)
+
+
+def changelog_path():
+    return os.path.join(settings.BASE_DIR, 'CHANGELOG.md')
+
+
+def version_file_path(version):
+    """The file for a version ``known_versions()`` has already vouched for."""
+    return os.path.join(settings.BASE_DIR, 'changelogs', f'{version}.md')
+
+
+def sanitize_version(version):
+    """Only alphanumerics, dots and dashes (the detail page's rule)."""
+    return ''.join(c for c in version if c.isalnum() or c in '.-')
+
+
+def detailed_changelog_entries():
+    """
+    One entry per ``changelogs/v*.md`` file, newest version first: the badges
+    the index page groups by minor series. Uncached; callers cache.
+    """
+    # Get list of detailed changelogs if they exist, one entry per file,
+    # then collapse them into per-minor-series groups below. v3.31.4: this
+    # used to split into a flat "v3+" badge row plus a single "Version 2.x"
+    # catch-all — replaced by `group_changelogs_by_minor`, which treats every
+    # major version the same way and needs no major-version cutoff here.
+    changelog_entries = []
+    changelogs_dir = os.path.join(settings.BASE_DIR, 'changelogs')
+
+    if os.path.exists(changelogs_dir):
+        # Get all changelog files and sort by semantic version (newest first)
+        changelog_files = [f for f in os.listdir(changelogs_dir)
+                          if f.endswith('.md') and f.startswith('v')]
+        changelog_files.sort(key=parse_version, reverse=True)
+
+        for filename in changelog_files:
+            version = filename.replace('.md', '')
+            filepath = os.path.join(changelogs_dir, filename)
+            try:
+                with open(filepath, 'r', encoding='utf-8') as f:
+                    file_content = f.read()
+            except Exception:
+                file_content = ''
+            contributors = parse_contributors(file_content)
+            changelog_entries.append({
+                'version': version,
+                'filename': filename,
+                'contributors': contributors,
+                'has_external': has_external_contributors(contributors),
+            })
+    return changelog_entries
+
+
 def group_changelogs_by_minor(entries):
     """
     Collapse a flat list of changelog entries into one group per minor
@@ -151,21 +217,11 @@ def changelog(request):
     changelog_html = ""
 
     # Try to read the main CHANGELOG.md
-    changelog_path = os.path.join(settings.BASE_DIR, 'CHANGELOG.md')
-
     try:
-        with open(changelog_path, 'r', encoding='utf-8') as f:
+        with open(changelog_path(), 'r', encoding='utf-8') as f:
             changelog_content = f.read()
 
-        # Convert markdown to HTML with extensions for better formatting
-        md = markdown.Markdown(extensions=[
-            'tables',
-            'fenced_code',
-            'codehilite',
-            'toc',
-            'nl2br',
-        ])
-        changelog_html = md.convert(changelog_content)
+        changelog_html = render_markdown(changelog_content)
 
     except FileNotFoundError:
         changelog_html = "<p>Changelog file not found.</p>"
@@ -178,35 +234,7 @@ def changelog(request):
         logger.exception('Failed to render the changelog index')
         changelog_html = "<p>The changelog could not be loaded.</p>"
 
-    # Get list of detailed changelogs if they exist, one entry per file,
-    # then collapse them into per-minor-series groups below. v3.31.4: this
-    # used to split into a flat "v3+" badge row plus a single "Version 2.x"
-    # catch-all — replaced by `group_changelogs_by_minor`, which treats every
-    # major version the same way and needs no major-version cutoff here.
-    changelog_entries = []
-    changelogs_dir = os.path.join(settings.BASE_DIR, 'changelogs')
-
-    if os.path.exists(changelogs_dir):
-        # Get all changelog files and sort by semantic version (newest first)
-        changelog_files = [f for f in os.listdir(changelogs_dir)
-                          if f.endswith('.md') and f.startswith('v')]
-        changelog_files.sort(key=parse_version, reverse=True)
-
-        for filename in changelog_files:
-            version = filename.replace('.md', '')
-            filepath = os.path.join(changelogs_dir, filename)
-            try:
-                with open(filepath, 'r', encoding='utf-8') as f:
-                    file_content = f.read()
-            except Exception:
-                file_content = ''
-            contributors = parse_contributors(file_content)
-            changelog_entries.append({
-                'version': version,
-                'filename': filename,
-                'contributors': contributors,
-                'has_external': has_external_contributors(contributors),
-            })
+    changelog_entries = detailed_changelog_entries()
 
     changelog_groups = group_changelogs_by_minor(changelog_entries)
 
@@ -248,7 +276,7 @@ def changelog_detail(request, version):
     changelog_html = ""
 
     # Sanitize version input (only allow alphanumeric, dots, and dashes)
-    safe_version = ''.join(c for c in version if c.isalnum() or c in '.-')
+    safe_version = sanitize_version(version)
 
     # v3.17.5 — VALIDATE BEFORE CACHING, AND 404 WHAT DOES NOT EXIST
     # --------------------------------------------------------------
@@ -289,21 +317,11 @@ def changelog_detail(request, version):
         return render(request, 'changelog_detail.html',
                       {'changelog_html': cached_html, 'version': safe_version})
 
-    changelog_path = os.path.join(settings.BASE_DIR, 'changelogs', f'{safe_version}.md')
-
     try:
-        with open(changelog_path, 'r', encoding='utf-8') as f:
+        with open(version_file_path(safe_version), 'r', encoding='utf-8') as f:
             changelog_content = f.read()
 
-        # Convert markdown to HTML
-        md = markdown.Markdown(extensions=[
-            'tables',
-            'fenced_code',
-            'codehilite',
-            'toc',
-            'nl2br',
-        ])
-        changelog_html = md.convert(changelog_content)
+        changelog_html = render_markdown(changelog_content)
 
     except FileNotFoundError:
         # Reachable only if the file was removed between `known_versions()`
@@ -331,26 +349,99 @@ def changelog_detail(request, version):
     return render(request, 'changelog_detail.html', context)
 
 
+#: The 3.0 roadmap's content. The page's four pillar cards are written out in
+#: templates/roadmap.html (each with its own colors); ``ROADMAP_PILLARS`` is the
+#: same text as data for the app (src/mobile/views_changelog.py), and
+#: src/tests/mobile/test_changelog.py fails if the two ever disagree. The two
+#: lists at the bottom of the page come from here for both.
+ROADMAP_HEADER = {
+    'badge': 'Version 3.0 — Planning',
+    'title': 'Parliament 3.0 Roadmap',
+    'summary': ('“Parliament becomes self-sustaining.” Real-time, mobile-ready, and '
+                'operable by the next person without touching the codebase.'),
+    'footer': 'Parliament • Beta Theta Pi - Samford Chapter • Roadmap drafted May 2026',
+}
+
+ROADMAP_PILLARS = [
+    {
+        'key': 'realtime', 'icon': '⚡', 'color': 'indigo',
+        'title': 'Real-Time & Async Infrastructure',
+        'summary': 'The foundation everything else builds on — Celery + Redis',
+        'items': [
+            {'name': 'Celery + Redis', 'detail': 'async email, background jobs, scheduled tasks'},
+            {'name': 'Scheduled vote open/close', 'detail': 'no page load needed to trigger'},
+            {'name': 'Live vote result updates', 'detail': 'counts refresh without a full page reload'},
+            {'name': 'Async email sending', 'detail': 'emails no longer block server threads'},
+            {'name': 'Scheduled announcements', 'detail': 'timezone-aware future posting'},
+        ],
+    },
+    {
+        'key': 'mobile', 'icon': '📱', 'color': 'cyan',
+        'title': 'Mobile & Push Notifications',
+        'summary': "Native-feeling app on every member's phone — no app store required",
+        'items': [
+            {'name': 'Web Push notifications', 'detail': 'native alerts even with browser closed'},
+            {'name': 'PWA install', 'detail': 'add to home screen, full-screen launch, app icon'},
+            {'name': 'Notification types', 'detail': 'votes, announcements, Kai updates, attendance'},
+            {'name': 'Per-device subscriptions', 'detail': 'one account, notifications on any device'},
+            {'name': 'iOS 16.4+ support',
+             'detail': 'works via home screen install (Android works in any browser)'},
+        ],
+    },
+    {
+        'key': 'experience', 'icon': '✨', 'color': 'emerald',
+        'title': 'Member Experience Overhaul',
+        'summary': 'Members and officers can use Parliament without asking how it works',
+        'items': [
+            {'name': 'Slating rework', 'detail': 'simplified forms and cleaner voting flow', 'tag': 'Early'},
+            {'name': 'Pledge onboarding redesign', 'detail': 'welcome emails, progress feedback', 'tag': 'Early'},
+            {'name': 'Officer transition tools',
+             'detail': 'guided handoff checklist for outgoing/incoming officers'},
+            {'name': 'Notification center', 'detail': 'bell icon with unread count + push opt-in settings'},
+            {'name': 'Service hours portal',
+             'detail': 'members view own submissions without asking an officer'},
+        ],
+    },
+    {
+        'key': 'handoff', 'icon': '🔧', 'color': 'amber',
+        'title': 'Handoff Readiness',
+        'summary': 'The next person manages Parliament from the UI, not the codebase',
+        'items': [
+            {'name': 'Self-service admin UI',
+             'detail': 'feature flags, page toggles, and settings in admin without code changes'},
+            {'name': 'Admin dashboard', 'detail': 'at-a-glance chapter health (users, flags, votes, Kai)'},
+            {'name': 'Automated DB backups', 'detail': 'verified offsite backups with failure alerting'},
+            {'name': 'Staging environment', 'detail': 'test migrations safely before they hit production'},
+            {'name': 'Codebase split', 'detail': 'break models.py (5700+ lines) into maintainable sub-apps'},
+        ],
+    },
+]
+
+ROADMAP_SHIPS_BEFORE = [
+    'Middleware false-positive tuning (allowlist approach)',
+    'Slating process rework',
+    'Admin-v2 UI redesign',
+    'Attack mitigation phases 1–3',
+    'iCal feed, bulk member import, changelog viewer',
+    'Audit log retention policy',
+]
+
+ROADMAP_PREREQUISITES = [
+    {'name': 'Redis', 'detail': 'must be running on server — install_redis.sh already in repo'},
+    {'name': 'Celery worker + beat', 'detail': 'two new systemd units alongside gunicorn'},
+    {'name': 'VAPID keys', 'detail': 'generated once, stored in .env for push notifications'},
+    {'name': 'HTTPS', 'detail': 'already done via Cloudflare ✓'},
+    {'name': 'models.py split', 'detail': 'ideally done before building new features on top'},
+]
+
+
 def roadmap(request):
     # No caching: the context below is literal lists built in Python, so there
     # was nothing to save — @cache_page here bought no speed and shared one
     # visitor's navbar with everyone.
     """Display the Parliament 3.0 roadmap page."""
     context = {
-        'ships_before': [
-            'Middleware false-positive tuning (allowlist approach)',
-            'Slating process rework',
-            'Admin-v2 UI redesign',
-            'Attack mitigation phases 1–3',
-            'iCal feed, bulk member import, changelog viewer',
-            'Audit log retention policy',
-        ],
-        'prerequisites': [
-            {'name': 'Redis', 'detail': 'must be running on server — install_redis.sh already in repo'},
-            {'name': 'Celery worker + beat', 'detail': 'two new systemd units alongside gunicorn'},
-            {'name': 'VAPID keys', 'detail': 'generated once, stored in .env for push notifications'},
-            {'name': 'HTTPS', 'detail': 'already done via Cloudflare ✓'},
-            {'name': 'models.py split', 'detail': 'ideally done before building new features on top'},
-        ],
+        'ships_before': ROADMAP_SHIPS_BEFORE,
+        'prerequisites': ROADMAP_PREREQUISITES,
     }
     return render(request, 'roadmap.html', context)
