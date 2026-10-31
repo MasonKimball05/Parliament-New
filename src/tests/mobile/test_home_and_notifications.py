@@ -225,3 +225,36 @@ class HomeTests(_Base):
         # once and shared by the middlewares and DRF (check_access_token).
         self.assertLessEqual(len(ctx.captured_queries), 7,
                              '\n'.join(q['sql'][:120] for q in ctx.captured_queries))
+
+
+class QuickLinksTests(HomeTests):
+    """v4.4.0: the website Home's Quick Links, for the app's Home."""
+
+    def keys(self, access=None):
+        return [q['key'] for q in self.get('home/', access=access).json()['quick_links']]
+
+    def test_a_members_links_in_the_websites_order(self):
+        links = {q['key']: q for q in self.get('home/').json()['quick_links']}
+        self.assertEqual(links['vote']['badge'], 1)                    # the open bill
+        self.assertEqual(links['vote']['path'], '/vote/')
+        self.assertEqual(links['constitution']['icon']['ios'], 'book.closed')
+        keys = self.keys()
+        self.assertEqual(keys[:3], ['vote', 'committees', 'chat'])
+        self.assertIn('bug', keys)
+        self.assertNotIn('groupme', keys)                            # officers and chairs only
+        self.assertNotIn('slating', keys)                            # no active period
+
+    def test_groupme_for_officers_and_slating_while_a_period_is_active(self):
+        from src.models import SlatingPeriod
+        SlatingPeriod.objects.create(name='Fall', status='nominations_open')
+        officer = make_user('home-off', member_type='Officer')
+        _, access = make_device(officer)[:2]
+        keys = self.keys(access)
+        self.assertIn('groupme', keys)
+        self.assertIn('slating', keys)
+        _, pledge_access = self.as_pledge()
+        self.assertNotIn('slating', self.keys(pledge_access))
+
+    def test_a_turned_off_page_is_left_out(self):
+        flag('chats', False)
+        self.assertNotIn('chat', self.keys())

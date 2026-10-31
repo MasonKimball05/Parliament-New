@@ -20,6 +20,7 @@ cached badge counts (``src/context_processors.py``). Each item's ``target`` is
 the push routing (``src/mobile/deeplinks.py``), so a tap here and a tap on the
 matching push open the same screen.
 """
+from django.core.cache import cache
 from django.db.models import Q
 from django.urls import reverse
 from django.utils import timezone
@@ -102,6 +103,53 @@ def _announcements(now, vis):
     } for a in rows]
 
 
+# v4.4.0: the website Home's Quick Links (templates/home.html), for the app's
+# Home. Each: (key, label, url name, page-toggle flag or None, icon, tone).
+# Icons are SF Symbol / Material names. Directory and Documents are left out:
+# the app's Home has them as its big shortcuts. The admin site is too: it's
+# no use on a phone.
+QUICK_LINKS = (
+    ('vote', 'Vote', 'vote', None, ('checkmark.square', 'how_to_vote'), 'accent'),
+    ('committees', 'Committees', 'committee_index', None, ('person.3', 'groups'), None),
+    ('chat', 'Chat', 'chat_index', 'chats', ('bubble.left.and.bubble.right', 'forum'), None),
+    ('excuses', 'Excuses', 'my_excuses', None, ('calendar.badge.minus', 'event_busy'), None),
+    ('constitution', 'Constitution', 'constitution_bylaws', None, ('book.closed', 'menu_book'), None),
+    ('roberts', 'Robert’s Rules', 'roberts_rules', None, ('hammer', 'gavel'), None),
+    ('legislation', 'Legislation', 'view_legislation_history', None, ('clock.arrow.circlepath', 'history'), None),
+    ('songbook', 'Songbook', 'songbook', None, ('music.note', 'music_note'), None),
+    ('profile', 'Profile', 'profile', None, ('person.crop.circle', 'account_circle'), None),
+    ('preferences', 'Preferences', 'preferences', None, ('slider.horizontal.3', 'tune'), None),
+    ('groupme', 'GroupMe', 'groupme_dashboard', None, ('message', 'chat'), None),
+    ('bug', 'Report a bug', 'bug_report', None, ('ladybug', 'bug_report'), 'warning'),
+    ('feedback', 'Feedback', 'feedback_request', None, ('lightbulb', 'lightbulb'), 'warning'),
+    ('slating', 'Slating', 'slating_dashboard', None, ('list.bullet.clipboard', 'checklist'), 'pro'),
+)
+
+
+def _quick_links(user, pending_votes):
+    """The links ``user`` would see on the website's Home, in its order."""
+    from src.models import SlatingPeriod
+    out = []
+    for key, label, url_name, flag, (ios, android), tone in QUICK_LINKS:
+        if key == 'groupme' and not user.can_manage_groupme:
+            continue
+        # The website shows Slating while a period is active, to everyone but
+        # pledges. Cached for a minute: Home is opened constantly, and its
+        # query count is kept flat (HomeTests.test_query_count_is_flat).
+        if key == 'slating' and (user.is_pledge or not cache.get_or_set(
+                'mobile:home:slating_active', lambda: SlatingPeriod.objects.filter(
+                    status__in=['nominations_open', 'voting_open', 'results_published']).exists(), 60)):
+            continue
+        if not _may_open(user, url_name, flag):
+            continue
+        out.append({
+            'key': key, 'label': label, 'path': reverse(url_name),
+            'icon': {'ios': ios, 'android': android}, 'tone': tone,
+            'badge': len(pending_votes or []) if key == 'vote' else 0,
+        })
+    return out
+
+
 class HomeView(MobileAPIView):
     web_page = 'home'
 
@@ -109,8 +157,10 @@ class HomeView(MobileAPIView):
         user = request.user
         now = timezone.now()
         vis = visible_to_q(user.member_type)
+        pending_votes = _pending_votes(user, now)
         return Response({
-            'pending_votes': _pending_votes(user, now),
+            'pending_votes': pending_votes,
+            'quick_links': _quick_links(user, pending_votes),
             'events': _events(now, vis),
             'announcements': _announcements(now, vis),
             'unread': {
