@@ -91,7 +91,8 @@ def _signature(exc_info):
     app = [f for f in frames if 'src' in Path(f.filename).parts] or frames
     last = app[-1] if app else None
     raw = f'{etype.__name__}|{last.filename if last else ""}|{last.lineno if last else ""}'
-    return hashlib.sha1(raw.encode()).hexdigest()[:16]
+    # A grouping key for repeats of one error, not a security use (bandit B324).
+    return hashlib.sha1(raw.encode(), usedforsecurity=False).hexdigest()[:16]
 
 
 class ErrorAlertHandler(logging.Handler):
