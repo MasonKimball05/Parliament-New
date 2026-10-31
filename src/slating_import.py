@@ -119,6 +119,46 @@ def parse_csv(text):
     return headers, rows
 
 
+def combine_files(files):
+    """
+    (headers, rows, sources) from several CSVs, ``files`` = [(name, text)]
+    (v4.3.0). The President's forms were one Google Form per position, so
+    one upload per form: columns with the same question (ignoring case and
+    punctuation) line up; a question only some files ask is blank in the
+    others. ``sources[i]`` says where row i came from ("row 3", or
+    "President.csv row 3" when there's more than one file).
+    """
+    if not files:
+        raise ImportError_('Choose a CSV file to upload.')
+    headers, keys, rows, sources = [], {}, [], []
+    for name, text in files:
+        try:
+            file_headers, file_rows = parse_csv(text)
+        except ImportError_ as exc:
+            raise ImportError_(f'{name}: {exc}' if len(files) > 1 else str(exc))
+        columns = []
+        for i, header in enumerate(file_headers):
+            key = _norm(header) or f'#{len(headers)}'
+            if key not in keys or keys[key] in columns:   # a repeated header stays its own column
+                keys[key] = len(headers)
+                headers.append(header)
+            columns.append(keys[key])
+        for n, row in enumerate(file_rows, start=2):   # spreadsheet row numbers
+            rows.append((columns, row))
+            sources.append(f'{name} row {n}' if len(files) > 1 else f'row {n}')
+    if len(headers) > MAX_COLUMNS:
+        raise ImportError_(f'The files have more than {MAX_COLUMNS} different columns.')
+    if len(rows) > MAX_ROWS:
+        raise ImportError_(f'The files have more than {MAX_ROWS} responses.')
+    out = []
+    for columns, row in rows:
+        full = [''] * len(headers)
+        for i, value in zip(columns, row):
+            full[i] = value
+        out.append(full)
+    return headers, out, sources
+
+
 # ── 2. guess ────────────────────────────────────────────────────────────────
 
 def _norm(text):
@@ -305,6 +345,54 @@ def match_positions(text, positions):
     return [pid for _, pid in sorted(found)], leftover
 
 
+def _name_keys(name):
+    """(full, short) keys for a name: all of it, and first + last ignoring
+    middle names and initials ("Sawyer W. Guffey" → "sawyer guffey")."""
+    tokens = _norm(name).split()
+    long = [t for t in tokens if len(t) > 1]
+    return ' '.join(tokens), (f'{long[0]} {long[-1]}' if len(long) >= 2 else ' '.join(long))
+
+
+class _NameMatcher:
+    """
+    Members by name, more forgiving than an exact match (v4.3.0): the full
+    name or preferred name + last name exactly, then first + last name
+    without middle names or initials. A match by first + last only is
+    flagged on the preview for the manager to check.
+    """
+
+    def __init__(self):
+        from src.models import ParliamentUser
+        self.full, self.short, self.last = {}, {}, {}
+        for user in ParliamentUser.objects.exclude(member_status='Removed'):
+            names = [user.name]
+            if user.preferred_name and len(user.name.split()) > 1:
+                names.append(f'{user.preferred_name} {user.name.split()[-1]}')
+            for name in names:
+                full, short = _name_keys(name)
+                for index, key in ((self.full, full), (self.short, short)):
+                    if key and user not in index.setdefault(key, []):
+                        index[key].append(user)
+            last = _norm(user.name).split()[-1:] or ['']
+            self.last.setdefault(last[0], []).append(user)
+
+    def find(self, value):
+        """(members, how): how is 'exact' or 'short'."""
+        full, short = _name_keys(value)
+        if full in self.full:
+            return self.full[full], 'exact'
+        return self.short.get(short, []), 'short'
+
+    def suggest(self, value):
+        """Members who share the last name (or the first and last), for the picker."""
+        tokens = _norm(value).split()
+        found = list(self.last.get(tokens[-1], [])) if tokens else []
+        if tokens:
+            found += [u for k, users in self.short.items() if k.split()[0] == tokens[0]
+                      and k.split()[-1][:1] == tokens[-1][:1] for u in users if u not in found]
+        return sorted(found, key=lambda u: u.name)[:6]
+
+
 def _members_for(kind, values):
     """{normalised value: [members]} for every identity value, in one query."""
     from src.models import ParliamentUser
@@ -354,23 +442,34 @@ def _convert(field, text):
     return text, None
 
 
-def plan(period, headers, rows, mapping, keep_unmapped=True, fixes=None):
+def plan(period, headers, rows, mapping, keep_unmapped=True, fixes=None, sources=None):
     """
     What importing would do, row by row. No writes. Returns a list of dicts:
-    {row, applicant, status ('import'|'skip'), reason, warnings, positions,
-     gpa, submitted_at, answers {field: value}, notes, fixed, fix}.
+    {row, where, applicant, status ('import'|'skip'), reason, warnings,
+     positions, gpa, submitted_at, answers {field: value}, notes, fixed, fix,
+     who, suggestions}.
 
     ``fixes`` is the preview's POST: positions, submitted time and GPA the
-    manager set by hand (see ``_apply_fixes``).
+    manager set by hand (see ``_apply_fixes``), and who a row belongs to
+    (``who_<row>``: a member's id, "skip", or blank to match it from the
+    CSV). ``sources`` labels each row (see ``combine_files``).
     """
+    from src.models import ParliamentUser
+    get = (fixes or {}).get
     fields = {f.id: f for f in importable_fields(period)}
     positions = list(period.positions.filter(is_active=True).order_by('display_order', 'id'))
     titles = {p.id: p.title for p in positions}
     id_col, id_kind = next(((i, k) for i, k in mapping.items() if k in IDENTITY_KINDS), (None, None))
     ts_col = next((i for i, k in mapping.items() if k == 'timestamp'), None)
     gpa_col = next((i for i, k in mapping.items() if k == 'gpa'), None)
-    members = _members_for(id_kind, [r[id_col] for r in rows]) if id_col is not None else {}
-    existing = set(period.applications.values_list('applicant_id', flat=True))
+    if id_kind == 'applicant_name':
+        names = _NameMatcher()
+    else:
+        members = _members_for(id_kind, [r[id_col] for r in rows]) if id_col is not None else {}
+    existing = dict(period.applications.values_list('applicant_id', 'imported_at'))
+    chosen = {n: get(f'who_{n}', '').strip() for n in range(2, len(rows) + 2)}
+    by_hand = {u.pk: u for u in ParliamentUser.objects.filter(
+        pk__in=[v for v in chosen.values() if v and v != 'skip']).exclude(member_status='Removed')}
     required = [f for f in fields.values() if f.is_required]
     questions = form_questions(period)
     missing_ids = {f.id for f in not_asked(period, mapping)}
@@ -379,21 +478,43 @@ def plan(period, headers, rows, mapping, keep_unmapped=True, fixes=None):
     for n, row in enumerate(rows, start=2):   # spreadsheet row numbers
         item = {'row': n, 'applicant': None, 'status': 'skip', 'reason': '', 'warnings': [],
                 'positions': {}, 'gpa': None, 'submitted_at': None, 'answers': {}, 'notes': [],
-                'identity': (row[id_col].strip() if id_col is not None else '')}
+                'identity': (row[id_col].strip() if id_col is not None else ''),
+                'where': (sources[n - 2] if sources else f'row {n}'),
+                'who': chosen[n], 'suggestions': []}
         out.append(item)
-        if not item['identity']:
-            item['reason'] = 'No applicant in this row.'
+        # Who this row is: chosen on the preview, else matched from the CSV.
+        if item['who'] == 'skip':
+            item['reason'] = 'Left out by hand.'
             continue
-        found = members.get(item['identity'].lower(), [])
+        if item['who'] in by_hand:
+            found = [by_hand[item['who']]]
+        elif not item['identity']:
+            item['reason'] = 'No applicant in this row. Choose who it belongs to.'
+            continue
+        elif id_kind == 'applicant_name':
+            found, how = names.find(item['identity'])
+            if len(found) == 1 and how == 'short':
+                item['warnings'].append(f'Matched "{item["identity"]}" to {found[0].name} by first and '
+                                        f'last name. Check it\'s the right person.')
+            if len(found) != 1:
+                item['suggestions'] = found or names.suggest(item['identity'])
+        else:
+            found = members.get(item['identity'].lower(), [])
+            if len(found) > 1:
+                item['suggestions'] = found
         if not found:
-            item['reason'] = f'No Parliament member matches "{item["identity"]}".'
+            item['reason'] = f'No Parliament member matches "{item["identity"]}". Choose who it belongs to.'
             continue
         if len(found) > 1:
-            item['reason'] = f'More than one member matches "{item["identity"]}"; use email instead.'
+            item['reason'] = f'More than one member matches "{item["identity"]}". Choose which one.'
             continue
         user = item['applicant'] = found[0]
         if user.pk in existing:
-            item['reason'] = 'Already has an application in Parliament (kept as is).'
+            imported = existing[user.pk]
+            item['reason'] = (
+                f'Already imported on {timezone.localtime(imported).strftime("%m/%d/%Y")}. To bring '
+                f'it in again, remove that application under Earlier imports first.' if imported
+                else 'Already applied in Parliament (their application is kept as is).')
             continue
         # v4.0.0: the same rule as the apply page (only active members; no
         # inactive members, alumni or advisors). Pledges may apply.
@@ -531,7 +652,7 @@ def _position_ids(item):
 
 def _label(item, titles):
     names = [titles[p] for t in TIERS[:3] for p in item['positions'].get(t, []) if p in titles]
-    return ', '.join(names) or f'Row {item["row"]}'
+    return ', '.join(names) or item['where'].capitalize()
 
 
 def _merge_per_member(items, titles):
@@ -564,7 +685,7 @@ def _merge_per_member(items, titles):
                 old = latest[key]
                 old['status'] = 'skip'
                 old['reason'] = (f'Replaced by a newer response for the same position '
-                                 f'in row {item["row"]}.')
+                                 f'({item["where"]}). Choose "Don\'t import" on that one to keep this.')
             latest[key] = item
         keep = [i for i in group if i['status'] == 'import']
         if len(keep) < 2:
@@ -573,7 +694,8 @@ def _merge_per_member(items, titles):
         _combine(primary, keep, titles)
         for item in keep[:-1]:
             item['status'] = 'skip'
-            item['reason'] = (f'Combined into one application with row {primary["row"]} '
+            item['combined'] = True   # its "whose response" picker is on the combined one
+            item['reason'] = (f'Combined into one application with {primary["where"]} '
                               f'(one application per member).')
 
 
@@ -617,7 +739,7 @@ def _combine(primary, parts, titles):
         else:
             answers[f] = given[-1][1]
             warnings.append(f'Different answers to "{f.label}" across forms; kept the latest '
-                            f'(row {given[-1][0]["row"]}).')
+                            f'({given[-1][0]["where"]}).')
     primary['answers'] = answers
 
     gpas = [part['gpa'] for part in parts if part['gpa'] is not None]
@@ -639,11 +761,15 @@ def _combine(primary, parts, titles):
     primary['warnings'] = [w for w in [w for part in parts for w in part['warnings']] + warnings
                            if not (w in seen or seen.add(w))]
     primary['merged_rows'] = [part['row'] for part in parts]
+    primary['merged_where'] = [part['where'] for part in parts]
+    primary['parts'] = [{k: part[k] for k in ('row', 'where', 'who', 'identity')} for part in parts]
 
 
 def _finish(item, titles, required, questions, missing_ids):
     """Warnings and the confirmation-screen view, on the final application."""
     item.setdefault('merged_rows', [item['row']])
+    item.setdefault('merged_where', [item['where']])
+    item.setdefault('parts', [{k: item[k] for k in ('row', 'where', 'who', 'identity')}])
     if not any(item['positions'].get(t) for t in TIERS[:3]):
         item['warnings'].append('No positions matched.')
     missing = [f.label for f in required if f not in item['answers'] and f.id not in missing_ids]
@@ -671,12 +797,13 @@ def _finish(item, titles, required, questions, missing_ids):
     item['review'] = review
 
 
-def commit(period, headers, rows, mapping, keep_unmapped, imported_by, request=None, fixes=None):
+def commit(period, headers, rows, mapping, keep_unmapped, imported_by, request=None, fixes=None,
+           sources=None):
     """Write the rows ``plan`` marks for import. Returns (imported, skipped)."""
     from src.models import (
         ActivityLog, SlatingActivity, SlatingApplication, SlatingApplicationResponse,
     )
-    items = plan(period, headers, rows, mapping, keep_unmapped, fixes)
+    items = plan(period, headers, rows, mapping, keep_unmapped, fixes, sources)
     ready = [i for i in items if i['status'] == 'import']
     not_asked_labels = [f.label for f in not_asked(period, mapping)]
     now = timezone.now()
@@ -688,11 +815,13 @@ def commit(period, headers, rows, mapping, keep_unmapped, imported_by, request=N
         for item in ready:
             user = item['applicant']
             if user.pk in taken:
-                item['status'], item['reason'] = 'skip', 'Already has an application in Parliament (kept as is).'
+                item['status'], item['reason'] = 'skip', 'Already has an application (kept as is).'
                 continue
-            rows_used = item.get('merged_rows') or [item['row']]
-            where = (f'spreadsheet row {rows_used[0]}' if len(rows_used) == 1 else
-                     'spreadsheet rows ' + ', '.join(str(r) for r in rows_used) + ', combined')
+            used = item['merged_where']
+            where = used[0] if len(used) == 1 else ', '.join(used) + ', combined'
+            if item['who'] and item['who'] != 'skip':
+                where += f'; "{item["identity"]}" tied to this member by hand'
+
             notes = [f'Imported from an outside form by {imported_by.get_display_name()} on {stamp} '
                      f'({where}).']
             if item['fixed']:

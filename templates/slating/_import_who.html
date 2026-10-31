@@ -1,0 +1,14 @@
+{# Who a CSV row belongs to (v4.3.0): blank = match from the CSV, a member, or "skip". Used on Import Applications' preview. #}
+<select name="who_{{ part.row }}" aria-label="Who {{ part.where }} belongs to"
+        class="rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white text-sm max-w-full">
+    <option value="" {% if not part.who %}selected{% endif %}>Match from the CSV{% if part.identity %} ("{{ part.identity|truncatechars:40 }}"){% endif %}</option>
+    <option value="skip" {% if part.who == 'skip' %}selected{% endif %}>Don't import this row</option>
+    {% if suggestions %}
+    <optgroup label="Likely matches">
+        {% for m in suggestions %}<option value="{{ m.pk }}" {% if part.who == m.pk|stringformat:"s" %}selected{% endif %}>{{ m.name }}{% if m.preferred_name %} ({{ m.preferred_name }}){% endif %}</option>{% endfor %}
+    </optgroup>
+    {% endif %}
+    <optgroup label="All active members">
+        {% for m in members %}<option value="{{ m.pk }}" {% if part.who == m.pk|stringformat:"s" %}selected{% endif %}>{{ m.name }}{% if m.preferred_name %} ({{ m.preferred_name }}){% endif %}</option>{% endfor %}
+    </optgroup>
+</select>

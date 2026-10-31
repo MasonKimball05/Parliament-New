@@ -32,7 +32,7 @@
             <li><strong>Google Forms:</strong> open the form → <em>Responses</em> → ⋮ → <em>Download responses (.csv)</em>.</li>
             <li><strong>Google Sheets / Excel:</strong> <em>File</em> → <em>Download</em> (or <em>Save As</em>) → <em>Comma-separated values (.csv)</em>.</li>
             <li>The first row must be the questions. Include a column that identifies each person — their email works best (turn on <em>Collect email addresses</em> in Google Forms).</li>
-            <li>If people sent one form per position, upload them all: each member's forms are combined into one application with every position they applied for.</li>
+            <li>If people sent one form per position, choose all the CSVs at once (or add more on the next step): questions with the same wording line up, and each member's forms are combined into one application with every position they applied for.</li>
         </ul>
         <p class="text-sm text-gray-500 dark:text-gray-400">Nothing is saved until you review a preview. Members who already applied in Parliament are skipped, so their own application is never overwritten.</p>
         {% if not positions %}
@@ -40,22 +40,93 @@
         {% endif %}
         {# The file input sits outside the form, and the script below posts the file's text instead (v4.3.0): core.js resends any form with a file input over fetch(), which follows only redirects, so this step's page was dropped and Continue did nothing. #}
         <div class="flex flex-wrap items-center gap-3">
-            <input type="file" id="csv-file" accept=".csv,text/csv"
+            <input type="file" id="csv-file" accept=".csv,text/csv" multiple
                 class="block text-sm text-gray-700 dark:text-gray-300">
-            <form method="post" id="csv-upload-form">
+            <form method="post" id="csv-upload-form" data-csv-target>
                 {% csrf_token %}
                 <input type="hidden" name="step" value="upload">
-                <textarea name="csv_text" class="hidden" aria-hidden="true"></textarea>
                 <button type="submit" disabled class="inline-flex items-center px-4 py-2 rounded-md text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed">Continue</button>
             </form>
             <span id="csv-file-error" class="hidden text-sm text-red-600 dark:text-red-400"></span>
         </div>
     </div>
 
+    {% if earlier_imports %}
+    {# v4.3.0: undo an import, or one application from it. #}
+    <div class="bg-white dark:bg-gray-800 shadow rounded-lg p-6 space-y-4">
+        <div>
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Earlier imports</h2>
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Remove an import to undo it, for example to import the same members again from a corrected file. Applications that have an interview, are slated or have moved past review are kept.</p>
+        </div>
+        {% for batch in earlier_imports %}
+        <div class="rounded-lg border border-gray-200 dark:border-gray-700">
+            <div class="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-b border-gray-100 dark:border-gray-700">
+                <div class="text-sm">
+                    <span class="font-medium text-gray-900 dark:text-white">{{ batch.at|date:"M j, Y g:i A" }}</span>
+                    <span class="text-gray-500 dark:text-gray-400">· {{ batch.apps|length }} application{{ batch.apps|length|pluralize }}</span>
+                </div>
+                {% if batch.removable %}
+                <form method="post" action="{% url 'slating_remove_imported' period_id=period.id %}"
+                      data-confirm="Remove {{ batch.removable }} imported application{{ batch.removable|pluralize }} from this import? This can't be undone, but you can import the file again.">
+                    {% csrf_token %}
+                    <input type="hidden" name="batch" value="{{ batch.key }}">
+                    <button type="submit" class="inline-flex items-center px-3 py-1.5 rounded-md text-sm font-medium text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/40">Remove this import</button>
+                </form>
+                {% endif %}
+            </div>
+            <ul class="divide-y divide-gray-100 dark:divide-gray-700">
+                {% for app in batch.apps %}
+                <li class="flex flex-wrap items-center justify-between gap-2 px-4 py-2 text-sm">
+                    <a href="{% url 'slating_app_detail' period_id=period.id app_id=app.id %}" class="text-gray-900 dark:text-white hover:underline">{{ app.applicant.get_display_name }}</a>
+                    <span class="flex items-center gap-3">
+                        <span class="text-xs text-gray-500 dark:text-gray-400">{{ app.get_status_display }}</span>
+                        {% if app.removable %}
+                        <form method="post" action="{% url 'slating_remove_imported' period_id=period.id %}"
+                              data-confirm="Remove {{ app.applicant.get_display_name }}'s imported application?">
+                            {% csrf_token %}
+                            <input type="hidden" name="app" value="{{ app.id }}">
+                            <button type="submit" class="text-xs text-red-600 dark:text-red-400 hover:underline">Remove</button>
+                        </form>
+                        {% else %}
+                        <span class="text-xs text-gray-400" title="It has an interview, is slated or is past review.">Kept</span>
+                        {% endif %}
+                    </span>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
 {% else %}
-    <form method="post" class="space-y-6">
+    {# The files in this import (v4.3.0). The picker sits outside the form, like step 1's; its buttons post the form by id. #}
+    <div class="bg-white dark:bg-gray-800 shadow rounded-lg p-6 space-y-3">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Files</h2>
+            <label class="inline-flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium text-primary-700 dark:text-primary-300 border border-primary-300 dark:border-primary-700 hover:bg-primary-50 dark:hover:bg-gray-700 cursor-pointer">
+                Add more files
+                <input type="file" id="csv-file" accept=".csv,text/csv" multiple class="sr-only">
+            </label>
+        </div>
+        <ul class="divide-y divide-gray-100 dark:divide-gray-700 text-sm">
+            {% for f in files %}
+            <li class="flex items-center justify-between gap-3 py-2">
+                <span class="text-gray-900 dark:text-white break-all">{{ f.name }}</span>
+                <button type="submit" form="import-form" name="step" value="remove_{{ forloop.counter0 }}" formnovalidate
+                        class="text-xs text-red-600 dark:text-red-400 hover:underline">Remove</button>
+            </li>
+            {% endfor %}
+        </ul>
+        <span id="csv-file-error" class="hidden text-sm text-red-600 dark:text-red-400"></span>
+    </div>
+
+    <form method="post" id="import-form" class="space-y-6" data-csv-target>
         {% csrf_token %}
-        <textarea name="csv_text" class="hidden" aria-hidden="true">{{ csv_text }}</textarea>
+        {% for f in files %}
+        <input type="hidden" name="csv_name" value="{{ f.name }}">
+        <textarea name="csv_text" class="hidden" aria-hidden="true">{{ f.text }}</textarea>
+        {% endfor %}
 
         <div class="bg-white dark:bg-gray-800 shadow rounded-lg p-6 space-y-4">
             <div class="flex items-center justify-between">
@@ -78,6 +149,7 @@
                             <td class="py-2 pr-4 text-gray-900 dark:text-white">{{ col.header }}</td>
                             <td class="py-2 pr-4 text-gray-500 dark:text-gray-400">{{ col.sample|truncatechars:60 }}</td>
                             <td class="py-2">
+                                <input type="hidden" name="colhead_{{ col.index }}" value="{{ col.header }}">
                                 <select name="col_{{ col.index }}" class="block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white text-sm">
                                     {% for value, label in kind_options %}
                                     <option value="{{ value }}" {% if value == col.kind %}selected{% endif %}>{{ label }}</option>
@@ -128,7 +200,7 @@
                     <summary class="cursor-pointer px-4 py-3 flex flex-wrap items-center gap-2 text-sm">
                         <span class="px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300">Import</span>
                         <span class="font-medium text-gray-900 dark:text-white">{{ item.applicant.get_display_name }}</span>
-                        <span class="text-xs text-gray-500 dark:text-gray-400">{{ item.identity }} · {% if item.merged_rows|length > 1 %}combined from rows {{ item.merged_rows|join:", " }}{% else %}row {{ item.row }}{% endif %}</span>
+                        <span class="text-xs text-gray-500 dark:text-gray-400">{{ item.identity }} · {% if item.merged_where|length > 1 %}combined from {{ item.merged_where|join:", " }}{% else %}{{ item.where }}{% endif %}</span>
                         {% if item.warnings %}<span class="text-xs text-yellow-700 dark:text-yellow-300">⚠ {{ item.warnings|length }} note{{ item.warnings|length|pluralize }}</span>{% endif %}
                         {% if item.fixed %}<span class="text-xs text-primary-700 dark:text-primary-300">Fixed by hand: {{ item.fixed|join:", " }}</span>{% endif %}
                     </summary>
@@ -166,6 +238,15 @@
                         {% with pk=item.applicant.pk fix=item.fix %}
                         <div class="rounded-md bg-gray-50 dark:bg-gray-700/40 p-3 space-y-3">
                             <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Fix this application</p>
+                            <div class="space-y-2">
+                                <span class="text-xs text-gray-500 dark:text-gray-400">Whose response{{ item.parts|length|pluralize }}</span>
+                                {% for part in item.parts %}
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <span class="text-xs text-gray-500 dark:text-gray-400 w-full sm:w-auto">{{ part.where|capfirst }}</span>
+                                    {% include 'slating/_import_who.html' with suggestions=None %}
+                                </div>
+                                {% endfor %}
+                            </div>
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 <label class="block">
                                     <span class="text-xs text-gray-500 dark:text-gray-400">Submitted (blank = now)</span>
@@ -211,11 +292,21 @@
             </div>
 
             {% if skip_count %}
-            <div>
-                <h3 class="text-sm font-semibold text-gray-900 dark:text-white mb-2">Skipped</h3>
-                <ul class="text-sm space-y-1">
+            {# v4.3.0: each skipped row can be tied to a member (or left out) here, then Update preview. #}
+            <div class="space-y-2">
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                    <h3 class="text-sm font-semibold text-gray-900 dark:text-white">Skipped</h3>
+                    <button type="submit" name="step" value="preview" formnovalidate class="inline-flex items-center px-3 py-1.5 rounded-md text-sm font-medium text-primary-700 dark:text-primary-300 bg-white dark:bg-gray-800 border border-primary-300 dark:border-primary-700 hover:bg-primary-50 dark:hover:bg-gray-700">Update preview</button>
+                </div>
+                <p class="text-xs text-gray-500 dark:text-gray-400">If a row is someone whose name didn't match, choose them and press <em>Update preview</em>.</p>
+                <ul class="text-sm divide-y divide-gray-100 dark:divide-gray-700 rounded-lg border border-gray-200 dark:border-gray-700">
                     {% for item in items %}{% if item.status != 'import' %}
-                    <li class="text-gray-600 dark:text-gray-400"><span class="text-xs text-gray-500">Row {{ item.row }}</span> · {{ item.applicant.get_display_name|default:item.identity|default:"(no applicant)" }} — {{ item.reason }}</li>
+                    <li class="px-4 py-3 space-y-2">
+                        <div class="text-gray-600 dark:text-gray-400"><span class="text-xs text-gray-500">{{ item.where|capfirst }}</span> · <span class="text-gray-900 dark:text-white">{{ item.applicant.get_display_name|default:item.identity|default:"(no applicant)" }}</span> — {{ item.reason }}</div>
+                        {% if not item.combined %}
+                        {% with part=item %}{% include 'slating/_import_who.html' with suggestions=item.suggestions %}{% endwith %}
+                        {% endif %}
+                    </li>
                     {% endif %}{% endfor %}
                 </ul>
             </div>
@@ -241,40 +332,69 @@
 {% block slating_js %}
 <script nonce="{{ request.csp_nonce }}">
 (function () {
+    // Read the chosen CSVs here and post their text (v4.3.0): a form holding
+    // a file input is resent by core.js over fetch(), which follows only
+    // redirects, so the next step's page was dropped. UTF-8 first, then
+    // Windows-1252 (Excel's "CSV" on Windows), as the server's decode() does.
     var picker = document.getElementById('csv-file');
-    var form = document.getElementById('csv-upload-form');
+    var form = document.querySelector('[data-csv-target]');
     if (!picker || !form) return;
-    var text = form.querySelector('textarea[name="csv_text"]');
-    var button = form.querySelector('button[type="submit"]');
     var error = document.getElementById('csv-file-error');
+    var upload = form.id === 'csv-upload-form';
+    var button = upload ? form.querySelector('button[type="submit"]') : null;
+    var added = [];
 
     function fail(message) {
         error.textContent = message;
         error.classList.remove('hidden');
     }
 
-    // Read on choosing, so Continue is a plain post of the text. UTF-8
-    // first, then Windows-1252 (Excel's "CSV" on Windows), as the server's
-    // decode() does for an uploaded file.
-    picker.addEventListener('change', function () {
-        text.value = '';
-        button.disabled = true;
-        error.classList.add('hidden');
-        var file = picker.files[0];
-        if (!file) return;
-        if (file.size > {{ max_bytes }}) return fail('That file is larger than 2 MB.');
-        file.arrayBuffer().then(function (buffer) {
-            var decoded;
+    function read(file) {
+        if (file.size > {{ max_bytes }}) return Promise.reject(file.name + ' is larger than 2 MB.');
+        return file.arrayBuffer().then(function (buffer) {
+            var text;
             try {
-                decoded = new TextDecoder('utf-8', { fatal: true }).decode(buffer);
+                text = new TextDecoder('utf-8', { fatal: true }).decode(buffer);
             } catch (e) {
-                decoded = new TextDecoder('windows-1252').decode(buffer);
+                text = new TextDecoder('windows-1252').decode(buffer);
             }
-            if (!decoded.trim()) return fail('That file is empty.');
-            text.value = decoded;
-            button.disabled = false;
-        }).catch(function () {
-            fail("Couldn't read that file. Choose it again.");
+            if (!text.trim()) throw file.name + ' is empty.';
+            return { name: file.name, text: text };
+        }, function () {
+            throw "Couldn't read " + file.name + '. Choose it again.';
+        });
+    }
+
+    function hidden(tag, name, value) {
+        var el = document.createElement(tag);
+        el.name = name;
+        el.value = value;
+        el.hidden = true;
+        form.appendChild(el);
+        added.push(el);
+    }
+
+    picker.addEventListener('change', function () {
+        added.forEach(function (el) { el.remove(); });
+        added = [];
+        error.classList.add('hidden');
+        if (button) button.disabled = true;
+        var files = Array.prototype.slice.call(picker.files);
+        if (!files.length) return;
+        Promise.all(files.map(read)).then(function (read) {
+            read.forEach(function (f) {
+                hidden('input', 'csv_name', f.name);
+                hidden('textarea', 'csv_text', f.text);
+            });
+            if (upload) {
+                button.disabled = false;
+                button.textContent = 'Continue with ' + read.length + ' file' + (read.length === 1 ? '' : 's');
+            } else {
+                hidden('input', 'step', 'add');
+                form.submit();
+            }
+        }).catch(function (message) {
+            fail(String(message));
         });
     });
 })();

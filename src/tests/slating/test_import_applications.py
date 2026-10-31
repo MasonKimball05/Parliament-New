@@ -34,7 +34,7 @@ GOOGLE_CSV = (
 
 
 def member(uid, email, **kw):
-    return ParliamentUser.objects.create(user_id=uid, username=uid, name=f'Member {uid}',
+    return ParliamentUser.objects.create(user_id=uid, username=uid, name=kw.pop('name', f'Member {uid}'),
                                          email=email, member_type=kw.pop('member_type', 'Member'),
                                          member_status='Active', **kw)
 
@@ -72,8 +72,11 @@ class _Base(TestCase):
 
     def mapping_post(self, response, **extra):
         cols = response.context['columns']
-        data = {'csv_text': response.context['csv_text'], 'keep_unmapped': '1'}
+        files = response.context['files']
+        data = {'csv_text': [f['text'] for f in files], 'csv_name': [f['name'] for f in files],
+                'keep_unmapped': '1'}
         data.update({f'col_{c["index"]}': c['kind'] for c in cols})
+        data.update({f'colhead_{c["index"]}': c['header'] for c in cols})   # as the page posts them
         data.update(extra)
         return data
 
@@ -94,7 +97,7 @@ class GuessAndPreviewTests(_Base):
         form = page[page.index('id="csv-upload-form"'):]
         form = form[:form.index('</form>')]
         self.assertNotIn('type="file"', form)
-        self.assertIn('name="csv_text"', form)
+        self.assertIn('data-csv-target', form)   # the script adds csv_name/csv_text per file
         r = self.client.post(self.url, {'step': 'upload', 'csv_text': '\ufeff' + GOOGLE_CSV})
         self.assertEqual(r.context['step'], 'map')
         self.assertEqual(r.context['columns'][0]['kind'], 'timestamp')
@@ -109,8 +112,8 @@ class GuessAndPreviewTests(_Base):
         self.assertEqual(items[2]['status'], 'skip')            # alpha's other form...
         self.assertIn('Combined into one application with row 5', items[2]['reason'])
         self.assertEqual(items[5]['merged_rows'], [2, 5])        # ...folded into row 5
-        self.assertEqual(items[4]['reason'], 'No Parliament member matches "nobody@test.org".')
-        self.assertIn('Already has an application', items[6]['reason'])
+        self.assertEqual(items[4]['reason'], 'No Parliament member matches "nobody@test.org". Choose who it belongs to.')
+        self.assertIn('Already applied in Parliament', items[6]['reason'])
         self.assertEqual([f.label for f in r.context['not_asked']], ['Your goals for the chapter'])
         review = {q['label']: q for q in items[3]['review']}
         self.assertEqual(review['Your goals for the chapter']['state'], 'not_asked')
@@ -154,7 +157,7 @@ class ImportTests(_Base):
         self.assertIn('Vice President, President, Treasurer: To help', why)
         self.assertIn('President: Changed my mind', why)
         self.assertIn('Shirt size: L', alpha.review_notes)
-        self.assertIn('rows 2, 5, combined', alpha.review_notes)
+        self.assertIn('row 2, row 5, combined', alpha.review_notes)
         bravo = SlatingApplication.objects.get(applicant=self.bravo)
         self.assertEqual(bravo.position_preferences['first_choice'], [self.treas.id])
         self.assertEqual(bravo.gpa_level, bravo.calculate_gpa_level())
@@ -284,11 +287,11 @@ class OneFormPerPositionTests(_Base):
         r = self.client.post(self.url, self.mapping_post(r, step='preview'))
         items = {i['row']: i for i in r.context['items']}
         self.assertEqual(r.context['import_count'], 1)
-        self.assertIn('Replaced by a newer response for the same position in row 5', items[3]['reason'])
+        self.assertIn('Replaced by a newer response for the same position (row 5)', items[3]['reason'])
         self.assertEqual(items[5]['merged_rows'], [2, 4, 5])
         self.assertEqual(items[5]['position_titles']['first_choice'],
                          ['President', 'Vice President', 'Treasurer'])
-        self.assertContains(r, 'combined from rows 2, 4, 5')
+        self.assertContains(r, 'combined from row 2, row 4, row 5')
 
         r = self.upload(self.CSV)
         self.client.post(self.url, self.mapping_post(r, step='import', confirmed='1'))
@@ -409,3 +412,146 @@ class FixOnPreviewTests(_Base):
         item = [i for i in r.context['items'] if i['status'] == 'import'][0]
         self.assertEqual(item['fixed'], [])
         self.assertFalse(any(w.startswith('Unrecognised') for w in item['warnings']))
+
+
+# ── v4.3.0: tie rows to members, several files, undo an import ──────────────
+
+NAME_CSV = (
+    'Timestamp,Name,Position\n'
+    '10/20/2026 14:05:11,Robert Alden Campbell,President\n'
+    '10/20/2026 15:00:00,Sawyer W. Guffey,Treasurer\n'
+    '10/20/2026 16:00:00,Bobby Campbell,Vice President\n'
+    '10/20/2026 17:00:00,Planky John Pledge,Treasurer\n'
+)
+
+
+class TieRowsToMembersTests(_Base):
+    """Mason (10-30-26): rows whose name didn't match were skipped with no way to fix them."""
+
+    def setUp(self):
+        super().setUp()
+        self.robert = member('rcampbell', 'rc@test.org', name='Robert Campbell', preferred_name='Bobby')
+        self.sawyer = member('sguffey', 'sg@test.org', name='Sawyer Guffey')
+        self.john = member('jpledge', 'jp@test.org', name='John Pledge')
+
+    def preview(self, **extra):
+        r = self.upload(NAME_CSV)
+        data = self.mapping_post(r, step='preview')
+        data.update(extra)
+        return self.client.post(self.url, data)
+
+    def test_middle_names_initials_and_preferred_names_match(self):
+        items = {i['row']: i for i in self.preview().context['items']}
+        self.assertEqual(items[2]['applicant'], self.robert)        # middle name dropped...
+        self.assertTrue(any('by first and last name' in w for w in items[5]['warnings'] + items[2]['warnings']))
+        self.assertEqual(items[3]['applicant'], self.sawyer)        # ...and an initial
+        self.assertEqual(items[4]['applicant'], self.robert)        # preferred name + last
+        self.assertEqual(items[5]['status'], 'skip')
+        self.assertIn('Choose who it belongs to', items[5]['reason'])
+        self.assertIn(self.john, items[5]['suggestions'])           # same last name
+
+    def test_a_row_can_be_tied_to_a_member_or_left_out(self):
+        r = self.preview(who_5=str(self.john.pk), who_3='skip')
+        items = {i['row']: i for i in r.context['items']}
+        self.assertEqual(items[5]['applicant'], self.john)
+        self.assertEqual(items[5]['status'], 'import')
+        self.assertEqual(items[3]['reason'], 'Left out by hand.')
+        self.assertContains(r, f'<option value="{self.john.pk}" selected')
+
+        r = self.upload(NAME_CSV)
+        data = self.mapping_post(r, step='import', confirmed='1', who_5=str(self.john.pk), who_3='skip')
+        self.client.post(self.url, data)
+        app = SlatingApplication.objects.get(applicant=self.john)
+        self.assertIn('"Planky John Pledge" tied to this member by hand', app.review_notes)
+        self.assertFalse(SlatingApplication.objects.filter(applicant=self.sawyer).exists())
+
+    def test_ambiguous_email_offers_the_choices(self):
+        r = self.upload()
+        items = {i['row']: i for i in self.client.post(
+            self.url, self.mapping_post(r, step='preview', who_4=str(self.bravo.pk))).context['items']}
+        # "nobody@test.org" tied to Bravo, so Bravo's two rows (different positions) combine.
+        self.assertEqual(items[4]['reason'].split(' with ')[0], 'Combined into one application')
+
+
+class SeveralFilesTests(_Base):
+    PRES = 'Timestamp,Email Address,Position,Why do you want to serve?\n10/20/2026 14:05:11,alpha@test.org,President,Lead\n'
+    TREAS = ('Email address,Timestamp,Position,Why do you want to serve?,Budget idea\n'
+             'ALPHA@test.org,10/21/2026 09:00:00,Treasurer,Money,Dues app\n'
+             'bravo@test.org,10/21/2026 10:00:00,Treasurer,Count,\n')
+
+    def post_files(self, step='upload', **extra):
+        data = {'step': step, 'csv_name': ['President.csv', 'Treasurer.csv'],
+                'csv_text': [self.PRES, self.TREAS]}
+        data.update(extra)
+        return self.client.post(self.url, data)
+
+    def test_columns_line_up_by_question_and_rows_say_their_file(self):
+        r = self.post_files()
+        self.assertEqual([c['header'] for c in r.context['columns']],
+                         ['Timestamp', 'Email Address', 'Position', 'Why do you want to serve?', 'Budget idea'])
+        self.assertEqual(r.context['row_count'], 3)
+        r = self.client.post(self.url, self.mapping_post(r, step='preview'))
+        alpha = next(i for i in r.context['items'] if i['status'] == 'import' and i['applicant'] == self.alpha)
+        self.assertEqual(alpha['merged_where'], ['President.csv row 2', 'Treasurer.csv row 2'])
+        self.assertEqual(alpha['positions']['first_choice'], [self.pres.id, self.treas.id])
+        self.assertContains(r, 'Treasurer.csv row 3')
+
+    def test_a_file_can_be_removed_and_choices_are_kept(self):
+        r = self.post_files()
+        data = self.mapping_post(r, step='remove_0')
+        data['col_4'] = f'field_{self.goals.id}'           # "Budget idea" → goals, by hand
+        r = self.client.post(self.url, data)
+        self.assertEqual([f['name'] for f in r.context['files']], ['Treasurer.csv'])
+        kinds = {c['header']: c['kind'] for c in r.context['columns']}
+        self.assertEqual(kinds['Budget idea'], f'field_{self.goals.id}')
+        self.assertEqual(kinds['Email address'], 'applicant_email')
+
+    def test_removing_the_last_file_goes_back_to_upload(self):
+        r = self.upload()
+        r = self.client.post(self.url, self.mapping_post(r, step='remove_0'))
+        self.assertEqual(r.context['step'], 'upload')
+
+
+class RemoveImportTests(_Base):
+
+    def setUp(self):
+        super().setUp()
+        r = self.upload()
+        self.client.post(self.url, self.mapping_post(r, step='import', confirmed='1'))
+        self.remove_url = reverse('slating_remove_imported', args=[self.period.id])
+
+    def test_earlier_imports_are_listed_and_a_whole_import_can_be_removed(self):
+        r = self.client.get(self.url)
+        batches = r.context['earlier_imports']
+        self.assertEqual(len(batches), 1)
+        self.assertEqual(len(batches[0]['apps']), 2)              # Alpha, Bravo
+        self.assertContains(r, 'Remove this import')
+        self.client.post(self.remove_url, {'batch': batches[0]['key']})
+        self.assertEqual(list(SlatingApplication.objects.all()), [self.charlies_own])
+
+    def test_one_application_and_only_ones_nothing_is_built_on(self):
+        alpha = SlatingApplication.objects.get(applicant=self.alpha)
+        bravo = SlatingApplication.objects.get(applicant=self.bravo)
+        bravo.status = 'interviewed'
+        bravo.save()
+        self.client.post(self.remove_url, {'app': alpha.id})
+        self.assertFalse(SlatingApplication.objects.filter(id=alpha.id).exists())
+        r = self.client.post(self.remove_url, {'app': bravo.id}, follow=True)
+        self.assertTrue(SlatingApplication.objects.filter(id=bravo.id).exists())
+        self.assertContains(r, 'Kept')
+        # A member's own application is never removed here.
+        self.client.post(self.remove_url, {'app': self.charlies_own.id})
+        self.assertTrue(SlatingApplication.objects.filter(id=self.charlies_own.id).exists())
+
+    def test_reimporting_says_how(self):
+        r = self.upload()
+        r = self.client.post(self.url, self.mapping_post(r, step='preview'))
+        alpha = next(i for i in r.context['items'] if i['applicant'] == self.alpha)
+        self.assertIn('remove that application under Earlier imports', alpha['reason'])
+
+    def test_members_and_get_are_refused(self):
+        self.assertEqual(self.client.get(self.remove_url).status_code, 405)
+        self.client.force_login(self.alpha)
+        alpha = SlatingApplication.objects.get(applicant=self.alpha)
+        self.client.post(self.remove_url, {'app': alpha.id})
+        self.assertTrue(SlatingApplication.objects.filter(id=alpha.id).exists())
