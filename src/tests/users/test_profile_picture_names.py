@@ -32,3 +32,17 @@ class ProfilePictureNameTests(TestCase):
         self.assertNotEqual(user.profile_picture.name, first_name)
         self.assertNotEqual(photo_path(user), first_path)
         user.profile_picture.delete(save=False)
+
+
+@override_settings(ALLOWED_HOSTS=['testserver', 'localhost'])
+class ProfilePictureChecksTests(TestCase):
+    """v4.4.0: the web upload runs the field's checks (save() never did)."""
+
+    def test_a_pdf_is_refused(self):
+        user = make_user('pp-2')
+        self.client.force_login(user)
+        f = SimpleUploadedFile('notes.pdf', b'%PDF-1.4', content_type='application/pdf')
+        r = self.client.post('/profile/', {'profile_picture_submit': '1', 'profile_picture': f})
+        self.assertEqual(r.status_code, 302)
+        user.refresh_from_db()
+        self.assertFalse(user.profile_picture)

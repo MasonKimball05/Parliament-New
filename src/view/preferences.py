@@ -15,41 +15,66 @@ from src.models import UserPreferences, ActivityLog, PushSubscription, WebAuthnC
 from src.models.api import APIToken, DEFINED_SCOPES
 
 
+# ── Shared with the app (v4.4.0) ─────────────────────────────────────────────
+# The website's form post and the app's Preferences screen
+# (src/mobile/views_preferences.py) read and save through these, so the two
+# can't drift: same validation (UserPreferencesForm, its nine-item menu limit),
+# same dark-mode rule, same cache bust and activity log.
+
+def preferences_for(user):
+    """The member's UserPreferences row (made if a signal ever missed it)."""
+    preferences, _ = UserPreferences.objects.get_or_create(user=user)
+    return preferences
+
+
+def preference_values(preferences):
+    """Every form field's current value: ``{field_name: value}``."""
+    return dict(UserPreferencesForm(instance=preferences).initial)
+
+
+def save_preferences(request, preferences, data):
+    """
+    Validate ``data`` (a whole form's worth of fields) with
+    ``UserPreferencesForm`` and, when valid, save it. Returns
+    ``(form, theme_changed)``; nothing is written if ``form.is_valid()`` is
+    False (its errors say why).
+    """
+    form = UserPreferencesForm(data, instance=preferences)
+    if not form.is_valid():
+        return form, False
+    old_theme = preferences.theme
+    # Enforced here, not just hidden in the template — if the chapter
+    # has turned dark mode off, a directly-posted 'dark' or 'auto'
+    # value must not stick regardless of what the form showed.
+    if not check_feature_enabled('dark_mode'):
+        form.cleaned_data['theme'] = 'light'
+    form.save()
+
+    # Bust the context-processor cache so the new prefs take effect immediately
+    from django.core.cache import cache
+    cache.delete(f'user_prefs_{request.user.pk}')
+
+    # Log the activity
+    ActivityLog.log_activity(
+        action_type='preferences_updated',
+        user=request.user,
+        description=f'{request.user.get_display_name()} updated their preferences',
+        request=request
+    )
+    return form, old_theme != preferences.theme
+
+
 @login_required
 def preferences_view(request):
     """
     View for users to manage their preferences
     """
-    # Get or create user preferences
-    preferences, created = UserPreferences.objects.get_or_create(user=request.user)
+    preferences = preferences_for(request.user)
 
     if request.method == 'POST':
         is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
-        form = UserPreferencesForm(request.POST, instance=preferences)
+        form, theme_changed = save_preferences(request, preferences, request.POST)
         if form.is_valid():
-            old_theme = preferences.theme
-            # Enforced here, not just hidden in the template — if the chapter
-            # has turned dark mode off, a directly-posted 'dark' or 'auto'
-            # value must not stick regardless of what the form showed.
-            if not check_feature_enabled('dark_mode'):
-                form.cleaned_data['theme'] = 'light'
-            form.save()
-
-            # Bust the context-processor cache so the new prefs take effect immediately
-            from django.core.cache import cache
-            cache.delete(f'user_prefs_{request.user.pk}')
-
-            # Log the activity
-            ActivityLog.log_activity(
-                action_type='preferences_updated',
-                user=request.user,
-                description=f'{request.user.get_display_name()} updated their preferences',
-                request=request
-            )
-
-            new_theme = preferences.theme
-            theme_changed = old_theme != new_theme
-
             if is_ajax:
                 return JsonResponse({'success': True, 'theme_changed': theme_changed})
 

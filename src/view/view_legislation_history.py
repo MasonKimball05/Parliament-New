@@ -18,30 +18,44 @@ from .legislation_drafts import MY_DRAFTS_LIMIT, _can_publish
 MY_POLLS_LIMIT = 100
 
 
-@login_required
-def view_legislation_history(request):
-    user = request.user
-    status_filter = request.GET.get('status', 'all')
+#: Rows per page of the legislation list (v3.17.3). The app's list pages the
+#: same way (src/mobile/views_legislation_history.py).
+PAGE_SIZE = 20
 
-    # All legislation submitted by or co-authored by the user
-    base_qs = Legislation.objects.filter(
+#: The status tabs, in the page's order. Anything else means 'all'.
+STATUS_FILTERS = ('all', 'active', 'passed', 'failed', 'tabled')
+
+# v4.4.0: the querying below was the body of view_legislation_history; it is now
+# a set of functions so the app's My Work screen
+# (src/mobile/views_legislation_history.py) lists exactly what this page does —
+# the same "posted or co-authored" scope, the same status predicates and counts,
+# the same tallies. The view calls them in the order it always ran them.
+
+
+def authored_legislation(user):
+    """Every bill ``user`` posted or co-authored, newest first (the whole scope of this page)."""
+    return Legislation.objects.filter(
         Q(posted_by=user) | Q(co_authors=user)
     ).distinct().order_by('-available_at')
 
-    # Apply status filter
+
+def filter_status(base_qs, status_filter):
+    """``base_qs`` narrowed to one status tab (``STATUS_FILTERS``; anything else is 'all')."""
     if status_filter == 'active':
-        queryset = base_qs.filter(voting_closed=False)
-    elif status_filter == 'passed':
-        queryset = base_qs.filter(Q(status='passed') | Q(passed=True, voting_closed=True))
-    elif status_filter == 'failed':
-        queryset = base_qs.filter(
+        return base_qs.filter(voting_closed=False)
+    if status_filter == 'passed':
+        return base_qs.filter(Q(status='passed') | Q(passed=True, voting_closed=True))
+    if status_filter == 'failed':
+        return base_qs.filter(
             Q(status='failed') | (Q(passed=False) & Q(voting_closed=True))
         ).exclude(status__in=['passed', 'tabled'])
-    elif status_filter == 'tabled':
-        queryset = base_qs.filter(status='tabled')
-    else:
-        queryset = base_qs
+    if status_filter == 'tabled':
+        return base_qs.filter(status='tabled')
+    return base_qs
 
+
+def status_counts(base_qs):
+    """How many bills are under each status tab: ``{'all': n, 'active': n, ...}``."""
     # Counts for status tabs.
     #
     # v3.17.3: was five separate COUNT round trips over the same table — the
@@ -70,7 +84,7 @@ def view_legislation_history(request):
         n_failed=Count('pk', filter=_failed_q, distinct=True),
         n_tabled=Count('pk', filter=Q(status='tabled'), distinct=True),
     )
-    status_counts = {
+    return {
         'all': _counts['n_all'],
         'active': _counts['n_active'],
         'passed': _counts['n_passed'],
@@ -78,6 +92,12 @@ def view_legislation_history(request):
         'tabled': _counts['n_tabled'],
     }
 
+
+def history_page(queryset, page_number, per_page=PAGE_SIZE):
+    """
+    ``(paginator, page_obj, legislation_list)`` for one page of ``queryset``,
+    with authors joined and co-authors prefetched.
+    """
     # v3.17.1 perf. This page was ~7 queries per row of legislation:
     #   * one implicit fetch of `posted_by` per row (the reported N+1 — user_id
     #     is ParliamentUser's primary key, so each row re-fetched the same
@@ -106,10 +126,18 @@ def view_legislation_history(request):
     # without a page size. Paginating the queryset (not the finished list) also
     # keeps the joins and prefetch above scoped to the 20 rows on screen, and
     # bounds the set_passed() calls in the loop below.
-    paginator = Paginator(queryset, 20)
-    page_obj = paginator.get_page(request.GET.get('page'))
+    paginator = Paginator(queryset, per_page)
+    page_obj = paginator.get_page(page_number)
     legislation_list = list(page_obj.object_list)
+    return paginator, page_obj, legislation_list
 
+
+def history_rows(legislation_list):
+    """
+    One dict per bill in ``legislation_list``: the vote tally (historical
+    counts win when an officer entered them), the result figures for its vote
+    mode, and its links. What the page's rows render.
+    """
     tally = {}
     for row in (
         Vote.objects
@@ -206,7 +234,11 @@ def view_legislation_history(request):
             'document_viewer_url': reverse('view_document', args=[leg.id]) if leg.document else None,
             'detail_url': reverse('legislation_detail', args=[leg.id]),
         })
+    return legislation_history
 
+
+def my_polls(user):
+    """The polls ``user`` created, newest first, with question and response totals."""
     # v3.17.3: the template wants two numbers per poll — how many questions and
     # how many responses. It was getting them by prefetching every question and
     # every response object and calling `.count()` on the cached lists, so a
@@ -221,7 +253,7 @@ def view_legislation_history(request):
     # created, and this is a secondary panel at the bottom of a page about
     # something else. Scoped to `created_by=user` so it is small by
     # construction; the cap is a ceiling, not a page size.
-    my_polls = list(
+    return list(
         AnnouncementPoll.objects.filter(created_by=user)
         .select_related('announcement')
         .annotate(
@@ -231,6 +263,12 @@ def view_legislation_history(request):
         .order_by('-created_at')[:MY_POLLS_LIMIT]
     )
 
+
+def my_drafts(user):
+    """
+    ``(drafts, unpublished_count)``: the author's private drafts, each with
+    whether it is ready to publish and, if not, why.
+    """
     # v3.19.0 — the author's private drafts.
     #
     # ⚠️ `author=user` is the whole access control for this panel, and it is the
@@ -250,26 +288,42 @@ def view_legislation_history(request):
         .select_related('published_legislation')
         .order_by('-updated_at')[:MY_DRAFTS_LIMIT]
     )
-    my_drafts = []
+    rows = []
     unpublished_count = 0
     for draft in my_drafts_qs:
         ready, reason = draft.ready_to_publish()
         if not draft.is_published:
             unpublished_count += 1
-        my_drafts.append({
+        rows.append({
             'draft': draft,
             'ready_to_publish': ready,
             'not_ready_reason': reason,
         })
+    return rows, unpublished_count
+
+
+@login_required
+def view_legislation_history(request):
+    user = request.user
+    status_filter = request.GET.get('status', 'all')
+
+    # All legislation submitted by or co-authored by the user
+    base_qs = authored_legislation(user)
+    queryset = filter_status(base_qs, status_filter)
+    counts = status_counts(base_qs)
+    paginator, page_obj, legislation_list = history_page(queryset, request.GET.get('page'))
+    legislation_history = history_rows(legislation_list)
+    polls = my_polls(user)
+    drafts, unpublished_count = my_drafts(user)
 
     return render(request, 'legislation_history.html', {
         'legislation_history': legislation_history,
         'page_obj': page_obj,
         'total_count': paginator.count,
         'status_filter': status_filter,
-        'status_counts': status_counts,
-        'my_polls': my_polls,
-        'my_drafts': my_drafts,
+        'status_counts': counts,
+        'my_polls': polls,
+        'my_drafts': drafts,
         'draft_count': unpublished_count,
         'draft_form': LegislationDraftForm(),
         'can_publish_drafts': _can_publish(user),

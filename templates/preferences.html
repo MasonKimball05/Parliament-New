@@ -68,6 +68,8 @@
                     <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Choose between light mode, dark mode, or automatic based on your system preferences</p>
                 </div>
                 {% else %}
+                {# v4.4.0: theme is a required field. Without it in the POST every save failed while dark mode is off; save_preferences sets light anyway. #}
+                <input type="hidden" name="theme" value="light">
                 <p class="text-sm text-gray-500 dark:text-gray-400">Dark mode has been turned off chapter-wide.</p>
                 {% endif %}
             </div>

@@ -26,91 +26,134 @@ from src.models.users import member_defer
 from src.decorators import feedback_admin_required
 
 
+class FeedbackInvalid(Exception):
+    """The submission can't be saved; `str(e)` says why (v4.4.0)."""
+
+
+def _text(data, key, default=''):
+    """`data[key]` as text. Web forms only send strings; the app's JSON might not."""
+    value = data.get(key, default)
+    return default if value is None else str(value)
+
+
+def _choice(value, choices, default):
+    """`value` if it's one of the model's choices, else `default` (v4.4.0, as bug reports)."""
+    return value if value in {c[0] for c in choices} else default
+
+
+def _clip(field, value):
+    """Trim `value` to the model field's max_length (v4.4.0, as bug reports)."""
+    return value[:FeedbackRequest._meta.get_field(field).max_length]
+
+
+def feedback_choices():
+    """The form's choices (v4.4.0: the web page and the app's form)."""
+    return {
+        'request_types': FeedbackRequest.REQUEST_TYPES,
+        'page_choices': FeedbackRequest.PAGE_CHOICES,
+        'priority_choices': FeedbackRequest.PRIORITY_CHOICES,
+    }
+
+
+def create_feedback(request, data, attachment=None):
+    """
+    Save a feature idea or support ticket from `data` (the web form's POST,
+    or the app's body) and an optional `attachment`, email the admin for a
+    ticket, and log it. Raises FeedbackInvalid without a title and details.
+
+    v4.4.0 — moved out of `submit_feedback` so the app's Feedback form
+    (src/mobile/views_support.py) saves through the same code. Also checks
+    page/priority against the choices and trims text to its column, the
+    checks bug reports got in v3.51.6: a hand-edited form (or a bad app
+    request) can't 500 on PostgreSQL or store a value the admin pages
+    don't know.
+    """
+    request_type = _choice(_text(data, 'request_type', 'support_ticket'),
+                           FeedbackRequest.REQUEST_TYPES, 'support_ticket')
+
+    title = _text(data, 'title').strip()
+    description = _text(data, 'description').strip()
+
+    if not title or not description:
+        raise FeedbackInvalid('Please provide a title and description.')
+
+    feedback = FeedbackRequest(
+        request_type=request_type,
+        title=_clip('title', title),
+        description=description,
+        page=_choice(_text(data, 'page'), FeedbackRequest.PAGE_CHOICES, ''),
+        page_url=_clip('page_url', _text(data, 'page_url')),
+        feature=_clip('feature', _text(data, 'feature')),
+        priority=_choice(_text(data, 'priority', 'medium'), FeedbackRequest.PRIORITY_CHOICES, 'medium'),
+        submitted_by=request.user,
+    )
+
+    if attachment is not None:
+        feedback.attachment = attachment
+
+    feedback.save()
+
+    # Support tickets email the admin; feature ideas deliberately don't
+    # (see send_feedback_notification) — they're tracked on the public
+    # board instead, which doesn't need a page-the-admin-every-time email.
+    send_feedback_notification(feedback, request)
+
+    # v3.29.10: description deliberately carries NO free text — no title,
+    # no page/feature detail. `/officers/activity-logs/` (and its CSV
+    # export) is readable by every officer and chair via @officer_required,
+    # not just the feedback admin (user_id 73). A support ticket's whole
+    # design point is "private: submitter + admin only" (see the module
+    # docstring), and this description used to interpolate `feedback.title`
+    # verbatim — for both types, unconditionally — so a ticket like
+    # "CONFIDENTIAL: my roommate is stealing my meds" was one officer-only
+    # page away from every chair in the chapter, with the privacy-gated
+    # detail page correctly 404ing for them right next to it. Reproduced
+    # end to end before fixing: submit as a member, confirm the ticket
+    # detail page 404s for an unrelated officer (works correctly), then
+    # confirm the same officer reads the title verbatim on
+    # /officers/activity-logs/ (it did). `object_repr` already names the
+    # type + id without the content, matching what `BugReport`'s own
+    # ActivityLog entry does (`send_bug_report_notification` logs
+    # `issue_type`/`priority`, never `bug_report.description`) — this
+    # brings FeedbackRequest in line with the sibling system's own
+    # convention rather than introducing a new one.
+    ActivityLog.log_activity(
+        action_type='feedback_submitted',
+        user=request.user,
+        description=f'{request.user.name} submitted a {feedback.get_request_type_display().lower()} '
+                     f'(#{feedback.id}, {feedback.priority} priority)',
+        request=request,
+        object_type='FeedbackRequest',
+        object_id=feedback.id,
+        object_repr=f'{feedback.get_request_type_display()} #{feedback.id}',
+        metadata={
+            'request_type': feedback.request_type,
+            'priority': feedback.priority,
+            'page': feedback.page or '',
+        },
+    )
+    return feedback
+
+
 @login_required
 def submit_feedback(request):
     """
     View for submitting a feature idea or a support ticket.
     """
     if request.method == 'POST':
-        request_type = request.POST.get('request_type', 'support_ticket')
-        if request_type not in dict(FeedbackRequest.REQUEST_TYPES):
-            request_type = 'support_ticket'
-
-        title = request.POST.get('title', '').strip()
-        description = request.POST.get('description', '').strip()
-
-        if not title or not description:
-            messages.error(request, 'Please provide a title and description.')
+        try:
+            feedback = create_feedback(request, request.POST, request.FILES.get('attachment'))
+        except FeedbackInvalid as e:
+            messages.error(request, str(e))
             return redirect('feedback_request')
 
-        feedback = FeedbackRequest(
-            request_type=request_type,
-            title=title,
-            description=description,
-            page=request.POST.get('page', ''),
-            page_url=request.POST.get('page_url', ''),
-            feature=request.POST.get('feature', ''),
-            priority=request.POST.get('priority', 'medium'),
-            submitted_by=request.user,
-        )
-
-        if 'attachment' in request.FILES:
-            feedback.attachment = request.FILES['attachment']
-
-        feedback.save()
-
-        # Support tickets email the admin; feature ideas deliberately don't
-        # (see send_feedback_notification) — they're tracked on the public
-        # board instead, which doesn't need a page-the-admin-every-time email.
-        send_feedback_notification(feedback, request)
-
-        # v3.29.10: description deliberately carries NO free text — no title,
-        # no page/feature detail. `/officers/activity-logs/` (and its CSV
-        # export) is readable by every officer and chair via @officer_required,
-        # not just the feedback admin (user_id 73). A support ticket's whole
-        # design point is "private: submitter + admin only" (see the module
-        # docstring), and this description used to interpolate `feedback.title`
-        # verbatim — for both types, unconditionally — so a ticket like
-        # "CONFIDENTIAL: my roommate is stealing my meds" was one officer-only
-        # page away from every chair in the chapter, with the privacy-gated
-        # detail page correctly 404ing for them right next to it. Reproduced
-        # end to end before fixing: submit as a member, confirm the ticket
-        # detail page 404s for an unrelated officer (works correctly), then
-        # confirm the same officer reads the title verbatim on
-        # /officers/activity-logs/ (it did). `object_repr` already names the
-        # type + id without the content, matching what `BugReport`'s own
-        # ActivityLog entry does (`send_bug_report_notification` logs
-        # `issue_type`/`priority`, never `bug_report.description`) — this
-        # brings FeedbackRequest in line with the sibling system's own
-        # convention rather than introducing a new one.
-        ActivityLog.log_activity(
-            action_type='feedback_submitted',
-            user=request.user,
-            description=f'{request.user.name} submitted a {feedback.get_request_type_display().lower()} '
-                         f'(#{feedback.id}, {feedback.priority} priority)',
-            request=request,
-            object_type='FeedbackRequest',
-            object_id=feedback.id,
-            object_repr=f'{feedback.get_request_type_display()} #{feedback.id}',
-            metadata={
-                'request_type': feedback.request_type,
-                'priority': feedback.priority,
-                'page': feedback.page or '',
-            },
-        )
-
-        if request_type == 'feature_idea':
+        if feedback.request_type == 'feature_idea':
             messages.success(request, 'Thanks! Your idea has been posted to the feedback board.')
         else:
             messages.success(request, 'Thanks! Your message has been sent — you\'ll hear back soon.')
         return redirect('feedback_request_success', feedback_id=feedback.id)
 
-    context = {
-        'request_types': FeedbackRequest.REQUEST_TYPES,
-        'page_choices': FeedbackRequest.PAGE_CHOICES,
-        'priority_choices': FeedbackRequest.PRIORITY_CHOICES,
-    }
-    return render(request, 'feedback_request.html', context)
+    return render(request, 'feedback_request.html', feedback_choices())
 
 
 @login_required

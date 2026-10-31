@@ -182,8 +182,7 @@ class Command(BaseCommand):
                         table = apps.get_model(label)._meta.db_table
                     except LookupError:
                         continue
-                    # The table name is our own model's db_table (CHECK_MODELS), never input.
-                    q = f'SELECT COUNT(*) FROM "{table}"'  # nosec B608
+                    q = f'SELECT COUNT(*) FROM "{table}"'  # nosec B608 # table is our own model's db_table (CHECK_MODELS), never input
                     c_live.execute(q)
                     live = c_live.fetchone()[0]
                     try:

@@ -52,81 +52,116 @@ def _clip(field, value):
     return value[:BugReport._meta.get_field(field).max_length]
 
 
+class BugReportInvalid(Exception):
+    """The report can't be saved; `str(e)` says why (v4.4.0)."""
+
+
+def _text(data, key, default=''):
+    """`data[key]` as text. Web forms only send strings; the app's JSON might not."""
+    value = data.get(key, default)
+    return default if value is None else str(value)
+
+
+def bug_report_choices():
+    """The form's choices (v4.4.0: the web page and the app's form)."""
+    return {
+        'issue_types': BugReport.ISSUE_TYPES,
+        'page_choices': BugReport.PAGE_CHOICES,
+        'priority_choices': BugReport.PRIORITY_CHOICES,
+    }
+
+
+def create_bug_report(request, data, screenshot=None):
+    """
+    Save a bug report from `data` (the web form's POST, or the app's body) and
+    an optional uploaded `screenshot`, email the admin and log it.
+
+    v4.4.0 — moved out of `submit_bug_report` so the app's Report a bug form
+    (src/mobile/views_support.py) saves through the same checks.
+
+    Returns (bug_report, screenshot_problem): a bad screenshot doesn't throw
+    the report away, it's saved without it and `screenshot_problem` says why.
+    Raises BugReportInvalid when there's no description.
+    """
+    description = _text(data, 'description').strip()
+    if not description:
+        raise BugReportInvalid('Please provide a description of the issue.')
+
+    # v3.31.1 — device_type/browser/operating_system parsed server-side
+    # from the real request header, not the JS-set `browser_info` hidden
+    # field below — so this is captured even if that script never ran
+    # (JS disabled, form auto-submitted before onload, etc.). Same parser
+    # `UserSession` already uses for Active Sessions, reused rather than
+    # duplicated a third time (see the field comments in
+    # src/models/security.py).
+    device_type, browser, operating_system = UserSession.parse_user_agent(
+        request.META.get('HTTP_USER_AGENT', '')
+    )
+
+    bug_report = BugReport(
+        description=description,
+        # v3.51.6: choices checked and text trimmed to the column, so a
+        # hand-edited form can't 500 on PostgreSQL (DataError) or store
+        # a value the admin pages don't know.
+        issue_type=_choice(_text(data, 'issue_type', 'other'), BugReport.ISSUE_TYPES, 'other'),
+        page=_choice(_text(data, 'page'), BugReport.PAGE_CHOICES, ''),
+        page_url=_clip('page_url', _text(data, 'page_url')),
+        feature=_clip('feature', _text(data, 'feature')),
+        priority=_choice(_text(data, 'priority', 'medium'), BugReport.PRIORITY_CHOICES, 'medium'),
+        steps_to_reproduce=_text(data, 'steps_to_reproduce'),
+        expected_behavior=_text(data, 'expected_behavior'),
+        actual_behavior=_text(data, 'actual_behavior'),
+        browser_info=_clip('browser_info', _text(data, 'browser_info')),
+        device_type=device_type,
+        browser=browser,
+        operating_system=operating_system,
+        submitted_by=request.user,
+    )
+
+    # Handle screenshot upload. v3.51.6: checked first. A bad file doesn't
+    # throw the report away; it's saved without the screenshot and the
+    # member is told why.
+    screenshot_problem = None
+    if screenshot is not None:
+        screenshot_problem = _screenshot_error(screenshot)
+        if screenshot_problem is None:
+            bug_report.screenshot = screenshot
+
+    bug_report.save()
+
+    # Send email notification (if email is configured)
+    send_bug_report_notification(bug_report, request)
+
+    ActivityLog.log_activity(
+        action_type='bug_report_submitted',
+        user=request.user,
+        description=f'{request.user.name} submitted bug report #{bug_report.id}: {bug_report.issue_type} ({bug_report.priority} priority)',
+        request=request,
+        object_type='BugReport',
+        object_id=bug_report.id,
+        object_repr=f'Bug #{bug_report.id}',
+        metadata={
+            'issue_type': bug_report.issue_type,
+            'priority': bug_report.priority,
+            'page': bug_report.page or '',
+            'page_url': bug_report.page_url or '',
+        },
+    )
+    return bug_report, screenshot_problem
+
+
 @login_required
 def submit_bug_report(request):
     """
     View for submitting a bug report
     """
     if request.method == 'POST':
-        # Get form data
-        description = request.POST.get('description', '').strip()
-
-        if not description:
-            messages.error(request, 'Please provide a description of the issue.')
+        try:
+            bug_report, screenshot_problem = create_bug_report(
+                request, request.POST, request.FILES.get('screenshot'))
+        except BugReportInvalid as e:
+            messages.error(request, str(e))
             return redirect('bug_report')
-
-        # v3.31.1 — device_type/browser/operating_system parsed server-side
-        # from the real request header, not the JS-set `browser_info` hidden
-        # field below — so this is captured even if that script never ran
-        # (JS disabled, form auto-submitted before onload, etc.). Same parser
-        # `UserSession` already uses for Active Sessions, reused rather than
-        # duplicated a third time (see the field comments in
-        # src/models/security.py).
-        device_type, browser, operating_system = UserSession.parse_user_agent(
-            request.META.get('HTTP_USER_AGENT', '')
-        )
-
-        # Create the bug report
-        bug_report = BugReport(
-            description=description,
-            # v3.51.6: choices checked and text trimmed to the column, so a
-            # hand-edited form can't 500 on PostgreSQL (DataError) or store
-            # a value the admin pages don't know.
-            issue_type=_choice(request.POST.get('issue_type', 'other'), BugReport.ISSUE_TYPES, 'other'),
-            page=_choice(request.POST.get('page', ''), BugReport.PAGE_CHOICES, ''),
-            page_url=_clip('page_url', request.POST.get('page_url', '')),
-            feature=_clip('feature', request.POST.get('feature', '')),
-            priority=_choice(request.POST.get('priority', 'medium'), BugReport.PRIORITY_CHOICES, 'medium'),
-            steps_to_reproduce=request.POST.get('steps_to_reproduce', ''),
-            expected_behavior=request.POST.get('expected_behavior', ''),
-            actual_behavior=request.POST.get('actual_behavior', ''),
-            browser_info=_clip('browser_info', request.POST.get('browser_info', '')),
-            device_type=device_type,
-            browser=browser,
-            operating_system=operating_system,
-            submitted_by=request.user,
-        )
-
-        # Handle screenshot upload. v3.51.6: checked first. A bad file doesn't
-        # throw the report away; it's saved without the screenshot and the
-        # member is told why.
-        screenshot_problem = None
-        if 'screenshot' in request.FILES:
-            upload = request.FILES['screenshot']
-            screenshot_problem = _screenshot_error(upload)
-            if screenshot_problem is None:
-                bug_report.screenshot = upload
-
-        bug_report.save()
-
-        # Send email notification (if email is configured)
-        send_bug_report_notification(bug_report, request)
-
-        ActivityLog.log_activity(
-            action_type='bug_report_submitted',
-            user=request.user,
-            description=f'{request.user.name} submitted bug report #{bug_report.id}: {bug_report.issue_type} ({bug_report.priority} priority)',
-            request=request,
-            object_type='BugReport',
-            object_id=bug_report.id,
-            object_repr=f'Bug #{bug_report.id}',
-            metadata={
-                'issue_type': bug_report.issue_type,
-                'priority': bug_report.priority,
-                'page': bug_report.page or '',
-                'page_url': bug_report.page_url or '',
-            },
-        )
 
         if screenshot_problem:
             messages.warning(request, f'Your report was saved without the screenshot. {screenshot_problem}')
@@ -134,12 +169,7 @@ def submit_bug_report(request):
         return redirect('bug_report_success', bug_id=bug_report.id)
 
     # GET request - show the form
-    context = {
-        'issue_types': BugReport.ISSUE_TYPES,
-        'page_choices': BugReport.PAGE_CHOICES,
-        'priority_choices': BugReport.PRIORITY_CHOICES,
-    }
-    return render(request, 'bug_report.html', context)
+    return render(request, 'bug_report.html', bug_report_choices())
 
 
 @login_required

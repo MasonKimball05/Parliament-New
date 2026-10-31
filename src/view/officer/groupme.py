@@ -12,6 +12,12 @@ From here an officer can:
   * MOVE a channel to a different group when the chapter's GroupMe changes:
     a new bot is made in the new group and the old one is removed;
   * send a test message, turn a channel off, remove it, and retry failures.
+
+v4.4.0 — the app's GroupMe screen (src/mobile/views_groupme.py) does all of
+this too, through the same functions: `dashboard_data` for the page and one
+`*_action` per form below. Each action returns the message to show and raises
+`GroupMeActionError` with the message for a refusal; the web views turn those
+into flash messages and a redirect, the app into JSON.
 """
 import re
 from datetime import timedelta
@@ -76,18 +82,23 @@ def _group_name(settings_row, group_id):
     return next((g['name'] for g in groups if g['id'] == group_id), '')
 
 
-def _audience_from_post(request):
-    return [k for k in AUDIENCE_KEYS if k in request.POST.getlist('audience')]
+def clean_audience(values):
+    """The known audience keys among `values`, in the usual order."""
+    return [k for k in AUDIENCE_KEYS if k in values]
 
 
-def _clean_name(request):
-    return (request.POST.get('name') or '').strip()[:100]
+def clean_name(value):
+    return (value or '').strip()[:100]
 
 
-@login_required
-@officer_required
-@log_function_call
-def groupme_dashboard(request):
+class GroupMeActionError(Exception):
+    """An action refused or failed; `str(e)` is the message for the officer (v4.4.0)."""
+
+
+# ── The page and its actions (v4.4.0: shared with src/mobile/views_groupme.py) ──
+
+def dashboard_data():
+    """Everything the dashboard shows: the connection, channels, groups and log."""
     settings_row = _settings()
     groups, groups_error = _groups(settings_row)
     channels = list(GroupMeChannel.objects.all())
@@ -110,7 +121,7 @@ def groupme_dashboard(request):
     stuck_cutoff = timezone.now() - timedelta(minutes=STUCK_MINUTES)
     stuck = GroupMeMessage.objects.filter(status='queued', created_at__lt=stuck_cutoff).aggregate(
         count=Count('pk'), oldest=Min('created_at'))
-    return render(request, 'officer/groupme_dashboard.html', {
+    return {
         'stuck_count': stuck['count'],
         'stuck_oldest': stuck['oldest'],
         'stuck_minutes': STUCK_MINUTES,
@@ -121,41 +132,38 @@ def groupme_dashboard(request):
         'used_group_ids': used_group_ids,
         'log': log,
         'AUDIENCE_CHOICES': AUDIENCE_CHOICES,
-    })
+    }
 
 
-@login_required
-@officer_required
-@require_POST
-@log_function_call
-def groupme_save_settings(request):
+def save_settings_action(request, *, access_token='', clear_token=False, bot_name='',
+                         include_full_text=False):
+    """Connect/disconnect the account, rename new bots, full text on/off.
+    Returns the message, or None when nothing changed."""
     settings_row = _settings()
     changes = []
 
-    if request.POST.get('clear_token') == 'on':
+    if clear_token:
         settings_row.access_token = ''
         settings_row.token_owner_name = ''
         changes.append('removed the access token')
     else:
-        token = (request.POST.get('access_token') or '').strip()
+        token = (access_token or '').strip()
         if token:
             if len(token) > 200 or not re.fullmatch(r'[A-Za-z0-9]+', token):
-                messages.error(request, "That doesn't look like a GroupMe access token.")
-                return redirect('groupme_dashboard')
+                raise GroupMeActionError("That doesn't look like a GroupMe access token.")
             try:
                 me = get_me(token)
             except GroupMeError as e:
-                messages.error(request, f'Token not saved: {e}')
-                return redirect('groupme_dashboard')
+                raise GroupMeActionError(f'Token not saved: {e}')
             settings_row.access_token = token
             settings_row.token_owner_name = me['name'][:200]
             changes.append(f"connected {me['name'] or 'a GroupMe account'}")
 
-    bot_name = (request.POST.get('bot_name') or '').strip()[:30]
+    bot_name = (bot_name or '').strip()[:30]
     if bot_name and bot_name != settings_row.bot_name:
         settings_row.bot_name = bot_name
         changes.append(f'bot name → {bot_name}')
-    include_full_text = request.POST.get('include_full_text') == 'on'
+    include_full_text = bool(include_full_text)
     if include_full_text != settings_row.include_full_text:
         settings_row.include_full_text = include_full_text
         changes.append('full text ' + ('on' if include_full_text else 'off'))
@@ -165,105 +173,78 @@ def groupme_save_settings(request):
     cache.delete(GROUPS_CACHE_KEY)
     if changes:
         _log(request, '; '.join(changes))
-        messages.success(request, 'GroupMe settings saved.')
-    else:
-        messages.info(request, 'Nothing changed.')
-    return redirect('groupme_dashboard')
+        return 'GroupMe settings saved.'
+    return None
 
 
-@login_required
-@officer_required
-@require_POST
-@log_function_call
-def groupme_add_channel(request):
-    """Add the bot to a group (needs the token), or register an existing bot."""
+def add_channel_action(request, *, name, audience, bot_id='', group_name='', group_id=''):
+    """Add the bot to a group (needs the token), or register an existing bot.
+    Returns (channel, message)."""
     settings_row = _settings()
-    name = _clean_name(request)
-    audience = _audience_from_post(request)
+    name = clean_name(name)
+    audience = clean_audience(audience)
     if not name or not audience:
-        messages.error(request, 'Give the channel a name and say who is in that GroupMe.')
-        return redirect('groupme_dashboard')
+        raise GroupMeActionError('Give the channel a name and say who is in that GroupMe.')
 
-    existing_bot_id = (request.POST.get('bot_id') or '').strip()
+    existing_bot_id = (bot_id or '').strip()
     if existing_bot_id:
         if not _BOT_ID_RE.fullmatch(existing_bot_id):
-            messages.error(request, "That doesn't look like a GroupMe bot ID.")
-            return redirect('groupme_dashboard')
+            raise GroupMeActionError("That doesn't look like a GroupMe bot ID.")
         channel = GroupMeChannel.objects.create(
             name=name, bot_id=existing_bot_id, bot_created_here=False,
-            group_name=(request.POST.get('group_name') or '').strip()[:200],
+            group_name=(group_name or '').strip()[:200],
             audience=audience, created_by=request.user,
         )
         _log(request, f'registered an existing bot as "{name}"', channel)
-        messages.success(request, f'"{name}" added. Send a test message to check it.')
-        return redirect('groupme_dashboard')
+        return channel, f'"{name}" added. Send a test message to check it.'
 
-    group_id = (request.POST.get('group_id') or '').strip()
+    group_id = (group_id or '').strip()
     if not settings_row.has_token:
-        messages.error(request, 'Connect a GroupMe account first, or paste a bot ID.')
-        return redirect('groupme_dashboard')
+        raise GroupMeActionError('Connect a GroupMe account first, or paste a bot ID.')
     if not _GROUP_ID_RE.fullmatch(group_id):
-        messages.error(request, 'Pick a group.')
-        return redirect('groupme_dashboard')
+        raise GroupMeActionError('Pick a group.')
     try:
-        bot_id = create_bot(settings_row.access_token, group_id, settings_row.bot_name)
+        new_bot_id = create_bot(settings_row.access_token, group_id, settings_row.bot_name)
     except GroupMeError as e:
-        messages.error(request, f'Could not add the bot: {e}')
-        return redirect('groupme_dashboard')
+        raise GroupMeActionError(f'Could not add the bot: {e}')
     channel = GroupMeChannel.objects.create(
         name=name, group_id=group_id, group_name=_group_name(settings_row, group_id),
-        bot_id=bot_id, bot_created_here=True, audience=audience, created_by=request.user,
+        bot_id=new_bot_id, bot_created_here=True, audience=audience, created_by=request.user,
     )
     _log(request, f'added the bot to {channel.group_name or group_id} as "{name}"', channel)
-    messages.success(request, f'Bot added to {channel.group_name or "the group"}.')
-    return redirect('groupme_dashboard')
+    return channel, f'Bot added to {channel.group_name or "the group"}.'
 
 
-@login_required
-@officer_required
-@require_POST
-@log_function_call
-def groupme_edit_channel(request, channel_id):
-    channel = get_object_or_404(GroupMeChannel, pk=channel_id)
-    name = _clean_name(request)
-    audience = _audience_from_post(request)
+def edit_channel_action(request, channel, *, name, audience, is_active):
+    name = clean_name(name)
+    audience = clean_audience(audience)
     if not name or not audience:
-        messages.error(request, 'A channel needs a name and at least one group of people.')
-        return redirect('groupme_dashboard')
+        raise GroupMeActionError('A channel needs a name and at least one group of people.')
     channel.name = name
     channel.audience = audience
-    channel.is_active = request.POST.get('is_active') == 'on'
+    channel.is_active = bool(is_active)
     channel.save(update_fields=['name', 'audience', 'is_active', 'updated_at'])
     _log(request, f'edited "{name}" (who: {", ".join(channel.audience_labels())}; '
                   f'{"on" if channel.is_active else "off"})', channel)
-    messages.success(request, f'"{name}" saved.')
-    return redirect('groupme_dashboard')
+    return f'"{name}" saved.'
 
 
-@login_required
-@officer_required
-@require_POST
-@log_function_call
-def groupme_move_channel(request, channel_id):
+def move_channel_action(request, channel, *, group_id):
     """
     The chapter moved to a different GroupMe: make a bot in the new group and
     remove the old one. The channel (name, audience, history, which
     announcements tick it) stays the same.
     """
-    channel = get_object_or_404(GroupMeChannel, pk=channel_id)
     settings_row = _settings()
-    group_id = (request.POST.get('group_id') or '').strip()
+    group_id = (group_id or '').strip()
     if not settings_row.has_token:
-        messages.error(request, 'Connect a GroupMe account first.')
-        return redirect('groupme_dashboard')
+        raise GroupMeActionError('Connect a GroupMe account first.')
     if not _GROUP_ID_RE.fullmatch(group_id) or group_id == channel.group_id:
-        messages.error(request, 'Pick a different group.')
-        return redirect('groupme_dashboard')
+        raise GroupMeActionError('Pick a different group.')
     try:
         new_bot_id = create_bot(settings_row.access_token, group_id, settings_row.bot_name)
     except GroupMeError as e:
-        messages.error(request, f'Could not add the bot to the new group: {e}')
-        return redirect('groupme_dashboard')
+        raise GroupMeActionError(f'Could not add the bot to the new group: {e}')
 
     old_note = _retire_bot(settings_row, channel)
     old_group = channel.group_name or channel.group_id or 'the old group'
@@ -273,8 +254,7 @@ def groupme_move_channel(request, channel_id):
     channel.bot_created_here = True
     channel.save(update_fields=['group_id', 'group_name', 'bot_id', 'bot_created_here', 'updated_at'])
     _log(request, f'moved "{channel.name}" from {old_group} to {channel.group_name or group_id}', channel)
-    messages.success(request, f'"{channel.name}" now posts to {channel.group_name or "the new group"}.{old_note}')
-    return redirect('groupme_dashboard')
+    return f'"{channel.name}" now posts to {channel.group_name or "the new group"}.{old_note}'
 
 
 def _retire_bot(settings_row, channel):
@@ -294,29 +274,17 @@ def _retire_bot(settings_row, channel):
     return ''
 
 
-@login_required
-@officer_required
-@require_POST
-@log_function_call
-def groupme_remove_channel(request, channel_id):
-    channel = get_object_or_404(GroupMeChannel, pk=channel_id)
+def remove_channel_action(request, channel):
     note = _retire_bot(_settings(), channel)
     name = channel.name
     _log(request, f'removed "{name}"', channel)
     channel.delete()
-    messages.success(request, f'"{name}" removed.{note}')
-    return redirect('groupme_dashboard')
+    return f'"{name}" removed.{note}'
 
 
-@login_required
-@officer_required
-@require_POST
-@log_function_call
-def groupme_test_channel(request, channel_id):
-    channel = get_object_or_404(GroupMeChannel, pk=channel_id)
+def send_test_action(request, channel):
     if not cache.add(f'groupme_test_{channel.pk}', 1, TEST_COOLDOWN_SECONDS):
-        messages.error(request, f'Wait {TEST_COOLDOWN_SECONDS} seconds between test messages.')
-        return redirect('groupme_dashboard')
+        raise GroupMeActionError(f'Wait {TEST_COOLDOWN_SECONDS} seconds between test messages.')
     text = f'✅ Test from Parliament: this group is connected as "{channel.name}".'
     message = GroupMeMessage.objects.create(
         channel=channel, channel_name=channel.name, kind='test', text=text,
@@ -327,12 +295,62 @@ def groupme_test_channel(request, channel_id):
     except GroupMeError as e:
         message.status, message.error = 'failed', str(e)[:500]
         message.save(update_fields=['status', 'error'])
-        messages.error(request, f'Test failed: {e}')
-        return redirect('groupme_dashboard')
-    from django.utils import timezone
+        raise GroupMeActionError(f'Test failed: {e}')
     message.status, message.sent_at = 'sent', timezone.now()
     message.save(update_fields=['status', 'sent_at'])
-    messages.success(request, f'Test sent to "{channel.name}". Check the group.')
+    return f'Test sent to "{channel.name}". Check the group.'
+
+
+def retryable_messages():
+    """The posts the dashboard's Retry button can resend (any status)."""
+    return GroupMeMessage.objects.filter(kind__in=('announcement', 'event_reminder'))
+
+
+def retry_message_action(request, message):
+    if message.status != 'failed' or message.channel_id is None:
+        raise GroupMeActionError('Only a failed post to a channel that still exists can be retried.')
+    queue_send([message.pk])
+    return 'Retrying. Refresh in a minute to see the result.'
+
+
+# ── Web views ────────────────────────────────────────────────────────────────
+
+def _done(request, run):
+    """Run an action, flash its message (error on refusal), back to the dashboard."""
+    try:
+        messages.success(request, run())
+    except GroupMeActionError as e:
+        messages.error(request, str(e))
+    return redirect('groupme_dashboard')
+
+
+@login_required
+@officer_required
+@log_function_call
+def groupme_dashboard(request):
+    return render(request, 'officer/groupme_dashboard.html', dashboard_data())
+
+
+@login_required
+@officer_required
+@require_POST
+@log_function_call
+def groupme_save_settings(request):
+    try:
+        saved = save_settings_action(
+            request,
+            access_token=request.POST.get('access_token'),
+            clear_token=request.POST.get('clear_token') == 'on',
+            bot_name=request.POST.get('bot_name'),
+            include_full_text=request.POST.get('include_full_text') == 'on',
+        )
+    except GroupMeActionError as e:
+        messages.error(request, str(e))
+        return redirect('groupme_dashboard')
+    if saved:
+        messages.success(request, saved)
+    else:
+        messages.info(request, 'Nothing changed.')
     return redirect('groupme_dashboard')
 
 
@@ -340,11 +358,63 @@ def groupme_test_channel(request, channel_id):
 @officer_required
 @require_POST
 @log_function_call
+def groupme_add_channel(request):
+    """Add the bot to a group (needs the token), or register an existing bot."""
+    return _done(request, lambda: add_channel_action(
+        request,
+        name=request.POST.get('name'),
+        audience=request.POST.getlist('audience'),
+        bot_id=request.POST.get('bot_id'),
+        group_name=request.POST.get('group_name'),
+        group_id=request.POST.get('group_id'),
+    )[1])
+
+
+@login_required
+@officer_required
+@require_POST
+@log_function_call
+def groupme_edit_channel(request, channel_id):
+    channel = get_object_or_404(GroupMeChannel, pk=channel_id)
+    return _done(request, lambda: edit_channel_action(
+        request, channel,
+        name=request.POST.get('name'),
+        audience=request.POST.getlist('audience'),
+        is_active=request.POST.get('is_active') == 'on',
+    ))
+
+
+@login_required
+@officer_required
+@require_POST
+@log_function_call
+def groupme_move_channel(request, channel_id):
+    channel = get_object_or_404(GroupMeChannel, pk=channel_id)
+    return _done(request, lambda: move_channel_action(request, channel, group_id=request.POST.get('group_id')))
+
+
+@login_required
+@officer_required
+@require_POST
+@log_function_call
+def groupme_remove_channel(request, channel_id):
+    channel = get_object_or_404(GroupMeChannel, pk=channel_id)
+    return _done(request, lambda: remove_channel_action(request, channel))
+
+
+@login_required
+@officer_required
+@require_POST
+@log_function_call
+def groupme_test_channel(request, channel_id):
+    channel = get_object_or_404(GroupMeChannel, pk=channel_id)
+    return _done(request, lambda: send_test_action(request, channel))
+
+
+@login_required
+@officer_required
+@require_POST
+@log_function_call
 def groupme_retry_message(request, message_id):
-    message = get_object_or_404(GroupMeMessage, pk=message_id, kind__in=('announcement', 'event_reminder'))
-    if message.status != 'failed' or message.channel_id is None:
-        messages.error(request, 'Only a failed post to a channel that still exists can be retried.')
-        return redirect('groupme_dashboard')
-    queue_send([message.pk])
-    messages.success(request, 'Retrying. Refresh in a minute to see the result.')
-    return redirect('groupme_dashboard')
+    message = get_object_or_404(retryable_messages(), pk=message_id)
+    return _done(request, lambda: retry_message_action(request, message))

@@ -13,7 +13,8 @@ from src.mobile import (
     views_directory, views_education, views_excuses_polls, views_home, views_location, views_my,
     views_notifications, views_officer, views_officer_tools, views_push, views_recruitment, views_session,
     views_agendas, views_committee_minutes, views_minutes, views_pledge, views_slating, views_songbook,
-    views_votes,
+    views_votes, views_legislation_history, views_preferences,
+    views_roberts_rules, views_profile, views_groupme, views_support,
 )
 
 app_name = 'mobile'
@@ -168,6 +169,48 @@ urlpatterns = [
     path('quote-book/flagged/', views_songbook.QuoteFlaggedView.as_view(), name='mobile_quote_flagged'),
     path('quote-book/<int:quote_id>/flag/', views_songbook.QuoteFlagView.as_view(), name='mobile_quote_flag'),
     path('quote-book/<int:quote_id>/restore/', views_songbook.QuoteRestoreView.as_view(), name='mobile_quote_restore'),
+    # Report a bug + Feedback (v4.4.0, src/mobile/views_support.py)
+    path('support/bug-report/', views_support.BugReportView.as_view(), name='mobile_bug_report'),
+    path('support/feedback/', views_support.FeedbackView.as_view(), name='mobile_feedback'),
+    # GroupMe bot dashboard (v4.4.0, src/mobile/views_groupme.py)
+    path('officer/groupme/', views_groupme.GroupMeDashboardView.as_view(), name='mobile_groupme'),
+    path('officer/groupme/settings/', views_groupme.GroupMeSettingsView.as_view(), name='mobile_groupme_settings'),
+    path('officer/groupme/channels/', views_groupme.GroupMeAddChannelView.as_view(), name='mobile_groupme_add_channel'),
+    path('officer/groupme/channels/<int:channel_id>/edit/', views_groupme.GroupMeEditChannelView.as_view(),
+         name='mobile_groupme_edit_channel'),
+    path('officer/groupme/channels/<int:channel_id>/move/', views_groupme.GroupMeMoveChannelView.as_view(),
+         name='mobile_groupme_move_channel'),
+    path('officer/groupme/channels/<int:channel_id>/remove/', views_groupme.GroupMeRemoveChannelView.as_view(),
+         name='mobile_groupme_remove_channel'),
+    path('officer/groupme/channels/<int:channel_id>/test/', views_groupme.GroupMeTestChannelView.as_view(),
+         name='mobile_groupme_test_channel'),
+    path('officer/groupme/messages/<int:message_id>/retry/', views_groupme.GroupMeRetryMessageView.as_view(),
+         name='mobile_groupme_retry_message'),
+    # profile (src/mobile/views_profile.py, v4.4.0)
+    path('profile/', views_profile.ProfileView.as_view(), name='mobile_profile'),
+    path('profile/photo/', views_profile.ProfilePhotoView.as_view(), name='mobile_profile_photo'),
+    path('profile/role-history/', views_profile.RoleHistoryListView.as_view(), name='mobile_profile_roles'),
+    path('profile/role-history/<int:rh_id>/', views_profile.RoleHistoryItemView.as_view(),
+         name='mobile_profile_role'),
+    path('profile/socials/', views_profile.CustomSocialListView.as_view(), name='mobile_profile_socials'),
+    path('profile/socials/<int:index>/', views_profile.CustomSocialItemView.as_view(),
+         name='mobile_profile_social'),
+    path('profile/initiation-chapters/', views_profile.InitiationChapterListView.as_view(),
+         name='mobile_profile_chapters'),
+    path('profile/initiation-chapters/<int:index>/', views_profile.InitiationChapterItemView.as_view(),
+         name='mobile_profile_chapter'),
+    path('profile/academics/', views_profile.AcademicListView.as_view(), name='mobile_profile_academics'),
+    path('profile/academics/<str:kind>/<int:index>/', views_profile.AcademicItemView.as_view(),
+         name='mobile_profile_academic'),
+    path('roberts-rules/', views_roberts_rules.RobertsRulesView.as_view(), name='mobile_roberts_rules'),  # v4.4.0
+    path('preferences/', views_preferences.PreferencesView.as_view(), name='mobile_preferences'),  # v4.4.0
+    # My Work / legislation history (src/mobile/views_legislation_history.py, v4.4.0)
+    path('legislation/history/', views_legislation_history.LegislationHistoryView.as_view(),
+         name='mobile_legislation_history'),
+    path('legislation/history/polls/', views_legislation_history.LegislationHistoryPollsView.as_view(),
+         name='mobile_legislation_history_polls'),
+    path('legislation/history/drafts/', views_legislation_history.LegislationHistoryDraftsView.as_view(),
+         name='mobile_legislation_history_drafts'),
     path('agendas/', views_agendas.AgendaListView.as_view(), name='mobile_agendas'),
     path('agendas/<int:agenda_id>/', views_agendas.AgendaView.as_view(), name='mobile_agenda'),
     path('agendas/<int:agenda_id>/items/', views_agendas.AgendaItemListView.as_view(), name='mobile_agenda_items'),
