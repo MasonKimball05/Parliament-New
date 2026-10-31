@@ -480,7 +480,10 @@ def plan(period, headers, rows, mapping, keep_unmapped=True, fixes=None, sources
                 'positions': {}, 'gpa': None, 'submitted_at': None, 'answers': {}, 'notes': [],
                 'identity': (row[id_col].strip() if id_col is not None else ''),
                 'where': (sources[n - 2] if sources else f'row {n}'),
-                'who': chosen[n], 'suggestions': []}
+                'who': chosen[n], 'suggestions': [],
+                # The response as submitted, for "View the response" on the preview.
+                'raw': [(headers[i] or f'Column {i + 1}', row[i].strip())
+                        for i in range(len(headers)) if row[i].strip()]}
         out.append(item)
         # Who this row is: chosen on the preview, else matched from the CSV.
         if item['who'] == 'skip':
@@ -762,14 +765,14 @@ def _combine(primary, parts, titles):
                            if not (w in seen or seen.add(w))]
     primary['merged_rows'] = [part['row'] for part in parts]
     primary['merged_where'] = [part['where'] for part in parts]
-    primary['parts'] = [{k: part[k] for k in ('row', 'where', 'who', 'identity')} for part in parts]
+    primary['parts'] = [{k: part[k] for k in ('row', 'where', 'who', 'identity', 'raw')} for part in parts]
 
 
 def _finish(item, titles, required, questions, missing_ids):
     """Warnings and the confirmation-screen view, on the final application."""
     item.setdefault('merged_rows', [item['row']])
     item.setdefault('merged_where', [item['where']])
-    item.setdefault('parts', [{k: item[k] for k in ('row', 'where', 'who', 'identity')}])
+    item.setdefault('parts', [{k: item[k] for k in ('row', 'where', 'who', 'identity', 'raw')}])
     if not any(item['positions'].get(t) for t in TIERS[:3]):
         item['warnings'].append('No positions matched.')
     missing = [f.label for f in required if f not in item['answers'] and f.id not in missing_ids]

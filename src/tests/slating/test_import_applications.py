@@ -555,3 +555,19 @@ class RemoveImportTests(_Base):
         alpha = SlatingApplication.objects.get(applicant=self.alpha)
         self.client.post(self.remove_url, {'app': alpha.id})
         self.assertTrue(SlatingApplication.objects.filter(id=alpha.id).exists())
+
+
+class ViewTheResponseTests(_Base):
+    """Mason (10-30-26): look into each response, imported or skipped, as submitted."""
+
+    def test_every_row_shows_its_answers_as_submitted(self):
+        r = self.upload()
+        r = self.client.post(self.url, self.mapping_post(r, step='preview'))
+        items = {i['row']: i for i in r.context['items']}
+        self.assertIn(('Shirt size', 'S'), items[4]['raw'])          # skipped: nobody@test.org
+        alpha = items[5]
+        self.assertEqual([p['where'] for p in alpha['parts']], ['row 2', 'row 5'])
+        self.assertIn(('Why do you want to serve?', 'Changed my mind'), alpha['parts'][1]['raw'])
+        self.assertContains(r, 'View the response')
+        self.assertContains(r, 'View application')
+        self.assertContains(r, 'nobody@test.org')

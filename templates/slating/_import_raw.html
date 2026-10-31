@@ -1,0 +1,12 @@
+{# One CSV row as submitted (v4.3.0): every non-blank question and answer. #}
+<details class="rounded-md border border-gray-200 dark:border-gray-700">
+    <summary class="cursor-pointer px-3 py-2 text-xs font-medium text-primary-700 dark:text-primary-300">View the response{% if where %} ({{ where }}){% endif %}</summary>
+    <dl class="px-3 pb-3 grid grid-cols-1 sm:grid-cols-3 gap-x-4 gap-y-2 text-sm">
+        {% for q, a in raw %}
+        <dt class="text-gray-500 dark:text-gray-400 break-words">{{ q }}</dt>
+        <dd class="sm:col-span-2 text-gray-900 dark:text-white break-words">{{ a|linebreaksbr }}</dd>
+        {% empty %}
+        <dd class="text-gray-400 italic">Every answer is blank.</dd>
+        {% endfor %}
+    </dl>
+</details>

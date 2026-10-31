@@ -203,6 +203,7 @@
                         <span class="text-xs text-gray-500 dark:text-gray-400">{{ item.identity }} · {% if item.merged_where|length > 1 %}combined from {{ item.merged_where|join:", " }}{% else %}{{ item.where }}{% endif %}</span>
                         {% if item.warnings %}<span class="text-xs text-yellow-700 dark:text-yellow-300">⚠ {{ item.warnings|length }} note{{ item.warnings|length|pluralize }}</span>{% endif %}
                         {% if item.fixed %}<span class="text-xs text-primary-700 dark:text-primary-300">Fixed by hand: {{ item.fixed|join:", " }}</span>{% endif %}
+                        <span class="ml-auto text-xs text-primary-700 dark:text-primary-300">View application</span>
                     </summary>
                     <div class="px-4 pb-4 space-y-3 text-sm">
                         {% for w in item.warnings %}<div class="text-yellow-700 dark:text-yellow-300">⚠ {{ w }}</div>{% endfor %}
@@ -234,6 +235,10 @@
                             </dd>
                             {% endif %}
                         </dl>
+                        <div class="space-y-2">
+                            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">As submitted on the outside form</p>
+                            {% for part in item.parts %}{% include 'slating/_import_raw.html' with raw=part.raw where=part.where %}{% endfor %}
+                        </div>
                         {# v4.3.0: correct what the CSV got wrong. Each control posts beside the CSV's own value (was_…); only a change counts, and the import re-plans with the same POST. #}
                         {% with pk=item.applicant.pk fix=item.fix %}
                         <div class="rounded-md bg-gray-50 dark:bg-gray-700/40 p-3 space-y-3">
@@ -306,6 +311,7 @@
                         {% if not item.combined %}
                         {% with part=item %}{% include 'slating/_import_who.html' with suggestions=item.suggestions %}{% endwith %}
                         {% endif %}
+                        {% include 'slating/_import_raw.html' with raw=item.raw where=None %}
                     </li>
                     {% endif %}{% endfor %}
                 </ul>
