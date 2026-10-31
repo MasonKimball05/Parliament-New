@@ -125,7 +125,7 @@ class AgendaListView(_AgendaView):
         date = ma._parse(datetime.date.fromisoformat, str(body.get('date') or ''))
         start_time = ma._parse(datetime.time.fromisoformat, str(body.get('start_time') or ''))
         if not (title and date and start_time):
-            raise BadRequest('Title, a valid date and a valid start time are required.', code='invalid')
+            raise BadRequest('Title, a valid date and a valid start time are required.', code='invalid_input')
         event = None
         event_id = ma._parse(int, str(body.get('event_id') or ''))
         if event_id:
@@ -189,7 +189,7 @@ class AgendaItemMoveView(_AgendaView):
     def post(self, request, agenda_id, item_id):
         direction = _body(request).get('direction')
         if direction not in ('up', 'down'):
-            raise BadRequest('direction is up or down.', code='invalid')
+            raise BadRequest('direction is up or down.', code='invalid_input')
         ma.move_item(_item(agenda_id, item_id), direction)
         return Response(self.detail(request, self.agenda(agenda_id)))
 
@@ -201,7 +201,7 @@ class AgendaStatusView(_AgendaView):
     def post(self, request, agenda_id):
         agenda = self.agenda(agenda_id)
         if not ma.change_status(agenda, _body(request).get('status')):
-            raise BadRequest('status is draft or published.', code='invalid')
+            raise BadRequest('status is draft or published.', code='invalid_input')
         return Response(self.detail(request, agenda))
 
 

@@ -116,7 +116,7 @@ class SaveTests(_Base):
         for body in ({'push_chat': 'no'}, {'theme': 'purple'}, {'nonsense': True}, {}, [1]):
             r = self.call('patch', body)
             self.assertEqual(r.status_code, 400, body)
-            self.assertEqual(r.json()['error'], 'invalid')
+            self.assertEqual(r.json()['error'], 'invalid_input')
         self.assertTrue(self.prefs().push_chat)
 
     def test_menu_limit_is_the_websites(self):

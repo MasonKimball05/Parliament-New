@@ -80,7 +80,7 @@ def _form_error(form):
     label = next(iter(fields), '__all__')
     if label != '__all__' and label in form.fields:
         first = f'{form.fields[label].label or label}: {first}'
-    raise BadRequest(first, code='invalid')
+    raise BadRequest(first, code='invalid_input')
 
 
 def _apply(data, body, allowed):
@@ -256,7 +256,7 @@ def _event_body(body):
         if code:
             committee = Committee.objects.filter(code=code, is_active=True).first()
             if committee is None:
-                raise BadRequest('That committee isn’t active.', code='invalid')
+                raise BadRequest('That committee isn’t active.', code='invalid_input')
             out['committee'] = committee.pk
         else:
             out['committee'] = None
@@ -401,7 +401,7 @@ class OfficerExcuseReviewView(OfficerExcuseListView):
         action = body.get('action')
         notes = str(body.get('notes') or '')[:NOTES_MAX]
         if action not in ('approve', 'deny'):
-            raise BadRequest('Approve or deny.', code='invalid')
+            raise BadRequest('Approve or deny.', code='invalid_input')
         (excuse.approve if action == 'approve' else excuse.deny)(request.user, notes)
         ActivityLog.log_activity(
             action_type='other', user=request.user,
@@ -470,7 +470,7 @@ class OfficerAttendanceView(_OfficerView):
         statuses = body.get('statuses') or {}
         excused = body.get('excused') or {}
         if not isinstance(statuses, dict) or not isinstance(excused, dict):
-            raise BadRequest('statuses and excused are maps of user id.', code='invalid')
+            raise BadRequest('statuses and excused are maps of user id.', code='invalid_input')
         members, rows = self._roster(event)
         locked = {r['user_id'] for r in rows if r['locked']}
         now = timezone.now()
@@ -575,7 +575,7 @@ class OfficerCheckinPlaceView(_OfficerView):
         body = request.data if isinstance(request.data, dict) else {}
         error = rename_place(request, place, str(body.get('name') or ''))
         if error:
-            raise BadRequest(error, code='invalid')
+            raise BadRequest(error, code='invalid_input')
         return Response({'id': place.id, 'name': place.name, 'radius_m': place.radius_m})
 
     def delete(self, request, place_id):

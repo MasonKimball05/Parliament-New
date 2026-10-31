@@ -158,11 +158,11 @@ class QuizView(_PledgeView):
             raise BadRequest('You have already taken this quiz.', code='already_submitted')
         raw = request.data.get('answers') if isinstance(request.data, dict) else None
         if not isinstance(raw, dict):
-            raise BadRequest('answers is an object of question id to text.', code='invalid')
+            raise BadRequest('answers is an object of question id to text.', code='invalid_input')
         errors = pt.save_quiz_answers(request.user, task, questions,
                                       {q.pk: raw.get(str(q.pk)) for q in questions})
         if errors:
-            raise BadRequest(errors[0], code='invalid')
+            raise BadRequest(errors[0], code='invalid_input')
         return Response(self.state(request, task))
 
 
@@ -205,6 +205,6 @@ class AbsenceRequestView(_PledgeView):
         reason = request.data.get('reason') if isinstance(request.data, dict) else None
         error = pt.request_absence(request.user, meeting, reason)
         if error:
-            raise BadRequest(error, code='invalid')
+            raise BadRequest(error, code='invalid_input')
         req = meeting.absence_requests.get(pledge=request.user)
         return Response({'absence_request': _absence_json(req)}, status=201)

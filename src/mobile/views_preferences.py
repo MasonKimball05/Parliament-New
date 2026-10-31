@@ -121,16 +121,16 @@ def _payload(preferences):
 def _clean_changes(body):
     """``{field: value}`` from the PATCH body, or a 400."""
     if not isinstance(body, dict) or not body:
-        raise BadRequest('Send the preferences to change.', code='invalid')
+        raise BadRequest('Send the preferences to change.', code='invalid_input')
     changes = {}
     for field, value in body.items():
         if field not in _FIELDS or not _shown(field):
-            raise BadRequest(f'Unknown preference: {field}.', code='invalid')
+            raise BadRequest(f'Unknown preference: {field}.', code='invalid_input')
         if _is_choice(field):
             if value not in {v for v, _ in _FIELDS[field].choices}:
-                raise BadRequest(f'Not a choice for {field}.', code='invalid')
+                raise BadRequest(f'Not a choice for {field}.', code='invalid_input')
         elif not isinstance(value, bool):
-            raise BadRequest(f'{field} is true or false.', code='invalid')
+            raise BadRequest(f'{field} is true or false.', code='invalid_input')
         changes[field] = value
     return changes
 
@@ -151,5 +151,5 @@ class PreferencesView(MobileAPIView):
         form, _ = save_preferences(request, preferences, data)
         if not form.is_valid():
             errors = form.non_field_errors() or [e for errs in form.errors.values() for e in errs]
-            raise BadRequest(str(errors[0]) if errors else 'Invalid preferences.', code='invalid')
+            raise BadRequest(str(errors[0]) if errors else 'Invalid preferences.', code='invalid_input')
         return Response(_payload(preferences))

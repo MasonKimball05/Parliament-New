@@ -199,12 +199,12 @@ class QuoteBookView(MobileAPIView):
         context = str(body.get('context') or '').strip()
         member_id = str(body.get('quoted_member') or '').strip()
         if not member_id or not text:
-            raise BadRequest('Choose who said it and enter the quote.', code='invalid')
+            raise BadRequest('Choose who said it and enter the quote.', code='invalid_input')
         if len(text) > QUOTE_TEXT_MAX or len(context) > QUOTE_CONTEXT_MAX:
-            raise BadRequest('That quote is too long.', code='invalid')
+            raise BadRequest('That quote is too long.', code='invalid_input')
         member = ParliamentUser.objects.filter(pk=member_id).exclude(member_status='Removed').first()
         if member is None:
-            raise BadRequest('Choose who said it.', code='invalid')
+            raise BadRequest('Choose who said it.', code='invalid_input')
         quote = Quote.objects.create(quoted_member=member, text=text, context=context, submitted_by=request.user)
         # Structural details only, never the text (submit_quote's rule).
         ActivityLog.log_activity(

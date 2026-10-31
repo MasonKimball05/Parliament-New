@@ -397,7 +397,7 @@ class SlatingChairPositionView(_ChairView):
             elif action == 'decide':
                 decide_manually(period, request.user, pid, str(data.get('choice') or ''), data.get('reason'))
             else:
-                raise RoundError('invalid', 'Unknown action.')
+                raise RoundError('invalid_input', 'Unknown action.')
         except RoundError as e:
             raise _round_error(e)
         return Response(_chair_overview(period))

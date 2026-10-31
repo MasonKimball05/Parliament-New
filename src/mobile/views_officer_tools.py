@@ -368,11 +368,11 @@ class OfficerPollView(_Officers):
         body = request.data if isinstance(request.data, dict) else {}
         closes_at = parse_datetime(body['closes_at']) if body.get('closes_at') else None
         if body.get('closes_at') and closes_at is None:
-            raise BadRequest('That closing time isn’t a date.', code='invalid')
+            raise BadRequest('That closing time isn’t a date.', code='invalid_input')
         try:
             poll = save_poll(a, request.user, {**body, 'closes_at': closes_at})
         except ValueError as e:
-            raise BadRequest(str(e), code='invalid')
+            raise BadRequest(str(e), code='invalid_input')
         return Response({'poll': _poll_json(poll)})
 
     def delete(self, request, announcement_id):

@@ -81,9 +81,9 @@ class MinutesListView(_Officers):
             day = datetime.strptime(str(body.get('date') or ''), '%Y-%m-%d').date()
             start = datetime.strptime(str(body.get('start_time') or ''), '%H:%M').time()
         except ValueError:
-            raise BadRequest('A date (YYYY-MM-DD) and start time (HH:MM) are needed.', code='invalid')
+            raise BadRequest('A date (YYYY-MM-DD) and start time (HH:MM) are needed.', code='invalid_input')
         if not title:
-            raise BadRequest('Title, date, and start time are required.', code='invalid')
+            raise BadRequest('Title, date, and start time are required.', code='invalid_input')
         event = Event.objects.filter(pk=body.get('event_id')).first() if body.get('event_id') else None
         minutes = cm.create_minutes(request, title, day, start, event)
         return Response({'minutes': _summary(minutes)}, status=201)
@@ -121,7 +121,7 @@ class MinutesView(_Officers):
 def _clean_sections(raw):
     """The editor's sections, with types and motion choices checked (bad values fall back to defaults)."""
     if not isinstance(raw, list):
-        raise BadRequest('sections is a list.', code='invalid')
+        raise BadRequest('sections is a list.', code='invalid_input')
     valid = {f: {v for v, _ in getattr(MinutesMotion, c)} for f, c in (
         ('motion_type', 'MOTION_TYPE_CHOICES'), ('vote_method', 'VOTE_METHOD_CHOICES'),
         ('result', 'RESULT_CHOICES'), ('caucus_type', 'CAUCUS_TYPE_CHOICES'))}
@@ -153,7 +153,7 @@ class MinutesSectionsView(_Officers):
             try:
                 datetime.strptime(str(end_time), '%H:%M')
             except ValueError:
-                raise BadRequest('The end time is HH:MM.', code='invalid')
+                raise BadRequest('The end time is HH:MM.', code='invalid_input')
         cm.save_minutes_sections(request, minutes, {
             'sections': _clean_sections(body.get('sections', [])),
             'end_time': '' if end_time is None else str(end_time),
@@ -172,7 +172,7 @@ class MinutesRollCallView(_Officers):
         body = request.data if isinstance(request.data, dict) else {}
         rows = body.get('attendance')
         if not isinstance(rows, list):
-            raise BadRequest('attendance is a list.', code='invalid')
+            raise BadRequest('attendance is a list.', code='invalid_input')
         _, roll, _ = cm.minutes_editor_state(minutes)
         names = {str(r['user_id']): r['name'] for r in roll}
         attendance = [{'user_id': str(r.get('user_id')), 'name': names[str(r.get('user_id'))], 'status': r.get('status')}
@@ -195,7 +195,7 @@ class MinutesEventView(_Officers):
         if body.get('event_id'):
             event = Event.objects.filter(pk=body['event_id']).first()
             if event is None:
-                raise BadRequest('That event no longer exists.', code='invalid')
+                raise BadRequest('That event no longer exists.', code='invalid_input')
         cm.link_minutes_event(request, minutes, event, str(body.get('edit_reason') or ''))
         return Response({'minutes': _summary(_minutes(minutes_id))})
 

@@ -66,9 +66,9 @@ def create(view, request, code):
         day = datetime.strptime(str(body.get('date') or ''), '%Y-%m-%d').date()
         start = datetime.strptime(str(body.get('start_time') or ''), '%H:%M').time()
     except ValueError:
-        raise BadRequest('A date (YYYY-MM-DD) and start time (HH:MM) are needed.', code='invalid')
+        raise BadRequest('A date (YYYY-MM-DD) and start time (HH:MM) are needed.', code='invalid_input')
     if not title:
-        raise BadRequest('Title, date, and start time are required.', code='invalid')
+        raise BadRequest('Title, date, and start time are required.', code='invalid_input')
     minutes = ce.create_committee_minutes_record(request, committee, title, day, start)
     return Response({'minutes': _summary(minutes)}, status=201)
 
@@ -122,7 +122,7 @@ class CommitteeMinutesSectionsView(_CommitteeMinutes):
             try:
                 datetime.strptime(str(end_time), '%H:%M')
             except ValueError:
-                raise BadRequest('The end time is HH:MM.', code='invalid')
+                raise BadRequest('The end time is HH:MM.', code='invalid_input')
         ce.save_committee_sections(request, committee, minutes, {
             'sections': _clean_sections(body.get('sections', [])),
             'end_time': '' if end_time is None else str(end_time),
@@ -140,7 +140,7 @@ class CommitteeMinutesRollCallView(_CommitteeMinutes):
         body = request.data if isinstance(request.data, dict) else {}
         rows = body.get('attendance')
         if not isinstance(rows, list):
-            raise BadRequest('attendance is a list.', code='invalid')
+            raise BadRequest('attendance is a list.', code='invalid_input')
         _, roll, _ = ce.committee_editor_state(committee, minutes)
         names = {str(r['user_id']): r['name'] for r in roll}
         attendance = [{'user_id': str(r.get('user_id')), 'name': names[str(r.get('user_id'))], 'status': r.get('status')}
@@ -166,7 +166,7 @@ class CommitteeMinutesPublishView(_CommitteeMinutes):
         body = request.data if isinstance(request.data, dict) else {}
         visibility = str(body.get('visibility') or 'committee_only')
         if visibility not in PUBLISH_VISIBILITIES:
-            raise BadRequest('Choose who can see the minutes.', code='invalid')
+            raise BadRequest('Choose who can see the minutes.', code='invalid_input')
         ce.publish_committee_minutes_record(request, committee, minutes, visibility,
                                             body.get('publish_to_chapter') is True)
         minutes.refresh_from_db()

@@ -105,7 +105,7 @@ class AnnouncementTests(_Base):
     def test_invalid_is_explained(self):
         r = self.call('post', 'officer/announcements/', {'title': '', 'content': 'x'})
         self.assertEqual(r.status_code, 400)
-        self.assertEqual(r.json()['error'], 'invalid')
+        self.assertEqual(r.json()['error'], 'invalid_input')
         self.assertIn('required', r.json()['detail'])
 
     def test_edit_changes_only_what_was_sent_and_delete(self):
