@@ -189,6 +189,245 @@ def user_view_report(request, report_id):
     return render(request, 'kai/user_view_report.html', member_report_context(report, user))
 
 
+# ---------------------------------------------------------------------------
+# A party's requests on their own case: closure, drop, appeal.
+#
+# v4.4.x — the checks and the saves live here, outside the views, so the
+# website (`request_closure`, `request_drop_case`, `file_appeal` below) and the
+# app (src/mobile/views_kai_filing.py) refuse the same requests with the same
+# words and record, log and email exactly the same things.
+# ---------------------------------------------------------------------------
+
+CLOSURE_REASON_REQUIRED = 'Please provide a reason for your closure request.'
+CLOSURE_REQUESTED = 'Your closure request has been submitted and is pending review.'
+DROP_REASON_REQUIRED = 'Please provide a reason for dropping this case.'
+DROP_REQUESTED = 'Your request to drop this case has been submitted and is pending review.'
+APPEAL_GROUNDS_REQUIRED = 'Please describe the grounds for your appeal.'
+
+
+def _short_reason(reason):
+    return f'{reason[:100]}...' if len(reason) > 100 else reason
+
+
+def closure_request_block(report):
+    """
+    Why a party can't request closure of ``report`` now, as
+    ``(code, message level, message)``, or None if they can. The same rule as
+    ``member_report_context``'s ``can_request_closure``: the case has been
+    addressed, nothing is pending, it isn't archived.
+    """
+    if report.deliberation_outcome not in ELIGIBLE_OUTCOMES:
+        return ('not_addressed', 'error',
+                'Closure can only be requested for cases that have been heard or resolved.')
+    if report.closure_requests.filter(status='pending').exists():
+        return ('request_pending', 'warning', 'A closure request is already pending for this case.')
+    if report.status == 'archived':
+        return ('archived', 'info', 'This case has already been archived.')
+    return None
+
+
+def drop_request_block(report):
+    """
+    Why the submitter can't ask to drop ``report`` now, as
+    ``(code, message level, message)``, or None. The caller has already scoped
+    the case to its submitter (only they may withdraw it).
+    """
+    # Can't drop if sanctions already applied
+    if report.deliberation_outcome == 'sanctions_applied':
+        return ('sanctions_applied', 'error',
+                'This case cannot be dropped as sanctions have already been applied.')
+    if report.closure_requests.filter(status='pending').exists():
+        return ('request_pending', 'warning', 'A request is already pending for this case.')
+    if report.status == 'archived':
+        return ('archived', 'info', 'This case has already been archived.')
+    return None
+
+
+def _kai_chair_emails():
+    kai_committee = Committee.objects.get(is_kai_committee=True)
+    return [chair.email for chair in kai_committee.chairs.all() if chair.email]
+
+
+def file_closure_request(report, user, reason, request=None):
+    """
+    Record ``user``'s (the submitter's or the accused's) request to close
+    ``report``: the request, the case activity row, the audit-log row and the
+    chairs' email. The caller has checked ``closure_request_block`` and that
+    ``reason`` isn't blank.
+    """
+    is_submitter = report.submitted_by_id == user.pk
+    closure_request = KaiClosureRequest.objects.create(
+        report=report,
+        requested_by=user,
+        request_type='closure',
+        reason=reason
+    )
+
+    # Log activity
+    role = 'Submitter' if is_submitter else 'Accused party'
+    KaiReportActivity.objects.create(
+        report=report,
+        user=user,
+        action='closure_requested',
+        details=f'{role} requested case closure. Reason: {_short_reason(reason)}'
+    )
+    ActivityLog.log_activity(
+        action_type='kai_action',
+        user=user,
+        # v3.18.2 — no name. Only a party (submitter or accused) can
+        # request closure, so `user` here is always one of the two
+        # people the whole module exists to keep unnamed.
+        description=f'A party requested closure of Kai case {report.display_number}',
+        request=request,
+        object_type='KaiReport',
+        object_id=report.id,
+        object_repr=report.display_number,
+        metadata={'action': 'request_closure'},
+    )
+
+    # Notify Kai chair(s) via email
+    try:
+        chair_emails = _kai_chair_emails()
+        if chair_emails:
+            send_email.delay(
+                f'[Kai] Closure Request: {report.title}',
+                f"""A closure request has been submitted for a Kai report.
+
+Report: {report.title}
+Requested by: {user.name} ({role})
+Request reason: {reason}
+
+Please review this request in the Kai management system.
+""",
+                settings.DEFAULT_FROM_EMAIL,
+                chair_emails,
+            )
+    except Committee.DoesNotExist:
+        pass
+    except Exception as e:
+        logger.error(f"Failed to queue closure request notification: {e}")
+
+    # v3.25.2 — NEITHER the username NOR the title. This is party-facing, so
+    # `user` here is the submitter or the accused, and the line landed
+    # verbatim on /officers/system-logs/. The case id names nobody.
+    logger.info("Closure requested for Kai report %s", report.pk)
+    return closure_request
+
+
+def file_drop_request(report, user, reason, request=None):
+    """
+    Record the submitter's request to drop (withdraw) ``report``: the request,
+    the case activity row, the audit-log row and the chairs' email. The caller
+    has checked ``drop_request_block`` and that ``reason`` isn't blank.
+    """
+    drop_request = KaiClosureRequest.objects.create(
+        report=report,
+        requested_by=user,
+        request_type='drop',
+        reason=reason
+    )
+
+    # Log activity
+    KaiReportActivity.objects.create(
+        report=report,
+        user=user,
+        action='closure_requested',
+        details=f'Submitter requested to drop/withdraw case. Reason: {_short_reason(reason)}'
+    )
+    ActivityLog.log_activity(
+        action_type='kai_action',
+        user=user,
+        # ⚠️ v3.18.2 — no name, and this one identified the SUBMITTER
+        # specifically: only the person who filed a case can withdraw
+        # it, so this row was a signed confession of authorship on a
+        # page every officer can read.
+        description=f'The submitter requested to drop Kai case {report.display_number}',
+        request=request,
+        object_type='KaiReport',
+        object_id=report.id,
+        object_repr=report.display_number,
+        metadata={'action': 'request_drop'},
+    )
+
+    # Notify Kai chair(s) via email
+    try:
+        chair_emails = _kai_chair_emails()
+        if chair_emails:
+            send_email.delay(
+                f'[Kai] Drop Case Request: {report.title}',
+                f"""A request to drop/withdraw a case has been submitted.
+
+Report: {report.title}
+Submitted by: {user.name}
+Reason for dropping: {reason}
+
+Please review this request in the Kai management system.
+""",
+                settings.DEFAULT_FROM_EMAIL,
+                chair_emails,
+            )
+    except Committee.DoesNotExist:
+        pass
+    except Exception as e:
+        logger.error(f"Failed to queue drop case request notification: {e}")
+
+    # v3.25.2 — see file_closure_request: party-facing, so the username is a
+    # party to the case.
+    logger.info("Drop requested for Kai report %s", report.pk)
+    return drop_request
+
+
+def file_kai_appeal(report, user, level, grounds, request=None):
+    """
+    File the accused's appeal of ``report`` to ``level`` (anything that isn't
+    one of ``KaiAppeal.LEVEL_CHOICES`` is the chapter, as the form defaults):
+    the appeal, the case activity row and the audit-log row. The caller has
+    checked ``KaiAppeal.can_file`` and that ``grounds`` isn't blank.
+
+    No email: the committee sees it on the case timeline.
+    """
+    if level not in dict(KaiAppeal.LEVEL_CHOICES):
+        level = 'chapter'
+
+    appeal = KaiAppeal.objects.create(
+        report=report, filed_by=user, level=level, grounds=grounds,
+    )
+
+    # The committee needs to see this on the case timeline. `grounds` is the
+    # appellant's own words about their own case, so it is not subject to the
+    # submitter/accused identity redactions — but it is detail-level content,
+    # and the timeline is already gated on can_view_report_details.
+    KaiReportActivity.objects.create(
+        report=report,
+        user=user,
+        action='appeal_filed',
+        details=f'Appeal filed to {appeal.get_level_display()}.',
+    )
+    ActivityLog.log_activity(
+        action_type='kai_action',
+        user=user,
+        # ⚠️ v3.18.2 — NO NAME, AND THIS ONE IS THE SHARPEST OF THE FOUR.
+        # Only the accused can file an appeal (`KaiAppeal.can_file`, and
+        # `file_appeal` fetches with `targeted_to=user`), so ONLY THE ACCUSED
+        # CAN EVER WRITE THIS ROW. Naming them here published the accused's
+        # identity to every officer and chair; the row's mere existence
+        # against a case is the same assertion, which is why `user` is
+        # redacted at render rather than this being considered fixed by
+        # dropping the name alone. See `src/kai_audit.py`. Do not put a name
+        # back in here.
+        description=f'An appeal was filed on Kai case {report.display_number}',
+        request=request,
+        object_type='KaiAppeal',
+        metadata={'report_id': report.id, 'level': level},
+    )
+    return appeal
+
+
+def appeal_filed_message(appeal):
+    return (f'Your appeal to {appeal.get_level_display()} has been filed and the '
+            f'committee has been notified.')
+
+
 @login_required
 def request_closure(request, report_id):
     """
@@ -207,93 +446,23 @@ def request_closure(request, report_id):
 
     is_submitter = report.submitted_by == user
 
-    # Check if closure can be requested
-    if report.deliberation_outcome not in ELIGIBLE_OUTCOMES:
-        messages.error(
-            request,
-            'Closure can only be requested for cases that have been heard or resolved.'
-        )
-        return redirect('user_kai_dashboard')
-
-    # Check for existing pending request
-    if report.closure_requests.filter(status='pending').exists():
-        messages.warning(request, 'A closure request is already pending for this case.')
-        return redirect('user_view_kai_report', report_id=report_id)
-
-    # Check if already archived
-    if report.status == 'archived':
-        messages.info(request, 'This case has already been archived.')
+    # The checks are `closure_request_block`, shared with the app.
+    block = closure_request_block(report)
+    if block:
+        code, level, message = block
+        getattr(messages, level)(request, message)
+        if code == 'not_addressed':
+            return redirect('user_kai_dashboard')
         return redirect('user_view_kai_report', report_id=report_id)
 
     if request.method == 'POST':
         reason = request.POST.get('reason', '').strip()
 
         if not reason:
-            messages.error(request, 'Please provide a reason for your closure request.')
+            messages.error(request, CLOSURE_REASON_REQUIRED)
         else:
-            # Create closure request
-            closure_request = KaiClosureRequest.objects.create(
-                report=report,
-                requested_by=user,
-                request_type='closure',
-                reason=reason
-            )
-
-            # Log activity
-            role = 'Submitter' if is_submitter else 'Accused party'
-            KaiReportActivity.objects.create(
-                report=report,
-                user=user,
-                action='closure_requested',
-                details=f'{role} requested case closure. Reason: {reason[:100]}...' if len(reason) > 100 else f'{role} requested case closure. Reason: {reason}'
-            )
-            ActivityLog.log_activity(
-                action_type='kai_action',
-                user=user,
-                # v3.18.2 — no name. Only a party (submitter or accused) can
-                # request closure, so `user` here is always one of the two
-                # people the whole module exists to keep unnamed.
-                description=f'A party requested closure of Kai case {report.display_number}',
-                request=request,
-                object_type='KaiReport',
-                object_id=report.id,
-                object_repr=report.display_number,
-                metadata={'action': 'request_closure'},
-            )
-
-            # Notify Kai chair(s) via email
-            try:
-                kai_committee = Committee.objects.get(is_kai_committee=True)
-                chair_emails = [
-                    chair.email for chair in kai_committee.chairs.all()
-                    if chair.email
-                ]
-
-                if chair_emails:
-                    send_email.delay(
-                        f'[Kai] Closure Request: {report.title}',
-                        f"""A closure request has been submitted for a Kai report.
-
-Report: {report.title}
-Requested by: {user.name} ({role})
-Request reason: {reason}
-
-Please review this request in the Kai management system.
-""",
-                        settings.DEFAULT_FROM_EMAIL,
-                        chair_emails,
-                    )
-            except Committee.DoesNotExist:
-                pass
-            except Exception as e:
-                logger.error(f"Failed to queue closure request notification: {e}")
-
-            # v3.25.2 — NEITHER the username NOR the title. This view is
-            # @login_required and party-facing, so `user` here is the
-            # submitter or the accused, and the line landed verbatim on
-            # /officers/system-logs/. The case id names nobody.
-            logger.info("Closure requested for Kai report %s", report.pk)
-            messages.success(request, 'Your closure request has been submitted and is pending review.')
+            file_closure_request(report, user, reason, request)
+            messages.success(request, CLOSURE_REQUESTED)
             return redirect('user_view_kai_report', report_id=report_id)
 
     context = {
@@ -314,91 +483,21 @@ def request_drop_case(request, report_id):
     user = request.user
     report = get_object_or_404(KaiReport, id=report_id, submitted_by=user)
 
-    # Can't drop if sanctions already applied
-    if report.deliberation_outcome == 'sanctions_applied':
-        messages.error(
-            request,
-            'This case cannot be dropped as sanctions have already been applied.'
-        )
-        return redirect('user_view_kai_report', report_id=report_id)
-
-    # Check for existing pending request
-    if report.closure_requests.filter(status='pending').exists():
-        messages.warning(request, 'A request is already pending for this case.')
-        return redirect('user_view_kai_report', report_id=report_id)
-
-    # Check if already archived
-    if report.status == 'archived':
-        messages.info(request, 'This case has already been archived.')
+    # The checks are `drop_request_block`, shared with the app.
+    block = drop_request_block(report)
+    if block:
+        _code, level, message = block
+        getattr(messages, level)(request, message)
         return redirect('user_view_kai_report', report_id=report_id)
 
     if request.method == 'POST':
         reason = request.POST.get('reason', '').strip()
 
         if not reason:
-            messages.error(request, 'Please provide a reason for dropping this case.')
+            messages.error(request, DROP_REASON_REQUIRED)
         else:
-            # Create drop request
-            drop_request = KaiClosureRequest.objects.create(
-                report=report,
-                requested_by=user,
-                request_type='drop',
-                reason=reason
-            )
-
-            # Log activity
-            KaiReportActivity.objects.create(
-                report=report,
-                user=user,
-                action='closure_requested',
-                details=f'Submitter requested to drop/withdraw case. Reason: {reason[:100]}...' if len(reason) > 100 else f'Submitter requested to drop/withdraw case. Reason: {reason}'
-            )
-            ActivityLog.log_activity(
-                action_type='kai_action',
-                user=user,
-                # ⚠️ v3.18.2 — no name, and this one identified the SUBMITTER
-                # specifically: only the person who filed a case can withdraw
-                # it, so this row was a signed confession of authorship on a
-                # page every officer can read.
-                description=f'The submitter requested to drop Kai case {report.display_number}',
-                request=request,
-                object_type='KaiReport',
-                object_id=report.id,
-                object_repr=report.display_number,
-                metadata={'action': 'request_drop'},
-            )
-
-            # Notify Kai chair(s) via email
-            try:
-                kai_committee = Committee.objects.get(is_kai_committee=True)
-                chair_emails = [
-                    chair.email for chair in kai_committee.chairs.all()
-                    if chair.email
-                ]
-
-                if chair_emails:
-                    send_email.delay(
-                        f'[Kai] Drop Case Request: {report.title}',
-                        f"""A request to drop/withdraw a case has been submitted.
-
-Report: {report.title}
-Submitted by: {user.name}
-Reason for dropping: {reason}
-
-Please review this request in the Kai management system.
-""",
-                        settings.DEFAULT_FROM_EMAIL,
-                        chair_emails,
-                    )
-            except Committee.DoesNotExist:
-                pass
-            except Exception as e:
-                logger.error(f"Failed to queue drop case request notification: {e}")
-
-            # v3.25.2 — see request_closure above: party-facing view, so the
-            # username is a party to the case.
-            logger.info("Drop requested for Kai report %s", report.pk)
-            messages.success(request, 'Your request to drop this case has been submitted and is pending review.')
+            file_drop_request(report, user, reason, request)
+            messages.success(request, DROP_REQUESTED)
             return redirect('user_view_kai_report', report_id=report_id)
 
     context = {
@@ -472,47 +571,11 @@ def file_appeal(request, report_id):
 
     grounds = (request.POST.get('grounds') or '').strip()
     if not grounds:
-        messages.error(request, 'Please describe the grounds for your appeal.')
+        messages.error(request, APPEAL_GROUNDS_REQUIRED)
         return redirect('user_view_kai_report', report_id=report.id)
 
-    level = request.POST.get('level', 'chapter')
-    if level not in dict(KaiAppeal.LEVEL_CHOICES):
-        level = 'chapter'
+    # The appeal and its activity rows are `file_kai_appeal`, shared with the app.
+    appeal = file_kai_appeal(report, user, request.POST.get('level', 'chapter'), grounds, request)
 
-    appeal = KaiAppeal.objects.create(
-        report=report, filed_by=user, level=level, grounds=grounds,
-    )
-
-    # The committee needs to see this on the case timeline. `grounds` is the
-    # appellant's own words about their own case, so it is not subject to the
-    # submitter/accused identity redactions — but it is detail-level content,
-    # and the timeline is already gated on can_view_report_details.
-    KaiReportActivity.objects.create(
-        report=report,
-        user=user,
-        action='appeal_filed',
-        details=f'Appeal filed to {appeal.get_level_display()}.',
-    )
-    ActivityLog.log_activity(
-        action_type='kai_action',
-        user=user,
-        # ⚠️ v3.18.2 — NO NAME, AND THIS ONE IS THE SHARPEST OF THE FOUR.
-        # `file_appeal` fetches with `targeted_to=user` (see the
-        # get_object_or_404 above), so ONLY THE ACCUSED CAN EVER WRITE THIS
-        # ROW. Naming them here published the accused's identity to every
-        # officer and chair; the row's mere existence against a case is the
-        # same assertion, which is why `user` is redacted at render rather than
-        # this being considered fixed by dropping the name alone. See
-        # `src/kai_audit.py`. Do not put a name back in here.
-        description=f'An appeal was filed on Kai case {report.display_number}',
-        request=request,
-        object_type='KaiAppeal',
-        metadata={'report_id': report.id, 'level': level},
-    )
-
-    messages.success(
-        request,
-        f'Your appeal to {appeal.get_level_display()} has been filed and the '
-        f'committee has been notified.',
-    )
+    messages.success(request, appeal_filed_message(appeal))
     return redirect('user_view_kai_report', report_id=report.id)

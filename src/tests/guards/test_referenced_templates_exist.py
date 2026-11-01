@@ -176,4 +176,8 @@ class ReferencedTemplatesExistTests(SimpleTestCase):
 
 #: Measured 10-23-26: the one site is src/view/home.py (home_classic / home_modern,
 #: chosen by preference via a variable; both exist). See test_dynamic_names_are_few.
-DYNAMIC_BOUND = 1
+#: 11-01-26: +2 in src/view/guide.py — `_render_static_guide` and `guide_page_html`
+#: render a static guide page's template from the GUIDE_PAGES registry (shared with
+#: the app). Every registry template is requested by
+#: src/tests/mobile/test_guide_cnb_history_study.py::test_every_registry_page_matches_its_web_view.
+DYNAMIC_BOUND = 3

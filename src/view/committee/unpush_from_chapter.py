@@ -2,6 +2,7 @@ from django.shortcuts import get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.utils.http import url_has_allowed_host_and_scheme
+from src.committee_management import CommitteeActionError, unpush_from_chapter
 from src.models import Committee, CommitteeLegislation
 from src.feature_flag_decorators import require_feature_flag
 import logging
@@ -26,14 +27,12 @@ def committee_unpush_from_chapter(request, code):
         legislation_id = request.POST.get('legislation_id')
         committee_leg = get_object_or_404(CommitteeLegislation, id=legislation_id, committee=committee)
 
-        if not committee_leg.pushed_to_chapter:
-            messages.error(request, 'This item is not published to chapter.')
+        # Just mark as not published - don't delete chapter vote
+        try:
+            unpush_from_chapter(committee_leg, request.user)
+        except CommitteeActionError as exc:
+            messages.error(request, exc.message)
         else:
-            # Just mark as not published - don't delete chapter vote
-            committee_leg.pushed_to_chapter = False
-            committee_leg.save()
-
-            logger.info(f"{request.user.username} unpublished '{committee_leg.title}' from {committee.code} chapter documents")
             messages.success(request, f"'{committee_leg.title}' results removed from chapter documents.")
 
     # Redirect back to referring page (validate to prevent open redirect)

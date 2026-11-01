@@ -19,6 +19,15 @@ from src.mobile import (
     views_role_kb, views_officer_events, views_service_hours, views_service_review, views_changelog,
     views_account, views_chat_safety,
 )
+from src.mobile import views_legislation_drafts
+from src.mobile import views_committee_management
+from src.mobile import views_kai_filing
+from src.mobile import views_officer_roles
+from src.mobile import (
+    views_kai_commendations, views_member_family, views_officer_activity, views_officer_resolutions,
+)
+
+from src.mobile import views_guide, views_study_hours
 
 app_name = 'mobile'
 
@@ -130,6 +139,28 @@ urlpatterns = [
     path('officer/reports/', views_officer_tools.ReportListView.as_view(), name='mobile_officer_reports'),
     path('officer/reports/<int:document_id>/file/', views_officer_tools.ReportFileView.as_view(),
          name='mobile_officer_report_file'),
+    # Officer tools, batch 3 (v4.x): All Activity, houses and bigs, Kai
+    # commendations, legacy resolutions.
+    path('officer/activity/', views_officer_activity.OfficerActivityView.as_view(), name='mobile_officer_activity'),
+    path('officer/house-assignments/', views_member_family.HouseAssignmentsView.as_view(),
+         name='mobile_officer_house_assignments'),
+    path('officer/members/<str:user_id>/house/', views_member_family.MemberHouseView.as_view(),
+         name='mobile_officer_member_house'),
+    path('officer/members/<str:user_id>/big/', views_member_family.MemberBigView.as_view(),
+         name='mobile_officer_member_big'),
+    path('officer/kai/commendations/', views_kai_commendations.KaiCommendationListView.as_view(),
+         name='mobile_officer_kai_commendations'),
+    path('officer/kai/commendations/<int:commendation_id>/', views_kai_commendations.KaiCommendationView.as_view(),
+         name='mobile_officer_kai_commendation'),
+    path('officer/resolutions/', views_officer_resolutions.OfficerResolutionListView.as_view(),
+         name='mobile_officer_resolutions'),
+    path('officer/resolutions/<int:resolution_id>/', views_officer_resolutions.OfficerResolutionView.as_view(),
+         name='mobile_officer_resolution'),
+    path('officer/resolutions/<int:resolution_id>/sections/',
+         views_officer_resolutions.OfficerResolutionImpactCreateView.as_view(),
+         name='mobile_officer_resolution_sections'),
+    path('officer/resolutions/sections/<int:impact_id>/', views_officer_resolutions.OfficerResolutionImpactView.as_view(),
+         name='mobile_officer_resolution_section'),
     path('officer/mobile-app/places/<int:place_id>/', views_officer.OfficerCheckinPlaceView.as_view(),
          name='mobile_officer_checkin_place'),
     path('officer/announcements/', views_officer.OfficerAnnouncementListView.as_view(),
@@ -150,6 +181,16 @@ urlpatterns = [
          name='mobile_officer_event_archive'),
     path('officer/events/<int:event_id>/unarchive/', views_officer_events.OfficerUnarchiveEventView.as_view(),
          name='mobile_officer_event_unarchive'),
+    # Roles and role transitions (v4.x, views_officer_roles.py)
+    path('officer/roles/', views_officer_roles.OfficerRoleListView.as_view(), name='mobile_officer_roles'),
+    path('officer/roles/<int:role_id>/', views_officer_roles.OfficerRoleView.as_view(), name='mobile_officer_role'),
+    path('officer/roles/<int:role_id>/members/', views_officer_roles.OfficerRoleMembersView.as_view(),
+         name='mobile_officer_role_members'),
+    path('officer/roles/<int:role_id>/members/<str:user_id>/', views_officer_roles.OfficerRoleMemberView.as_view(),
+         name='mobile_officer_role_member'),
+    path('officer/transitions/', views_officer_roles.OfficerTransitionsView.as_view(), name='mobile_officer_transitions'),
+    path('officer/transitions/<int:role_id>/transfer/', views_officer_roles.OfficerTransferRoleView.as_view(),
+         name='mobile_officer_transfer_role'),
     # Service hours review (v4.4.0, views_service_review.py)
     path('officer/service-hours/', views_service_review.ServiceDashboardView.as_view(), name='mobile_officer_service'),
     path('officer/service-hours/submissions/', views_service_review.ServiceSubmissionListView.as_view(),
@@ -257,6 +298,17 @@ urlpatterns = [
     # My Kai reports (v4.4.0, views_kai.py)
     path('kai/', views_kai.KaiDashboardView.as_view(), name='mobile_kai'),
     path('kai/reports/<int:report_id>/', views_kai.KaiReportView.as_view(), name='mobile_kai_report'),
+    # Filing with Kai: report, commendation, closure / drop / appeal (v4.4.x, views_kai_filing.py)
+    path('kai/form/', views_kai_filing.KaiReportFormView.as_view(), name='mobile_kai_form'),
+    path('kai/reports/', views_kai_filing.KaiReportSubmitView.as_view(), name='mobile_kai_submit'),
+    path('kai/reports/<int:report_id>/closure/', views_kai_filing.KaiClosureRequestView.as_view(),
+         name='mobile_kai_closure'),
+    path('kai/reports/<int:report_id>/drop/', views_kai_filing.KaiDropRequestView.as_view(), name='mobile_kai_drop'),
+    path('kai/reports/<int:report_id>/appeal/', views_kai_filing.KaiAppealView.as_view(), name='mobile_kai_appeal'),
+    path('kai/commendations/form/', views_kai_filing.KaiCommendationFormView.as_view(),
+         name='mobile_kai_commendation_form'),
+    path('kai/commendations/', views_kai_filing.KaiCommendationSubmitView.as_view(),
+         name='mobile_kai_commendations'),
     path('preferences/', views_preferences.PreferencesView.as_view(), name='mobile_preferences'),  # v4.4.0
     # My Work / legislation history (src/mobile/views_legislation_history.py, v4.4.0)
     path('legislation/history/', views_legislation_history.LegislationHistoryView.as_view(),
@@ -265,6 +317,17 @@ urlpatterns = [
          name='mobile_legislation_history_polls'),
     path('legislation/history/drafts/', views_legislation_history.LegislationHistoryDraftsView.as_view(),
          name='mobile_legislation_history_drafts'),
+    # Legislation drafts: create, edit, delete, publish (views_legislation_drafts.py)
+    path('legislation/drafts/', views_legislation_drafts.LegislationDraftsView.as_view(),
+         name='mobile_legislation_drafts'),
+    path('legislation/drafts/form/', views_legislation_drafts.LegislationDraftFormView.as_view(),
+         name='mobile_legislation_draft_form'),
+    path('legislation/drafts/<int:draft_id>/', views_legislation_drafts.LegislationDraftView.as_view(),
+         name='mobile_legislation_draft'),
+    path('legislation/drafts/<int:draft_id>/delete/', views_legislation_drafts.LegislationDraftDeleteView.as_view(),
+         name='mobile_legislation_draft_delete'),
+    path('legislation/drafts/<int:draft_id>/publish/', views_legislation_drafts.LegislationDraftPublishView.as_view(),
+         name='mobile_legislation_draft_publish'),
     path('agendas/', views_agendas.AgendaListView.as_view(), name='mobile_agendas'),
     path('agendas/<int:agenda_id>/', views_agendas.AgendaView.as_view(), name='mobile_agenda'),
     path('agendas/<int:agenda_id>/items/', views_agendas.AgendaItemListView.as_view(), name='mobile_agenda_items'),
@@ -349,6 +412,35 @@ urlpatterns = [
          views_votes.CommitteeVoteDetailView.as_view(), name='mobile_committee_vote'),
     path('committees/<str:code>/votes/<int:legislation_id>/cast/',
          views_votes.CommitteeVoteCastView.as_view(), name='mobile_committee_vote_cast'),
+    # Committee chair tools (v4.4.0, views_committee_management.py)
+    path('committees/<str:code>/votes/manage/', views_committee_management.CommitteeVoteManageView.as_view(),
+         name='mobile_committee_votes_manage'),
+    path('committees/<str:code>/votes/new/', views_committee_management.CommitteeVoteCreateView.as_view(),
+         name='mobile_committee_vote_create'),
+    path('committees/<str:code>/votes/<int:legislation_id>/recalculate/',
+         views_committee_management.CommitteeVoteRecalculateView.as_view(), name='mobile_committee_vote_recalculate'),
+    path('committees/<str:code>/votes/<int:legislation_id>/push/',
+         views_committee_management.CommitteeVotePushView.as_view(), name='mobile_committee_vote_push'),
+    path('committees/<str:code>/votes/<int:legislation_id>/unpush/',
+         views_committee_management.CommitteeVoteUnpushView.as_view(), name='mobile_committee_vote_unpush'),
+    path('committees/<str:code>/votes/<int:legislation_id>/delete/',
+         views_committee_management.CommitteeVoteDeleteView.as_view(), name='mobile_committee_vote_delete'),
+    path('committees/<str:code>/members/candidates/',
+         views_committee_management.CommitteeMemberCandidatesView.as_view(), name='mobile_committee_member_candidates'),
+    path('committees/<str:code>/members/add/', views_committee_management.CommitteeAddMemberView.as_view(),
+         name='mobile_committee_member_add'),
+    path('committees/<str:code>/members/remove/', views_committee_management.CommitteeRemoveMemberView.as_view(),
+         name='mobile_committee_member_remove'),
+    path('committees/<str:code>/members/manage/', views_committee_management.CommitteeManageMembersView.as_view(),
+         name='mobile_committee_members_manage'),
+    path('committees/<str:code>/member-permissions/',
+         views_committee_management.CommitteeMemberPermissionsView.as_view(), name='mobile_committee_member_permissions'),
+    path('committees/<str:code>/attendance/', views_committee_management.CommitteeAttendanceView.as_view(),
+         name='mobile_committee_attendance'),
+    path('committees/<str:code>/documents/<int:document_id>/publish/',
+         views_committee_management.CommitteeDocumentPublishView.as_view(), name='mobile_committee_document_publish'),
+    path('committees/<str:code>/documents/<int:document_id>/delete/',
+         views_committee_management.CommitteeDocumentDeleteView.as_view(), name='mobile_committee_document_delete'),
     # Chat reports and mutes (v4.4.0, views_chat_safety.py; Apple guideline 1.2)
     path('chat/messages/<int:message_id>/report/', views_chat_safety.ReportMessageView.as_view(),
          name='mobile_chat_report'),
@@ -369,4 +461,16 @@ urlpatterns = [
          name='mobile_chat_read'),
     path('chat/channels/<int:channel_id>/notification-level/',
          views_chat.NotificationLevelView.as_view(), name='mobile_chat_notification_level'),
+    # The user guide, C&B section history, study hours and event time
+    # (views_guide.py, views_cnb.py, views_study_hours.py)
+    path('guide/', views_guide.GuideIndexView.as_view(), name='mobile_guide'),
+    path('guide/pages/<str:key>/', views_guide.GuidePageView.as_view(), name='mobile_guide_page'),
+    path('guide/articles/<slug:slug>/', views_guide.GuideArticleView.as_view(), name='mobile_guide_article'),
+    path('cnb/sections/<int:section_id>/history/', views_cnb.CnbSectionHistoryView.as_view(),
+         name='mobile_cnb_section_history'),
+    path('committees/<str:code>/education/study-hours/', views_study_hours.StudyHoursView.as_view(),
+         name='mobile_education_study_hours'),
+    path('committees/<str:code>/education/study-hours/requirements/',
+         views_study_hours.StudyHoursRequirementView.as_view(), name='mobile_education_study_hours_requirement'),
+    path('officer/events/<int:event_id>/time/', views_study_hours.EventTimeView.as_view(), name='mobile_event_time'),
 ]

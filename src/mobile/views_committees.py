@@ -39,7 +39,7 @@ from src.utils.content_disposition import apply_disposition
 from src.view.committee.committee_minutes_editor import (
     can_edit_committee_minutes, can_edit_specific_minutes, is_committee_member_or_above,
 )
-from src.view.committee.member_permissions import can_designate
+from src.view.committee.member_permissions import can_designate, can_manage_documents
 
 RECENT_DOCUMENTS = 5
 DOCUMENT_LIMIT = 200
@@ -264,10 +264,13 @@ class CommitteeMembersView(_CommitteeView):
 
         chairs = group(committee.chairs.all())
         chair_ids = {c['user_id'] for c in chairs}
+        from src.mobile.views_committee_management import member_management
         return Response({
             'chairs': chairs,
             'advisors': group(committee.advisors.all()),
             'members': [m for m in group(committee.members.all()) if m['user_id'] not in chair_ids],
+            # v4.4.0: what this member may change here (views_committee_management).
+            'manage': member_management(request.user, committee),
         })
 
 
@@ -285,7 +288,11 @@ class CommitteeDocumentsView(_CommitteeView):
             drafts = [{'id': m.id, 'title': m.title, 'date': m.date.isoformat(), 'status': m.status}
                       for m in ChapterMinutes.objects.filter(committee=committee).exclude(status='published')
                       .order_by('-date')]
-        return Response({'documents': [_document_json(d, code) for d in docs], 'unpublished_minutes': drafts})
+        # v4.4.0: publish/unpublish and delete are native; uploading stays on the website.
+        can_manage = can_manage_documents(user, committee)
+        return Response({'documents': [_document_json(d, code) for d in docs], 'unpublished_minutes': drafts,
+                         'can_manage': can_manage,
+                         'upload_path': reverse('upload_document', args=[code]) if can_manage else None})
 
 
 class CommitteeDocumentFileView(_CommitteeView):

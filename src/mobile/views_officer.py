@@ -39,16 +39,18 @@ from django.utils import timezone
 from rest_framework import exceptions
 from rest_framework.response import Response
 
-from src import chat_safety
+from src import chat_safety, location_time
 from src.feature_flag_decorators import check_feature_enabled
 from src.forms.announcements import AnnouncementForm
 from src.forms.events import EventForm
+from src.house_utils import can_set_house
 from src.mobile.api import MobileAPIView
 from src.mobile.views_directory import photo_path
 from src.mobile.views_excuses_polls import BadRequest
+from src.mobile.views_kai_commendations import kai_commendation_access
 from src.models import (
     ActivityLog, Announcement, Attendance, AttendanceExcuse, CheckinPlace, Committee, ContactSubmission, Event,
-    ServiceHoursSubmission,
+    KaiCommendation, ServiceHoursSubmission,
 )
 from src.models.users import member_defer
 from src.permissions import user_is_officer_or_chair, user_is_vpp
@@ -123,6 +125,7 @@ class OfficerHubView(_OfficerView):
         attendance = list(_awaiting_attendance(now)[:10]) if _attendance_on() else []
         can_review_service = user_is_vpp(request.user)
         can_moderate_chat = chat_safety.can_moderate_chat(request.user)
+        kai = kai_commendation_access(request.user)
         return Response({
             'pending_excuses': (AttendanceExcuse.objects.filter(status='pending').count()
                                 if _excuses_on() else None),
@@ -139,6 +142,25 @@ class OfficerHubView(_OfficerView):
             'can_moderate_chat': can_moderate_chat,
             'open_chat_reports': (chat_safety.open_report_count(request.user)
                                   if can_moderate_chat else None),
+            # v4.x (each the web page's own gate): All Activity
+            # (views_officer_activity; officer_or_advisor_required), the house
+            # assignments panel (views_member_family; can_set_house), Kai
+            # commendations (views_kai_commendations; the Kai committee's own
+            # access) and legacy Resolutions (views_officer_resolutions; admins).
+            'can_view_activity': bool(request.user.can_view_officer_pages),
+            'can_set_house': can_set_house(request.user),
+            'can_manage_kai_commendations': bool(kai and kai['can_view_report_list']),
+            'pending_kai_commendations': (KaiCommendation.objects.filter(status='pending').count()
+                                          if kai and kai['can_view_report_list'] else None),
+            'can_manage_resolutions': bool(request.user.is_admin),
+            # Manage Roles and Role Transitions (views_officer_roles;
+            # officer_required, which is this hub's own gate). A chair opens
+            # them read-only: each change has its own narrower check.
+            'can_manage_roles': user_is_officer_or_chair(request.user),
+            'can_transfer_roles': user_is_officer_or_chair(request.user),
+            # Archived events (views_officer_events; admin_required), the
+            # third tab of All events.
+            'can_view_archived_events': bool(request.user.is_admin),
         })
 
 
@@ -466,7 +488,13 @@ class OfficerAttendanceView(_OfficerView):
             del event._attendance_stats_cache
         return Response({
             'event': {'id': event.id, 'title': event.title, 'date_time': event.date_time.isoformat(),
-                      'finalized': event.attendance_finalized},
+                      'finalized': event.attendance_finalized,
+                      # The page's "Time & adjustments" link on a minimum-stay event
+                      # (views_study_hours.EventTimeView), for whoever may adjust time.
+                      'checkin_min_minutes': event.checkin_min_minutes,
+                      'time_path': (reverse('event_time', args=[event.id])
+                                    if event.checkin_min_minutes and location_time.can_adjust(self.request.user)
+                                    else None)},
             'members': rows,
             'stats': event.get_attendance_stats(),
         })

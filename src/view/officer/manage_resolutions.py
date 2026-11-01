@@ -10,6 +10,41 @@ from src.utils.file_validation import validate_uploaded_file
 from src.utils.form_messages import queue_form_errors
 
 
+def save_resolution(user, data, files, instance=None):
+    """
+    The create / edit form's save: the upload is checked first
+    (``validate_uploaded_file``, raising ValidationError before anything is
+    saved), then ``PassedResolutionForm``. A new resolution records ``user`` as
+    its creator. Returns ``(resolution, form)``; ``resolution`` is None when the
+    form is invalid. Shared with the app (src/mobile/views_officer_resolutions.py).
+    """
+    if 'document' in files:
+        validate_uploaded_file(files['document'])
+    form = PassedResolutionForm(data, files, instance=instance)
+    if not form.is_valid():
+        return None, form
+    resolution = form.save(commit=False)
+    if instance is None:
+        resolution.created_by = user
+    resolution.save()
+    return resolution, form
+
+
+def save_section_impact(resolution, data, instance=None):
+    """
+    Add (or, with ``instance``, edit) one of ``resolution``'s section impacts
+    through ``ResolutionSectionImpactForm``. Returns ``(impact, form)``;
+    ``impact`` is None when the form is invalid. Shared with the app.
+    """
+    form = ResolutionSectionImpactForm(data, instance=instance)
+    if not form.is_valid():
+        return None, form
+    impact = form.save(commit=False)
+    impact.resolution = resolution
+    impact.save()
+    return impact, form
+
+
 @login_required
 @admin_required
 def manage_resolutions(request):
@@ -27,22 +62,15 @@ def manage_resolutions(request):
 def create_resolution(request):
     """Create a new passed resolution"""
     if request.method == 'POST':
-        # Validate uploaded file before processing form
-        if 'document' in request.FILES:
-            try:
-                validate_uploaded_file(request.FILES['document'])
-            except ValidationError as e:
-                messages.error(request, f'File upload error: {str(e)}')
-                return render(request, 'officer/resolution_form.html', {
-                    'form': PassedResolutionForm(),
-                    'action': 'Create',
-                })
-
-        form = PassedResolutionForm(request.POST, request.FILES)
-        if form.is_valid():
-            resolution = form.save(commit=False)
-            resolution.created_by = request.user
-            resolution.save()
+        try:
+            resolution, form = save_resolution(request.user, request.POST, request.FILES)
+        except ValidationError as e:
+            messages.error(request, f'File upload error: {str(e)}')
+            return render(request, 'officer/resolution_form.html', {
+                'form': PassedResolutionForm(),
+                'action': 'Create',
+            })
+        if resolution is not None:
             messages.success(request, f'Resolution "{resolution.title}" created successfully!')
             return redirect('manage_section_impacts', resolution_id=resolution.id)
         queue_form_errors(request, form)
@@ -63,21 +91,16 @@ def edit_resolution(request, resolution_id):
     resolution = get_object_or_404(PassedResolution, id=resolution_id)
 
     if request.method == 'POST':
-        # Validate uploaded file before processing form
-        if 'document' in request.FILES:
-            try:
-                validate_uploaded_file(request.FILES['document'])
-            except ValidationError as e:
-                messages.error(request, f'File upload error: {str(e)}')
-                return render(request, 'officer/resolution_form.html', {
-                    'form': PassedResolutionForm(instance=resolution),
-                    'resolution': resolution,
-                    'action': 'Edit',
-                })
-
-        form = PassedResolutionForm(request.POST, request.FILES, instance=resolution)
-        if form.is_valid():
-            form.save()
+        try:
+            saved, form = save_resolution(request.user, request.POST, request.FILES, instance=resolution)
+        except ValidationError as e:
+            messages.error(request, f'File upload error: {str(e)}')
+            return render(request, 'officer/resolution_form.html', {
+                'form': PassedResolutionForm(instance=resolution),
+                'resolution': resolution,
+                'action': 'Edit',
+            })
+        if saved is not None:
             messages.success(request, f'Resolution "{resolution.title}" updated successfully!')
             return redirect('manage_resolutions')
         queue_form_errors(request, form)
@@ -138,11 +161,8 @@ def add_section_impact(request, resolution_id):
     resolution = get_object_or_404(PassedResolution, id=resolution_id)
 
     if request.method == 'POST':
-        form = ResolutionSectionImpactForm(request.POST)
-        if form.is_valid():
-            section_impact = form.save(commit=False)
-            section_impact.resolution = resolution
-            section_impact.save()
+        section_impact, form = save_section_impact(resolution, request.POST)
+        if section_impact is not None:
             messages.success(request, f'Section impact "{section_impact.section_name}" added!')
             return redirect('manage_section_impacts', resolution_id=resolution.id)
     else:
@@ -164,9 +184,8 @@ def edit_section_impact(request, impact_id):
     resolution = section_impact.resolution
 
     if request.method == 'POST':
-        form = ResolutionSectionImpactForm(request.POST, instance=section_impact)
-        if form.is_valid():
-            form.save()
+        saved, form = save_section_impact(resolution, request.POST, instance=section_impact)
+        if saved is not None:
             messages.success(request, f'Section impact "{section_impact.section_name}" updated!')
             return redirect('manage_section_impacts', resolution_id=resolution.id)
     else:

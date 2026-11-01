@@ -21,7 +21,7 @@ from django.views.decorators.http import require_POST
 
 from src.decorators import cnb_required
 from src.cnb_crossrefs import Structure as CnbStructure, check as check_crossrefs
-from src.view.cnb_history import apply_as_of, parse_as_of
+from src.view.cnb_history import documents_as_of, parse_as_of
 from src.models.users import member_defer
 from src.models import (
     GoverningDocument, Article, Section, Resolution, ResolutionAmendment,
@@ -50,18 +50,7 @@ def cnb_viewer(request):
     # end of that day (src/view/cnb_history.py). Revisions are prefetched only
     # when asked for, so the normal page pays nothing extra.
     as_of = parse_as_of(request.GET.get('as_of'))
-    if as_of:
-        # v3.44.0 — `all_objects`: a section a later resolution struck was
-        # still part of the document on an earlier date (`apply_as_of` hides
-        # it again when it was already gone by then).
-        from django.db.models import Prefetch
-        prefetch = Prefetch('articles__sections',
-                            queryset=Section.all_objects.prefetch_related('revisions').order_by('article', 'display_order'))
-    else:
-        prefetch = 'articles__sections'
-    documents = list(GoverningDocument.enabled().prefetch_related(prefetch))
-    if as_of:
-        apply_as_of(documents, as_of)
+    documents = documents_as_of(as_of)
     # 09-25-26: built from the same prefetched objects — no extra queries.
     # Lets the viewer link "Article VII, Section 1 of the Bylaws" to its
     # section, and leave references to non-existent sections unlinked.

@@ -10,6 +10,7 @@ from src.view.webauthn import check_vote_reauth
 from src.feature_flag_decorators import require_feature_flag
 from src.vote_rules import plurality_passed  # v3.51.1
 from src import ballots
+from src.committee_management import recalculate_committee_vote
 import logging
 
 logger = logging.getLogger('function_calls')
@@ -59,40 +60,9 @@ def committee_vote(request, code):
         legislation = get_object_or_404(CommitteeLegislation, id=legislation_id, committee=committee)
 
         if is_chair and legislation.voting_closed:
-            tally = get_vote_tally(legislation)
-            total_votes = tally['total']
-
-            if total_votes > 0:
-                if legislation.vote_mode == 'plurality':
-                    legislation.passed = plurality_passed(tally)  # v3.51.1: a tie doesn't pass
-                    legislation.status = 'passed' if legislation.passed else 'draft'
-                elif legislation.vote_mode == 'piecewise':
-                    required = legislation.required_number or 0
-                    legislation.passed = tally.get('yes', 0) >= required
-                    legislation.status = 'passed' if legislation.passed else 'draft'
-                else:
-                    yes_votes = tally.get('yes', 0)
-                    no_votes = tally.get('no', 0)
-                    countable_votes = yes_votes + no_votes
-                    if countable_votes > 0:
-                        yes_percentage = (yes_votes / countable_votes) * 100
-                        required_pct = int(legislation.required_percentage)
-                        legislation.passed = yes_percentage >= required_pct
-                        legislation.status = 'passed' if legislation.passed else 'draft'
-
-                legislation.save(update_fields=['passed', 'status'])
-                result_text = "passed" if legislation.passed else "did not pass"
-                logger.info(f"{user.username} recalculated vote result for '{legislation.title}' (ID: {legislation.id}) - {result_text}")
-                ActivityLog.log_activity(
-                    action_type='vote_ended',
-                    user=user,
-                    description=f'{user.name} recalculated committee vote result for "{legislation.title}" — {result_text}',
-                    request=request,
-                    object_type='CommitteeLegislation',
-                    object_id=legislation.id,
-                    object_repr=legislation.title,
-                    metadata={'action': 'recalculate', 'result': result_text, 'committee': committee.code, 'total_votes': total_votes},
-                )
+            # src/committee_management (shared with the app).
+            result_text = recalculate_committee_vote(legislation, user, request)
+            if result_text:
                 messages.success(request, f"Vote result recalculated. The vote {result_text}.")
             else:
                 messages.warning(request, "No votes to calculate result from.")

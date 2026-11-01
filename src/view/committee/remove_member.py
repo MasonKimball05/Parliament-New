@@ -2,6 +2,7 @@ from django.shortcuts import get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.views.decorators.http import require_POST
+from src.committee_management import ROLE_FIELDS, can_manage_roles, remove_role
 from src.models import Committee, ParliamentUser
 
 @login_required
@@ -13,7 +14,7 @@ def committee_remove_member(request, code):
     # Check permissions. v3.26.6 — see add_member.py's comment; same widening
     # (VP/admin/site-admin -> also chairs, including role_type='chair'),
     # `committee.is_chair()` for the same consistency reason.
-    if not (committee.is_chair(request.user) or committee.is_vp(request.user) or request.user.is_admin):
+    if not can_manage_roles(request.user, committee):
         messages.error(request, 'You do not have permission to manage this committee.')
         return redirect('committee_home', code=code)
 
@@ -23,24 +24,9 @@ def committee_remove_member(request, code):
     try:
         user = ParliamentUser.objects.get(pk=user_id)
 
-        if role_type == 'member':
-            committee.members.remove(user)
-            # Also remove from voting members if present — no reason to retain a vote
-            # on a non-member, and leaving them in causes a confusing orphan state
-            if committee.voting_members.filter(pk=user.pk).exists():
-                committee.voting_members.remove(user)
-                messages.success(request, f'{user.name} has been removed from members and voting members.')
-            else:
-                messages.success(request, f'{user.name} has been removed from members.')
-        elif role_type == 'chair':
-            committee.chairs.remove(user)
-            messages.success(request, f'{user.name} has been removed from chairs.')
-        elif role_type == 'advisor':
-            committee.advisors.remove(user)
-            messages.success(request, f'{user.name} has been removed from advisors.')
-        elif role_type == 'voter':
-            committee.voting_members.remove(user)
-            messages.success(request, f'{user.name} has been removed from voting members.')
+        # Removing a member also drops their vote (src/committee_management).
+        if role_type in ROLE_FIELDS:
+            messages.success(request, remove_role(committee, user, role_type))
     except ParliamentUser.DoesNotExist:
         messages.error(request, 'User not found.')
 

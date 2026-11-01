@@ -8,6 +8,7 @@ from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse
 from django.shortcuts import render
 from src.app_review import exclude_review_accounts, hides_contact_for
+from src.house_utils import can_set_house
 from src.models import ParliamentUser
 from src.pledge_classes import is_original_founder
 
@@ -86,13 +87,6 @@ def member_directory(request):
             group.sort(key=lambda m: m.name, reverse=True)
     # default 'name' is already sorted ascending from the queryset
 
-    def _can_set_house(user):
-        if user.member_type == 'Officer' or user.is_admin:
-            return True
-        if user.member_type == 'Chair':
-            return user.roles.filter(name__icontains='historian').exists()
-        return False
-
     context = {
         'officers': officers,
         'chairs': chairs,
@@ -109,7 +103,7 @@ def member_directory(request):
         'total_count': len(officers) + len(chairs) + len(regular_members) + len(pledges) + len(advisors),
         'sort': sort,
         'filter_type': request.GET.get('filter', 'all'),
-        'can_set_house': _can_set_house(request.user),
+        'can_set_house': can_set_house(request.user),   # src/house_utils.py, shared with the app
         'house_choices': ParliamentUser.HOUSE_CHOICES,
         # The App Review demo account sees no email or phone (directory.html).
         'hide_contact': hides_contact_for(request.user),

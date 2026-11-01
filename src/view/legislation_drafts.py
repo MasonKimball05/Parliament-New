@@ -234,6 +234,24 @@ def publish_legislation_draft(request, draft_id):
         messages.error(request, reason)
         return redirect(f"{_history_url()}?tab=drafts")
 
+    legislation, announced = publish_draft(draft, request.user)
+    messages.success(request, publish_message(legislation, announced))
+    return redirect(f"{_history_url()}?tab=drafts")
+
+
+def publish_draft(draft, user):
+    """
+    Turn a ready ``draft`` into a real bill posted by ``user``, and return
+    ``(legislation, announced)``.
+
+    v4.4.x — the body of ``publish_legislation_draft``, factored out so the
+    app's publish endpoint (src/mobile/views_legislation_drafts.py) makes the
+    same bill with the same side effects rather than a second copy of them.
+    The CALLER owns authorization and readiness: it has loaded the draft
+    through an ownership-scoped read, checked the officer rule, and checked
+    ``ready_to_publish()``. ``announced`` is True when the bill was already
+    available and the chapter was notified inline.
+    """
     available_at = draft.planned_available_at
     if timezone.is_naive(available_at):
         # v3.13.3's lesson: naive datetimes are interpreted as UTC by the DB
@@ -248,7 +266,7 @@ def publish_legislation_draft(request, draft_id):
     legislation = Legislation(
         title=draft.title,
         description=draft.description,
-        posted_by=request.user,
+        posted_by=user,
         available_at=available_at,
         voting_ends_at=voting_ends_at,
         # ⚠️ voting_manual_open=True, ALWAYS, and this is not a default worth
@@ -376,20 +394,22 @@ def publish_legislation_draft(request, draft_id):
         # immediate feedback that it went out.
         from src.tasks.votes import announce_legislation_availability
         announce_legislation_availability(legislation)
-        messages.success(
-            request,
-            f'"{legislation.title}" published and the chapter has been notified. '
-            f'Voting stays closed until you open it.',
-        )
-    else:
-        messages.success(
-            request,
-            f'"{legislation.title}" published. The chapter will be notified on '
-            f'{timezone.localtime(available_at).strftime("%b %d at %I:%M %p")}. '
-            f'Voting stays closed until you open it.',
-        )
+        return legislation, True
+    return legislation, False
 
-    return redirect(f"{_history_url()}?tab=drafts")
+
+def publish_message(legislation, announced):
+    """The success line after publishing, for the web flash and the app alike."""
+    if announced:
+        return (
+            f'"{legislation.title}" published and the chapter has been notified. '
+            f'Voting stays closed until you open it.'
+        )
+    return (
+        f'"{legislation.title}" published. The chapter will be notified on '
+        f'{timezone.localtime(legislation.available_at).strftime("%b %d at %I:%M %p")}. '
+        f'Voting stays closed until you open it.'
+    )
 
 
 def _can_publish(user):

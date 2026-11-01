@@ -7,6 +7,9 @@ from django.contrib import messages
 from django.utils import timezone
 from django.db.models import Q
 
+from src.committee_management import (
+    attendance_members, can_mark_committee_attendance, mark_committee_attendance, todays_attendance,
+)
 from src.models import Committee, Attendance, ParliamentUser, ActivityLog, CommitteePermissions
 from src.decorators import officer_required
 from src.models.users import member_defer
@@ -24,68 +27,25 @@ def committee_attendance(request, code):
     is_chair = committee.is_chair(request.user)
     is_officer = request.user.member_type == 'Officer'
 
-    if not (is_chair or is_officer):
+    if not can_mark_committee_attendance(request.user, committee):
         messages.error(request, 'Only committee chairs and officers can mark attendance.')
         return redirect('committee_home', code=code)
 
     # Get all committee members
-    members = committee.members.filter(member_status='Active').order_by('name')
+    members = attendance_members(committee)
 
     # Get today's attendance records for this committee (using local timezone)
     today = timezone.localdate()   # v3.17.4: same value, one spelling site-wide
-    existing_attendance = {
-        att.user_id: att
-        for att in Attendance.objects.filter(
-            committee=committee,
-            attendance_type='committee',
-            date=today
-        ).select_related('user').defer(*member_defer('user'))
-    }
+    existing_attendance = todays_attendance(committee)
 
     if request.method == 'POST':
         action = request.POST.get('action')
 
         if action == 'mark_attendance':
-            # Get lists from form
-            present_ids = request.POST.getlist('present')
-
-            updated_count = 0
-
-            for member in members:
-                # Check if marked present
-                if str(member.user_id) in present_ids:
-                    # Create or update attendance
-                    attendance, created = Attendance.objects.update_or_create(
-                        committee=committee,
-                        user=member,
-                        date=today,
-                        attendance_type='committee',
-                        defaults={
-                            'status': 'present',
-                            'marked_by': request.user,
-                            'marked_at': timezone.now()
-                        }
-                    )
-                    updated_count += 1
-                else:
-                    # Remove attendance record if unchecked
-                    Attendance.objects.filter(
-                        committee=committee,
-                        user=member,
-                        date=today,
-                        attendance_type='committee'
-                    ).delete()
-
-            # Log activity
-            ActivityLog.log_activity(
-                action_type='other',
-                user=request.user,
-                description=f'Marked committee attendance for {committee.name} ({updated_count} members present)',
-                request=request,
-                object_type='Committee',
-                object_id=committee.id,
-                object_repr=str(committee)
-            )
+            # Present / not present for today, plus the activity log
+            # (src/committee_management, shared with the app).
+            updated_count = mark_committee_attendance(
+                committee, request.user, request.POST.getlist('present'), request)
 
             messages.success(request, f'Attendance updated: {updated_count} members marked present.')
             return redirect('committee_attendance', code=code)

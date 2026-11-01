@@ -10,6 +10,7 @@ from django.views.decorators.http import require_http_methods
 from src.models import ParliamentUser, Role
 from src.decorators import log_function_call
 from src.feature_flag_decorators import require_page_enabled
+from src.house_utils import can_set_house
 from src.pledge_classes import badge_context, is_original_founder
 
 
@@ -39,12 +40,36 @@ def _get_historian_role():
     return role
 
 
-def _can_set_house(user):
-    if user.member_type == 'Officer' or user.is_admin:
-        return True
-    if user.member_type == 'Chair':
-        return user.roles.filter(name__icontains='historian').exists()
-    return False
+#: The house managers' rule, shared with set_member_house / set_member_big.
+_can_set_house = can_set_house
+
+
+def unassigned_panel_data(all_members, unassigned):
+    """
+    The "N unassigned" quick-manage panel's data (house managers only): who's
+    unassigned, plus everyone pickable as a big or little. Pledges with an
+    education-dashboard pairing are locked — set_member_big refuses them too.
+    The app's ``officer/house-assignments/`` sends the same thing.
+    """
+    from src.models import PledgeBigAssignment
+    locked = set(PledgeBigAssignment.objects.values_list('pledge_id', flat=True))
+    return {
+        'houses': [list(c) for c in ParliamentUser.HOUSE_CHOICES],
+        'unassigned': [m.user_id for m in unassigned],
+        'people': [
+            {
+                'id': m.user_id,
+                'name': m.get_display_name(),
+                'type': m.member_type,
+                'status': m.member_status,
+                'roll': m.role_number or '',
+                'house': m.house or '',
+                'big': m.big_brother_id or '',
+                'locked': m.user_id in locked,
+            }
+            for m in all_members if m.member_status != 'Removed'
+        ],
+    }
 
 
 def _build_tree(member, all_little_map, house_code):
@@ -194,7 +219,6 @@ def house_map(request):
             messages.error(request, 'Member not found.')
         return redirect('house_map')
 
-    house_choices = ParliamentUser.HOUSE_CHOICES
     houses, all_members, unassigned = house_map_data()
     houses_template = [
         {k: h[k] for k in ('code', 'label', 'total', 'active')} for h in houses
@@ -203,30 +227,7 @@ def house_map(request):
 
     can_set_house = _can_set_house(request.user)
 
-    # Quick-manage panel data (house managers only): who's unassigned, plus
-    # everyone pickable as a big or little. Pledges with an education-dashboard
-    # pairing are locked — set_member_big refuses them too.
-    unassigned_panel = None
-    if can_set_house:
-        from src.models import PledgeBigAssignment
-        locked = set(PledgeBigAssignment.objects.values_list('pledge_id', flat=True))
-        unassigned_panel = {
-            'houses': [list(c) for c in house_choices],
-            'unassigned': [m.user_id for m in unassigned],
-            'people': [
-                {
-                    'id': m.user_id,
-                    'name': m.get_display_name(),
-                    'type': m.member_type,
-                    'status': m.member_status,
-                    'roll': m.role_number or '',
-                    'house': m.house or '',
-                    'big': m.big_brother_id or '',
-                    'locked': m.user_id in locked,
-                }
-                for m in all_members if m.member_status != 'Removed'
-            ],
-        }
+    unassigned_panel = unassigned_panel_data(all_members, unassigned) if can_set_house else None
 
     historians = ParliamentUser.objects.filter(roles=historian_role, is_active=True).order_by('name')
     eligible_historians = ParliamentUser.objects.filter(

@@ -5,6 +5,7 @@ Static guide pages and article views for user documentation.
 """
 
 import os
+import re
 import bleach
 import markdown as md_lib
 from django.shortcuts import render, get_object_or_404
@@ -36,6 +37,107 @@ _GUIDE_ALLOWED_ATTRS = {
 from src.models import GuideTour, GuideTourStep, UserTourProgress, GuideArticle
 
 logger = logging.getLogger('function_calls')
+
+
+def _page(url_name, section, title, summary, keywords, page_title, template=None, doc=None, officer_only=False):
+    return url_name, {
+        'url_name': url_name, 'section': section, 'title': title, 'summary': summary,
+        'keywords': keywords, 'page_title': page_title, 'template': template, 'doc': doc,
+        'officer_only': officer_only,
+    }
+
+
+#: The guide's pages, in the index's order (templates/guide/index.html's cards:
+#: their titles, blurbs and search words). Each static view renders its entry,
+#: and the app's guide (src/mobile/views_guide.py) lists and shows the same.
+GUIDE_SECTIONS = (
+    ('officer', 'Officer Guides', 'Essential guides for chapter officers'),
+    ('member', 'Member Guides', 'Essential guides for all chapter members'),
+)
+GUIDE_PAGES = dict([
+    _page('guide_events', 'officer', 'Events Management', 'Create, manage, and track attendance for chapter events.',
+          'Events Management create manage track attendance chapter events schedule', 'Events Management Guide',
+          'guide/officers/events.html'),
+    _page('guide_announcements', 'officer', 'Announcements', 'Send announcements via in-app notifications and email.',
+          'Announcements send notifications email bulletin news', 'Announcements Guide',
+          'guide/officers/announcements.html'),
+    _page('guide_attendance', 'officer', 'Attendance', 'Take attendance and review member excuse requests.',
+          'Attendance take roll check in excuse requests present', 'Attendance Management Guide',
+          'guide/officers/attendance.html'),
+    _page('guide_chapter_minutes', 'officer', 'Chapter Minutes', 'Record meeting minutes with sections, motions, and votes.',
+          'Chapter Minutes record meeting sections motions votes', 'Chapter Minutes Guide',
+          'guide/officers/chapter_minutes.html'),
+    _page('guide_managing_members', 'officer', 'Managing Members', 'Add, edit, and manage members, roles, and initiations.',
+          'Managing Members add edit roles initiations roster', 'Managing Members Guide',
+          'guide/officers/managing_members.html'),
+    _page('guide_slating', 'officer', 'Slating & Elections', 'Run officer elections with applications, interviews, and voting.',
+          'Slating Elections officer applications interviews voting nominate candidate', 'Slating & Elections Guide',
+          'guide/officers/slating.html'),
+    _page('guide_kai', 'officer', 'Kai Reports', 'Submit conduct reports and manage case resolutions.',
+          'Kai Reports conduct submit manage case resolutions', 'Kai Reports Guide', 'guide/officers/kai.html'),
+    _page('guide_resolutions', 'officer', 'Resolution Management', 'Track and document chapter decisions and their impacts.',
+          'Resolution Management decisions chapter track document passed', 'Resolution Management Guide',
+          'guide/officers/resolutions.html'),
+    _page('guide_activity_logs', 'officer', 'Activity Logs', 'View audit trails and system activity history.',
+          'Activity Logs audit trails system history', 'Activity Logs Guide', 'guide/officers/activity_logs.html'),
+    _page('guide_kai_forms', 'officer', 'Kai Form Customization', 'Build custom forms for Kai report submissions.',
+          'Kai Form Customization custom forms submission build', 'Kai Form Customization Guide',
+          'guide/officers/kai_forms.html'),
+    _page('guide_officer_handoff', 'officer', 'Officer & Admin Guide',
+          'Complete reference guide for officers and administrators.',
+          'Officer Admin Guide complete reference administrators handoff', 'Officer & Admin Guide',
+          doc='OFFICER_GUIDE.md'),
+    _page('guide_recruitment', 'officer', 'Recruitment Committee', 'Manage rush sign-ups, events, and the pledge roster.',
+          'Recruitment Committee rush sign-ups events pledge roster candidates', 'Recruitment Committee Guide',
+          'guide/officers/recruitment.html'),
+    _page('guide_education', 'officer', 'Education Committee', 'Manage pledge tasks, quizzes, and education schedules.',
+          'Education Committee pledge tasks quizzes schedules vpe', 'Education Committee Guide',
+          'guide/officers/education.html'),
+    _page('guide_developer_handoff', 'officer', 'Developer Handoff Guide',
+          'Server setup, deployment, codebase architecture, and gotchas for developers.',
+          'Developer Handoff Guide server setup deployment codebase architecture gotchas', 'Developer Handoff Guide',
+          doc='HANDOFF_DEVELOPER.md', officer_only=True),
+    _page('guide_profile', 'member', 'Profile Management', 'Customize your profile, username, and contact info.',
+          'Profile Management customize username contact info', 'Profile Management Guide',
+          'guide/members/profile.html'),
+    _page('guide_calendar', 'member', 'Calendar & Subscription', 'View events and sync with your calendar app.',
+          'Calendar Subscription view events sync schedule', 'Calendar Guide', 'guide/members/calendar.html'),
+    _page('guide_notifications', 'member', 'Notifications Center', 'Stay updated with chapter activity.',
+          'Notifications Center chapter activity updates bell', 'Notifications Guide',
+          'guide/members/notifications.html'),
+    _page('guide_excuses', 'member', 'Submitting Excuses', 'Request an excused absence from events.',
+          'Submitting Excuses absence request miss skip', 'Submitting Excuses Guide', 'guide/members/excuses.html'),
+    _page('guide_2fa', 'member', 'Two-Factor Authentication', 'Add extra security to your account.',
+          'Two-Factor Authentication security account 2fa totp', 'Two-Factor Authentication Guide',
+          'guide/members/2fa.html'),
+    _page('guide_directory', 'member', 'Member Directory', 'Find and connect with chapter members.',
+          'Member Directory find connect people roster', 'Member Directory Guide', 'guide/members/directory.html'),
+    _page('guide_search', 'member', 'Global Search', 'Find anything in Parliament quickly.',
+          'Global Search find quickly navigate', 'Global Search Guide', 'guide/members/search.html'),
+    _page('guide_developer_api', 'member', 'Developer API', 'Access Parliament data programmatically for integrations.',
+          'Developer API access data programmatically integrations rest', 'Developer API Guide',
+          'guide/members/developer_api.html'),
+    _page('guide_chat', 'member', 'Chat Channels', 'Communicate with members, committees, and groups.',
+          'Chat Channels communicate members committees groups message', 'Chat Channels Guide',
+          'guide/members/chat.html'),
+    _page('guide_service_hours', 'member', 'Service Hours', 'Log and track your community service hours.',
+          'Service Hours log track community volunteer', 'Service Hours Guide', 'guide/members/service_hours.html'),
+    _page('guide_pledge_tasks', 'member', 'Pledge Task Tracker', 'View and complete your assigned pledge tasks and quizzes.',
+          'Pledge Task Tracker assigned tasks quizzes complete', 'Pledge Task Tracker Guide',
+          'guide/members/pledge_tasks.html'),
+    _page('guide_legislation', 'member', 'Legislation & Voting',
+          'Understand how to participate in chapter governance and cast your vote.',
+          'Legislation Voting bills resolutions cast vote view results', 'Legislation Guide',
+          'guide/members/legislation.html'),
+    _page('guide_committees', 'member', 'Committees', 'Understand chapter committees and how to participate.',
+          'Committees join participate dashboard chair documents', 'Committees Guide', 'guide/members/committees.html'),
+])
+
+
+def _render_static_guide(request, url_name):
+    """A static guide page: its registry entry's template, title and category."""
+    page = GUIDE_PAGES[url_name]
+    return render(request, page['template'], {'page_title': page['page_title'], 'category': page['section']})
 
 
 @login_required
@@ -120,8 +222,7 @@ def guide_article(request, slug):
 
     # Sanitize HTML before rendering to prevent stored XSS
     safe_content = mark_safe(  # nosec  # B308,B703: bleach-cleaned against a strict allowlist; default protocols block javascript:
-        bleach.clean(article.content or '', tags=_GUIDE_ALLOWED_TAGS,
-                     attributes=_GUIDE_ALLOWED_ATTRS, strip=True)
+        guide_article_html(article)
     )
 
     # Get related articles in same category
@@ -148,11 +249,7 @@ def guide_events(request):
     """
     Events management guide for officers.
     """
-    context = {
-        'page_title': 'Events Management Guide',
-        'category': 'officer',
-    }
-    return render(request, 'guide/officers/events.html', context)
+    return _render_static_guide(request, 'guide_events')
 
 
 @login_required
@@ -160,11 +257,7 @@ def guide_announcements(request):
     """
     Announcements guide for officers.
     """
-    context = {
-        'page_title': 'Announcements Guide',
-        'category': 'officer',
-    }
-    return render(request, 'guide/officers/announcements.html', context)
+    return _render_static_guide(request, 'guide_announcements')
 
 
 @login_required
@@ -172,11 +265,7 @@ def guide_attendance(request):
     """
     Attendance management guide for officers.
     """
-    context = {
-        'page_title': 'Attendance Management Guide',
-        'category': 'officer',
-    }
-    return render(request, 'guide/officers/attendance.html', context)
+    return _render_static_guide(request, 'guide_attendance')
 
 
 @login_required
@@ -184,11 +273,7 @@ def guide_chapter_minutes(request):
     """
     Chapter minutes guide for officers.
     """
-    context = {
-        'page_title': 'Chapter Minutes Guide',
-        'category': 'officer',
-    }
-    return render(request, 'guide/officers/chapter_minutes.html', context)
+    return _render_static_guide(request, 'guide_chapter_minutes')
 
 
 @login_required
@@ -196,11 +281,7 @@ def guide_managing_members(request):
     """
     Managing members guide for officers.
     """
-    context = {
-        'page_title': 'Managing Members Guide',
-        'category': 'officer',
-    }
-    return render(request, 'guide/officers/managing_members.html', context)
+    return _render_static_guide(request, 'guide_managing_members')
 
 
 @login_required
@@ -208,11 +289,7 @@ def guide_slating(request):
     """
     Slating and elections guide for officers.
     """
-    context = {
-        'page_title': 'Slating & Elections Guide',
-        'category': 'officer',
-    }
-    return render(request, 'guide/officers/slating.html', context)
+    return _render_static_guide(request, 'guide_slating')
 
 
 @login_required
@@ -220,11 +297,7 @@ def guide_kai(request):
     """
     Kai reports guide for officers.
     """
-    context = {
-        'page_title': 'Kai Reports Guide',
-        'category': 'officer',
-    }
-    return render(request, 'guide/officers/kai.html', context)
+    return _render_static_guide(request, 'guide_kai')
 
 
 @login_required
@@ -232,11 +305,7 @@ def guide_legislation(request):
     """
     Legislation guide for all members.
     """
-    context = {
-        'page_title': 'Legislation Guide',
-        'category': 'member',
-    }
-    return render(request, 'guide/members/legislation.html', context)
+    return _render_static_guide(request, 'guide_legislation')
 
 
 @login_required
@@ -244,11 +313,7 @@ def guide_committees(request):
     """
     Committees guide for all members.
     """
-    context = {
-        'page_title': 'Committees Guide',
-        'category': 'member',
-    }
-    return render(request, 'guide/members/committees.html', context)
+    return _render_static_guide(request, 'guide_committees')
 
 
 # =============================================================================
@@ -260,11 +325,7 @@ def guide_profile(request):
     """
     Profile management guide for all members.
     """
-    context = {
-        'page_title': 'Profile Management Guide',
-        'category': 'member',
-    }
-    return render(request, 'guide/members/profile.html', context)
+    return _render_static_guide(request, 'guide_profile')
 
 
 @login_required
@@ -272,11 +333,7 @@ def guide_calendar(request):
     """
     Calendar and event subscription guide for all members.
     """
-    context = {
-        'page_title': 'Calendar Guide',
-        'category': 'member',
-    }
-    return render(request, 'guide/members/calendar.html', context)
+    return _render_static_guide(request, 'guide_calendar')
 
 
 @login_required
@@ -284,11 +341,7 @@ def guide_notifications(request):
     """
     Notifications center guide for all members.
     """
-    context = {
-        'page_title': 'Notifications Guide',
-        'category': 'member',
-    }
-    return render(request, 'guide/members/notifications.html', context)
+    return _render_static_guide(request, 'guide_notifications')
 
 
 @login_required
@@ -296,11 +349,7 @@ def guide_excuses(request):
     """
     Submitting excuses guide for all members.
     """
-    context = {
-        'page_title': 'Submitting Excuses Guide',
-        'category': 'member',
-    }
-    return render(request, 'guide/members/excuses.html', context)
+    return _render_static_guide(request, 'guide_excuses')
 
 
 @login_required
@@ -308,11 +357,7 @@ def guide_2fa(request):
     """
     Two-factor authentication guide for all members.
     """
-    context = {
-        'page_title': 'Two-Factor Authentication Guide',
-        'category': 'member',
-    }
-    return render(request, 'guide/members/2fa.html', context)
+    return _render_static_guide(request, 'guide_2fa')
 
 
 @login_required
@@ -320,11 +365,7 @@ def guide_directory(request):
     """
     Member directory guide for all members.
     """
-    context = {
-        'page_title': 'Member Directory Guide',
-        'category': 'member',
-    }
-    return render(request, 'guide/members/directory.html', context)
+    return _render_static_guide(request, 'guide_directory')
 
 
 @login_required
@@ -332,11 +373,7 @@ def guide_search(request):
     """
     Global search guide for all members.
     """
-    context = {
-        'page_title': 'Global Search Guide',
-        'category': 'member',
-    }
-    return render(request, 'guide/members/search.html', context)
+    return _render_static_guide(request, 'guide_search')
 
 
 @login_required
@@ -344,32 +381,25 @@ def guide_developer_api(request):
     """
     Developer API guide for members who want to integrate with Parliament.
     """
-    context = {
-        'page_title': 'Developer API Guide',
-        'category': 'member',
-    }
-    return render(request, 'guide/members/developer_api.html', context)
+    return _render_static_guide(request, 'guide_developer_api')
 
 
 @login_required
 def guide_chat(request):
     """Chat channels guide for all members."""
-    context = {'page_title': 'Chat Channels Guide', 'category': 'member'}
-    return render(request, 'guide/members/chat.html', context)
+    return _render_static_guide(request, 'guide_chat')
 
 
 @login_required
 def guide_service_hours(request):
     """Service hours guide for all members."""
-    context = {'page_title': 'Service Hours Guide', 'category': 'member'}
-    return render(request, 'guide/members/service_hours.html', context)
+    return _render_static_guide(request, 'guide_service_hours')
 
 
 @login_required
 def guide_pledge_tasks(request):
     """Pledge task tracker guide."""
-    context = {'page_title': 'Pledge Task Tracker Guide', 'category': 'member'}
-    return render(request, 'guide/members/pledge_tasks.html', context)
+    return _render_static_guide(request, 'guide_pledge_tasks')
 
 
 # =============================================================================
@@ -379,15 +409,13 @@ def guide_pledge_tasks(request):
 @login_required
 def guide_recruitment(request):
     """Recruitment committee guide for officers."""
-    context = {'page_title': 'Recruitment Committee Guide', 'category': 'officer'}
-    return render(request, 'guide/officers/recruitment.html', context)
+    return _render_static_guide(request, 'guide_recruitment')
 
 
 @login_required
 def guide_education(request):
     """Education committee / pledge education guide for officers."""
-    context = {'page_title': 'Education Committee Guide', 'category': 'officer'}
-    return render(request, 'guide/officers/education.html', context)
+    return _render_static_guide(request, 'guide_education')
 
 
 @login_required
@@ -395,11 +423,7 @@ def guide_resolutions(request):
     """
     Resolution management guide for officers.
     """
-    context = {
-        'page_title': 'Resolution Management Guide',
-        'category': 'officer',
-    }
-    return render(request, 'guide/officers/resolutions.html', context)
+    return _render_static_guide(request, 'guide_resolutions')
 
 
 @login_required
@@ -407,11 +431,7 @@ def guide_activity_logs(request):
     """
     Activity logs guide for officers.
     """
-    context = {
-        'page_title': 'Activity Logs Guide',
-        'category': 'officer',
-    }
-    return render(request, 'guide/officers/activity_logs.html', context)
+    return _render_static_guide(request, 'guide_activity_logs')
 
 
 @login_required
@@ -419,11 +439,7 @@ def guide_kai_forms(request):
     """
     Kai form customization guide for officers.
     """
-    context = {
-        'page_title': 'Kai Form Customization Guide',
-        'category': 'officer',
-    }
-    return render(request, 'guide/officers/kai_forms.html', context)
+    return _render_static_guide(request, 'guide_kai_forms')
 
 
 # =============================================================================
@@ -575,15 +591,24 @@ def _render_markdown_doc(file_path):
                                   attributes=_HANDOFF_ALLOWED_ATTRS, strip=True))
 
 
+def _handoff_doc_path(filename):
+    return os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'docs', filename))
+
+
+def can_read_developer_handoff(user):
+    """The Developer Handoff Guide's rule (staff or Officers), shared with the app."""
+    return bool(user.is_staff or getattr(user, 'member_type', None) == 'Officer')
+
+
 @login_required
 def guide_officer_handoff(request):
     """
     Officer & Admin Guide rendered from docs/OFFICER_GUIDE.md.
     """
-    doc_path = os.path.join(os.path.dirname(__file__), '..', '..', 'docs', 'OFFICER_GUIDE.md')
-    content = _render_markdown_doc(os.path.abspath(doc_path))
+    page = GUIDE_PAGES['guide_officer_handoff']
+    content = _render_markdown_doc(_handoff_doc_path(page['doc']))
     context = {
-        'page_title': 'Officer & Admin Guide',
+        'page_title': page['page_title'],
         'doc_content': content,
         'back_url': 'guide_officer_hub',
         'back_label': 'Officer Guides',
@@ -597,18 +622,59 @@ def guide_developer_handoff(request):
     Developer Handoff Guide rendered from docs/HANDOFF_DEVELOPER.md.
     Officers only — gates behind member_type check.
     """
-    from src.models import ParliamentUser
-    user = request.user
-    if not (user.is_staff or getattr(user, 'member_type', None) == 'Officer'):
+    if not can_read_developer_handoff(request.user):
         from django.core.exceptions import PermissionDenied
         raise PermissionDenied
 
-    doc_path = os.path.join(os.path.dirname(__file__), '..', '..', 'docs', 'HANDOFF_DEVELOPER.md')
-    content = _render_markdown_doc(os.path.abspath(doc_path))
+    page = GUIDE_PAGES['guide_developer_handoff']
+    content = _render_markdown_doc(_handoff_doc_path(page['doc']))
     context = {
-        'page_title': 'Developer Handoff Guide',
+        'page_title': page['page_title'],
         'doc_content': content,
         'back_url': 'guide_index',
         'back_label': 'Guide Index',
     }
     return render(request, 'guide/handoff.html', context)
+
+
+# =============================================================================
+# SHARED WITH THE APP (src/mobile/views_guide.py)
+# =============================================================================
+
+def visible_guide_pages(user, section=None):
+    """The registry's pages ``user`` may open, in the index's order."""
+    return [p for p in GUIDE_PAGES.values()
+            if (section is None or p['section'] == section)
+            and (not p['officer_only'] or can_read_developer_handoff(user))]
+
+
+_BREADCRUMB = re.compile(r'<nav\b[^>]*aria-label="Breadcrumb"[^>]*>.*?</nav>', re.S | re.I)
+
+
+def guide_page_html(request, url_name):
+    """
+    The HTML a registry page shows in its main column: a static page's
+    ``{% block content %}`` rendered alone (no site chrome, breadcrumb removed),
+    or a handoff doc's sanitized markdown. Raises KeyError for an unknown page.
+    """
+    page = GUIDE_PAGES[url_name]
+    if page['doc']:
+        return str(_render_markdown_doc(_handoff_doc_path(page['doc'])))
+    from django.template import Context
+    from django.template.loader import get_template
+    from django.template.loader_tags import ExtendsNode
+    template = get_template(page['template']).template
+    extends = template.nodelist.get_nodes_by_type(ExtendsNode)[0]
+    block = extends.blocks['content']
+    context = Context({'request': request, 'user': request.user,
+                       'page_title': page['page_title'], 'category': page['section']},
+                      autoescape=template.engine.autoescape)
+    with context.render_context.push_state(template), context.bind_template(template):
+        html = block.nodelist.render(context)
+    return _BREADCRUMB.sub('', html)
+
+
+def guide_article_html(article):
+    """A GuideArticle's content as the article page shows it (bleach-cleaned)."""
+    return bleach.clean(article.content or '', tags=_GUIDE_ALLOWED_TAGS,
+                        attributes=_GUIDE_ALLOWED_ATTRS, strip=True)

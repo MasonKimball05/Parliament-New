@@ -58,147 +58,12 @@ def submit_kai_report(request):
 
             form = KaiReportForm(request.POST, request.FILES)
             if form.is_valid():
-                report = form.save(commit=False)
-                report.submitted_by = request.user
-                report.save()
-
-                # Save custom field responses
-                # v3.28.9: scoped to the discipline form — KaiFormField is now
-                # shared with the commendation form (form_type), and without
-                # this a commendation-only custom field would be
-                # (a) processed here as if it were part of this report, and
-                # (b) invisible on the commendation form's own save path.
-                custom_fields = KaiFormField.objects.filter(is_active=True, is_builtin=False, form_type='discipline')
-                for field in custom_fields:
-                    field_key = f'custom_field_{field.id}'
-                    value = request.POST.get(field_key, '').strip()
-                    file_value = request.FILES.get(field_key)
-
-                    # ⚠️ v3.19.7 — a custom-field file was assigned straight from
-                    # request.FILES with no validation of any kind, while the
-                    # report's OWN attachment three fields up goes through
-                    # `KaiReportForm.clean_attachment` (extension allowlist +
-                    # MIME sniff). Same form, same submitter, same directory —
-                    # `kai_reports/custom_fields/` sits beside
-                    # `kai_reports/` — and one half was checked.
-                    #
-                    # The file is dropped and the member is TOLD, rather than the
-                    # whole POST being failed: by this point the report has been
-                    # saved, and a rejected attachment must not take the
-                    # allegation text down with it. A silent drop would be the
-                    # worst of the three.
-                    if file_value:
-                        try:
-                            validate_uploaded_file(file_value)
-                        except ValidationError as exc:
-                            messages.error(
-                                request,
-                                f'{field.label}: {"; ".join(exc.messages)}')
-                            file_value = None
-
-                    # Only save if there's a value
-                    if value or file_value:
-                        response_data = {
-                            'report': report,
-                            'field': field,
-                        }
-
-                        if field.field_type in ['text', 'textarea', 'email', 'date', 'select', 'radio']:
-                            response_data['text_value'] = value
-                        elif field.field_type == 'number':
-                            try:
-                                response_data['number_value'] = float(value) if value else None
-                            except ValueError:
-                                response_data['text_value'] = value
-                        elif field.field_type in ['multiselect', 'checkbox']:
-                            values = request.POST.getlist(field_key)
-                            response_data['json_value'] = values if values else None
-                        elif field.field_type == 'file' and file_value:
-                            response_data['file_value'] = file_value
-                        elif field.field_type == 'member_select':
-                            response_data['text_value'] = value
-
-                        KaiReportFieldResponse.objects.create(**response_data)
-
-                # Log activity
-                KaiReportActivity.objects.create(
-                    report=report,
-                    user=request.user,
-                    action='created',
-                    details=f'Report created with category: {report.get_category_display()}'
-                )
-                ActivityLog.log_activity(
-                    action_type='kai_action',
-                    user=request.user,
-                    # ⚠️ v3.18.2 — NO NAME. On a submission `request.user` IS
-                    # the reporter, so this string named them beside the case
-                    # number, on a page every officer and chair can read. The
-                    # row's `user` FK is the other half of the same disclosure
-                    # and is kept deliberately (the audit trail is worth
-                    # keeping) but redacted at render — see `src/kai_audit.py`.
-                    # Do not put a name back in here.
-                    description=f'A member submitted Kai case {report.display_number}',
-                    request=request,
-                    object_type='KaiReport',
-                    object_id=report.id,
-                    object_repr=report.display_number,
-                    metadata={'action': 'submitted'},
-                )
-
-                # Send email notification to Kai committee chair(s) only (NOT targeted person yet)
-                try:
-                    kai_committee = Committee.objects.get(is_kai_committee=True)
-                    kai_chairs = kai_committee.chairs.all()
-
-                    # Collect Kai chair emails only
-                    recipient_emails = []
-
-                    # Add Kai chair emails
-                    if kai_chairs.exists():
-                        chair_emails = [chair.email for chair in kai_chairs if chair.email]
-                        recipient_emails.extend(chair_emails)
-
-                    if recipient_emails:
-                        subject = f'New Kai Report: {report.title}'
-                        message = f"""
-A new Kai report has been submitted.
-
-Title: {report.title}
-Submitted by: {report.submitted_by.name}
-Submitted at: {localtime(report.submitted_at).strftime('%B %d, %Y at %I:%M %p %Z')}
-{f"Directed to: {report.targeted_to.name}" if report.targeted_to else ""}
-
-Description:
-{report.description}
-
-Tags: {', '.join(report.get_tag_labels()) if report.tags else 'None'}
-
-Please log in to the Kai Committee page to review this report.
-                        """
-
-                        import logging
-                        kai_logger = logging.getLogger('src')
-                        kai_logger.info(f"[KAI EMAIL] Sending notification to {len(recipient_emails)} recipients: {recipient_emails}")
-
-                        send_email.delay(subject, message, settings.DEFAULT_FROM_EMAIL, recipient_emails)
-                        # v3.25.2 — the id, not the title. `django_actions.log` is rendered
-                        # to every officer by /officers/system-logs/, and a Kai
-                        # report title is case content.
-                        kai_logger.info("[KAI EMAIL] Email queued for Kai report %s", report.pk)
-                    else:
-                        import logging
-                        kai_logger = logging.getLogger('src')
-                        kai_logger.warning(f"[KAI EMAIL] No recipient emails found for Kai report notification")
-                except Committee.DoesNotExist:
-                    import logging
-                    kai_logger = logging.getLogger('src')
-                    kai_logger.warning(f"[KAI EMAIL] KAI committee not found - cannot send notification")
-                except Exception as e:
-                    # Log error but don't fail the submission
-                    import logging
-                    logger = logging.getLogger('src')
-                    logger.error(f"[KAI EMAIL] Failed to send Kai report email: {e}")
-
+                # v4.4.x — the save, the custom answers, the activity rows and
+                # the chairs' email are `file_kai_report`, shared with the app
+                # (src/mobile/views_kai_filing.py).
+                _report, notes = file_kai_report(request.user, form, request.POST, request.FILES, request)
+                for note in notes:
+                    messages.error(request, note)
                 messages.success(request, 'Your Kai report has been submitted successfully! The Kai chair(s) have been notified.')
                 return redirect('home')
             queue_form_errors(request, form)
@@ -217,11 +82,9 @@ Please log in to the Kai Committee page to review this report.
         # Get active templates
         templates = KaiReportTemplate.objects.filter(is_active=True)
 
-        # Get custom fields (non-builtin). form_type='discipline' — see the
-        # save-path comment above; the same scoping applies to what's shown.
-        custom_fields = KaiFormField.objects.filter(
-            is_active=True, is_builtin=False, form_type='discipline',
-        ).order_by('section', 'display_order')
+        # Get custom fields (non-builtin). form_type='discipline' — see
+        # `kai_report_custom_fields`; the same scoping applies to what's shown.
+        custom_fields = kai_report_custom_fields()
 
         # Group custom fields by section
         custom_sections = {}
@@ -248,6 +111,168 @@ Please log in to the Kai Committee page to review this report.
         logger.error(f"Error in submit_kai_report: {e}")
         messages.warning(request, f'Kai Reports feature error: {str(e)}')
         return redirect('home')
+
+
+#: The answers a custom field stores as `text_value` (the rest: number, list, file).
+_KAI_TEXT_FIELD_TYPES = ('text', 'textarea', 'email', 'date', 'select', 'radio', 'member_select')
+
+
+def kai_report_custom_fields():
+    """The form builder's fields on the report form, in the form's order.
+
+    v3.28.9: scoped to the discipline form — KaiFormField is now shared with
+    the commendation form (form_type), and without this a commendation-only
+    custom field would be (a) processed here as if it were part of this
+    report, and (b) invisible on the commendation form's own save path.
+    """
+    return KaiFormField.objects.filter(
+        is_active=True, is_builtin=False, form_type='discipline',
+    ).order_by('section', 'display_order')
+
+
+def save_kai_custom_responses(fields, data, files, create):
+    """
+    Save the custom answers posted as ``custom_field_<id>`` for ``fields``,
+    calling ``create(field=..., text_value=... | number_value=... |
+    json_value=... | file_value=...)`` for each one answered. Returns the
+    messages for files that were refused (the website shows them as errors).
+
+    Shared by the report and commendation forms on the website and in the app,
+    so the two forms, and the two clients, store answers the same way.
+
+    ⚠️ v3.19.7 — a custom-field file was assigned straight from request.FILES
+    with no validation of any kind, while the report's OWN attachment goes
+    through `KaiReportForm.clean_attachment` (extension allowlist + MIME
+    sniff). Same form, same submitter, same directory —
+    `kai_reports/custom_fields/` sits beside `kai_reports/` — and one half was
+    checked.
+
+    The file is dropped and the member is TOLD, rather than the whole POST
+    being failed: by this point the report has been saved, and a rejected
+    attachment must not take the allegation text down with it. A silent drop
+    would be the worst of the three.
+    """
+    notes = []
+    for field in fields:
+        field_key = f'custom_field_{field.id}'
+        value = (data.get(field_key) or '').strip()
+        file_value = files.get(field_key)
+
+        if file_value:
+            try:
+                validate_uploaded_file(file_value)
+            except ValidationError as exc:
+                notes.append(f'{field.label}: {"; ".join(exc.messages)}')
+                file_value = None
+
+        # Only save if there's a value
+        if not (value or file_value):
+            continue
+        answer = {}
+        if field.field_type in _KAI_TEXT_FIELD_TYPES:
+            answer['text_value'] = value
+        elif field.field_type == 'number':
+            try:
+                answer['number_value'] = float(value) if value else None
+            except ValueError:
+                answer['text_value'] = value
+        elif field.field_type in ('multiselect', 'checkbox'):
+            values = data.getlist(field_key)
+            answer['json_value'] = values if values else None
+        elif field.field_type == 'file' and file_value:
+            answer['file_value'] = file_value
+        create(field=field, **answer)
+    return notes
+
+
+def notify_kai_chairs_of_report(report):
+    """Email the Kai chair(s) only (NOT the targeted person, and never the
+    whole committee) that ``report`` was filed. Never raises: a failed email
+    must not fail the submission."""
+    kai_logger = logging.getLogger('src')
+    try:
+        kai_committee = Committee.objects.get(is_kai_committee=True)
+        recipient_emails = [chair.email for chair in kai_committee.chairs.all() if chair.email]
+
+        if recipient_emails:
+            subject = f'New Kai Report: {report.title}'
+            message = f"""
+A new Kai report has been submitted.
+
+Title: {report.title}
+Submitted by: {report.submitted_by.name}
+Submitted at: {localtime(report.submitted_at).strftime('%B %d, %Y at %I:%M %p %Z')}
+{f"Directed to: {report.targeted_to.name}" if report.targeted_to else ""}
+
+Description:
+{report.description}
+
+Tags: {', '.join(report.get_tag_labels()) if report.tags else 'None'}
+
+Please log in to the Kai Committee page to review this report.
+                        """
+
+            kai_logger.info(f"[KAI EMAIL] Sending notification to {len(recipient_emails)} recipients: {recipient_emails}")
+
+            send_email.delay(subject, message, settings.DEFAULT_FROM_EMAIL, recipient_emails)
+            # v3.25.2 — the id, not the title. `django_actions.log` is rendered
+            # to every officer by /officers/system-logs/, and a Kai
+            # report title is case content.
+            kai_logger.info("[KAI EMAIL] Email queued for Kai report %s", report.pk)
+        else:
+            kai_logger.warning("[KAI EMAIL] No recipient emails found for Kai report notification")
+    except Committee.DoesNotExist:
+        kai_logger.warning("[KAI EMAIL] KAI committee not found - cannot send notification")
+    except Exception as e:
+        # Log error but don't fail the submission
+        kai_logger.error(f"[KAI EMAIL] Failed to send Kai report email: {e}")
+
+
+def file_kai_report(user, form, data, files, request=None):
+    """
+    File a valid ``KaiReportForm`` as ``user``'s report: the report, its
+    custom answers, the case activity row, the audit-log row and the chairs'
+    email. Returns ``(report, notes)``; ``notes`` are refused custom-field
+    files, which the caller tells the member about.
+
+    The one save path for a report, used by ``submit_kai_report`` and the app
+    (src/mobile/views_kai_filing.py), so the two can't drift on what is
+    recorded or who is told.
+    """
+    report = form.save(commit=False)
+    report.submitted_by = user
+    report.save()
+
+    notes = save_kai_custom_responses(
+        kai_report_custom_fields(), data, files,
+        lambda **answer: KaiReportFieldResponse.objects.create(report=report, **answer))
+
+    # Log activity
+    KaiReportActivity.objects.create(
+        report=report,
+        user=user,
+        action='created',
+        details=f'Report created with category: {report.get_category_display()}'
+    )
+    ActivityLog.log_activity(
+        action_type='kai_action',
+        user=user,
+        # ⚠️ v3.18.2 — NO NAME. On a submission `user` IS the reporter, so
+        # this string named them beside the case number, on a page every
+        # officer and chair can read. The row's `user` FK is the other half of
+        # the same disclosure and is kept deliberately (the audit trail is
+        # worth keeping) but redacted at render — see `src/kai_audit.py`.
+        # Do not put a name back in here.
+        description=f'A member submitted Kai case {report.display_number}',
+        request=request,
+        object_type='KaiReport',
+        object_id=report.id,
+        object_repr=report.display_number,
+        metadata={'action': 'submitted'},
+    )
+
+    notify_kai_chairs_of_report(report)
+    return report, notes
 
 
 def _is_kai_chair(user, committee):

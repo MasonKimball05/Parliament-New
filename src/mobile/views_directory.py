@@ -6,7 +6,9 @@ The app's Directory (mobile plan, Phase 3b).
   1800s founders stay off, as on the web unless asked for twice). Contact
   details are the same ones the web list prints to every member.
 * ``GET members/<user_id>/`` — the directory card, built by the web's own
-  ``profile_card_data`` (so a pledge viewer gets the same masking).
+  ``profile_card_data`` (so a pledge viewer gets the same masking), and
+  ``can_set_house``: whether the viewer may set houses and bigs
+  (views_member_family), as the directory's profile modal offers its picker.
 * ``GET members/<user_id>/photo/`` — the profile picture. ``/media/`` needs a
   website session, which the app's image requests don't have.
 
@@ -21,6 +23,7 @@ from rest_framework import exceptions
 from rest_framework.response import Response
 
 from src.app_review import exclude_review_accounts, hides_contact_for
+from src.house_utils import can_set_house
 from src.mobile.api import MobileAPIView
 from src.models import ParliamentUser
 from src.pledge_classes import is_original_founder
@@ -99,7 +102,8 @@ class MemberCardView(_DirectoryBase):
             raise exceptions.NotFound()
         card = profile_card_data(member, request.user)
         card['photo'] = None if member.deletion_requested_at else photo_path(member)
-        return Response({'member': card})
+        # v4.x: whether to offer the house / big pickers (views_member_family).
+        return Response({'member': card, 'can_set_house': can_set_house(request.user)})
 
 
 class MemberPhotoView(_DirectoryBase):

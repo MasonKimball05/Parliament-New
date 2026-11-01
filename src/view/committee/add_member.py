@@ -2,6 +2,7 @@ from django.shortcuts import get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.views.decorators.http import require_POST
+from src.committee_management import ROLE_FIELDS, CommitteeActionError, add_role, can_manage_roles
 from src.models import Committee, ParliamentUser
 
 @login_required
@@ -24,7 +25,7 @@ def committee_add_member(request, code):
     # `committee_chair_required` and stay consistent with the rest of the
     # codebase's chair check — it also covers exec-board members, same as
     # everywhere else "chair-level" is decided.
-    if not (committee.is_chair(request.user) or committee.is_vp(request.user) or request.user.is_admin):
+    if not can_manage_roles(request.user, committee):
         messages.error(request, 'You do not have permission to manage this committee.')
         return redirect('committee_home', code=code)
 
@@ -34,23 +35,12 @@ def committee_add_member(request, code):
     try:
         user = ParliamentUser.objects.get(pk=user_id)
 
-        # Pledges cannot be added to committees
-        if user.is_pledge:
-            messages.error(request, 'Pledges cannot be added to committees.')
-            return redirect('committee_home', code=code)
-
-        if role_type == 'member':
-            committee.members.add(user)
-            messages.success(request, f'{user.name} has been added as a member.')
-        elif role_type == 'chair':
-            committee.chairs.add(user)
-            messages.success(request, f'{user.name} has been added as a chair.')
-        elif role_type == 'advisor':
-            committee.advisors.add(user)
-            messages.success(request, f'{user.name} has been added as an advisor.')
-        elif role_type == 'voter':
-            committee.voting_members.add(user)
-            messages.success(request, f'{user.name} has been added as a voting member.')
+        # Pledges cannot be added to committees (src/committee_management).
+        # An unknown role_type is ignored, as it always was.
+        if role_type in ROLE_FIELDS:
+            messages.success(request, add_role(committee, user, role_type))
+    except CommitteeActionError as exc:
+        messages.error(request, exc.message)
     except ParliamentUser.DoesNotExist:
         messages.error(request, 'User not found.')
 

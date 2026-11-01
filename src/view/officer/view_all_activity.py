@@ -32,11 +32,14 @@ def _status_totals(model):
     """
     return dict(model.objects.values_list('status').annotate(n=Count('pk')))
 
-@login_required
-@officer_or_advisor_required
-def view_all_activity(request):
-    """View all recent member activity for officers"""
-
+def all_activity_context():
+    """
+    Everything the All Activity page shows, as its template context: the
+    newest `ACTIVITY_FETCH_LIMIT` rows of each family, their status
+    partitions, the true totals and the truncation notice. The web page
+    renders it; the app's ``officer/activity/`` serialises it
+    (src/mobile/views_officer_activity.py), so the two can't drift.
+    """
     # v3.17.5: this is `view_all_reports`' twin, with the same defect and the
     # same fix. Each family was one base queryset plus three `.filter(status=…)`
     # derivatives, and the template renders ALL FOUR — so each family cost four
@@ -116,4 +119,11 @@ def view_all_activity(request):
         'activity_fetch_limit': ACTIVITY_FETCH_LIMIT,
     }
 
-    return render(request, 'officer/view_all_activity.html', context)
+    return context
+
+
+@login_required
+@officer_or_advisor_required
+def view_all_activity(request):
+    """View all recent member activity for officers"""
+    return render(request, 'officer/view_all_activity.html', all_activity_context())

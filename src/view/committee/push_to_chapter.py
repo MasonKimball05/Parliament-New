@@ -2,6 +2,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.utils.http import url_has_allowed_host_and_scheme
+from src.committee_management import CommitteeActionError, push_to_chapter
 from src.models import Committee, CommitteeLegislation, Legislation
 from src.feature_flag_decorators import require_feature_flag, check_feature_enabled
 import logging
@@ -25,15 +26,12 @@ def committee_push_to_chapter(request, code):
         legislation_id = request.POST.get('legislation_id')
         committee_leg = get_object_or_404(CommitteeLegislation, id=legislation_id, committee=committee)
 
-        # Check if already published
-        if committee_leg.pushed_to_chapter:
-            messages.error(request, 'This item has already been published to chapter.')
+        # Just mark as published - don't create a chapter vote
+        try:
+            push_to_chapter(committee_leg, request.user)
+        except CommitteeActionError as exc:
+            messages.error(request, exc.message)
         else:
-            # Just mark as published - don't create a chapter vote
-            committee_leg.pushed_to_chapter = True
-            committee_leg.save()
-
-            logger.info(f"{request.user.username} published '{committee_leg.title}' from {committee.code} to chapter documents")
             messages.success(request, f"'{committee_leg.title}' results published to chapter documents.")
 
         # Redirect back to referring page if specified (validate to prevent open redirect)

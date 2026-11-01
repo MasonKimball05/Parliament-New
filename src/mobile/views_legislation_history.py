@@ -26,9 +26,9 @@ an "Anonymous ballot" label and no voters.
 A bill still on the ballot (``on_ballot``) opens in the app's vote screen
 (``votes/<id>/``, src/mobile/views_votes.py), which only serves those; any
 other bill opens its web detail page (``links.detail``). Reopening a failed
-bill, submitting a new version, editing a bill or a poll, and starting,
-publishing or deleting a draft stay on the website: each row carries the paths
-the app links there.
+bill, submitting a new version and editing a bill or a poll stay on the
+website: each row carries the paths the app links there. Drafts are started,
+edited, deleted and published natively (src/mobile/views_legislation_drafts.py).
 """
 from django.urls import reverse
 from rest_framework.response import Response

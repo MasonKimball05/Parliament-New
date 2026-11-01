@@ -10,6 +10,7 @@ from django.contrib.auth.decorators import login_required
 from django.http import HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
 
+from src.committee_management import designation_people, save_designations
 from src.models import Committee, CommitteePermissions
 
 #: (field, label) — the designations a chair can hand out.
@@ -44,19 +45,12 @@ def committee_member_permissions(request, code):
     if not can_designate(request.user, committee):
         return HttpResponseForbidden('Only the committee’s chairs can change member permissions.')
 
-    chair_ids = set(committee.chairs.values_list('pk', flat=True))
-    people = [m for m in (committee.members.all() | committee.advisors.all()).distinct().order_by('name')
-              if m.pk not in chair_ids]
+    people = designation_people(committee)
 
     if request.method == 'POST':
         for member in people:
-            values = {f: request.POST.get(f'{f}_{member.pk}') == 'on' for f, _ in DESIGNATIONS}
-            CommitteePermissions.objects.update_or_create(
-                committee=committee, user=member,
-                defaults=values,
-                create_defaults={**values, 'can_view_docs': True,
-                                 'can_vote': committee.voting_members.filter(pk=member.pk).exists()},
-            )
+            save_designations(committee, member,
+                              {f: request.POST.get(f'{f}_{member.pk}') == 'on' for f, _ in DESIGNATIONS})
         messages.success(request, 'Member permissions saved.')
         return redirect('committee_member_permissions', code=code)
 

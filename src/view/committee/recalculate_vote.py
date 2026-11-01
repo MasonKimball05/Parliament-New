@@ -4,8 +4,8 @@ from django.views.decorators.http import require_POST
 from django.contrib import messages
 from django.utils.http import url_has_allowed_host_and_scheme
 from src.next_url import safe_referer
-from src.models import CommitteeLegislation, CommitteeVote
-from src.vote_rules import plurality_passed
+from src.committee_management import apply_vote_result, vote_tally
+from src.models import CommitteeLegislation
 from src.feature_flag_decorators import require_feature_flag
 import logging
 
@@ -16,18 +16,7 @@ logger = logging.getLogger('function_calls')
 
 def get_vote_tally(legislation):
     """Helper to get vote tally for a piece of legislation"""
-    votes = CommitteeVote.objects.filter(legislation=legislation)
-    if legislation.vote_mode == 'plurality':
-        tally = {opt: votes.filter(vote_choice=opt).count() for opt in (legislation.plurality_options or [])}
-        tally['total'] = votes.count()
-    else:
-        tally = {
-            'yes': votes.filter(vote_choice='yes').count(),
-            'no': votes.filter(vote_choice='no').count(),
-            'abstain': votes.filter(vote_choice='abstain').count(),
-            'total': votes.count()
-        }
-    return tally
+    return vote_tally(legislation)
 
 
 @login_required
@@ -55,23 +44,7 @@ def recalculate_committee_vote(request, legislation_id):
     total_votes = tally['total']
 
     if total_votes > 0:
-        if legislation.vote_mode == 'plurality':
-            legislation.passed = plurality_passed(tally)  # v3.51.1: a tie doesn't pass
-            legislation.status = 'passed' if legislation.passed else 'draft'
-        elif legislation.vote_mode == 'piecewise':
-            required = legislation.required_number or 0
-            legislation.passed = tally.get('yes', 0) >= required
-            legislation.status = 'passed' if legislation.passed else 'draft'
-        else:
-            yes_votes = tally.get('yes', 0)
-            no_votes = tally.get('no', 0)
-            countable_votes = yes_votes + no_votes
-            if countable_votes > 0:
-                yes_percentage = (yes_votes / countable_votes) * 100
-                required_pct = int(legislation.required_percentage)
-                legislation.passed = yes_percentage >= required_pct
-                legislation.status = 'passed' if legislation.passed else 'draft'
-
+        apply_vote_result(legislation, tally)
         legislation.save()
         result_text = "passed" if legislation.passed else "did not pass"
         logger.info(f"{user.username} recalculated vote result for '{legislation.title}' (ID: {legislation.id}) - {result_text}")

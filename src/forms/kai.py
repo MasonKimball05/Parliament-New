@@ -10,7 +10,7 @@ class KaiReportForm(forms.ModelForm):
         required=False,
         widget=forms.TextInput(attrs={
             'class': 'w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 transition-colors duration-200',
-            'placeholder': 'academic, urgent, follow-up, etc.'
+            'placeholder': 'urgent, follow-up, repeat-incident, etc.'
         }),
         label='Tags (Optional)',
         help_text='Add comma-separated tags to help categorize your report'
@@ -54,6 +54,14 @@ class KaiReportForm(forms.ModelForm):
             'attachment': 'Upload supporting documents, images, or files (max 20MB)',
         }
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # v4.4.1 — the accused must be an active member. The page's dropdown
+        # was narrowed to active members in the view, but the field itself
+        # accepted any user id that was posted.
+        self.fields['targeted_to'].queryset = (
+            ParliamentUser.objects.filter(member_status='Active').order_by('name'))
+
     def clean_attachment(self):
         """Validate uploaded attachment for security"""
         file = self.cleaned_data.get('attachment')
@@ -94,10 +102,15 @@ class KaiReportForm(forms.ModelForm):
         return file
 
     def clean_tags(self):
-        tags_str = self.cleaned_data.get('tags', '')
-        if not tags_str:
-            return []
-        return [t.strip() for t in tags_str.split(',') if t.strip()]
+        # v4.4.1 — store the vocabulary's own spelling ('Follow Up' saves as
+        # 'follow-up') and name what isn't in it, instead of letting the
+        # model's clean() reject the whole report with a generic error.
+        accepted, rejected = KaiReport.normalize_tags(self.cleaned_data.get('tags', ''))
+        if rejected:
+            raise forms.ValidationError(
+                'These tags are not in the allowed list: ' + ', '.join(rejected)
+                + '. Allowed: ' + ', '.join(KaiReport.ALLOWED_TAGS))
+        return accepted
 
 
 class KaiCommendationForm(forms.ModelForm):

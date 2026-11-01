@@ -22,22 +22,26 @@ the accused a case the dashboard is still hiding from them (outcome
 ``pending``) if they had its URL. The app 404s that case for the accused,
 matching the dashboard, which is the only way in.
 
-Filing a report, requesting closure, dropping a case, filing an appeal and
-opening a stand-in case (the committee's manage page) all stay on the website;
-each comes back as a site path (``links`` / ``actions``). The attachment and
-uploaded answers are site paths too: ``serve_private_upload`` streams them to
-the two parties only.
+Filing a report or a commendation, requesting closure, dropping a case and
+filing an appeal are native since v4.4.x (src/mobile/views_kai_filing.py). The
+site paths for them (``links`` / ``actions`` / ``appeal.path``) are still sent,
+for the builds that open them on the website; newer builds read
+``can_file`` (the ``kai_reports`` flag the two submit forms carry),
+``links.commend``, ``can`` (closure / drop / appeal) and ``appeal.levels``.
+Opening a stand-in case (the committee's manage page) stays on the website. The
+attachment and uploaded answers are site paths too: ``serve_private_upload``
+streams them to the two parties only.
 
 Neither web page has ``@require_page_enabled``, so only the pledge restriction
 applies, as it does there.
 """
-from django.db.models import Q
-from django.http import Http404
 from django.urls import reverse
 from rest_framework.response import Response
 
+from src.feature_flag_decorators import check_feature_enabled
 from src.mobile.api import MobileAPIView
-from src.models import KaiReport
+from src.mobile.views_kai_commendations import kai_commendation_access
+from src.mobile.views_kai_filing import appeal_levels, party_case
 from src.view.kai_user_dashboard import member_dashboard, member_report_context
 
 
@@ -89,9 +93,17 @@ class KaiDashboardView(MobileAPIView):
             'standing_in': standing_in,
             'pending_requests': len(ctx['pending_closures']),
             'can_view_kai_reports': bool(ctx['can_view_kai_reports']),
+            # v4.4.x — the submit forms' @require_feature_flag('kai_reports').
+            'can_file': check_feature_enabled('kai_reports'),
+            # v4.4.x — the reviewers' commendation list (native,
+            # officer/kai/commendations/), for a granted reviewer who isn't an
+            # officer and so has no officer hub to find it in.
+            'can_manage_commendations': bool((kai_commendation_access(request.user) or {})
+                                             .get('can_view_report_list')),
             'links': {
                 'page': reverse('user_kai_dashboard'),
                 'submit': reverse('submit_kai_report'),
+                'commend': reverse('submit_kai_commendation'),
                 'review': reverse('view_kai_reports') if ctx['can_view_kai_reports'] else None,
             },
         })
@@ -117,14 +129,9 @@ class KaiReportView(MobileAPIView):
 
     def get(self, request, report_id):
         user = request.user
-        report = (KaiReport.objects
-                  .filter(Q(submitted_by=user) | Q(targeted_to=user), id=report_id)
-                  .first())
-        if report is None:
-            raise Http404
-        # The dashboard's rule for the accused: nothing until it's addressed.
-        if report.submitted_by_id != user.pk and report.deliberation_outcome == 'pending':
-            raise Http404
+        # The website's party lookup, plus the dashboard's rule for the
+        # accused: nothing until it's addressed.
+        report = party_case(user, report_id)
 
         ctx = member_report_context(report, user)
         is_accused = ctx['is_accused']
@@ -147,6 +154,8 @@ class KaiReportView(MobileAPIView):
                                    if not ctx['can_appeal'] and report.accused_notified_at else ''),
                 # The form is on the case page.
                 'path': page if ctx['can_appeal'] else None,
+                # v4.4.x — the native form's "Appeal to" choices.
+                'levels': appeal_levels(),
             }
 
         return Response({
@@ -196,6 +205,12 @@ class KaiReportView(MobileAPIView):
                                     if ctx['can_request_closure'] else None),
                 'drop_case': (reverse('kai_request_drop', args=[report.id])
                               if ctx['can_drop_case'] else None),
+            },
+            # v4.4.x — the same three, for the native forms (views_kai_filing.py).
+            'can': {
+                'request_closure': bool(ctx['can_request_closure']),
+                'drop_case': bool(ctx['can_drop_case']),
+                'appeal': bool(is_accused and ctx['can_appeal']),
             },
             'links': {'page': page},
         })

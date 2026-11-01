@@ -1,18 +1,29 @@
 """
 The app's Constitution & Bylaws reader (mobile plan, Phase 3g).
 
-* ``GET cnb/`` — every governing document members can see
+* ``GET cnb/?as_of=YYYY-MM-DD`` — every governing document members can see
   (``GoverningDocument.enabled()``), article by article, section by section,
   with the same suspension, partial-suspension and amendment-protection notes
   as the Document tab of ``cnb_viewer``. Each section carries the spans of its
   cross-references that resolve (``src/cnb_crossrefs.py``) so the app can link
-  them, exactly as the website's ``cnb_linked`` tag does.
+  them, exactly as the website's ``cnb_linked`` tag does. With ``as_of`` (a
+  past or today's date), the documents as they read at the end of that day,
+  as the viewer's "as of" picker shows them (``documents_as_of``): sections
+  added since are left out, a later change shows the older text with
+  ``changed_since``. ``as_of`` echoes the date (null for the current text). A
+  malformed or future date is a 400 (the page quietly shows the current text).
+* ``GET cnb/sections/<id>/history/`` — ``cnb_section_history``: the current
+  text, then every earlier version newest first, each with what replaced it
+  (a resolution, a direct edit, an import) and the word diff to the text that
+  replaced it, as ``[{op, text}]`` segments (``equal`` / ``delete`` /
+  ``insert``) the app colours. Same helpers as the page
+  (``history_section_or_404``, ``section_versions``).
 * ``GET cnb/resolutions/`` — the Resolutions tab: every resolution, newest first.
 * ``GET cnb/resolutions/<id>/`` — one resolution, read-only
   (``resolution_detail``): its clauses, body, notes and amendments.
 
 Writing and managing stay on the website (the app links there): drafting a
-resolution, editing it, the officer manager, section history and the PDF.
+resolution, editing it, the officer manager and the PDF.
 """
 from django.db.models import Count
 from django.shortcuts import get_object_or_404
@@ -21,7 +32,11 @@ from rest_framework.response import Response
 
 from src.cnb_crossrefs import Structure, anchor_for, find_references
 from src.mobile.api import MobileAPIView
-from src.models import GoverningDocument, Resolution
+from src.mobile.views_excuses_polls import BadRequest
+from src.models import Resolution
+from src.view.cnb_history import (
+    documents_as_of, history_section_or_404, parse_as_of, section_anchor, section_versions,
+)
 from src.view.officer.cnb import _can_edit_resolution
 
 
@@ -62,6 +77,7 @@ def _section_json(section, doc_type, structure):
         'protected_until': _date(section.protected_until) if section.amendment_protected else None,
         'protection_note': section.protection_note if section.amendment_protected else '',
         'history_path': reverse('cnb_section_history', kwargs={'section_id': section.pk}),
+        'changed_since': bool(getattr(section, 'as_of_changed', False)),
     }
 
 
@@ -70,7 +86,11 @@ class CnbDocumentsView(MobileAPIView):
     web_page_toggle = False   # cnb_viewer has no @require_page_enabled
 
     def get(self, request):
-        documents = list(GoverningDocument.enabled().prefetch_related('articles__sections'))
+        raw = (request.query_params.get('as_of') or '').strip()
+        as_of = parse_as_of(raw) if raw else None
+        if raw and as_of is None:
+            raise BadRequest('as_of must be a date (YYYY-MM-DD) no later than today.', code='invalid_input')
+        documents = documents_as_of(as_of)
         structure = Structure.from_documents(documents)
         out = []
         for doc in documents:
@@ -89,12 +109,14 @@ class CnbDocumentsView(MobileAPIView):
                     'anchor': anchor_for(doc.doc_type, a.number),
                     'active': a.is_active,
                     'suspension_reason': '' if a.is_active else a.deactivation_reason,
-                    'sections': [_section_json(s, doc.doc_type, structure) for s in a.sections.all()],
+                    'sections': [_section_json(s, doc.doc_type, structure) for s in a.sections.all()
+                                 if not getattr(s, 'as_of_hidden', False)],
                 } for a in articles],
             })
         user = request.user
         return Response({
             'documents': out,
+            'as_of': as_of.date().isoformat() if as_of else None,
             'can_create_resolution': user.can_create_resolution,
             'can_manage': user.has_cnb_permission,
             'web': {
@@ -102,6 +124,46 @@ class CnbDocumentsView(MobileAPIView):
                 'pdf': reverse('cnb_document_pdf'),
                 'new_resolution': reverse('cnb_create_resolution'),
             },
+        })
+
+
+class CnbSectionHistoryView(MobileAPIView):
+    web_page = 'cnb_section_history'
+    web_page_toggle = False   # section_history has no @require_page_enabled
+
+    def get(self, request, section_id):
+        section = history_section_or_404(section_id, request.user)
+        article = section.article
+        doc = article.document
+        return Response({
+            'section': {
+                'id': section.id,
+                'number': section.number,
+                'title': section.title,
+                'full_identifier': section.full_identifier,
+                'content': section.content,
+                'active': section.is_active,
+                'removed': bool(section.removed_at),
+                'removed_at': section.removed_at.isoformat() if section.removed_at else None,
+            },
+            'document': {'doc_type': doc.doc_type, 'label': doc.get_doc_type_display(), 'title': doc.title},
+            'article': {'number': article.number, 'title': article.title},
+            'anchor': section_anchor(section),
+            'versions': [{
+                'id': v['rev'].id,
+                'title': v['rev'].title,
+                'content': v['rev'].content,
+                'was_active': v['rev'].was_active,
+                'replaced_at': v['rev'].replaced_at.isoformat(),
+                'source': v['rev'].source,
+                'source_label': v['rev'].get_source_display(),
+                'resolution': ({'id': v['rev'].resolution_id, 'title': v['rev'].resolution.title}
+                               if v['rev'].resolution_id else None),
+                'replaced_by': v['rev'].replaced_by.name if v['rev'].replaced_by_id else None,
+                'note': v['rev'].note,
+                'diff': [{'op': op, 'text': text} for op, text in v['segments']],
+            } for v in section_versions(section)],
+            'web_path': reverse('cnb_section_history', kwargs={'section_id': section.pk}),
         })
 
 

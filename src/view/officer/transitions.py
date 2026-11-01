@@ -30,6 +30,7 @@ from src.models import (
 from src.decorators import officer_required
 from src.utils.semester import transition_semesters
 from src.models.users import member_defer
+from src.view.officer.manage_roles import RoleChangeRefused
 
 logger = logging.getLogger(__name__)
 
@@ -47,14 +48,11 @@ def _script_safe_json(data):
     return json.dumps(data).replace('<', '\\u003c')
 
 
-@login_required
-@officer_required
-def role_transitions(request):
+def role_transition_rows():
     """
-    Display all roles with their current holders and a transfer UI.
-
-    Each role row shows active holders and a Transfer button. Submitting the
-    modal POSTs to transfer_role which performs the atomic swap.
+    Every role (by name) with its active holders, each holder carrying the id
+    of their open RoleHistory row (``checklist_history_id``, or None). Shared
+    with the app (src/mobile/views_officer_roles.py).
     """
     roles = list(Role.objects.all().order_by('name'))
 
@@ -92,6 +90,28 @@ def role_transitions(request):
             'holders': holders,
             'holder_count': len(holders),
         })
+    return roles_data
+
+
+def transition_candidates():
+    """Every active member, by name: who a role can be handed to."""
+    return (
+        ParliamentUser.objects.filter(member_status='Active')
+        .order_by('name')
+        .values('user_id', 'name', 'member_type')
+    )
+
+
+@login_required
+@officer_required
+def role_transitions(request):
+    """
+    Display all roles with their current holders and a transfer UI.
+
+    Each role row shows active holders and a Transfer button. Submitting the
+    modal POSTs to transfer_role which performs the atomic swap.
+    """
+    roles_data = role_transition_rows()
 
     # Pass role data to JS as JSON to drive the modal without extra API calls
     roles_json = _script_safe_json([
@@ -106,11 +126,7 @@ def role_transitions(request):
         for d in roles_data
     ])
 
-    assignable_json = _script_safe_json(list(
-        ParliamentUser.objects.filter(member_status='Active')
-        .order_by('name')
-        .values('user_id', 'name', 'member_type')
-    ))
+    assignable_json = _script_safe_json(list(transition_candidates()))
 
     filled_count = sum(1 for d in roles_data if d['holder_count'] > 0)
     vacant_count = len(roles_data) - filled_count
@@ -126,43 +142,32 @@ def role_transitions(request):
     return render(request, 'officer/role_transitions.html', context)
 
 
-@login_required
-@officer_required
-@require_POST
-def transfer_role(request, role_id):
+class _DryRun(Exception):
+    """Raised inside the transfer's atomic block to roll a preview back."""
+
+
+def execute_role_transfer(request, role, incoming, outgoing_id='', incoming_type='',
+                          demote_outgoing=False, dry_run=False):
     """
-    Atomically transfer a role from an outgoing holder to an incoming holder.
+    The atomic swap behind ``transfer_role``: take `role` from the outgoing
+    holder (or, for a one-per-chapter role with none named, from everyone
+    else), give it to `incoming`, close and open RoleHistory rows, attach the
+    transition checklist, optionally change member types, and grant admin when
+    the role does. Logs the transfer and points the incoming holder at the
+    role's knowledge base.
 
-    Expected JSON body:
-      incoming_user_id  (str, required)  — user_id of the incoming member
-      outgoing_user_id  (str, optional)  — user_id of the specific outgoing holder;
-                                           if omitted and role is one_per_chapter,
-                                           all current holders are cleared automatically
-      incoming_type     (str, optional)  — 'Officer', 'Chair', or 'Member'; updates
-                                           incoming member's member_type when provided
-      demote_outgoing   (bool, optional) — if true, reverts outgoing member to 'Member'
-                                           when they hold no remaining roles
+    Returns ``(changes, role_history)``. With ``dry_run`` every step runs and
+    is then rolled back, nothing is logged or sent, and ``role_history`` is
+    None: ``changes`` is exactly what the real transfer would do (the app's
+    confirm step). Raises ``RoleChangeRefused`` (403) when ``role_change_error``
+    refuses any member involved. Shared with the app.
     """
-    role = get_object_or_404(Role, id=role_id)
+    from src.permissions import role_change_error
 
-    try:
-        data = json.loads(request.body)
-    except json.JSONDecodeError:
-        return JsonResponse({'success': False, 'error': 'Invalid JSON.'}, status=400)
-
-    incoming_id = (data.get('incoming_user_id') or '').strip()
-    outgoing_id = (data.get('outgoing_user_id') or '').strip()
-    incoming_type = (data.get('incoming_type') or '').strip()
-    demote_outgoing = bool(data.get('demote_outgoing', False))
-
-    if not incoming_id:
-        return JsonResponse({'success': False, 'error': 'incoming_user_id is required.'}, status=400)
-
-    incoming = get_object_or_404(ParliamentUser, user_id=incoming_id, member_status='Active')
+    incoming_id = incoming.user_id
 
     # v3.50.1 — only an admin may hand over a role that makes its holder an
     # admin (this view sets is_admin below), or take a role from an admin.
-    from src.permissions import role_change_error
     if outgoing_id and outgoing_id != incoming_id:
         losing = list(ParliamentUser.objects.filter(user_id=outgoing_id))
     elif not outgoing_id and role.one_per_chapter:
@@ -172,90 +177,99 @@ def transfer_role(request, role_id):
     for member in [incoming, *losing]:
         error = role_change_error(request.user, role, member)
         if error:
-            return JsonResponse({'success': False, 'error': error}, status=403)
+            raise RoleChangeRefused(error, status=403)
 
     changes = []
     end_semester, start_semester = transition_semesters()
+    role_history = None
 
     # Everything below mutates multiple rows — the docstring has always promised
     # an atomic swap, but the block was only added 07-08-26. A mid-way failure
     # now rolls the whole transfer back instead of leaving a half-transferred role.
-    with transaction.atomic():
-        # --- Outgoing holder ---
-        if outgoing_id and outgoing_id != incoming_id:
-            outgoing = get_object_or_404(ParliamentUser, user_id=outgoing_id)
-            outgoing.roles.remove(role)
-            changes.append(f'removed {role.name} from {outgoing.name}')
+    try:
+        with transaction.atomic():
+            # --- Outgoing holder ---
+            if outgoing_id and outgoing_id != incoming_id:
+                outgoing = get_object_or_404(ParliamentUser, user_id=outgoing_id)
+                outgoing.roles.remove(role)
+                changes.append(f'removed {role.name} from {outgoing.name}')
 
-            # Close any open history rows for this role (exact-name match;
-            # differently-spelled manual entries are left alone on purpose).
-            RoleHistory.objects.filter(
-                user=outgoing, role_name=role.name, end_semester='',
-            ).update(end_semester=end_semester)
+                # Close any open history rows for this role (exact-name match;
+                # differently-spelled manual entries are left alone on purpose).
+                RoleHistory.objects.filter(
+                    user=outgoing, role_name=role.name, end_semester='',
+                ).update(end_semester=end_semester)
 
-            if demote_outgoing and outgoing.member_type in ('Officer', 'Chair'):
-                # Only demote if no remaining roles justify the current type
-                remaining = outgoing.roles.all()
-                should_demote = (
-                    outgoing.member_type == 'Officer' and not remaining.filter(grants_admin=True).exists()
-                ) or (
-                    outgoing.member_type == 'Chair' and not remaining.exists()
+                if demote_outgoing and outgoing.member_type in ('Officer', 'Chair'):
+                    # Only demote if no remaining roles justify the current type
+                    remaining = outgoing.roles.all()
+                    should_demote = (
+                        outgoing.member_type == 'Officer' and not remaining.filter(grants_admin=True).exists()
+                    ) or (
+                        outgoing.member_type == 'Chair' and not remaining.exists()
+                    )
+                    if should_demote:
+                        outgoing.member_type = 'Member'
+                        outgoing.save(update_fields=['member_type'])
+                        changes.append(f'demoted {outgoing.name} to Member')
+
+            elif not outgoing_id and role.one_per_chapter:
+                # Auto-clear all current holders for exclusive roles when none specified
+                for holder in ParliamentUser.objects.filter(roles=role).exclude(user_id=incoming_id):
+                    holder.roles.remove(role)
+                    changes.append(f'removed {role.name} from {holder.name}')
+                RoleHistory.objects.filter(
+                    role_name=role.name, end_semester='',
+                ).exclude(user=incoming).update(end_semester=end_semester)
+
+            # --- Incoming holder ---
+            incoming.roles.add(role)
+            changes.append(f'assigned {role.name} to {incoming.name}')
+
+            # Open a history row (skip if one is already open — double-submit safe).
+            role_history = RoleHistory.objects.filter(
+                user=incoming, role_name=role.name, end_semester='',
+            ).first()
+            if role_history is None:
+                role_history = RoleHistory.objects.create(
+                    user=incoming, role_name=role.name, start_semester=start_semester,
                 )
-                if should_demote:
-                    outgoing.member_type = 'Member'
-                    outgoing.save(update_fields=['member_type'])
-                    changes.append(f'demoted {outgoing.name} to Member')
+                changes.append(f'opened role history ({start_semester})')
 
-        elif not outgoing_id and role.one_per_chapter:
-            # Auto-clear all current holders for exclusive roles when none specified
-            for holder in ParliamentUser.objects.filter(roles=role).exclude(user_id=incoming_id):
-                holder.roles.remove(role)
-                changes.append(f'removed {role.name} from {holder.name}')
-            RoleHistory.objects.filter(
-                role_name=role.name, end_semester='',
-            ).exclude(user=incoming).update(end_semester=end_semester)
-
-        # --- Incoming holder ---
-        incoming.roles.add(role)
-        changes.append(f'assigned {role.name} to {incoming.name}')
-
-        # Open a history row (skip if one is already open — double-submit safe).
-        role_history = RoleHistory.objects.filter(
-            user=incoming, role_name=role.name, end_semester='',
-        ).first()
-        if role_history is None:
-            role_history = RoleHistory.objects.create(
-                user=incoming, role_name=role.name, start_semester=start_semester,
+            # Attach transition checklist items (role-specific + global).
+            # ignore_conflicts keeps re-transfers from duplicating statuses.
+            checklist_items = TransitionChecklistItem.objects.filter(
+                is_active=True,
+            ).filter(Q(role=role) | Q(role__isnull=True))
+            TransitionChecklistStatus.objects.bulk_create(
+                [
+                    TransitionChecklistStatus(item=item, role_history=role_history)
+                    for item in checklist_items
+                ],
+                ignore_conflicts=True,
             )
-            changes.append(f'opened role history ({start_semester})')
 
-        # Attach transition checklist items (role-specific + global).
-        # ignore_conflicts keeps re-transfers from duplicating statuses.
-        checklist_items = TransitionChecklistItem.objects.filter(
-            is_active=True,
-        ).filter(Q(role=role) | Q(role__isnull=True))
-        TransitionChecklistStatus.objects.bulk_create(
-            [
-                TransitionChecklistStatus(item=item, role_history=role_history)
-                for item in checklist_items
-            ],
-            ignore_conflicts=True,
-        )
+            save_fields = []
 
-        save_fields = []
+            if incoming_type in ('Officer', 'Chair', 'Member') and incoming.member_type != incoming_type:
+                incoming.member_type = incoming_type
+                save_fields.append('member_type')
+                changes.append(f'updated {incoming.name} member type to {incoming_type}')
 
-        if incoming_type in ('Officer', 'Chair', 'Member') and incoming.member_type != incoming_type:
-            incoming.member_type = incoming_type
-            save_fields.append('member_type')
-            changes.append(f'updated {incoming.name} member type to {incoming_type}')
+            if role.grants_admin and not incoming.is_admin:
+                incoming.is_admin = True
+                save_fields.append('is_admin')
+                changes.append(f'granted admin to {incoming.name}')
 
-        if role.grants_admin and not incoming.is_admin:
-            incoming.is_admin = True
-            save_fields.append('is_admin')
-            changes.append(f'granted admin to {incoming.name}')
+            if save_fields:
+                incoming.save(update_fields=save_fields)
 
-        if save_fields:
-            incoming.save(update_fields=save_fields)
+            if dry_run:
+                raise _DryRun
+    except _DryRun:
+        # The block above has rolled back; undo the in-memory edits too.
+        incoming.refresh_from_db()
+        return changes, None
 
     ActivityLog.log_activity(
         action_type='other',
@@ -295,6 +309,50 @@ def transfer_role(request, role_id):
         'User %s transferred role %s: %s',
         request.user.user_id, role.id, '; '.join(changes)
     )
+    return changes, role_history
+
+
+@login_required
+@officer_required
+@require_POST
+def transfer_role(request, role_id):
+    """
+    Atomically transfer a role from an outgoing holder to an incoming holder
+    (``execute_role_transfer``).
+
+    Expected JSON body:
+      incoming_user_id  (str, required)  — user_id of the incoming member
+      outgoing_user_id  (str, optional)  — user_id of the specific outgoing holder;
+                                           if omitted and role is one_per_chapter,
+                                           all current holders are cleared automatically
+      incoming_type     (str, optional)  — 'Officer', 'Chair', or 'Member'; updates
+                                           incoming member's member_type when provided
+      demote_outgoing   (bool, optional) — if true, reverts outgoing member to 'Member'
+                                           when they hold no remaining roles
+    """
+    role = get_object_or_404(Role, id=role_id)
+
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'Invalid JSON.'}, status=400)
+
+    incoming_id = (data.get('incoming_user_id') or '').strip()
+    outgoing_id = (data.get('outgoing_user_id') or '').strip()
+    incoming_type = (data.get('incoming_type') or '').strip()
+    demote_outgoing = bool(data.get('demote_outgoing', False))
+
+    if not incoming_id:
+        return JsonResponse({'success': False, 'error': 'incoming_user_id is required.'}, status=400)
+
+    incoming = get_object_or_404(ParliamentUser, user_id=incoming_id, member_status='Active')
+
+    try:
+        changes, role_history = execute_role_transfer(
+            request, role, incoming, outgoing_id, incoming_type, demote_outgoing,
+        )
+    except RoleChangeRefused as exc:
+        return JsonResponse({'success': False, 'error': exc.message}, status=exc.status)
 
     return JsonResponse({
         'success': True,
