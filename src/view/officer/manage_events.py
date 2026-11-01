@@ -9,6 +9,7 @@ from django.contrib import messages
 from datetime import timedelta
 from dateutil.relativedelta import relativedelta
 import base64
+from src.event_series import local_delta, shift_local
 from src.models import Event, EventReminderRecipient
 from src.forms import EventForm
 from src.decorators import officer_required
@@ -109,7 +110,11 @@ def generate_recurring_events(parent_event, max_occurrences=52):
     Returns a list of Event objects (not saved to DB).
     """
     instances = []
-    current_date = parent_event.date_time
+    # v4.4.1 — step on the chapter's clock, not in UTC. From the database the
+    # time is in UTC, so a 7 PM meeting was "1 AM tomorrow": the weekday check
+    # below compared the wrong day, and after a daylight-saving change every
+    # later occurrence was an hour off. `src/event_series.py` has the helpers.
+    current_date = timezone.localtime(parent_event.date_time, timezone.get_default_timezone()).replace(tzinfo=None)
     end_date = parent_event.recurrence_end_date
 
     # Default to 1 year from now if no end date
@@ -153,12 +158,14 @@ def generate_recurring_events(parent_event, max_occurrences=52):
                 # But we need to check other days in this week
                 continue
 
-        # Calculate shifted excuse deadline for this occurrence
+        occurrence_at = shift_local(timezone.make_aware(current_date, timezone.get_default_timezone()), timedelta(0))
+
+        # Calculate shifted excuse deadline for this occurrence: the same
+        # distance before it, on the chapter's clock, as the parent's.
         instance_excuse_deadline = None
         if parent_event.excuse_deadline:
-            # Shift the excuse deadline by the same offset as the event date
-            time_offset = current_date - parent_event.date_time
-            instance_excuse_deadline = parent_event.excuse_deadline + time_offset
+            instance_excuse_deadline = shift_local(
+                occurrence_at, local_delta(parent_event.excuse_deadline, parent_event.date_time))
 
         # Create a new event instance
         #
@@ -180,7 +187,7 @@ def generate_recurring_events(parent_event, max_occurrences=52):
         instance = Event(
             title=parent_event.title,
             description=parent_event.description,
-            date_time=current_date,
+            date_time=occurrence_at,
             location=parent_event.location,
             visible_to=parent_event.visible_to,
             is_active=parent_event.is_active,

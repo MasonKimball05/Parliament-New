@@ -17,11 +17,12 @@ Run with: python manage.py test src.tests.events.test_recurring_series_bulk
 """
 from datetime import timedelta
 
+from django.db.models import Q
 from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
 
-from src.event_series import affected_events, scope_counts
+from src.event_series import affected_events, local_delta, scope_counts, shift_local
 from src.models import Committee, Event, ParliamentUser
 from src.view.officer.manage_events import generate_recurring_events
 
@@ -76,9 +77,12 @@ class SeriesFixture(TestCase):
         for w in range(1, 6):   # -1 week (past, finalized), then 4 upcoming
             self.occ.append(Event.objects.create(
                 title='Chapter Meeting', description='Weekly', location='Hall',
-                date_time=start + timedelta(weeks=w), created_by=self.officer,
+                # Weekly on the chapter's clock, as generate_recurring_events
+                # makes them, so the fixture holds when a daylight-saving
+                # change falls inside it (v4.4.1).
+                date_time=shift_local(start, timedelta(weeks=w)), created_by=self.officer,
                 parent_event=self.root, requires_attendance=True,
-                excuse_deadline=start + timedelta(weeks=w) - timedelta(hours=2)))
+                excuse_deadline=shift_local(start, timedelta(weeks=w, hours=-2))))
         self.past = self.occ[0]
         self.past.attendance_finalized = True
         self.past.save()
@@ -144,13 +148,13 @@ class BulkEditTests(SeriesFixture):
         target = self.upcoming[0]
         originals = {e.pk: (e.date_time, e.excuse_deadline) for e in self.upcoming}
         self.client.post(reverse('edit_event', args=[target.pk]),
-                         post_data(target, date_time=_dt(target.date_time + timedelta(hours=1)),
-                                   excuse_deadline=_dt(target.excuse_deadline + timedelta(hours=1)),
+                         post_data(target, date_time=_dt(shift_local(target.date_time, timedelta(hours=1))),
+                                   excuse_deadline=_dt(shift_local(target.excuse_deadline, timedelta(hours=1))),
                                    scope='following'))
         for e in self.upcoming:
             e.refresh_from_db()
-            self.assertEqual(e.date_time, originals[e.pk][0] + timedelta(hours=1))
-            self.assertEqual(e.excuse_deadline, originals[e.pk][1] + timedelta(hours=1))
+            self.assertEqual(e.date_time, shift_local(originals[e.pk][0], timedelta(hours=1)))
+            self.assertEqual(e.excuse_deadline, shift_local(originals[e.pk][1], timedelta(hours=1)))
 
     def test_following_pivots_on_the_time_before_the_move(self):
         # v3.37.1: "following" used the event's NEW time, so a move of a week
@@ -159,35 +163,35 @@ class BulkEditTests(SeriesFixture):
         target = self.upcoming[1]
         originals = {e.pk: e.date_time for e in self.occ}
         self.client.post(reverse('edit_event', args=[target.pk]),
-                         post_data(target, date_time=_dt(target.date_time + timedelta(days=8)),
-                                   excuse_deadline=_dt(target.excuse_deadline + timedelta(days=8)),
+                         post_data(target, date_time=_dt(shift_local(target.date_time, timedelta(days=8))),
+                                   excuse_deadline=_dt(shift_local(target.excuse_deadline, timedelta(days=8))),
                                    scope='following'))
         self.reload()
         self.assertEqual(self.upcoming[0].date_time, originals[self.upcoming[0].pk])
         for e in self.upcoming[1:]:
-            self.assertEqual(e.date_time, originals[e.pk] + timedelta(days=8))
+            self.assertEqual(e.date_time, shift_local(originals[e.pk], timedelta(days=8)))
 
     def test_following_moved_earlier_leaves_earlier_events_alone(self):
         target = self.upcoming[2]
         originals = {e.pk: e.date_time for e in self.occ}
         self.client.post(reverse('edit_event', args=[target.pk]),
-                         post_data(target, date_time=_dt(target.date_time - timedelta(days=7)),
-                                   excuse_deadline=_dt(target.excuse_deadline - timedelta(days=7)),
+                         post_data(target, date_time=_dt(shift_local(target.date_time, -timedelta(days=7))),
+                                   excuse_deadline=_dt(shift_local(target.excuse_deadline, -timedelta(days=7))),
                                    scope='following'))
         self.reload()
         for e in self.upcoming[:2]:
             self.assertEqual(e.date_time, originals[e.pk])
         for e in self.upcoming[2:]:
-            self.assertEqual(e.date_time, originals[e.pk] - timedelta(days=7))
+            self.assertEqual(e.date_time, shift_local(originals[e.pk], -timedelta(days=7)))
 
     def test_excuse_deadline_keeps_its_distance_before_each_event(self):
         target = self.upcoming[0]
         self.client.post(reverse('edit_event', args=[target.pk]),
-                         post_data(target, excuse_deadline=_dt(target.date_time - timedelta(days=1)),
+                         post_data(target, excuse_deadline=_dt(shift_local(target.date_time, -timedelta(days=1))),
                                    scope='all'))
         for e in self.upcoming:
             e.refresh_from_db()
-            self.assertEqual(e.date_time - e.excuse_deadline, timedelta(days=1))
+            self.assertEqual(local_delta(e.date_time, e.excuse_deadline), timedelta(days=1))
 
     def test_finalized_event_is_never_bulk_edited(self):
         self.upcoming[1].attendance_finalized = True
@@ -290,3 +294,104 @@ class GenerationCopiesCommitteeTests(TestCase):
             self.assertEqual(i.max_signups, 12)
             self.assertTrue(i.allow_waitlist)
             self.assertFalse(i.rsvp_email_enabled)
+
+
+class DaylightSavingTests(TestCase):
+    """
+    v4.4.1 — a series keeps its wall-clock time across a daylight-saving
+    change. Moves and deadlines were elapsed-time arithmetic, so on 11-01-26
+    (clocks went back) a weekly 7 PM meeting moved by an hour landed at 7 PM
+    on one side and 8 PM on the other, and "a day before" was 23 hours.
+
+    Fixed dates (America/Chicago: back on 11-02-25, forward on 03-08-26), with
+    `now` passed in, so these run the same on any day.
+    """
+    NOW = timezone.make_aware(timezone.datetime(2025, 10, 1, 12, 0))
+
+    def setUp(self):
+        self.officer = ParliamentUser.objects.create_user(
+            user_id='dst-officer', name='DST Officer', username='dst-officer', member_type='Officer')
+
+    @staticmethod
+    def at(*args):
+        return timezone.make_aware(timezone.datetime(*args))
+
+    @staticmethod
+    def wall(dt):
+        return timezone.localtime(dt).strftime('%a %m-%d %H:%M')
+
+    def series(self, first, weeks):
+        root = Event.objects.create(
+            title='Meeting', description='x', date_time=first, created_by=self.officer,
+            is_recurring=True, recurrence_type='weekly',
+            excuse_deadline=shift_local(first, -timedelta(hours=2)))
+        return [root] + [Event.objects.create(
+            title='Meeting', description='x', date_time=shift_local(first, timedelta(weeks=w)),
+            excuse_deadline=shift_local(first, timedelta(weeks=w, hours=-2)),
+            created_by=self.officer, parent_event=root) for w in range(1, weeks)]
+
+    def move(self, event, changes, scope='following'):
+        from src.event_series import apply_series_edit
+        before = {'date_time': event.date_time, 'excuse_deadline': event.excuse_deadline}
+        for f, v in changes.items():
+            setattr(event, f, v)
+        event.save()
+        apply_series_edit(event, before, set(changes), scope, now=self.NOW)
+        return [Event.objects.get(pk=e.pk) for e in Event.objects.filter(
+            Q(pk=event.series_root_pk) | Q(parent_event_id=event.series_root_pk)).order_by('date_time')]
+
+    def test_the_series_starts_on_one_wall_time(self):
+        events = self.series(self.at(2025, 10, 21, 19, 0), 4)
+        self.assertEqual([self.wall(e.date_time) for e in events],
+                         ['Tue 10-21 19:00', 'Tue 10-28 19:00', 'Tue 11-04 19:00', 'Tue 11-11 19:00'])
+
+    def _moved(self, events, **changes):
+        events[0].series_root_pk = events[0].pk
+        return self.move(events[0], changes)
+
+    def test_moving_an_hour_later_across_the_fall_change(self):
+        events = self.series(self.at(2025, 10, 21, 19, 0), 4)
+        moved = self._moved(events, date_time=self.at(2025, 10, 21, 20, 0))
+        self.assertEqual([self.wall(e.date_time) for e in moved],
+                         ['Tue 10-21 20:00', 'Tue 10-28 20:00', 'Tue 11-04 20:00', 'Tue 11-11 20:00'])
+        # The edited event keeps the deadline its form had; the rest move with their events.
+        self.assertEqual([self.wall(e.excuse_deadline) for e in moved],
+                         ['Tue 10-21 17:00', 'Tue 10-28 18:00', 'Tue 11-04 18:00', 'Tue 11-11 18:00'])
+
+    def test_a_move_that_spans_the_spring_change(self):
+        # Mar 3 → Mar 10 is a week on the clock but 167 hours, so adding the
+        # elapsed time put every later meeting at 6 PM.
+        events = self.series(self.at(2026, 2, 24, 19, 0), 4)
+        events[1].series_root_pk = events[0].pk
+        moved = self.move(events[1], {'date_time': self.at(2026, 3, 10, 19, 0)})
+        self.assertEqual([self.wall(e.date_time) for e in moved],
+                         ['Tue 02-24 19:00', 'Tue 03-10 19:00', 'Tue 03-17 19:00', 'Tue 03-24 19:00'])
+
+    def test_a_deadline_set_across_the_fall_change(self):
+        # Three days before Nov 4 at 7 PM is Nov 1 at 7 PM: 73 hours, which
+        # added to the other meetings put their deadlines at 6 PM.
+        events = self.series(self.at(2025, 10, 28, 19, 0), 4)
+        events[1].series_root_pk = events[0].pk
+        moved = self.move(events[1], {'excuse_deadline': self.at(2025, 11, 1, 19, 0)}, scope='all')
+        self.assertEqual([self.wall(e.excuse_deadline) for e in moved],
+                         ['Sat 10-25 19:00', 'Sat 11-01 19:00', 'Sat 11-08 19:00', 'Sat 11-15 19:00'])
+
+    def test_generated_occurrences_keep_the_wall_time_and_weekday(self):
+        parent = Event.objects.create(
+            title='Meeting', description='x', created_by=self.officer,
+            date_time=self.at(2025, 10, 21, 19, 0), excuse_deadline=self.at(2025, 10, 20, 19, 0),
+            is_recurring=True, recurrence_type='weekly', recurrence_days=['1'],   # Tuesday
+            recurrence_end_date=timezone.datetime(2025, 11, 12).date())
+        instances = generate_recurring_events(parent)
+        self.assertEqual([self.wall(i.date_time) for i in instances],
+                         ['Tue 10-28 19:00', 'Tue 11-04 19:00', 'Tue 11-11 19:00'])
+        self.assertEqual([self.wall(i.excuse_deadline) for i in instances],
+                         ['Mon 10-27 19:00', 'Mon 11-03 19:00', 'Mon 11-10 19:00'])
+
+    def test_wall_times_the_change_repeats_or_skips(self):
+        # 1:30 AM happens twice on 11-02-25: the first (still daylight time).
+        repeated = shift_local(self.at(2025, 11, 1, 1, 30), timedelta(days=1))
+        self.assertEqual(timezone.localtime(repeated).utcoffset(), timedelta(hours=-5))
+        # 2:30 AM doesn't happen on 03-08-26: it lands at 3:30.
+        skipped = shift_local(self.at(2026, 3, 7, 2, 30), timedelta(days=1))
+        self.assertEqual(self.wall(skipped), 'Sun 03-08 03:30')

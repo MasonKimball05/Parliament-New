@@ -23,15 +23,50 @@ Rules shared by edit and delete:
     so a one-off tweak on another occurrence (a different room one week)
     survives a later series-wide title change.
   * A change to the date/time moves every affected event by the same amount
-    (e.g. +1 hour), and excuse deadlines move with them.
+    (e.g. +1 hour), and excuse deadlines move with them. The amount is
+    measured on the chapter's clock, not in elapsed time (v4.4.1, see
+    ``shift_local``): a weekly 7 PM meeting moved to 8 PM is at 8 PM on both
+    sides of a daylight-saving change, not 7 PM on the far side.
   * The recurrence pattern itself (weekly → biweekly) is not edited in bulk;
     delete the following events and create a new series for that.
 """
+from datetime import timezone as dt_timezone
+
 from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
 
 SCOPE_THIS, SCOPE_FOLLOWING, SCOPE_ALL = 'this', 'following', 'all'
+
+
+# ── Wall-clock arithmetic (v4.4.1) ────────────────────────────────────────────
+# A series lives on the chapter's clock (settings.TIME_ZONE). Adding a
+# timedelta to a UTC datetime adds elapsed time, so across a daylight-saving
+# change "one week later" landed an hour off the meeting's usual time, and an
+# excuse deadline "a day before" became 23 or 25 hours before. These do the
+# arithmetic on local wall-clock times and convert back.
+
+def _local_naive(dt):
+    return timezone.localtime(dt, timezone.get_default_timezone()).replace(tzinfo=None)
+
+
+def local_delta(later, earlier):
+    """How far apart two aware datetimes are on the chapter's clock."""
+    return _local_naive(later) - _local_naive(earlier)
+
+
+def shift_local(dt, delta):
+    """`dt` moved by `delta` on the chapter's clock (aware in, aware out).
+
+    A wall time that happens twice (the hour repeated when clocks go back)
+    takes its first occurrence; one that doesn't exist (the hour skipped when
+    clocks go forward) is read with the offset from before the change, so it
+    lands an hour later, as a phone's calendar does.
+    """
+    local = timezone.make_aware(_local_naive(dt) + delta, timezone.get_default_timezone())
+    # Through UTC, so a skipped wall time comes out as the real instant
+    # (02:30 → 03:30) rather than a local time that never happens.
+    return local.astimezone(dt_timezone.utc)
 SCOPES = (SCOPE_THIS, SCOPE_FOLLOWING, SCOPE_ALL)
 
 # Fields a bulk edit may copy from the edited event to the rest of the series.
@@ -111,7 +146,7 @@ def apply_series_edit(event, before, changed_fields, scope, now=None):
     if scope == SCOPE_THIS:
         return 0
     copy = [f for f in SERIES_FIELDS if f in changed_fields]
-    delta = event.date_time - before['date_time']
+    delta = local_delta(event.date_time, before['date_time'])
     deadline_changed = 'excuse_deadline' in changed_fields
     if not copy and not delta and not deadline_changed:
         return 0
@@ -121,13 +156,14 @@ def apply_series_edit(event, before, changed_fields, scope, now=None):
         for f in copy:
             setattr(other, f, getattr(event, f))
         if delta:
-            other.date_time = other.date_time + delta
+            other.date_time = shift_local(other.date_time, delta)
         if deadline_changed:
             # Keep the same distance before the event that the officer just set.
             other.excuse_deadline = (None if event.excuse_deadline is None
-                                     else other.date_time + (event.excuse_deadline - event.date_time))
+                                     else shift_local(other.date_time,
+                                                      local_delta(event.excuse_deadline, event.date_time)))
         elif delta and other.excuse_deadline:
-            other.excuse_deadline = other.excuse_deadline + delta
+            other.excuse_deadline = shift_local(other.excuse_deadline, delta)
     fields = list(copy)
     if delta:
         fields.append('date_time')
