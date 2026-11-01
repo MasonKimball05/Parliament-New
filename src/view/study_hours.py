@@ -13,6 +13,7 @@ Timed check-in and study hours on the website (10-30-26; rules in
 """
 from datetime import datetime, time, timedelta
 
+from src.app_review import exclude_review_accounts
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.http import Http404
@@ -26,7 +27,7 @@ from src.view.committee.education import _education_committee_or_404
 
 
 def _active_members():
-    return ParliamentUser.objects.filter(member_status='Active').order_by('name')
+    return exclude_review_accounts(ParliamentUser.objects.filter(member_status='Active')).order_by('name')
 
 
 @login_required

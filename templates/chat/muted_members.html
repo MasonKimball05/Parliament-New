@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+
+{% block title %}Muted members{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div class="mb-6">
+        <a href="{% url 'chat_index' %}" class="text-sm text-primary-600 dark:text-primary-400 hover:underline">&larr; Chats</a>
+        <h1 class="text-3xl font-bold text-gray-900 dark:text-white mt-2 mb-2">Muted members</h1>
+        <p class="text-gray-600 dark:text-gray-400">You don't see messages, unread counts or chat notifications from members you mute. They stay in their channels and aren't told. Mute someone from a message's <strong>Report</strong> menu in any chat.</p>
+    </div>
+
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm divide-y divide-gray-200 dark:divide-gray-700">
+        {% for mute in mutes %}
+        <div class="flex items-center justify-between p-4">
+            <div>
+                <span class="font-medium text-gray-900 dark:text-white">{{ mute.muted.name }}</span>
+                <p class="text-sm text-gray-500 dark:text-gray-400">Muted {{ mute.created_at|date:"M j, Y" }}</p>
+            </div>
+            <form method="post" action="{% url 'chat_unmute_member' mute.muted.user_id %}">
+                {% csrf_token %}
+                <button type="submit" class="px-4 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition">Unmute</button>
+            </form>
+        </div>
+        {% empty %}
+        <p class="p-6 text-gray-500 dark:text-gray-400">You haven't muted anyone.</p>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

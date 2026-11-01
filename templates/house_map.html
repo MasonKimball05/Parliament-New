@@ -332,6 +332,7 @@
         const nameClass = TYPE_CLASS[node.member_type] || 'text-gray-800 dark:text-gray-200';
         const badgeText = node.member_status === 'Removed'
             ? 'Removed'
+            : node.former_member ? 'Former member'
             : (node.member_type && node.member_type !== 'Active' && node.member_type !== 'Member')
                 ? node.member_type
                 : null;
@@ -480,7 +481,7 @@
 
         // Name + badge
         _setText('profileModalTitle', d.name);
-        const typeLabel = (d.member_status === 'Alumni' || d.member_status === 'Removed') ? d.member_status : d.member_type;
+        const typeLabel = (d.member_status === 'Alumni' || d.member_status === 'Removed' || d.former_member) ? d.member_status : d.member_type;
         const typeColor = TYPE_COLORS[typeLabel] || TYPE_COLORS.Member;
         document.getElementById('pm-type-badge').innerHTML = `<span class="px-2 py-0.5 text-xs rounded-full font-medium ${typeColor}">${esc(typeLabel)}</span>`;
         const rollParts = [];

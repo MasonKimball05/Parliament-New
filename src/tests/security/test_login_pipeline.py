@@ -14,7 +14,7 @@ Regression tests for the post-auth login pipeline (v3.13.x refactor):
   call django login() directly) still get a LoginHistory row, use the
   fallback geo lookup, and skip pipeline extras.
 
-Geo lookups are mocked at both call sites so tests never hit ip-api.com:
+Geo lookups are mocked at both call sites so tests never depend on a GeoLite2 DB:
 - src.geo_utils.get_ip_geo        (pipeline path; is_foreign_ip calls it)
 - src.signals.get_geolocation_from_ip  (signal fallback path; patched at
   the signals module because it's imported there at module level)

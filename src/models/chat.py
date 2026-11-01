@@ -166,9 +166,12 @@ class ChatChannel(models.Model):
         marker = (ChatReadReceipt.objects
                   .filter(user=user, channel_id=OuterRef('channel_id'))
                   .values('last_read_message__created_at')[:1])
+        from src.chat_safety import visible_to
+
         counts = {cid: 0 for cid in channel_ids}
-        for row in (ChatMessage.objects
-                    .filter(channel_id__in=channel_ids, is_deleted=False)
+        # v4.4.0: not messages hidden pending review or from members `user` muted.
+        for row in (visible_to(ChatMessage.objects
+                               .filter(channel_id__in=channel_ids, is_deleted=False), user)
                     .annotate(marker=Subquery(marker))
                     .filter(Q(marker__isnull=True) | Q(created_at__gt=F('marker')))
                     .values('channel_id')
@@ -388,6 +391,11 @@ class ChatMessage(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     edited_at = models.DateTimeField(null=True, blank=True)
     is_deleted = models.BooleanField(default=False, help_text='Soft delete - show "Message deleted"')
+    #: Set when enough distinct members report the message (src/chat_safety.py,
+    #: AUTO_HIDE_THRESHOLD): hidden from every channel view until a moderator
+    #: reviews it. Dismissing the reports clears it; deleting sets is_deleted.
+    hidden_pending_review = models.BooleanField(
+        default=False, help_text='Hidden after repeated reports, pending moderator review')
 
     class Meta:
         ordering = ['-created_at']
@@ -500,3 +508,78 @@ class ChatNotificationPreference(models.Model):
 
     def __str__(self):
         return f"{self.user.name} — #{self.channel.name}: {self.level}"
+
+
+class ChatMessageReport(models.Model):
+    """
+    A member reporting a chat message as objectionable (App Store guideline
+    1.2). The rules live in src/chat_safety.py. Who reported is visible to chat
+    moderators only, never to the reported member.
+    """
+
+    REASON_CHOICES = [
+        ('harassment', 'Harassment or bullying'),
+        ('hate', 'Hate speech'),
+        ('sexual', 'Sexual content'),
+        ('violence', 'Violence or threats'),
+        ('spam', 'Spam'),
+        ('other', 'Something else'),
+    ]
+    STATUS_OPEN = 'open'
+    STATUS_DISMISSED = 'dismissed'
+    STATUS_ACTIONED = 'actioned'
+    STATUS_CHOICES = [
+        (STATUS_OPEN, 'Open'),
+        (STATUS_DISMISSED, 'Dismissed'),
+        (STATUS_ACTIONED, 'Message removed'),
+    ]
+
+    message = models.ForeignKey(ChatMessage, on_delete=models.CASCADE, related_name='reports')
+    reporter = models.ForeignKey('ParliamentUser', on_delete=models.CASCADE,
+                                 related_name='chat_reports_made')
+    reason = models.CharField(max_length=20, choices=REASON_CHOICES)
+    details = models.TextField(blank=True, max_length=1000)
+    created_at = models.DateTimeField(auto_now_add=True)
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default=STATUS_OPEN)
+    reviewed_by = models.ForeignKey('ParliamentUser', on_delete=models.SET_NULL, null=True,
+                                    blank=True, related_name='chat_reports_reviewed')
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    action_note = models.CharField(max_length=500, blank=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        constraints = [
+            models.UniqueConstraint(fields=['message', 'reporter'],
+                                    name='unique_chat_report_per_reporter'),
+        ]
+        indexes = [models.Index(fields=['status', '-created_at'], name='chat_report_status_idx')]
+
+    def __str__(self):
+        return f'Report {self.pk} on message {self.message_id} ({self.status})'
+
+
+class ChatUserMute(models.Model):
+    """
+    ``muter`` no longer sees ``muted``'s chat messages, unread counts or chat
+    notifications. Both stay in their shared channels (chapter channels are
+    official); only what the muter sees changes, and the muted member is never
+    told. (Apple's guideline 1.2 "block"; the chapter calls it mute.) See
+    src/chat_safety.py.
+    """
+
+    muter = models.ForeignKey('ParliamentUser', on_delete=models.CASCADE,
+                              related_name='chat_mutes_made')
+    muted = models.ForeignKey('ParliamentUser', on_delete=models.CASCADE,
+                              related_name='chat_mutes_received')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        constraints = [
+            models.UniqueConstraint(fields=['muter', 'muted'], name='unique_chat_mute_pair'),
+            models.CheckConstraint(condition=~models.Q(muter=models.F('muted')),
+                                   name='chat_mute_not_self'),
+        ]
+
+    def __str__(self):
+        return f'{self.muter_id} mutes {self.muted_id}'

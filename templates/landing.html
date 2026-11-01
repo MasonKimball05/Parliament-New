@@ -424,6 +424,9 @@
             {% if content.chapter_history_html %}<a href="#history" class="hover:text-gray-600 dark:hover:text-gray-400 transition-colors">History</a>{% endif %}
             {% if content.show_contact_section %}<a href="#contact" class="hover:text-gray-600 dark:hover:text-gray-400 transition-colors">Contact</a>{% endif %}
             <a href="/songbook/public/" class="hover:text-gray-600 dark:hover:text-gray-400 transition-colors">Songbook</a>
+            <a href="{% url 'privacy_policy' %}" class="hover:text-gray-600 dark:hover:text-gray-400 transition-colors">Privacy</a>
+            <a href="{% url 'support' %}" class="hover:text-gray-600 dark:hover:text-gray-400 transition-colors">Support</a>
+            <a href="{% url 'terms' %}" class="hover:text-gray-600 dark:hover:text-gray-400 transition-colors">Terms</a>
             <a href="/login/" class="hover:text-gray-600 dark:hover:text-gray-400 transition-colors">Sign In</a>
         </div>
     </div>

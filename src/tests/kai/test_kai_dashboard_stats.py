@@ -141,7 +141,9 @@ class DashboardCountTests(TestCase):
 
         monthly_like = [
             q for q in ctx.captured_queries
-            if 'submitted_at' in q['sql'] and 'COUNT' in q['sql'].upper()
+            # `COUNT(`, not `COUNT`: a joined member row's `account_deleted_at` column
+            # (v4.4.0) contains the letters and isn't a count.
+            if 'submitted_at' in q['sql'] and 'COUNT(' in q['sql'].upper()
         ]
         self.assertLessEqual(
             len(monthly_like), 2,

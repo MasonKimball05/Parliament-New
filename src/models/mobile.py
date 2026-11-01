@@ -187,6 +187,7 @@ class MobileAuthTicket(models.Model):
     PURPOSE_WEB_HANDOFF = 'web_handoff'
     PURPOSE_WS = 'ws'
     PURPOSE_VOTE_GRANT = 'vote_grant'
+    PURPOSE_DELETE_GRANT = 'delete_grant'
     PURPOSE_CHOICES = [
         (PURPOSE_MFA, '2FA step after password'),
         (PURPOSE_PASSKEY_LOGIN, 'Passkey sign-in challenge'),
@@ -194,6 +195,7 @@ class MobileAuthTicket(models.Model):
         (PURPOSE_WEB_HANDOFF, 'Web view session handoff'),
         (PURPOSE_WS, 'Websocket ticket'),
         (PURPOSE_VOTE_GRANT, 'One-shot vote re-auth grant'),
+        (PURPOSE_DELETE_GRANT, 'One-shot account-deletion re-auth grant'),
     ]
     #: Lifetimes, seconds.
     TTL = {
@@ -203,6 +205,7 @@ class MobileAuthTicket(models.Model):
         PURPOSE_WEB_HANDOFF: 60,
         PURPOSE_WS: 30,
         PURPOSE_VOTE_GRANT: 120,
+        PURPOSE_DELETE_GRANT: 120,
     }
 
     purpose = models.CharField(max_length=20, choices=PURPOSE_CHOICES)

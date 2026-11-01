@@ -231,6 +231,30 @@ the tables above.
 
 ---
 
+## Chat and Quote Book — reports and mutes (v4.4.0)
+
+App Store guideline 1.2 (`src/chat_safety.py`, `src/quote_reports.py`). A
+report carries **the reported text** and **the reporter's identity**; a mute
+row carries who muted whom. None of the three models is registered in
+`/admin/`, and none is in the `/api/v1/` API or global search.
+
+**Chat reports: the reviewer must be able to READ the channel.** Reviewers of
+a channel are the officers/admins who pass `ChatChannel.has_access` (no admin
+"View All" override); where none can (Kai's committee channel), its
+committee's chairs who can read it (`channel_reviewers`). The same rule
+gates the review list (`reviewable_channel_ids`), the review action and the
+moderator delete (`can_review_channel`, 403 otherwise), the officer hub's
+`open_chat_reports` count, and who gets the "needs review" notification.
+
+| Field | In-app | Filter/search | CSV | Bulk | Admin | Admin CSV | API | Search | Dev rows | Audit log |
+|---|---|---|---|---|---|---|---|---|---|---|
+| `ChatMessageReport.reporter` / `.details` / the reported `ChatMessage.message` | ✅ `chat_reports` page + `chat/reports/` app API: reviewers of that channel only, never the reported member (their own messages are excluded from their list and refused on review) | ➖ | ➖ | ➖ | ➖ not registered | ➖ | ➖ | ➖ | ➖ withheld | ➖ not logged; reviewer/time/note on the row itself |
+| Notifications about a chat report | ✅ to the channel's reviewers minus sender and reporter; no reporter name, no text; lock screen "A chat message needs review" | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a |
+| `ChatUserMute` (who muted whom) | ✅ the muter's own Muted members list only; the muted member is never told | ➖ | ➖ | ➖ | ➖ not registered | ➖ | ➖ | ➖ | ➖ withheld | ➖ |
+| `QuoteReport.reporter` / `.details` | ✅ officers only, in the Flagged quotes queue (web + `quote-book/flagged/`). The quoted member and submitter see an auto-hidden quote as "hidden after member reports", never who | ➖ | ➖ | ➖ | ➖ not registered | ➖ | ➖ | ➖ | ➖ withheld | ✅ an auto-hide is logged with **no user** (`ActivityLog` is read by every chair); a report itself is not logged |
+
+---
+
 ## Findings — the empty cells this table found
 
 Both are admin-surface, so the exposed population is small (whoever holds Django

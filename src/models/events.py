@@ -327,7 +327,10 @@ class Event(models.Model):
         exactly like a committee member would be; someone merely on the
         waitlist is not, since they aren't confirmed to attend.
         """
-        base = ParliamentUser.objects.filter(member_status='Active')
+        # The App Review demo account (src/app_review.py) is never expected
+        # at anything: not tracked, not reminded, not in the attendance rate.
+        from src.app_review import exclude_review_accounts
+        base = exclude_review_accounts(ParliamentUser.objects.filter(member_status='Active'))
         if not self.committee_id:
             return base
 
@@ -502,8 +505,10 @@ class Event(models.Model):
         chapter_tracked = [e for e in tracked if not e.committee_id]
         committee_tracked = [e for e in tracked if e.committee_id]
 
+        # Same roster as required_members(), App Review account excluded.
+        from src.app_review import exclude_review_accounts
         total_members = (
-            ParliamentUser.objects.filter(member_status='Active').count()
+            exclude_review_accounts(ParliamentUser.objects.filter(member_status='Active')).count()
             if chapter_tracked else 0
         )
 

@@ -5,10 +5,10 @@ Usage:
     python manage.py backfill_honeypot_geo
     python manage.py backfill_honeypot_geo --limit 100   # only process 100 records
 """
-import time
-import requests
-from django.core.management.base import BaseCommand
-from django.core.cache import cache
+from django.conf import settings
+from django.core.management.base import BaseCommand, CommandError
+from src import geo_utils
+from src.geo_utils import get_ip_geo
 from src.models import HoneypotAccess
 
 
@@ -25,6 +25,14 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         limit = options['limit']
+
+        # Without the database every lookup "fails", and writing that failure
+        # into each record would mark it done and stop a later run from
+        # filling it in.
+        if geo_utils._get_reader() is None:
+            raise CommandError(
+                f'GeoIP database unavailable at {settings.GEOIP_CITY_DB!r}; '
+                f'see DEPLOYMENT.md "IP geolocation (GeoLite2)".')
 
         qs = HoneypotAccess.objects.all().order_by('-accessed_at')
         # Only records without geo data already
@@ -45,7 +53,7 @@ class Command(BaseCommand):
         skipped = 0
         errors = 0
 
-        # Deduplicate IPs so we don't call the API more than once per IP
+        # Deduplicate IPs so each is looked up once
         seen_ips = {}
 
         for record in records:
@@ -58,40 +66,11 @@ class Command(BaseCommand):
             if ip in seen_ips:
                 geo = seen_ips[ip]
             else:
-                cache_key = f'geo_{ip}'
-                geo = cache.get(cache_key)
-                if geo is None:
-                    try:
-                        resp = requests.get(
-                            f'http://ip-api.com/json/{ip}',
-                            params={'fields': 'status,country,countryCode,regionName,city,zip,lat,lon,isp,org,as,query'},
-                            timeout=5,
-                        )
-                        data = resp.json()
-                        if data.get('status') == 'success':
-                            geo = {
-                                'country': data.get('country', ''),
-                                'country_code': data.get('countryCode', ''),
-                                'region': data.get('regionName', ''),
-                                'city': data.get('city', ''),
-                                'zip': data.get('zip', ''),
-                                'lat': data.get('lat'),
-                                'lon': data.get('lon'),
-                                'isp': data.get('isp', ''),
-                                'org': data.get('org', ''),
-                                'as': data.get('as', ''),
-                            }
-                            cache.set(cache_key, geo, 86400)
-                        else:
-                            geo = {'geo_error': data.get('message', 'lookup failed')}
-                    except Exception as e:
-                        geo = {'geo_error': str(e)}
-                        errors += 1
-                        self.stdout.write(self.style.WARNING(f'  Error for {ip}: {e}'))
-
-                    # ip-api.com free tier: 45 req/min — stay well under
-                    time.sleep(1.5)
-
+                # Local GeoLite2 lookup (src/geo_utils.py) — no network call.
+                geo = get_ip_geo(ip)
+                if not geo:
+                    geo = {'geo_error': 'private IP or lookup failed'}
+                    errors += 1
                 seen_ips[ip] = geo
 
             record.additional_data['geo'] = geo

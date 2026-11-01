@@ -24,27 +24,20 @@ class GeoIpGuardTests(SimpleTestCase):
 
     def test_unknown_sentinel_returns_unknown_without_http(self):
         # signals.py substitutes the literal 'unknown' for a missing IP. It
-        # must short-circuit to the Unknown dict, NOT fall through to a live
-        # ip-api.com lookup for /json/unknown (wasted 3s-timeout request on the
-        # failed-login path, which has no cached pipeline geo).
+        # must short-circuit to the Unknown dict rather than be looked up (it
+        # used to become a wasted ip-api.com request for /json/unknown).
         #
-        # v3.17.3: the patch target was `src.utils.security_utils.requests.get`,
-        # which stopped existing in v3.15.3 when the direct, uncached
-        # `requests.get` was replaced by delegation to `geo_utils.get_ip_geo`
-        # (cached + circuit-breakered) and the now-unused `requests` import was
-        # dropped. `patch()` fails loudly on a missing target, so this test had
-        # been erroring rather than guarding anything since then.
-        #
-        # Now asserted at two levels: security_utils must not even delegate,
-        # and no HTTP call may happen anywhere below it. The first assertion is
-        # the one that survives a future refactor of geo_utils.
+        # Asserted at two levels: security_utils must not even delegate, and
+        # the local GeoLite2 reader below it must not be consulted. Lookups are
+        # local now, so there is no HTTP client to patch — test_geo_local
+        # covers "no outbound network" for every path.
         with patch('src.utils.security_utils.get_ip_geo') as mock_geo, \
-                patch('src.geo_utils.requests.get') as mock_get:
+                patch('src.geo_utils._get_reader') as mock_reader:
             result = get_geolocation_from_ip('unknown')
         self.assertEqual(result['country'], 'Unknown')
         self.assertIsNone(result['latitude'])
         mock_geo.assert_not_called()
-        mock_get.assert_not_called()
+        mock_reader.assert_not_called()
 
     def test_private_ip_still_local(self):
         self.assertEqual(

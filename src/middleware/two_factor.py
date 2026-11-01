@@ -198,6 +198,16 @@ class Enforce2FAMiddleware:
         from src.models import TwoFactorRequirement
         from src.models_feature_flags import SiteSetting
 
+        # The Apple App Review demo account (src/app_review.py) signs in with a
+        # password only — the reviewer has no authenticator. Only while it is a
+        # plain non-admin Member named in APP_REVIEW_USERNAMES; it never gets an
+        # officer's or admin's reach, so the policy has nothing to protect there
+        # that a member's password doesn't already. A device it enrols anyway
+        # is still enforced (the verify step doesn't consult this).
+        from src.app_review import is_2fa_exempt_review_account
+        if is_2fa_exempt_review_account(user):
+            return False
+
         # Check individual requirement first (takes precedence)
         try:
             req = user.two_factor_requirement

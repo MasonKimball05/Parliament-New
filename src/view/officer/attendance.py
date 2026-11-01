@@ -1,4 +1,5 @@
 import logging
+from src.app_review import exclude_review_accounts
 from django.utils import timezone
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import render, redirect
@@ -21,7 +22,9 @@ def attendance(request):
         committees = Committee.objects.filter(chairs=request.user).order_by('name')
 
     # Only show Members, Chairs, and Officers (exclude Advisors and Pledges from attendance)
-    users = ParliamentUser.objects.filter(member_type__in=MemberType.CAN_VOTE).order_by('user_id')
+    # The App Review demo account (src/app_review.py) is never on the roll.
+    users = exclude_review_accounts(
+        ParliamentUser.objects.filter(member_type__in=MemberType.CAN_VOTE)).order_by('user_id')
 
     committee_id = request.GET.get("committee_id")
     selected_committee = None
@@ -35,7 +38,8 @@ def attendance(request):
                 return redirect('attendance')
 
             # Filter users to members of the selected committee (excluding Advisors and Pledges)
-            users = selected_committee.members.filter(member_type__in=MemberType.CAN_VOTE).order_by('user_id')
+            users = exclude_review_accounts(
+                selected_committee.members.filter(member_type__in=MemberType.CAN_VOTE)).order_by('user_id')
         except Committee.DoesNotExist:
             selected_committee = None
 
@@ -55,6 +59,7 @@ def attendance(request):
             users_to_update = selected_committee.members.filter(member_type__in=MemberType.CAN_VOTE)
         else:
             users_to_update = ParliamentUser.objects.filter(member_type__in=MemberType.CAN_VOTE)
+        users_to_update = exclude_review_accounts(users_to_update)
 
         for user in users_to_update:
             is_present = str(user.user_id) in present_ids

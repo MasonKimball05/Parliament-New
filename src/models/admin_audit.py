@@ -27,6 +27,10 @@ class AdminActionLog(models.Model):
         ('quarantine_set',   'Account Quarantined'),
         ('quarantine_lifted','Quarantine Lifted'),
         ('member_anonymized','Member Anonymized'),
+        ('account_deletion_requested', 'Account Deletion Requested'),
+        ('account_restored', 'Account Restored (member request)'),
+        ('account_purged',   'Account Data Erased (30-day purge)'),
+        ('account_rebuilt',  'Account Rebuilt (member request)'),
         ('other',            'Other'),
     ]
 

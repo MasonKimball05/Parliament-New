@@ -103,6 +103,7 @@ from src.view.committee.education import (
     education_reveal_all_bigs,
     education_set_pledge_phase, education_advance_all_phases,
 )
+from src.view.chat import safety as chat_safety_views
 from src.view.chat import (
     chat_index, channel_chat, get_channel_messages, send_channel_message,
     edit_channel_message, delete_channel_message, get_channel_active_users,
@@ -152,6 +153,7 @@ from src.view.calendar import calendar_view, calendar_data_api, export_calendar_
 from src.view.global_search import global_search
 from src.view.changelog import changelog, changelog_detail, roadmap
 from src.view import admin_v2_member as admin_v2_member_views
+from src.view import account_deletion as account_deletion_views
 from src.view import admin_v2_mobile as admin_v2_mobile_views
 from src.view import admin_v2_ops as admin_v2_ops_views
 from src.view import admin_v2_bulk as admin_v2_bulk_views
@@ -314,6 +316,7 @@ from src.view.feedback import (
 )
 from src.view.quote_book import (
     quote_book, submit_quote, flag_quote, review_flagged_quotes, restore_quote,
+    report_quote, review_quote_reports,
 )
 from src.view.debug_panel import (
     debug_request_info, debug_server_info, debug_database_info,
@@ -354,6 +357,7 @@ from src.view.songbook import (
     serve_song_audio, serve_exportable_media
 )
 from src.view.public_songbook import public_songbook_list, public_song_detail
+from src.view.legal import privacy_policy, support, terms
 from src.view.csp_report import csp_report
 from src.view.csrf_token import csrf_token_refresh
 from src.view.site_monitor import static_asset_fingerprints
@@ -436,6 +440,10 @@ urlpatterns = [
     path('search/', global_search, name='global_search'),
 
     # Public songbook (no auth, no management functions)
+    # Public: the App Store listing's Privacy Policy and Support URLs (v4.4.0).
+    path('privacy/', privacy_policy, name='privacy_policy'),
+    path('support/', support, name='support'),
+    path('terms/', terms, name='terms'),
     path('songbook/public/', public_songbook_list, name='public_songbook'),
     path('songbook/public/<int:pk>/', public_song_detail, name='public_song_detail'),
 
@@ -508,6 +516,8 @@ urlpatterns = [
     path('quote-book/flag/<int:quote_id>/', flag_quote, name='flag_quote'),
     path('quote-book/flagged/', review_flagged_quotes, name='review_flagged_quotes'),
     path('quote-book/flagged/<int:quote_id>/restore/', restore_quote, name='restore_quote'),
+    path('quote-book/report/<int:quote_id>/', report_quote, name='report_quote'),
+    path('quote-book/flagged/<int:quote_id>/review/', review_quote_reports, name='review_quote_reports'),
 
     # Changelog / Version History
     path('changelog/', changelog, name='changelog'),
@@ -1045,6 +1055,13 @@ urlpatterns = [
     path('api/channel/<int:channel_id>/members/', get_channel_members, name='get_channel_members'),
     path('api/channel/<int:channel_id>/notification-pref/', set_channel_notification_pref, name='set_channel_notification_pref'),
     path('api/chat/dismiss-unread/', dismiss_chat_unread, name='dismiss_chat_unread'),
+    # Chat safety (v4.4.0, src/chat_safety.py): report, mute, moderator review
+    path('api/chat/messages/<int:message_id>/report/', chat_safety_views.chat_report_message, name='chat_report_message'),
+    path('api/chat/mutes/<str:user_id>/', chat_safety_views.chat_mute_member, name='chat_mute_member'),
+    path('chats/muted/', chat_safety_views.chat_muted_members, name='chat_muted_members'),
+    path('chats/muted/<str:user_id>/unmute/', chat_safety_views.chat_unmute_member, name='chat_unmute_member'),
+    path('chats/reports/', chat_safety_views.chat_reports, name='chat_reports'),
+    path('chats/reports/<int:report_id>/review/', chat_safety_views.chat_review_report, name='chat_review_report'),
 
     # Admin Channel Management
     path('chats/create/', create_channel, name='create_channel'),
@@ -1103,6 +1120,7 @@ urlpatterns = [
 
     # Session Management
     path('account/sessions/', session_list, name='session_list'),
+    path('account/delete/', account_deletion_views.delete_account, name='delete_account'),
     path('account/sessions/<str:session_key>/revoke/', revoke_session, name='revoke_session'),
     path('account/sessions/revoke-all/', revoke_all_other_sessions, name='revoke_all_sessions'),
     path('account/devices/<uuid:public_id>/revoke/', revoke_mobile_device, name='revoke_mobile_device'),  # mobile plan, Phase 1
@@ -1170,6 +1188,12 @@ urlpatterns = [
     path('admin-v2/maintenance/', admin_v2_ops_views.admin_v2_maintenance, name='admin_v2_maintenance'),
     # before members/<user_id>/, which would match 'bulk'
     path('admin-v2/members/bulk/', admin_v2_bulk_views.admin_v2_bulk_members, name='admin_v2_bulk_members'),
+    path('admin-v2/account-deletions/', account_deletion_views.admin_v2_account_deletions,
+         name='admin_v2_account_deletions'),
+    path('admin-v2/account-deletions/<str:user_id>/restore/', account_deletion_views.admin_v2_restore_account,
+         name='admin_v2_restore_account'),
+    path('admin-v2/account-deletions/<str:user_id>/rebuild/', account_deletion_views.admin_v2_rebuild_account,
+         name='admin_v2_rebuild_account'),
     path('admin-v2/members/<str:user_id>/', admin_v2_member_views.admin_v2_member, name='admin_v2_member'),
     path('admin-v2/members/<str:user_id>/sign-out/', admin_v2_member_views.admin_v2_member_sign_out,
          name='admin_v2_member_sign_out'),

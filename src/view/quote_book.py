@@ -50,8 +50,10 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
+from src import quote_reports
+from src.chat_service import ChatError
 from src.feature_flag_decorators import require_page_enabled
-from src.models import ActivityLog, ParliamentUser, Quote
+from src.models import ActivityLog, ChatMessageReport, ParliamentUser, Quote
 from src.models.users import member_defer
 
 
@@ -108,6 +110,8 @@ def quote_book(request):
             # button label/confirm text — both hit the same flag_quote
             # endpoint; the view decides which one actually happens.
             'delete_not_flag': q.can_be_deleted_outright_by(request.user),
+            # v4.4.0: any other member can report it (src/quote_reports.py).
+            'can_report': quote_reports.can_report(q, request.user),
         })
 
     # Shown to everyone, but scoped to what they can actually act on —
@@ -118,7 +122,8 @@ def quote_book(request):
     # show you" apart from "link not relevant to you" — matches how
     # `flag_quote`'s own can_flag flows through per-quote.
     if request.user.is_officer:
-        flagged_count = Quote.objects.filter(flagged_at__isnull=False).count()
+        # v4.4.0: plus visible quotes with open reports (quote_reports.officer_queue).
+        flagged_count = quote_reports.officer_queue().count()
     else:
         flagged_count = Quote.objects.filter(
             Q(flagged_by=request.user) | Q(quoted_member=request.user),
@@ -131,6 +136,8 @@ def quote_book(request):
         'chapters_json': _script_safe_json(chapters),
         'has_quotes': bool(chapters),
         'flagged_count': flagged_count,
+        'report_reasons_json': _script_safe_json(
+            [{'value': v, 'label': label} for v, label in ChatMessageReport.REASON_CHOICES]),
     })
 
 
@@ -236,8 +243,44 @@ def flag_quote(request, quote_id):
 
 @login_required
 @require_page_enabled('quote_book')
+@require_POST
+def report_quote(request, quote_id):
+    """JSON: any member reports a quote (reason, details). Does not hide it — src/quote_reports.py."""
+    quote = get_object_or_404(Quote, pk=quote_id)
+    try:
+        quote_reports.report_quote(quote, request.user, request.POST.get('reason'),
+                                   request.POST.get('details', ''))
+    except ChatError as exc:
+        return JsonResponse({'success': False, 'error': exc.code, 'message': str(exc)}, status=exc.status)
+    return JsonResponse({'success': True})
+
+
+@login_required
+@require_page_enabled('quote_book')
+@require_POST
+def review_quote_reports(request, quote_id):
+    """Officers: dismiss a quote's reports, or hide the quote."""
+    quote = get_object_or_404(Quote, pk=quote_id)
+    try:
+        quote_reports.review_reports(quote, request.user, request.POST.get('action'),
+                                     request.POST.get('note', ''))
+    except ChatError as exc:
+        if exc.status == 403:
+            return HttpResponseForbidden(str(exc))
+        messages.error(request, str(exc))
+    else:
+        messages.success(request, 'Quote hidden.' if request.POST.get('action') == 'hide'
+                         else 'Reports dismissed.')
+    return redirect('review_flagged_quotes')
+
+
+@login_required
+@require_page_enabled('quote_book')
 def review_flagged_quotes(request):
     flagged = Quote.objects.filter(flagged_at__isnull=False)
+    if request.user.is_officer:
+        # v4.4.0: officers also see visible quotes with open reports.
+        flagged = quote_reports.officer_queue()
 
     # Officers see everything (general audit/moderation); anyone else sees
     # only what Quote.can_be_restored_by would let them act on. Scoping
@@ -257,6 +300,12 @@ def review_flagged_quotes(request):
         .defer(*member_defer('quoted_member', 'submitted_by', 'flagged_by'))
         .order_by('-flagged_at')
     )
+    if request.user.is_officer:
+        # Who reported, and why — officers only.
+        flagged = list(flagged)
+        reports = quote_reports.open_reports_by_quote(q.pk for q in flagged)
+        for q in flagged:
+            q.open_report_rows = reports.get(q.pk, [])
     return render(request, 'quote_book/flagged.html', {
         'flagged_quotes': flagged,
         'viewing_as_officer': request.user.is_officer,
@@ -289,6 +338,7 @@ def restore_quote(request, quote_id):
             object_type='Quote',
             object_id=quote.pk,
         )
+        quote_reports.restored(quote, request.user)
         messages.success(request, 'Quote restored to the book.')
 
     return redirect('review_flagged_quotes')

@@ -28,6 +28,7 @@ from django.utils.text import Truncator
 from rest_framework import exceptions
 from rest_framework.response import Response
 
+from src.app_review import redact_contact
 from src.feature_flag_decorators import check_feature_enabled
 from src.mobile.api import MobileAPIView
 from src.mobile.deeplinks import push_data_for_url
@@ -148,6 +149,9 @@ def _kai_report(r, details):
 
 
 def _member(u):
+    if u.deletion_requested_at:   # deleted account: the record only (src/account_deletion.py)
+        return {'user_id': u.user_id, 'name': u.get_display_name(), 'member_type': u.member_type,
+                'member_status': 'Former member', 'email': '', 'former_member': True}
     return {'user_id': u.user_id, 'name': u.get_display_name(), 'member_type': u.member_type,
             'member_status': u.member_status, 'email': u.email or ''}
 
@@ -186,6 +190,10 @@ class SearchView(MobileAPIView):
                     continue
                 if key == 'kai_reports':
                     rows = [_kai_report(r, kai_details) for r in items]
+                elif key == 'users':
+                    # Officer-only today; the App Review account is never one,
+                    # but its rows carry no email either way.
+                    rows = [redact_contact(_member(u), request.user, u.pk) for u in items]
                 else:
                     rows = [_SERIALIZERS[key](x) for x in items]
                 groups.append({'key': key, 'title': title, 'items': rows})

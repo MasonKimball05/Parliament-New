@@ -494,7 +494,6 @@ def send_watch_flag_alert(watched_user, event_type, ip_address, geo, user_agent,
             f'{trigger_label} for watched user {watched_user.name} ({watched_user.username}).\n\n'
             f'IP: {ip_address}\n'
             f'Location: {location}\n'
-            f'ISP: {geo.get("isp", "Unknown") if geo else "Unknown"}\n'
             f'Device: {device_type} / {browser} / {os}\n'
             f'Whitelisted: {is_whitelisted} | Blacklisted: {is_blacklisted} | Rate limited: {is_rate_limited}\n'
             f'Risk: {risk_level} — {", ".join(risk_factors) if risk_factors else "none"}\n'

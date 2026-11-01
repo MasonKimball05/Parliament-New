@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+
+{% block title %}Chat reports{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div class="mb-6">
+        <a href="{% url 'chat_index' %}" class="text-sm text-primary-600 dark:text-primary-400 hover:underline">&larr; Chats</a>
+        <h1 class="text-3xl font-bold text-gray-900 dark:text-white mt-2 mb-2">Chat reports</h1>
+        <p class="text-gray-600 dark:text-gray-400">Messages members reported. A message reported by {{ auto_hide_threshold }} or more members is hidden until you review it. Dismissing restores it; removing deletes it. Who reported is visible to moderators only. Reports about your own messages go to the other moderators.</p>
+    </div>
+
+    <div class="flex flex-wrap gap-2 mb-4">
+        {% for value, label in statuses %}
+        <a href="{% url 'chat_reports' %}?status={{ value }}"
+           class="px-3 py-1 rounded-full text-sm border {% if value == status %}bg-primary-600 text-white border-primary-600{% else %}border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300{% endif %}">{{ label }}</a>
+        {% endfor %}
+    </div>
+
+    <div class="space-y-4">
+        {% for report in reports %}
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-5 border-l-4 {% if report.status == 'open' %}border-red-500{% else %}border-gray-300 dark:border-gray-600{% endif %}">
+            <div class="flex flex-wrap items-baseline justify-between gap-2 mb-2">
+                <span class="font-semibold text-gray-900 dark:text-white">{{ report.get_reason_display }}</span>
+                <span class="text-xs text-gray-500 dark:text-gray-400">#{{ report.message.channel.name }} &middot; {{ report.created_at|date:"M j, g:i A" }} &middot; {{ report.report_count }} report{{ report.report_count|pluralize }}</span>
+            </div>
+            <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3 mb-3">
+                <p class="text-sm text-gray-500 dark:text-gray-400 mb-1">{{ report.message.sender.name }}{% if report.message.is_deleted %} &middot; removed{% elif report.message.hidden_pending_review %} &middot; hidden pending review{% endif %}</p>
+                <p class="text-gray-900 dark:text-gray-100 break-words">{{ report.message.message|linebreaksbr }}</p>
+            </div>
+            <p class="text-sm text-gray-600 dark:text-gray-300">Reported by {{ report.reporter.name }}{% if report.details %}: &ldquo;{{ report.details }}&rdquo;{% endif %}</p>
+            {% if report.status == 'open' %}
+            <form method="post" action="{% url 'chat_review_report' report.id %}" class="mt-3 flex flex-wrap items-center gap-2">
+                {% csrf_token %}
+                <input type="text" name="note" maxlength="500" placeholder="Note (optional)" class="flex-1 min-w-[12rem] px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-700 dark:text-white">
+                <button type="submit" name="action" value="dismiss" class="px-4 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition">Dismiss</button>
+                <button type="submit" name="action" value="delete_message" class="px-4 py-2 text-sm bg-red-600 text-white rounded-md hover:bg-red-700 transition">Remove message</button>
+            </form>
+            {% else %}
+            <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">{{ report.get_status_display }}{% if report.reviewed_by %} by {{ report.reviewed_by.name }}{% endif %}{% if report.reviewed_at %} &middot; {{ report.reviewed_at|date:"M j, g:i A" }}{% endif %}{% if report.action_note %} &middot; {{ report.action_note }}{% endif %}</p>
+            {% endif %}
+        </div>
+        {% empty %}
+        <p class="text-gray-500 dark:text-gray-400">No reports here.</p>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

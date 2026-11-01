@@ -1,6 +1,7 @@
 import logging
 from ..decorators import log_function_call
 from ..models import ParliamentUser, Legislation, Event, Committee, Vote, Announcement, SlatingPeriod, SlatingBallot
+from src.app_review import exclude_review_accounts
 from django.db.models import Count, F, Q
 
 logger = logging.getLogger(__name__)
@@ -160,7 +161,9 @@ def home(request):
 
     # === STATISTICS ===
     # Total active members
-    total_active_members = ParliamentUser.objects.filter(member_status='Active').count()
+    # Not counting the App Review demo account (src/app_review.py).
+    total_active_members = exclude_review_accounts(
+        ParliamentUser.objects.filter(member_status='Active')).count()
 
     # Active legislation count
     # v3.13.3: was filter(status='active') — but no code path ever sets

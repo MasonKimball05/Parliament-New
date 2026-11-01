@@ -455,10 +455,11 @@ ALLOWED_DOCUMENT_TYPES = [
     'text/xml',  # .xml (alternate)
 ]
 
-# IP geolocation provider base URL. Defaults to ip-api.com's free HTTP-only
-# endpoint. The free tier does not support HTTPS; set this to an HTTPS URL
-# (e.g. an ip-api.com Pro endpoint) to avoid sending lookups over cleartext.
-GEO_API_BASE_URL = os.getenv('GEO_API_BASE_URL', 'http://ip-api.com/json/')
+# IP geolocation is a LOCAL lookup in a MaxMind GeoLite2 City database
+# (src/geo_utils.py) — IP addresses never leave the server. Path to the .mmdb
+# file; `geoipupdate` writes it here by default. Missing file = no location
+# (logged once), never a network fallback. Setup: DEPLOYMENT.md.
+GEOIP_CITY_DB = os.getenv('GEOIP_CITY_DB', '/var/lib/GeoIP/GeoLite2-City.mmdb')
 
 # Additional security settings
 SECURE_REFERRER_POLICY = 'same-origin'
@@ -496,6 +497,15 @@ ERROR_ALERT_EMAIL = os.getenv('ERROR_ALERT_EMAIL', '')
 # Empty = SECURITY_ALERT_EMAIL, the same fallback ERROR_ALERT_EMAIL uses.
 BUG_REPORT_EMAIL = os.getenv('BUG_REPORT_EMAIL', '')
 SITE_URL = os.getenv('SITE_URL', 'https://am-parliament.org')
+
+# Apple App Review demo account(s) — src/app_review.py. Comma-separated
+# usernames; empty (the default) means no account is treated as a review
+# account. A listed account signs in without a second factor, never sees other
+# members' email or phone, and is left out of the directory, rosters and counts.
+# Create/reset one with `manage.py create_app_review_account`.
+APP_REVIEW_USERNAMES = frozenset(
+    u.strip().lower() for u in os.getenv('APP_REVIEW_USERNAMES', '').split(',') if u.strip()
+)
 
 # Mobile app passkey sign-in (src/mobile/views_auth.py). An Android app's
 # WebAuthn assertion carries the origin `android:apk-key-hash:<base64url sha256

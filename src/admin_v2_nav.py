@@ -23,6 +23,7 @@ NAV = [
                                               'admin_v2_user_login_security'),
          'users brothers profiles admin access'),
         ('Bulk edit', 'admin_v2_bulk_members', (), 'bulk alumni year end transition status roles many'),
+        ('Account deletions', 'admin_v2_account_deletions', (), 'delete deleted account restore rebuild purge former member erase'),
         ('Two-factor', 'admin_v2_two_factor', ('admin_v2_two_factor_update_policy',),
          '2fa totp otp policy'),
         ('Login history', 'admin_v2_login_history', (), 'sign in logins audit'),

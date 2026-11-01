@@ -1,6 +1,7 @@
 """
 House map view — shows each house's members and big/little family trees.
 """
+from src.app_review import exclude_review_accounts
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import render, redirect
 from django.contrib import messages
@@ -56,11 +57,14 @@ def _build_tree(member, all_little_map, house_code):
         if not lb.house or lb.house == house_code
     ]
     badge = badge_context(member.pledge_class, member.pledge_class_greek)
+    # A deleted account stays on its family line as a record (src/account_deletion.py).
+    former = member.deletion_requested_at is not None
     return {
         'user_id': member.user_id,
         'name': member.get_display_name(),
         'member_type': member.member_type,
-        'member_status': member.member_status,
+        'member_status': 'Former member' if former else member.member_status,
+        'former_member': former,
         'role_number': member.role_number or '',
         # v3.15.1: per-class color for the tree node dot (None if unresolved)
         'class_color': badge['color'] if badge else '',
@@ -105,8 +109,9 @@ def house_map_data():
     house_choices = ParliamentUser.HOUSE_CHOICES
     house_codes = {c[0] for c in house_choices}
 
+    # The App Review demo account (src/app_review.py) is on no house.
     all_members = list(
-        ParliamentUser.objects
+        exclude_review_accounts(ParliamentUser.objects.all())
         .select_related('big_brother')
         .order_by('name')
     )
@@ -142,7 +147,8 @@ def house_map_data():
         trees = [_build_tree(r, all_little_map, code) for r in roots]
 
         total = sum(_count_tree(t) for t in trees)
-        active = sum(1 for m in house_members if m.member_status == 'Active')
+        active = sum(1 for m in house_members
+                     if m.member_status == 'Active' and m.deletion_requested_at is None)
 
         houses.append({
             'code': code,
@@ -157,7 +163,7 @@ def house_map_data():
     # their houses, so they'd sit here forever.
     unassigned = [
         m for m in all_members
-        if not m.house and m.member_status != 'Removed'
+        if not m.house and m.member_status != 'Removed' and m.deletion_requested_at is None
         and not is_original_founder(m.pledge_class, m.pledge_class_greek)
     ]
     return houses, all_members, unassigned

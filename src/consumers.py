@@ -67,6 +67,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     async def chat_message(self, event):
         """Broadcast a new message to all connected clients in the group."""
+        # v4.4.0: not to someone who muted the sender (src/chat_safety.py).
+        if await self._muted(event['message'].get('sender_id')):
+            return
         await self.send(text_data=json.dumps({
             'type': 'message',
             'message': event['message'],
@@ -88,6 +91,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     async def chat_typing(self, event):
         """Broadcast a typing indicator to all clients in the group."""
+        if await self._muted(event.get('user_id')):
+            return
         await self.send(text_data=json.dumps({
             'type': 'typing',
             'user_id': event['user_id'],
@@ -95,6 +100,13 @@ class ChatConsumer(AsyncWebsocketConsumer):
         }))
 
     # ── Helpers ───────────────────────────────────────────────────────────────
+
+    @database_sync_to_async
+    def _muted(self, sender_id):
+        """Has this socket's member muted ``sender_id``? (A cache read, per event.)"""
+        from src.chat_safety import muted_ids
+        user = self.scope.get('user')
+        return sender_id is not None and str(sender_id) in {str(i) for i in muted_ids(user)}
 
     @database_sync_to_async
     def _check_read_permission(self, user, channel_id, via_app=False):

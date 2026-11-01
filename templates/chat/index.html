@@ -8,6 +8,18 @@
     <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
         <h1 class="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">Your Chats</h1>
         <div class="flex flex-wrap gap-2 sm:gap-3">
+            {% if can_moderate_chat %}
+                <a href="{% url 'chat_reports' %}"
+                   class="px-4 sm:px-6 py-2 sm:py-3 text-sm sm:text-base rounded-lg border-2 font-semibold hover:bg-gray-50 transition"
+                   style="border-color: #003DA5; color: #003DA5;">
+                    Chat reports{% if open_chat_reports %} ({{ open_chat_reports }}){% endif %}
+                </a>
+            {% endif %}
+            <a href="{% url 'chat_muted_members' %}"
+               class="px-4 sm:px-6 py-2 sm:py-3 text-sm sm:text-base rounded-lg border-2 font-semibold hover:bg-gray-50 transition"
+               style="border-color: #003DA5; color: #003DA5;">
+                Muted members
+            </a>
             {% if is_admin %}
                 {% if view_all %}
                     <a href="{% url 'chat_index' %}"

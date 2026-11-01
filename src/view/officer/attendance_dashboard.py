@@ -2,6 +2,7 @@
 Attendance Dashboard for Officers
 Provides chapter-wide statistics, member breakdowns, and event series analysis
 """
+from src.app_review import exclude_review_accounts
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404, render
 from django.db.models import Count, Q, Avg, F
@@ -203,7 +204,7 @@ def attendance_dashboard_context(range_filter):
     # attendance rows simply do not appear in the aggregate and fall through to
     # the zero defaults below, exactly as the `if member_total > 0` branch did.
     active_members = list(
-        ParliamentUser.objects.filter(member_status='Active').order_by('name')
+        exclude_review_accounts(ParliamentUser.objects.filter(member_status='Active')).order_by('name')
     )
     _by_member = {}
     for row in (Attendance.objects

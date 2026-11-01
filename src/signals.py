@@ -39,9 +39,9 @@ def log_successful_login(sender, request, user, **kwargs):
         # dropped tracking for the login (v3.15.2 fix).
         ip_address = get_client_ip(request) or 'unknown'
 
-        # Get geolocation data — reuse the 24h-cached lookup already done by
-        # run_post_auth_pipeline() (stashed on the request) instead of making
-        # a second, uncached HTTP call to ip-api.com on every login. The
+        # Get geolocation data — reuse the lookup already done by
+        # run_post_auth_pipeline() (stashed on the request) instead of doing
+        # a second one (a local GeoLite2 read; see geo_utils). The
         # pipeline geo (geo_utils.get_ip_geo) uses lat/lon keys, so map it
         # onto the latitude/longitude shape this handler expects.
         pipeline_ctx = getattr(request, '_login_pipeline', None)
@@ -182,8 +182,8 @@ def _handle_pipeline_login_extras(user, ip_address, login_record, risk_analysis,
     if is_foreign:
         security_log.warning(
             f'LOGIN SUCCESS (NON-US) [{method}]: User {user.username!r} (ID: {user.user_id}) '
-            f'from IP {ip_address} - Location: {geo.get("city", "?")}, {geo.get("country", "?")} '
-            f'(ISP: {geo.get("isp", "?")}). Session flagged as suspicious.'
+            f'from IP {ip_address} - Location: {geo.get("city", "?")}, {geo.get("country", "?")}. '
+            f'Session flagged as suspicious.'
         )
     else:
         security_log.info(
@@ -205,7 +205,6 @@ def _handle_pipeline_login_extras(user, ip_address, login_record, risk_analysis,
                     f'{user.name} logged in via {method} from outside the United States.\n\n'
                     f'Location: {location_str}\n'
                     f'IP: {ip_address}\n'
-                    f'ISP: {geo.get("isp", "Unknown")}\n'
                     f'Coordinates: {geo.get("lat")}, {geo.get("lon")}\n\n'
                     f'The user has been flagged for this session. Sensitive data exports '
                     f'are restricted until they log in from a US IP address.'

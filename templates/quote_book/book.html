@@ -292,6 +292,9 @@
             flagBtn = '<button type="button" class="quote-flag-btn" data-quote-id="' + q.id + '" data-delete="1">Delete Quote</button>';
         } else if (q.can_flag) {
             flagBtn = '<button type="button" class="quote-flag-btn" data-quote-id="' + q.id + '">Flag for removal</button>';
+        } else if (q.can_report) {
+            // v4.4.0: any member can report a quote; it stays up until officers review it.
+            flagBtn = '<button type="button" class="quote-flag-btn quote-report-btn" data-quote-id="' + q.id + '">Report</button>';
         }
         return '<div class="quote-block" data-quote-id="' + q.id + '">' +
             '<blockquote>&ldquo;' + escapeHtml(q.text) + '&rdquo;</blockquote>' +
@@ -395,9 +398,42 @@
     var csrfMeta = document.querySelector('meta[name="csrf-token"]');
     var csrfToken = csrfMeta ? csrfMeta.content : '';
 
+    // Report (src/quote_reports.py): reason + optional details, then the
+    // quote stays — officers review it. Same CSRF and URL-template rules.
+    var reportUrlTemplate = '{% url "report_quote" 0 %}';
+    var reportReasons = {{ report_reasons_json|safe }};  // _script_safe_json
+    function reportQuote(btn) {
+        var menu = reportReasons.map(function(r, i) { return (i + 1) + '. ' + r.label; }).join('\n');
+        var pick = window.prompt('Why are you reporting this quote? Enter a number:\n' + menu);
+        if (pick === null) return;
+        var reason = reportReasons[parseInt(pick, 10) - 1];
+        if (!reason) { window.alert('Choose one of the numbers listed.'); return; }
+        var details = window.prompt('Anything else officers should know? (optional)') || '';
+        var body = new FormData();
+        body.append('reason', reason.value);
+        body.append('details', details);
+        btn.disabled = true;
+        fetch(reportUrlTemplate.replace('/0/', '/' + btn.dataset.quoteId + '/'), {
+            method: 'POST', headers: { 'X-CSRFToken': csrfToken }, body: body,
+        }).then(function(resp) { return resp.json(); }).then(function(data) {
+            if (!data.success) {
+                btn.disabled = false;
+                window.alert(data.message || 'Could not report that quote.');
+                return;
+            }
+            btn.hidden = true;
+            var msg = btn.closest('.quote-block').querySelector('.quote-flagged-msg');
+            if (msg) { msg.textContent = 'Thanks — officers will review this quote.'; msg.hidden = false; }
+        }).catch(function() {
+            btn.disabled = false;
+            window.alert('Could not report that quote — check your connection and try again.');
+        });
+    }
+
     stage.addEventListener('click', function(e) {
         var btn = e.target.closest('.quote-flag-btn');
         if (!btn) return;
+        if (btn.classList.contains('quote-report-btn')) { reportQuote(btn); return; }
 
         // Same click handler for both — `data-delete` only changes the
         // confirm/success copy. Which one actually happens is decided

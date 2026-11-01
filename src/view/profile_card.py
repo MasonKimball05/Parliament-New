@@ -4,6 +4,7 @@ Profile card endpoint — returns JSON for the directory popup modal.
 import json
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse, Http404
+from src.app_review import redact_contact
 from src.models import ParliamentUser
 from src.pledge_classes import badge_context
 
@@ -133,4 +134,8 @@ def profile_card_data(member, viewer):
         'role_history': history,
         'committees': committee_memberships,
     }
-    return data
+    # The App Review demo account sees no one's email or phone (src/app_review.py).
+    # A deleted account is shown as its membership record only (src/account_deletion.py).
+    from src.account_deletion import record_only_card
+    record_only_card(data, member)
+    return redact_contact(data, viewer, member.user_id)

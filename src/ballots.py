@@ -53,7 +53,19 @@ def can_cast_now(user):
     return user.can_vote and attendance_ok(user)
 
 
+#: Shown to the App Review demo account (src/app_review.py), whose ballots
+#: would otherwise count toward real chapter outcomes.
+REVIEW_ACCOUNT_MSG = "This demo account can't cast ballots on chapter business."
+
+
+def _refuse_review_account(user):
+    from src.app_review import is_app_review_account
+    if is_app_review_account(user):
+        raise BallotError('not_eligible', REVIEW_ACCOUNT_MSG)
+
+
 def check_eligible(user):
+    _refuse_review_account(user)
     if not user.can_vote:
         raise BallotError('not_eligible', "Your membership type is not eligible to vote.")
     if not attendance_ok(user):
@@ -118,6 +130,7 @@ def cast(user, legislation, choices, request=None):
     ``{'votes': [...], 'receipt': <token>}``. ``request`` (an HttpRequest) is
     only for the activity log's IP / user agent.
     """
+    _refuse_review_account(user)
     if Vote.objects.filter(user=user, legislation=legislation).exists():
         raise BallotError('already_voted', ALREADY_VOTED_MSG)
     if legislation.voting_closed:
@@ -183,6 +196,7 @@ def cast(user, legislation, choices, request=None):
 # because a chair can end the vote mid-request.
 
 def check_committee_eligible(user, committee):
+    _refuse_review_account(user)
     if not committee.voting_members.filter(pk=user.pk).exists():
         raise BallotError('not_eligible', "You aren't a voting member of this committee.")
     if not attendance_ok(user):
@@ -202,6 +216,7 @@ def cast_committee(user, committee, legislation, choices, request=None):
     from src.models import CommitteeLegislation, CommitteeVote
     # P0: scope to the committee — a voting member of one committee must not
     # be able to cast on another's legislation.
+    _refuse_review_account(user)
     if legislation.committee_id != committee.pk:
         raise BallotError('not_open', "This legislation isn't open for voting.")
     if CommitteeVote.objects.filter(user=user, legislation=legislation).exists():

@@ -1,0 +1,79 @@
+{% extends "legal/base_public.html" %}
+{% block title %}Terms of Use{% endblock %}
+{% block heading %}Terms of Use{% endblock %}
+{% block content %}
+{# v4.4.0. App Store guideline 1.2: apps with member-posted content state a zero-tolerance policy. #}
+<h1 class="text-2xl font-bold text-gray-900 dark:text-white mb-1">Terms of Use</h1>
+<p class="text-gray-500 dark:text-gray-400 mb-8">Effective {{ effective_date|date:"F j, Y" }}</p>
+
+<p class="mb-3">
+    Parliament is the members' website and iPhone app of the Alpha Mu Chapter of Beta Theta Pi at Samford
+    University. By using it you agree to these terms, the chapter's Constitution and Bylaws, and our
+    <a href="{% url 'privacy_policy' %}" class="text-primary-600 dark:text-primary-400 underline">Privacy Policy</a>.
+</p>
+
+<h2 class="text-lg font-semibold text-gray-900 dark:text-white mt-8 mb-2">Your account</h2>
+<ul class="list-disc pl-5 space-y-1 mb-3">
+    <li>Accounts are for chapter members and are issued by chapter officers. Use only your own account and keep your password and devices secure.</li>
+    <li>Chapter business in Parliament, including votes, minutes and Kai matters, is confidential to the chapter. Don't share it outside the chapter except as the bylaws allow.</li>
+</ul>
+
+<h2 class="text-lg font-semibold text-gray-900 dark:text-white mt-8 mb-2">Content you post</h2>
+<p class="mb-3">
+    <strong>There is no tolerance for objectionable content or abusive members.</strong> Don't post anything that
+    harasses, threatens, bullies or demeans anyone; hate speech; sexual content; content that promotes violence,
+    hazing or illegal activity; spam; or anything that shares another person's private information without their
+    permission.
+</p>
+<ul class="list-disc pl-5 space-y-1 mb-3">
+    <li>You can report any chat message or quote.</li>
+    <li>Officers review reports promptly (we aim for within 24 hours), remove content that breaks these terms, and may suspend or remove the account of anyone who posts it, in addition to any action under the chapter's bylaws.</li>
+    <li>You're responsible for what you post. The chapter may keep it as part of its records, as described in the Privacy Policy.</li>
+</ul>
+<p class="mb-3">
+    Chat messages, quotes, comments, feedback and other things members post are the views of the member who
+    posted them, not of the chapter or Beta Theta Pi, and the chapter doesn't endorse them or check them before
+    they appear. The chapter speaks only through its official business: announcements posted by officers, adopted
+    legislation and resolutions, approved minutes, and the Constitution and Bylaws.
+</p>
+
+<h2 class="text-lg font-semibold text-gray-900 dark:text-white mt-8 mb-2">Using Parliament fairly</h2>
+<ul class="list-disc pl-5 space-y-1 mb-3">
+    <li>Don't try to get into another member's account, or into parts of Parliament your role doesn't give you.</li>
+    <li>Don't copy, export or screenshot other members' contact details or confidential chapter business to share outside the chapter.</li>
+    <li>Don't interfere with Parliament: no automated scraping, overloading it, or probing it for weaknesses. If you find a security problem, report it through the support page.</li>
+</ul>
+
+<h2 class="text-lg font-semibold text-gray-900 dark:text-white mt-8 mb-2">Ending your use</h2>
+<p class="mb-3">
+    You can delete your account at any time (see the Privacy Policy). Officers may suspend or close accounts of
+    people who are no longer members or who break these terms.
+</p>
+
+<h2 class="text-lg font-semibold text-gray-900 dark:text-white mt-8 mb-2">No warranty</h2>
+<p class="mb-3">
+    Parliament is run by the chapter's members and provided as is. We work to keep it available and correct, but
+    can't promise it will always be. The official record of chapter business is whatever the chapter's bylaws say
+    it is. To the extent the law allows, the chapter isn't liable for indirect losses, or for losses caused by
+    Parliament being unavailable or by what other members post.
+</p>
+
+<h2 class="text-lg font-semibold text-gray-900 dark:text-white mt-8 mb-2">Changes to these terms</h2>
+<p class="mb-3">
+    If we change these terms, we'll update the date at the top and tell members in Parliament about significant
+    changes. Continuing to use Parliament after a change means you accept the new terms.
+</p>
+
+<h2 class="text-lg font-semibold text-gray-900 dark:text-white mt-8 mb-2">Governing law</h2>
+<p class="mb-3">These terms are governed by the laws of the State of Alabama.</p>
+
+<h2 class="text-lg font-semibold text-gray-900 dark:text-white mt-8 mb-2">The app</h2>
+<p class="mb-3">
+    The iPhone app is also subject to Apple's
+    <a href="https://www.apple.com/legal/internet-services/itunes/dev/stdeula/" class="text-primary-600 dark:text-primary-400 underline" rel="noopener noreferrer">standard licensed application end user license agreement</a>.
+    Apple isn't responsible for Parliament or its content.
+</p>
+
+<h2 class="text-lg font-semibold text-gray-900 dark:text-white mt-8 mb-2">Questions</h2>
+<p class="mb-3">Use the <a href="{% url 'support' %}" class="text-primary-600 dark:text-primary-400 underline">support page</a> to reach the chapter's officers.</p>
+{% endblock %}

@@ -5,6 +5,7 @@ Manage member attendance for a slating voting session.
 Members must be marked present to cast a vote.
 """
 
+from src.app_review import exclude_review_accounts
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
@@ -30,7 +31,7 @@ def manage_attendance(request, period_id):
         member_id = request.POST.get('member_id')
 
         member = get_object_or_404(
-            ParliamentUser,
+            exclude_review_accounts(ParliamentUser.objects.all()),
             user_id=member_id,
             member_status__in=['Active', 'Inactive'],
             member_type__in=['Member', 'Chair', 'Officer']
@@ -55,10 +56,11 @@ def manage_attendance(request, period_id):
         SlatingAttendance.objects.filter(period=period).values_list('member_id', flat=True)
     )
 
-    all_members = ParliamentUser.objects.filter(
+    # The App Review demo account (src/app_review.py) is not a voter.
+    all_members = exclude_review_accounts(ParliamentUser.objects.filter(
         member_status__in=['Active', 'Inactive'],
         member_type__in=['Member', 'Chair', 'Officer']
-    ).order_by('name')
+    )).order_by('name')
 
     members_with_status = [
         {'member': m, 'is_present': m.user_id in present_ids}

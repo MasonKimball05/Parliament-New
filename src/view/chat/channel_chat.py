@@ -2,11 +2,12 @@ from django.shortcuts import render, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse, HttpResponseForbidden
 from django.utils import timezone
-from src.models import ChatChannel, ChatMessage, ChatReadReceipt, Committee
+from src.models import ChatChannel, ChatMessage, ChatMessageReport, ChatReadReceipt, Committee
 from src.models_feature_flags import SiteSetting, FeatureFlag
 from src.feature_flag_decorators import require_feature_flag
 from src.models.users import member_defer
 from src import chat_service
+from src.chat_safety import visible_to
 
 
 # v4.0.0: these live in src/chat_service.py (shared with the app); the old
@@ -37,10 +38,12 @@ def channel_chat(request, channel_id=None, code=None):
         return HttpResponseForbidden("You do not have access to this channel.")
 
     # Get initial messages (last 50), determine whether older ones exist
-    messages_qs = ChatMessage.objects.filter(
+    # v4.4.0: not messages hidden pending review or from members this user
+    # muted (src/chat_safety.py).
+    messages_qs = visible_to(ChatMessage.objects.filter(
         channel=channel,
         is_deleted=False
-    ).select_related('sender').defer(*member_defer('sender')).order_by('-created_at')
+    ), request.user).select_related('sender').defer(*member_defer('sender')).order_by('-created_at')
 
     messages_batch = list(messages_qs[:50])
     has_more_messages = len(messages_batch) == 50
@@ -128,6 +131,8 @@ def channel_chat(request, channel_id=None, code=None):
         'chat_enabled': chat_enabled,
         'notif_pref': notif_pref,
         'notif_pref_choices': ChatNotificationPreference.NOTIFICATION_LEVELS,
+        # v4.4.0 chat safety: the Report / Mute dialog (src/chat_safety.py).
+        'report_reasons': ChatMessageReport.REASON_CHOICES,
     })
 
 
@@ -159,25 +164,25 @@ def get_channel_messages(request, channel_id=None, code=None):
                 raise ValueError('unparseable')
         except (ValueError, TypeError):
             return JsonResponse({'error': 'Invalid since timestamp'}, status=400)
-        messages = ChatMessage.objects.filter(
+        messages = visible_to(ChatMessage.objects.filter(
             channel=channel,
             created_at__gt=since_dt,
             is_deleted=False
-        ).select_related('sender').defer(*member_defer('sender')).order_by('created_at')
+        ), request.user).select_related('sender').defer(*member_defer('sender')).order_by('created_at')
     elif before:
         # Load more: get messages before this timestamp (older history)
-        messages_qs = ChatMessage.objects.filter(
+        messages_qs = visible_to(ChatMessage.objects.filter(
             channel=channel,
             created_at__lt=before,
             is_deleted=False
-        ).select_related('sender').defer(*member_defer('sender')).order_by('-created_at')[:50]
+        ), request.user).select_related('sender').defer(*member_defer('sender')).order_by('-created_at')[:50]
         messages = list(reversed(list(messages_qs)))
     else:
         # Initial load fallback
-        messages_qs = ChatMessage.objects.filter(
+        messages_qs = visible_to(ChatMessage.objects.filter(
             channel=channel,
             is_deleted=False
-        ).select_related('sender').defer(*member_defer('sender')).order_by('-created_at')[:50]
+        ), request.user).select_related('sender').defer(*member_defer('sender')).order_by('-created_at')[:50]
         messages = list(reversed(list(messages_qs)))
 
     # Update read receipt (marks user as active + invalidates nav badge cache)

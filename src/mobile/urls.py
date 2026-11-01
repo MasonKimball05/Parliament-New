@@ -17,6 +17,7 @@ from src.mobile import (
     views_roberts_rules, views_profile, views_groupme, views_support,
     views_house_map, views_kai, views_support_history, views_passed_legislation, views_search,
     views_role_kb, views_officer_events, views_service_hours, views_service_review, views_changelog,
+    views_account, views_chat_safety,
 )
 
 app_name = 'mobile'
@@ -185,6 +186,9 @@ urlpatterns = [
     path('quote-book/', views_songbook.QuoteBookView.as_view(), name='mobile_quote_book'),
     path('quote-book/members/', views_songbook.QuoteMembersView.as_view(), name='mobile_quote_members'),
     path('quote-book/flagged/', views_songbook.QuoteFlaggedView.as_view(), name='mobile_quote_flagged'),
+    path('quote-book/<int:quote_id>/report/', views_songbook.QuoteReportView.as_view(), name='mobile_quote_report'),
+    path('quote-book/<int:quote_id>/reports/review/', views_songbook.QuoteReportReviewView.as_view(),
+         name='mobile_quote_report_review'),
     path('quote-book/<int:quote_id>/flag/', views_songbook.QuoteFlagView.as_view(), name='mobile_quote_flag'),
     path('quote-book/<int:quote_id>/restore/', views_songbook.QuoteRestoreView.as_view(), name='mobile_quote_restore'),
     # Report a bug + Feedback (v4.4.0, src/mobile/views_support.py)
@@ -225,6 +229,12 @@ urlpatterns = [
     path('profile/academics/<str:kind>/<int:index>/', views_profile.AcademicItemView.as_view(),
          name='mobile_profile_academic'),
     path('roberts-rules/', views_roberts_rules.RobertsRulesView.as_view(), name='mobile_roberts_rules'),  # v4.4.0
+    # Delete account (v4.4.0, views_account.py; Apple guideline 5.1.1(v))
+    path('account/delete/', views_account.AccountDeleteView.as_view(), name='mobile_account_delete'),
+    path('account/delete/passkey/begin/', views_account.AccountPasskeyBeginView.as_view(),
+         name='mobile_account_delete_passkey_begin'),
+    path('account/delete/passkey/complete/', views_account.AccountPasskeyCompleteView.as_view(),
+         name='mobile_account_delete_passkey_complete'),
     path('house-map/', views_house_map.HouseMapView.as_view(), name='mobile_house_map'),  # v4.4.0
     path('search/', views_search.SearchView.as_view(), name='mobile_search'),  # v4.4.0
     # Role knowledge base, What's new + roadmap (v4.4.0)
@@ -339,6 +349,13 @@ urlpatterns = [
          views_votes.CommitteeVoteDetailView.as_view(), name='mobile_committee_vote'),
     path('committees/<str:code>/votes/<int:legislation_id>/cast/',
          views_votes.CommitteeVoteCastView.as_view(), name='mobile_committee_vote_cast'),
+    # Chat reports and mutes (v4.4.0, views_chat_safety.py; Apple guideline 1.2)
+    path('chat/messages/<int:message_id>/report/', views_chat_safety.ReportMessageView.as_view(),
+         name='mobile_chat_report'),
+    path('chat/mutes/', views_chat_safety.MutesView.as_view(), name='mobile_chat_mutes'),
+    path('chat/mutes/<str:user_id>/', views_chat_safety.UnmuteView.as_view(), name='mobile_chat_unmute'),
+    path('chat/reports/', views_chat_safety.ReportListView.as_view(), name='mobile_chat_reports'),
+    path('chat/reports/<int:report_id>/', views_chat_safety.ReportReviewView.as_view(), name='mobile_chat_report_review'),
     path('chat/channels/', views_chat.ChannelListView.as_view(), name='mobile_chat_channels'),
     path('chat/channels/<int:channel_id>/messages/', views_chat.MessageListView.as_view(),
          name='mobile_chat_messages'),

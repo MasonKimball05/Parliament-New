@@ -27,6 +27,7 @@ from django.urls import reverse
 from django.utils import timezone
 from django_otp.plugins.otp_totp.models import TOTPDevice
 
+from src.geo_utils import get_ip_geo as _real_get_ip_geo
 from src.mobile import tokens
 from src.models import ChatChannel, Notification, ParliamentUser, TwoFactorRequirement
 from src.models.mobile import MobileDevice
@@ -151,23 +152,31 @@ class HandoffGeoTests(MobileTestCase):
         _handoff(web, access)
         self.assertIs(web.session['login_geo_suspicious'], False)
 
-    def test_handoff_ip_is_re_evaluated_from_the_cache(self):
+    def test_handoff_ip_is_re_evaluated(self):
         user = make_pw_user('geo5')
         access = self.login(user.username).json()['access_token']
-        cache.set('geo_203.0.113.9', FOREIGN_GEO, 60)
         web = Client()
-        _handoff(web, access, REMOTE_ADDR='203.0.113.9')
+        with mock.patch('src.geo_utils.get_ip_geo',
+                        side_effect=lambda ip, *a, **k: FOREIGN_GEO if ip == '203.0.113.9' else {}):
+            _handoff(web, access, REMOTE_ADDR='203.0.113.9')
         self.assertIs(web.session['login_geo_suspicious'], True)
         self.assertEqual(web.session['login_geo_country'], 'France')
 
-    def test_handoff_never_makes_an_uncached_lookup(self):
+    def test_handoff_never_makes_a_network_lookup(self):
+        # The handoff re-checks the IP with the local GeoLite2 reader; with no
+        # database (or an IP it does not know) it gives the benefit of the doubt.
         user = make_pw_user('geo6')
         access = self.login(user.username).json()['access_token']
         web = Client()
-        with mock.patch('src.geo_utils.requests.get', side_effect=AssertionError('network')) as get:
+        # Undo MobileTestCase's get_ip_geo stub so the real lookup runs.
+        with mock.patch('src.geo_utils.get_ip_geo', _real_get_ip_geo), \
+                mock.patch('src.geo_utils._get_reader', return_value=None), \
+                mock.patch('requests.get', side_effect=AssertionError('network')) as get, \
+                mock.patch('urllib.request.urlopen', side_effect=AssertionError('network')) as urlopen:
             r = _handoff(web, access, REMOTE_ADDR='203.0.113.10')
         self.assertEqual(r.status_code, 303)
         get.assert_not_called()
+        urlopen.assert_not_called()
         self.assertIs(web.session['login_geo_suspicious'], False)
 
 

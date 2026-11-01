@@ -4,6 +4,7 @@ Service Hours Officer Dashboard Views
 VPP-facing views for managing service hours submissions, periods, and member expectations.
 """
 
+from src.app_review import exclude_review_accounts
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
@@ -85,9 +86,10 @@ def dashboard_data(current_period):
         }
 
         # Member progress for current period
-        active_members = ParliamentUser.objects.filter(
+        # The App Review demo account (src/app_review.py) owes no hours.
+        active_members = exclude_review_accounts(ParliamentUser.objects.filter(
             member_status='Active'
-        ).exclude(member_type='Advisor')
+        )).exclude(member_type='Advisor')
 
         # v3.18.6 — FOUR PER-MEMBER QUERIES COLLAPSED INTO FOUR TOTAL.
         #
@@ -378,7 +380,7 @@ def view_service_submissions(request):
 
     # Get filter options
     all_periods = ServicePeriod.objects.all().order_by('-start_date')
-    all_members = ParliamentUser.objects.filter(member_status='Active').order_by('name')
+    all_members = exclude_review_accounts(ParliamentUser.objects.filter(member_status='Active')).order_by('name')
 
     context = {
         'submissions': submissions,
@@ -1053,7 +1055,7 @@ def service_event_detail(request, service_event_id):
     event = se.event
 
     # All active members with their attendance status for this event
-    members = ParliamentUser.objects.filter(member_status='Active').order_by('name')
+    members = exclude_review_accounts(ParliamentUser.objects.filter(member_status='Active')).order_by('name')
     existing = {
         att.user_id: att
         for att in Attendance.objects.filter(event=event, attendance_type='event').select_related('user').defer(*member_defer('user'))
@@ -1215,7 +1217,7 @@ def service_event_attendance(request, service_event_id):
     event = se.event
     is_read_only = se.hours_applied
 
-    members = list(ParliamentUser.objects.filter(member_status='Active').order_by('name'))
+    members = list(exclude_review_accounts(ParliamentUser.objects.filter(member_status='Active')).order_by('name'))
 
     if request.method == 'POST' and not is_read_only:
         action = request.POST.get('action')

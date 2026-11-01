@@ -93,8 +93,10 @@ from src.models.chat import (
     ChatChannel,
     ChatChannelPermission,
     ChatMessage,
+    ChatMessageReport,
     ChatNotificationPreference,
     ChatReadReceipt,
+    ChatUserMute,
 )
 
 # Kai
@@ -110,7 +112,7 @@ from src.models.kai import (
     KaiAppeal,
     KaiBreakGlassGrant,
 )
-from src.models.quote_book import Quote
+from src.models.quote_book import Quote, QuoteReport
 from src.models.kai_commendations import (
     KaiCommendation,
     KaiCommendationActivity,
@@ -324,8 +326,10 @@ __all__ = [
     'ChatChannel',
     'ChatChannelPermission',
     'ChatMessage',
+    'ChatMessageReport',
     'ChatNotificationPreference',
     'ChatReadReceipt',
+    'ChatUserMute',
     # Kai
     'KaiReport',
     'KaiReportActivity',
@@ -342,6 +346,7 @@ __all__ = [
     'KaiCommendationFieldResponse',
     # Quote Book
     'Quote',
+    'QuoteReport',
     # Slating
     'SlatingPeriod',
     'SlatingPosition',

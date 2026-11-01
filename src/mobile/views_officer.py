@@ -39,6 +39,7 @@ from django.utils import timezone
 from rest_framework import exceptions
 from rest_framework.response import Response
 
+from src import chat_safety
 from src.feature_flag_decorators import check_feature_enabled
 from src.forms.announcements import AnnouncementForm
 from src.forms.events import EventForm
@@ -121,6 +122,7 @@ class OfficerHubView(_OfficerView):
         now = timezone.now()
         attendance = list(_awaiting_attendance(now)[:10]) if _attendance_on() else []
         can_review_service = user_is_vpp(request.user)
+        can_moderate_chat = chat_safety.can_moderate_chat(request.user)
         return Response({
             'pending_excuses': (AttendanceExcuse.objects.filter(status='pending').count()
                                 if _excuses_on() else None),
@@ -133,6 +135,10 @@ class OfficerHubView(_OfficerView):
             'can_review_service': can_review_service,
             'pending_service': (ServiceHoursSubmission.objects.filter(status='pending').count()
                                 if can_review_service else None),
+            # Chat reports (views_chat_safety): src/chat_safety.can_moderate_chat.
+            'can_moderate_chat': can_moderate_chat,
+            'open_chat_reports': (chat_safety.open_report_count(request.user)
+                                  if can_moderate_chat else None),
         })
 
 

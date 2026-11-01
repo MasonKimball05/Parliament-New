@@ -10,6 +10,7 @@ from src.models import (
     PassedResolution, SlatingPeriod, KaiReport
 )
 from django.utils import timezone
+from src.app_review import is_app_review_account
 from src.feature_flag_decorators import require_feature_flag
 from src.models_feature_flags import FeatureFlag
 from src.view.kai_reports import _get_kai_access
@@ -227,8 +228,9 @@ def search_everything(query, user):
     if committee_docs:
         results['committee_documents'] = committee_docs
 
-    # Search Users (name, username) - only for officers
-    if user.is_officer:
+    # Search Users (name, username) - only for officers. Never for the App
+    # Review demo account (src/app_review.py), whatever its type.
+    if user.is_officer and not is_app_review_account(user):
         # ⚠️ v3.25.0 — `role_number` IS WHAT A MEMBER IS CALLED. Searching
         # `user_id` alone found everyone only because, until v3.23.0, initiation
         # copied the roll number INTO the primary key. It no longer does: a

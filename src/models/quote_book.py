@@ -159,3 +159,50 @@ class Quote(models.Model):
         if pk is not None and pk in (self.quoted_member_id, self.flagged_by_id):
             return True
         return bool(getattr(user, 'is_officer', False))
+
+
+class QuoteReport(models.Model):
+    """
+    A member reporting a quote as objectionable (v4.4.0, App Store guideline
+    1.2; the Terms promise any member can report any quote). Open to every
+    member who can see the book — unlike the involved-party flag above, a
+    report does NOT hide the quote: it notifies officers and puts the quote in
+    the flagged/review queue. Enough distinct reporters
+    (`src.chat_safety.AUTO_HIDE_THRESHOLD`) hide it pending review. Rules:
+    `src/quote_reports.py`. Who reported is visible to officers only.
+    """
+
+    STATUS_OPEN = 'open'
+    STATUS_DISMISSED = 'dismissed'
+    STATUS_ACTIONED = 'actioned'
+    STATUS_CHOICES = [
+        (STATUS_OPEN, 'Open'),
+        (STATUS_DISMISSED, 'Dismissed'),
+        (STATUS_ACTIONED, 'Quote hidden'),
+    ]
+
+    quote = models.ForeignKey(Quote, on_delete=models.CASCADE, related_name='reports')
+    reporter = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+                                 related_name='quote_reports_made')
+    #: The same reasons as a chat report (ChatMessageReport.REASON_CHOICES).
+    reason = models.CharField(max_length=20)
+    details = models.TextField(blank=True, max_length=1000)
+    created_at = models.DateTimeField(auto_now_add=True)
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default=STATUS_OPEN)
+    reviewed_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True,
+                                    blank=True, related_name='quote_reports_reviewed')
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    action_note = models.CharField(max_length=500, blank=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        constraints = [
+            models.UniqueConstraint(fields=['quote', 'reporter'], name='unique_quote_report_per_reporter'),
+        ]
+
+    def __str__(self):
+        return f'Report {self.pk} on quote {self.quote_id} ({self.status})'
+
+    def get_reason_display(self):
+        from src.models.chat import ChatMessageReport
+        return dict(ChatMessageReport.REASON_CHOICES).get(self.reason, self.reason)

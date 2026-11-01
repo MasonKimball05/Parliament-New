@@ -229,3 +229,21 @@ def prune_expired_chat_permissions():
             logger.info(f"[tasks] prune_expired_chat_permissions: removed {deleted} expired permission(s)")
     except Exception as exc:
         logger.error(f"[tasks] prune_expired_chat_permissions failed: {exc}")
+
+
+@shared_task(name='tasks.purge_deleted_accounts')
+def purge_deleted_accounts():
+    """
+    Permanently erase the personal data of accounts deleted ``PURGE_AFTER``
+    (30 days) ago — ``src/account_deletion.py``. The membership record is kept.
+    Nothing postpones it except an admin restore. Idempotent.
+    """
+    try:
+        from src.account_deletion import purge_due_deletions
+        count = purge_due_deletions()
+        if count:
+            logger.info(f"[tasks] purge_deleted_accounts: erased {count} account(s)")
+        return count
+    except Exception as exc:
+        logger.error(f"[tasks] purge_deleted_accounts failed: {exc}")
+        return 0

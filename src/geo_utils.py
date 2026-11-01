@@ -1,149 +1,182 @@
 """
 Shared IP geolocation utility for Parliament.
-Uses ip-api.com (free, no API key, 45 req/min).
-Results are cached 24h per IP to avoid redundant lookups.
+
+Lookups are LOCAL: a MaxMind GeoLite2 City database (``.mmdb``) on the
+server's disk, read with the ``maxminddb`` package. No member or attacker IP
+address ever leaves the server — there is no network call anywhere in this
+module, and none as a fallback.
+
+(This previously called ip-api.com over plain HTTP, sending every login IP
+and its timing to a third party in cleartext. That code path, its
+``GEO_API_BASE_URL`` setting and its rate-limit circuit breaker are gone.)
+
+The database path is ``settings.GEOIP_CITY_DB`` (env ``GEOIP_CITY_DB``). If
+the file is missing or unreadable, every lookup returns ``{}`` — the same
+"lookup failed" result callers already handle (``is_foreign_ip`` gives the
+benefit of the doubt) — and a warning is logged once per process. Setup:
+DEPLOYMENT.md, "IP geolocation (GeoLite2)".
+
+GeoLite2 City has no ISP/organisation/ASN data, so ``isp``, ``org`` and ``as``
+are always ``''``. They are kept in the dict so its shape is unchanged.
 """
 import logging
-import requests
+import os
+import threading
+import time
+
 from django.conf import settings
-from django.core.cache import cache
 
 logger = logging.getLogger(__name__)
-
-# Base URL for the IP geolocation provider. Defaults to ip-api.com's free
-# (HTTP-only) endpoint. Set GEO_API_BASE_URL in the environment to an HTTPS
-# endpoint (e.g. an ip-api.com Pro URL) to avoid sending lookups in cleartext.
-GEO_API_BASE_URL = getattr(settings, 'GEO_API_BASE_URL', 'http://ip-api.com/json/')
 
 PRIVATE_PREFIXES = ('10.', '172.16.', '172.17.', '172.18.', '172.19.',
                     '172.20.', '172.21.', '172.22.', '172.23.', '172.24.',
                     '172.25.', '172.26.', '172.27.', '172.28.', '172.29.',
                     '172.30.', '172.31.', '192.168.', '127.', '::1', 'unknown')
 
-API_FIELDS = 'status,country,countryCode,regionName,city,zip,lat,lon,isp,org,as,query'
+# How often (seconds) a process re-checks the database file: to pick up the
+# weekly `geoipupdate` refresh (it replaces the file, so an open reader keeps
+# serving the old copy) and to notice a file that was missing at start-up.
+_RECHECK_INTERVAL = 300
 
-# --- Circuit breaker (v3.15.2) --------------------------------------------
-# ip-api.com's free tier is 45 req/min. A brute-force/scanner flood on
-# /login/ (each attempt does a geo lookup — including FAILED logins) blew past
-# that, the calls stalled at the timeout, and the blocking calls piled up on
-# Daphne's shared sync executor until the server wedged → 502 (07-19 incident).
-# The breaker caps that: after a run of failures/timeouts the lookup
-# short-circuits to {} INSTANTLY for a cooldown, so no matter how many unique
-# IPs hammer login, the number of slow blocking calls is bounded. Cached IPs
-# still resolve normally while the breaker is open. State lives in the shared
-# cache (Redis) so it's coordinated across worker processes.
-_BREAKER_OPEN_KEY = 'geo_breaker_open'
-_BREAKER_FAIL_KEY = 'geo_breaker_fails'
-_BREAKER_FAIL_THRESHOLD = 5      # consecutive-ish failures to trip
-_BREAKER_FAIL_WINDOW = 120       # seconds the failure count accrues over
-_BREAKER_COOLDOWN = 300          # seconds the breaker stays open once tripped
-
-# Negative cache: remember a failed lookup for a single IP so a repeat hit on
-# the same bad/unresolved IP doesn't re-issue the external call. Short TTL so a
-# transient failure (or a valid IP caught during a brief provider blip) is
-# retried soon. Only the geo *label* is affected — is_foreign_ip treats an
-# empty geo as "benefit of the doubt" (same as a private IP), so there's no
-# security regression, and once the breaker is open failures short-circuit
-# before this point (so at most a handful of IPs are ever negative-cached).
-_NEG_CACHE_TTL = 300             # seconds to remember a failed lookup per IP
+# Lazily-opened, process-wide reader. maxminddb readers are safe to share
+# between threads for lookups; the lock only guards opening/replacing it.
+_lock = threading.Lock()
+_reader = None
+_reader_mtime = None
+_next_check = 0.0
+_warned = False
 
 
-def _breaker_is_open():
-    return cache.get(_BREAKER_OPEN_KEY) is not None
+def _db_path():
+    return getattr(settings, 'GEOIP_CITY_DB', '') or ''
 
 
-def _breaker_record_failure():
-    # Atomic increment so simultaneous failures across worker processes aren't
-    # lost. A plain get()+set() (what this used to be) can drop concurrent
-    # increments and delay tripping the breaker under exactly the flood it
-    # guards against. cache.add() seeds the counter only if absent (no-op if it
-    # already exists), so the window TTL is fixed from the first failure and the
-    # count rolls over that window; incr() is atomic on Redis.
-    cache.add(_BREAKER_FAIL_KEY, 0, _BREAKER_FAIL_WINDOW)
-    try:
-        n = cache.incr(_BREAKER_FAIL_KEY)
-    except ValueError:
-        # Counter expired between add() and incr() — reseed.
-        cache.set(_BREAKER_FAIL_KEY, 1, _BREAKER_FAIL_WINDOW)
-        n = 1
-    if n >= _BREAKER_FAIL_THRESHOLD:
-        cache.set(_BREAKER_OPEN_KEY, True, _BREAKER_COOLDOWN)
-        logger.warning(
-            "Geo lookup circuit breaker OPEN — ip-api.com failing/throttling; "
-            "skipping lookups for %ss.", _BREAKER_COOLDOWN)
+def _warn_once(message, *args):
+    global _warned
+    if not _warned:
+        _warned = True
+        logger.warning(message, *args)
 
 
-def _breaker_record_success():
-    cache.delete(_BREAKER_FAIL_KEY)
-    cache.delete(_BREAKER_OPEN_KEY)
-
-
-def get_ip_geo(ip_address, timeout=2):
+def _get_reader():
     """
-    Return geolocation dict for an IP address.
-    Returns {} for private/local IPs, or on any lookup failure.
-    Always returns within `timeout` seconds (and instantly when the circuit
-    breaker is open — see above).
+    The open GeoLite2 reader, or ``None`` when the database is unavailable.
+    Never raises, never touches the network.
+    """
+    global _reader, _reader_mtime, _next_check
+    now = time.monotonic()
+    if now < _next_check:
+        return _reader
+    with _lock:
+        if now < _next_check:
+            return _reader
+        _next_check = now + _RECHECK_INTERVAL
+        path = _db_path()
+        try:
+            mtime = os.stat(path).st_mtime if path else None
+        except OSError:
+            mtime = None
+        if mtime is None:
+            if _reader is None:
+                _warn_once(
+                    'GeoIP database not found at %r (settings.GEOIP_CITY_DB); '
+                    'IP geolocation is disabled until it exists. See '
+                    'DEPLOYMENT.md "IP geolocation (GeoLite2)".', path)
+            # A reader that is already open keeps working (its file was
+            # mid-replacement, or was removed after it was opened).
+            return _reader
+        if _reader is not None and mtime == _reader_mtime:
+            return _reader
+        try:
+            import maxminddb
+            new_reader = maxminddb.open_database(path)
+        except Exception as e:  # ImportError, InvalidDatabaseError, OSError
+            _warn_once('GeoIP database %r could not be opened (%s); IP '
+                       'geolocation is disabled.', path, e)
+            return _reader
+        old, _reader, _reader_mtime = _reader, new_reader, mtime
+        if old is not None:
+            try:
+                old.close()
+            except Exception:  # nosec B110 # closing a stale reader is best-effort
+                pass
+        return _reader
 
-    Cached 24h per IP. Dict keys:
+
+def _reset():
+    """Forget the open reader and the warn-once flag (tests; settings change)."""
+    global _reader, _reader_mtime, _next_check, _warned
+    with _lock:
+        old, _reader, _reader_mtime, _next_check, _warned = _reader, None, None, 0.0, False
+    if old is not None:
+        try:
+            old.close()
+        except Exception:  # nosec B110 # closing a stale reader is best-effort
+            pass
+
+
+def _name(node):
+    return ((node or {}).get('names') or {}).get('en', '') or ''
+
+
+def _record_to_geo(record):
+    """A GeoLite2-City record → the dict shape callers rely on."""
+    country = record.get('country') or record.get('registered_country') or {}
+    subdivisions = record.get('subdivisions') or [{}]
+    location = record.get('location') or {}
+    return {
+        'country': _name(country),
+        'country_code': country.get('iso_code', '') or '',
+        'region': _name(subdivisions[0]),
+        'city': _name(record.get('city')),
+        'zip': (record.get('postal') or {}).get('code', '') or '',
+        'lat': location.get('latitude'),
+        'lon': location.get('longitude'),
+        # Not in GeoLite2 City — kept for shape compatibility.
+        'isp': '',
+        'org': '',
+        'as': '',
+    }
+
+
+def get_ip_geo(ip_address, timeout=None):
+    """
+    Return geolocation dict for an IP address, from the local database.
+    Returns {} for private/local IPs, an unparseable address, an IP the
+    database has no entry for, or when the database is unavailable.
+
+    ``timeout`` is accepted for backward compatibility and ignored (the lookup
+    is a local memory-mapped read, microseconds).
+
+    Dict keys:
         country, country_code, region, city, zip, lat, lon, isp, org, as
+    (isp/org/as are always '' — GeoLite2 City does not carry them.)
     """
     if not ip_address or any(ip_address.startswith(p) for p in PRIVATE_PREFIXES):
         return {}
-
-    cache_key = f'geo_{ip_address}'
-    cached = cache.get(cache_key)
-    if cached is not None:
-        return cached
-
-    # Uncached IP: if the provider is currently failing, don't make the call —
-    # returning {} instantly is what prevents the login-flood wedge.
-    if _breaker_is_open():
+    reader = _get_reader()
+    if reader is None:
         return {}
-
     try:
-        resp = requests.get(
-            f'{GEO_API_BASE_URL}{ip_address}',
-            params={'fields': API_FIELDS},
-            timeout=timeout,
-        )
-        data = resp.json()
-        if data.get('status') == 'success':
-            geo = {
-                'country': data.get('country', ''),
-                'country_code': data.get('countryCode', ''),
-                'region': data.get('regionName', ''),
-                'city': data.get('city', ''),
-                'zip': data.get('zip', ''),
-                'lat': data.get('lat'),
-                'lon': data.get('lon'),
-                'isp': data.get('isp', ''),
-                'org': data.get('org', ''),
-                'as': data.get('as', ''),
-            }
-            cache.set(cache_key, geo, 86400)
-            _breaker_record_success()
-            return geo
-        else:
-            # Non-success includes rate-limit responses — count toward the breaker.
-            logger.warning(f"ip-api.com returned non-success for {ip_address}: {data.get('message')}")
-            _breaker_record_failure()
-            cache.set(cache_key, {}, _NEG_CACHE_TTL)
-            return {}
-    except Exception as e:
-        logger.warning(f"Geo lookup failed for {ip_address}: {e}")
-        _breaker_record_failure()
-        cache.set(cache_key, {}, _NEG_CACHE_TTL)
+        record = reader.get(ip_address)
+    except Exception as e:  # ValueError for a malformed address
+        logger.debug('Geo lookup failed for %r: %s', ip_address, e)
         return {}
+    if not isinstance(record, dict):
+        return {}
+    geo = _record_to_geo(record)
+    if not (geo['country_code'] or geo['city'] or geo['lat'] is not None):
+        return {}
+    return geo
 
 
-def is_foreign_ip(ip_address, trusted_country='US', timeout=2):
+def is_foreign_ip(ip_address, trusted_country='US', timeout=None):
     """
     Returns (is_foreign, geo_dict).
     is_foreign is True if the IP resolves to a country other than trusted_country.
     Returns (False, {}) for private IPs or lookup failures — benefit of the doubt.
     """
-    geo = get_ip_geo(ip_address, timeout=timeout)
+    geo = get_ip_geo(ip_address)
     if not geo:
         return False, geo
     country_code = geo.get('country_code', '')
@@ -154,15 +187,10 @@ def is_foreign_ip(ip_address, trusted_country='US', timeout=2):
 
 def cached_is_foreign_ip(ip_address, trusted_country='US'):
     """
-    ``is_foreign_ip`` from the 24 h cache ONLY — never a network call, so it is
-    safe on a hot request path (the mobile web-view handoff). Returns
-    ``(is_foreign, geo)``, or ``(False, {})`` when the IP is private or not
-    cached (same benefit of the doubt as a failed lookup).
+    ``is_foreign_ip`` for a hot request path (the mobile web-view handoff).
+
+    This used to read only the 24 h ip-api.com cache so it could never block
+    on the network. Lookups are now local and cheap, so it is the same as
+    ``is_foreign_ip``; the name is kept for its caller.
     """
-    if not ip_address or any(ip_address.startswith(p) for p in PRIVATE_PREFIXES):
-        return False, {}
-    geo = cache.get(f'geo_{ip_address}') or {}
-    country_code = geo.get('country_code', '') if isinstance(geo, dict) else ''
-    if not country_code:
-        return False, {}
-    return country_code != trusted_country, geo
+    return is_foreign_ip(ip_address, trusted_country=trusted_country)

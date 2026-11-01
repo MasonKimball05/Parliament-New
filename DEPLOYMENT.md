@@ -191,6 +191,108 @@ python manage.py collectstatic --noinput
 python manage.py runserver 0.0.0.0:8000
 ```
 
+### 5a. IP geolocation (GeoLite2)
+
+Login history, foreign-login detection ("impossible travel", the non-US
+session flag and export restriction), watch-flag alerts and honeypot logs
+look IP addresses up in a **local** MaxMind GeoLite2 City database
+(`src/geo_utils.py`). No IP address is sent to any outside service. Without
+the database, sign-in works normally but every lookup comes back empty (no
+location on LoginHistory, nobody flagged as non-US), and the app logs one
+`GeoIP database not found` warning per worker.
+
+1. **Create a free MaxMind account** at
+   https://www.maxmind.com/en/geolite2/signup, then under
+   *Account → Manage License Keys* generate a license key. Note the
+   **Account ID** and the **license key**.
+
+2. **Install `geoipupdate`:**
+
+   ```bash
+   # Debian (package is in "contrib")
+   sudo apt install geoipupdate
+   # Ubuntu
+   sudo add-apt-repository ppa:maxmind/ppa
+   sudo apt update && sudo apt install geoipupdate
+   ```
+
+3. **Configure `/etc/GeoIP.conf`** (keep it `root`-owned, mode `600` —
+   it holds the license key):
+
+   ```
+   AccountID 123456
+   LicenseKey your_license_key
+   EditionIDs GeoLite2-City
+   DatabaseDirectory /var/lib/GeoIP
+   ```
+
+4. **Download the database now:**
+
+   ```bash
+   sudo geoipupdate -v
+   ls -l /var/lib/GeoIP/GeoLite2-City.mmdb   # must be readable by the app user
+   ```
+
+5. **Keep it updated weekly** (MaxMind publishes GeoLite2 twice a week, and
+   the GeoLite2 licence requires using the current data). A systemd timer:
+
+   ```ini
+   # /etc/systemd/system/geoipupdate.service
+   [Unit]
+   Description=Update MaxMind GeoLite2 databases
+   Wants=network-online.target
+   After=network-online.target
+
+   [Service]
+   Type=oneshot
+   ExecStart=/usr/bin/geoipupdate
+   ```
+
+   ```ini
+   # /etc/systemd/system/geoipupdate.timer
+   [Unit]
+   Description=Weekly GeoLite2 update
+
+   [Timer]
+   OnCalendar=Wed *-*-* 04:00:00
+   RandomizedDelaySec=1h
+   Persistent=true
+
+   [Install]
+   WantedBy=timers.target
+   ```
+
+   ```bash
+   sudo systemctl daemon-reload
+   sudo systemctl enable --now geoipupdate.timer
+   ```
+
+   (Or cron: `0 4 * * 3 root /usr/bin/geoipupdate` in `/etc/cron.d/geoipupdate`.)
+   No restart is needed after an update: each worker re-checks the file every
+   5 minutes and reopens it when it has changed.
+
+6. **Point the app at it.** The default is
+   `/var/lib/GeoIP/GeoLite2-City.mmdb`; set `GEOIP_CITY_DB` in `.env` only if
+   the file lives elsewhere. For Docker, mount the directory read-only (e.g.
+   `- /var/lib/GeoIP:/var/lib/GeoIP:ro` under the web service's `volumes`) and
+   run `geoipupdate` on the host.
+
+7. **Verify:**
+
+   ```bash
+   python manage.py shell -c "from src.geo_utils import get_ip_geo; print(get_ip_geo('8.8.8.8'))"
+   # → {'country': 'United States', 'country_code': 'US', ...}
+   ```
+
+   Honeypot rows recorded while the database was missing can then be filled in
+   with `python manage.py backfill_honeypot_geo`.
+
+**Attribution.** The GeoLite2 licence requires crediting MaxMind wherever the
+data is used, e.g. on the privacy policy / about page: *"This product includes
+GeoLite2 data created by MaxMind, available from
+https://www.maxmind.com."* GeoLite2 City has no ISP data, so the ISP line in
+watch-flag alert emails reads "Unknown".
+
 ### 6. Gunicorn Setup
 
 Create systemd service file:

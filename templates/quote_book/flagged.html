@@ -19,12 +19,13 @@
             </div>
             <div>
                 <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                    {% if viewing_as_officer %}Flagged Quotes{% else %}Quotes You Can Restore{% endif %}
+                    {% if viewing_as_officer %}Flagged &amp; Reported Quotes{% else %}Quotes You Can Restore{% endif %}
                 </h1>
                 <p class="text-gray-600 dark:text-gray-400 text-sm">
                     {% if viewing_as_officer %}
-                    Every quote currently hidden from the book. Flagging needs no approval — this is a place
-                    to look afterward, not a queue to approve before a flag takes effect.
+                    Every quote currently hidden from the book, and quotes members reported. Flagging needs no
+                    approval — this is a place to look afterward. A report doesn't hide a quote until several
+                    members report it; dismiss the reports or hide the quote. Only officers see who reported.
                     {% else %}
                     Quotes you flagged, or flagged quotes on your own chapter — restore one if it was
                     a mistake or you've changed your mind.
@@ -50,17 +51,42 @@
                     <p class="mt-3 text-xs text-gray-400 dark:text-gray-500">
                         Submitted by {% if quote.submitted_by %}{{ quote.submitted_by.get_display_name }}{% else %}Unknown{% endif %}
                         on {{ quote.created_at|date:"M j, Y" }}
+                        {% if quote.flagged_at %}
                         &middot;
-                        Flagged by {% if quote.flagged_by %}{{ quote.flagged_by.get_display_name }}{% else %}Unknown{% endif %}
+                        {% if quote.flagged_by %}Flagged by {{ quote.flagged_by.get_display_name }}{% else %}Hidden after member reports{% endif %}
                         on {{ quote.flagged_at|date:"M j, Y" }}
+                        {% else %}
+                        &middot; Still in the book
+                        {% endif %}
                     </p>
+                    {% if quote.open_report_rows %}
+                    {# v4.4.0 reports (src/quote_reports.py) — reporter identity, officers only. #}
+                    <ul class="mt-3 space-y-1 text-sm text-gray-600 dark:text-gray-300">
+                        {% for report in quote.open_report_rows %}
+                        <li>Reported by {{ report.reporter.get_display_name }}: {{ report.get_reason_display }}{% if report.details %} &mdash; &ldquo;{{ report.details }}&rdquo;{% endif %}</li>
+                        {% endfor %}
+                    </ul>
+                    {% endif %}
                 </div>
-                <form method="post" action="{% url 'restore_quote' quote.pk %}" class="flex-shrink-0">
-                    {% csrf_token %}
-                    <button type="submit" class="px-3 py-1.5 bg-primary-600 hover:bg-primary-700 text-white text-sm rounded-lg transition">
-                        Restore to Book
-                    </button>
-                </form>
+                <div class="flex flex-col gap-2 flex-shrink-0">
+                    {% if quote.flagged_at %}
+                    <form method="post" action="{% url 'restore_quote' quote.pk %}">
+                        {% csrf_token %}
+                        <button type="submit" class="px-3 py-1.5 bg-primary-600 hover:bg-primary-700 text-white text-sm rounded-lg transition">
+                            Restore to Book
+                        </button>
+                    </form>
+                    {% endif %}
+                    {% if viewing_as_officer and quote.open_report_rows %}
+                    <form method="post" action="{% url 'review_quote_reports' quote.pk %}" class="flex gap-2">
+                        {% csrf_token %}
+                        {% if not quote.flagged_at %}
+                        <button type="submit" name="action" value="hide" class="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-sm rounded-lg transition">Hide quote</button>
+                        {% endif %}
+                        <button type="submit" name="action" value="dismiss" class="px-3 py-1.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-sm rounded-lg transition">Dismiss reports</button>
+                    </form>
+                    {% endif %}
+                </div>
             </div>
         </div>
         {% endfor %}

@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+
+{% block title %}Account Deleted - Parliament{% endblock %}
+
+{% block content %}
+<div class="max-w-md mx-auto px-4 py-8">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 sm:p-8 text-sm text-gray-700 dark:text-gray-300 space-y-4">
+        <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Your account has been deleted</h1>
+        <p>You've been signed out everywhere and can no longer sign in.</p>
+        <p>Your personal data will be permanently removed on <strong>{{ purge_on|date:"F j, Y" }}</strong>. The chapter keeps its membership record.</p>
+        <p>If this was a mistake, contact a chapter officer before then and they can restore your account. We've emailed you a copy of this.</p>
+    </div>
+</div>
+{% endblock %}

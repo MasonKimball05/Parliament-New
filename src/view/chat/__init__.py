@@ -11,6 +11,14 @@ from .channel_chat import (
     dismiss_chat_unread,
 )
 from .create_channel import create_channel, edit_channel, delete_channel
+from .safety import (
+    chat_report_message,
+    chat_mute_member,
+    chat_muted_members,
+    chat_unmute_member,
+    chat_reports,
+    chat_review_report,
+)
 
 __all__ = [
     'chat_index',
@@ -26,4 +34,10 @@ __all__ = [
     'create_channel',
     'edit_channel',
     'delete_channel',
+    'chat_report_message',
+    'chat_mute_member',
+    'chat_muted_members',
+    'chat_unmute_member',
+    'chat_reports',
+    'chat_review_report',
 ]

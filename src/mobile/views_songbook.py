@@ -26,6 +26,11 @@ Quote Book (``PageToggle('quote_book')``):
   own quote about yourself), as ``flag_quote``.
 * ``GET quote-book/flagged/`` — the flagged quotes this member has standing
   over (``review_flagged_quotes``); ``POST quote-book/<id>/restore/`` restores one.
+* ``POST quote-book/<id>/report/`` ``{reason, details?}`` — any member reports
+  a quote (v4.4.0, src/quote_reports.py). It stays in the book; officers are
+  notified and see it in ``flagged/`` (``reports``, officers only); enough
+  distinct reporters hide it. ``POST quote-book/<id>/reports/review/``
+  ``{action: dismiss|hide, note?}`` — officers act on the reports.
 * ``GET quote-book/members/`` — who a quote can be about (everyone not
   removed; alumni keep their chapter), for the add form.
 """
@@ -41,6 +46,8 @@ from django.utils import timezone
 from rest_framework import exceptions
 from rest_framework.response import Response
 
+from src import quote_reports
+from src.chat_service import ChatError
 from src.mobile.api import MobileAPIView
 from src.mobile.views_excuses_polls import BadRequest
 from src.models import ActivityLog, ParliamentUser, Quote, Song, SongCategory
@@ -156,10 +163,11 @@ class SongbookPdfView(MobileAPIView):
 
 def _flagged_scope(user):
     """The flagged quotes ``user`` has standing over (review_flagged_quotes' scoping)."""
+    if user.is_officer:
+        # v4.4.0: plus visible quotes with open reports.
+        return quote_reports.officer_queue()
     flagged = Quote.objects.filter(flagged_at__isnull=False)
-    if not user.is_officer:
-        flagged = flagged.filter(Q(flagged_by=user) | Q(quoted_member=user))
-    return flagged
+    return flagged.filter(Q(flagged_by=user) | Q(quoted_member=user))
 
 
 def _quote_json(q, user):
@@ -171,6 +179,7 @@ def _quote_json(q, user):
         'created_at': q.created_at.isoformat(),
         'can_flag': q.can_be_flagged_by(user),
         'delete_not_flag': q.can_be_deleted_outright_by(user),
+        'can_report': quote_reports.can_report(q, user),
     }
 
 
@@ -257,18 +266,31 @@ class QuoteFlaggedView(MobileAPIView):
     web_page = 'quote_book'
 
     def get(self, request):
-        flagged = (_flagged_scope(request.user)
-                   .select_related('quoted_member', 'submitted_by', 'flagged_by')
-                   .defer(*member_defer('quoted_member', 'submitted_by', 'flagged_by'))
-                   .order_by('-flagged_at'))
+        officer = bool(request.user.is_officer)
+        flagged = list(_flagged_scope(request.user)
+                       .select_related('quoted_member', 'submitted_by', 'flagged_by')
+                       .defer(*member_defer('quoted_member', 'submitted_by', 'flagged_by'))
+                       .order_by('-flagged_at'))
+        # Who reported and why: officers only (src/quote_reports.py).
+        reports = quote_reports.open_reports_by_quote(q.pk for q in flagged) if officer else {}
         return Response({
-            'viewing_as_officer': bool(request.user.is_officer),
+            'viewing_as_officer': officer,
             'quotes': [{
                 **_quote_json(q, request.user),
                 'quoted_member': q.quoted_member.get_display_name(),
                 'flagged_by': q.flagged_by.get_display_name() if q.flagged_by else '',
-                'flagged_at': q.flagged_at.isoformat(),
-                'can_restore': q.can_be_restored_by(request.user),
+                # Null for a quote that is reported but still in the book.
+                'flagged_at': q.flagged_at.isoformat() if q.flagged_at else None,
+                'hidden_by_reports': bool(q.flagged_at and not q.flagged_by_id),
+                'can_restore': bool(q.flagged_at) and q.can_be_restored_by(request.user),
+                'can_review_reports': officer and bool(reports.get(q.pk)),
+                'reports': [{
+                    'reporter': r.reporter.get_display_name(),
+                    'reason': r.reason,
+                    'reason_label': r.get_reason_display(),
+                    'details': r.details,
+                    'created_at': r.created_at.isoformat(),
+                } for r in reports.get(q.pk, [])],
             } for q in flagged],
         })
 
@@ -288,4 +310,44 @@ class QuoteRestoreView(MobileAPIView):
                 description=f'{request.user.get_display_name()} restored a flagged quote (#{quote.pk}) on '
                             f'{quote.quoted_member.get_display_name()}\'s chapter',
                 request=request, object_type='Quote', object_id=quote.pk)
+            quote_reports.restored(quote, request.user)
         return Response({'ok': True})
+
+
+def _quote_refused(exc):
+    if exc.code == 'invalid_input' or exc.status == 400:
+        return BadRequest(str(exc), code='invalid_input' if exc.code == 'invalid_input' else exc.code)
+    if exc.status == 403:
+        return exceptions.PermissionDenied(str(exc), code='forbidden')
+    if exc.status == 404:
+        return exceptions.NotFound(str(exc), code='not_found')
+    err = BadRequest(str(exc), code=exc.code)
+    err.status_code = exc.status
+    return err
+
+
+class QuoteReportView(MobileAPIView):
+    web_page = 'quote_book'
+
+    def post(self, request, quote_id):
+        quote = get_object_or_404(Quote, pk=quote_id)
+        body = request.data if isinstance(request.data, dict) else {}
+        try:
+            report = quote_reports.report_quote(quote, request.user, body.get('reason'), body.get('details') or '')
+        except ChatError as exc:
+            raise _quote_refused(exc)
+        return Response({'ok': True, 'report_id': report.id}, status=201)
+
+
+class QuoteReportReviewView(MobileAPIView):
+    web_page = 'quote_book'
+
+    def post(self, request, quote_id):
+        quote = get_object_or_404(Quote, pk=quote_id)
+        body = request.data if isinstance(request.data, dict) else {}
+        try:
+            closed = quote_reports.review_reports(quote, request.user, body.get('action'), body.get('note') or '')
+        except ChatError as exc:
+            raise _quote_refused(exc)
+        quote.refresh_from_db()
+        return Response({'ok': True, 'closed': closed, 'hidden': quote.flagged_at is not None})

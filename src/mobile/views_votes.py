@@ -240,6 +240,8 @@ class PasskeyReauthBeginView(_VotesBase):
 
 
 class PasskeyReauthCompleteView(_VotesBase):
+    # The grant only unlocks what this flow is for (account deletion issues its own).
+    grant_purpose = MobileAuthTicket.PURPOSE_VOTE_GRANT
 
     def post(self, request):
         import webauthn
@@ -285,7 +287,7 @@ class PasskeyReauthCompleteView(_VotesBase):
             _fail(user, exc)
         db_cred.mark_used(verification.new_sign_count)
         cache.delete(_reauth_counter(user)[0])
-        raw, grant = MobileAuthTicket.issue(MobileAuthTicket.PURPOSE_VOTE_GRANT, user=user,
+        raw, grant = MobileAuthTicket.issue(self.grant_purpose, user=user,
                                             device=request.mobile_device)
         return Response({'reauth_grant': raw, 'expires_at': grant.expires_at.isoformat()})
 

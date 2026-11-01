@@ -1,3 +1,4 @@
+from src.app_review import exclude_review_accounts
 from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
 from django.utils import timezone
@@ -92,7 +93,8 @@ def officer_home(request):
                 period=active_slating_period,
                 voting_attempt=active_slating_period.current_voting_attempt,
             ).values('voter').distinct().count()
-            slating_total_voters = ParliamentUser.objects.filter(member_status='Active').count()
+            slating_total_voters = exclude_review_accounts(
+                ParliamentUser.objects.filter(member_status='Active')).count()
         elif active_slating_period.status == 'results_published':
             slating_passed_slate = active_slating_period.slates.filter(passed=True).first()
             if slating_passed_slate:

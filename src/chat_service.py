@@ -61,9 +61,14 @@ def serialize(msg, viewer):
     }
 
 
-def messages_qs(channel):
-    return (ChatMessage.objects.filter(channel=channel, is_deleted=False)
-            .select_related('sender').defer(*member_defer('sender')))
+def messages_qs(channel, viewer=None):
+    """
+    The channel's live messages. Never ones hidden pending review; with
+    ``viewer``, nothing from members they muted (src/chat_safety.py).
+    """
+    from src.chat_safety import visible_to
+    qs = visible_to(ChatMessage.objects.filter(channel=channel, is_deleted=False), viewer)
+    return qs.select_related('sender').defer(*member_defer('sender'))
 
 
 def _invalidate_badge(user):
@@ -79,7 +84,7 @@ def touch_presence(channel, user):
 
 def mark_read(channel, user, message=None):
     """Advance the read marker to ``message`` (default: the latest)."""
-    message = message or messages_qs(channel).order_by('-created_at').first()
+    message = message or messages_qs(channel, user).order_by('-created_at').first()
     receipt, _ = ChatReadReceipt.objects.get_or_create(user=user, channel=channel)
     if message is not None and receipt.last_read_message_id != message.id:
         receipt.last_read_message = message
@@ -152,6 +157,9 @@ def dispatch_push(channel, message, mentioned_pks=None):
             ).values_list('user_id', flat=True)
         )
         active_ids.add(sender.pk)
+        # Members who muted the sender get no chat push from them.
+        from src.chat_safety import muters_of
+        active_ids |= muters_of(sender.pk)
 
         # Users who have previously visited this channel and are not active right now
         recipients = list(
@@ -251,12 +259,15 @@ def send_message(channel, user, text):
         from src.models import ParliamentUser
         from src.notification_service import create_notification
 
+        from src.chat_safety import muters_of
+
         url = channel_url(channel)
         is_open = channel.access_type == 'open'
+        muted_by = muters_of(user.pk)
         for mentioned in ParliamentUser.objects.filter(pk__in=mentioned_pks):
             mentioned_user_ids.append(str(mentioned.user_id))
-            if mentioned.pk == user.pk:
-                continue  # Don't self-notify
+            if mentioned.pk == user.pk or mentioned.pk in muted_by:
+                continue  # Don't self-notify, nor notify someone who muted the sender
             # Through the service so the mention also pushes (prefs['push']
             # ['mentions']) — unless the chat fan-out above already pushed
             # this person for this message. A private channel's name and
@@ -336,10 +347,21 @@ def can_delete(channel, message, user, perms=None):
                 or (message.sender_id == user.pk and perms['delete']))
 
 
-def delete_message(channel, message, user):
-    if not can_delete(channel, message, user):
+def delete_message(channel, message, user, as_moderator=False):
+    """
+    Soft-delete ``message``. ``as_moderator`` is the chat-report review
+    (src/chat_safety.py): a chat moderator may remove any reported message.
+    """
+    if as_moderator:
+        # A reviewer of this channel's reports — which requires reading it.
+        from src.chat_safety import can_review_channel
+        allowed = can_review_channel(user, channel)
+    else:
+        allowed = can_delete(channel, message, user)
+    if not allowed:
         raise ChatError('forbidden', 'Permission denied', 403)
     # Soft delete
     message.is_deleted = True
     message.save(update_fields=['is_deleted'])
-    ws_broadcast(f'chat_{channel.id}', {'type': 'chat.delete', 'message_id': message.id})
+    if channel is not None:
+        ws_broadcast(f'chat_{channel.id}', {'type': 'chat.delete', 'message_id': message.id})

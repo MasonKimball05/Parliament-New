@@ -7,6 +7,7 @@ import io
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse
 from django.shortcuts import render
+from src.app_review import exclude_review_accounts, hides_contact_for
 from src.models import ParliamentUser
 from src.pledge_classes import is_original_founder
 
@@ -33,21 +34,23 @@ def member_directory(request):
     # see test_prefetched_relation_accessors_cost_nothing). What *does* still
     # query is adding a filter first — `member.roles.filter(...).exists()` builds
     # a new queryset that is not the cached one.
-    members = ParliamentUser.objects.filter(
+    # The App Review demo account (src/app_review.py) is listed to no one.
+    people = exclude_review_accounts(ParliamentUser.objects.all())
+    members = people.filter(
         member_status='Active'
     ).exclude(
         member_type='Advisor'
     ).prefetch_related('roles').order_by('name')
 
     # Get advisors separately (materialized to list so .sort() works in sort branches below)
-    advisors = list(ParliamentUser.objects.filter(
+    advisors = list(people.filter(
         member_status='Active',
         member_type='Advisor'
     ).prefetch_related('roles').order_by('name'))
 
     alumni, original_founders = [], []
     if show_alumni:
-        for m in ParliamentUser.objects.filter(
+        for m in people.filter(
                 member_status='Alumni').prefetch_related('roles').order_by('name'):
             if is_original_founder(m.pledge_class, m.pledge_class_greek):
                 original_founders.append(m)
@@ -61,6 +64,12 @@ def member_directory(request):
                 m.name))
         else:
             original_founders = []
+
+    # Members who deleted their account (src/account_deletion.py): a record
+    # like the founders — name, roll, class, roles — never contact details.
+    # By-status filters above already leave them out.
+    former_members = (list(people.closed_accounts().prefetch_related('roles').order_by('name'))
+                      if show_alumni else [])
 
     # Group members by type for display
     officers = [m for m in members if m.member_type == 'Officer']
@@ -93,6 +102,7 @@ def member_directory(request):
         'alumni': alumni,
         'show_alumni': show_alumni,
         'original_founders': original_founders,
+        'former_members': former_members,
         'show_founders': show_founders,
         # members queryset is already evaluated into the four lists above;
         # calling .count() would fire a fresh SQL COUNT — use len() instead.
@@ -101,6 +111,8 @@ def member_directory(request):
         'filter_type': request.GET.get('filter', 'all'),
         'can_set_house': _can_set_house(request.user),
         'house_choices': ParliamentUser.HOUSE_CHOICES,
+        # The App Review demo account sees no email or phone (directory.html).
+        'hide_contact': hides_contact_for(request.user),
     }
 
     return render(request, 'directory.html', context)
@@ -132,6 +144,11 @@ def export_directory(request):
         include_member_status = False
         include_roles = True
 
+    # The App Review demo account never exports contact details, whatever the
+    # form asked for (src/app_review.py).
+    if hides_contact_for(request.user):
+        include_email = include_phone = False
+
     # Build column spec: list of (header_label, row_key)
     columns = [('Name', 'name')]
     if include_roll_number:
@@ -153,9 +170,9 @@ def export_directory(request):
     if include_alumni:
         statuses.append('Alumni')
 
-    all_members = ParliamentUser.objects.filter(
+    all_members = exclude_review_accounts(ParliamentUser.objects.filter(
         member_status__in=statuses
-    ).order_by('member_type', 'name').prefetch_related('roles')
+    )).order_by('member_type', 'name').prefetch_related('roles')
 
     rows = []
     for member in all_members:

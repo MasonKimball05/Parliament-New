@@ -21,6 +21,7 @@ call, so the activity log rows are the website's. Periods, expectations and
 adjustments, service events, the form builder and the CSV export stay on the
 website: the responses carry their paths.
 """
+from src.app_review import exclude_review_accounts
 from django.core.paginator import Paginator
 from django.shortcuts import get_object_or_404
 from django.urls import reverse
@@ -176,7 +177,8 @@ class ServiceSubmissionListView(_ServiceReviewView):
         member_id = qp.get('member') or None
         page = Paginator(web.filtered_submissions(period_id, status, member_id), PAGE_SIZE).get_page(qp.get('page'))
         rows = web.attach_batch_counts(list(page.object_list))
-        members = ParliamentUser.objects.filter(member_status='Active').order_by('name').only('user_id', 'name')
+        members = exclude_review_accounts(
+            ParliamentUser.objects.filter(member_status='Active')).order_by('name').only('user_id', 'name')
         return Response({
             'submissions': [_submission_json(s) for s in rows],
             'page': page.number,

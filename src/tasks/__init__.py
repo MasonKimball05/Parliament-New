@@ -42,6 +42,7 @@ from src.tasks.cleanup import (
     prune_expired_chat_permissions,
     prune_old_csp_violations,
     prune_expired_mobile_auth_tickets,
+    purge_deleted_accounts,
 )
 from src.tasks.notifications import (
     notify_expiring_api_tokens,
@@ -85,6 +86,7 @@ __all__ = [
     'prune_expired_chat_permissions',
     'prune_old_csp_violations',
     'prune_expired_mobile_auth_tickets',
+    'purge_deleted_accounts',
     'notify_expiring_api_tokens',
     'send_push_notification',
     'send_event_reminder_pushes',

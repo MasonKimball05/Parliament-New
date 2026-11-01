@@ -98,6 +98,10 @@ _EXPLICIT_SENSITIVE_TABLES = {
     # Security detail that is not a developer's business by default
     'src_loginhistory',
     'src_honeypotaccess',
+    # Reports and mutes (v4.4.0): who reported whom, and who muted whom
+    'src_chatmessagereport',
+    'src_chatusermute',
+    'src_quotereport',
 }
 
 #: Column-name fragments redacted on every table that is otherwise shown.

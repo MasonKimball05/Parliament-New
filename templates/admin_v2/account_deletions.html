@@ -1,0 +1,75 @@
+{% extends "admin_v2/base.html" %}
+
+{% block title %}Account Deletions - Admin v2{% endblock %}
+
+{% block admin_content %}
+<div class="container mx-auto px-4 py-8">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-6">
+        <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">Account Deletions</h1>
+        <p class="text-gray-600 dark:text-gray-400">Members who deleted their own account. They are signed out everywhere and shown as former members. Personal data is erased {{ purge_days }} days after the request; the membership record (name, roll number, class, roles, votes, attendance) is kept.</p>
+    </div>
+
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-6">
+        <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100 mb-1">Pending account deletions ({{ pending|length }})</h2>
+        <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Restore only when the member asks for it. A restored member signs in again by resetting their password.</p>
+        {% if pending %}
+        <div class="overflow-x-auto">
+        <table class="min-w-full text-sm">
+            <thead><tr class="text-left text-gray-500 dark:text-gray-400">
+                <th class="py-2 pr-4">Member</th><th class="py-2 pr-4">Requested</th><th class="py-2 pr-4">Data erased on</th><th class="py-2"></th>
+            </tr></thead>
+            <tbody>
+            {% for row in pending %}
+            <tr class="border-t border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100">
+                <td class="py-2 pr-4">{{ row.member.get_display_name }}{% if row.member.role_number %} · #{{ row.member.role_number }}{% endif %}</td>
+                <td class="py-2 pr-4">{{ row.member.deletion_requested_at|date:"M j, Y" }}{% if row.member.deletion_requested_via %} ({{ row.member.deletion_requested_via }}){% endif %}</td>
+                <td class="py-2 pr-4">{{ row.purge_on|date:"M j, Y" }}</td>
+                <td class="py-2 text-right">
+                    <form method="post" action="{% url 'admin_v2_restore_account' row.member.user_id %}"
+                          data-confirm="Restore {{ row.member.get_display_name }}'s account? Only do this if they asked.">
+                        {% csrf_token %}
+                        <button type="submit" class="px-3 py-1.5 bg-primary-600 hover:bg-primary-700 text-white rounded-lg">Restore at the member's request</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        </div>
+        {% else %}
+        <p class="text-gray-500 dark:text-gray-400">No pending deletions.</p>
+        {% endif %}
+    </div>
+
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-6">
+        <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100 mb-1">Erased accounts ({{ purged|length }})</h2>
+        <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Their personal data is gone. If a former member asks the chapter for their account back, verify who they are, then rebuild it: this attaches a new sign-in to their kept record and emails them a set-password link. Nothing that was erased comes back.</p>
+        {% if purged %}
+        <div class="space-y-4">
+            {% for m in purged %}
+            <form method="post" action="{% url 'admin_v2_rebuild_account' m.user_id %}"
+                  class="border-t border-gray-200 dark:border-gray-700 pt-4 grid grid-cols-1 md:grid-cols-4 gap-3 items-end"
+                  data-confirm="Rebuild an account for {{ m.get_display_name }}'s record? Only do this if they asked and you've verified who they are.">
+                {% csrf_token %}
+                <div class="text-gray-900 dark:text-gray-100">
+                    <div class="font-medium">{{ m.get_display_name }}{% if m.role_number %} · #{{ m.role_number }}{% endif %}</div>
+                    <div class="text-xs text-gray-500 dark:text-gray-400">Erased {{ m.account_deleted_at|date:"M j, Y" }}</div>
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1" for="rebuild-email-{{ forloop.counter }}">New email</label>
+                    <input id="rebuild-email-{{ forloop.counter }}" type="email" name="email" required class="w-full px-3 py-1.5 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1" for="rebuild-username-{{ forloop.counter }}">Username (optional)</label>
+                    <input id="rebuild-username-{{ forloop.counter }}" type="text" name="username" class="w-full px-3 py-1.5 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+                </div>
+                <div><button type="submit" class="px-3 py-1.5 bg-primary-600 hover:bg-primary-700 text-white rounded-lg">Rebuild account at the member's request</button></div>
+            </form>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-gray-500 dark:text-gray-400">None.</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

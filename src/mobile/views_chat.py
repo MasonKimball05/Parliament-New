@@ -38,6 +38,7 @@ from rest_framework import exceptions
 from rest_framework.response import Response
 
 from src import chat_service
+from src.chat_safety import visible_to
 from src.feature_flag_decorators import check_feature_enabled
 from src.mobile.api import MobileAPIView
 from src.models import ChatChannel, ChatMessage, ChatReadReceipt
@@ -81,7 +82,7 @@ class _ChatBase(MobileAPIView):
         return channel
 
     def message(self, channel, message_id):
-        message = (chat_service.messages_qs(channel).filter(pk=message_id).first())
+        message = (chat_service.messages_qs(channel, self.request.user).filter(pk=message_id).first())
         if message is None:
             raise Http404
         return message
@@ -109,7 +110,7 @@ class ChannelListView(_ChatBase):
         write_ctx = ChatChannel.access_context(user, channel_ids=ids, flag='can_write')
         levels = dict(ChatNotificationPreference.objects
                       .filter(user=user, channel_id__in=ids).values_list('channel_id', 'level'))
-        latest = (ChatMessage.objects.filter(channel=OuterRef('pk'), is_deleted=False)
+        latest = (visible_to(ChatMessage.objects.filter(channel=OuterRef('pk'), is_deleted=False), user)
                   .order_by('-created_at').values('pk')[:1])
         last_ids = dict(ChatChannel.objects.filter(pk__in=ids)
                         .annotate(last_id=Subquery(latest)).values_list('pk', 'last_id'))
@@ -152,7 +153,8 @@ class MessageListView(_ChatBase):
     def get(self, request, channel_id):
         user = request.user
         channel = self.channel(request, channel_id)
-        qs = chat_service.messages_qs(channel)
+        # Without messages hidden pending review or from members they muted.
+        qs = chat_service.messages_qs(channel, user)
         limit = min(max(_int(request.query_params.get('limit')) or PAGE, 1), MAX_PAGE)
         since = _int(request.query_params.get('since'))
         before = _int(request.query_params.get('before'))

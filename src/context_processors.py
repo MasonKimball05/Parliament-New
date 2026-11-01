@@ -71,22 +71,25 @@ def unread_chat_count(user):
         from django.db.models import OuterRef, Subquery, IntegerField, Value, Count, Sum, Case, When
         from django.db.models.functions import Coalesce
         from src.models import ChatReadReceipt, ChatMessage
+        from src.chat_safety import visible_to
 
         # Subquery: messages in the receipt's channel that are newer than last_read.
         # NOTE: when this filter matches 0 rows, the GROUP BY produces 0 rows, so the
         # subquery returns NULL — not 0. We handle that with Case/When below.
-        newer_msgs = ChatMessage.objects.filter(
+        # v4.4.0: visible_to drops messages hidden pending review and ones
+        # from members this user muted (src/chat_safety.py).
+        newer_msgs = visible_to(ChatMessage.objects.filter(
             channel=OuterRef('channel'),
             is_deleted=False,
             created_at__gt=OuterRef('last_read_message__created_at'),
-        ).values('channel').annotate(n=Count('id')).values('n')
+        ), user).values('channel').annotate(n=Count('id')).values('n')
 
         # Fallback when last_read_message is NULL (receipt exists but user has never
         # opened the channel): treat all messages as unread.
-        all_msgs = ChatMessage.objects.filter(
+        all_msgs = visible_to(ChatMessage.objects.filter(
             channel=OuterRef('channel'),
             is_deleted=False,
-        ).values('channel').annotate(n=Count('id')).values('n')
+        ), user).values('channel').annotate(n=Count('id')).values('n')
 
         receipts = (
             ChatReadReceipt.objects

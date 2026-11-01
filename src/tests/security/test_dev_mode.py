@@ -712,7 +712,7 @@ class LegislationHistoryQueryBudgetTests(TestCase):
     def test_vote_counting_does_not_scale_with_row_count(self):
         vote_counts = [
             q for q in self._queries_for_page()
-            if 'src_vote' in q['sql'] and 'COUNT' in q['sql'].upper()
+            if 'src_vote' in q['sql'] and 'COUNT(' in q['sql'].upper()
         ]
         self.assertLessEqual(
             len(vote_counts), 2,
@@ -1221,7 +1221,7 @@ class LegislationColumnWidthTests(TestCase):
             self.client.get(reverse('passed_legislation'))
         counts = [
             q for q in ctx.captured_queries
-            if 'src_legislation' in q['sql'] and 'COUNT' in q['sql'].upper()
+            if 'src_legislation' in q['sql'] and 'COUNT(' in q['sql'].upper()
             and 'src_vote' not in q['sql']
         ]
         self.assertLessEqual(

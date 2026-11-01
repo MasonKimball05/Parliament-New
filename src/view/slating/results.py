@@ -428,10 +428,11 @@ def results_summary(request, period_id):
 
     # Get participation stats
     from src.models import ParliamentUser
-    eligible_voters = ParliamentUser.objects.filter(
+    from src.app_review import exclude_review_accounts
+    eligible_voters = exclude_review_accounts(ParliamentUser.objects.filter(
         member_status='Active',
         member_type__in=['Member', 'Chair', 'Officer']
-    ).count()
+    )).count()
 
     total_unique_voters = SlatingBallot.objects.filter(
         period=period

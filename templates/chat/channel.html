@@ -193,6 +193,12 @@
                                     Delete
                                 </button>
                             {% endif %}
+                            {% if msg.sender != request.user %}
+                                <button class="report-btn text-xs text-gray-500 dark:text-gray-400 hover:text-red-700 dark:hover:text-red-300 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
+                                        data-message-id="{{ msg.id }}" data-sender-id="{{ msg.sender.user_id }}" data-sender-name="{{ msg.sender.name }}">
+                                    Report
+                                </button>
+                            {% endif %}
                         </div>
                         <div class="message-text text-gray-900 dark:text-gray-100 text-sm sm:text-base break-words" data-message-id="{{ msg.id }}" data-raw="{{ msg.message }}">{{ msg.message|linebreaksbr }}</div>
                     </div>
@@ -271,6 +277,38 @@
             <p class="text-gray-600 dark:text-gray-400 text-sm sm:text-base">Message sending disabled in admin preview mode</p>
         </div>
     {% endif %}
+</div>
+
+<!-- Report / mute dialog (v4.4.0 chat safety, src/chat_safety.py) -->
+<div id="reportModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="reportModalTitle">
+    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full sm:max-w-md overflow-hidden">
+    <div class="overflow-y-auto max-h-[85vh] p-6">
+        <h2 id="reportModalTitle" class="text-lg font-semibold text-gray-900 dark:text-white mb-3">Report message</h2>
+        <div id="report-form-body">
+            <p class="text-sm text-gray-600 dark:text-gray-400 mb-3">Chapter officers review reports. They see who reported; the member you report doesn't.</p>
+            <label for="report-reason" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Reason</label>
+            <select id="report-reason" class="w-full mb-3 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-700 dark:text-white">
+                <option value="">Choose a reason…</option>
+                {% for value, label in report_reasons %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
+            </select>
+            <label for="report-details" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Details (optional)</label>
+            <textarea id="report-details" maxlength="1000" rows="3" class="w-full mb-3 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-700 dark:text-white"></textarea>
+            <p id="report-error" class="hidden text-sm text-red-600 dark:text-red-400 mb-3"></p>
+            <div class="flex justify-end gap-2">
+                <button type="button" class="js-close-report px-4 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700">Cancel</button>
+                <button type="button" id="report-submit" class="px-4 py-2 text-sm bg-red-600 text-white rounded-md hover:bg-red-700">Send report</button>
+            </div>
+        </div>
+        <div id="report-done" class="hidden">
+            <p class="text-sm text-gray-700 dark:text-gray-300 mb-3">Thanks for letting us know. An officer will review it.</p>
+            <div class="flex justify-end"><button type="button" class="js-close-report px-4 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300">Done</button></div>
+        </div>
+        <div class="mt-5 pt-4 border-t border-gray-200 dark:border-gray-700">
+            <button type="button" id="report-mute" class="text-sm font-medium text-red-700 dark:text-red-300 hover:underline">Mute <span id="report-mute-name"></span></button>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Hide their messages and chat notifications from you. Undo in <a href="{% url 'chat_muted_members' %}" class="underline">Muted members</a>.</p>
+        </div>
+    </div>
+    </div>
 </div>
 
 <script nonce="{{ request.csp_nonce }}">
@@ -582,6 +620,15 @@
             deleteButtonStacked = `<button class="delete-btn text-xs text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 transition-opacity" data-message-id="${msg.id}" data-msg-elem-id="msg-${msg.id}">Delete</button>`;
         }
 
+        // Report / mute (v4.4.0 chat safety): others' messages only
+        let reportButtonFull = '';
+        let reportButtonStacked = '';
+        if (!isSender && !msg.pending) {
+            const reportData = `data-message-id="${msg.id}" data-sender-id="${escapeHtml(String(msg.sender_id))}" data-sender-name="${escapeHtml(msg.sender_name)}"`;
+            reportButtonFull    = `<button class="report-btn text-xs text-gray-500 dark:text-gray-400 hover:text-red-700 dark:hover:text-red-300 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity" ${reportData}>Report</button>`;
+            reportButtonStacked = `<button class="report-btn text-xs text-gray-500 dark:text-gray-400 hover:text-red-700 dark:hover:text-red-300 transition-opacity" ${reportData}>Report</button>`;
+        }
+
         // Determine if this message stacks with the previous one
         const STACK_GAP_MS = 15 * 60 * 1000;
         const isStacked = !msg.pending
@@ -615,7 +662,7 @@
             }
             const shortTime = msgDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
             const editedIndicator = msg.edited_at ? `<span class="text-xs text-gray-400 dark:text-gray-500 italic">(edited)</span>` : '';
-            const hasButtons = editButtonStacked || deleteButtonStacked;
+            const hasButtons = editButtonStacked || deleteButtonStacked || reportButtonStacked;
             messageDiv.className = `msg-row flex gap-2 sm:gap-3 px-2 rounded-b-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 group transition-colors ${ownBorder}`;
             messageDiv.style.paddingTop = '1px';
             messageDiv.style.paddingBottom = '1px';
@@ -628,7 +675,7 @@
                         ${editedIndicator ? `<span class="text-xs text-gray-400 dark:text-gray-500 italic mr-1">${editedIndicator}</span>` : ''}
                         <div class="message-text text-gray-900 dark:text-gray-100 text-sm sm:text-base break-words" data-message-id="${msg.id}" data-raw="${escapeHtml(msg.message)}">${renderMessageText(msg.message)}</div>
                     </div>
-                    ${hasButtons ? `<div class="flex items-center gap-1 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">${editButtonStacked}${deleteButtonStacked}</div>` : ''}
+                    ${hasButtons ? `<div class="flex items-center gap-1 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">${editButtonStacked}${deleteButtonStacked}${reportButtonStacked}</div>` : ''}
                 </div>
             `;
         } else {
@@ -659,6 +706,7 @@
                         ${deliveryIndicator}
                         ${editButtonFull}
                         ${deleteButtonFull}
+                        ${reportButtonFull}
                     </div>
                     <div class="message-text text-gray-900 dark:text-gray-100 text-sm sm:text-base break-words" data-message-id="${msg.id}" data-raw="${escapeHtml(msg.message)}">${renderMessageText(msg.message)}</div>
                 </div>
@@ -709,6 +757,10 @@
             ? `<button class="delete-btn text-xs text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 opacity-0 group-hover:opacity-100 transition-opacity" data-message-id="${msg.id}" data-msg-elem-id="msg-${msg.id}">Delete</button>`
             : '';
 
+        const reportButtonPrepend = !isSender
+            ? `<button class="report-btn text-xs text-gray-500 dark:text-gray-400 hover:text-red-700 dark:hover:text-red-300 opacity-0 group-hover:opacity-100 transition-opacity" data-message-id="${msg.id}" data-sender-id="${escapeHtml(String(msg.sender_id))}" data-sender-name="${escapeHtml(msg.sender_name)}">Report</button>`
+            : '';
+
         const messageDiv = document.createElement('div');
         messageDiv.id = `msg-${msg.id}`;
         messageDiv.dataset.senderId = String(msg.sender_id);
@@ -725,6 +777,7 @@
                     ${msg.edited_at ? '<span class="text-xs text-gray-400 dark:text-gray-500 italic">(edited)</span>' : ''}
                     ${editButtonPrepend}
                     ${deleteButtonPrepend}
+                    ${reportButtonPrepend}
                 </div>
                 <div class="message-text text-gray-900 dark:text-gray-100 text-sm sm:text-base break-words" data-message-id="${msg.id}" data-raw="${escapeHtml(msg.message)}">${renderMessageText(msg.message)}</div>
             </div>
@@ -941,6 +994,74 @@
         });
     }
 
+    // ── Report / mute (v4.4.0, src/chat_safety.py) ───────────────────────────
+    let reportTarget = null;
+
+    function openReportDialog(data) {
+        reportTarget = { messageId: data.messageId, senderId: data.senderId, senderName: data.senderName };
+        document.getElementById('report-reason').value = '';
+        document.getElementById('report-details').value = '';
+        document.getElementById('report-error').classList.add('hidden');
+        document.getElementById('report-form-body').classList.remove('hidden');
+        document.getElementById('report-done').classList.add('hidden');
+        document.getElementById('report-mute-name').textContent = data.senderName;
+        document.getElementById('reportModal').classList.remove('hidden');
+    }
+
+    function closeReportDialog() {
+        document.getElementById('reportModal').classList.add('hidden');
+        reportTarget = null;
+    }
+
+    function reportError(text) {
+        const el = document.getElementById('report-error');
+        el.textContent = text;
+        el.classList.remove('hidden');
+    }
+
+    async function submitReport() {
+        if (!reportTarget) return;
+        const reason = document.getElementById('report-reason').value;
+        if (!reason) { reportError('Choose a reason.'); return; }
+        const formData = new FormData();
+        formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+        formData.append('reason', reason);
+        formData.append('details', document.getElementById('report-details').value);
+        try {
+            const r = await fetch("{% url 'chat_report_message' 0 %}".replace('/0/', `/${encodeURIComponent(reportTarget.messageId)}/`), { method: 'POST', body: formData });
+            const data = await r.json();
+            if (!r.ok) { reportError(data.error || 'Could not send the report.'); return; }
+            document.getElementById('report-form-body').classList.add('hidden');
+            document.getElementById('report-done').classList.remove('hidden');
+        } catch (err) {
+            reportError('Could not send the report. Check your connection.');
+        }
+    }
+
+    async function muteReportedMember() {
+        if (!reportTarget) return;
+        if (!confirm(`Mute ${reportTarget.senderName}? You won't see their messages or get chat notifications from them. They won't be told.`)) return;
+        const formData = new FormData();
+        formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+        try {
+            const r = await fetch("{% url 'chat_mute_member' '__uid__' %}".replace('__uid__', encodeURIComponent(reportTarget.senderId)), { method: 'POST', body: formData });
+            const data = await r.json();
+            if (!r.ok) { reportError(data.error || 'Could not mute this member.'); return; }
+            const senderId = String(reportTarget.senderId);
+            document.querySelectorAll('#messages-list .msg-row').forEach(function(row) {
+                if (row.dataset.senderId === senderId) row.remove();
+            });
+            closeReportDialog();
+        } catch (err) {
+            reportError('Could not mute this member. Check your connection.');
+        }
+    }
+
+    document.getElementById('report-submit').addEventListener('click', submitReport);
+    document.getElementById('report-mute').addEventListener('click', muteReportedMember);
+    document.querySelectorAll('.js-close-report').forEach(function(btn) { btn.addEventListener('click', closeReportDialog); });
+    document.getElementById('reportModal').addEventListener('click', function(e) { if (e.target === this) closeReportDialog(); });
+
     // ── Message stacking (Discord-style) ─────────────────────────────────────
 
     const STACK_GAP_MS = 15 * 60 * 1000;
@@ -967,7 +1088,7 @@
         const headerRow = el.querySelector('.items-baseline');
         const textEl = el.querySelector('.message-text');
         if (headerRow && textEl) {
-            const buttons = Array.from(headerRow.querySelectorAll('.edit-btn, .delete-btn'));
+            const buttons = Array.from(headerRow.querySelectorAll('.edit-btn, .delete-btn, .report-btn'));
             if (buttons.length > 0) {
                 const btnWrapper = document.createElement('div');
                 btnWrapper.className = 'flex items-center gap-1 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity';
@@ -1454,6 +1575,8 @@
         if (editBtn) { editMessage(editBtn.dataset.messageId); return; }
         var deleteBtn = e.target.closest('.delete-btn');
         if (deleteBtn) { deleteMessage(deleteBtn.dataset.messageId, deleteBtn.dataset.msgElemId); return; }
+        var reportBtn = e.target.closest('.report-btn');
+        if (reportBtn) { openReportDialog(reportBtn.dataset); return; }
         var mention = e.target.closest('.mention');
         if (mention) { handleMentionClick(mention); return; }
     });

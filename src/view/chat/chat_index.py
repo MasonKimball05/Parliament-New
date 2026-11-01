@@ -1,5 +1,6 @@
 from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
+from src import chat_safety
 from src.models import ChatChannel
 from src.feature_flag_decorators import require_feature_flag, require_page_enabled
 
@@ -41,6 +42,7 @@ def chat_index(request):
         # computing it twice was half the cost of this page.
         override_access = normal_access
 
+    can_moderate_chat = chat_safety.can_moderate_chat(user)
     unread_counts = ChatChannel.unread_map(
         [c for c in all_channels if normal_access.get(c.pk)], user)
 
@@ -60,5 +62,8 @@ def chat_index(request):
     return render(request, 'chat/index.html', {
         'channels': accessible_channels,
         'is_admin': user.is_admin,
-        'view_all': view_all
+        'view_all': view_all,
+        # v4.4.0 chat safety (src/chat_safety.py)
+        'can_moderate_chat': can_moderate_chat,
+        'open_chat_reports': chat_safety.open_report_count(user) if can_moderate_chat else 0,
     })

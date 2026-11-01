@@ -104,7 +104,54 @@ def generate_member_uid(prefix=MEMBER_UID_PREFIX, length=MEMBER_UID_LENGTH):
     )
 
 
-class ParliamentUserManager(BaseUserManager):
+class ParliamentUserQuerySet(models.QuerySet):
+    """
+    Account deletion (src/account_deletion.py): a member who deleted their
+    account stays in the table as the chapter's membership record, but is
+    never an *active person* again — not on a roster, in a quorum, an
+    audience, or a "members with status X" list.
+
+    There are ~100 ``filter(member_status=...)`` call sites (rosters, vote
+    eligibility, notification and email audiences, chat, GroupMe, dues,
+    service hours). Rather than add a condition to each, any ``filter()``
+    that selects members BY STATUS here also leaves out closed accounts
+    (``deletion_requested_at`` set: pending purge or purged). A filter that
+    does not mention status — a lookup by pk, a name search, the house map's
+    every-member load, ``exclude(member_status='Removed')`` — still finds
+    them, which is how historical records, search and the record-only
+    directory entries keep working.
+
+    ``including_closed()`` switches that off for the rare caller that wants
+    closed accounts in a by-status list (admin tooling).
+    """
+    _include_closed = False
+
+    def _clone(self):
+        clone = super()._clone()
+        clone._include_closed = self._include_closed
+        return clone
+
+    def including_closed(self):
+        clone = self._chain()
+        clone._include_closed = True
+        return clone
+
+    def filter(self, *args, **kwargs):
+        qs = super().filter(*args, **kwargs)
+        if not self._include_closed and ('member_status' in kwargs or 'member_status__in' in kwargs):
+            qs = qs.filter(deletion_requested_at__isnull=True)
+        return qs
+
+    def closed_accounts(self):
+        """Accounts whose deletion is pending or done (shown as record only)."""
+        return self.filter(deletion_requested_at__isnull=False)
+
+    def open_accounts(self):
+        """Accounts that are not deleted (the usable people)."""
+        return self.filter(deletion_requested_at__isnull=True)
+
+
+class ParliamentUserManager(BaseUserManager.from_queryset(ParliamentUserQuerySet)):
     def create_user(self, user_id, name, username, member_type, password=None,
                     **extra_fields):
         """
@@ -275,6 +322,21 @@ class ParliamentUser(AbstractBaseUser):
             "without scrubbing anything — this flag is the one that means "
             "'and their PII is gone too.'"
         ),
+    )
+    # Self-service account deletion (src/account_deletion.py). Kept apart from
+    # member_status on purpose: Active/Alumni/… is part of the membership
+    # record, which deletion keeps.
+    deletion_requested_at = models.DateTimeField(
+        null=True, blank=True, db_index=True,
+        help_text='When the member deleted their account. Sign-in is revoked at once; '
+                  'personal data is erased PURGE_AFTER later unless an admin restores it.',
+    )
+    deletion_requested_via = models.CharField(
+        max_length=10, blank=True, help_text="Where the deletion was requested: 'web' or 'app'.",
+    )
+    account_deleted_at = models.DateTimeField(
+        null=True, blank=True,
+        help_text='When the personal data was permanently erased (the purge). The membership record remains.',
     )
     force_password_change = models.BooleanField(default=False, help_text='User must change password on next login')
     has_default_password = models.BooleanField(default=False, help_text='Password is still the system-assigned default — set False when user changes it')
@@ -598,8 +660,16 @@ class ParliamentUser(AbstractBaseUser):
             self.roles.remove(*self.roles.all())
             self._delete_login_credentials()
 
-    def _delete_login_credentials(self):
+    @property
+    def is_closed_account(self):
+        """True once the member deleted their account (pending purge or purged)."""
+        return self.deletion_requested_at is not None
+
+    def _delete_login_credentials(self, keep_requirement=False):
         """
+        ``keep_requirement``: leave the admin-set TwoFactorRequirement alone
+        (account deletion keeps it so a restore brings the policy back).
+
         Remove every row that exists only to let THIS account authenticate.
         Split out of anonymize() so a future caller wanting "just the
         credentials gone, not a full anonymize" has somewhere to call —
@@ -617,7 +687,8 @@ class ParliamentUser(AbstractBaseUser):
         APIToken.objects.filter(user=self).delete()
         PushSubscription.objects.filter(user=self).delete()
         CalendarSubscription.objects.filter(user=self).delete()
-        TwoFactorRequirement.objects.filter(user=self).delete()
+        if not keep_requirement:
+            TwoFactorRequirement.objects.filter(user=self).delete()
         for device_cls in device_classes():
             device_cls.objects.filter(user=self).delete()
 
@@ -725,6 +796,9 @@ ANONYMIZE_FIELDS_KEPT = {
     'graduation_semester': 'same as graduation_year',
     'last_login': 'an audit timestamp, not identifying',
     'last_seen_at': 'same as last_login',
+    'deletion_requested_at': 'self-service deletion state (src/account_deletion.py), not identity',
+    'deletion_requested_via': 'same as deletion_requested_at',
+    'account_deleted_at': 'same as deletion_requested_at',
 }
 
 

@@ -337,11 +337,13 @@
                         </div>
                         <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">
                             {{ item.user_id }}
-                            {% if item.member_status != 'Active' %}
+                            {% if item.is_closed_account %}
+                                • <span class="text-gray-500 dark:text-gray-400">Former member</span>
+                            {% elif item.member_status != 'Active' %}
                                 • <span class="text-yellow-600 dark:text-yellow-400">{{ item.member_status }}</span>
                             {% endif %}
                         </p>
-                        {% if item.email %}
+                        {% if item.email and not item.is_closed_account %}
                             <p class="text-xs text-gray-500 dark:text-gray-500 mt-1">{{ item.email }}</p>
                         {% endif %}
                     </div>

@@ -11,6 +11,8 @@ class Notification(models.Model):
         ('vote_ended', 'Vote Ended'),
         ('event_new', 'New Event'),
         ('chat_mention', 'Chat Mention'),
+        ('chat_report', 'Chat Message Reported'),
+        ('quote_report', 'Quote Reported'),
         ('security', 'Security Alert'),
         ('excuse_reviewed', 'Excuse Reviewed'),
         ('role_kb_available', 'Knowledge Base Notes Available'),

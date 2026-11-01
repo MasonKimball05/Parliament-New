@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+
+{% block title %}Delete Account - Parliament{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8 max-w-2xl">
+    <div class="flex items-center justify-between mb-6">
+        <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Delete your account</h1>
+        <a href="{% url 'preferences' %}" class="text-sm text-primary-600 dark:text-primary-400 hover:underline">Back to Preferences</a>
+    </div>
+
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 space-y-4 text-sm text-gray-700 dark:text-gray-300">
+        <div>
+            <h2 class="font-semibold text-gray-900 dark:text-white mb-1">What happens right away</h2>
+            <p>Your account is closed. You're signed out of the website and the app on every device, and you can't sign in again. Your password, passkeys, authenticator and backup codes, app sign-ins, API tokens and calendar feed stop working.</p>
+        </div>
+        <div>
+            <h2 class="font-semibold text-gray-900 dark:text-white mb-1">What is permanently removed after {{ purge_days }} days</h2>
+            <p>Your email addresses and phone number, social handles, profile photo, bio, majors, minors and concentrations, your sign-in history, page visits, settings and onboarding progress.</p>
+        </div>
+        <div>
+            <h2 class="font-semibold text-gray-900 dark:text-white mb-1">What the chapter keeps, and why</h2>
+            <p>The chapter keeps a permanent membership record: your name, roll number, pledge class, house and family line, initiation and graduation details, roles you held, and your part in chapter business — votes, attendance, excuses, minutes, service hours, committee and slating records, quotes and chat messages. These are the chapter's records of who was a member and what it decided, so they stay. You'll be shown as a former member, without contact details or a photo.</p>
+        </div>
+        <div class="bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-800 rounded-lg p-3 text-yellow-800 dark:text-yellow-200">
+            Changed your mind? Contact an officer within {{ purge_days }} days if this was a mistake and they can restore your account. After that, your personal data is gone for good.
+        </div>
+        {% if roles %}
+        <p>You currently hold: <strong>{{ roles|join:", " }}</strong>. The chapter's admins will be told so a successor can be appointed.</p>
+        {% endif %}
+    </div>
+
+    {% if is_admin_account %}
+    <div class="mt-6 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-xl p-4 text-sm text-red-800 dark:text-red-200">
+        Site administrators can't delete their own account. Ask another admin to remove your admin access first.
+    </div>
+    {% else %}
+    <form method="post" class="js-vote-form mt-6 bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 space-y-4"
+          data-confirm="Delete your account? You'll be signed out everywhere right away.">
+        {% csrf_token %}
+        {% if error %}
+        <p class="text-sm text-red-600 dark:text-red-400" role="alert">{{ error }}</p>
+        {% endif %}
+        {% if has_password %}
+        <div>
+            <label for="delete-password" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Current password</label>
+            <input id="delete-password" type="password" name="password" autocomplete="current-password" required
+                   class="w-full px-4 py-2 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+        </div>
+        {% endif %}
+        <div>
+            <label for="delete-confirm" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Type <strong>DELETE</strong> to confirm</label>
+            <input id="delete-confirm" type="text" name="confirm" autocomplete="off" required
+                   class="w-full px-4 py-2 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+        </div>
+        <p class="js-passkey-error hidden text-sm text-red-600 dark:text-red-400"></p>
+        <div class="flex flex-wrap gap-3">
+            {% if has_password %}
+            <button type="submit" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg">Delete my account</button>
+            {% endif %}
+            {% if has_passkeys %}
+            <button type="button" class="js-vote-passkey px-4 py-2 {% if has_password %}bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-100{% else %}bg-red-600 hover:bg-red-700 text-white{% endif %} font-medium rounded-lg">
+                {% if has_password %}Confirm with a passkey instead{% else %}Delete my account (confirm with passkey){% endif %}
+            </button>
+            {% endif %}
+        </div>
+    </form>
+    {% if has_passkeys %}{% include 'components/vote_passkey_confirm.html' %}{% endif %}
+    {% endif %}
+</div>
+{% endblock %}

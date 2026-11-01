@@ -176,6 +176,11 @@ SCHEDULES = [
         'crontab': {'hour': '3', 'minute': '16'},  # 3:16 AM Central daily (v4.0.0)
     },
     {
+        'name': 'Erase data of accounts deleted 30 days ago',
+        'task': 'tasks.purge_deleted_accounts',
+        'crontab': {'hour': '3', 'minute': '17'},  # 3:17 AM Central daily (account deletion)
+    },
+    {
         'name': 'Notify expiring API tokens',
         'task': 'tasks.notify_expiring_api_tokens',
         'crontab': {'hour': '3', 'minute': '14'},  # 3:14 AM Central daily

@@ -47,7 +47,7 @@ def totp_code(device):
 
 
 class MobileTestCase(TestCase):
-    """Geo lookups mocked (never hit ip-api.com); cache cleared per test."""
+    """Geo lookups mocked (fixed US location); cache cleared per test."""
 
     def setUp(self):
         cache.clear()

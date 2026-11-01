@@ -548,9 +548,8 @@ def get_geolocation_from_ip(ip_address):
     #
     # 'unknown' is the sentinel signals.py substitutes for a missing IP
     # (get_client_ip(request) or 'unknown'). It's truthy and isn't a private
-    # prefix, so without this it would fall through to a live ip-api.com call
-    # for /json/unknown (a wasted 3s-timeout request that always fails) — most
-    # notably on the failed-login path, which has no cached pipeline geo.
+    # prefix, so it must be answered here rather than looked up (it used to
+    # become a wasted external request for /json/unknown).
     if not ip_address or ip_address == 'unknown':
         return {
             'country': 'Unknown',
@@ -570,12 +569,8 @@ def get_geolocation_from_ip(ip_address):
             'longitude': None
         }
 
-    # v3.15.2: delegate the actual external call to geo_utils.get_ip_geo, which
-    # caches 24h per IP AND has a circuit breaker. This used to be a separate,
-    # UNCACHED requests.get() — on the /login/ path (incl. failed logins) a
-    # brute-force flood turned it into a pile of blocking 3s calls that wedged
-    # Daphne (07-19 502 incident). Now repeat IPs are free and the breaker
-    # bounds the blocking calls under any flood.
+    # Delegate to geo_utils.get_ip_geo: a local GeoLite2 lookup, no network
+    # call (the IP never leaves the server). {} when the database is missing.
     geo = get_ip_geo(ip_address)
     if geo:
         return {

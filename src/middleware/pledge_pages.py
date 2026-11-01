@@ -28,13 +28,16 @@ ALWAYS_ALLOWED = frozenset({
     'csrf_token_refresh', 'push_subscribe', 'push_unsubscribe',
     'service_worker',  # v3.50.1: the docstring promised the PWA files; this one was missing
     'apple_app_site_association', 'assetlinks',  # mobile app-link metadata
+    # v4.4.0: anyone may delete their own account (App Store guideline 5.1.1(v)),
+    # and the public privacy/terms/support pages are linked from sign-in.
+    'delete_account', 'privacy_policy', 'terms', 'support',
 })
 
 #: url_name prefixes never blocked (2FA setup/verify, passkeys, onboarding,
 #: and the mobile app's plumbing: sign-in/sign-out, `me/`, devices, push token
 #: and websocket tickets, which every member needs for the app to work at all).
 ALWAYS_ALLOWED_PREFIXES = ('two_factor_', 'passkey_', 'onboarding', 'mobile_auth_', 'mobile_me',
-                           'mobile_device', 'mobile_push_token', 'mobile_ws_ticket')
+                           'mobile_device', 'mobile_push_token', 'mobile_ws_ticket', 'mobile_account_delete')
 
 
 def is_always_allowed(url_name):

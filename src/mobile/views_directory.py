@@ -20,6 +20,7 @@ from django.http import FileResponse
 from rest_framework import exceptions
 from rest_framework.response import Response
 
+from src.app_review import exclude_review_accounts, hides_contact_for
 from src.mobile.api import MobileAPIView
 from src.models import ParliamentUser
 from src.pledge_classes import is_original_founder
@@ -43,7 +44,7 @@ def photo_path(m):
     return f'members/{m.user_id}/photo/?v={version}'
 
 
-def _row(m, viewer_is_pledge):
+def _row(m, viewer_is_pledge, hide_contact=False):
     return {
         'user_id': m.user_id,
         'name': m.get_display_name(),
@@ -51,11 +52,19 @@ def _row(m, viewer_is_pledge):
         'member_type': m.member_type,
         'member_status': m.member_status,
         'role_number': None if viewer_is_pledge else (m.role_number or None),
-        'email': m.email or '',
-        'phone': m.phone_number or '',
+        'email': '' if hide_contact else (m.email or ''),
+        'phone': '' if hide_contact else (m.phone_number or ''),
         'roles': [r.name for r in m.roles.all()],
         'photo': photo_path(m),
     }
+
+
+def _former_row(m, viewer_is_pledge):
+    """A member who deleted their account: name, roll, roles — no contact or photo."""
+    from src.account_deletion import FORMER_MEMBER_LABEL
+    row = _row(m, viewer_is_pledge, hide_contact=True)
+    row.update(member_status=FORMER_MEMBER_LABEL, photo=None, former_member=True)
+    return row
 
 
 class _DirectoryBase(MobileAPIView):
@@ -67,13 +76,18 @@ class MemberListView(_DirectoryBase):
 
     def get(self, request):
         viewer_is_pledge = request.user.member_type == 'Pledge'
-        qs = ParliamentUser.objects.prefetch_related('roles').order_by('name')
+        # The App Review demo account: listed to no one, and sees no contact
+        # details (src/app_review.py).
+        hide = hides_contact_for(request.user)
+        qs = exclude_review_accounts(ParliamentUser.objects.prefetch_related('roles').order_by('name'))
         active = list(qs.filter(member_status='Active', member_type__in=GROUPS))
         active.sort(key=lambda m: GROUPS.index(m.member_type))   # stable: name order kept
-        rows = [_row(m, viewer_is_pledge) for m in active]
+        rows = [_row(m, viewer_is_pledge, hide) for m in active]
         if request.query_params.get('alumni') == '1':
-            rows += [_row(m, viewer_is_pledge) for m in qs.filter(member_status='Alumni')
+            rows += [_row(m, viewer_is_pledge, hide) for m in qs.filter(member_status='Alumni')
                      if not is_original_founder(m.pledge_class, m.pledge_class_greek)]
+            # Deleted accounts: the record only (src/account_deletion.py).
+            rows += [_former_row(m, viewer_is_pledge) for m in qs.closed_accounts()]
         return Response({'members': rows})
 
 
@@ -84,15 +98,16 @@ class MemberCardView(_DirectoryBase):
         if member is None:
             raise exceptions.NotFound()
         card = profile_card_data(member, request.user)
-        card['photo'] = photo_path(member)
+        card['photo'] = None if member.deletion_requested_at else photo_path(member)
         return Response({'member': card})
 
 
 class MemberPhotoView(_DirectoryBase):
 
     def get(self, request, user_id):
-        member = ParliamentUser.objects.filter(user_id=user_id).only('profile_picture').first()
-        if member is None or not member.profile_picture:
+        member = (ParliamentUser.objects.filter(user_id=user_id)
+                  .only('profile_picture', 'deletion_requested_at').first())
+        if member is None or not member.profile_picture or member.deletion_requested_at:
             raise exceptions.NotFound()
         try:
             handle = member.profile_picture.open('rb')

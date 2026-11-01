@@ -1,0 +1,195 @@
+{% extends "legal/base_public.html" %}
+{% block title %}Privacy Policy{% endblock %}
+{% block heading %}Privacy Policy{% endblock %}
+{% block content %}
+{# v4.4.0. Written from an inventory of what the code actually stores (see changelogs/v4.4.0.md). #}
+{# Keep it true: a change to what Parliament collects, shares or keeps updates this page and EFFECTIVE_DATE. #}
+<h1 class="text-2xl font-bold text-gray-900 dark:text-white mb-1">Privacy Policy</h1>
+<p class="text-gray-500 dark:text-gray-400 mb-8">Effective {{ effective_date|date:"F j, Y" }}</p>
+
+<p class="mb-3">
+    Parliament is the private website (<strong>{{ site_host }}</strong>) and iPhone app used by the
+    <strong>Alpha Mu Chapter of Beta Theta Pi at Samford University</strong> (“the chapter”, “we”) to run chapter
+    business: meetings, votes, attendance, events, committees, records and communication between members.
+    This policy explains what information Parliament keeps, why, who can see it, and the choices you have.
+    Using Parliament is also covered by our <a href="{% url 'terms' %}" class="text-primary-600 dark:text-primary-400 underline">Terms of Use</a>.
+</p>
+<p class="mb-3">
+    Parliament is for chapter members. Accounts are created by chapter officers, not by sign-up. We don't sell
+    your information, show ads, or track you across other companies' apps or websites.
+</p>
+
+<h2 class="text-lg font-semibold text-gray-900 dark:text-white mt-10 mb-3">1. Information we keep</h2>
+
+<h3 class="font-semibold text-gray-900 dark:text-white mt-6 mb-2">Your member profile</h3>
+<ul class="list-disc pl-5 space-y-1 mb-3">
+    <li>Name and preferred name, username, email addresses and phone number.</li>
+    <li>Profile photo, bio, majors, minors and concentrations, and any social media handles you add.</li>
+    <li>Chapter details: roll number, pledge class, initiation and graduation details, house, big/little family line, roles and offices held, and member status.</li>
+    <li>Your settings, such as notification and email preferences.</li>
+</ul>
+
+<h3 class="font-semibold text-gray-900 dark:text-white mt-6 mb-2">Your participation in the chapter</h3>
+<ul class="list-disc pl-5 space-y-1 mb-3">
+    <li>Attendance and check-ins, event sign-ups, and excuse requests (including the reason and any document you attach, which may be something like a doctor's note).</li>
+    <li>Votes on legislation, committee votes and poll responses (see “Votes” below), and slating (officer election) applications, including a reported GPA and any screenshot you upload to support it.</li>
+    <li>Service hours you log, with any proof you attach.</li>
+    <li>Pledge education tasks, quizzes and meeting attendance.</li>
+    <li>What you write or upload: chat messages, legislation and drafts, feedback, bug reports (with any screenshot), quote book entries, and documents.</li>
+    <li>Records of Kai (the chapter's judicial committee) reports and cases you're part of.</li>
+    <li>Chat messages you report (and why), and members you mute. A muted member isn't told.</li>
+</ul>
+
+<h3 class="font-semibold text-gray-900 dark:text-white mt-6 mb-2">Sign-in and security records</h3>
+<ul class="list-disc pl-5 space-y-1 mb-3">
+    <li>Your password (stored only as a one-way hash), passkeys (only the public key; your fingerprint or face never leave your device), and two-factor authentication settings.</li>
+    <li>Sign-in history: date and time, IP address (stored encrypted), device and browser type, and an approximate location (city and country) looked up from the IP address on our own server.</li>
+    <li>Devices signed in to the app: platform, device name, app version and a push notification token.</li>
+    <li>An activity log of actions taken on the site (for example, “posted an announcement”), with the IP address and browser.</li>
+</ul>
+
+<h3 class="font-semibold text-gray-900 dark:text-white mt-6 mb-2">Usage</h3>
+<p class="mb-3">
+    We count how many times each member has opened each page (a running total per page, without times) and record
+    when you were last active. This helps officers see which features are used. We don't use any third-party
+    analytics or advertising service.
+</p>
+
+<h3 class="font-semibold text-gray-900 dark:text-white mt-6 mb-2">On your iPhone</h3>
+<ul class="list-disc pl-5 space-y-2 mb-3">
+    <li>
+        <strong>Location</strong> (only if you allow it), for checking in to chapter meetings. The app watches only
+        the check-in areas officers set up for upcoming meetings. Your location is sent to Parliament only when
+        you're inside one of those areas while check-in is open. The server uses it to work out how far you are
+        from the check-in spot, and keeps only the check-in itself (the time, and the distance) — not your
+        coordinates. For timed events it also records when you arrived and left. If you choose “Always”, iOS can
+        check you in when you arrive even if the app is closed; you can change this any time in Settings.
+    </li>
+    <li><strong>Camera</strong>, only to scan meeting check-in codes and when you choose to take a photo for a form. Nothing is recorded otherwise, and the microphone is never used.</li>
+    <li><strong>Photos</strong>, only the photos you pick (for a profile picture, a bug report screenshot or a form).</li>
+    <li><strong>Face ID</strong>, to unlock the app if you turn that on. This happens entirely on your phone; Parliament never receives any biometric data.</li>
+    <li><strong>Notifications</strong>, if you allow them. Your phone's push token is stored so we can send you chapter notifications.</li>
+    <li>
+        The app stores your sign-in tokens in the iPhone Keychain, and keeps a copy of recently viewed chapter
+        information on your phone so it opens quickly and works offline. That copy expires after 7 days and is
+        erased when you sign out. Ballots, chat messages and Kai records are never stored this way.
+    </li>
+</ul>
+
+<h3 class="font-semibold text-gray-900 dark:text-white mt-6 mb-2">People who aren't members</h3>
+<p class="mb-3">
+    If you use the contact form on our public website, we keep your name, email address and message so officers
+    can reply. Recruitment candidates' names, contact details and notes are kept by the officers running
+    recruitment.
+</p>
+
+<h2 class="text-lg font-semibold text-gray-900 dark:text-white mt-10 mb-3">2. How we use it</h2>
+<ul class="list-disc pl-5 space-y-1 mb-3">
+    <li>To run the chapter: meetings, votes, elections, attendance, committees, education, service and records.</li>
+    <li>To let members find and contact each other through the member directory.</li>
+    <li>To send you notifications and emails you've chosen to receive.</li>
+    <li>To keep accounts secure: detecting suspicious sign-ins, stopping abuse and investigating problems.</li>
+    <li>To fix bugs and improve Parliament.</li>
+    <li>To keep the chapter's historical membership record (see section 6).</li>
+</ul>
+
+<h2 class="text-lg font-semibold text-gray-900 dark:text-white mt-10 mb-3">3. Who can see it</h2>
+<ul class="list-disc pl-5 space-y-2 mb-3">
+    <li><strong>Other members</strong> can see your directory profile: name, photo, roll number, pledge class, house, roles, bio and social handles, and your email address and phone number. Only signed-in chapter members can see the directory.</li>
+    <li><strong>Officers and chairs</strong> can see what they need for their role, such as attendance, excuse requests, service hours, sign-in alerts and activity logs.</li>
+    <li>
+        <strong>Votes.</strong> Your vote is stored with your account so that each member votes only once and
+        eligibility can be checked. When a ballot is anonymous, Parliament shows only the totals to everyone,
+        including officers. Slating (officer election) votes are stored with no link to who cast them.
+    </li>
+    <li>
+        <strong>Kai (judicial) records</strong> are visible only to committee members with specific permission,
+        and the parties to a case. A member named in a report is never shown who submitted it.
+    </li>
+    <li><strong>Reports.</strong> When you report a message, the officers who moderate chat see the report and who made it. The member you reported is never told who reported them.</li>
+    <li><strong>Site administrators</strong> who maintain Parliament can access the database to keep it running and secure.</li>
+</ul>
+
+<h2 class="text-lg font-semibold text-gray-900 dark:text-white mt-10 mb-3">4. Services we use</h2>
+<p class="mb-3">We share only what each service needs to do its job, and none of them may use it for their own purposes.</p>
+<ul class="list-disc pl-5 space-y-2 mb-3">
+    <li><strong>Hosting and network.</strong> Parliament runs on a server we rent from a cloud hosting provider, behind Cloudflare, which protects the site and delivers its pages. Like any website, they process your IP address and the requests your browser or app makes.</li>
+    <li><strong>Email delivery.</strong> An email delivery provider sends the emails Parliament sends you, so it receives your email address and the message.</li>
+    <li><strong>Push notifications.</strong> Notifications go through Expo's push service to Apple's (or Google's) notification service. They receive your device's push token and the notification text. Chat notifications for private channels don't include the message.</li>
+    <li><strong>App updates.</strong> The app checks Expo's update service for new versions when it opens, which shares your IP address and app version with Expo.</li>
+    <li><strong>GroupMe.</strong> Officers can choose to post announcements and event reminders to the chapter's GroupMe groups. Only that announcement or reminder text is sent.</li>
+    <li><strong>Password safety check.</strong> When you choose a password, we check it against known data breaches using Have I Been Pwned. Only the first 5 characters of a scrambled (hashed) form of the password are sent, which can't be used to work out your password.</li>
+    <li><strong>Maps.</strong> Officers setting a check-in area see a map from OpenStreetMap, which receives their IP address.</li>
+</ul>
+<p class="mb-3">
+    Sign-in locations are looked up in a database stored on our own server (GeoLite2 data created by MaxMind,
+    available from <a href="https://www.maxmind.com" class="text-primary-600 dark:text-primary-400 underline" rel="noopener noreferrer">maxmind.com</a>),
+    so your IP address isn't sent anywhere for this.
+</p>
+<p class="mb-3">We may also disclose information if the law requires it, or to protect the safety of members or others.</p>
+
+<h2 class="text-lg font-semibold text-gray-900 dark:text-white mt-10 mb-3">5. How long we keep it</h2>
+<ul class="list-disc pl-5 space-y-1 mb-3">
+    <li>Sign-in history: about 90 days. Inactive website sessions: 30 days. App sign-ins expire after 90 days.</li>
+    <li>Activity logs: about 6 months. Read notifications: about 90 days.</li>
+    <li>Your profile and contact information: while you have an account (see section 6).</li>
+    <li>Chapter records (votes, attendance, minutes, roles, service hours, Kai cases and other participation): kept permanently as the chapter's history.</li>
+    <li>Backups of the database are kept for a limited time and then replaced, so deleted information can remain in a backup until it rotates out.</li>
+</ul>
+
+<h2 class="text-lg font-semibold text-gray-900 dark:text-white mt-10 mb-3" id="delete">6. Deleting your account</h2>
+<p class="mb-3">
+    You can delete your account at any time: in the app under <strong>Settings → Delete account</strong>, or on
+    the website under <strong>Preferences</strong>. You'll confirm with your password.
+</p>
+<ul class="list-disc pl-5 space-y-2 mb-3">
+    <li><strong>Right away</strong>, your account is closed: you're signed out everywhere and can no longer sign in, and your contact information and profile are hidden.</li>
+    <li>
+        <strong>After 30 days</strong>, your account is permanently deleted: your sign-in details, passkeys and
+        devices, email addresses, phone number, social handles, photo, bio and academic details, sign-in
+        history, settings and usage counts are erased. If you deleted your account by mistake, contact the
+        chapter within those 30 days and an officer can restore it.
+    </li>
+    <li>
+        <strong>What the chapter keeps.</strong> Like any organization, the chapter keeps a permanent record of
+        its members. After deletion we keep your name, roll number, pledge class, initiation and graduation
+        details, house and family line, the roles you held and your participation in chapter business (votes,
+        attendance, minutes, service hours, Kai cases, messages and other records). You'll appear in the chapter's
+        records as a former member, without a photo or contact details.
+    </li>
+    <li>If you later want to use Parliament again, contact the chapter. After verifying who you are, an officer can set up a new account connected to your membership record. Nothing that was erased can be recovered.</li>
+</ul>
+<p class="mb-3">
+    Deleting your account doesn't remove you from the chapter's or the national fraternity's own membership
+    records. You can also ask an officer to correct or remove specific information at any time (see section 7).
+</p>
+
+<h2 class="text-lg font-semibold text-gray-900 dark:text-white mt-10 mb-3">7. Your choices</h2>
+<ul class="list-disc pl-5 space-y-1 mb-3">
+    <li>Edit or remove your phone number, photo, bio and social handles on your profile at any time.</li>
+    <li>Choose which notifications and emails you get in Preferences.</li>
+    <li>Turn location, camera, photo access, notifications and Face ID on or off in your iPhone's Settings. Parliament keeps working without them; you'll just check in another way.</li>
+    <li>Sign out other devices from Settings, or ask us for a copy of your information or to correct it, using the <a href="{% url 'support' %}" class="text-primary-600 dark:text-primary-400 underline">support page</a>.</li>
+</ul>
+
+<h2 class="text-lg font-semibold text-gray-900 dark:text-white mt-10 mb-3">8. Security</h2>
+<p class="mb-3">
+    Parliament uses HTTPS everywhere, supports passkeys and two-factor authentication, checks for breached
+    passwords, locks out repeated failed sign-ins and alerts you to unusual ones. Sensitive records are limited to
+    the people whose role needs them, and uploaded files are only served to people allowed to see them. No system
+    is perfectly secure, but we work to protect your information and will tell affected members if a breach
+    affects them.
+</p>
+
+<h2 class="text-lg font-semibold text-gray-900 dark:text-white mt-10 mb-3">9. Children</h2>
+<p class="mb-3">Parliament is for members of a university chapter and isn't intended for children under 13. We don't knowingly collect information from them.</p>
+
+<h2 class="text-lg font-semibold text-gray-900 dark:text-white mt-10 mb-3">10. Changes to this policy</h2>
+<p class="mb-3">If we change this policy, we'll update the date at the top, and tell members in Parliament about significant changes.</p>
+
+<h2 class="text-lg font-semibold text-gray-900 dark:text-white mt-10 mb-3">11. Contact us</h2>
+<p class="mb-3">
+    Questions or requests about your information: use the form on the <a href="{% url 'support' %}" class="text-primary-600 dark:text-primary-400 underline">support page</a>,
+    and it will reach the chapter's officers.
+</p>
+{% endblock %}

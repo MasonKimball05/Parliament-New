@@ -1,0 +1,48 @@
+{% load static static_version %}<!DOCTYPE html>
+{# Public, signed-out pages that App Store listings link to: privacy policy, support (v4.4.0). #}
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}{% endblock %} — Parliament · Beta Theta Pi Alpha Mu</title>
+    <link rel="icon" type="image/png" href="{% static 'images/am-coat-of-arms.png' %}">
+    <script nonce="{{ request.csp_nonce }}">
+        (function() {
+            const stored = localStorage.getItem('theme');
+            if (stored === 'dark' || (!stored && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                document.documentElement.classList.add('dark');
+            }
+        })();
+    </script>
+    <link rel="stylesheet" href="{% static_v 'css/tailwind.css' %}">
+</head>
+<body class="bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100 min-h-screen">
+
+<header class="sticky top-0 z-50 bg-white/90 dark:bg-gray-950/90 backdrop-blur border-b border-gray-200 dark:border-gray-800">
+    <div class="max-w-4xl mx-auto px-5 sm:px-8 h-14 flex items-center justify-between gap-4">
+        <div class="flex items-center gap-3 min-w-0">
+            <a href="/" class="flex items-center gap-2 shrink-0" aria-label="Home">
+                <img src="{% static 'images/am-coat-of-arms.png' %}" alt="" class="w-6 h-6 rounded-full object-contain bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-0.5">
+            </a>
+            <span class="font-semibold text-gray-900 dark:text-white truncate">{% block heading %}{% endblock %}</span>
+            <span class="hidden sm:inline text-xs text-gray-400 dark:text-gray-500">Parliament · Beta Theta Pi Alpha Mu</span>
+        </div>
+    </div>
+</header>
+
+<main class="max-w-3xl mx-auto px-5 sm:px-8 py-10 text-sm leading-relaxed text-gray-700 dark:text-gray-300">
+    {% block content %}{% endblock %}
+</main>
+
+<footer class="border-t border-gray-200 dark:border-gray-800 py-8 px-5 sm:px-8">
+    <div class="max-w-3xl mx-auto flex flex-wrap items-center justify-center gap-5 text-sm text-gray-400 dark:text-gray-500">
+        <a href="/" class="hover:text-gray-600 dark:hover:text-gray-300">Home</a>
+        <a href="{% url 'privacy_policy' %}" class="hover:text-gray-600 dark:hover:text-gray-300">Privacy</a>
+        <a href="{% url 'support' %}" class="hover:text-gray-600 dark:hover:text-gray-300">Support</a>
+        <a href="{% url 'terms' %}" class="hover:text-gray-600 dark:hover:text-gray-300">Terms</a>
+        <a href="{% url 'login' %}" class="hover:text-gray-600 dark:hover:text-gray-300">Sign In</a>
+    </div>
+</footer>
+{% block scripts %}{% endblock %}
+</body>
+</html>
