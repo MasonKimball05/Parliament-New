@@ -356,13 +356,26 @@ class PurgeTests(_Base):
         self.assertEqual((m.graduation_year, m.graduation_semester), (2027, 'Spring'))
         self.assertEqual(m.initiation_chapters, [{'school': 'Samford', 'chapter': 'Alpha Mu'}])
         self.assertEqual(m.member_status, 'Active')
-        self.assertEqual(list(m.roles.all()), [self.role])
+        self.assertFalse(m.roles.exists())                     # current roles end (v4.4.1); history kept:
         self.assertTrue(RoleHistory.objects.filter(user=m, role_name='Treasurer').exists())
         # Participation, still by name.
         self.assertEqual(Vote.objects.get(pk=self.vote.pk).user.name, 'Dana Delete')
         self.assertEqual(Attendance.objects.get(pk=self.att.pk).user.name, 'Dana Delete')
         self.assertEqual(ChapterMinutes.objects.get(pk=self.minutes.pk).created_by.name, 'Dana Delete')
         self.assertTrue(AdminActionLog.objects.filter(action='account_purged', target_user=m).exists())
+
+    def test_purge_ends_current_roles_and_closes_their_history(self):
+        # v4.4.1: still Treasurer through the 30 days (officers see who to
+        # replace), then the role ends at the purge like a transition would.
+        from src.utils.semester import current_semester
+        self.assertTrue(self.reload().roles.filter(name='Treasurer').exists())
+        self._age(30)
+        deletion.purge_due_deletions()
+        m = self.reload()
+        self.assertFalse(m.roles.exists())
+        h = RoleHistory.objects.get(user=m, role_name='Treasurer')
+        self.assertEqual((h.start_semester, h.end_semester), ('Fall 2025', current_semester()))
+        self.assertIn('Roles ended: Treasurer', AdminActionLog.objects.get(action='account_purged').detail)
 
     def test_purge_is_idempotent(self):
         self._age(31)

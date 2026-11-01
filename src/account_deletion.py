@@ -262,6 +262,27 @@ def restore_account(user, by, request=None):
 
 # ── Purge (at 30 days) ──────────────────────────────────────────────────────
 
+def _end_current_roles(user):
+    """
+    v4.4.1: a purged account holds no office. Its current roles end the way
+    the officers' transition tool ends them (src/view/officer/transitions.py):
+    the role is removed and any open role-history row with that exact name is
+    closed with the semester in progress, so the record still shows they held
+    it. Not done at the deletion request, so officers see who to replace during
+    the 30 days and a restore brings the account back as it was. Returns the
+    names of the roles ended.
+    """
+    from src.models import RoleHistory
+    from src.utils.semester import current_semester
+
+    names = sorted(user.roles.values_list('name', flat=True))
+    if names:
+        RoleHistory.objects.filter(user=user, role_name__in=names, end_semester='').update(
+            end_semester=current_semester())
+        user.roles.clear()
+    return names
+
+
 def purge_account(user):
     """
     Permanently erase the deleted account's personal data, keeping the
@@ -294,6 +315,7 @@ def purge_account(user):
             setattr(user, field, value)
         for field in PURGED_JSON_FIELDS:
             setattr(user, field, user._meta.get_field(field).get_default())
+        ended_roles = _end_current_roles(user)
         if user.profile_picture:
             try:
                 user.profile_picture.delete(save=False)
@@ -309,9 +331,11 @@ def purge_account(user):
 
     if first:
         from src.models import log_admin_action
+        roles_note = f' Roles ended: {", ".join(ended_roles)}.' if ended_roles else ''
         log_admin_action(actor=None, action='account_purged', target_user=user, target_repr=str(user),
                          detail=f'Personal data of {user.get_display_name()} erased '
-                                f'{PURGE_AFTER.days} days after account deletion. Membership record kept.')
+                                f'{PURGE_AFTER.days} days after account deletion. Membership record kept.'
+                                f'{roles_note}')
         logger.info('ACCOUNT PURGED: %s', user.pk)
     return first
 
