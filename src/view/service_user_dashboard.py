@@ -301,6 +301,20 @@ def user_service_dashboard(request):
     return render(request, 'service_hours/user_dashboard.html', context)
 
 
+def user_submission_detail_data(submission):
+    """(custom field responses, activity log newest first) for a member's own
+    submission page; the app's submission screen reads the same
+    (src/mobile/views_service_hours.py)."""
+    custom_responses = ServiceFieldResponse.objects.filter(
+        submission=submission
+    ).select_related('field').order_by('field__display_order')
+
+    activity_log = ServiceActivity.objects.filter(
+        submission=submission
+    ).select_related('user').defer(*member_defer('user')).order_by('-timestamp')
+    return custom_responses, activity_log
+
+
 @login_required
 def user_view_submission(request, submission_id):
     """
@@ -315,15 +329,7 @@ def user_view_submission(request, submission_id):
         id=submission_id
     )
 
-    # Get custom field responses
-    custom_responses = ServiceFieldResponse.objects.filter(
-        submission=submission
-    ).select_related('field').order_by('field__display_order')
-
-    # Get activity log
-    activity_log = ServiceActivity.objects.filter(
-        submission=submission
-    ).select_related('user').defer(*member_defer('user')).order_by('-timestamp')
+    custom_responses, activity_log = user_submission_detail_data(submission)
 
     context = {
         'submission': submission,

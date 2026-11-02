@@ -456,12 +456,12 @@ def serve_bug_report_screenshot(request, report_id):
     """Stream a bug report's screenshot to its reporter or the bug admin."""
     from src.models import BugReport
 
-    report = get_object_or_404(BugReport, id=report_id)
-    user = request.user
+    from src.view.bug_report import screenshot_visible_to
 
-    is_reporter = report.submitted_by_id == user.pk
-    is_bug_admin = str(user.user_id) == '73'  # see `bug_admin_required`
-    if not (is_reporter or is_bug_admin):
+    report = get_object_or_404(BugReport, id=report_id)
+    # Reporter or the bug admin (user_id 73, see `bug_admin_required`); the
+    # one rule, shared with the app's screenshot endpoint.
+    if not screenshot_visible_to(report, request.user):
         raise Http404('File not found')
     return _stream_private_file(report.screenshot)
 
@@ -485,16 +485,12 @@ def serve_feedback_attachment(request, feedback_id):
     """Stream a feedback request's attachment, per its own visibility rule."""
     from src.models import FeedbackRequest
 
+    from src.view.feedback import feedback_visible_to
+
     feedback = get_object_or_404(FeedbackRequest, id=feedback_id)
-    user = request.user
-
-    is_admin = str(user.user_id) == '73'  # see `feedback_admin_required`
-    if feedback.request_type == 'feature_idea':
-        # Public board — any logged-in member may read it, same as the page.
-        allowed = True
-    else:
-        allowed = feedback.submitted_by_id == user.pk or is_admin
-
-    if not allowed:
+    # A feature idea's is public (any logged-in member, same as the page); a
+    # support ticket's is its submitter's and the feedback admin's (user_id
+    # 73, see `feedback_admin_required`). The detail page's own predicate.
+    if not feedback_visible_to(feedback, request.user):
         raise Http404('File not found')
     return _stream_private_file(feedback.attachment)

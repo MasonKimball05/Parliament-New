@@ -77,65 +77,30 @@ def _num(post, key):
     return int(raw)
 
 
-@login_required
-@slating_chair_required
-def record_paper_ballots(request, period_id):
-    period = get_object_or_404(SlatingPeriod, id=period_id)
-    if not round_accepts_paper(period):
-        messages.error(request, 'Paper ballots can only be entered while a voting round is open or paused.')
-        return redirect('slating_period_setup', period_id=period.id)
+PAPER_CLOSED = 'Paper ballots can only be entered while a voting round is open or paused.'
+
+
+class PaperBallotError(ValueError):
+    """A paper-ballot entry the committee has to fix (the message says what)."""
+
+
+def _round_setup(period):
     attempt = period.current_voting_attempt
     slate = Slate.objects.filter(period=period, is_approved=True, slate_type='primary').first()
     individual = period.vote_type == 'individual'
     entries = _paper_entries(period, slate) if (slate and individual) else []
     existing = {(p.slate_candidate_id, p.nominee_id): p for p in
                 SlatingPaperBallots.objects.filter(period=period, voting_attempt=attempt)}
+    return attempt, individual, entries, existing
 
-    if request.method == 'POST':
-        try:
-            if individual:
-                ballots = _num(request.POST, 'ballots')
-                rows = []
-                for e in entries:
-                    counts = {'approve': _num(request.POST, f'approve_{e["key"]}'),
-                              'reject': _num(request.POST, f'reject_{e["key"]}') if not e['pick'] else 0,
-                              'abstain': _num(request.POST, f'abstain_{e["key"]}') if e['abstain_input'] else 0}
-                    rows.append((e, counts))
-                per_position = {}
-                for e, n in rows:
-                    per_position[e['position']] = per_position.get(e['position'], 0) + sum(n.values())
-                over = [pos for pos, total in per_position.items() if total > ballots]
-                if over:
-                    messages.error(request, f'More votes than paper ballots ({ballots}) for: ' + ', '.join(over) + '.')
-                    return redirect('slating_paper_ballots', period_id=period.id)
-            else:
-                counts = {k: _num(request.POST, k) for k in CHOICES}
-                ballots = sum(counts.values())
-                rows = [(None, counts)]
-        except ValueError:
-            messages.error(request, 'Counts must be whole numbers (0 or more).')
-            return redirect('slating_paper_ballots', period_id=period.id)
-        note = (request.POST.get('note') or '').strip()[:300]
-        with transaction.atomic():
-            SlatingPeriod.objects.select_for_update().only('pk').get(pk=period.pk)
-            for e, n in rows:
-                SlatingPaperBallots.objects.update_or_create(
-                    period=period, voting_attempt=attempt,
-                    slate_candidate=e['candidate'] if e else None, nominee=e['nominee'] if e else None,
-                    defaults={**n, 'ballots': ballots, 'note': note, 'recorded_by': request.user,
-                              'position_title': e['position'] if e else '',
-                              'candidate_name': e['name'] if e else ''})
-            SlatingActivity.objects.create(
-                period=period, user=request.user, action='vote_cast',
-                details=f'Paper ballots recorded for round {attempt}: {ballots} ballot(s)',
-                metadata={'paper_ballots': ballots, 'attempt': attempt,
-                          'counts': [{'position': e['position'] if e else 'slate',
-                                      'candidate': e['name'] if e else '', **n} for e, n in rows]},
-            )
-        messages.success(request, f'Saved {ballots} paper ballot(s) for round {attempt}. '
-                                  'They\'ll be counted when you close the vote.')
-        return redirect('slating_period_setup', period_id=period.id)
 
+def paper_ballots_state(period):
+    """
+    This round's paper-ballot form: one row per thing to count (the slate, or
+    each pass/fail nominee / pick-one option), each with what was entered so
+    far. Shared with the app (``src/mobile/views_slating_committee.py``).
+    """
+    attempt, individual, entries, existing = _round_setup(period)
     if individual:
         any_row = next(iter(existing.values()), None)
         rows = []
@@ -148,7 +113,77 @@ def record_paper_ballots(request, period_id):
         rows = [{'candidate': None, 'counts': {k: getattr(slate_row, k, 0) for k in CHOICES}}]
         ballots = slate_row.ballots if slate_row else 0
     note = next((p.note for p in existing.values() if p.note), '')
-    return render(request, 'slating/paper_ballots.html', {
-        'period': period, 'attempt': attempt, 'individual': individual, 'rows': rows,
-        'ballots': ballots, 'note': note, 'allow_abstain': period.allow_abstain,
-    })
+    return {'attempt': attempt, 'individual': individual, 'rows': rows, 'ballots': ballots, 'note': note,
+            'allow_abstain': period.allow_abstain}
+
+
+def save_paper_ballots(period, user, post):
+    """
+    Save this round's paper counts from posted values (``post.get``): replaces
+    what was entered before, logged with the counts (no voter). Raises
+    ``PaperBallotError`` for a count that isn't a whole number or a position
+    with more votes than ballots. Returns ``(attempt, ballots)``.
+    """
+    attempt, individual, entries, _ = _round_setup(period)
+    try:
+        if individual:
+            ballots = _num(post, 'ballots')
+            rows = []
+            for e in entries:
+                counts = {'approve': _num(post, f'approve_{e["key"]}'),
+                          'reject': _num(post, f'reject_{e["key"]}') if not e['pick'] else 0,
+                          'abstain': _num(post, f'abstain_{e["key"]}') if e['abstain_input'] else 0}
+                rows.append((e, counts))
+            per_position = {}
+            for e, n in rows:
+                per_position[e['position']] = per_position.get(e['position'], 0) + sum(n.values())
+            over = [pos for pos, total in per_position.items() if total > ballots]
+            if over:
+                raise PaperBallotError(f'More votes than paper ballots ({ballots}) for: ' + ', '.join(over) + '.')
+        else:
+            counts = {k: _num(post, k) for k in CHOICES}
+            ballots = sum(counts.values())
+            rows = [(None, counts)]
+    except PaperBallotError:
+        raise
+    except ValueError:
+        raise PaperBallotError('Counts must be whole numbers (0 or more).')
+    note = (post.get('note') or '').strip()[:300]
+    with transaction.atomic():
+        SlatingPeriod.objects.select_for_update().only('pk').get(pk=period.pk)
+        for e, n in rows:
+            SlatingPaperBallots.objects.update_or_create(
+                period=period, voting_attempt=attempt,
+                slate_candidate=e['candidate'] if e else None, nominee=e['nominee'] if e else None,
+                defaults={**n, 'ballots': ballots, 'note': note, 'recorded_by': user,
+                          'position_title': e['position'] if e else '',
+                          'candidate_name': e['name'] if e else ''})
+        SlatingActivity.objects.create(
+            period=period, user=user, action='vote_cast',
+            details=f'Paper ballots recorded for round {attempt}: {ballots} ballot(s)',
+            metadata={'paper_ballots': ballots, 'attempt': attempt,
+                      'counts': [{'position': e['position'] if e else 'slate',
+                                  'candidate': e['name'] if e else '', **n} for e, n in rows]},
+        )
+    return attempt, ballots
+
+
+@login_required
+@slating_chair_required
+def record_paper_ballots(request, period_id):
+    period = get_object_or_404(SlatingPeriod, id=period_id)
+    if not round_accepts_paper(period):
+        messages.error(request, PAPER_CLOSED)
+        return redirect('slating_period_setup', period_id=period.id)
+
+    if request.method == 'POST':
+        try:
+            attempt, ballots = save_paper_ballots(period, request.user, request.POST)
+        except PaperBallotError as e:
+            messages.error(request, str(e))
+            return redirect('slating_paper_ballots', period_id=period.id)
+        messages.success(request, f'Saved {ballots} paper ballot(s) for round {attempt}. '
+                                  'They\'ll be counted when you close the vote.')
+        return redirect('slating_period_setup', period_id=period.id)
+
+    return render(request, 'slating/paper_ballots.html', {'period': period, **paper_ballots_state(period)})

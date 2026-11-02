@@ -245,6 +245,8 @@ _CREATION_SITES = {
     # Add Member: the officer-facing creation form and its view.
     ('src/forms.py', 'clean_user_id'),
     ('src/view/officer/manage_members.py', 'add_member'),
+    # ...whose INSERT moved into the helper the app's Add Member shares (v4.x).
+    ('src/view/officer/manage_members.py', 'create_member'),
     # Bulk roster import — same operation, many rows. The INSERT itself lives in
     # the per-row helper, which is what the walk sees.
     ('src/view/officer/manage_members.py', 'bulk_import_members'),

@@ -888,11 +888,12 @@ def track_email_view(request, announcement_id, user_id):
     return HttpResponse(PIXEL_GIF, content_type='image/gif')
 
 
-@login_required
-@officer_required
-def announcement_stats(request, announcement_id):
-    """View detailed statistics for an announcement"""
-    announcement = get_object_or_404(Announcement, id=announcement_id)
+def announcement_stats_data(announcement):
+    """
+    The stats page's figures: ``{'stats', 'viewers', 'non_viewers'}``.
+    Shared with the app's ``officer/announcements/<id>/stats/``
+    (src/mobile/views_officer.py).
+    """
     stats = announcement.get_view_stats()  # also freezes the snapshot, if not already
     viewers = announcement.get_viewers()
 
@@ -910,11 +911,16 @@ def announcement_stats(request, announcement_id):
         .filter(user_id__in=announcement.target_audience_snapshot)
         .exclude(user_id__in=viewed_user_ids)
     )
+    return {'stats': stats, 'viewers': viewers, 'non_viewers': non_viewers}
 
+
+@login_required
+@officer_required
+def announcement_stats(request, announcement_id):
+    """View detailed statistics for an announcement"""
+    announcement = get_object_or_404(Announcement, id=announcement_id)
     context = {
         'announcement': announcement,
-        'stats': stats,
-        'viewers': viewers,
-        'non_viewers': non_viewers,
+        **announcement_stats_data(announcement),
     }
     return render(request, 'officer/announcement_stats.html', context)

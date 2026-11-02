@@ -187,16 +187,10 @@ def own_feedback_requests(user):
     return FeedbackRequest.objects.filter(submitted_by=user).order_by('-submitted_at')
 
 
-def feature_ideas(status_filter='', priority_filter=''):
-    """
-    The ideas board's rows (feedback_tracker, and the app's board in
-    src/mobile/views_support_history.py): feature ideas only, never support
-    tickets, in progress first, then acknowledged, new, resolved, won't do,
-    duplicate; newest first within each.
-    """
+def _status_order():
+    """In progress first, then acknowledged, new, resolved, won't do, duplicate."""
     from django.db.models import Case, When, Value, IntegerField
-
-    status_order = Case(
+    return Case(
         When(status='in_progress', then=Value(1)),
         When(status='acknowledged', then=Value(2)),
         When(status='new', then=Value(3)),
@@ -207,9 +201,17 @@ def feature_ideas(status_filter='', priority_filter=''):
         output_field=IntegerField(),
     )
 
+
+def feature_ideas(status_filter='', priority_filter=''):
+    """
+    The ideas board's rows (feedback_tracker, and the app's board in
+    src/mobile/views_support_history.py): feature ideas only, never support
+    tickets, in progress first, then acknowledged, new, resolved, won't do,
+    duplicate; newest first within each.
+    """
     ideas = FeedbackRequest.objects.filter(request_type='feature_idea').select_related('submitted_by').defer(
         *member_defer('submitted_by')
-    ).annotate(status_priority=status_order).order_by('status_priority', '-submitted_at')
+    ).annotate(status_priority=_status_order()).order_by('status_priority', '-submitted_at')
 
     if status_filter:
         ideas = ideas.filter(status=status_filter)
@@ -232,6 +234,79 @@ def feature_idea_counts():
 def can_manage_feedback(user):
     """The feedback admin (user_id 73), as feedback_tracker decides it."""
     return str(user.user_id) == '73'
+
+
+def feedback_visible_to(feedback, user):
+    """
+    The detail page's (and the attachment's) rule: a feature idea is public
+    to every member; a support ticket only to its submitter and the feedback
+    admin. Shared by `feedback_request_detail`, `serve_feedback_attachment`
+    and the app (src/mobile/views_support_history.py). Anything that isn't
+    a feature idea counts as private (the attachment view's fail-closed form).
+    """
+    if feedback.request_type == 'feature_idea':
+        return True
+    return feedback.submitted_by_id == user.pk or can_manage_feedback(user)
+
+
+def feedback_for_detail(feedback_id):
+    """The detail page's submission (with who submitted and resolved it), or None."""
+    return FeedbackRequest.objects.select_related('submitted_by', 'resolved_by').defer(
+        *member_defer('submitted_by', 'resolved_by')
+    ).filter(id=feedback_id).first()
+
+
+def admin_feedback_requests(status_filter='', type_filter='', priority_filter=''):
+    """The admin page's rows: ideas and tickets together, in the board's order."""
+    feedback_requests = FeedbackRequest.objects.all().select_related('submitted_by', 'resolved_by').defer(
+        *member_defer('submitted_by', 'resolved_by')
+    ).annotate(status_priority=_status_order()).order_by('status_priority', '-submitted_at')
+
+    if status_filter:
+        feedback_requests = feedback_requests.filter(status=status_filter)
+    if type_filter:
+        feedback_requests = feedback_requests.filter(request_type=type_filter)
+    if priority_filter:
+        feedback_requests = feedback_requests.filter(priority=priority_filter)
+    return feedback_requests
+
+
+def feedback_admin_counts():
+    """The admin page's summary cards (unfiltered, both kinds)."""
+    return {
+        'total_count': FeedbackRequest.objects.count(),
+        'idea_count': FeedbackRequest.objects.filter(request_type='feature_idea').count(),
+        'ticket_count': FeedbackRequest.objects.filter(request_type='support_ticket').count(),
+        'new_count': FeedbackRequest.objects.filter(status='new').count(),
+        'in_progress_count': FeedbackRequest.objects.filter(status__in=['acknowledged', 'in_progress']).count(),
+        'resolved_count': FeedbackRequest.objects.filter(status='resolved').count(),
+    }
+
+
+def update_feedback(feedback, user, new_status, admin_notes):
+    """
+    The admin's status / notes change (`feedback_admin_update`, and the
+    app's). An unknown or blank status leaves the status alone; blank notes
+    leave the notes alone. Resolving stamps when and by whom; un-resolving
+    clears both.
+    """
+    from django.utils import timezone
+
+    if new_status and new_status in dict(FeedbackRequest.STATUS_CHOICES):
+        old_status = feedback.status
+        feedback.status = new_status
+
+        if new_status == 'resolved' and old_status != 'resolved':
+            feedback.resolved_at = timezone.now()
+            feedback.resolved_by = user
+        elif new_status != 'resolved' and old_status == 'resolved':
+            feedback.resolved_at = None
+            feedback.resolved_by = None
+
+    if admin_notes:
+        feedback.admin_notes = admin_notes
+
+    feedback.save()
 
 
 @login_required
@@ -270,18 +345,15 @@ def feedback_request_detail(request, feedback_id):
     but a guessed/typed URL must not be a second way to read someone else's
     ticket either.
     """
-    try:
-        feedback = FeedbackRequest.objects.select_related('submitted_by', 'resolved_by').defer(
-            *member_defer('submitted_by', 'resolved_by')
-        ).get(id=feedback_id)
-    except FeedbackRequest.DoesNotExist:
+    feedback = feedback_for_detail(feedback_id)
+    if feedback is None:
         messages.error(request, 'Submission not found.')
         return redirect('feedback_tracker')
 
-    can_manage = str(request.user.user_id) == '73'
+    can_manage = can_manage_feedback(request.user)
     is_owner = feedback.submitted_by_id == request.user.pk
 
-    if feedback.request_type == 'support_ticket' and not (is_owner or can_manage):
+    if not feedback_visible_to(feedback, request.user):
         raise Http404('Submission not found.')
 
     return render(request, 'feedback_request_detail.html', {
@@ -297,55 +369,19 @@ def feedback_admin(request):
     Admin page for managing ALL feedback — ideas and tickets together —
     only accessible by the feedback admin (user_id 73).
     """
-    from django.db.models import Case, When, Value, IntegerField
-
     status_filter = request.GET.get('status', '')
     type_filter = request.GET.get('type', '')
     priority_filter = request.GET.get('priority', '')
 
-    status_order = Case(
-        When(status='in_progress', then=Value(1)),
-        When(status='acknowledged', then=Value(2)),
-        When(status='new', then=Value(3)),
-        When(status='resolved', then=Value(4)),
-        When(status='wont_fix', then=Value(5)),
-        When(status='duplicate', then=Value(6)),
-        default=Value(7),
-        output_field=IntegerField(),
-    )
-
-    feedback_requests = FeedbackRequest.objects.all().select_related('submitted_by', 'resolved_by').defer(
-        *member_defer('submitted_by', 'resolved_by')
-    ).annotate(status_priority=status_order).order_by('status_priority', '-submitted_at')
-
-    if status_filter:
-        feedback_requests = feedback_requests.filter(status=status_filter)
-    if type_filter:
-        feedback_requests = feedback_requests.filter(request_type=type_filter)
-    if priority_filter:
-        feedback_requests = feedback_requests.filter(priority=priority_filter)
-
-    total_count = FeedbackRequest.objects.count()
-    idea_count = FeedbackRequest.objects.filter(request_type='feature_idea').count()
-    ticket_count = FeedbackRequest.objects.filter(request_type='support_ticket').count()
-    new_count = FeedbackRequest.objects.filter(status='new').count()
-    in_progress_count = FeedbackRequest.objects.filter(status__in=['acknowledged', 'in_progress']).count()
-    resolved_count = FeedbackRequest.objects.filter(status='resolved').count()
-
     context = {
-        'feedback_requests': feedback_requests,
+        'feedback_requests': admin_feedback_requests(status_filter, type_filter, priority_filter),
         'status_choices': FeedbackRequest.STATUS_CHOICES,
         'request_types': FeedbackRequest.REQUEST_TYPES,
         'priority_choices': FeedbackRequest.PRIORITY_CHOICES,
         'current_status': status_filter,
         'current_type': type_filter,
         'current_priority': priority_filter,
-        'total_count': total_count,
-        'idea_count': idea_count,
-        'ticket_count': ticket_count,
-        'new_count': new_count,
-        'in_progress_count': in_progress_count,
-        'resolved_count': resolved_count,
+        **feedback_admin_counts(),
     }
     return render(request, 'feedback_admin.html', context)
 
@@ -355,8 +391,6 @@ def feedback_admin_update(request, feedback_id):
     """
     Update a feedback request's status and admin notes.
     """
-    from django.utils import timezone
-
     if request.method != 'POST':
         return redirect('feedback_admin')
 
@@ -366,24 +400,7 @@ def feedback_admin_update(request, feedback_id):
         messages.error(request, 'Submission not found.')
         return redirect('feedback_admin')
 
-    new_status = request.POST.get('status')
-    admin_notes = request.POST.get('admin_notes', '')
-
-    if new_status and new_status in dict(FeedbackRequest.STATUS_CHOICES):
-        old_status = feedback.status
-        feedback.status = new_status
-
-        if new_status == 'resolved' and old_status != 'resolved':
-            feedback.resolved_at = timezone.now()
-            feedback.resolved_by = request.user
-        elif new_status != 'resolved' and old_status == 'resolved':
-            feedback.resolved_at = None
-            feedback.resolved_by = None
-
-    if admin_notes:
-        feedback.admin_notes = admin_notes
-
-    feedback.save()
+    update_feedback(feedback, request.user, request.POST.get('status'), request.POST.get('admin_notes', ''))
     messages.success(request, f'{feedback.get_request_type_display()} #{feedback_id} updated successfully.')
 
     next_url = request.POST.get('next', '')

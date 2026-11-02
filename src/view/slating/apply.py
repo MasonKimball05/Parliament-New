@@ -27,26 +27,14 @@ def apply_view(request, period_id):
     period = get_object_or_404(SlatingPeriod, id=period_id)
     user = request.user
 
-    # Check if applications are open
-    if not period.can_apply():
-        messages.error(request, 'Applications are not currently open for this period.')
+    existing_app, refusal = apply_refusal(period, user)
+    if refusal:
+        kind, message = refusal
+        if kind == 'already_applied':
+            messages.info(request, message)
+            return redirect('slating_my_applications')
+        messages.error(request, message)
         return redirect('slating_dashboard')
-
-    # v4.0.0: only active members (not inactive, alumni or advisors).
-    from .permissions import applicant_ineligibility
-    reason = applicant_ineligibility(user)
-    if reason:
-        messages.error(request, reason)
-        return redirect('slating_dashboard')
-
-    # Check for existing application
-    existing_app = SlatingApplication.objects.filter(
-        period=period, applicant=user
-    ).first()
-
-    if existing_app and existing_app.status not in ['draft', 'withdrawn']:
-        messages.info(request, 'You have already submitted an application.')
-        return redirect('slating_my_applications')
 
     # Get form fields
     form_fields = period.form_fields.filter(is_active=True).order_by('display_order')
@@ -61,13 +49,7 @@ def apply_view(request, period_id):
         for response in existing_app.responses.select_related('field').all():
             existing_responses[response.field_id] = response
 
-    # Group fields by section
-    sections = {}
-    for field in form_fields:
-        section = field.section or 'General'
-        if section not in sections:
-            sections[section] = []
-        sections[section].append(field)
+    sections = field_sections(form_fields)
 
     context = {
         'period': period,
@@ -82,8 +64,53 @@ def apply_view(request, period_id):
     return render(request, 'slating/apply.html', context)
 
 
-def _handle_application_submit(request, period, user, existing_app, form_fields, positions):
-    """Handle POST submission of application."""
+APPLY_CLOSED = 'Applications are not currently open for this period.'
+ALREADY_APPLIED = 'You have already submitted an application.'
+
+
+def apply_refusal(period, user):
+    """
+    ``(existing application, refusal)`` for ``user`` opening ``period``'s
+    application form; ``refusal`` is ``(kind, message)`` or None. The web page
+    and the app's form (``src/mobile/views_slating_apply.py``) check the same
+    things in the same order: applications open, the member may apply
+    (v4.0.0), and no application already past draft/withdrawn.
+    """
+    if not period.can_apply():
+        return None, ('closed', APPLY_CLOSED)
+
+    # v4.0.0: only active members (not inactive, alumni or advisors).
+    from .permissions import applicant_ineligibility
+    reason = applicant_ineligibility(user)
+    if reason:
+        return None, ('ineligible', reason)
+
+    existing_app = SlatingApplication.objects.filter(period=period, applicant=user).first()
+    if existing_app and existing_app.status not in ['draft', 'withdrawn']:
+        return existing_app, ('already_applied', ALREADY_APPLIED)
+    return existing_app, None
+
+
+def field_sections(form_fields):
+    """The form's fields grouped by section (``General`` when blank), in order."""
+    sections = {}
+    for field in form_fields:
+        section = field.section or 'General'
+        if section not in sections:
+            sections[section] = []
+        sections[section].append(field)
+    return sections
+
+
+def save_application(period, user, existing_app, form_fields, positions, post, files, is_submit):
+    """
+    Save an application from posted values: the website's form, or the app's
+    (``post`` has ``get``/``getlist`` like a QueryDict, ``files`` has ``get``).
+
+    Returns ``(application, errors)``. A draft saves whatever validated and
+    drops the rest; a submit with errors saves nothing (the caller shows the
+    errors with the unsaved ``application``).
+    """
     errors = []
 
     # Create or update application
@@ -97,14 +124,14 @@ def _handle_application_submit(request, period, user, existing_app, form_fields,
         )
 
     # Process GPA
-    gpa = request.POST.get('reported_gpa')
+    gpa = post.get('reported_gpa')
     if gpa:
         try:
             application.reported_gpa = float(gpa)
         except ValueError:
             errors.append("GPA must be a valid number")
 
-    gpa_screenshot = request.FILES.get('gpa_screenshot')
+    gpa_screenshot = files.get('gpa_screenshot')
     if gpa_screenshot:
         # ⚠️ v3.19.7 — THIS USED TO VALIDATE THE UPLOADER'S OWN CLAIM.
         # The check was `gpa_screenshot.content_type not in [image/*, pdf]`, and
@@ -126,10 +153,10 @@ def _handle_application_submit(request, period, user, existing_app, form_fields,
             errors.append(f"GPA screenshot: {'; '.join(exc.messages)}")
 
     # Process tiered position preferences
-    first_choice = request.POST.getlist('positions_first_choice')
-    second_choice = request.POST.getlist('positions_second_choice')
-    third_choice = request.POST.getlist('positions_third_choice')
-    do_not_want = request.POST.getlist('positions_do_not_want')
+    first_choice = post.getlist('positions_first_choice')
+    second_choice = post.getlist('positions_second_choice')
+    third_choice = post.getlist('positions_third_choice')
+    do_not_want = post.getlist('positions_do_not_want')
 
     # v4.0.0: was `int(p)` on whatever was posted — junk was a 500, and any
     # position id (another period's) was stored. Only this period's active
@@ -174,7 +201,7 @@ def _handle_application_submit(request, period, user, existing_app, form_fields,
 
         # Get value based on field type
         if field.field_type in ['file', 'image']:
-            value = request.FILES.get(f'field_{field.id}')
+            value = files.get(f'field_{field.id}')
             if value:
                 # v3.19.7 — measured validation first (see the GPA screenshot
                 # above for why the declared `content_type` is not evidence),
@@ -192,10 +219,10 @@ def _handle_application_submit(request, period, user, existing_app, form_fields,
                     field_error = f"{field.label}: File too large (max {field.max_file_size_mb}MB)"
 
         elif field.field_type in ['multiselect', 'checkbox']:
-            value = request.POST.getlist(f'field_{field.id}')
+            value = post.getlist(f'field_{field.id}')
 
         elif field.field_type in ['number']:
-            raw = request.POST.get(f'field_{field.id}')
+            raw = post.get(f'field_{field.id}')
             if raw:
                 try:
                     value = int(raw)
@@ -203,7 +230,7 @@ def _handle_application_submit(request, period, user, existing_app, form_fields,
                     field_error = f"{field.label}: Must be a valid number"
 
         elif field.field_type == 'decimal':
-            raw = request.POST.get(f'field_{field.id}')
+            raw = post.get(f'field_{field.id}')
             if raw:
                 try:
                     value = float(raw)
@@ -211,7 +238,7 @@ def _handle_application_submit(request, period, user, existing_app, form_fields,
                     field_error = f"{field.label}: Must be a valid number"
 
         else:
-            value = request.POST.get(f'field_{field.id}', '').strip()
+            value = post.get(f'field_{field.id}', '').strip()
 
         # Validate required
         if field.is_required:
@@ -239,37 +266,8 @@ def _handle_application_submit(request, period, user, existing_app, form_fields,
         else:
             field_responses.append((field, value))
 
-    # Check if this is a save draft or submit
-    is_submit = request.POST.get('action') == 'submit'
-
-    # For draft saves, don't require all fields
     if is_submit and errors:
-        for error in errors:
-            messages.error(request, error)
-
-        # Re-render form with errors
-        existing_responses = {}
-        if application.pk:
-            for response in application.responses.select_related('field').all():
-                existing_responses[response.field_id] = response
-
-        sections = {}
-        for field in form_fields:
-            section = field.section or 'General'
-            if section not in sections:
-                sections[section] = []
-            sections[section].append(field)
-
-        context = {
-            'period': period,
-            'fields': form_fields,  # Template uses 'fields' for regroup
-            'form_fields': form_fields,
-            'sections': sections,
-            'positions': positions,
-            'application': application,
-            'responses': existing_responses,  # Template uses 'responses'
-        }
-        return render(request, 'slating/apply.html', context)
+        return application, errors
 
     # Save application
     if is_submit:
@@ -309,8 +307,6 @@ def _handle_application_submit(request, period, user, existing_app, form_fields,
         response.save()
 
     if is_submit:
-        messages.success(request, 'Your application has been submitted successfully!')
-
         # Log activity
         SlatingActivity.objects.create(
             period=period,
@@ -319,6 +315,41 @@ def _handle_application_submit(request, period, user, existing_app, form_fields,
             details=f'{user.name} submitted application',
             metadata={'application_id': application.id}
         )
+
+    return application, errors
+
+
+def _handle_application_submit(request, period, user, existing_app, form_fields, positions):
+    """Handle POST submission of application."""
+    # Check if this is a save draft or submit
+    is_submit = request.POST.get('action') == 'submit'
+    application, errors = save_application(period, user, existing_app, form_fields, positions,
+                                           request.POST, request.FILES, is_submit)
+
+    # For draft saves, don't require all fields
+    if is_submit and errors:
+        for error in errors:
+            messages.error(request, error)
+
+        # Re-render form with errors
+        existing_responses = {}
+        if application.pk:
+            for response in application.responses.select_related('field').all():
+                existing_responses[response.field_id] = response
+
+        context = {
+            'period': period,
+            'fields': form_fields,  # Template uses 'fields' for regroup
+            'form_fields': form_fields,
+            'sections': field_sections(form_fields),
+            'positions': positions,
+            'application': application,
+            'responses': existing_responses,  # Template uses 'responses'
+        }
+        return render(request, 'slating/apply.html', context)
+
+    if is_submit:
+        messages.success(request, 'Your application has been submitted successfully!')
     else:
         messages.success(request, 'Your application has been saved as draft.')
 
@@ -399,7 +430,29 @@ def view_application(request, app_id):
     positions = application.period.positions.filter(is_active=True)
     position_dict = {p.id: p for p in positions}
 
-    # Build tiered position display
+    tiered_positions, selected_positions = tiered_position_lists(application, position_dict)
+
+    context = {
+        'application': application,
+        'period': application.period,
+        'fields': fields,
+        'responses': response_dict,
+        'selected_positions': selected_positions,
+        'tiered_positions': tiered_positions,
+    }
+
+    return render(request, 'slating/view_application.html', context)
+
+
+TIERS = ('first_choice', 'second_choice', 'third_choice', 'do_not_want')
+
+
+def tiered_position_lists(application, position_dict):
+    """
+    ``(tiered, wanted)``: the application's positions per preference tier
+    (``{position id: position}`` lookups, unknown ids dropped; a legacy plain
+    list is all first choice), and the wanted ones in order (no do-not-want).
+    """
     prefs = application.position_preferences or {}
 
     # Handle legacy list format
@@ -412,10 +465,8 @@ def view_application(request, app_id):
         }
 
     tiered_positions = {
-        'first_choice': [position_dict.get(pid) for pid in prefs.get('first_choice', []) if pid in position_dict],
-        'second_choice': [position_dict.get(pid) for pid in prefs.get('second_choice', []) if pid in position_dict],
-        'third_choice': [position_dict.get(pid) for pid in prefs.get('third_choice', []) if pid in position_dict],
-        'do_not_want': [position_dict.get(pid) for pid in prefs.get('do_not_want', []) if pid in position_dict],
+        tier: [position_dict.get(pid) for pid in prefs.get(tier, []) if pid in position_dict]
+        for tier in TIERS
     }
 
     # For backwards compatibility, also provide flat list of wanted positions
@@ -424,14 +475,4 @@ def view_application(request, app_id):
         tiered_positions['second_choice'] +
         tiered_positions['third_choice']
     )
-
-    context = {
-        'application': application,
-        'period': application.period,
-        'fields': fields,
-        'responses': response_dict,
-        'selected_positions': selected_positions,
-        'tiered_positions': tiered_positions,
-    }
-
-    return render(request, 'slating/view_application.html', context)
+    return tiered_positions, selected_positions

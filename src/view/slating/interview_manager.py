@@ -16,16 +16,14 @@ from src.models import (
 from .permissions import can_manage_period, can_view_applications, slating_committee_required, slating_chair_required
 from src.models.users import member_defer, member_prefetch
 
+PLEDGE_INTERVIEW = ('{name} is still a pledge. Pledges can apply, but must be initiated '
+                    'before they can be interviewed.')
 
-@login_required
-@slating_committee_required
-def interview_list(request, period_id):
-    """
-    View all interviews for a period.
-    """
-    period = get_object_or_404(SlatingPeriod, id=period_id)
 
-    # Get all interviews
+# ── Shared with the app (src/mobile/views_slating_committee.py) ─────────────
+
+def period_interviews(period, status_filter=''):
+    """The period's interviews, latest first; ``scheduled`` / ``completed`` / ``pending`` narrow it."""
     interviews = SlatingInterview.objects.filter(
         application__period=period
     ).select_related(
@@ -33,9 +31,6 @@ def interview_list(request, period_id):
     ).defer(*member_defer('application__applicant')).prefetch_related(
         member_prefetch('interviewers'), 'recommended_positions'
     ).order_by('-scheduled_at')
-
-    # Filter options
-    status_filter = request.GET.get('status', '')
 
     if status_filter == 'scheduled':
         interviews = interviews.filter(
@@ -46,21 +41,172 @@ def interview_list(request, period_id):
         interviews = interviews.filter(completed_at__isnull=False)
     elif status_filter == 'pending':
         interviews = interviews.filter(scheduled_at__isnull=True)
+    return interviews
 
-    # Get applications without interviews
-    apps_without_interview = period.applications.filter(
+
+def apps_without_interview(period):
+    """Submitted / under-review applications with no interview yet."""
+    return period.applications.filter(
         status__in=['submitted', 'under_review']
     ).exclude(
         interviews__isnull=False
     ).select_related('applicant').defer(*member_defer('applicant'))
 
-    # Get committee members for interviewer selection
+
+def committee_interviewers(period):
+    """Who can sit on an interview panel: the committee's members and chairs, no pledges (v4.0.0)."""
     interviewers_list = []
     if period.slating_committee:
         interviewers_list = list(period.slating_committee.members.all()) + \
                           list(period.slating_committee.chairs.all())
         # Remove duplicates; pledges can't serve until initiated (v4.0.0)
         interviewers_list = [m for m in set(interviewers_list) if not m.is_pledge]
+    return interviewers_list
+
+
+def schedule_refusal(user, application):
+    """
+    Why ``user`` may not schedule ``application``'s interview, as
+    ``(code, message)`` — ``forbidden`` or ``pledge_applicant`` — or None.
+    """
+    # Check permissions: the period's managers (slating manager, committee
+    # admin/chairs; a site admin only while the period isn't locked).
+    # v4.0.0: was `user.is_admin or chair`, which let any site admin into a
+    # locked period and left out the slating manager.
+    if not can_manage_period(user, application.period):
+        return 'forbidden', 'Only slating committee chairs can schedule interviews.'
+    # v4.0.0 (Mason): pledges may apply, but must be initiated before they're
+    # interviewed.
+    if application.applicant.is_pledge:
+        return 'pledge_applicant', PLEDGE_INTERVIEW.format(name=application.applicant.get_display_name())
+    return None
+
+
+def save_schedule(application, user, scheduled_datetime, location, interviewer_ids):
+    """
+    Schedule (or reschedule) ``application``'s interview: time, place and
+    panel (no pledges). A submitted / under-review application becomes
+    interview_scheduled; logged.
+    """
+    period = application.period
+    interview, created = SlatingInterview.objects.get_or_create(
+        application=application,
+        defaults={
+            'scheduled_at': scheduled_datetime,
+            'location': location,
+        }
+    )
+
+    if not created:
+        interview.scheduled_at = scheduled_datetime
+        interview.location = location
+        interview.save(update_fields=['scheduled_at', 'location'])
+
+    # Set interviewers
+    if interviewer_ids:
+        interviewers = ParliamentUser.objects.filter(user_id__in=interviewer_ids).exclude(member_type='Pledge')
+        interview.interviewers.set(interviewers)
+
+    # Update application status
+    if application.status in ['submitted', 'under_review']:
+        application.status = 'interview_scheduled'
+        application.save(update_fields=['status'])
+
+    # Log activity
+    SlatingActivity.objects.create(
+        period=period,
+        user=user,
+        action='interview_scheduled',
+        details=f'Scheduled interview for {application.applicant.name}',
+        metadata={'application_id': application.id, 'interview_id': interview.id}
+    )
+    return interview
+
+
+def save_completion(interview, user, notes, strengths, concerns, recommendation, position_ids):
+    """
+    Record an interview's notes and recommendation (marking it completed the
+    first time); an interview_scheduled application becomes interviewed;
+    logged.
+    """
+    period = interview.application.period
+    interview.notes = notes
+    interview.strengths = strengths
+    interview.concerns = concerns
+    interview.recommendation = recommendation
+
+    # Mark as completed
+    if not interview.completed_at:
+        interview.completed_at = timezone.now()
+
+    interview.save(update_fields=['notes', 'strengths', 'concerns', 'recommendation', 'completed_at'])
+
+    # Set recommended positions
+    if position_ids:
+        positions = SlatingPosition.objects.filter(id__in=position_ids, period=period)
+        interview.recommended_positions.set(positions)
+    else:
+        interview.recommended_positions.clear()
+
+    # Update application status
+    if interview.application.status == 'interview_scheduled':
+        interview.application.status = 'interviewed'
+        interview.application.save(update_fields=['status'])
+
+    # Log activity
+    SlatingActivity.objects.create(
+        period=period,
+        user=user,
+        action='interview_completed',
+        details=f'Completed interview for {interview.application.applicant.name}',
+        metadata={
+            'application_id': interview.application.id,
+            'interview_id': interview.id,
+            'recommendation': interview.recommendation
+        }
+    )
+
+
+def destroy_period_notes(period, user):
+    """Destroy every interview's confidential notes for ``period`` (bylaws); logged. Returns the count."""
+    interviews = SlatingInterview.objects.filter(
+        application__period=period,
+        notes_destroyed=False
+    )
+
+    count = 0
+    for interview in interviews:
+        interview.destroy_notes(user)
+        count += 1
+
+    # Log activity
+    SlatingActivity.objects.create(
+        period=period,
+        user=user,
+        action='notes_destroyed',
+        details=f'Destroyed confidential notes for {count} interviews',
+        metadata={'count': count}
+    )
+    return count
+
+
+@login_required
+@slating_committee_required
+def interview_list(request, period_id):
+    """
+    View all interviews for a period.
+    """
+    period = get_object_or_404(SlatingPeriod, id=period_id)
+
+    # Filter options
+    status_filter = request.GET.get('status', '')
+    interviews = period_interviews(period, status_filter)
+
+    # Get applications without interviews
+    apps_without = apps_without_interview(period)
+
+    # Get committee members for interviewer selection
+    interviewers_list = committee_interviewers(period)
 
     context = {
         'period': period,
@@ -69,7 +215,7 @@ def interview_list(request, period_id):
         'can_manage': can_manage_period(request.user, period),
         'notes_remaining': SlatingInterview.objects.filter(
             application__period=period, notes_destroyed=False).count(),
-        'apps_without_interview': apps_without_interview,
+        'apps_without_interview': apps_without,
         'interviewers_list': interviewers_list,
         'status_filter': status_filter,
     }
@@ -85,30 +231,16 @@ def schedule_interview(request, app_id):
     application = get_object_or_404(SlatingApplication, id=app_id)
     period = application.period
 
-    # Check permissions: the period's managers (slating manager, committee
-    # admin/chairs; a site admin only while the period isn't locked).
-    # v4.0.0: was `user.is_admin or chair`, which let any site admin into a
-    # locked period and left out the slating manager.
-    user = request.user
-    if not can_manage_period(user, period):
-        messages.error(request, 'Only slating committee chairs can schedule interviews.')
-        return redirect('slating_dashboard')
-
-    # v4.0.0 (Mason): pledges may apply, but must be initiated before they're
-    # interviewed.
-    if application.applicant.is_pledge:
-        messages.error(request, f'{application.applicant.get_display_name()} is still a pledge. '
-                                'Pledges can apply, but must be initiated before they can be interviewed.')
+    refusal = schedule_refusal(request.user, application)
+    if refusal:
+        code, message = refusal
+        messages.error(request, message)
+        if code == 'forbidden':
+            return redirect('slating_dashboard')
         return redirect('slating_interviews', period_id=period.id)
 
     if request.method == 'GET':
-        # Get potential interviewers
-        interviewers_list = []
-        if period.slating_committee:
-            interviewers_list = list(period.slating_committee.members.all()) + \
-                              list(period.slating_committee.chairs.all())
-            # Pledges can't serve on the committee until initiated (v4.0.0).
-            interviewers_list = [m for m in set(interviewers_list) if not m.is_pledge]
+        interviewers_list = committee_interviewers(period)
 
         # Check if AJAX request - return JSON for modal
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
@@ -147,38 +279,7 @@ def schedule_interview(request, app_id):
             messages.error(request, 'Invalid date/time format.')
             return redirect('slating_interviews', period_id=period.id)
 
-    # Get or create interview
-    interview, created = SlatingInterview.objects.get_or_create(
-        application=application,
-        defaults={
-            'scheduled_at': scheduled_datetime,
-            'location': location,
-        }
-    )
-
-    if not created:
-        interview.scheduled_at = scheduled_datetime
-        interview.location = location
-        interview.save(update_fields=['scheduled_at', 'location'])
-
-    # Set interviewers
-    if interviewer_ids:
-        interviewers = ParliamentUser.objects.filter(user_id__in=interviewer_ids).exclude(member_type='Pledge')
-        interview.interviewers.set(interviewers)
-
-    # Update application status
-    if application.status in ['submitted', 'under_review']:
-        application.status = 'interview_scheduled'
-        application.save(update_fields=['status'])
-
-    # Log activity
-    SlatingActivity.objects.create(
-        period=period,
-        user=request.user,
-        action='interview_scheduled',
-        details=f'Scheduled interview for {application.applicant.name}',
-        metadata={'application_id': application.id, 'interview_id': interview.id}
-    )
+    save_schedule(application, request.user, scheduled_datetime, location, interviewer_ids)
 
     messages.success(request, f'Interview scheduled for {application.applicant.name}.')
     return redirect('slating_interviews', period_id=period.id)
@@ -235,42 +336,12 @@ def complete_interview(request, interview_id):
         return render(request, 'slating/complete_interview.html', context)
 
     # POST - update interview
-    interview.notes = request.POST.get('notes', '').strip()
-    interview.strengths = request.POST.get('strengths', '').strip()
-    interview.concerns = request.POST.get('concerns', '').strip()
-    interview.recommendation = request.POST.get('recommendation', '')
-
-    # Mark as completed
-    if not interview.completed_at:
-        interview.completed_at = timezone.now()
-
-    interview.save(update_fields=['notes', 'strengths', 'concerns', 'recommendation', 'completed_at'])
-
-    # Set recommended positions
-    position_ids = request.POST.getlist('recommended_positions')
-    if position_ids:
-        positions = SlatingPosition.objects.filter(id__in=position_ids, period=period)
-        interview.recommended_positions.set(positions)
-    else:
-        interview.recommended_positions.clear()
-
-    # Update application status
-    if interview.application.status == 'interview_scheduled':
-        interview.application.status = 'interviewed'
-        interview.application.save(update_fields=['status'])
-
-    # Log activity
-    SlatingActivity.objects.create(
-        period=period,
-        user=request.user,
-        action='interview_completed',
-        details=f'Completed interview for {interview.application.applicant.name}',
-        metadata={
-            'application_id': interview.application.id,
-            'interview_id': interview.id,
-            'recommendation': interview.recommendation
-        }
-    )
+    save_completion(interview, request.user,
+                    request.POST.get('notes', '').strip(),
+                    request.POST.get('strengths', '').strip(),
+                    request.POST.get('concerns', '').strip(),
+                    request.POST.get('recommendation', ''),
+                    request.POST.getlist('recommended_positions'))
 
     messages.success(request, f'Interview notes saved for {interview.application.applicant.name}.')
     return redirect('slating_interviews', period_id=period.id)
@@ -293,25 +364,7 @@ def destroy_interview_notes(request, period_id):
         messages.error(request, 'Please type DESTROY to confirm.')
         return redirect('slating_interviews', period_id=period_id)
 
-    # Get all interviews with notes
-    interviews = SlatingInterview.objects.filter(
-        application__period=period,
-        notes_destroyed=False
-    )
-
-    count = 0
-    for interview in interviews:
-        interview.destroy_notes(request.user)
-        count += 1
-
-    # Log activity
-    SlatingActivity.objects.create(
-        period=period,
-        user=request.user,
-        action='notes_destroyed',
-        details=f'Destroyed confidential notes for {count} interviews',
-        metadata={'count': count}
-    )
+    count = destroy_period_notes(period, request.user)
 
     messages.success(request, f'Destroyed confidential notes for {count} interviews.')
     return redirect('slating_interviews', period_id=period_id)

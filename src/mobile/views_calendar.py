@@ -38,7 +38,7 @@ from src.models import AttendanceExcuse, Event, EventSignup
 from src.models.users import member_defer
 from src.models_calendar_subscription import CalendarSubscription
 from src.models_feature_flags import FeatureFlag
-from src.permissions import user_is_officer_or_chair
+from src.permissions import user_is_officer_or_chair, user_is_vpp
 from src.utils.visibility import visible_to_q
 
 DEFAULT_DAYS = 31
@@ -214,6 +214,14 @@ class EventDetailView(_CalendarBase):
             officer and event.requires_attendance
             and check_feature_enabled('attendance_tracking') and check_feature_enabled('event_attendance'))
         data['attendance_finalized'] = event.attendance_finalized
+        # Batch 5: the web calendar's "Service Event — N hrs · Take Attendance"
+        # pill, for whoever its page (vpp_required) lets in.
+        se = getattr(event, 'service_event', None) if data['is_service_event'] else None
+        data['service_event'] = {
+            'id': se.id,
+            'hours_awarded': float(se.hours_awarded),
+            'hours_applied': se.hours_applied,
+        } if se is not None and user_is_vpp(request.user) else None
         return Response({'event': data})
 
 

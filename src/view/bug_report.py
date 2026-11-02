@@ -200,20 +200,25 @@ def own_bug_reports(user):
     return BugReport.objects.filter(submitted_by=user).order_by('-submitted_at')
 
 
-@login_required
-def bug_tracker(request):
+def can_manage_bugs(user):
+    """The bug admin (user_id 73), as `bug_admin_required` decides it.
+    Hardcoded single user id is intentional — see CLAUDE.md."""
+    return str(user.user_id) == '73'
+
+
+def screenshot_visible_to(report, user):
     """
-    Public bug tracker showing all reported issues and their status.
-    Allows filtering by status and issue type.
+    Whether `user` may see `report`'s screenshot: its reporter or the bug
+    admin (`serve_bug_report_screenshot`, and the app's screenshot endpoint).
+    The tracker's detail page is open to every member, the screenshot isn't.
     """
+    return report.submitted_by_id == user.pk or can_manage_bugs(user)
+
+
+def _status_order():
+    """In progress first, then acknowledged, new, resolved, won't fix, duplicate."""
     from django.db.models import Case, When, Value, IntegerField
-
-    # Get filter parameters
-    status_filter = request.GET.get('status', '')
-    type_filter = request.GET.get('type', '')
-
-    # Custom status ordering: acknowledged/in_progress first, then new, then resolved/others
-    status_order = Case(
+    return Case(
         When(status='in_progress', then=Value(1)),
         When(status='acknowledged', then=Value(2)),
         When(status='new', then=Value(3)),
@@ -224,37 +229,105 @@ def bug_tracker(request):
         output_field=IntegerField(),
     )
 
-    # Base queryset with custom ordering
-    bug_reports = BugReport.objects.all().select_related('submitted_by').defer(*member_defer('submitted_by')).annotate(
-        status_priority=status_order
-    ).order_by('status_priority', '-submitted_at')
 
-    # Apply filters
+def tracked_bug_reports(status_filter='', type_filter='', priority_filter='', device_filter=''):
+    """
+    The bug tracker's and bug admin's rows, in the pages' status order, newest
+    first within each; a blank filter is no filter. Shared with the app
+    (src/mobile/views_support_history.py).
+    """
+    bug_reports = BugReport.objects.all().select_related('submitted_by', 'resolved_by').defer(
+        *member_defer('submitted_by', 'resolved_by')
+    ).annotate(status_priority=_status_order()).order_by('status_priority', '-submitted_at')
+
     if status_filter:
         bug_reports = bug_reports.filter(status=status_filter)
     if type_filter:
         bug_reports = bug_reports.filter(issue_type=type_filter)
+    if priority_filter:
+        bug_reports = bug_reports.filter(priority=priority_filter)
+    if device_filter:
+        bug_reports = bug_reports.filter(device_type=device_filter)
+    return bug_reports
 
-    # Get counts for summary
-    total_count = BugReport.objects.count()
-    new_count = BugReport.objects.filter(status='new').count()
-    in_progress_count = BugReport.objects.filter(status__in=['acknowledged', 'in_progress']).count()
-    resolved_count = BugReport.objects.filter(status='resolved').count()
 
-    # Check if user can manage bugs (user_id 73)
-    can_manage = str(request.user.user_id) == '73'
+def bug_report_counts():
+    """The tracker's and admin page's four summary cards (unfiltered)."""
+    return {
+        'total_count': BugReport.objects.count(),
+        'new_count': BugReport.objects.filter(status='new').count(),
+        'in_progress_count': BugReport.objects.filter(status__in=['acknowledged', 'in_progress']).count(),
+        'resolved_count': BugReport.objects.filter(status='resolved').count(),
+    }
+
+
+def bug_device_type_choices():
+    """
+    v3.31.2 — device-type filter options. Built from the distinct values
+    actually on file rather than a hardcoded ('mobile', 'tablet', 'desktop')
+    tuple, so a blank ('' — pre-migration rows the backfill couldn't parse,
+    e.g. no browser_info was ever recorded) doesn't render as a phantom
+    choice, and the dropdown never silently omits a value the parser starts
+    returning in the future.
+    """
+    return list(
+        BugReport.objects.exclude(device_type='').order_by('device_type')
+        .values_list('device_type', flat=True).distinct()
+    )
+
+
+def bug_report_for_detail(bug_id):
+    """The detail page's report (with who submitted and resolved it), or None."""
+    return BugReport.objects.select_related('submitted_by', 'resolved_by').defer(
+        *member_defer('submitted_by', 'resolved_by')
+    ).filter(id=bug_id).first()
+
+
+def update_bug_report(bug_report, user, new_status, admin_notes):
+    """
+    The admin's status / notes change (`bug_admin_update`, and the app's).
+    An unknown or blank status leaves the status alone; blank notes leave the
+    notes alone. Resolving stamps when and by whom; un-resolving clears both.
+    """
+    from django.utils import timezone
+
+    if new_status and new_status in dict(BugReport.STATUS_CHOICES):
+        old_status = bug_report.status
+        bug_report.status = new_status
+
+        # If marking as resolved, set resolved_at and resolved_by
+        if new_status == 'resolved' and old_status != 'resolved':
+            bug_report.resolved_at = timezone.now()
+            bug_report.resolved_by = user
+        # If un-resolving, clear resolved fields
+        elif new_status != 'resolved' and old_status == 'resolved':
+            bug_report.resolved_at = None
+            bug_report.resolved_by = None
+
+    if admin_notes:
+        bug_report.admin_notes = admin_notes
+
+    bug_report.save()
+
+
+@login_required
+def bug_tracker(request):
+    """
+    Public bug tracker showing all reported issues and their status.
+    Allows filtering by status and issue type.
+    """
+    # Get filter parameters
+    status_filter = request.GET.get('status', '')
+    type_filter = request.GET.get('type', '')
 
     context = {
-        'bug_reports': bug_reports,
+        'bug_reports': tracked_bug_reports(status_filter, type_filter),
         'status_choices': BugReport.STATUS_CHOICES,
         'issue_types': BugReport.ISSUE_TYPES,
         'current_status': status_filter,
         'current_type': type_filter,
-        'total_count': total_count,
-        'new_count': new_count,
-        'in_progress_count': in_progress_count,
-        'resolved_count': resolved_count,
-        'can_manage': can_manage,
+        **bug_report_counts(),
+        'can_manage': can_manage_bugs(request.user),
     }
     return render(request, 'bug_tracker.html', context)
 
@@ -264,18 +337,14 @@ def bug_report_detail(request, bug_id):
     """
     View details of a specific bug report
     """
-    try:
-        bug_report = BugReport.objects.select_related('submitted_by', 'resolved_by').defer(*member_defer('submitted_by', 'resolved_by')).get(id=bug_id)
-    except BugReport.DoesNotExist:
+    bug_report = bug_report_for_detail(bug_id)
+    if bug_report is None:
         messages.error(request, 'Bug report not found.')
         return redirect('bug_tracker')
 
-    # Check if user can manage bugs (user_id 73)
-    can_manage = str(request.user.user_id) == '73'
-
     return render(request, 'bug_report_detail.html', {
         'bug_report': bug_report,
-        'can_manage': can_manage,
+        'can_manage': can_manage_bugs(request.user),
     })
 
 
@@ -288,73 +357,23 @@ def bug_admin(request):
     """
     Admin page for managing bug reports - only accessible by user_id 73
     """
-    from django.utils import timezone
-    from django.db.models import Case, When, Value, IntegerField
-
     # Get filter parameters
     status_filter = request.GET.get('status', '')
     type_filter = request.GET.get('type', '')
     priority_filter = request.GET.get('priority', '')
     device_filter = request.GET.get('device_type', '')
 
-    # Custom status ordering: acknowledged/in_progress first, then new, then resolved/others
-    status_order = Case(
-        When(status='in_progress', then=Value(1)),
-        When(status='acknowledged', then=Value(2)),
-        When(status='new', then=Value(3)),
-        When(status='resolved', then=Value(4)),
-        When(status='wont_fix', then=Value(5)),
-        When(status='duplicate', then=Value(6)),
-        default=Value(7),
-        output_field=IntegerField(),
-    )
-
-    # Base queryset with custom ordering
-    bug_reports = BugReport.objects.all().select_related('submitted_by', 'resolved_by').defer(*member_defer('submitted_by', 'resolved_by')).annotate(
-        status_priority=status_order
-    ).order_by('status_priority', '-submitted_at')
-
-    # Apply filters
-    if status_filter:
-        bug_reports = bug_reports.filter(status=status_filter)
-    if type_filter:
-        bug_reports = bug_reports.filter(issue_type=type_filter)
-    if priority_filter:
-        bug_reports = bug_reports.filter(priority=priority_filter)
-    if device_filter:
-        bug_reports = bug_reports.filter(device_type=device_filter)
-
-    # Get counts for summary
-    total_count = BugReport.objects.count()
-    new_count = BugReport.objects.filter(status='new').count()
-    in_progress_count = BugReport.objects.filter(status__in=['acknowledged', 'in_progress']).count()
-    resolved_count = BugReport.objects.filter(status='resolved').count()
-
-    # v3.31.2 — device-type filter options. Built from the distinct values
-    # actually on file rather than a hardcoded ('mobile', 'tablet', 'desktop')
-    # tuple, so a blank ('' — pre-migration rows the backfill couldn't parse,
-    # e.g. no browser_info was ever recorded) doesn't render as a phantom
-    # choice, and the dropdown never silently omits a value the parser starts
-    # returning in the future.
-    device_type_choices = list(
-        BugReport.objects.exclude(device_type='').order_by('device_type')
-        .values_list('device_type', flat=True).distinct()
-    )
-
     context = {
-        'bug_reports': bug_reports,
+        'bug_reports': tracked_bug_reports(status_filter, type_filter, priority_filter, device_filter),
         'status_choices': BugReport.STATUS_CHOICES,
         'issue_types': BugReport.ISSUE_TYPES,
         'priority_choices': BugReport.PRIORITY_CHOICES,
-        'device_type_choices': device_type_choices,
+        'device_type_choices': bug_device_type_choices(),
         'current_status': status_filter,
         'current_type': type_filter,
         'current_priority': priority_filter,
         'current_device_type': device_filter,
-        'total_count': total_count,
-        'new_count': new_count,
-        'in_progress_count': in_progress_count,
-        'resolved_count': resolved_count,
+        **bug_report_counts(),
     }
     return render(request, 'bug_admin.html', context)
 
@@ -364,8 +383,6 @@ def bug_admin_update(request, bug_id):
     """
     Update a bug report's status and admin notes
     """
-    from django.utils import timezone
-
     if request.method != 'POST':
         return redirect('bug_admin')
 
@@ -375,28 +392,7 @@ def bug_admin_update(request, bug_id):
         messages.error(request, 'Bug report not found.')
         return redirect('bug_admin')
 
-    # Get form data
-    new_status = request.POST.get('status')
-    admin_notes = request.POST.get('admin_notes', '')
-
-    # Update the bug report
-    if new_status and new_status in dict(BugReport.STATUS_CHOICES):
-        old_status = bug_report.status
-        bug_report.status = new_status
-
-        # If marking as resolved, set resolved_at and resolved_by
-        if new_status == 'resolved' and old_status != 'resolved':
-            bug_report.resolved_at = timezone.now()
-            bug_report.resolved_by = request.user
-        # If un-resolving, clear resolved fields
-        elif new_status != 'resolved' and old_status == 'resolved':
-            bug_report.resolved_at = None
-            bug_report.resolved_by = None
-
-    if admin_notes:
-        bug_report.admin_notes = admin_notes
-
-    bug_report.save()
+    update_bug_report(bug_report, request.user, request.POST.get('status'), request.POST.get('admin_notes', ''))
     messages.success(request, f'Bug #{bug_id} updated successfully.')
 
     # Redirect back to the same page or admin (validate to prevent open redirect)

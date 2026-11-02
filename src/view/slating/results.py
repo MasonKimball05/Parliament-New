@@ -170,10 +170,28 @@ def publish_results(request, period_id):
 
     period = get_object_or_404(SlatingPeriod, id=period_id)
 
-    if period.status not in ['voting_closed', 'voting_open']:
+    if period.status not in PUBLISHABLE:
         messages.error(request, 'Cannot publish results at this time.')
         return redirect('slating_results', period_id=period_id)
 
+    for level, text in publish_period_results(period, request.user, bool(request.POST.get('save_to_documents'))):
+        getattr(messages, level)(request, text)
+
+    messages.success(request, 'Results published successfully!')
+    return redirect('slating_results', period_id=period_id)
+
+
+PUBLISHABLE = ('voting_closed', 'voting_open')
+
+
+def publish_period_results(period, user, save_to_documents=False):
+    """
+    Publish ``period``'s results (the caller checks ``PUBLISHABLE``): logged,
+    optionally filed in Chapter Documents, and every active member notified.
+    Returns ``[(level, message)]`` notes about the filing, for the caller to
+    show. Shared with the app (``src/mobile/views_slating_committee.py``).
+    """
+    notes = []
     # Update status
     period.status = 'results_published'
     period.results_publish_at = timezone.now()
@@ -182,21 +200,21 @@ def publish_results(request, period_id):
     # Log activity
     SlatingActivity.objects.create(
         period=period,
-        user=request.user,
+        user=user,
         action='results_published',
         details='Election results published'
     )
 
     # Save to chapter documents if requested
-    if request.POST.get('save_to_documents'):
+    if save_to_documents:
         try:
-            _save_results_to_documents(period, request.user)
-            messages.info(request, 'Results saved to Chapter Documents.')
+            _save_results_to_documents(period, user)
+            notes.append(('info', 'Results saved to Chapter Documents.'))
         except Exception as e:
             import logging
             logger = logging.getLogger(__name__)
             logger.error(f'Failed to save results to documents: {e}', exc_info=True)
-            messages.warning(request, f'Could not save to Chapter Documents: {e}')
+            notes.append(('warning', f'Could not save to Chapter Documents: {e}'))
 
     # Send notifications
     try:
@@ -208,15 +226,13 @@ def publish_results(request, period_id):
             link=f'/slating/period/{period.id}/results/',
             source_type='SlatingPeriod',
             source_id=period.id,
-            exclude_user=request.user
+            exclude_user=user
         )
     except Exception as e:
         import logging
         logger = logging.getLogger(__name__)
         logger.error(f'Failed to send results published notification: {e}')
-
-    messages.success(request, 'Results published successfully!')
-    return redirect('slating_results', period_id=period_id)
+    return notes
 
 
 def _save_results_to_documents(period, uploaded_by):
@@ -401,6 +417,17 @@ def results_summary(request, period_id):
     """
     period = get_object_or_404(SlatingPeriod, id=period_id)
 
+    context = {'period': period, **results_summary_data(period)}
+
+    return render(request, 'slating/results_summary.html', context)
+
+
+def results_summary_data(period):
+    """
+    The committee's summary: approved slates, every voting round (failed and
+    voided ones too, paper ballots counted), turnout and application counts.
+    Shared with the app (``src/mobile/views_slating_committee.py``).
+    """
     # Get all slates
     slates = period.slates.filter(is_approved=True).order_by('-created_at')
 
@@ -449,8 +476,7 @@ def results_summary(request, period_id):
         withdrawn=Count('pk', filter=Q(status='withdrawn')),
     )
 
-    context = {
-        'period': period,
+    return {
         'slates': slates,
         'voting_history': voting_history,
         'eligible_voters': eligible_voters,
@@ -458,5 +484,3 @@ def results_summary(request, period_id):
         'participation_rate': participation_rate,
         'app_stats': app_stats,
     }
-
-    return render(request, 'slating/results_summary.html', context)

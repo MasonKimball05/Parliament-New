@@ -21,29 +21,38 @@ website's.
   ``invalid_input`` with the form's errors; 400 ``no_period`` when no period is
   open.
 * ``GET service-hours/submissions/<id>/`` — one of the member's own
-  submissions, with its custom-field answers and whether it can still be
-  edited. ``POST`` — the edited submission, the same fields as creating one
-  (no extra dates, like the website's edit page); a rejected one goes back for
-  approval. 400 ``not_editable`` once it's approved.
+  submissions: the edit form's values (``responses``, keyed by field name)
+  and, since batch 5, everything the website's submission page
+  (``user_view_service_submission``, /service-hours/my-submission/<id>/)
+  shows: the answers as displayed (``answers``, files as site paths), the
+  attachment's path, who reviewed it and when, and the activity log, through
+  the page's own ``user_submission_detail_data``. ``POST`` — the edited
+  submission, the same fields as creating one (no extra dates, like the
+  website's edit page); a rejected one goes back for approval. 400
+  ``not_editable`` once it's approved.
 
 Every signed-in member, like the web pages (``@login_required`` only, no page
-toggle), with the pledge page restrictions of each. The website has no
-"withdraw", so neither does this.
+toggle), with the pledge page restrictions of each: reading is the submission
+page's, saving is also the edit page's. The website has no "withdraw" or
+"cancel", so neither does this.
 """
 import os
 
 from django.http import QueryDict
 from django.shortcuts import get_object_or_404
+from django.urls import reverse
 from rest_framework.parsers import JSONParser, MultiPartParser
 from rest_framework.response import Response
 
 from src.forms import ServiceHoursSubmissionForm
-from src.mobile.api import MobileAPIView
+from src.mobile.api import MobileAPIView, check_web_page
 from src.mobile.views_excuses_polls import BadRequest
-from src.models import ServiceFieldResponse, ServiceHoursSubmission, ServicePeriod
+from src.mobile.views_service_review import _response_json
+from src.models import ServiceHoursSubmission, ServicePeriod
 from src.view.service_user_dashboard import (
     MAX_EXTRA_SERVICE_DATES, SERVICE_NOT_EDITABLE, create_service_submissions, current_service_period,
     service_custom_fields, service_submitted_message, service_updated_message, update_service_submission,
+    user_submission_detail_data,
 )
 
 #: ServiceHoursSubmissionForm.clean_attachment's limits.
@@ -157,19 +166,44 @@ class ServiceSubmissionsView(MobileAPIView):
         }, status=201)
 
 
+def _iso(value):
+    return value.isoformat() if value else None
+
+
 class ServiceSubmissionDetailView(MobileAPIView):
-    web_page = 'edit_service_submission'
+    web_page = 'user_view_service_submission'
     web_page_toggle = False
     parser_classes = [JSONParser, MultiPartParser]
 
+    def initial(self, request, *args, **kwargs):
+        super().initial(request, *args, **kwargs)
+        if request.method == 'POST':
+            check_web_page(request.user, 'edit_service_submission', toggle=False)
+
     def _submission(self, request, submission_id):
-        return get_object_or_404(ServiceHoursSubmission, submitted_by=request.user, id=submission_id)
+        return get_object_or_404(
+            ServiceHoursSubmission.objects.select_related('period', 'reviewed_by'),
+            submitted_by=request.user, id=submission_id)
 
     def get(self, request, submission_id):
         s = self._submission(request, submission_id)
-        responses = (ServiceFieldResponse.objects.filter(submission=s)
-                     .select_related('field').order_by('field__display_order'))
+        responses, activity = user_submission_detail_data(s)
+        responses = list(responses)
         return Response({
+            'status_label': s.get_status_display(),
+            'submitted_at': _iso(s.submitted_at),
+            'reviewed_by': s.reviewed_by.name if s.reviewed_by_id else None,
+            'reviewed_at': _iso(s.reviewed_at),
+            'attachment': reverse('service_hours_attachment', args=[s.id]) if s.attachment else None,
+            'answers': [_response_json(r) for r in responses],
+            'activity': [{
+                'action': a.action,
+                'label': a.get_action_display(),
+                'user': a.user.name if a.user_id else None,
+                'details': a.details or '',
+                'timestamp': _iso(a.timestamp),
+            } for a in activity],
+            'web_path': reverse('user_view_service_submission', args=[s.id]),
             'id': s.id,
             'period_id': s.period_id,
             'period': s.period.name,

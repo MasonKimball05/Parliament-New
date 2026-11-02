@@ -10,9 +10,12 @@ from collections import defaultdict
 from src.models.users import member_defer
 
 
-@officer_required
-def manage_chapter_documents(request):
-    """View for officers to see and manage all chapter documents"""
+def managed_documents_context(user):
+    """
+    The Manage Documents page's data (shared with the app's
+    src/mobile/views_document_manage.py): published documents by folder,
+    published ones in no folder, drafts, every folder, and the count.
+    """
     # A "chapter document" here is any of: chapter-level (committee is
     # None — what upload_chapter_document.py creates when no committee is
     # picked from its dropdown, and what manage_chapter_document.py's
@@ -77,9 +80,9 @@ def manage_chapter_documents(request):
         folders_with_published_docs.append((folder, folder_documents))
 
     # Check if user is admin (for folder management)
-    is_admin = request.user.is_admin
+    is_admin = user.is_admin
 
-    return render(request, 'manage_chapter_documents.html', {
+    return {
         'folders_with_published_docs': folders_with_published_docs,
         'uncategorized_published_docs': uncategorized_published_docs,
         'unpublished_docs': unpublished_docs,
@@ -89,4 +92,10 @@ def manage_chapter_documents(request):
         # second, redundant SELECT COUNT(*) instead of reusing that cache.
         'total_documents': len(documents),
         'is_admin': is_admin,
-    })
+    }
+
+
+@officer_required
+def manage_chapter_documents(request):
+    """View for officers to see and manage all chapter documents"""
+    return render(request, 'manage_chapter_documents.html', managed_documents_context(request.user))

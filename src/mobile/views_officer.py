@@ -14,6 +14,8 @@ pages an officer reaches for on a phone. Officers, chairs and admins only
   stay on the website, and an edit from the app leaves them as they were.
   ``GET officer/announcements/recipients/?visible_to=`` — how many members
   the email would reach, for the app's confirmation before posting.
+  ``GET officer/announcements/<id>/stats/`` — ``announcement_stats``: views
+  on the site and from the email, who has and hasn't seen it.
 * Events (``create_event`` / ``edit_event`` / ``delete_event``):
   ``POST officer/events/``; ``GET/PATCH/DELETE officer/events/<id>/``. Through
   ``EventForm``, starting from the event's own values, so the settings the app
@@ -272,6 +274,48 @@ class OfficerAnnouncementView(_OfficerView):
     def delete(self, request, announcement_id):
         self._get(announcement_id).delete()
         return Response({'ok': True})
+
+
+class OfficerAnnouncementStatsView(_OfficerView):
+    """
+    ``GET officer/announcements/<id>/stats/`` (v4.5.0) — the website's
+    ``announcement_stats``: the frozen audience, who opened it on the site
+    and from the email (with when), and who hasn't yet. Through the page's
+    own ``announcement_stats_data``, so the counts and the names agree as
+    they do there (the snapshot is frozen on first look, as the page does).
+    """
+    web_page = 'announcement_stats'
+
+    def get(self, request, announcement_id):
+        from src.view.officer.manage_announcements import announcement_stats_data
+        a = get_object_or_404(Announcement.objects.select_related('posted_by', 'poll'), pk=announcement_id)
+        data = announcement_stats_data(a)
+        stats = data['stats']
+        return Response({
+            'announcement': _announcement_json(a),
+            'stats': {
+                'site_views': stats['site_views'],
+                'email_views': stats['email_views'],
+                'total_views': stats['total_views'],
+                'target_audience': stats['target_audience'],
+                'view_rate': round(stats['view_rate'], 1),
+            },
+            'viewers': [{
+                'user_id': v.user.user_id,
+                'name': v.user.get_display_name(),
+                'photo': photo_path(v.user),
+                'source': v.view_source,
+                'source_label': v.get_view_source_display(),
+                'viewed_at': _iso(v.viewed_at),
+            } for v in data['viewers']],
+            'non_viewers': [{
+                'user_id': u.user_id,
+                'name': u.get_display_name(),
+                'photo': photo_path(u),
+                'member_type': u.member_type,
+            } for u in sorted(data['non_viewers'], key=lambda u: u.get_display_name().lower())],
+            'web_path': reverse('announcement_stats', args=[a.id]),
+        })
 
 
 # ── Events ───────────────────────────────────────────────────────────────────

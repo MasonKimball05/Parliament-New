@@ -13,7 +13,7 @@ from django.utils.timezone import localtime
 from django.db.models import Sum, Count, Q
 from django.core.paginator import Paginator
 from django.http import HttpResponse
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from src.utils.export_utils import safe_csv_writer
 import logging
 
@@ -325,6 +325,405 @@ def submission_queryset():
         'period', 'submitted_by', 'reviewed_by').defer(*member_defer('submitted_by', 'reviewed_by'))
 
 
+# ── Periods, expectations and service events, shared with the app ───────────
+#
+# src/mobile/views_service_admin.py serves the pages below to the app through
+# these, so a period, an expectation or a service event made on a phone is
+# checked, saved and logged exactly as one made on the website.
+
+PERIOD_HAS_EVENTS = 'This period has service events. Delete or move them before deleting the period.'
+
+
+def delete_service_period(period):
+    """Delete a period (its submissions, expectations and adjustments go with
+    it). Returns an error message, deleting nothing, while a service event
+    still counts toward it (``ServiceEvent.period`` is PROTECT: the page used
+    to 500 here), else None."""
+    if period.service_events.exists():
+        return PERIOD_HAS_EVENTS
+    period.delete()
+    return None
+
+
+def toggle_service_period(period):
+    """Activate or deactivate a period; returns the new ``is_active``."""
+    period.is_active = not period.is_active
+    period.save(update_fields=['is_active'])
+    return period.is_active
+
+
+def expectations_data(period):
+    """(expectations, members still on the default) for the expectations page."""
+    expectations = ServiceMemberExpectation.objects.filter(
+        period=period
+    ).select_related('member', 'created_by').defer(*member_defer('member', 'created_by')).order_by('member__name')
+
+    members_with_expectations = expectations.values_list('member_id', flat=True)
+    available_members = ParliamentUser.objects.filter(
+        member_status='Active'
+    ).exclude(
+        user_id__in=members_with_expectations
+    ).exclude(
+        member_type='Advisor'
+    ).order_by('name')
+    return expectations, available_members
+
+
+#: ServiceMemberExpectation.expected_hours is max_digits=5, decimal_places=2.
+MAX_EXPECTED_HOURS = Decimal('999.99')
+
+
+def add_member_expectation(period, member_id, expected_hours, reason, created_by):
+    """Give one member a custom requirement for a period.
+
+    Returns ``(expectation, None)``, or ``(None, error message)`` with nothing
+    saved: no member or hours, hours that aren't a number from 0 up, or a
+    member who already has one (the page's dropdown leaves those out; a stale
+    page used to 500 on the unique constraint). An unknown member is a 404.
+    """
+    if not member_id or not expected_hours:
+        return None, 'Choose a member and enter their hours.'
+    try:
+        hours = Decimal(str(expected_hours).strip())
+    except (InvalidOperation, ValueError, TypeError):
+        return None, 'Expected hours must be a number.'
+    if not hours.is_finite() or hours < 0 or hours > MAX_EXPECTED_HOURS:
+        return None, 'Expected hours must be between 0 and 999.99.'
+    member = get_object_or_404(ParliamentUser, user_id=member_id)
+    if ServiceMemberExpectation.objects.filter(period=period, member=member).exists():
+        return None, f'{member.name} already has a custom expectation for this period.'
+    expectation = ServiceMemberExpectation.objects.create(
+        period=period,
+        member=member,
+        expected_hours=hours,
+        reason=(reason or '').strip(),
+        created_by=created_by
+    )
+    return expectation, None
+
+
+def service_events_lists():
+    """(upcoming, past) as the service events page lists them: every upcoming
+    active one soonest first, and the 20 most recent past ones."""
+    now = timezone.now()
+
+    upcoming = (
+        ServiceEvent.objects
+        .filter(event__date_time__gte=now, event__is_active=True)
+        .select_related('event', 'period')
+        .order_by('event__date_time')
+    )
+    past = (
+        ServiceEvent.objects
+        .filter(event__date_time__lt=now)
+        .select_related('event', 'period')
+        .order_by('-event__date_time')[:20]
+    )
+    return upcoming, past
+
+
+def _reminder_hours(data, name, default):
+    """A reminder's "hours before": the page's 1–168 field. A blank or junk
+    value is the default (creating used to 500 on junk)."""
+    try:
+        value = int(data.get(name, default) or default)
+    except (ValueError, TypeError):
+        return default
+    return min(168, max(1, value))
+
+
+#: The form's `hours_awarded` field: min 0.25, max 24.
+MAX_EVENT_HOURS = Decimal('24')
+
+
+def parse_service_event_form(data, creating):
+    """The schedule / edit form's fields, checked as the page checks them.
+
+    ``data`` is the POST (a QueryDict, or any mapping with ``get``; checkboxes
+    are ``'on'``). Returns ``(values, errors)``; ``values`` is only usable when
+    ``errors`` is empty. Creating needs a date, a period and hours; editing
+    keeps the event's date and period when those are left blank.
+    """
+    title = (data.get('title') or '').strip()
+    description = (data.get('description') or '').strip()
+    date_str = (data.get('date_time') or '').strip()
+    location = (data.get('location') or '').strip()
+    period_id = str(data.get('period') or '').strip()
+    hours_awarded = str(data.get('hours_awarded') or '').strip()
+
+    # Push reminder slots (inherited from existing Event machinery)
+    r1_enabled = data.get('reminder_1_enabled') == 'on'
+    r1_hours = _reminder_hours(data, 'reminder_1_hours_before', 24)
+    r2_enabled = data.get('reminder_2_enabled') == 'on'
+    r2_hours = _reminder_hours(data, 'reminder_2_hours_before', 1)
+
+    # Email reminder
+    email_enabled = data.get('email_reminder_enabled') == 'on'
+    email_hours = _reminder_hours(data, 'email_reminder_hours_before', 24)
+    email_subject = (data.get('email_reminder_subject') or '').strip()
+    email_body = (data.get('email_reminder_body') or '').strip()
+
+    errors = []
+    if not title:
+        errors.append('Title is required.')
+    if creating and not date_str:
+        errors.append('Date and time are required.')
+    if creating and not period_id:
+        errors.append('Service period is required.')
+    if creating and not hours_awarded:
+        errors.append('Hours awarded is required.')
+    if email_enabled and not email_subject:
+        errors.append('Email subject is required when email reminder is enabled.')
+    if email_enabled and not email_body:
+        errors.append('Email body is required when email reminder is enabled.')
+
+    period = None
+    if period_id:
+        try:
+            period = ServicePeriod.objects.get(id=period_id)
+        except (ServicePeriod.DoesNotExist, ValueError):
+            errors.append('Invalid service period.')
+
+    date_time = None
+    if date_str:
+        try:
+            from django.utils.dateparse import parse_datetime
+            date_time = parse_datetime(date_str)
+            if date_time is None:
+                raise ValueError
+            if timezone.is_naive(date_time):
+                # The page's datetime-local is the chapter's wall clock.
+                date_time = timezone.make_aware(date_time)
+        except (ValueError, TypeError):
+            errors.append('Invalid date/time format.')
+
+    hours_dec = None
+    try:
+        hours_dec = Decimal(hours_awarded)
+        if not hours_dec.is_finite() or hours_dec <= 0:
+            errors.append('Hours awarded must be greater than 0.')
+        elif hours_dec > MAX_EVENT_HOURS:
+            errors.append('Hours awarded must be 24 or fewer.')
+    except Exception:
+        errors.append('Hours awarded must be a valid number.')
+
+    if len(title) > 200:   # Event.title
+        errors.append('Title must be 200 characters or fewer.')
+    if len(email_subject) > 200:   # ServiceEvent.email_reminder_subject
+        errors.append('Email subject must be 200 characters or fewer.')
+
+    return {
+        'title': title, 'description': description, 'date_time': date_time, 'location': location,
+        'period': period, 'hours_awarded': hours_dec,
+        'reminder_1_enabled': r1_enabled, 'reminder_1_hours_before': r1_hours,
+        'reminder_2_enabled': r2_enabled, 'reminder_2_hours_before': r2_hours,
+        'email_reminder_enabled': email_enabled, 'email_reminder_hours_before': email_hours,
+        'email_reminder_subject': email_subject, 'email_reminder_body': email_body,
+    }, errors
+
+
+def create_service_event_record(values, user, request):
+    """Schedule a service event from ``parse_service_event_form``'s values: the
+    calendar Event (so it's on the chapter calendar, attendance on, no
+    excuses), the ServiceEvent and the activity log row."""
+    event = Event.objects.create(
+        title=values['title'],
+        description=values['description'],
+        date_time=values['date_time'],
+        location=values['location'],
+        created_by=user,
+        requires_attendance=True,
+        allow_excuses=False,
+        reminder_1_enabled=values['reminder_1_enabled'],
+        reminder_1_hours_before=values['reminder_1_hours_before'],
+        reminder_2_enabled=values['reminder_2_enabled'],
+        reminder_2_hours_before=values['reminder_2_hours_before'],
+    )
+
+    se = ServiceEvent.objects.create(
+        event=event,
+        period=values['period'],
+        hours_awarded=values['hours_awarded'],
+        email_reminder_enabled=values['email_reminder_enabled'],
+        email_reminder_hours_before=values['email_reminder_hours_before'],
+        email_reminder_subject=values['email_reminder_subject'],
+        email_reminder_body=values['email_reminder_body'],
+        created_by=user,
+    )
+
+    ActivityLog.log_activity(
+        action_type='other',
+        user=user,
+        description=(f'{user.get_display_name()} created service event "{values["title"]}" '
+                     f'({values["hours_awarded"]} hrs, {values["period"].name})'),
+        request=request,
+        object_type='ServiceEvent',
+        object_repr=values['title'],
+    )
+    return se
+
+
+def update_service_event_record(se, values):
+    """Save the edit form's values onto a service event and its calendar Event.
+    A new date re-arms the push and email reminders that already went out."""
+    event = se.event
+    # Capture old datetime BEFORE mutating so the reminder-reset check below works.
+    old_date_time = event.date_time
+    date_time = values['date_time']
+    event.title = values['title']
+    event.description = values['description']
+    if date_time:
+        event.date_time = date_time
+    event.location = values['location']
+    event.reminder_1_enabled = values['reminder_1_enabled']
+    event.reminder_1_hours_before = values['reminder_1_hours_before']
+    event.reminder_2_enabled = values['reminder_2_enabled']
+    event.reminder_2_hours_before = values['reminder_2_hours_before']
+    event_update_fields = [
+        'title', 'description', 'date_time', 'location',
+        'reminder_1_enabled', 'reminder_1_hours_before',
+        'reminder_2_enabled', 'reminder_2_hours_before',
+    ]
+    # If the date changed, reset push reminder sent_at so the Celery task
+    # re-fires the reminders at the correct new time.
+    date_changed = bool(date_time and old_date_time and date_time != old_date_time)
+    if date_changed:
+        if event.reminder_1_sent_at:
+            event.reminder_1_sent_at = None
+            event_update_fields.append('reminder_1_sent_at')
+        if event.reminder_2_sent_at:
+            event.reminder_2_sent_at = None
+            event_update_fields.append('reminder_2_sent_at')
+    event.save(update_fields=event_update_fields)
+
+    # Update ServiceEvent
+    se.period = values['period'] or se.period
+    se.hours_awarded = values['hours_awarded']
+    se.email_reminder_enabled = values['email_reminder_enabled']
+    se.email_reminder_hours_before = values['email_reminder_hours_before']
+    se.email_reminder_subject = values['email_reminder_subject']
+    se.email_reminder_body = values['email_reminder_body']
+    # If the date changed and the email reminder hasn't fired yet, clear the
+    # sent_at timestamp so the Celery task will re-evaluate the new send window.
+    se_update_fields = [
+        'period', 'hours_awarded',
+        'email_reminder_enabled', 'email_reminder_hours_before',
+        'email_reminder_subject', 'email_reminder_body',
+    ]
+    if date_changed and se.email_reminder_sent_at:
+        se.email_reminder_sent_at = None
+        se_update_fields.append('email_reminder_sent_at')
+    se.save(update_fields=se_update_fields)
+    return se
+
+
+SERVICE_EVENT_FINALIZED = 'This service event has been finalized and cannot be edited.'
+SERVICE_EVENT_NOT_DELETABLE = 'Cannot delete a service event after hours have been applied.'
+NEEDS_SOMEONE_PRESENT = 'Mark at least one member present before finalizing.'
+
+
+def service_event_queryset():
+    return ServiceEvent.objects.select_related('event', 'period', 'created_by').defer(*member_defer('created_by'))
+
+
+def service_event_roster(se):
+    """The detail page's roster: every active member with their attendance
+    status for the event (``'pending'`` when unmarked), and the counts."""
+    members = exclude_review_accounts(ParliamentUser.objects.filter(member_status='Active')).order_by('name')
+    existing = {
+        att.user_id: att
+        for att in Attendance.objects.filter(event=se.event, attendance_type='event')
+        .select_related('user').defer(*member_defer('user'))
+    }
+    member_data = []
+    for m in members:
+        att = existing.get(m.user_id)
+        member_data.append({
+            'user': m,
+            'status': att.status if att else 'pending',
+            'marked_at': att.marked_at if att else None,
+        })
+    counts = {
+        'present': sum(1 for d in member_data if d['status'] == 'present'),
+        'absent': sum(1 for d in member_data if d['status'] == 'absent'),
+        'excused': sum(1 for d in member_data if d['status'] == 'excused'),
+        'unmarked': sum(1 for d in member_data if d['status'] == 'pending'),
+    }
+    return member_data, counts
+
+
+def service_attendance_members():
+    """Who the attendance page lists: every active member, by name."""
+    return list(exclude_review_accounts(ParliamentUser.objects.filter(member_status='Active')).order_by('name'))
+
+
+def service_attendance_roster(se, members):
+    """The attendance page's checklist: each member and whether they're marked present."""
+    existing = {
+        att.user_id: att
+        for att in Attendance.objects.filter(event=se.event, attendance_type='event')
+    }
+    return [
+        {
+            'user': m,
+            'present': existing.get(m.user_id) is not None and existing[m.user_id].status == 'present',
+        }
+        for m in members
+    ]
+
+
+def save_service_event_attendance(se, members, present_ids, data, marked_by):
+    """Record who came (``present_ids``: str user ids) and the per-member hours
+    overrides (``data``'s ``hours_override_<user_id>`` fields)."""
+    _bulk_save_service_attendance(se.event, members, present_ids, marked_by=marked_by)
+    se.member_hours_override = _parse_hours_overrides(members, data)
+    se.save(update_fields=['member_hours_override'])
+
+
+def log_service_attendance_saved(se, present_count, user, request):
+    ActivityLog.log_activity(
+        action_type='attendance_taken',
+        user=user,
+        description=f'Updated attendance for service event "{se.event.title}" ({present_count} present)',
+        request=request,
+        object_type='ServiceEvent',
+        object_repr=se.event.title,
+    )
+
+
+def finalize_service_event_hours(se, user, request):
+    """Finalize the event's attendance (unless someone already did) and credit
+    every member marked present with pre-approved hours (``apply_hours``), with
+    the activity log row. Returns how many members were credited."""
+    event = se.event
+    if not event.attendance_finalized:
+        event.attendance_finalized = True
+        event.finalized_by = user
+        event.finalized_at = timezone.now()
+        event.save(update_fields=['attendance_finalized', 'finalized_by', 'finalized_at'])
+
+    count = se.apply_hours(finalized_by=user)
+
+    ActivityLog.log_activity(
+        action_type='other',
+        user=user,
+        description=(
+            f'{user.get_display_name()} finalized service event '
+            f'"{event.title}" — {count} member(s) awarded {se.hours_awarded} hrs each '
+            f'toward {se.period.name}.'
+        ),
+        request=request,
+        object_type='ServiceEvent',
+        object_repr=event.title,
+    )
+    return count
+
+
+def service_event_finalized_message(se, count):
+    return (f'Done! {count} member{"s" if count != 1 else ""} awarded {se.hours_awarded} hrs '
+            f'toward {se.period.name}.')
+
+
 # ── Pages ────────────────────────────────────────────────────────────────────
 
 @vpp_required
@@ -518,15 +917,16 @@ def manage_service_periods(request):
             period_id = request.POST.get('period_id')
             period = get_object_or_404(ServicePeriod, id=period_id)
             period_name = period.name
-            period.delete()
-            messages.success(request, f'Deleted period: {period_name}')
+            error = delete_service_period(period)
+            if error:
+                messages.error(request, error)
+            else:
+                messages.success(request, f'Deleted period: {period_name}')
             return redirect('manage_service_periods')
         elif action == 'toggle_active':
             period_id = request.POST.get('period_id')
             period = get_object_or_404(ServicePeriod, id=period_id)
-            period.is_active = not period.is_active
-            period.save(update_fields=['is_active'])
-            status = 'activated' if period.is_active else 'deactivated'
+            status = 'activated' if toggle_service_period(period) else 'deactivated'
             messages.success(request, f'{period.name} {status}.')
             return redirect('manage_service_periods')
     else:
@@ -571,20 +971,7 @@ def manage_member_expectations(request, period_id):
     """
     period = get_object_or_404(ServicePeriod, id=period_id)
 
-    # Get existing expectations
-    expectations = ServiceMemberExpectation.objects.filter(
-        period=period
-    ).select_related('member', 'created_by').defer(*member_defer('member', 'created_by')).order_by('member__name')
-
-    # Get members without expectations
-    members_with_expectations = expectations.values_list('member_id', flat=True)
-    available_members = ParliamentUser.objects.filter(
-        member_status='Active'
-    ).exclude(
-        user_id__in=members_with_expectations
-    ).exclude(
-        member_type='Advisor'
-    ).order_by('name')
+    expectations, available_members = expectations_data(period)
 
     if request.method == 'POST':
         action = request.POST.get('action')
@@ -594,17 +981,11 @@ def manage_member_expectations(request, period_id):
             expected_hours = request.POST.get('expected_hours')
             reason = request.POST.get('reason', '').strip()
 
-            if member_id and expected_hours:
-                member = get_object_or_404(ParliamentUser, user_id=member_id)
-
-                ServiceMemberExpectation.objects.create(
-                    period=period,
-                    member=member,
-                    expected_hours=Decimal(expected_hours),
-                    reason=reason,
-                    created_by=request.user
-                )
-                messages.success(request, f'Set {expected_hours} hours for {member.name}.')
+            expectation, error = add_member_expectation(period, member_id, expected_hours, reason, request.user)
+            if error:
+                messages.error(request, error)
+            else:
+                messages.success(request, f'Set {expected_hours} hours for {expectation.member.name}.')
 
         elif action == 'delete':
             expectation_id = request.POST.get('expectation_id')
@@ -742,25 +1123,23 @@ def get_member_adjustments(request, period_id, member_id):
 # Service Events
 # ---------------------------------------------------------------------------
 
+#: The schedule form with nothing filled in (the template reads every key).
+_BLANK_EVENT_FORM = {
+    'title': '', 'date_time': '', 'location': '', 'description': '',
+    'period': '', 'hours_awarded': '',
+    'reminder_1_enabled': False, 'reminder_1_hours_before': '',
+    'reminder_2_enabled': False, 'reminder_2_hours_before': '',
+    'email_reminder_enabled': False, 'email_reminder_hours_before': '',
+    'email_reminder_subject': '', 'email_reminder_body': '',
+}
+
+
 @vpp_required
 def service_events_list(request):
     """
     List all service events (upcoming + past) in the VPP dashboard.
     """
-    now = timezone.now()
-
-    upcoming = (
-        ServiceEvent.objects
-        .filter(event__date_time__gte=now, event__is_active=True)
-        .select_related('event', 'period')
-        .order_by('event__date_time')
-    )
-    past = (
-        ServiceEvent.objects
-        .filter(event__date_time__lt=now)
-        .select_related('event', 'period')
-        .order_by('-event__date_time')[:20]
-    )
+    upcoming, past = service_events_lists()
 
     return render(request, 'service_hours/service_events.html', {
         'upcoming': upcoming,
@@ -777,67 +1156,7 @@ def create_service_event(request):
     periods = ServicePeriod.objects.filter(is_active=True).order_by('-start_date')
 
     if request.method == 'POST':
-        # --- pull form values ---
-        title = request.POST.get('title', '').strip()
-        description = request.POST.get('description', '').strip()
-        date_str = request.POST.get('date_time', '').strip()
-        location = request.POST.get('location', '').strip()
-        period_id = request.POST.get('period', '').strip()
-        hours_awarded = request.POST.get('hours_awarded', '').strip()
-
-        # Push reminder slots (inherited from existing Event machinery)
-        r1_enabled = request.POST.get('reminder_1_enabled') == 'on'
-        r1_hours = int(request.POST.get('reminder_1_hours_before', 24) or 24)
-        r2_enabled = request.POST.get('reminder_2_enabled') == 'on'
-        r2_hours = int(request.POST.get('reminder_2_hours_before', 1) or 1)
-
-        # Email reminder
-        email_enabled = request.POST.get('email_reminder_enabled') == 'on'
-        email_hours = int(request.POST.get('email_reminder_hours_before', 24) or 24)
-        email_subject = request.POST.get('email_reminder_subject', '').strip()
-        email_body = request.POST.get('email_reminder_body', '').strip()
-
-        # Validation
-        errors = []
-        if not title:
-            errors.append('Title is required.')
-        if not date_str:
-            errors.append('Date and time are required.')
-        if not period_id:
-            errors.append('Service period is required.')
-        if not hours_awarded:
-            errors.append('Hours awarded is required.')
-        if email_enabled and not email_subject:
-            errors.append('Email subject is required when email reminder is enabled.')
-        if email_enabled and not email_body:
-            errors.append('Email body is required when email reminder is enabled.')
-
-        period = None
-        if period_id:
-            try:
-                period = ServicePeriod.objects.get(id=period_id)
-            except ServicePeriod.DoesNotExist:
-                errors.append('Invalid service period.')
-
-        date_time = None
-        if date_str:
-            try:
-                from django.utils.dateparse import parse_datetime
-                date_time = parse_datetime(date_str)
-                if date_time is None:
-                    raise ValueError
-                if timezone.is_naive(date_time):
-                    date_time = timezone.make_aware(date_time)
-            except (ValueError, TypeError):
-                errors.append('Invalid date/time format.')
-
-        try:
-            hours_dec = Decimal(hours_awarded)
-            if hours_dec <= 0:
-                errors.append('Hours awarded must be greater than 0.')
-        except Exception:
-            errors.append('Hours awarded must be a valid number.')
-            hours_dec = None
+        values, errors = parse_service_event_form(request.POST, creating=True)
 
         if errors:
             for e in errors:
@@ -847,55 +1166,14 @@ def create_service_event(request):
                 'post': request.POST,
             })
 
-        # Create underlying calendar Event
-        event = Event.objects.create(
-            title=title,
-            description=description,
-            date_time=date_time,
-            location=location,
-            created_by=request.user,
-            requires_attendance=True,
-            allow_excuses=False,
-            reminder_1_enabled=r1_enabled,
-            reminder_1_hours_before=r1_hours,
-            reminder_2_enabled=r2_enabled,
-            reminder_2_hours_before=r2_hours,
-        )
+        create_service_event_record(values, request.user, request)
 
-        # Create ServiceEvent
-        ServiceEvent.objects.create(
-            event=event,
-            period=period,
-            hours_awarded=hours_dec,
-            email_reminder_enabled=email_enabled,
-            email_reminder_hours_before=email_hours,
-            email_reminder_subject=email_subject,
-            email_reminder_body=email_body,
-            created_by=request.user,
-        )
-
-        ActivityLog.log_activity(
-            action_type='other',
-            user=request.user,
-            description=f'{request.user.get_display_name()} created service event "{title}" ({hours_dec} hrs, {period.name})',
-            request=request,
-            object_type='ServiceEvent',
-            object_repr=title,
-        )
-
-        messages.success(request, f'Service event "{title}" created.')
+        messages.success(request, f'Service event "{values["title"]}" created.')
         return redirect('service_events_list')
 
     return render(request, 'service_hours/create_service_event.html', {
         'periods': periods,
-        'post': {
-            'title': '', 'date_time': '', 'location': '', 'description': '',
-            'period': '', 'hours_awarded': '',
-            'reminder_1_enabled': False, 'reminder_1_hours_before': '',
-            'reminder_2_enabled': False, 'reminder_2_hours_before': '',
-            'email_reminder_enabled': False, 'email_reminder_hours_before': '',
-            'email_reminder_subject': '', 'email_reminder_body': '',
-        },
+        'post': _BLANK_EVENT_FORM,
     })
 
 
@@ -909,70 +1187,11 @@ def edit_service_event(request, service_event_id):
     periods = ServicePeriod.objects.filter(is_active=True).order_by('-start_date')
 
     if se.hours_applied:
-        messages.warning(request, 'This service event has been finalized and cannot be edited.')
+        messages.warning(request, SERVICE_EVENT_FINALIZED)
         return redirect('service_event_detail', service_event_id=se.id)
 
     if request.method == 'POST':
-        title = request.POST.get('title', '').strip()
-        description = request.POST.get('description', '').strip()
-        date_str = request.POST.get('date_time', '').strip()
-        location = request.POST.get('location', '').strip()
-        period_id = request.POST.get('period', '').strip()
-        hours_awarded = request.POST.get('hours_awarded', '').strip()
-
-        r1_enabled = request.POST.get('reminder_1_enabled') == 'on'
-        try:
-            r1_hours = max(1, int(request.POST.get('reminder_1_hours_before', 24) or 24))
-        except (ValueError, TypeError):
-            r1_hours = 24
-        r2_enabled = request.POST.get('reminder_2_enabled') == 'on'
-        try:
-            r2_hours = max(1, int(request.POST.get('reminder_2_hours_before', 1) or 1))
-        except (ValueError, TypeError):
-            r2_hours = 1
-
-        email_enabled = request.POST.get('email_reminder_enabled') == 'on'
-        try:
-            email_hours = max(1, int(request.POST.get('email_reminder_hours_before', 24) or 24))
-        except (ValueError, TypeError):
-            email_hours = 24
-        email_subject = request.POST.get('email_reminder_subject', '').strip()
-        email_body = request.POST.get('email_reminder_body', '').strip()
-
-        errors = []
-        if not title:
-            errors.append('Title is required.')
-        if email_enabled and not email_subject:
-            errors.append('Email subject is required when email reminder is enabled.')
-        if email_enabled and not email_body:
-            errors.append('Email body is required when email reminder is enabled.')
-
-        period = None
-        if period_id:
-            try:
-                period = ServicePeriod.objects.get(id=period_id)
-            except ServicePeriod.DoesNotExist:
-                errors.append('Invalid service period.')
-
-        date_time = None
-        if date_str:
-            try:
-                from django.utils.dateparse import parse_datetime
-                date_time = parse_datetime(date_str)
-                if date_time is None:
-                    raise ValueError
-                if timezone.is_naive(date_time):
-                    date_time = timezone.make_aware(date_time)
-            except (ValueError, TypeError):
-                errors.append('Invalid date/time format.')
-
-        hours_dec = None
-        try:
-            hours_dec = Decimal(hours_awarded)
-            if hours_dec <= 0:
-                errors.append('Hours awarded must be greater than 0.')
-        except Exception:
-            errors.append('Hours awarded must be a valid number.')
+        values, errors = parse_service_event_form(request.POST, creating=False)
 
         if errors:
             for e in errors:
@@ -983,61 +1202,16 @@ def edit_service_event(request, service_event_id):
                 'editing': se,
             })
 
-        # Update Event
-        event = se.event
-        # Capture old datetime BEFORE mutating so the reminder-reset check below works.
-        old_date_time = event.date_time
-        event.title = title
-        event.description = description
-        if date_time:
-            event.date_time = date_time
-        event.location = location
-        event.reminder_1_enabled = r1_enabled
-        event.reminder_1_hours_before = r1_hours
-        event.reminder_2_enabled = r2_enabled
-        event.reminder_2_hours_before = r2_hours
-        event_update_fields = [
-            'title', 'description', 'date_time', 'location',
-            'reminder_1_enabled', 'reminder_1_hours_before',
-            'reminder_2_enabled', 'reminder_2_hours_before',
-        ]
-        # If the date changed, reset push reminder sent_at so the Celery task
-        # re-fires the reminders at the correct new time.
-        date_changed = bool(date_time and old_date_time and date_time != old_date_time)
-        if date_changed:
-            if event.reminder_1_sent_at:
-                event.reminder_1_sent_at = None
-                event_update_fields.append('reminder_1_sent_at')
-            if event.reminder_2_sent_at:
-                event.reminder_2_sent_at = None
-                event_update_fields.append('reminder_2_sent_at')
-        event.save(update_fields=event_update_fields)
+        update_service_event_record(se, values)
 
-        # Update ServiceEvent
-        se.period = period or se.period
-        se.hours_awarded = hours_dec
-        se.email_reminder_enabled = email_enabled
-        se.email_reminder_hours_before = email_hours
-        se.email_reminder_subject = email_subject
-        se.email_reminder_body = email_body
-        # If the date changed and the email reminder hasn't fired yet, clear the
-        # sent_at timestamp so the Celery task will re-evaluate the new send window.
-        se_update_fields = [
-            'period', 'hours_awarded',
-            'email_reminder_enabled', 'email_reminder_hours_before',
-            'email_reminder_subject', 'email_reminder_body',
-        ]
-        if date_changed and se.email_reminder_sent_at:
-            se.email_reminder_sent_at = None
-            se_update_fields.append('email_reminder_sent_at')
-        se.save(update_fields=se_update_fields)
-
-        messages.success(request, f'Service event "{title}" updated.')
+        messages.success(request, f'Service event "{values["title"]}" updated.')
         return redirect('service_event_detail', service_event_id=se.id)
 
+    # The blank form, not {}: the template's `default:post.title` filter
+    # arguments raise VariableDoesNotExist on a missing key, so `{}` 500'd.
     return render(request, 'service_hours/create_service_event.html', {
         'periods': periods,
-        'post': {},
+        'post': _BLANK_EVENT_FORM,
         'editing': se,
     })
 
@@ -1048,42 +1222,19 @@ def service_event_detail(request, service_event_id):
     Detail view for a service event: shows event info, attendance roster,
     and (if not yet finalized) the "Finalize & Apply Hours" button.
     """
-    se = get_object_or_404(
-        ServiceEvent.objects.select_related('event', 'period', 'created_by').defer(*member_defer('created_by')),
-        id=service_event_id,
-    )
-    event = se.event
+    se = get_object_or_404(service_event_queryset(), id=service_event_id)
+    member_data, counts = service_event_roster(se)
 
-    # All active members with their attendance status for this event
-    members = exclude_review_accounts(ParliamentUser.objects.filter(member_status='Active')).order_by('name')
-    existing = {
-        att.user_id: att
-        for att in Attendance.objects.filter(event=event, attendance_type='event').select_related('user').defer(*member_defer('user'))
-    }
-    member_data = []
-    for m in members:
-        att = existing.get(m.user_id)
-        member_data.append({
-            'user': m,
-            'status': att.status if att else 'pending',
-            'marked_at': att.marked_at if att else None,
-        })
-
-    present_count = sum(1 for d in member_data if d['status'] == 'present')
-    absent_count = sum(1 for d in member_data if d['status'] == 'absent')
-    excused_count = sum(1 for d in member_data if d['status'] == 'excused')
-    unmarked_count = sum(1 for d in member_data if d['status'] == 'pending')
-
-    can_finalize = not se.hours_applied and present_count > 0
+    can_finalize = not se.hours_applied and counts['present'] > 0
 
     return render(request, 'service_hours/service_event_detail.html', {
         'se': se,
-        'event': event,
+        'event': se.event,
         'member_data': member_data,
-        'present_count': present_count,
-        'absent_count': absent_count,
-        'excused_count': excused_count,
-        'unmarked_count': unmarked_count,
+        'present_count': counts['present'],
+        'absent_count': counts['absent'],
+        'excused_count': counts['excused'],
+        'unmarked_count': counts['unmarked'],
         'can_finalize': can_finalize,
     })
 
@@ -1103,35 +1254,9 @@ def finalize_service_event(request, service_event_id):
         messages.info(request, 'Hours have already been applied for this event.')
         return redirect('service_event_detail', service_event_id=se.id)
 
-    if se.event.attendance_finalized:
-        # Attendance already finalized by someone else — just apply hours
-        pass
-    else:
-        se.event.attendance_finalized = True
-        se.event.finalized_by = request.user
-        se.event.finalized_at = timezone.now()
-        se.event.save(update_fields=['attendance_finalized', 'finalized_by', 'finalized_at'])
+    count = finalize_service_event_hours(se, request.user, request)
 
-    count = se.apply_hours(finalized_by=request.user)
-
-    ActivityLog.log_activity(
-        action_type='other',
-        user=request.user,
-        description=(
-            f'{request.user.get_display_name()} finalized service event '
-            f'"{se.event.title}" — {count} member(s) awarded {se.hours_awarded} hrs each '
-            f'toward {se.period.name}.'
-        ),
-        request=request,
-        object_type='ServiceEvent',
-        object_repr=se.event.title,
-    )
-
-    messages.success(
-        request,
-        f'Done! {count} member{"s" if count != 1 else ""} awarded {se.hours_awarded} hrs '
-        f'toward {se.period.name}.'
-    )
+    messages.success(request, service_event_finalized_message(se, count))
     return redirect('service_event_detail', service_event_id=se.id)
 
 
@@ -1217,77 +1342,32 @@ def service_event_attendance(request, service_event_id):
     event = se.event
     is_read_only = se.hours_applied
 
-    members = list(exclude_review_accounts(ParliamentUser.objects.filter(member_status='Active')).order_by('name'))
+    members = service_attendance_members()
 
     if request.method == 'POST' and not is_read_only:
         action = request.POST.get('action')
         present_ids = set(request.POST.getlist('present'))
 
         if action in ('save', 'finalize'):
-            # Bulk-write attendance (~4 queries instead of O(n))
-            _bulk_save_service_attendance(event, members, present_ids, marked_by=request.user)
-
-            # Persist per-member hours overrides
-            se.member_hours_override = _parse_hours_overrides(members, request.POST)
-            se.save(update_fields=['member_hours_override'])
+            # Bulk-write attendance (~4 queries instead of O(n)) and the
+            # per-member hours overrides
+            save_service_event_attendance(se, members, present_ids, request.POST, request.user)
 
         if action == 'save':
-            ActivityLog.log_activity(
-                action_type='attendance_taken',
-                user=request.user,
-                description=f'Updated attendance for service event "{event.title}" ({len(present_ids)} present)',
-                request=request,
-                object_type='ServiceEvent',
-                object_repr=event.title,
-            )
+            log_service_attendance_saved(se, len(present_ids), request.user, request)
             messages.success(request, f'Attendance saved — {len(present_ids)} member(s) marked present.')
             return redirect('service_event_attendance', service_event_id=se.id)
 
         elif action == 'finalize':
             if not present_ids:
-                messages.error(request, 'Mark at least one member present before finalizing.')
+                messages.error(request, NEEDS_SOMEONE_PRESENT)
                 return redirect('service_event_attendance', service_event_id=se.id)
 
-            # Finalize underlying event attendance
-            if not event.attendance_finalized:
-                event.attendance_finalized = True
-                event.finalized_by = request.user
-                event.finalized_at = timezone.now()
-                event.save(update_fields=['attendance_finalized', 'finalized_by', 'finalized_at'])
-
-            count = se.apply_hours(finalized_by=request.user)
-
-            ActivityLog.log_activity(
-                action_type='other',
-                user=request.user,
-                description=(
-                    f'{request.user.get_display_name()} finalized service event '
-                    f'"{event.title}" — {count} member(s) awarded {se.hours_awarded} hrs '
-                    f'toward {se.period.name}.'
-                ),
-                request=request,
-                object_type='ServiceEvent',
-                object_repr=event.title,
-            )
-            messages.success(
-                request,
-                f'Done! {count} member{"s" if count != 1 else ""} awarded '
-                f'{se.hours_awarded} hrs toward {se.period.name}.'
-            )
+            count = finalize_service_event_hours(se, request.user, request)
+            messages.success(request, service_event_finalized_message(se, count))
             return redirect('service_event_detail', service_event_id=se.id)
 
-    # Build roster
-    existing = {
-        att.user_id: att
-        for att in Attendance.objects.filter(event=event, attendance_type='event')
-    }
-    member_data = [
-        {
-            'user': m,
-            'present': existing.get(m.user_id) is not None and existing[m.user_id].status == 'present',
-        }
-        for m in members
-    ]
+    member_data = service_attendance_roster(se, members)
     present_count = sum(1 for d in member_data if d['present'])
 
     return render(request, 'service_hours/service_event_attendance.html', {
@@ -1311,7 +1391,7 @@ def delete_service_event(request, service_event_id):
     se = get_object_or_404(ServiceEvent, id=service_event_id)
 
     if se.hours_applied:
-        messages.error(request, 'Cannot delete a service event after hours have been applied.')
+        messages.error(request, SERVICE_EVENT_NOT_DELETABLE)
         return redirect('service_event_detail', service_event_id=se.id)
 
     title = se.event.title

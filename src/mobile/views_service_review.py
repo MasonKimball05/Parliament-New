@@ -18,8 +18,10 @@ The Vice President of Programming and admins only, exactly ``vpp_required``
 
 Every number and every write goes through the same functions the web views
 call, so the activity log rows are the website's. Periods, expectations and
-adjustments, service events, the form builder and the CSV export stay on the
-website: the responses carry their paths.
+service events are native since batch 5 (``views_service_admin.py``); hour
+adjustments, the form builder and the CSV export stay on the website. The
+responses carry the website's paths for all of them (``web``), which builds
+from before batch 5 still open.
 """
 from src.app_review import exclude_review_accounts
 from django.core.paginator import Paginator

@@ -62,21 +62,47 @@ def ensure_unique_username(base_username):
     return username
 
 
-@login_required
-@officer_required
-@require_POST
-def add_member(request):
-    """Add a new member with auto-generated password."""
-    try:
-        data = json.loads(request.body)
-    except json.JSONDecodeError:
-        return JsonResponse({'success': False, 'error': 'Invalid JSON data'}, status=400)
+class MemberChangeRefused(Exception):
+    """
+    A refused add / edit / initiate (see ``create_member``). ``payload`` is
+    exactly the JSON body the website returns, ``status`` its HTTP status, so
+    the web views and the app's (src/mobile/views_member_admin.py) refuse the
+    same requests with the same words.
+    """
 
+    def __init__(self, payload, status=400):
+        self.payload = {'success': False, **payload}
+        self.status = status
+        super().__init__(self.message)
+
+    @property
+    def message(self):
+        """One sentence: ``error``, else the first field error (``errors``)."""
+        if self.payload.get('error'):
+            return self.payload['error']
+        for field, error in (self.payload.get('errors') or {}).items():
+            label = field.replace('_', ' ').capitalize()
+            return error if field == '__all__' else f'{label}: {error}'
+        return 'Invalid request.'
+
+
+def _refused_response(exc):
+    return JsonResponse(exc.payload, status=exc.status)
+
+
+def create_member(actor, data, request=None):
+    """
+    Add a member as ``actor`` (``add_member``'s rules, side effects and reply):
+    the form, the profile text rules, who may make which member type and give
+    which role, a generated username and temp password, the activity log and
+    a pledge's welcome email. Returns the website's success body; raises
+    ``MemberChangeRefused``.
+    """
     form = AddMemberForm(data)
 
     if not form.is_valid():
         errors = {field: error[0] for field, error in form.errors.items()}
-        return JsonResponse({'success': False, 'errors': errors}, status=400)
+        raise MemberChangeRefused({'errors': errors})
 
     # v3.50.0 — same text rules as a member's own profile (src/profile_text.py).
     from src.profile_text import member_fields_error
@@ -87,18 +113,18 @@ def add_member(request):
         'member_status': form.cleaned_data['member_status'],
     })
     if text_error:
-        return JsonResponse({'success': False, 'error': text_error, 'errors': {'__all__': text_error}}, status=400)
+        raise MemberChangeRefused({'error': text_error, 'errors': {'__all__': text_error}})
 
     # v3.50.1 — a non-admin can't create an account holding an admin role
     # (he'd know its temp password, and "Sync officer admins" would make it one).
     from src.permissions import member_type_change_error, role_change_error
-    type_error = member_type_change_error(request.user, form.cleaned_data['member_type'])  # v3.51.0
+    type_error = member_type_change_error(actor, form.cleaned_data['member_type'])  # v3.51.0
     if type_error:
-        return JsonResponse({'success': False, 'error': type_error, 'errors': {'__all__': type_error}}, status=403)
+        raise MemberChangeRefused({'error': type_error, 'errors': {'__all__': type_error}}, status=403)
     for role in form.cleaned_data.get('roles') or []:
-        role_error = role_change_error(request.user, role)
+        role_error = role_change_error(actor, role)
         if role_error:
-            return JsonResponse({'success': False, 'error': role_error, 'errors': {'__all__': role_error}}, status=403)
+            raise MemberChangeRefused({'error': role_error, 'errors': {'__all__': role_error}}, status=403)
 
     # Generate username from name (first initial + last name)
     base_username = generate_username(form.cleaned_data['name'])
@@ -137,8 +163,8 @@ def add_member(request):
     # Log the activity
     ActivityLog.log_activity(
         action_type='other',
-        user=request.user,
-        description=f'{request.user.get_display_name()} added new member {user.name} ({user.user_id})',
+        user=actor,
+        description=f'{actor.get_display_name()} added new member {user.name} ({user.user_id})',
         request=request,
         metadata={
             'action': 'add_member',
@@ -148,7 +174,7 @@ def add_member(request):
         }
     )
 
-    logger.info(f"Officer {request.user.user_id} added new member {user.user_id}")
+    logger.info(f"Officer {actor.user_id} added new member {user.user_id}")
 
     # For pledges, send welcome email if an email address was provided
     is_pledge = user.member_type == 'Pledge'
@@ -158,7 +184,7 @@ def add_member(request):
         except Exception as e:
             logger.error(f"Failed to send pledge welcome email for {user.user_id}: {e}")
 
-    return JsonResponse({
+    return {
         'success': True,
         'member': {
             'user_id': user.user_id,
@@ -172,64 +198,73 @@ def add_member(request):
         'temp_password': temp_password,
         'password_is_username': is_pledge,
         'message': f'Member {user.name} created successfully.',
-    })
+    }
 
 
 @login_required
 @officer_required
-@require_http_methods(['GET', 'POST'])
-def edit_member(request, user_id):
-    """Edit an existing member's details."""
-    member = get_object_or_404(ParliamentUser, user_id=user_id)
-
-    if request.method == 'GET':
-        # Calculate last login display
-        from django.utils import timezone
-        from django.utils.timezone import localtime
-        if member.last_login:
-            days_ago = (timezone.now() - member.last_login).days
-            local_last_login = localtime(member.last_login)
-            if days_ago == 0:
-                last_login_display = local_last_login.strftime('%b %d, %Y at %I:%M %p') + ' (Today)'
-            elif days_ago == 1:
-                last_login_display = local_last_login.strftime('%b %d, %Y at %I:%M %p') + ' (Yesterday)'
-            else:
-                last_login_display = local_last_login.strftime('%b %d, %Y at %I:%M %p') + f' ({days_ago} days ago)'
-        else:
-            last_login_display = 'Never logged in'
-
-        # Return current member data for the modal
-        return JsonResponse({
-            'success': True,
-            'member': {
-                'user_id': member.user_id,
-                'name': member.name,
-                'preferred_name': member.preferred_name or '',
-                'email': member.email or '',
-                'member_type': member.member_type,
-                'member_status': member.member_status,
-                'roles': list(member.roles.values_list('id', flat=True)),
-                'is_admin': member.is_admin,
-                'role_number': member.role_number or '',
-                'last_login': last_login_display,
-                'has_default_password': member.has_default_password,
-            }
-        })
-
-    # POST - Update member
+@require_POST
+def add_member(request):
+    """Add a new member with auto-generated password."""
     try:
         data = json.loads(request.body)
     except json.JSONDecodeError:
         return JsonResponse({'success': False, 'error': 'Invalid JSON data'}, status=400)
+
+    try:
+        return JsonResponse(create_member(request.user, data, request))
+    except MemberChangeRefused as exc:
+        return _refused_response(exc)
+
+
+def member_edit_data(member):
+    """The edit form's current values for ``member`` (``edit_member``'s GET)."""
+    from django.utils import timezone
+    from django.utils.timezone import localtime
+    # Calculate last login display
+    if member.last_login:
+        days_ago = (timezone.now() - member.last_login).days
+        local_last_login = localtime(member.last_login)
+        if days_ago == 0:
+            last_login_display = local_last_login.strftime('%b %d, %Y at %I:%M %p') + ' (Today)'
+        elif days_ago == 1:
+            last_login_display = local_last_login.strftime('%b %d, %Y at %I:%M %p') + ' (Yesterday)'
+        else:
+            last_login_display = local_last_login.strftime('%b %d, %Y at %I:%M %p') + f' ({days_ago} days ago)'
+    else:
+        last_login_display = 'Never logged in'
+
+    return {
+        'user_id': member.user_id,
+        'name': member.name,
+        'preferred_name': member.preferred_name or '',
+        'email': member.email or '',
+        'member_type': member.member_type,
+        'member_status': member.member_status,
+        'roles': list(member.roles.values_list('id', flat=True)),
+        'is_admin': member.is_admin,
+        'role_number': member.role_number or '',
+        'last_login': last_login_display,
+        'has_default_password': member.has_default_password,
+    }
+
+
+def apply_member_edit(actor, member, data, request=None):
+    """
+    Edit ``member`` as ``actor`` (``edit_member``'s POST): every check runs
+    before anything is saved, then the fields and roles change and one
+    activity log row records them. Returns the website's success body; raises
+    ``MemberChangeRefused``.
+    """
     if not isinstance(data, dict):
-        return JsonResponse({'success': False, 'error': 'Invalid JSON data'}, status=400)
+        raise MemberChangeRefused({'error': 'Invalid JSON data'})
 
     # v3.50.0 — an officer who is not an admin can't edit an admin's account.
     # Changing an admin's email (then using "forgot password") or member type
     # would be a way to take over or demote the people above you; deleting an
     # admin was already refused for the same reason.
-    if member.is_admin and not request.user.is_admin and member.pk != request.user.pk:
-        return JsonResponse({'success': False, 'error': "Only an admin can edit an admin's account."}, status=403)
+    if member.is_admin and not actor.is_admin and member.pk != actor.pk:
+        raise MemberChangeRefused({'error': "Only an admin can edit an admin's account."}, status=403)
 
     # v3.50.0 — validate before anything is applied: the same text rules as the
     # member's own profile, a real member type and status, a real email.
@@ -240,14 +275,14 @@ def edit_member(request, user_id):
         member,
     )
     if text_error:
-        return JsonResponse({'success': False, 'error': text_error}, status=400)
+        raise MemberChangeRefused({'error': text_error})
 
     # v3.51.0 — chairs can't promote anyone (or themselves) past Member.
     if 'member_type' in data:
         from src.permissions import member_type_change_error
-        type_error = member_type_change_error(request.user, data['member_type'], member)
+        type_error = member_type_change_error(actor, data['member_type'], member)
         if type_error:
-            return JsonResponse({'success': False, 'error': type_error}, status=403)
+            raise MemberChangeRefused({'error': type_error}, status=403)
 
     # v3.50.1 — roles that make the holder an admin can only be given or taken
     # by an admin. Checked before anything is saved.
@@ -255,13 +290,13 @@ def edit_member(request, user_id):
         raw_roles = data['roles'] or []
         if not isinstance(raw_roles, list) or not all(
                 isinstance(r, int) and not isinstance(r, bool) for r in raw_roles):
-            return JsonResponse({'success': False, 'error': 'Invalid roles.'}, status=400)
+            raise MemberChangeRefused({'error': 'Invalid roles.'})
         from src.permissions import role_change_error
         current = set(member.roles.values_list('id', flat=True))
         for role in Role.objects.filter(id__in=current ^ set(raw_roles)):
-            role_error = role_change_error(request.user, role, member)
+            role_error = role_change_error(actor, role, member)
             if role_error:
-                return JsonResponse({'success': False, 'error': role_error}, status=403)
+                raise MemberChangeRefused({'error': role_error}, status=403)
 
     # Track changes for logging
     changes = []
@@ -283,7 +318,7 @@ def edit_member(request, user_id):
         if new_email != member.email:
             # Check for duplicate email
             if new_email and ParliamentUser.objects.filter(email__iexact=new_email).exclude(pk=member.pk).exists():
-                return JsonResponse({'success': False, 'error': 'A member with this email already exists.'}, status=400)
+                raise MemberChangeRefused({'error': 'A member with this email already exists.'})
             changes.append(f"email: {member.email} -> {new_email}")
             member.email = new_email
 
@@ -308,10 +343,9 @@ def edit_member(request, user_id):
             if new_role_number:
                 existing = ParliamentUser.objects.filter(role_number=new_role_number).exclude(pk=member.pk)
                 if existing.exists():
-                    return JsonResponse({
-                        'success': False,
+                    raise MemberChangeRefused({
                         'error': f'Role number {new_role_number} is already assigned to another member.'
-                    }, status=400)
+                    })
             changes.append(f"role_number: {old_role_number} -> {new_role_number}")
             member.role_number = new_role_number
 
@@ -331,8 +365,8 @@ def edit_member(request, user_id):
     if changes:
         ActivityLog.log_activity(
             action_type='other',
-            user=request.user,
-            description=f'{request.user.get_display_name()} edited member {member.name}: {", ".join(changes)}',
+            user=actor,
+            description=f'{actor.get_display_name()} edited member {member.name}: {", ".join(changes)}',
             request=request,
             metadata={
                 'action': 'edit_member',
@@ -341,13 +375,35 @@ def edit_member(request, user_id):
                 'changes': changes,
             }
         )
-        logger.info(f"Officer {request.user.user_id} edited member {member.user_id}: {changes}")
+        logger.info(f"Officer {actor.user_id} edited member {member.user_id}: {changes}")
 
-    return JsonResponse({
+    return {
         'success': True,
         'message': f'Member {member.name} updated successfully.',
         'changes': changes,
-    })
+    }
+
+
+@login_required
+@officer_required
+@require_http_methods(['GET', 'POST'])
+def edit_member(request, user_id):
+    """Edit an existing member's details."""
+    member = get_object_or_404(ParliamentUser, user_id=user_id)
+
+    if request.method == 'GET':
+        # Return current member data for the modal
+        return JsonResponse({'success': True, 'member': member_edit_data(member)})
+
+    # POST - Update member
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'Invalid JSON data'}, status=400)
+    try:
+        return JsonResponse(apply_member_edit(request.user, member, data, request))
+    except MemberChangeRefused as exc:
+        return _refused_response(exc)
 
 
 @login_required
@@ -404,21 +460,24 @@ def delete_member(request, user_id):
     })
 
 
-@login_required
-@officer_required
-@require_POST
-def initiate_pledges(request):
-    """Batch initiate pledges to full members with role number assignment."""
-    try:
-        data = json.loads(request.body)
-    except json.JSONDecodeError:
-        return JsonResponse({'success': False, 'error': 'Invalid JSON data'}, status=400)
-
+def initiate_pledge_batch(actor, data, request=None):
+    """
+    Initiate pledges as ``actor`` (``initiate_pledges``): every pledge in
+    ``data['pledges']`` (``[{user_id, role_number}]``) becomes a Member with
+    that roll number, in one transaction, then each is notified and one
+    activity log row records the batch. Returns the website's success body;
+    raises ``MemberChangeRefused``.
+    """
     # Expect a list of {user_id, role_number} objects
-    pledge_data = data.get('pledges', [])
+    pledge_data = data.get('pledges', []) if isinstance(data, dict) else None
 
     if not pledge_data:
-        return JsonResponse({'success': False, 'error': 'No pledges selected.'}, status=400)
+        raise MemberChangeRefused({'error': 'No pledges selected.'})
+    # A malformed row was a KeyError (a 500) before the app shared this.
+    if not isinstance(pledge_data, list) or not all(
+            isinstance(p, dict) and isinstance(p.get('user_id'), str)
+            and isinstance(p.get('role_number', ''), str) for p in pledge_data):
+        raise MemberChangeRefused({'error': 'Invalid pledges.'})
 
     # Extract user_ids and role_numbers
     pledge_ids = [p['user_id'] for p in pledge_data]
@@ -427,18 +486,12 @@ def initiate_pledges(request):
     # Validate all role numbers are provided
     missing_role_numbers = [uid for uid, rn in role_numbers.items() if not rn]
     if missing_role_numbers:
-        return JsonResponse({
-            'success': False,
-            'error': 'All pledges must have a role number assigned.'
-        }, status=400)
+        raise MemberChangeRefused({'error': 'All pledges must have a role number assigned.'})
 
     # Check for duplicate role numbers in the submission
     role_number_values = list(role_numbers.values())
     if len(role_number_values) != len(set(role_number_values)):
-        return JsonResponse({
-            'success': False,
-            'error': 'Duplicate role numbers detected. Each role number must be unique.'
-        }, status=400)
+        raise MemberChangeRefused({'error': 'Duplicate role numbers detected. Each role number must be unique.'})
 
     # Check for existing role numbers in the database
     existing_role_numbers = ParliamentUser.objects.filter(
@@ -446,10 +499,7 @@ def initiate_pledges(request):
     ).values_list('role_number', flat=True)
 
     if existing_role_numbers:
-        return JsonResponse({
-            'success': False,
-            'error': f'Role number(s) already in use: {", ".join(existing_role_numbers)}'
-        }, status=400)
+        raise MemberChangeRefused({'error': f'Role number(s) already in use: {", ".join(existing_role_numbers)}'})
 
     # ⚠️ v3.23.0 — THIS USED TO BE ~180 LINES OF RAW SQL. IT IS NOW ONE UPDATE.
     #
@@ -494,7 +544,7 @@ def initiate_pledges(request):
     )
 
     if not pledges.exists():
-        return JsonResponse({'success': False, 'error': 'No valid pledges found in selection.'}, status=400)
+        raise MemberChangeRefused({'error': 'No valid pledges found in selection.'})
 
     initiated_names = []
     initiated_users = []
@@ -521,10 +571,7 @@ def initiate_pledges(request):
         logging.getLogger('admin_actions').error(
             f'INITIATE FAILED for {len(pledge_ids)} pledge(s): {e}', exc_info=True,
         )
-        return JsonResponse({
-            'success': False,
-            'error': f'Error initiating pledges: {e}. No pledges were initiated.',
-        }, status=500)
+        raise MemberChangeRefused({'error': f'Error initiating pledges: {e}. No pledges were initiated.'}, status=500)
 
 
     # Send notifications to initiated members
@@ -544,8 +591,8 @@ def initiate_pledges(request):
     # Log the activity
     ActivityLog.log_activity(
         action_type='other',
-        user=request.user,
-        description=f'{request.user.get_display_name()} initiated {len(initiated_names)} pledges: {", ".join(role_number_assignments)}',
+        user=actor,
+        description=f'{actor.get_display_name()} initiated {len(initiated_names)} pledges: {", ".join(role_number_assignments)}',
         request=request,
         metadata={
             'action': 'initiate_pledges',
@@ -556,15 +603,31 @@ def initiate_pledges(request):
         }
     )
 
-    logger.info(f"Officer {request.user.user_id} initiated {len(initiated_names)} pledges with role numbers")
+    logger.info(f"Officer {actor.user_id} initiated {len(initiated_names)} pledges with role numbers")
 
-    return JsonResponse({
+    return {
         'success': True,
         'message': f'Successfully initiated {len(initiated_names)} pledge(s) as full members.',
         'count': len(initiated_names),
         'names': initiated_names,
         'role_numbers': role_number_assignments,
-    })
+    }
+
+
+@login_required
+@officer_required
+@require_POST
+def initiate_pledges(request):
+    """Batch initiate pledges to full members with role number assignment."""
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'Invalid JSON data'}, status=400)
+
+    try:
+        return JsonResponse(initiate_pledge_batch(request.user, data, request))
+    except MemberChangeRefused as exc:
+        return _refused_response(exc)
 
 
 @login_required

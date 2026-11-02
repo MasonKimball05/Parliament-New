@@ -171,6 +171,41 @@ def role_knowledge_base(request, role_id):
     return render(request, 'officer/role_knowledge_base.html', context)
 
 
+def save_role_knowledge_base(request, role, content):
+    """
+    A new revision of ``role``'s page with ``content``, by ``request.user``,
+    logged. The caller checks ``officer_required``'s rule. Shared with the
+    app's ``role-knowledge-base/<id>/`` PUT (src/mobile/views_role_kb.py).
+    Returns the revision.
+    """
+    with transaction.atomic():
+        kb, _ = RoleKnowledgeBase.objects.get_or_create(role=role)
+        revision = RoleKnowledgeBaseRevision.objects.create(
+            knowledge_base=kb, content=content, edited_by=request.user,
+        )
+
+    ActivityLog.log_activity(
+        action_type='other',
+        user=request.user,
+        description=f'{request.user.get_display_name()} updated the knowledge base for {role.name}',
+        request=request,
+        metadata={'action': 'edit_role_knowledge_base', 'role_id': role.id, 'role_name': role.name},
+    )
+    logger.info('User %s updated the knowledge base for role %s', request.user.user_id, role.id)
+    return revision
+
+
+def role_knowledge_base_revisions(role):
+    """
+    Every revision of ``role``'s page, newest first; [] when it has none.
+    Never creates a row. Shared with the app's history.
+    """
+    kb = RoleKnowledgeBase.objects.filter(role=role).first()
+    if kb is None:
+        return []
+    return list(kb.revisions.select_related('edited_by').defer(*member_defer('edited_by')))
+
+
 @login_required
 @officer_required
 @require_POST
@@ -185,23 +220,7 @@ def edit_role_knowledge_base(request, role_id):
     read path above does not do the same thing).
     """
     role = get_object_or_404(Role, id=role_id)
-    content = request.POST.get('content', '')
-
-    with transaction.atomic():
-        kb, _ = RoleKnowledgeBase.objects.get_or_create(role=role)
-        RoleKnowledgeBaseRevision.objects.create(
-            knowledge_base=kb, content=content, edited_by=request.user,
-        )
-
-    ActivityLog.log_activity(
-        action_type='other',
-        user=request.user,
-        description=f'{request.user.get_display_name()} updated the knowledge base for {role.name}',
-        request=request,
-        metadata={'action': 'edit_role_knowledge_base', 'role_id': role.id, 'role_name': role.name},
-    )
-    logger.info('User %s updated the knowledge base for role %s', request.user.user_id, role.id)
-
+    save_role_knowledge_base(request, role, request.POST.get('content', ''))
     messages.success(request, f'"{role.name}" knowledge base updated.')
     return redirect('role_knowledge_base', role_id=role.id)
 
@@ -213,13 +232,7 @@ def role_knowledge_base_history(request, role_id):
     Same open-to-any-member read access as the page itself.
     """
     role = get_object_or_404(Role, id=role_id)
-    kb = RoleKnowledgeBase.objects.filter(role=role).first()
-
-    revisions = []
-    if kb is not None:
-        revisions = list(
-            kb.revisions.select_related('edited_by').defer(*member_defer('edited_by'))
-        )
+    revisions = role_knowledge_base_revisions(role)
 
     context = {
         'role': role,

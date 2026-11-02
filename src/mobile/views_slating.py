@@ -2,9 +2,9 @@
 The app's Slating screens (mobile plan, Phase 3i) — the member side.
 
 * ``GET slating/`` — the hub (``slating_dashboard``): every period not
-  archived, with what this member can do in it (apply on the website, vote,
-  see results), their own applications, and whether they're on a period's
-  slating committee (that work stays on the website).
+  archived, with what this member can do in it (apply, vote, see results),
+  their own applications, and whether they're on a period's slating
+  committee or run it.
 * ``POST slating/applications/<id>/withdraw/`` — ``withdraw_application``.
 * ``GET slating/periods/<id>/vote/`` — the ballot: the approved primary slate,
   or for an individual vote the positions still undecided and which of them
@@ -17,8 +17,9 @@ The app's Slating screens (mobile plan, Phase 3i) — the member side.
 
 The web's order: eligibility (``can_vote``, voting open, marked present, a
 slate) before re-auth, so a member who can't vote isn't asked for a password.
-Applying (custom questions, GPA screenshot) and everything the slating
-committee does are on the website.
+Applying, My applications and the committee's review, interviews,
+attendance, paper ballots and results summary are in
+``views_slating_apply.py`` / ``views_slating_committee.py`` (11-02-26).
 """
 from django.shortcuts import get_object_or_404
 from django.urls import reverse
@@ -279,6 +280,9 @@ def _round_error(e):
 
 def _chair_overview(period):
     from src.models import SlatingAttendance, SlatingBallot
+    from src.view.slating.attendance import ATTENDANCE_STATUSES
+    from src.view.slating.paper_ballots import round_accepts_paper
+    from src.view.slating.results import PUBLISHABLE
     from src.slating_rounds import KIND_LABELS, election_context, round_threshold
     ctx = election_context(period)
     attempt = period.current_voting_attempt
@@ -317,6 +321,10 @@ def _chair_overview(period):
                          .values('voter').distinct().count()) if live else None,
         'can_open': period.status == 'deliberation' and bool(ctx.get('states')),
         'can_close': live,
+        # 11-02-26: the app's own screens for these (views_slating_committee.py).
+        'can_attendance': period.status in ATTENDANCE_STATUSES,
+        'can_paper': round_accepts_paper(period),
+        'can_publish': period.status in PUBLISHABLE,
         'web': {'setup': reverse('slating_period_setup', args=[period.id]),
                 'attendance': reverse('slating_attendance', args=[period.id]),
                 'paper': reverse('slating_paper_ballots', args=[period.id]),

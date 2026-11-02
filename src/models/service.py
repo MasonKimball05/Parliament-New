@@ -1,7 +1,7 @@
 import os
 import uuid
 
-from django.db import models
+from django.db import models, transaction
 from django.utils import timezone
 from src.storage import DualLocationStorage
 from src.models.users import member_defer
@@ -505,12 +505,19 @@ class ServiceEvent(models.Model):
         """
         Create pre-approved ServiceHoursSubmission records for every member
         marked present. Respects per-member hours overrides in member_hours_override.
-        Safe to call once only (guarded by hours_applied).
+        Safe to call once only (guarded by hours_applied, read under a row
+        lock so two finalizes at once can't both credit the hours).
         Returns the count of submissions created.
         """
-        if self.hours_applied:
-            return 0
+        with transaction.atomic():
+            locked = type(self).objects.select_for_update().get(pk=self.pk)
+            if locked.hours_applied:
+                self.hours_applied = True
+                return 0
+            return self._credit_present_attendees(finalized_by)
 
+    def _credit_present_attendees(self, finalized_by):
+        """apply_hours' body; call it only inside apply_hours' lock."""
         now = timezone.now()
         created = 0
         for record in self.get_present_attendees():
@@ -519,7 +526,9 @@ class ServiceEvent(models.Model):
                 period=self.period,
                 submitted_by=record.user,
                 hours=hours,
-                service_date=self.event.date_time.date(),
+                # The chapter's calendar day, not UTC's: an 8 PM event is
+                # stored as the next day in UTC.
+                service_date=timezone.localtime(self.event.date_time).date(),
                 organization=self.event.title,
                 description=(
                     f'Attended service event: {self.event.title}. '

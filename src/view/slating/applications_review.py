@@ -14,6 +14,137 @@ from src.models import (
 )
 from .permissions import can_manage_period, slating_committee_required, slating_chair_required
 from src.models.users import member_defer
+from .apply import tiered_position_lists
+
+
+# ── Shared with the app (src/mobile/views_slating_committee.py) ─────────────
+
+def filter_applications(period, status_filter='', position_id=None, gpa_level=None, search=''):
+    """
+    The review list: every application but drafts, newest submission first,
+    narrowed by status, a wanted position (any tier), GPA level and a name /
+    roll number / user id search.
+    """
+    # v3.17.3: applications_review.html:130 renders an "Interviewed" marker per
+    # row from `app.interviews`, which was a query per application. Prefetching
+    # is the whole fix — `.exists()` on a prefetched relation costs nothing (see
+    # PrefetchCacheBehaviourTests; CLAUDE.md's checklist is wrong about this).
+    applications = period.applications.exclude(
+        status='draft'
+    ).select_related('applicant').defer(*member_defer('applicant')).prefetch_related(
+        'interviews'
+    ).order_by('-submitted_at')
+
+    # Apply filters
+    if status_filter:
+        applications = applications.filter(status=status_filter)
+
+    if position_id is not None:
+        # Filter by position preference (handles both legacy list and new tiered dict format)
+        filtered_apps = []
+        for app in applications:
+            if position_id in app.get_preferred_positions():
+                filtered_apps.append(app.id)
+        applications = applications.filter(id__in=filtered_apps)
+
+    if gpa_level is not None:
+        applications = applications.filter(gpa_level=gpa_level)
+
+    if search:
+        # v3.25.0 — `role_number` added: see `global_search`. Slating is the
+        # surface where an officer is most likely to be working from a written
+        # list of roll numbers rather than names.
+        applications = applications.filter(
+            Q(applicant__name__icontains=search) |
+            Q(applicant__role_number__icontains=search) |
+            Q(applicant__user_id__icontains=search)
+        )
+    return applications
+
+
+def application_status_counts(period):
+    """
+    ``{status: {label, count}}`` for every status but draft.
+
+    v3.17.3: was one COUNT per status choice — eight round trips over the same
+    table, found by the detail-route sweep (this page takes a period_id, so the
+    zero-argument N+1 test never reached it). One GROUP BY answers all of them;
+    statuses with no applications keep their explicit 0 rather than vanishing,
+    which is what the previous loop produced.
+    """
+    _counts = dict(
+        period.applications.exclude(status='draft')
+        .values_list('status')
+        .annotate(n=Count('pk'))
+    )
+    return {
+        status: {'label': label, 'count': _counts.get(status, 0)}
+        for status, label in SlatingApplication.STATUS_CHOICES
+        if status != 'draft'
+    }
+
+
+def review_sections(application, user):
+    """
+    The application's answers by section, in display order. Fields not shown
+    in review are left out unless ``user`` is a site admin.
+    """
+    sections = {}
+    for response in application.responses.select_related('field').all():
+        if not response.field.show_in_review and not user.is_admin:
+            # Skip fields not shown in review (unless admin)
+            continue
+        section = response.field.section or 'General'
+        if section not in sections:
+            sections[section] = []
+        sections[section].append(response)
+
+    # Sort each section by display order
+    for section in sections:
+        sections[section].sort(key=lambda r: r.field.display_order)
+    return sections
+
+
+def can_review_application(user, period):
+    """Whether the detail page shows the review panel (a site admin or a committee chair)."""
+    return bool(user.is_admin or (
+        period.slating_committee and
+        period.slating_committee.is_chair(user)
+    ))
+
+
+def save_review(period, application, user, new_status, review_notes, verify_gpa=False, unverify_gpa=False):
+    """
+    The review panel's save: a new status (logged when it changes), the
+    confidential review notes (the reviewer becomes ``user`` when they
+    change) and GPA verification.
+    """
+    if new_status and new_status in dict(SlatingApplication.STATUS_CHOICES):
+        old_status = application.status
+        application.status = new_status
+
+        # Log status change
+        if old_status != new_status:
+            SlatingActivity.objects.create(
+                period=period,
+                user=user,
+                action='application_reviewed',
+                details=f'Changed {application.applicant.name} status from {old_status} to {new_status}',
+                metadata={'application_id': application.id, 'old_status': old_status, 'new_status': new_status}
+            )
+
+    # Update review notes
+    if review_notes != application.review_notes:
+        application.review_notes = review_notes
+        application.reviewer = user
+
+    # Verify GPA
+    if verify_gpa:
+        application.gpa_verified = True
+    elif unverify_gpa:
+        application.gpa_verified = False
+
+    application.save()
 
 
 @login_required
@@ -30,63 +161,16 @@ def applications_list(request, period_id):
     gpa_level_filter = request.GET.get('gpa_level', '')
     search = request.GET.get('search', '')
 
-    # v3.17.3: applications_review.html:130 renders an "Interviewed" marker per
-    # row from `app.interviews`, which was a query per application. Prefetching
-    # is the whole fix — `.exists()` on a prefetched relation costs nothing (see
-    # PrefetchCacheBehaviourTests; CLAUDE.md's checklist is wrong about this).
-    applications = period.applications.exclude(
-        status='draft'
-    ).select_related('applicant').defer(*member_defer('applicant')).prefetch_related(
-        'interviews'
-    ).order_by('-submitted_at')
-
-    # Apply filters
-    if status_filter:
-        applications = applications.filter(status=status_filter)
-
-    if position_filter:
-        # Filter by position preference (handles both legacy list and new tiered dict format)
-        pos_id = int(position_filter)
-        # Filter applications where position is in any tier
-        filtered_apps = []
-        for app in applications:
-            if pos_id in app.get_preferred_positions():
-                filtered_apps.append(app.id)
-        applications = applications.filter(id__in=filtered_apps)
-
-    if gpa_level_filter:
-        applications = applications.filter(gpa_level=int(gpa_level_filter))
-
-    if search:
-        # v3.25.0 — `role_number` added: see `global_search`. Slating is the
-        # surface where an officer is most likely to be working from a written
-        # list of roll numbers rather than names.
-        applications = applications.filter(
-            Q(applicant__name__icontains=search) |
-            Q(applicant__role_number__icontains=search) |
-            Q(applicant__user_id__icontains=search)
-        )
+    applications = filter_applications(
+        period, status_filter,
+        int(position_filter) if position_filter else None,
+        int(gpa_level_filter) if gpa_level_filter else None,
+        search)
 
     # Get positions for filter dropdown
     positions = period.positions.filter(is_active=True).order_by('display_order')
 
-    # Status counts.
-    #
-    # v3.17.3: was one COUNT per status choice — eight round trips over the same
-    # table, found by the detail-route sweep (this page takes a period_id, so the
-    # zero-argument N+1 test never reached it). One GROUP BY answers all of them;
-    # statuses with no applications keep their explicit 0 rather than vanishing,
-    # which is what the previous loop produced.
-    _counts = dict(
-        period.applications.exclude(status='draft')
-        .values_list('status')
-        .annotate(n=Count('pk'))
-    )
-    status_counts = {
-        status: {'label': label, 'count': _counts.get(status, 0)}
-        for status, label in SlatingApplication.STATUS_CHOICES
-        if status != 'draft'
-    }
+    status_counts = application_status_counts(period)
 
     context = {
         'period': period,
@@ -119,62 +203,18 @@ def application_detail(request, period_id, app_id):
         period=period
     )
 
-    # Get responses
-    responses = application.responses.select_related('field').all()
-
-    # Organize responses by section
-    sections = {}
-    for response in responses:
-        if not response.field.show_in_review and not request.user.is_admin:
-            # Skip fields not shown in review (unless admin)
-            continue
-        section = response.field.section or 'General'
-        if section not in sections:
-            sections[section] = []
-        sections[section].append(response)
-
-    # Sort each section by display order
-    for section in sections:
-        sections[section].sort(key=lambda r: r.field.display_order)
+    sections = review_sections(application, request.user)
 
     # Get positions
     positions = period.positions.filter(is_active=True)
     position_dict = {p.id: p for p in positions}
 
-    # Build tiered position display
-    prefs = application.position_preferences or {}
-
-    # Handle legacy list format
-    if isinstance(prefs, list):
-        prefs = {
-            'first_choice': prefs,
-            'second_choice': [],
-            'third_choice': [],
-            'do_not_want': [],
-        }
-
-    tiered_positions = {
-        'first_choice': [position_dict.get(pid) for pid in prefs.get('first_choice', []) if pid in position_dict],
-        'second_choice': [position_dict.get(pid) for pid in prefs.get('second_choice', []) if pid in position_dict],
-        'third_choice': [position_dict.get(pid) for pid in prefs.get('third_choice', []) if pid in position_dict],
-        'do_not_want': [position_dict.get(pid) for pid in prefs.get('do_not_want', []) if pid in position_dict],
-    }
-
-    # Flat list of wanted positions for backward compatibility
-    selected_positions = (
-        tiered_positions['first_choice'] +
-        tiered_positions['second_choice'] +
-        tiered_positions['third_choice']
-    )
+    tiered_positions, selected_positions = tiered_position_lists(application, position_dict)
 
     # Get interviews
     interviews = application.interviews.all().order_by('-scheduled_at')
 
-    # Check if user can edit review
-    can_review = request.user.is_admin or (
-        period.slating_committee and
-        period.slating_committee.is_chair(request.user)
-    )
+    can_review = can_review_application(request.user, period)
 
     context = {
         'period': period,
@@ -203,35 +243,10 @@ def submit_review(request, period_id, app_id):
     period = get_object_or_404(SlatingPeriod, id=period_id)
     application = get_object_or_404(SlatingApplication, id=app_id, period=period)
 
-    # Update status
-    new_status = request.POST.get('status')
-    if new_status and new_status in dict(SlatingApplication.STATUS_CHOICES):
-        old_status = application.status
-        application.status = new_status
-
-        # Log status change
-        if old_status != new_status:
-            SlatingActivity.objects.create(
-                period=period,
-                user=request.user,
-                action='application_reviewed',
-                details=f'Changed {application.applicant.name} status from {old_status} to {new_status}',
-                metadata={'application_id': application.id, 'old_status': old_status, 'new_status': new_status}
-            )
-
-    # Update review notes
-    review_notes = request.POST.get('review_notes', '').strip()
-    if review_notes != application.review_notes:
-        application.review_notes = review_notes
-        application.reviewer = request.user
-
-    # Verify GPA
-    if request.POST.get('verify_gpa') == 'on':
-        application.gpa_verified = True
-    elif request.POST.get('unverify_gpa') == 'on':
-        application.gpa_verified = False
-
-    application.save()
+    save_review(period, application, request.user, request.POST.get('status'),
+                request.POST.get('review_notes', '').strip(),
+                verify_gpa=request.POST.get('verify_gpa') == 'on',
+                unverify_gpa=request.POST.get('unverify_gpa') == 'on')
 
     messages.success(request, 'Application review saved.')
     return redirect('slating_app_detail', period_id=period_id, app_id=app_id)
