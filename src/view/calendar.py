@@ -812,21 +812,8 @@ def event_signup_list(request, event_id):
     # visible in dev mode's Perms tab and in the authz log, and returns the
     # app's standard 403 body instead of a bare PermissionDenied.
     event = get_object_or_404(Event, pk=event_id, is_active=True, requires_signup=True)
-
-    all_active = list(
-        EventSignup.objects
-        .filter(event=event, is_cancelled=False)
-        .select_related('user').defer(*member_defer('user'))
-        .order_by('waitlist_position', 'signed_up_at')
-    )
-    signups   = [s for s in all_active if s.waitlist_position is None]
-    waitlist  = [s for s in all_active if s.waitlist_position is not None]
-    cancelled = list(
-        EventSignup.objects
-        .filter(event=event, is_cancelled=True)
-        .select_related('user').defer(*member_defer('user'))
-        .order_by('cancelled_at')
-    )
+    # Batch 6: the query is shared with the app's events/<id>/signups/.
+    signups, waitlist, cancelled = event_signups.roster(event)
 
     return render(request, 'calendar/event_signup_list.html', {
         'event': event,

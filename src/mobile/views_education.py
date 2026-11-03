@@ -20,8 +20,10 @@ functions the web dashboard uses (``education_overview``, ``pledge_progress``).
 * ``POST .../education/pledges/<pk>/phase/`` ``{phase}`` and
   ``.../education/phases/advance/`` (manage).
 
-Creating and editing tasks, quiz questions, meetings, bigs, point adjustments
-and pledge page access stay on the website; the dashboard links there.
+Creating and editing tasks, quiz questions, meetings, bigs, point adjustments,
+pledge page access and member permissions are in
+src/mobile/views_education_manage.py (11-02-26); ``web_links`` is still sent
+for app builds from before then.
 """
 from django.db import transaction
 from django.http import Http404
@@ -33,14 +35,15 @@ from rest_framework.response import Response
 from src.mobile.api import MobileAPIView
 from src.mobile.views_committees import _person
 from src.models import (
-    EducationAbsenceRequest, EducationMeeting, EducationMeetingAttendance, ParliamentUser, PledgeQuizAnswer, PledgeTask,
-    PledgeTaskCompletion,
+    EducationAbsenceRequest, EducationMeeting, EducationMeetingAttendance, ParliamentUser, PledgePointAdjustment,
+    PledgeQuizAnswer, PledgeTask, PledgeTaskCompletion,
 )
 from src.models.users import member_defer
-from src.pledge_phases import PHASES, next_phase
+from src.pledge_phases import PHASES
 from src.pledge_points import grading_preview, is_scaled, points_for, quiz_marks
 from src.view.committee.education import (
-    _education_committee_or_404, _pledge_roster, education_overview, pledge_progress,
+    POINT_ADJUSTMENT_LIMIT, _education_committee_or_404, _pledge_roster, advance_all_phases, education_overview,
+    pledge_progress, review_absence, set_pledge_phase,
 )
 
 PHASE_LABELS = {'all': 'All phases', '1': 'Phase 1', '2': 'Phase 2', '3': 'Phase 3'}
@@ -206,7 +209,24 @@ class EducationPledgeView(_EducationView):
             } for r in data['attendance']],
             'phases': list(PHASES),
             'study': _study_json(pledge),
+            # The website's Adjust Points history, for whoever may adjust.
+            'adjustments': [_adjustment_json(a) for a in (
+                PledgePointAdjustment.objects.filter(committee=committee, pledge=pledge)
+                .select_related('created_by').defer(*member_defer('created_by')).order_by('-created_at')
+            )] if self.access['can_manage_tasks'] else None,
+            'point_adjustment_limit': POINT_ADJUSTMENT_LIMIT,
         })
+
+
+def _adjustment_json(a):
+    return {
+        'id': a.pk,
+        'current_delta': a.current_delta,
+        'max_delta': a.max_delta,
+        'reason': a.reason,
+        'created_by': a.created_by.name if a.created_by else 'Deleted user',
+        'created_at': a.created_at.isoformat(),
+    }
 
 
 def _study_json(member):
@@ -236,6 +256,13 @@ class EducationTaskView(_EducationView):
         rows = []
         for p in pledges:
             mine = answers.get(p.pk, {})
+            # As education_quiz_submissions: what he'd get if marked Completed
+            # now, and how many answers aren't marked yet (they count as wrong).
+            preview = grading_preview(
+                task, completions.get(p.pk),
+                sum(1 for a in mine.values() if a.is_correct is True), len(questions),
+                sum(1 for a in mine.values() if a.is_correct is not None),
+            ) if questions else None
             rows.append({
                 **_person(p),
                 'completion': _completion_json(completions.get(p.pk)),
@@ -247,11 +274,18 @@ class EducationTaskView(_EducationView):
                     'text': mine[q.id].answer_text if q.id in mine else None,
                     'is_correct': mine[q.id].is_correct if q.id in mine else None,
                 } for q in questions] if mine else [],
+                'points_preview': preview,
             })
         return Response({
             **_task_json(task),
             'points_scaled': is_scaled(task),
             'can_grade': bool(self.access['can_grade_submissions']),
+            'can_manage': bool(self.access['can_manage_tasks']),
+            'activation_mode': task.activation_mode,
+            'is_published': task.is_published,
+            'show_analysis_to_pledges': task.show_analysis_to_pledges,
+            'pledges_with_unmarked': sum(1 for r in rows if r['submitted'] and r['points_preview']
+                                         and r['points_preview']['unmarked']),
             'questions': [{'id': q.id, 'text': q.question_text,
                            'hint': q.answer_hint or ''} for q in questions],
             'pledges': rows,
@@ -380,16 +414,8 @@ class EducationAbsenceView(_EducationView):
         decision = request.data.get('decision')
         if decision not in ('approved', 'denied'):
             raise BadRequest('Approve or deny the request.', code='invalid_choice')
-        now = timezone.now()
-        absence.status = decision
-        absence.reviewed_by = request.user
-        absence.reviewed_at = now
-        absence.review_note = str(request.data.get('review_note') or '').strip()[:2000]
-        absence.save(update_fields=['status', 'reviewed_by', 'reviewed_at', 'review_note'])
-        if decision == 'approved':   # as on the web: an approval excuses him at the meeting
-            EducationMeetingAttendance.objects.update_or_create(
-                meeting=absence.meeting, pledge=absence.pledge,
-                defaults={'status': 'excused', 'marked_by': request.user, 'marked_at': now})
+        # As on the web: an approval excuses him at the meeting.
+        review_absence(absence, request.user, decision, str(request.data.get('review_note') or '').strip()[:2000])
         return Response({'status': decision})
 
 
@@ -402,9 +428,7 @@ class EducationPhaseView(_EducationView):
         phase = request.data.get('phase')
         if phase not in PHASES:
             raise BadRequest('Choose Phase 1, 2 or 3.', code='invalid_choice')
-        if pledge.pledge_phase != phase:
-            pledge.pledge_phase = phase
-            pledge.save(update_fields=['pledge_phase'])
+        set_pledge_phase(pledge, phase)
         return Response({'phase': phase})
 
 
@@ -413,13 +437,4 @@ class EducationAdvanceAllView(_EducationView):
     def post(self, request, code):
         self.setup_access(request, code)
         self.require('can_manage_tasks')
-        moved = 0
-        with transaction.atomic():
-            for pledge in (ParliamentUser.objects.select_for_update()
-                           .filter(member_type='Pledge', is_active=True).only('pk', 'pledge_phase')):
-                following = next_phase(pledge.pledge_phase)
-                if following:
-                    pledge.pledge_phase = following
-                    pledge.save(update_fields=['pledge_phase'])
-                    moved += 1
-        return Response({'moved': moved})
+        return Response({'moved': advance_all_phases()})

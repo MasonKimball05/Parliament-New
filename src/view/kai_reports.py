@@ -31,6 +31,38 @@ logger = logging.getLogger('src')
 KAI_LIST_LIMIT = 500
 
 
+class KaiNotes(list):
+    """
+    The messages one Kai review action produces, in order, as ``(level, text)``.
+
+    The review pages' actions live in helpers shared with the app
+    (src/mobile/views_kai_review.py), so they collect their messages here
+    instead of flashing them; the web view calls ``flash`` and the app answers
+    with them. ``level`` is a ``django.contrib.messages`` method name.
+    """
+
+    def success(self, text):
+        self.append(('success', str(text)))
+
+    def info(self, text):
+        self.append(('info', str(text)))
+
+    def warning(self, text):
+        self.append(('warning', str(text)))
+
+    def error(self, text):
+        self.append(('error', str(text)))
+
+    @property
+    def errors(self):
+        return [text for level, text in self if level == 'error']
+
+    def flash(self, request):
+        for level, text in self:
+            getattr(messages, level)(request, text)
+        return self
+
+
 @login_required
 @require_feature_flag('kai_reports')
 @log_function_call
@@ -858,6 +890,386 @@ def _kai_search_placeholder(kai_access):
     return f'Search by {joined}...'
 
 
+def kai_list_scope(user, kai_committee):
+    """
+    ``(kai_access, standin_case_ids)`` for the Kai list: the committee access
+    and the cases ``user`` stands in on. The list is open to anyone holding
+    ``can_view_report_list`` or at least one stand-in appointment.
+    """
+    kai_access = _get_kai_access(user, kai_committee)
+    # v3.18.0: a stand-in appointed under bylaws §§ vi-ix may hold no
+    # committee-level grant of their own. They must still be able to reach the
+    # case they were appointed to — otherwise the appointment is ceremonial.
+    # They see ONLY those cases; the list is restricted below.
+    standin_case_ids = list(
+        KaiRecusal.objects.filter(replacement=user)
+        .values_list('report_id', flat=True)
+    )
+    return kai_access, standin_case_ids
+
+
+def kai_report_list(user, kai_access, standin_case_ids, params):
+    """
+    ``view_kai_reports``' list for ``user``: the filters read from ``params``
+    (``status``, ``category``, ``search``, ``date_from``, ``date_to``,
+    ``assigned``), the capped, newest-first cases with ``viewer_recusal`` set
+    per row, the true totals, the aging and assignment tallies, and the case
+    ids whose content this viewer sees redacted. Shared with the app, so the
+    two lists (and their search predicate) cannot drift.
+    """
+    # Get filter from query params
+    status_filter = params.get('status', 'all')
+    category_filter = params.get('category', 'all')
+    search_query = params.get('search', '').strip()
+    date_from = params.get('date_from', '')
+    date_to = params.get('date_to', '')
+
+    # Start with all reports.
+    #
+    # v3.18.0 — RECUSAL, and the design here went through three versions.
+    # It first excluded every case the viewer was a party to — submitter or
+    # accused — which hid three self-filed test reports and rendered an
+    # empty queue. Narrowing it to the accused still hid two.
+    #
+    # The exclusion was the wrong tool. **Hiding the row protects nothing**:
+    # the accused already knows the case exists — they are notified, and it
+    # is on their own dashboard under "Reports Where I'm Named". What they
+    # must not have is the allegation body, the submitter's identity, and
+    # any power to act on it. `manage_kai_report` refuses them, the exports
+    # exclude, and the card below redacts.
+    #
+    # So the list shows EVERY case and marks the viewer's own — see
+    # `viewer_recusal` below and the redacted card in view_reports.html.
+    # The counts then agree with the rows, which is the property that broke.
+    #
+    # ⚠️ v3.18.1 — THE HALF THAT DID NOT MOVE WITH IT. Switching from
+    # exclusion to redaction left the SEARCH PREDICATE reading the viewer's
+    # committee-level flags, so it still matched on `description` and
+    # `submitted_by__name` for the very rows the card refuses to print
+    # them for. A viewer who was the accused could recover the allegation
+    # body a guess at a time and identify their own reporter by surname —
+    # reproduced 08-01-26 in both directions. `redacted_case_ids` below is
+    # the fix; see `_kai_search_q`.
+    redacted_case_ids = _recused_case_ids(user)
+    reports = KaiReport.objects.all()
+    # A pure stand-in (no committee grant) sees only their appointments.
+    if not kai_access['can_view_report_list']:
+        reports = reports.filter(pk__in=standin_case_ids)
+    assigned_filter = params.get('assigned', 'all')
+
+    # Apply status filter
+    if status_filter == 'pending':
+        reports = reports.filter(status='pending')
+    elif status_filter == 'reviewed':
+        reports = reports.filter(status='reviewed')
+    elif status_filter == 'archived':
+        reports = reports.filter(status='archived')
+
+    # Apply category filter
+    if category_filter != 'all':
+        reports = reports.filter(category=category_filter)
+
+    # Apply search filter — v3.16.3: permission-gated, see _kai_search_q.
+    # v3.18.1: `redacted_case_ids` narrows it to title/tags for the rows
+    # this viewer sees redacted. Without it the box is an oracle.
+    if search_query:
+        reports = reports.filter(
+            _kai_search_q(search_query, kai_access, redacted_case_ids)
+        )
+
+    # Apply date range filter
+    #
+    # v3.18.1: these used to carry function-local `from datetime import …`
+    # lines. A local import binds the name for the WHOLE function scope, so
+    # `timedelta` used earlier in the same function raised
+    # UnboundLocalError. Both are module-level imports now — do not put
+    # them back inside the branches.
+    if date_from:
+        try:
+            date_from_obj = datetime.strptime(date_from, '%Y-%m-%d')
+            reports = reports.filter(submitted_at__gte=date_from_obj)
+        except ValueError:
+            pass
+
+    if date_to:
+        try:
+            date_to_obj = datetime.strptime(date_to, '%Y-%m-%d')
+            # Include the entire day
+            date_to_obj = date_to_obj + timedelta(days=1)
+            reports = reports.filter(submitted_at__lt=date_to_obj)
+        except ValueError:
+            pass
+
+    # v3.18.0: "My cases" filter — `assigned_to` is set independently of
+    # status, so this is a genuine work queue rather than a status view.
+    if assigned_filter == 'me':
+        reports = reports.filter(assigned_to=user)
+    elif assigned_filter == 'unassigned':
+        reports = reports.filter(assigned_to__isnull=True)
+
+    # select_related directly — the test-DB schema-probe fallback is gone
+    # (migrations consolidated + tracked since 07-05-26). (v3.15.6)
+    #
+    # v3.18.1 — CAPPED. This materialised the whole table. Kai volume is
+    # small today, which is exactly what the three views capped in v3.17.5
+    # and v3.17.7 were before they weren't. The cap comes with true totals
+    # from a separate GROUP BY below, because **a capped page must not
+    # count its capped list** — `counts` and `category_counts` are already
+    # aggregates over `_visible`, so they stay honest for free. The two
+    # that were computed off `reports` (`stale_count`, `assigned_counts`)
+    # are moved to aggregates for the same reason.
+    reports = list(
+        reports
+        .select_related('submitted_by', 'reviewed_by', 'targeted_to', 'assigned_to')
+        .defer(*member_defer('submitted_by', 'reviewed_by', 'targeted_to', 'assigned_to'))
+        .order_by('-submitted_at')[:KAI_LIST_LIMIT]
+    )
+
+    # Per-row party status. The list template gates content on ONE
+    # committee-level `kai_access` for every row, so a case the viewer is
+    # named in needs its own flag — set here, read in view_reports.html.
+    for _report in reports:
+        _report.viewer_recusal = _report.recusal_reason(user)
+
+    # Status counts — v3.16.3: one aggregate instead of four separate
+    # .count() round trips, matching the category pattern directly below.
+    #
+    # v3.18.1 — the v3.18.0 comment here claimed "recused cases are
+    # excluded here too", which was never true of the shipped code and had
+    # stopped being the right thing to do: the list SHOWS those rows
+    # redacted, so a count that excluded them would disagree with the rows
+    # on screen — the exact defect the exclusion was meant to prevent, in
+    # reverse. `_visible` is every case the viewer can see, and the counts
+    # match the list. Removed rather than corrected in place, because a
+    # comment describing enforcement that does not exist reads as
+    # enforcement to the next person.
+    _visible = KaiReport.objects.all()
+    if not kai_access['can_view_report_list']:
+        _visible = _visible.filter(pk__in=standin_case_ids)
+    status_map = {
+        row['status']: row['total']
+        for row in _visible.values('status').annotate(total=Count('id'))
+    }
+    counts = {
+        'all': sum(status_map.values()),
+        'pending': status_map.get('pending', 0),
+        'reviewed': status_map.get('reviewed', 0),
+        'archived': status_map.get('archived', 0),
+    }
+
+    # Get counts for category filters — one aggregated query instead of one per category
+    cat_qs = _visible.values('category').annotate(total=Count('id'))
+    cat_map = {row['category']: row['total'] for row in cat_qs}
+    category_counts = {cat_value: cat_map.get(cat_value, 0) for cat_value, _ in KaiReport.CATEGORY_CHOICES}
+
+    # v3.18.0 — case aging. Nothing surfaced how long a case had been
+    # sitting, so a `pending` case could age indefinitely with no signal.
+    # One extra query for the oldest unreviewed case; `days_open` and
+    # `is_stale` are properties, computed per row with no further queries.
+    #
+    # v3.18.1: skip cases this viewer is recused from. The banner's "Open
+    # oldest" button links straight to `manage_kai_report`, which refuses a
+    # party — so pointing it at their own case produced a button that could
+    # only bounce, above a case number the card below is careful about.
+    _oldest_qs = _visible.filter(status='pending')
+    if redacted_case_ids:
+        _oldest_qs = _oldest_qs.exclude(pk__in=redacted_case_ids)
+    oldest_pending = (
+        _oldest_qs
+        .select_related('assigned_to')
+        .defer(*member_defer('assigned_to'))
+        .order_by('submitted_at')
+        .first()
+    )
+
+    # v3.18.1 — these were `sum(... for r in reports)` over the capped
+    # list, so past the cap they would have frozen at whatever the newest
+    # KAI_LIST_LIMIT rows happened to contain. Aggregates instead.
+    #
+    # v3.18.2 — ONE aggregate, not three. Moving them off the capped list
+    # was right; doing it with three separate `.count()` round trips beside
+    # the two GROUP BYs directly above was not. CLAUDE.md's own checklist
+    # names this: *repeated identical queries that could share a single
+    # `aggregate()` call*. 5 queries → 3.
+    _stale_before = timezone.now() - timedelta(days=KaiReport.STALE_AFTER_DAYS)
+    _tallies = _visible.aggregate(
+        stale=Count('id', filter=Q(status='pending', submitted_at__lte=_stale_before)),
+        mine=Count('id', filter=Q(assigned_to=user)),
+        unassigned=Count('id', filter=Q(assigned_to__isnull=True)),
+    )
+    stale_count = _tallies['stale']
+    assigned_counts = {
+        'mine': _tallies['mine'],
+        'unassigned': _tallies['unassigned'],
+    }
+
+    # ⚠️ v3.18.2 — THE TRUNCATION NOTICE USED TO SWITCH ITSELF OFF UNDER
+    # EXACTLY THE CONDITION IT EXISTS FOR.
+    #
+    # It was `total_reports > len(reports) and not (any filter active)`.
+    # The guard was there for a real reason — `counts['all']` is a total
+    # across every status, so with a status filter applied the inequality
+    # is true for an innocent reason and would fire a false notice. But it
+    # suppressed the notice *entirely* under any filter while `[:LIMIT]`
+    # still applied: search a common word, match 700 cases, see 500 rows
+    # and no indication that 200 are missing. The template's own advice —
+    # "Filter or search to reach older cases" — walked the user into the
+    # one state where the warning could not appear.
+    #
+    # Truncation is knowable without a second COUNT: a full page IS the
+    # cap. This over-reports in the exact-multiple case (a result set of
+    # precisely 500 says it was truncated), which is the right way round —
+    # over-warning costs a sentence, under-warning hides cases.
+    total_reports = counts['all']
+    reports_truncated = len(reports) >= KAI_LIST_LIMIT
+    filters_active = bool(
+        status_filter != 'all' or category_filter != 'all'
+        or search_query or date_from or date_to or assigned_filter != 'all'
+    )
+
+    return {
+        'reports': reports,
+        'status_filter': status_filter,
+        'category_filter': category_filter,
+        'search_query': search_query,
+        'date_from': date_from,
+        'date_to': date_to,
+        'assigned_filter': assigned_filter,
+        'counts': counts,
+        'category_counts': category_counts,
+        'cat_map': cat_map,
+        'oldest_pending': oldest_pending,
+        'stale_count': stale_count,
+        'assigned_counts': assigned_counts,
+        'total_reports': total_reports,
+        'reports_truncated': reports_truncated,
+        'filters_active': filters_active,
+        'redacted_case_ids': redacted_case_ids,
+    }
+
+
+def kai_list_stats(user, kai_access, cat_map):
+    """
+    The Kai list page's analytics panel and recent-activity feed: cases per
+    category (from ``cat_map``, the list's own category totals) and per month
+    for six months, the deliberation outcomes, and the last eight activity
+    entries across every case, each narrowed and redacted against its own
+    case for ``user`` (an entry on a case they are recused from is dropped).
+    """
+    # v3.18.1: `timedelta` is a module-level import now — a local one here
+    # bound the name for the whole function and broke its earlier use.
+    import json
+
+    category_data = {
+        cat_label: cat_map.get(cat_value, 0)
+        for cat_value, cat_label in KaiReport.CATEGORY_CHOICES
+        if cat_map.get(cat_value, 0)
+    }
+
+    # Deliberation outcomes — v3.16.3: one aggregate, was three .count() calls.
+    outcome_map = {
+        row['deliberation_outcome']: row['total']
+        for row in KaiReport.objects.values('deliberation_outcome').annotate(total=Count('id'))
+    }
+    outcome_pending = outcome_map.get('pending', 0)
+    outcome_heard = outcome_map.get('heard', 0)
+    outcome_thrown_out = outcome_map.get('thrown_out', 0)
+
+    # Six-month trend.
+    #
+    # v3.16.3 — this was two bugs. It walked months with
+    # `current_date - timedelta(days=30 * i)`, which is not one step per
+    # calendar month: on 32 days of 2026 two of the six steps land in the
+    # same month, so one dict key overwrote another and the chart silently
+    # rendered five bars instead of six. On 2026-03-01 the keys came out
+    # ['Oct','Nov','Dec','Dec','Jan','Mar'] — February missing entirely and
+    # December double-counted. It also fired one COUNT per month.
+    #
+    # Now: step by calendar month, and bucket every report in the window
+    # with a single grouped query.
+    now = timezone.localtime()
+    month_starts = []
+    cursor = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    for _ in range(6):
+        month_starts.append(cursor)
+        cursor = (cursor - timedelta(days=1)).replace(
+            day=1, hour=0, minute=0, second=0, microsecond=0
+        )
+    month_starts.reverse()
+
+    window_start = month_starts[0]
+    month_counts = {}
+    for row in (
+        KaiReport.objects
+        .filter(submitted_at__gte=window_start)
+        .annotate(bucket=TruncMonth('submitted_at'))
+        .values('bucket')
+        .annotate(total=Count('id'))
+    ):
+        bucket = row['bucket']
+        if bucket is None:
+            continue
+        if timezone.is_aware(bucket):
+            bucket = timezone.localtime(bucket)
+        month_counts[(bucket.year, bucket.month)] = row['total']
+
+    # Built in order, one entry per calendar month — no key can collide.
+    monthly_data = {
+        ms.strftime('%b %Y'): month_counts.get((ms.year, ms.month), 0)
+        for ms in month_starts
+    }
+
+    # ⚠️ v3.18.1 — THE FOURTH COPY OF THE ACTIVITY FEED, and in some ways
+    # the worst: it spans EVERY case rather than one, and it sits on the
+    # list page, so its audience is everyone with `can_view_report_list`
+    # rather than everyone with `can_view_report_details`.
+    #
+    # It rendered `{{ activity.user.name }}`, and the author of a `created`
+    # entry is the case's submitter — so the panel read "Report Created —
+    # <case title> · <the person who reported it>" for every case in the
+    # chapter, to reviewers with no identity grant at all.
+    #
+    # `_redact_activity_log` works per report, so it is applied per entry
+    # here against that entry's own case. Cross-case recusal matters too: a
+    # viewer who is the accused on one of these cases must not read its
+    # activity out of this panel either.
+    #
+    # v3.18.2 — THE RECUSAL LOOKUPS ARE BATCHED. The loop below called
+    # `_case_access` per entry, and `_case_access` falls through to two
+    # queries (`KaiRecusal` manual row, then `standin_grant`) for every
+    # case the viewer is not a party to — i.e. almost all of them. Eight
+    # entries × two = sixteen queries on every load of this page, for every
+    # reviewer. `_recusal_rows_for` fetches all of them at once and
+    # `_case_access` reads from that map instead.
+    _entries = list(
+        KaiReportActivity.objects
+        .select_related('report', 'report__submitted_by', 'report__targeted_to', 'user')
+        .defer(*member_defer('user'))
+        .order_by('-timestamp')[:8]
+    )
+    _recusal_rows = _recusal_rows_for(
+        user, {e.report_id for e in _entries},
+    )
+    recent_activities = []
+    for _entry in _entries:
+        _entry_access = _case_access(
+            user, _entry.report, kai_access, recusal_rows=_recusal_rows,
+        )
+        if _entry_access.get('is_recused'):
+            continue
+        _redact_activity_log([_entry], _entry.report, _entry_access)
+        recent_activities.append(_entry)
+
+    return {
+        'category_data': category_data,
+        'monthly_data': monthly_data,
+        'outcome_pending': outcome_pending,
+        'outcome_heard': outcome_heard,
+        'outcome_thrown_out': outcome_thrown_out,
+        'recent_activities': recent_activities,
+    }
+
+
 @login_required
 @require_feature_flag('kai_reports')
 def view_kai_reports(request):
@@ -869,230 +1281,30 @@ def view_kai_reports(request):
         messages.error(request, 'Kai committee not found.')
         return redirect('home')
 
-    kai_access = _get_kai_access(request.user, kai_committee)
-    # v3.18.0: a stand-in appointed under bylaws §§ vi-ix may hold no
-    # committee-level grant of their own. They must still be able to reach the
-    # case they were appointed to — otherwise the appointment is ceremonial.
-    # They see ONLY those cases; the list is restricted below.
-    standin_case_ids = list(
-        KaiRecusal.objects.filter(replacement=request.user)
-        .values_list('report_id', flat=True)
-    )
+    kai_access, standin_case_ids = kai_list_scope(request.user, kai_committee)
     if not kai_access['can_view_report_list'] and not standin_case_ids:
         messages.error(request, 'You do not have permission to view Kai reports.')
         return redirect('home')
 
     # Check if KaiReport table exists
     try:
-        # Get filter from query params
-        status_filter = request.GET.get('status', 'all')
-        category_filter = request.GET.get('category', 'all')
-        search_query = request.GET.get('search', '').strip()
-        date_from = request.GET.get('date_from', '')
-        date_to = request.GET.get('date_to', '')
-
-        # Start with all reports.
-        #
-        # v3.18.0 — RECUSAL, and the design here went through three versions.
-        # It first excluded every case the viewer was a party to — submitter or
-        # accused — which hid three self-filed test reports and rendered an
-        # empty queue. Narrowing it to the accused still hid two.
-        #
-        # The exclusion was the wrong tool. **Hiding the row protects nothing**:
-        # the accused already knows the case exists — they are notified, and it
-        # is on their own dashboard under "Reports Where I'm Named". What they
-        # must not have is the allegation body, the submitter's identity, and
-        # any power to act on it. `manage_kai_report` refuses them, the exports
-        # exclude, and the card below redacts.
-        #
-        # So the list shows EVERY case and marks the viewer's own — see
-        # `viewer_recusal` below and the redacted card in view_reports.html.
-        # The counts then agree with the rows, which is the property that broke.
-        #
-        # ⚠️ v3.18.1 — THE HALF THAT DID NOT MOVE WITH IT. Switching from
-        # exclusion to redaction left the SEARCH PREDICATE reading the viewer's
-        # committee-level flags, so it still matched on `description` and
-        # `submitted_by__name` for the very rows the card refuses to print
-        # them for. A viewer who was the accused could recover the allegation
-        # body a guess at a time and identify their own reporter by surname —
-        # reproduced 08-01-26 in both directions. `redacted_case_ids` below is
-        # the fix; see `_kai_search_q`.
-        redacted_case_ids = _recused_case_ids(request.user)
-        reports = KaiReport.objects.all()
-        # A pure stand-in (no committee grant) sees only their appointments.
-        if not kai_access['can_view_report_list']:
-            reports = reports.filter(pk__in=standin_case_ids)
-        assigned_filter = request.GET.get('assigned', 'all')
-
-        # Apply status filter
-        if status_filter == 'pending':
-            reports = reports.filter(status='pending')
-        elif status_filter == 'reviewed':
-            reports = reports.filter(status='reviewed')
-        elif status_filter == 'archived':
-            reports = reports.filter(status='archived')
-
-        # Apply category filter
-        if category_filter != 'all':
-            reports = reports.filter(category=category_filter)
-
-        # Apply search filter — v3.16.3: permission-gated, see _kai_search_q.
-        # v3.18.1: `redacted_case_ids` narrows it to title/tags for the rows
-        # this viewer sees redacted. Without it the box is an oracle.
-        if search_query:
-            reports = reports.filter(
-                _kai_search_q(search_query, kai_access, redacted_case_ids)
-            )
-
-        # Apply date range filter
-        #
-        # v3.18.1: these used to carry function-local `from datetime import …`
-        # lines. A local import binds the name for the WHOLE function scope, so
-        # `timedelta` used earlier in the same function raised
-        # UnboundLocalError. Both are module-level imports now — do not put
-        # them back inside the branches.
-        if date_from:
-            try:
-                date_from_obj = datetime.strptime(date_from, '%Y-%m-%d')
-                reports = reports.filter(submitted_at__gte=date_from_obj)
-            except ValueError:
-                pass
-
-        if date_to:
-            try:
-                date_to_obj = datetime.strptime(date_to, '%Y-%m-%d')
-                # Include the entire day
-                date_to_obj = date_to_obj + timedelta(days=1)
-                reports = reports.filter(submitted_at__lt=date_to_obj)
-            except ValueError:
-                pass
-
-        # v3.18.0: "My cases" filter — `assigned_to` is set independently of
-        # status, so this is a genuine work queue rather than a status view.
-        if assigned_filter == 'me':
-            reports = reports.filter(assigned_to=request.user)
-        elif assigned_filter == 'unassigned':
-            reports = reports.filter(assigned_to__isnull=True)
-
-        # select_related directly — the test-DB schema-probe fallback is gone
-        # (migrations consolidated + tracked since 07-05-26). (v3.15.6)
-        #
-        # v3.18.1 — CAPPED. This materialised the whole table. Kai volume is
-        # small today, which is exactly what the three views capped in v3.17.5
-        # and v3.17.7 were before they weren't. The cap comes with true totals
-        # from a separate GROUP BY below, because **a capped page must not
-        # count its capped list** — `counts` and `category_counts` are already
-        # aggregates over `_visible`, so they stay honest for free. The two
-        # that were computed off `reports` (`stale_count`, `assigned_counts`)
-        # are moved to aggregates for the same reason.
-        reports = list(
-            reports
-            .select_related('submitted_by', 'reviewed_by', 'targeted_to', 'assigned_to')
-            .defer(*member_defer('submitted_by', 'reviewed_by', 'targeted_to', 'assigned_to'))
-            .order_by('-submitted_at')[:KAI_LIST_LIMIT]
-        )
-
-        # Per-row party status. The list template gates content on ONE
-        # committee-level `kai_access` for every row, so a case the viewer is
-        # named in needs its own flag — set here, read in view_reports.html.
-        for _report in reports:
-            _report.viewer_recusal = _report.recusal_reason(request.user)
-
-        # Status counts — v3.16.3: one aggregate instead of four separate
-        # .count() round trips, matching the category pattern directly below.
-        #
-        # v3.18.1 — the v3.18.0 comment here claimed "recused cases are
-        # excluded here too", which was never true of the shipped code and had
-        # stopped being the right thing to do: the list SHOWS those rows
-        # redacted, so a count that excluded them would disagree with the rows
-        # on screen — the exact defect the exclusion was meant to prevent, in
-        # reverse. `_visible` is every case the viewer can see, and the counts
-        # match the list. Removed rather than corrected in place, because a
-        # comment describing enforcement that does not exist reads as
-        # enforcement to the next person.
-        _visible = KaiReport.objects.all()
-        if not kai_access['can_view_report_list']:
-            _visible = _visible.filter(pk__in=standin_case_ids)
-        status_map = {
-            row['status']: row['total']
-            for row in _visible.values('status').annotate(total=Count('id'))
-        }
-        counts = {
-            'all': sum(status_map.values()),
-            'pending': status_map.get('pending', 0),
-            'reviewed': status_map.get('reviewed', 0),
-            'archived': status_map.get('archived', 0),
-        }
-
-        # Get counts for category filters — one aggregated query instead of one per category
-        cat_qs = _visible.values('category').annotate(total=Count('id'))
-        cat_map = {row['category']: row['total'] for row in cat_qs}
-        category_counts = {cat_value: cat_map.get(cat_value, 0) for cat_value, _ in KaiReport.CATEGORY_CHOICES}
-
-        # v3.18.0 — case aging. Nothing surfaced how long a case had been
-        # sitting, so a `pending` case could age indefinitely with no signal.
-        # One extra query for the oldest unreviewed case; `days_open` and
-        # `is_stale` are properties, computed per row with no further queries.
-        #
-        # v3.18.1: skip cases this viewer is recused from. The banner's "Open
-        # oldest" button links straight to `manage_kai_report`, which refuses a
-        # party — so pointing it at their own case produced a button that could
-        # only bounce, above a case number the card below is careful about.
-        _oldest_qs = _visible.filter(status='pending')
-        if redacted_case_ids:
-            _oldest_qs = _oldest_qs.exclude(pk__in=redacted_case_ids)
-        oldest_pending = (
-            _oldest_qs
-            .select_related('assigned_to')
-            .defer(*member_defer('assigned_to'))
-            .order_by('submitted_at')
-            .first()
-        )
-
-        # v3.18.1 — these were `sum(... for r in reports)` over the capped
-        # list, so past the cap they would have frozen at whatever the newest
-        # KAI_LIST_LIMIT rows happened to contain. Aggregates instead.
-        #
-        # v3.18.2 — ONE aggregate, not three. Moving them off the capped list
-        # was right; doing it with three separate `.count()` round trips beside
-        # the two GROUP BYs directly above was not. CLAUDE.md's own checklist
-        # names this: *repeated identical queries that could share a single
-        # `aggregate()` call*. 5 queries → 3.
-        _stale_before = timezone.now() - timedelta(days=KaiReport.STALE_AFTER_DAYS)
-        _tallies = _visible.aggregate(
-            stale=Count('id', filter=Q(status='pending', submitted_at__lte=_stale_before)),
-            mine=Count('id', filter=Q(assigned_to=request.user)),
-            unassigned=Count('id', filter=Q(assigned_to__isnull=True)),
-        )
-        stale_count = _tallies['stale']
-        assigned_counts = {
-            'mine': _tallies['mine'],
-            'unassigned': _tallies['unassigned'],
-        }
-
-        # ⚠️ v3.18.2 — THE TRUNCATION NOTICE USED TO SWITCH ITSELF OFF UNDER
-        # EXACTLY THE CONDITION IT EXISTS FOR.
-        #
-        # It was `total_reports > len(reports) and not (any filter active)`.
-        # The guard was there for a real reason — `counts['all']` is a total
-        # across every status, so with a status filter applied the inequality
-        # is true for an innocent reason and would fire a false notice. But it
-        # suppressed the notice *entirely* under any filter while `[:LIMIT]`
-        # still applied: search a common word, match 700 cases, see 500 rows
-        # and no indication that 200 are missing. The template's own advice —
-        # "Filter or search to reach older cases" — walked the user into the
-        # one state where the warning could not appear.
-        #
-        # Truncation is knowable without a second COUNT: a full page IS the
-        # cap. This over-reports in the exact-multiple case (a result set of
-        # precisely 500 says it was truncated), which is the right way round —
-        # over-warning costs a sentence, under-warning hides cases.
-        total_reports = counts['all']
-        reports_truncated = len(reports) >= KAI_LIST_LIMIT
-        filters_active = bool(
-            status_filter != 'all' or category_filter != 'all'
-            or search_query or date_from or date_to or assigned_filter != 'all'
-        )
+        _listing = kai_report_list(request.user, kai_access, standin_case_ids, request.GET)
+        reports = _listing['reports']
+        status_filter = _listing['status_filter']
+        category_filter = _listing['category_filter']
+        search_query = _listing['search_query']
+        date_from = _listing['date_from']
+        date_to = _listing['date_to']
+        assigned_filter = _listing['assigned_filter']
+        counts = _listing['counts']
+        category_counts = _listing['category_counts']
+        cat_map = _listing['cat_map']
+        oldest_pending = _listing['oldest_pending']
+        stale_count = _listing['stale_count']
+        assigned_counts = _listing['assigned_counts']
+        total_reports = _listing['total_reports']
+        reports_truncated = _listing['reports_truncated']
+        filters_active = _listing['filters_active']
     except DatabaseError:
         # v3.18.1: was a bare `except Exception`, which flattened ANY error in
         # the eighty lines above — a typo, a FieldError, a template-context
@@ -1124,109 +1336,13 @@ def view_kai_reports(request):
 
     # Dashboard stats (compute after main try/except so counts are available)
     try:
-        # v3.18.1: `timedelta` is a module-level import now — a local one here
-        # bound the name for the whole function and broke its earlier use.
-        import json
-
-        category_data = {
-            cat_label: cat_map.get(cat_value, 0)
-            for cat_value, cat_label in KaiReport.CATEGORY_CHOICES
-            if cat_map.get(cat_value, 0)
-        }
-
-        # Deliberation outcomes — v3.16.3: one aggregate, was three .count() calls.
-        outcome_map = {
-            row['deliberation_outcome']: row['total']
-            for row in KaiReport.objects.values('deliberation_outcome').annotate(total=Count('id'))
-        }
-        outcome_pending = outcome_map.get('pending', 0)
-        outcome_heard = outcome_map.get('heard', 0)
-        outcome_thrown_out = outcome_map.get('thrown_out', 0)
-
-        # Six-month trend.
-        #
-        # v3.16.3 — this was two bugs. It walked months with
-        # `current_date - timedelta(days=30 * i)`, which is not one step per
-        # calendar month: on 32 days of 2026 two of the six steps land in the
-        # same month, so one dict key overwrote another and the chart silently
-        # rendered five bars instead of six. On 2026-03-01 the keys came out
-        # ['Oct','Nov','Dec','Dec','Jan','Mar'] — February missing entirely and
-        # December double-counted. It also fired one COUNT per month.
-        #
-        # Now: step by calendar month, and bucket every report in the window
-        # with a single grouped query.
-        now = timezone.localtime()
-        month_starts = []
-        cursor = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-        for _ in range(6):
-            month_starts.append(cursor)
-            cursor = (cursor - timedelta(days=1)).replace(
-                day=1, hour=0, minute=0, second=0, microsecond=0
-            )
-        month_starts.reverse()
-
-        window_start = month_starts[0]
-        month_counts = {}
-        for row in (
-            KaiReport.objects
-            .filter(submitted_at__gte=window_start)
-            .annotate(bucket=TruncMonth('submitted_at'))
-            .values('bucket')
-            .annotate(total=Count('id'))
-        ):
-            bucket = row['bucket']
-            if bucket is None:
-                continue
-            if timezone.is_aware(bucket):
-                bucket = timezone.localtime(bucket)
-            month_counts[(bucket.year, bucket.month)] = row['total']
-
-        # Built in order, one entry per calendar month — no key can collide.
-        monthly_data = {
-            ms.strftime('%b %Y'): month_counts.get((ms.year, ms.month), 0)
-            for ms in month_starts
-        }
-
-        # ⚠️ v3.18.1 — THE FOURTH COPY OF THE ACTIVITY FEED, and in some ways
-        # the worst: it spans EVERY case rather than one, and it sits on the
-        # list page, so its audience is everyone with `can_view_report_list`
-        # rather than everyone with `can_view_report_details`.
-        #
-        # It rendered `{{ activity.user.name }}`, and the author of a `created`
-        # entry is the case's submitter — so the panel read "Report Created —
-        # <case title> · <the person who reported it>" for every case in the
-        # chapter, to reviewers with no identity grant at all.
-        #
-        # `_redact_activity_log` works per report, so it is applied per entry
-        # here against that entry's own case. Cross-case recusal matters too: a
-        # viewer who is the accused on one of these cases must not read its
-        # activity out of this panel either.
-        #
-        # v3.18.2 — THE RECUSAL LOOKUPS ARE BATCHED. The loop below called
-        # `_case_access` per entry, and `_case_access` falls through to two
-        # queries (`KaiRecusal` manual row, then `standin_grant`) for every
-        # case the viewer is not a party to — i.e. almost all of them. Eight
-        # entries × two = sixteen queries on every load of this page, for every
-        # reviewer. `_recusal_rows_for` fetches all of them at once and
-        # `_case_access` reads from that map instead.
-        _entries = list(
-            KaiReportActivity.objects
-            .select_related('report', 'report__submitted_by', 'report__targeted_to', 'user')
-            .defer(*member_defer('user'))
-            .order_by('-timestamp')[:8]
-        )
-        _recusal_rows = _recusal_rows_for(
-            request.user, {e.report_id for e in _entries},
-        )
-        recent_activities = []
-        for _entry in _entries:
-            _entry_access = _case_access(
-                request.user, _entry.report, kai_access, recusal_rows=_recusal_rows,
-            )
-            if _entry_access.get('is_recused'):
-                continue
-            _redact_activity_log([_entry], _entry.report, _entry_access)
-            recent_activities.append(_entry)
+        _stats = kai_list_stats(request.user, kai_access, cat_map)
+        category_data = _stats['category_data']
+        monthly_data = _stats['monthly_data']
+        outcome_pending = _stats['outcome_pending']
+        outcome_heard = _stats['outcome_heard']
+        outcome_thrown_out = _stats['outcome_thrown_out']
+        recent_activities = _stats['recent_activities']
     except DatabaseError:
         category_data = {}
         outcome_pending = outcome_heard = outcome_thrown_out = 0
@@ -1467,119 +1583,104 @@ def export_kai_reports_csv(request):
         return redirect('view_kai_reports')
 
 
-@login_required
-@require_feature_flag('kai_reports')
-@log_function_call
-def manage_kai_report(request, report_id):
-    """Manage a specific Kai report (mark as reviewed, add notes, etc.)"""
-    # Check if KaiReport table exists
-    try:
-        report = get_object_or_404(KaiReport, id=report_id)
-    except Exception:
-        messages.warning(request, 'Kai Reports feature is not yet set up. Please run database migrations.')
-        return redirect('home')
+#: The manage page's actions, by the permission each needs (``_case_access``).
+KAI_EDIT_ACTIONS = frozenset({
+    'mark_reviewed', 'mark_pending', 'update_tags', 'update_deliberation',
+    'link_report', 'unlink_report', 'update_accused', 'notify_accused',
+    'notify_submitter',
+    # v3.18.0 — assigning a case is an edit, not a close.
+    'assign_case',
+})
+KAI_ACTIVITY_ACTIONS = frozenset({'update_notes', 'add_activity'})
+KAI_CLOSE_ACTIONS = frozenset({'archive', 'approve_closure', 'deny_closure'})
 
-    try:
-        kai_committee = Committee.objects.get(is_kai_committee=True)
-    except Committee.DoesNotExist:
-        messages.error(request, 'Kai committee not found.')
-        return redirect('home')
 
-    kai_access = _get_kai_access(request.user, kai_committee)
-    # v3.18.0 — RECUSAL. Narrow to this case before any permission is read.
-    # A member who is the accused or the submitter has every permission
-    # withdrawn here, so the checks below refuse them exactly as they refuse a
-    # member with no grant at all. See `_case_access`.
-    kai_access = _case_access(request.user, report, kai_access)
-    if kai_access.get('is_recused'):
-        messages.error(
-            request,
-            'You are recused from this case because you are the '
-            f"{kai_access['recusal_reason']} named in it. Chapter bylaws § vi.",
+def kai_case_action_refusal(action, kai_access):
+    """The manage page's action-level refusal for ``action``, or None."""
+    if action in KAI_EDIT_ACTIONS and not kai_access['can_edit_open_cases']:
+        return 'You do not have permission to edit cases.'
+    if action in KAI_ACTIVITY_ACTIONS and not kai_access['can_add_activity']:
+        return 'You do not have permission to add activity to cases.'
+    if action in KAI_CLOSE_ACTIONS and not kai_access['can_close_cases']:
+        return 'You do not have permission to close cases.'
+    return None
+
+
+def apply_kai_case_action(request, report, kai_committee, kai_access, data):
+    """
+    Carry out one of ``manage_kai_report``'s POST actions on ``report``.
+
+    ``kai_access`` must already be narrowed to this case (``_case_access``) and
+    the caller must already have refused a recused viewer or one without
+    ``can_view_report_details`` (``kai_case_access``). ``data`` is the posted
+    form (a QueryDict: ``tags`` is read with ``getlist``). Returns the
+    ``KaiNotes`` the page flashes. Shared with the app (src/mobile/views_kai_review.py),
+    so every write, activity row, audit-log line and email is the page's.
+    """
+    notes = KaiNotes()
+    action = data.get('action')
+
+    refusal = kai_case_action_refusal(action, kai_access)
+    if refusal:
+        notes.error(refusal)
+        return notes
+
+    # v3.18.0 — case assignment. `reviewed_by` is only set at review
+    # time, so before that a case had no owner at all.
+    if action == 'assign_case':
+        raw = data.get('assigned_to') or ''
+        if not raw:
+            report.assigned_to = None
+            detail = 'Case unassigned.'
+        else:
+            # Must be an active Kai member and not a party — the same rule
+            # the <select> is built from, re-checked because a POST is not
+            # a form.
+            candidate = kai_committee.members.filter(
+                pk=raw, member_status='Active',
+            ).exclude(
+                pk__in=[pk for pk in (report.submitted_by_id, report.targeted_to_id) if pk]
+            ).first()
+            if candidate is None:
+                notes.error('That member cannot be assigned to this case.')
+                return notes
+            report.assigned_to = candidate
+            detail = f'Case assigned to {candidate.name}.'
+        report.save(update_fields=['assigned_to'])
+        KaiReportActivity.objects.create(
+            report=report, user=request.user,
+            action='status_changed', details=detail,
         )
-        return redirect('view_kai_reports')
-    if not kai_access['can_view_report_details']:
-        messages.error(request, 'You do not have permission to view this report.')
-        return redirect('home')
+        notes.success(detail)
+        return notes
 
-    if request.method == 'POST':
-        action = request.POST.get('action')
+    if action == 'mark_reviewed':
+        report.mark_as_reviewed(request.user)
+        notes.success(f'Report "{report.title}" marked as reviewed.')
 
-        # Action-level permission checks
-        _edit_actions = {'mark_reviewed', 'mark_pending', 'update_tags', 'update_deliberation',
-                         'link_report', 'unlink_report', 'update_accused', 'notify_accused',
-                         'notify_submitter',
-                         # v3.18.0 — assigning a case is an edit, not a close.
-                         'assign_case'}
-        _activity_actions = {'update_notes', 'add_activity'}
-        _close_actions = {'archive', 'approve_closure', 'deny_closure'}
+        # Log activity
+        KaiReportActivity.objects.create(
+            report=report,
+            user=request.user,
+            action='status_changed',
+            details=f'Status changed from pending to reviewed'
+        )
+        ActivityLog.log_activity(
+            action_type='kai_action',
+            user=request.user,
+            description=f'{request.user.name} marked Kai case #{report.id} as reviewed',
+            request=request,
+            object_type='KaiReport',
+            object_id=report.id,
+            object_repr=f'Case #{report.id}',
+            metadata={'action': 'mark_reviewed'},
+        )
 
-        if action in _edit_actions and not kai_access['can_edit_open_cases']:
-            messages.error(request, 'You do not have permission to edit cases.')
-            return redirect('manage_kai_report', report_id=report.id)
-        if action in _activity_actions and not kai_access['can_add_activity']:
-            messages.error(request, 'You do not have permission to add activity to cases.')
-            return redirect('manage_kai_report', report_id=report.id)
-        if action in _close_actions and not kai_access['can_close_cases']:
-            messages.error(request, 'You do not have permission to close cases.')
-            return redirect('manage_kai_report', report_id=report.id)
-
-        # v3.18.0 — case assignment. `reviewed_by` is only set at review
-        # time, so before that a case had no owner at all.
-        if action == 'assign_case':
-            raw = request.POST.get('assigned_to') or ''
-            if not raw:
-                report.assigned_to = None
-                detail = 'Case unassigned.'
-            else:
-                # Must be an active Kai member and not a party — the same rule
-                # the <select> is built from, re-checked because a POST is not
-                # a form.
-                candidate = kai_committee.members.filter(
-                    pk=raw, member_status='Active',
-                ).exclude(
-                    pk__in=[pk for pk in (report.submitted_by_id, report.targeted_to_id) if pk]
-                ).first()
-                if candidate is None:
-                    messages.error(request, 'That member cannot be assigned to this case.')
-                    return redirect('manage_kai_report', report_id=report.id)
-                report.assigned_to = candidate
-                detail = f'Case assigned to {candidate.name}.'
-            report.save(update_fields=['assigned_to'])
-            KaiReportActivity.objects.create(
-                report=report, user=request.user,
-                action='status_changed', details=detail,
-            )
-            messages.success(request, detail)
-            return redirect('manage_kai_report', report_id=report.id)
-
-        if action == 'mark_reviewed':
-            report.mark_as_reviewed(request.user)
-            messages.success(request, f'Report "{report.title}" marked as reviewed.')
-
-            # Log activity
-            KaiReportActivity.objects.create(
-                report=report,
-                user=request.user,
-                action='status_changed',
-                details=f'Status changed from pending to reviewed'
-            )
-            ActivityLog.log_activity(
-                action_type='kai_action',
-                user=request.user,
-                description=f'{request.user.name} marked Kai case #{report.id} as reviewed',
-                request=request,
-                object_type='KaiReport',
-                object_id=report.id,
-                object_repr=f'Case #{report.id}',
-                metadata={'action': 'mark_reviewed'},
-            )
-
-            # Send email notification to submitter
-            try:
-                if report.submitted_by.email:
-                    subject = f'Kai Report Update: {report.title}'
-                    message = f"""
+        # Send email notification to submitter
+        try:
+            if report.submitted_by.email:
+                subject = f'Kai Report Update: {report.title}'
+                message = f"""
 Your Kai report has been reviewed.
 
 Report Title: {report.title}
@@ -1588,204 +1689,203 @@ Reviewed by: {request.user.name}
 Reviewed at: {localtime(timezone.now()).strftime('%B %d, %Y at %I:%M %p %Z')}
 
 You can view the full report details at the Kai Committee page.
-                    """
-                    send_email.delay(subject, message, settings.DEFAULT_FROM_EMAIL, [report.submitted_by.email])
-            except Exception as e:
-                import logging
-                logger = logging.getLogger('function_calls')
-                logger.error(f"Failed to queue status update email: {e}")
+                """
+                send_email.delay(subject, message, settings.DEFAULT_FROM_EMAIL, [report.submitted_by.email])
+        except Exception as e:
+            import logging
+            logger = logging.getLogger('function_calls')
+            logger.error(f"Failed to queue status update email: {e}")
 
-        elif action == 'mark_pending':
-            report.status = 'pending'
-            report.reviewed_by = None
-            report.reviewed_at = None
-            report.save(update_fields=['status', 'reviewed_by', 'reviewed_at'])
-            messages.success(request, f'Report "{report.title}" marked as pending.')
+    elif action == 'mark_pending':
+        report.status = 'pending'
+        report.reviewed_by = None
+        report.reviewed_at = None
+        report.save(update_fields=['status', 'reviewed_by', 'reviewed_at'])
+        notes.success(f'Report "{report.title}" marked as pending.')
+
+        # Log activity
+        KaiReportActivity.objects.create(
+            report=report,
+            user=request.user,
+            action='status_changed',
+            details='Status changed back to pending'
+        )
+        ActivityLog.log_activity(
+            action_type='kai_action',
+            user=request.user,
+            description=f'{request.user.name} set Kai case #{report.id} back to pending',
+            request=request,
+            object_type='KaiReport',
+            object_id=report.id,
+            object_repr=f'Case #{report.id}',
+            metadata={'action': 'mark_pending'},
+        )
+
+    elif action == 'archive':
+        report.status = 'archived'
+        report.save(update_fields=['status'])
+        notes.success(f'Report "{report.title}" archived.')
+
+        # Log activity
+        KaiReportActivity.objects.create(
+            report=report,
+            user=request.user,
+            action='archived',
+            details='Report manually archived'
+        )
+        ActivityLog.log_activity(
+            action_type='kai_action',
+            user=request.user,
+            description=f'{request.user.name} archived Kai case #{report.id}',
+            request=request,
+            object_type='KaiReport',
+            object_id=report.id,
+            object_repr=f'Case #{report.id}',
+            metadata={'action': 'archived'},
+        )
+
+    elif action == 'update_notes':
+        report.chair_notes = data.get('chair_notes', '')
+        report.save(update_fields=['chair_notes'])
+        notes.success('Notes updated successfully.')
+
+        # Log activity
+        KaiReportActivity.objects.create(
+            report=report,
+            user=request.user,
+            action='notes_updated',
+            details='Chair notes updated'
+        )
+        ActivityLog.log_activity(
+            action_type='kai_action',
+            user=request.user,
+            description=f'{request.user.name} updated chair notes on Kai case #{report.id}',
+            request=request,
+            object_type='KaiReport',
+            object_id=report.id,
+            object_repr=f'Case #{report.id}',
+            metadata={'action': 'update_notes'},
+        )
+
+    elif action == 'update_tags':
+        # v3.16.3 — SECURITY: tags are a closed vocabulary, not free text.
+        # This is the only write site for KaiReport.tags. A free-text tag
+        # naming a member would be searchable, rendered on the list card
+        # and exported in the CSV for every list-level reviewer, bypassing
+        # the identity redaction entirely. See KaiReport.TAG_CHOICES.
+        #
+        # The form now posts checkboxes, so `rejected` should only ever be
+        # non-empty for a hand-crafted POST or a stale form — report it
+        # rather than silently dropping the value.
+        submitted = data.getlist('tags') or data.get('tags', '')
+        accepted, rejected = KaiReport.normalize_tags(submitted)
+        if rejected:
+            notes.error(
+                'These tags are not in the allowed list and were not saved: '
+                + ', '.join(rejected)
+                + '. Tags are visible to every reviewer who can see the report list, '
+                  'so they are restricted to a fixed vocabulary that carries no '
+                  'personal information.'
+            )
+            return notes
+
+        report.tags = accepted
+        report.save(update_fields=['tags'])
+        notes.success('Tags updated successfully.')
+
+        # Log activity
+        KaiReportActivity.objects.create(
+            report=report,
+            user=request.user,
+            action='tags_updated',
+            details=f'Tags updated to: {", ".join(report.get_tag_labels()) if report.tags else "none"}'
+        )
+        ActivityLog.log_activity(
+            action_type='kai_action',
+            user=request.user,
+            description=f'{request.user.name} updated tags on Kai case #{report.id}',
+            request=request,
+            object_type='KaiReport',
+            object_id=report.id,
+            object_repr=f'Case #{report.id}',
+            metadata={'action': 'update_tags'},
+        )
+
+    elif action == 'update_deliberation':
+        deliberation_outcome = data.get('deliberation_outcome')
+        committee_notes = data.get('committee_notes', '')
+        closed_by_accused = data.get('closed_by_accused_request') == 'on'
+
+        if deliberation_outcome:
+            old_outcome = report.deliberation_outcome
+            report.deliberation_outcome = deliberation_outcome
+            report.committee_notes = committee_notes
+            report.closed_by_accused_request = closed_by_accused
+
+            # If minutes closed at accused's request, archive the report
+            if closed_by_accused and deliberation_outcome == 'heard':
+                report.status = 'archived'
+                # Append closure note to committee notes if not already there
+                closure_note = "Minutes closed at the request of the accused."
+                if closure_note not in report.committee_notes:
+                    if report.committee_notes:
+                        report.committee_notes += f"\n\n{closure_note}"
+                    else:
+                        report.committee_notes = closure_note
+                notes.success('Deliberation outcome updated. Minutes closed and report archived.')
+            else:
+                outcome_display = dict(report.DELIBERATION_CHOICES).get(deliberation_outcome)
+                notes.success(f'Deliberation outcome updated to: {outcome_display}')
+
+            report.save(update_fields=['deliberation_outcome', 'committee_notes', 'closed_by_accused_request', 'status'])
 
             # Log activity
-            KaiReportActivity.objects.create(
-                report=report,
-                user=request.user,
-                action='status_changed',
-                details='Status changed back to pending'
-            )
-            ActivityLog.log_activity(
-                action_type='kai_action',
-                user=request.user,
-                description=f'{request.user.name} set Kai case #{report.id} back to pending',
-                request=request,
-                object_type='KaiReport',
-                object_id=report.id,
-                object_repr=f'Case #{report.id}',
-                metadata={'action': 'mark_pending'},
-            )
-
-        elif action == 'archive':
-            report.status = 'archived'
-            report.save(update_fields=['status'])
-            messages.success(request, f'Report "{report.title}" archived.')
-
-            # Log activity
-            KaiReportActivity.objects.create(
-                report=report,
-                user=request.user,
-                action='archived',
-                details='Report manually archived'
-            )
-            ActivityLog.log_activity(
-                action_type='kai_action',
-                user=request.user,
-                description=f'{request.user.name} archived Kai case #{report.id}',
-                request=request,
-                object_type='KaiReport',
-                object_id=report.id,
-                object_repr=f'Case #{report.id}',
-                metadata={'action': 'archived'},
-            )
-
-        elif action == 'update_notes':
-            report.chair_notes = request.POST.get('chair_notes', '')
-            report.save(update_fields=['chair_notes'])
-            messages.success(request, 'Notes updated successfully.')
-
-            # Log activity
-            KaiReportActivity.objects.create(
-                report=report,
-                user=request.user,
-                action='notes_updated',
-                details='Chair notes updated'
-            )
-            ActivityLog.log_activity(
-                action_type='kai_action',
-                user=request.user,
-                description=f'{request.user.name} updated chair notes on Kai case #{report.id}',
-                request=request,
-                object_type='KaiReport',
-                object_id=report.id,
-                object_repr=f'Case #{report.id}',
-                metadata={'action': 'update_notes'},
-            )
-
-        elif action == 'update_tags':
-            # v3.16.3 — SECURITY: tags are a closed vocabulary, not free text.
-            # This is the only write site for KaiReport.tags. A free-text tag
-            # naming a member would be searchable, rendered on the list card
-            # and exported in the CSV for every list-level reviewer, bypassing
-            # the identity redaction entirely. See KaiReport.TAG_CHOICES.
-            #
-            # The form now posts checkboxes, so `rejected` should only ever be
-            # non-empty for a hand-crafted POST or a stale form — report it
-            # rather than silently dropping the value.
-            submitted = request.POST.getlist('tags') or request.POST.get('tags', '')
-            accepted, rejected = KaiReport.normalize_tags(submitted)
-            if rejected:
-                messages.error(
-                    request,
-                    'These tags are not in the allowed list and were not saved: '
-                    + ', '.join(rejected)
-                    + '. Tags are visible to every reviewer who can see the report list, '
-                      'so they are restricted to a fixed vocabulary that carries no '
-                      'personal information.'
-                )
-                return redirect('manage_kai_report', report_id=report.id)
-
-            report.tags = accepted
-            report.save(update_fields=['tags'])
-            messages.success(request, 'Tags updated successfully.')
-
-            # Log activity
-            KaiReportActivity.objects.create(
-                report=report,
-                user=request.user,
-                action='tags_updated',
-                details=f'Tags updated to: {", ".join(report.get_tag_labels()) if report.tags else "none"}'
-            )
-            ActivityLog.log_activity(
-                action_type='kai_action',
-                user=request.user,
-                description=f'{request.user.name} updated tags on Kai case #{report.id}',
-                request=request,
-                object_type='KaiReport',
-                object_id=report.id,
-                object_repr=f'Case #{report.id}',
-                metadata={'action': 'update_tags'},
-            )
-
-        elif action == 'update_deliberation':
-            deliberation_outcome = request.POST.get('deliberation_outcome')
-            committee_notes = request.POST.get('committee_notes', '')
-            closed_by_accused = request.POST.get('closed_by_accused_request') == 'on'
-
-            if deliberation_outcome:
-                old_outcome = report.deliberation_outcome
-                report.deliberation_outcome = deliberation_outcome
-                report.committee_notes = committee_notes
-                report.closed_by_accused_request = closed_by_accused
-
-                # If minutes closed at accused's request, archive the report
-                if closed_by_accused and deliberation_outcome == 'heard':
-                    report.status = 'archived'
-                    # Append closure note to committee notes if not already there
-                    closure_note = "Minutes closed at the request of the accused."
-                    if closure_note not in report.committee_notes:
-                        if report.committee_notes:
-                            report.committee_notes += f"\n\n{closure_note}"
-                        else:
-                            report.committee_notes = closure_note
-                    messages.success(request, 'Deliberation outcome updated. Minutes closed and report archived.')
-                else:
-                    outcome_display = dict(report.DELIBERATION_CHOICES).get(deliberation_outcome)
-                    messages.success(request, f'Deliberation outcome updated to: {outcome_display}')
-
-                report.save(update_fields=['deliberation_outcome', 'committee_notes', 'closed_by_accused_request', 'status'])
-
-                # Log activity
-                if old_outcome != deliberation_outcome:
-                    outcome_display = dict(report.DELIBERATION_CHOICES).get(deliberation_outcome)
-                    KaiReportActivity.objects.create(
-                        report=report,
-                        user=request.user,
-                        action='deliberation_updated',
-                        details=f'Deliberation outcome changed to: {outcome_display}'
-                    )
-
-                if committee_notes:
-                    KaiReportActivity.objects.create(
-                        report=report,
-                        user=request.user,
-                        action='committee_notes_updated',
-                        details='Committee notes added/updated'
-                    )
-
-                if closed_by_accused:
-                    KaiReportActivity.objects.create(
-                        report=report,
-                        user=request.user,
-                        action='minutes_closed',
-                        details='Minutes closed at the request of the accused'
-                    )
-
-                ActivityLog.log_activity(
-                    action_type='kai_action',
+            if old_outcome != deliberation_outcome:
+                outcome_display = dict(report.DELIBERATION_CHOICES).get(deliberation_outcome)
+                KaiReportActivity.objects.create(
+                    report=report,
                     user=request.user,
-                    description=f'{request.user.name} updated deliberation on Kai case #{report.id}',
-                    request=request,
-                    object_type='KaiReport',
-                    object_id=report.id,
-                    object_repr=f'Case #{report.id}',
-                    metadata={'action': 'update_deliberation'},
+                    action='deliberation_updated',
+                    details=f'Deliberation outcome changed to: {outcome_display}'
                 )
 
-                # Send email notifications about outcome (ONLY to targeted person, NOT submitter)
-                if old_outcome != deliberation_outcome and report.targeted_to and report.targeted_to.email:
-                    try:
-                        outcome_display = dict(report.DELIBERATION_CHOICES).get(deliberation_outcome)
-                        message = None  # Initialize before conditional branches
+            if committee_notes:
+                KaiReportActivity.objects.create(
+                    report=report,
+                    user=request.user,
+                    action='committee_notes_updated',
+                    details='Committee notes added/updated'
+                )
 
-                        # Notify targeted person about deliberation outcome
-                        if deliberation_outcome == 'heard':
-                            subject = 'Kai Committee Notification - Case Heard'
-                            message = f"""
+            if closed_by_accused:
+                KaiReportActivity.objects.create(
+                    report=report,
+                    user=request.user,
+                    action='minutes_closed',
+                    details='Minutes closed at the request of the accused'
+                )
+
+            ActivityLog.log_activity(
+                action_type='kai_action',
+                user=request.user,
+                description=f'{request.user.name} updated deliberation on Kai case #{report.id}',
+                request=request,
+                object_type='KaiReport',
+                object_id=report.id,
+                object_repr=f'Case #{report.id}',
+                metadata={'action': 'update_deliberation'},
+            )
+
+            # Send email notifications about outcome (ONLY to targeted person, NOT submitter)
+            if old_outcome != deliberation_outcome and report.targeted_to and report.targeted_to.email:
+                try:
+                    outcome_display = dict(report.DELIBERATION_CHOICES).get(deliberation_outcome)
+                    message = None  # Initialize before conditional branches
+
+                    # Notify targeted person about deliberation outcome
+                    if deliberation_outcome == 'heard':
+                        subject = 'Kai Committee Notification - Case Heard'
+                        message = f"""
 This is to inform you that a report has been submitted to the Kai Committee that involves you.
 
 The Kai Committee has decided to hear this case and may reach out to you for further information.
@@ -1793,10 +1893,10 @@ The Kai Committee has decided to hear this case and may reach out to you for fur
 If you have any questions, please contact the Kai Committee chair(s).
 
 Updated at: {localtime(timezone.now()).strftime('%B %d, %Y at %I:%M %p %Z')}
-                            """
-                        elif deliberation_outcome == 'thrown_out':
-                            subject = 'Kai Committee Notification - Case Resolved'
-                            message = f"""
+                        """
+                    elif deliberation_outcome == 'thrown_out':
+                        subject = 'Kai Committee Notification - Case Resolved'
+                        message = f"""
 This is to inform you that a report submitted to the Kai Committee that involved you has been resolved.
 
 The case has been thrown out and no further action is required from you.
@@ -1804,39 +1904,39 @@ The case has been thrown out and no further action is required from you.
 If you have any questions, please contact the Kai Committee chair(s).
 
 Updated at: {localtime(timezone.now()).strftime('%B %d, %Y at %I:%M %p %Z')}
-                            """
-                        elif deliberation_outcome == 'pending':
-                            # Don't notify for pending status
-                            message = None
+                        """
+                    elif deliberation_outcome == 'pending':
+                        # Don't notify for pending status
+                        message = None
 
-                        if message:
-                            send_email.delay(subject, message, settings.DEFAULT_FROM_EMAIL, [report.targeted_to.email])
-                    except Exception as e:
-                        import logging
-                        logger = logging.getLogger('function_calls')
-                        logger.error(f"Failed to queue deliberation update email: {e}")
-            else:
-                messages.error(request, 'Please select a deliberation outcome.')
+                    if message:
+                        send_email.delay(subject, message, settings.DEFAULT_FROM_EMAIL, [report.targeted_to.email])
+                except Exception as e:
+                    import logging
+                    logger = logging.getLogger('function_calls')
+                    logger.error(f"Failed to queue deliberation update email: {e}")
+        else:
+            notes.error('Please select a deliberation outcome.')
 
-        elif action == 'notify_submitter':
-            # Only allow if minutes are not closed
-            if report.closed_by_accused_request:
-                messages.error(request, 'Cannot notify submitter when minutes are closed.')
-            else:
-                # Send notification to submitter with deliberation outcome and notes
-                try:
-                    if report.submitted_by.email:
-                        from django.core.mail import EmailMultiAlternatives
-                        from django.urls import reverse
-                        from django.utils.html import escape
+    elif action == 'notify_submitter':
+        # Only allow if minutes are not closed
+        if report.closed_by_accused_request:
+            notes.error('Cannot notify submitter when minutes are closed.')
+        else:
+            # Send notification to submitter with deliberation outcome and notes
+            try:
+                if report.submitted_by.email:
+                    from django.core.mail import EmailMultiAlternatives
+                    from django.urls import reverse
+                    from django.utils.html import escape
 
-                        outcome_display = dict(report.DELIBERATION_CHOICES).get(report.deliberation_outcome, 'Pending')
-                        notify_time = localtime(timezone.now()).strftime('%B %d, %Y at %I:%M %p %Z')
+                    outcome_display = dict(report.DELIBERATION_CHOICES).get(report.deliberation_outcome, 'Pending')
+                    notify_time = localtime(timezone.now()).strftime('%B %d, %Y at %I:%M %p %Z')
 
-                        subject = f'Kai Report Update: {report.title}'
+                    subject = f'Kai Report Update: {report.title}'
 
-                        # Plain text version
-                        text_message = f"""
+                    # Plain text version
+                    text_message = f"""
 This is a notification regarding your Kai report submission.
 
 Case Number: #{report.id}
@@ -1848,251 +1948,251 @@ Committee Notes:
 If you have any questions, please contact the Kai Committee chair(s).
 
 Notified at: {notify_time}
-                        """
+                    """
 
-                        # Build tracking pixel URL
-                        from src.utils.tracking_sig import KAI_SUBMITTER, signed_pixel_url
-                        tracking_url = signed_pixel_url(request.build_absolute_uri(
-                            reverse('track_kai_submitter_email', kwargs={'report_id': report.id})
-                        ), KAI_SUBMITTER, report.id)
+                    # Build tracking pixel URL
+                    from src.utils.tracking_sig import KAI_SUBMITTER, signed_pixel_url
+                    tracking_url = signed_pixel_url(request.build_absolute_uri(
+                        reverse('track_kai_submitter_email', kwargs={'report_id': report.id})
+                    ), KAI_SUBMITTER, report.id)
 
-                        escaped_notes = escape(report.committee_notes or 'No additional notes provided.').replace('\n', '<br>')
+                    escaped_notes = escape(report.committee_notes or 'No additional notes provided.').replace('\n', '<br>')
 
-                        # HTML version with tracking pixel
-                        html_message = f"""
+                    # HTML version with tracking pixel
+                    html_message = f"""
 <!DOCTYPE html>
 <html>
 <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
 <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-    <div style="background: linear-gradient(135deg, #1e3a5f 0%, #2c5282 100%); padding: 30px; border-radius: 8px 8px 0 0;">
-        <h1 style="color: white; margin: 0; font-size: 24px;">Kai Committee Notification</h1>
-        <p style="color: #a0c4e8; margin: 10px 0 0 0; font-size: 14px;">Case Update — Case #{report.id}</p>
+<div style="background: linear-gradient(135deg, #1e3a5f 0%, #2c5282 100%); padding: 30px; border-radius: 8px 8px 0 0;">
+    <h1 style="color: white; margin: 0; font-size: 24px;">Kai Committee Notification</h1>
+    <p style="color: #a0c4e8; margin: 10px 0 0 0; font-size: 14px;">Case Update — Case #{report.id}</p>
+</div>
+
+<div style="background: #ffffff; padding: 30px; border: 1px solid #e2e8f0; border-top: none;">
+    <p style="margin-top: 0;">This is a notification regarding your Kai report submission.</p>
+
+    <div style="background: #f7fafc; border-left: 4px solid #4299e1; padding: 15px 20px; margin: 20px 0; border-radius: 0 4px 4px 0;">
+        <p style="margin: 0;"><strong>Deliberation Outcome:</strong> {escape(outcome_display)}</p>
     </div>
 
-    <div style="background: #ffffff; padding: 30px; border: 1px solid #e2e8f0; border-top: none;">
-        <p style="margin-top: 0;">This is a notification regarding your Kai report submission.</p>
+    <h3 style="font-size: 16px; color: #2d3748;">Committee Notes</h3>
+    <p style="margin: 0; white-space: pre-wrap;">{escaped_notes}</p>
 
-        <div style="background: #f7fafc; border-left: 4px solid #4299e1; padding: 15px 20px; margin: 20px 0; border-radius: 0 4px 4px 0;">
-            <p style="margin: 0;"><strong>Deliberation Outcome:</strong> {escape(outcome_display)}</p>
-        </div>
+    <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 25px 0;">
 
-        <h3 style="font-size: 16px; color: #2d3748;">Committee Notes</h3>
-        <p style="margin: 0; white-space: pre-wrap;">{escaped_notes}</p>
+    <p style="color: #718096; font-size: 12px; margin-bottom: 0;">
+        If you have any questions, please contact the Kai Committee chair(s).<br>
+        Notified at: {notify_time}<br>
+        Kai Committee &bull; Beta Theta Pi - Samford Chapter
+    </p>
+</div>
 
-        <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 25px 0;">
-
-        <p style="color: #718096; font-size: 12px; margin-bottom: 0;">
-            If you have any questions, please contact the Kai Committee chair(s).<br>
-            Notified at: {notify_time}<br>
-            Kai Committee &bull; Beta Theta Pi - Samford Chapter
-        </p>
-    </div>
-
-    <!-- Tracking pixel -->
-    <img src="{tracking_url}" width="1" height="1" alt="" style="display:none;">
+<!-- Tracking pixel -->
+<img src="{tracking_url}" width="1" height="1" alt="" style="display:none;">
 </body>
 </html>
-                        """
+                    """
 
-                        email = EmailMultiAlternatives(
-                            subject=subject,
-                            body=text_message,
-                            from_email=settings.DEFAULT_FROM_EMAIL,
-                            to=[report.submitted_by.email],
-                        )
-                        email.attach_alternative(html_message, "text/html")
-                        email.send(fail_silently=False)
+                    email = EmailMultiAlternatives(
+                        subject=subject,
+                        body=text_message,
+                        from_email=settings.DEFAULT_FROM_EMAIL,
+                        to=[report.submitted_by.email],
+                    )
+                    email.attach_alternative(html_message, "text/html")
+                    email.send(fail_silently=False)
 
-                        # Update report tracking fields — reset viewed on new send
-                        report.submitter_notified_at = timezone.now()
-                        report.submitter_email_viewed_at = None
-                        report.save(update_fields=['submitter_notified_at', 'submitter_email_viewed_at'])
-
-                        # Log activity
-                        KaiReportActivity.objects.create(
-                            report=report,
-                            user=request.user,
-                            action='status_changed',
-                            details=f'Submitter notified of deliberation outcome'
-                        )
-                        ActivityLog.log_activity(
-                            action_type='kai_action',
-                            user=request.user,
-                            description=f'{request.user.name} notified submitter of Kai case #{report.id}',
-                            request=request,
-                            object_type='KaiReport',
-                            object_id=report.id,
-                            object_repr=f'Case #{report.id}',
-                            metadata={'action': 'notify_submitter'},
-                        )
-
-                        messages.success(request, f'Submitter has been notified via email.')
-                    else:
-                        messages.warning(request, f'Submitter does not have an email address on file.')
-                except Exception as e:
-                    import logging
-                    logger = logging.getLogger('function_calls')
-                    logger.error(f"Failed to send submitter notification: {e}")
-                    messages.error(request, f'Failed to send notification: {str(e)}')
-
-        elif action == 'link_report':
-            # Link a related report
-            related_id = request.POST.get('related_report_id')
-            if related_id:
-                try:
-                    related_report = KaiReport.objects.get(id=related_id)
-                    report.related_reports.add(related_report)
+                    # Update report tracking fields — reset viewed on new send
+                    report.submitter_notified_at = timezone.now()
+                    report.submitter_email_viewed_at = None
+                    report.save(update_fields=['submitter_notified_at', 'submitter_email_viewed_at'])
 
                     # Log activity
                     KaiReportActivity.objects.create(
                         report=report,
                         user=request.user,
                         action='status_changed',
-                        details=f'Linked to related report: {related_report.title} (#{related_report.id})'
+                        details=f'Submitter notified of deliberation outcome'
                     )
                     ActivityLog.log_activity(
                         action_type='kai_action',
                         user=request.user,
-                        description=f'{request.user.name} linked Kai case #{report.id} to case #{related_report.id}',
+                        description=f'{request.user.name} notified submitter of Kai case #{report.id}',
                         request=request,
                         object_type='KaiReport',
                         object_id=report.id,
                         object_repr=f'Case #{report.id}',
-                        metadata={'action': 'link_report', 'linked_case_id': related_report.id},
+                        metadata={'action': 'notify_submitter'},
                     )
 
-                    messages.success(request, f'Linked to report: {related_report.title}')
-                except KaiReport.DoesNotExist:
-                    messages.error(request, 'Related report not found.')
-            else:
-                messages.error(request, 'No report selected.')
+                    notes.success(f'Submitter has been notified via email.')
+                else:
+                    notes.warning(f'Submitter does not have an email address on file.')
+            except Exception as e:
+                import logging
+                logger = logging.getLogger('function_calls')
+                logger.error(f"Failed to send submitter notification: {e}")
+                notes.error(f'Failed to send notification: {str(e)}')
 
-        elif action == 'unlink_report':
-            # Unlink a related report
-            related_id = request.POST.get('related_report_id')
-            if related_id:
-                try:
-                    related_report = KaiReport.objects.get(id=related_id)
-                    report.related_reports.remove(related_report)
+    elif action == 'link_report':
+        # Link a related report
+        related_id = data.get('related_report_id')
+        if related_id:
+            try:
+                related_report = KaiReport.objects.get(id=related_id)
+                report.related_reports.add(related_report)
 
-                    # Log activity
+                # Log activity
+                KaiReportActivity.objects.create(
+                    report=report,
+                    user=request.user,
+                    action='status_changed',
+                    details=f'Linked to related report: {related_report.title} (#{related_report.id})'
+                )
+                ActivityLog.log_activity(
+                    action_type='kai_action',
+                    user=request.user,
+                    description=f'{request.user.name} linked Kai case #{report.id} to case #{related_report.id}',
+                    request=request,
+                    object_type='KaiReport',
+                    object_id=report.id,
+                    object_repr=f'Case #{report.id}',
+                    metadata={'action': 'link_report', 'linked_case_id': related_report.id},
+                )
+
+                notes.success(f'Linked to report: {related_report.title}')
+            except KaiReport.DoesNotExist:
+                notes.error('Related report not found.')
+        else:
+            notes.error('No report selected.')
+
+    elif action == 'unlink_report':
+        # Unlink a related report
+        related_id = data.get('related_report_id')
+        if related_id:
+            try:
+                related_report = KaiReport.objects.get(id=related_id)
+                report.related_reports.remove(related_report)
+
+                # Log activity
+                KaiReportActivity.objects.create(
+                    report=report,
+                    user=request.user,
+                    action='status_changed',
+                    details=f'Unlinked from related report: {related_report.title} (#{related_report.id})'
+                )
+                ActivityLog.log_activity(
+                    action_type='kai_action',
+                    user=request.user,
+                    description=f'{request.user.name} unlinked Kai case #{report.id} from case #{related_report.id}',
+                    request=request,
+                    object_type='KaiReport',
+                    object_id=report.id,
+                    object_repr=f'Case #{report.id}',
+                    metadata={'action': 'unlink_report', 'unlinked_case_id': related_report.id},
+                )
+
+                notes.success(f'Unlinked from report: {related_report.title}')
+            except KaiReport.DoesNotExist:
+                notes.error('Related report not found.')
+        else:
+            notes.error('No report selected.')
+
+    elif action == 'update_accused':
+        # Update or set the accused person
+        accused_id = data.get('accused_id', '').strip()
+        accused_email = data.get('accused_email', '').strip()
+
+        if accused_id:
+            try:
+                accused_user = ParliamentUser.objects.get(user_id=accused_id)
+                old_targeted = report.targeted_to
+                report.targeted_to = accused_user
+
+                # Update email if provided and different
+                if accused_email and accused_email != accused_user.email:
+                    accused_user.email = accused_email
+                    accused_user.save(update_fields=['email'])
+
+                report.save(update_fields=['targeted_to'])
+
+                # Log activity
+                if old_targeted != accused_user:
                     KaiReportActivity.objects.create(
                         report=report,
                         user=request.user,
                         action='status_changed',
-                        details=f'Unlinked from related report: {related_report.title} (#{related_report.id})'
+                        # v3.18.1: no name. The accused's identity is
+                        # governed by `can_view_accused_identity` and this
+                        # string is rendered to anyone with
+                        # `can_view_report_details`. The name is on the
+                        # case record itself, gated properly, and the log
+                        # only needs to say that it changed.
+                        details='Accused person set.'
                     )
                     ActivityLog.log_activity(
                         action_type='kai_action',
                         user=request.user,
-                        description=f'{request.user.name} unlinked Kai case #{report.id} from case #{related_report.id}',
+                        description=f'{request.user.name} updated accused person on Kai case #{report.id}',
                         request=request,
                         object_type='KaiReport',
                         object_id=report.id,
                         object_repr=f'Case #{report.id}',
-                        metadata={'action': 'unlink_report', 'unlinked_case_id': related_report.id},
+                        metadata={'action': 'update_accused'},
                     )
 
-                    messages.success(request, f'Unlinked from report: {related_report.title}')
-                except KaiReport.DoesNotExist:
-                    messages.error(request, 'Related report not found.')
-            else:
-                messages.error(request, 'No report selected.')
+                notes.success(f'Accused person updated to {accused_user.name}.')
+            except ParliamentUser.DoesNotExist:
+                notes.error('Selected member not found.')
+        else:
+            # Clear the accused person
+            if report.targeted_to:
+                old_name = report.targeted_to.name
+                report.targeted_to = None
+                report.save(update_fields=['targeted_to'])
 
-        elif action == 'update_accused':
-            # Update or set the accused person
-            accused_id = request.POST.get('accused_id', '').strip()
-            accused_email = request.POST.get('accused_email', '').strip()
+                KaiReportActivity.objects.create(
+                    report=report,
+                    user=request.user,
+                    action='status_changed',
+                    # v3.18.1: `old_name` removed — see the sibling above.
+                    details='Accused person removed from the case.'
+                )
+                ActivityLog.log_activity(
+                    action_type='kai_action',
+                    user=request.user,
+                    description=f'{request.user.name} removed accused person from Kai case #{report.id}',
+                    request=request,
+                    object_type='KaiReport',
+                    object_id=report.id,
+                    object_repr=f'Case #{report.id}',
+                    metadata={'action': 'update_accused', 'cleared': True},
+                )
+                notes.success('Accused person removed from report.')
 
-            if accused_id:
-                try:
-                    accused_user = ParliamentUser.objects.get(user_id=accused_id)
-                    old_targeted = report.targeted_to
-                    report.targeted_to = accused_user
+    elif action == 'notify_accused':
+        # Notify the accused person of the case
+        notification_message = data.get('accused_notification_message', '').strip()
 
-                    # Update email if provided and different
-                    if accused_email and accused_email != accused_user.email:
-                        accused_user.email = accused_email
-                        accused_user.save(update_fields=['email'])
+        if not report.targeted_to:
+            notes.error('No accused person specified for this report.')
+        elif not report.targeted_to.email:
+            notes.error(f'{report.targeted_to.name} does not have an email address on file.')
+        elif not notification_message:
+            notes.error('Please enter a message explaining what the person is being reported for.')
+        else:
+            try:
+                from django.core.mail import EmailMultiAlternatives
+                from django.urls import reverse
 
-                    report.save(update_fields=['targeted_to'])
+                subject = 'Kai Committee Notification - Case Filed'
 
-                    # Log activity
-                    if old_targeted != accused_user:
-                        KaiReportActivity.objects.create(
-                            report=report,
-                            user=request.user,
-                            action='status_changed',
-                            # v3.18.1: no name. The accused's identity is
-                            # governed by `can_view_accused_identity` and this
-                            # string is rendered to anyone with
-                            # `can_view_report_details`. The name is on the
-                            # case record itself, gated properly, and the log
-                            # only needs to say that it changed.
-                            details='Accused person set.'
-                        )
-                        ActivityLog.log_activity(
-                            action_type='kai_action',
-                            user=request.user,
-                            description=f'{request.user.name} updated accused person on Kai case #{report.id}',
-                            request=request,
-                            object_type='KaiReport',
-                            object_id=report.id,
-                            object_repr=f'Case #{report.id}',
-                            metadata={'action': 'update_accused'},
-                        )
-
-                    messages.success(request, f'Accused person updated to {accused_user.name}.')
-                except ParliamentUser.DoesNotExist:
-                    messages.error(request, 'Selected member not found.')
-            else:
-                # Clear the accused person
-                if report.targeted_to:
-                    old_name = report.targeted_to.name
-                    report.targeted_to = None
-                    report.save(update_fields=['targeted_to'])
-
-                    KaiReportActivity.objects.create(
-                        report=report,
-                        user=request.user,
-                        action='status_changed',
-                        # v3.18.1: `old_name` removed — see the sibling above.
-                        details='Accused person removed from the case.'
-                    )
-                    ActivityLog.log_activity(
-                        action_type='kai_action',
-                        user=request.user,
-                        description=f'{request.user.name} removed accused person from Kai case #{report.id}',
-                        request=request,
-                        object_type='KaiReport',
-                        object_id=report.id,
-                        object_repr=f'Case #{report.id}',
-                        metadata={'action': 'update_accused', 'cleared': True},
-                    )
-                    messages.success(request, 'Accused person removed from report.')
-
-        elif action == 'notify_accused':
-            # Notify the accused person of the case
-            notification_message = request.POST.get('accused_notification_message', '').strip()
-
-            if not report.targeted_to:
-                messages.error(request, 'No accused person specified for this report.')
-            elif not report.targeted_to.email:
-                messages.error(request, f'{report.targeted_to.name} does not have an email address on file.')
-            elif not notification_message:
-                messages.error(request, 'Please enter a message explaining what the person is being reported for.')
-            else:
-                try:
-                    from django.core.mail import EmailMultiAlternatives
-                    from django.urls import reverse
-
-                    subject = 'Kai Committee Notification - Case Filed'
-
-                    # Plain text version
-                    text_message = f"""
+                # Plain text version
+                text_message = f"""
 Dear {report.targeted_to.name},
 
 This is an official notification from the Kai Committee of Beta Theta Pi.
@@ -2112,156 +2212,156 @@ This notification was sent on {localtime(timezone.now()).strftime('%B %d, %Y at 
 
 Kai Committee
 Beta Theta Pi - Samford Chapter
-                    """
+                """
 
-                    # Build tracking pixel URL
-                    from src.utils.tracking_sig import KAI_ACCUSED, signed_pixel_url
-                    tracking_url = signed_pixel_url(request.build_absolute_uri(
-                        reverse('track_kai_accused_email', kwargs={'report_id': report.id})
-                    ), KAI_ACCUSED, report.id)
+                # Build tracking pixel URL
+                from src.utils.tracking_sig import KAI_ACCUSED, signed_pixel_url
+                tracking_url = signed_pixel_url(request.build_absolute_uri(
+                    reverse('track_kai_accused_email', kwargs={'report_id': report.id})
+                ), KAI_ACCUSED, report.id)
 
-                    # Escape notification message for HTML
-                    from django.utils.html import escape
-                    escaped_message = escape(notification_message).replace('\n', '<br>')
+                # Escape notification message for HTML
+                from django.utils.html import escape
+                escaped_message = escape(notification_message).replace('\n', '<br>')
 
-                    # HTML version with tracking pixel
-                    html_message = f"""
+                # HTML version with tracking pixel
+                html_message = f"""
 <!DOCTYPE html>
 <html>
 <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
 <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-    <div style="background: linear-gradient(135deg, #1e3a5f 0%, #2c5282 100%); padding: 30px; border-radius: 8px 8px 0 0;">
-        <h1 style="color: white; margin: 0; font-size: 24px;">Kai Committee Notification</h1>
-        <p style="color: #a0c4e8; margin: 10px 0 0 0; font-size: 14px;">Official Notice - Case Filed</p>
+<div style="background: linear-gradient(135deg, #1e3a5f 0%, #2c5282 100%); padding: 30px; border-radius: 8px 8px 0 0;">
+    <h1 style="color: white; margin: 0; font-size: 24px;">Kai Committee Notification</h1>
+    <p style="color: #a0c4e8; margin: 10px 0 0 0; font-size: 14px;">Official Notice - Case Filed</p>
+</div>
+
+<div style="background: #ffffff; padding: 30px; border: 1px solid #e2e8f0; border-top: none;">
+    <p style="margin-top: 0;">Dear <strong>{report.targeted_to.name}</strong>,</p>
+
+    <p>This is an official notification from the Kai Committee of Beta Theta Pi.</p>
+
+    <p>A report has been filed with the Kai Committee that involves you. The details are as follows:</p>
+
+    <div style="background: #f7fafc; border-left: 4px solid #4299e1; padding: 15px 20px; margin: 20px 0; border-radius: 0 4px 4px 0;">
+        <p style="margin: 0; white-space: pre-wrap;">{escaped_message}</p>
     </div>
 
-    <div style="background: #ffffff; padding: 30px; border: 1px solid #e2e8f0; border-top: none;">
-        <p style="margin-top: 0;">Dear <strong>{report.targeted_to.name}</strong>,</p>
+    <p>The Kai Committee will review this matter and may contact you for further information or to schedule a hearing.</p>
 
-        <p>This is an official notification from the Kai Committee of Beta Theta Pi.</p>
-
-        <p>A report has been filed with the Kai Committee that involves you. The details are as follows:</p>
-
-        <div style="background: #f7fafc; border-left: 4px solid #4299e1; padding: 15px 20px; margin: 20px 0; border-radius: 0 4px 4px 0;">
-            <p style="margin: 0; white-space: pre-wrap;">{escaped_message}</p>
-        </div>
-
-        <p>The Kai Committee will review this matter and may contact you for further information or to schedule a hearing.</p>
-
-        <div style="background: #ebf8ff; border: 1px solid #90cdf4; border-radius: 8px; padding: 20px; margin: 20px 0;">
-            <h3 style="margin: 0 0 10px 0; color: #2b6cb0; font-size: 16px;">Your Rights</h3>
-            <ul style="margin: 0; padding-left: 20px; color: #2c5282;">
-                <li>Present your side of the story</li>
-                <li>Bring witnesses or evidence in your defense</li>
-                <li>Request that the minutes be closed (kept confidential)</li>
-            </ul>
-        </div>
-
-        <p>If you have any questions or concerns, please contact the Kai Committee chair(s).</p>
-
-        <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 25px 0;">
-
-        <p style="color: #718096; font-size: 12px; margin-bottom: 0;">
-            This notification was sent on {localtime(timezone.now()).strftime('%B %d, %Y at %I:%M %p %Z')}.<br>
-            Kai Committee &bull; Beta Theta Pi - Samford Chapter
-        </p>
+    <div style="background: #ebf8ff; border: 1px solid #90cdf4; border-radius: 8px; padding: 20px; margin: 20px 0;">
+        <h3 style="margin: 0 0 10px 0; color: #2b6cb0; font-size: 16px;">Your Rights</h3>
+        <ul style="margin: 0; padding-left: 20px; color: #2c5282;">
+            <li>Present your side of the story</li>
+            <li>Bring witnesses or evidence in your defense</li>
+            <li>Request that the minutes be closed (kept confidential)</li>
+        </ul>
     </div>
 
-    <!-- Tracking pixel -->
-    <img src="{tracking_url}" width="1" height="1" alt="" style="display:none;">
+    <p>If you have any questions or concerns, please contact the Kai Committee chair(s).</p>
+
+    <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 25px 0;">
+
+    <p style="color: #718096; font-size: 12px; margin-bottom: 0;">
+        This notification was sent on {localtime(timezone.now()).strftime('%B %d, %Y at %I:%M %p %Z')}.<br>
+        Kai Committee &bull; Beta Theta Pi - Samford Chapter
+    </p>
+</div>
+
+<!-- Tracking pixel -->
+<img src="{tracking_url}" width="1" height="1" alt="" style="display:none;">
 </body>
 </html>
-                    """
+                """
 
-                    # Send email with both plain text and HTML
-                    email = EmailMultiAlternatives(
-                        subject=subject,
-                        body=text_message,
-                        from_email=settings.DEFAULT_FROM_EMAIL,
-                        to=[report.targeted_to.email]
-                    )
-                    email.attach_alternative(html_message, "text/html")
-                    email.send(fail_silently=False)
+                # Send email with both plain text and HTML
+                email = EmailMultiAlternatives(
+                    subject=subject,
+                    body=text_message,
+                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    to=[report.targeted_to.email]
+                )
+                email.attach_alternative(html_message, "text/html")
+                email.send(fail_silently=False)
 
-                    # Update report - reset viewed status since new email sent
-                    report.accused_notified = True
-                    report.accused_notified_at = timezone.now()
-                    report.accused_notification_message = notification_message
-                    report.accused_email_viewed_at = None  # Reset on new notification
-                    report.save(update_fields=['accused_notified', 'accused_notified_at', 'accused_notification_message', 'accused_email_viewed_at'])
+                # Update report - reset viewed status since new email sent
+                report.accused_notified = True
+                report.accused_notified_at = timezone.now()
+                report.accused_notification_message = notification_message
+                report.accused_email_viewed_at = None  # Reset on new notification
+                report.save(update_fields=['accused_notified', 'accused_notified_at', 'accused_notification_message', 'accused_email_viewed_at'])
+
+                # Log activity
+                KaiReportActivity.objects.create(
+                    report=report,
+                    user=request.user,
+                    action='status_changed',
+                    # v3.18.1: name removed — see the two siblings above.
+                    details='Accused notified of the case.'
+                )
+                ActivityLog.log_activity(
+                    action_type='kai_action',
+                    user=request.user,
+                    description=f'{request.user.name} notified accused on Kai case #{report.id}',
+                    request=request,
+                    object_type='KaiReport',
+                    object_id=report.id,
+                    object_repr=f'Case #{report.id}',
+                    metadata={'action': 'notify_accused'},
+                )
+
+                notes.success(f'{report.targeted_to.name} has been notified of the case via email.')
+
+            except Exception as e:
+                import logging
+                logger = logging.getLogger('function_calls')
+                logger.error(f"Failed to send accused notification: {e}")
+                notes.error(f'Failed to send notification: {str(e)}')
+
+    elif action == 'approve_closure':
+        # Approve a closure request
+        closure_request_id = data.get('closure_request_id')
+        review_notes = data.get('review_notes', '').strip()
+
+        if closure_request_id:
+            try:
+                closure_request = KaiClosureRequest.objects.get(id=closure_request_id, report=report)
+                if closure_request.status == 'pending':
+                    closure_request.status = 'approved'
+                    closure_request.reviewed_by = request.user
+                    closure_request.reviewed_at = timezone.now()
+                    closure_request.review_notes = review_notes
+                    closure_request.save(update_fields=['status', 'reviewed_by', 'reviewed_at', 'review_notes'])
+
+                    # Archive the report
+                    report.status = 'archived'
+                    report.save(update_fields=['status'])
 
                     # Log activity
                     KaiReportActivity.objects.create(
                         report=report,
                         user=request.user,
-                        action='status_changed',
-                        # v3.18.1: name removed — see the two siblings above.
-                        details='Accused notified of the case.'
+                        action='closure_approved',
+                        details=f'Closure request approved. Report archived.'
                     )
                     ActivityLog.log_activity(
                         action_type='kai_action',
                         user=request.user,
-                        description=f'{request.user.name} notified accused on Kai case #{report.id}',
+                        description=f'{request.user.name} approved closure request on Kai case #{report.id}',
                         request=request,
                         object_type='KaiReport',
                         object_id=report.id,
                         object_repr=f'Case #{report.id}',
-                        metadata={'action': 'notify_accused'},
+                        metadata={'action': 'approve_closure'},
                     )
 
-                    messages.success(request, f'{report.targeted_to.name} has been notified of the case via email.')
-
-                except Exception as e:
-                    import logging
-                    logger = logging.getLogger('function_calls')
-                    logger.error(f"Failed to send accused notification: {e}")
-                    messages.error(request, f'Failed to send notification: {str(e)}')
-
-        elif action == 'approve_closure':
-            # Approve a closure request
-            closure_request_id = request.POST.get('closure_request_id')
-            review_notes = request.POST.get('review_notes', '').strip()
-
-            if closure_request_id:
-                try:
-                    closure_request = KaiClosureRequest.objects.get(id=closure_request_id, report=report)
-                    if closure_request.status == 'pending':
-                        closure_request.status = 'approved'
-                        closure_request.reviewed_by = request.user
-                        closure_request.reviewed_at = timezone.now()
-                        closure_request.review_notes = review_notes
-                        closure_request.save(update_fields=['status', 'reviewed_by', 'reviewed_at', 'review_notes'])
-
-                        # Archive the report
-                        report.status = 'archived'
-                        report.save(update_fields=['status'])
-
-                        # Log activity
-                        KaiReportActivity.objects.create(
-                            report=report,
-                            user=request.user,
-                            action='closure_approved',
-                            details=f'Closure request approved. Report archived.'
-                        )
-                        ActivityLog.log_activity(
-                            action_type='kai_action',
-                            user=request.user,
-                            description=f'{request.user.name} approved closure request on Kai case #{report.id}',
-                            request=request,
-                            object_type='KaiReport',
-                            object_id=report.id,
-                            object_repr=f'Case #{report.id}',
-                            metadata={'action': 'approve_closure'},
-                        )
-
-                        # Notify the requester
-                        if closure_request.requested_by.email:
-                            send_email.delay(
-                                f'[Kai] Closure Request Approved: {report.title}',
-                                f"""Your closure request has been approved.
+                    # Notify the requester
+                    if closure_request.requested_by.email:
+                        send_email.delay(
+                            f'[Kai] Closure Request Approved: {report.title}',
+                            f"""Your closure request has been approved.
 
 Report: {report.title}
 Decision: Approved
@@ -2269,57 +2369,57 @@ Decision: Approved
 
 The case has been archived.
 """,
-                                settings.DEFAULT_FROM_EMAIL,
-                                [closure_request.requested_by.email],
-                            )
+                            settings.DEFAULT_FROM_EMAIL,
+                            [closure_request.requested_by.email],
+                        )
 
-                        messages.success(request, 'Closure request approved. Report has been archived.')
+                    notes.success('Closure request approved. Report has been archived.')
+                else:
+                    notes.warning('This closure request has already been processed.')
+            except KaiClosureRequest.DoesNotExist:
+                notes.error('Closure request not found.')
+
+    elif action == 'deny_closure':
+        # Deny a closure request
+        closure_request_id = data.get('closure_request_id')
+        review_notes = data.get('review_notes', '').strip()
+
+        if closure_request_id:
+            try:
+                closure_request = KaiClosureRequest.objects.get(id=closure_request_id, report=report)
+                if closure_request.status == 'pending':
+                    if not review_notes:
+                        notes.error('Please provide a reason for denying the closure request.')
                     else:
-                        messages.warning(request, 'This closure request has already been processed.')
-                except KaiClosureRequest.DoesNotExist:
-                    messages.error(request, 'Closure request not found.')
+                        closure_request.status = 'denied'
+                        closure_request.reviewed_by = request.user
+                        closure_request.reviewed_at = timezone.now()
+                        closure_request.review_notes = review_notes
+                        closure_request.save(update_fields=['status', 'reviewed_by', 'reviewed_at', 'review_notes'])
 
-        elif action == 'deny_closure':
-            # Deny a closure request
-            closure_request_id = request.POST.get('closure_request_id')
-            review_notes = request.POST.get('review_notes', '').strip()
+                        # Log activity
+                        KaiReportActivity.objects.create(
+                            report=report,
+                            user=request.user,
+                            action='closure_denied',
+                            details=f'Closure request denied. Reason: {review_notes[:100]}...' if len(review_notes) > 100 else f'Closure request denied. Reason: {review_notes}'
+                        )
+                        ActivityLog.log_activity(
+                            action_type='kai_action',
+                            user=request.user,
+                            description=f'{request.user.name} denied closure request on Kai case #{report.id}',
+                            request=request,
+                            object_type='KaiReport',
+                            object_id=report.id,
+                            object_repr=f'Case #{report.id}',
+                            metadata={'action': 'deny_closure'},
+                        )
 
-            if closure_request_id:
-                try:
-                    closure_request = KaiClosureRequest.objects.get(id=closure_request_id, report=report)
-                    if closure_request.status == 'pending':
-                        if not review_notes:
-                            messages.error(request, 'Please provide a reason for denying the closure request.')
-                        else:
-                            closure_request.status = 'denied'
-                            closure_request.reviewed_by = request.user
-                            closure_request.reviewed_at = timezone.now()
-                            closure_request.review_notes = review_notes
-                            closure_request.save(update_fields=['status', 'reviewed_by', 'reviewed_at', 'review_notes'])
-
-                            # Log activity
-                            KaiReportActivity.objects.create(
-                                report=report,
-                                user=request.user,
-                                action='closure_denied',
-                                details=f'Closure request denied. Reason: {review_notes[:100]}...' if len(review_notes) > 100 else f'Closure request denied. Reason: {review_notes}'
-                            )
-                            ActivityLog.log_activity(
-                                action_type='kai_action',
-                                user=request.user,
-                                description=f'{request.user.name} denied closure request on Kai case #{report.id}',
-                                request=request,
-                                object_type='KaiReport',
-                                object_id=report.id,
-                                object_repr=f'Case #{report.id}',
-                                metadata={'action': 'deny_closure'},
-                            )
-
-                            # Notify the requester
-                            if closure_request.requested_by.email:
-                                send_email.delay(
-                                    f'[Kai] Closure Request Denied: {report.title}',
-                                    f"""Your closure request has been denied.
+                        # Notify the requester
+                        if closure_request.requested_by.email:
+                            send_email.delay(
+                                f'[Kai] Closure Request Denied: {report.title}',
+                                f"""Your closure request has been denied.
 
 Report: {report.title}
 Decision: Denied
@@ -2327,18 +2427,89 @@ Reason: {review_notes}
 
 You may submit another closure request in the future if circumstances change.
 """,
-                                    settings.DEFAULT_FROM_EMAIL,
-                                    [closure_request.requested_by.email],
-                                )
+                                settings.DEFAULT_FROM_EMAIL,
+                                [closure_request.requested_by.email],
+                            )
 
-                            messages.success(request, 'Closure request denied.')
-                    else:
-                        messages.warning(request, 'This closure request has already been processed.')
-                except KaiClosureRequest.DoesNotExist:
-                    messages.error(request, 'Closure request not found.')
+                        notes.success('Closure request denied.')
+                else:
+                    notes.warning('This closure request has already been processed.')
+            except KaiClosureRequest.DoesNotExist:
+                notes.error('Closure request not found.')
 
+    return notes
+
+
+@login_required
+@require_feature_flag('kai_reports')
+@log_function_call
+def manage_kai_report(request, report_id):
+    """Manage a specific Kai report (mark as reviewed, add notes, etc.)"""
+    # Check if KaiReport table exists
+    try:
+        report = get_object_or_404(KaiReport, id=report_id)
+    except Exception:
+        messages.warning(request, 'Kai Reports feature is not yet set up. Please run database migrations.')
+        return redirect('home')
+
+    try:
+        kai_committee = Committee.objects.get(is_kai_committee=True)
+    except Committee.DoesNotExist:
+        messages.error(request, 'Kai committee not found.')
+        return redirect('home')
+
+    kai_access, refusal, refusal_message = kai_case_access(request.user, report, kai_committee)
+    if refusal == 'recused':
+        messages.error(request, refusal_message)
+        return redirect('view_kai_reports')
+    if refusal:
+        messages.error(request, refusal_message)
+        return redirect('home')
+
+    if request.method == 'POST':
+        apply_kai_case_action(request, report, kai_committee, kai_access, request.POST).flash(request)
         return redirect('manage_kai_report', report_id=report.id)
 
+    context = {
+        'report': report,
+        'kai_committee': kai_committee,
+        'kai_access': kai_access,
+        **kai_case_context(request.user, report, kai_committee, kai_access),
+    }
+    return render(request, 'kai/manage_report.html', context)
+
+
+def kai_case_access(user, report, kai_committee):
+    """
+    ``(kai_access, refusal, message)`` for ``user`` opening ``report`` on the
+    manage page: the committee access narrowed to this case (``_case_access``)
+    and, when the page would turn them away, ``refusal`` — ``'recused'`` (the
+    page sends them back to the list) or ``'denied'`` (no
+    ``can_view_report_details``; back home) — with the page's message.
+    """
+    # v3.18.0 — RECUSAL. Narrow to this case before any permission is read.
+    # A member who is the accused or the submitter has every permission
+    # withdrawn here, so the checks below refuse them exactly as they refuse a
+    # member with no grant at all. See `_case_access`.
+    kai_access = _case_access(user, report, _get_kai_access(user, kai_committee))
+    if kai_access.get('is_recused'):
+        return kai_access, 'recused', (
+            'You are recused from this case because you are the '
+            f"{kai_access['recusal_reason']} named in it. Chapter bylaws § vi."
+        )
+    if not kai_access['can_view_report_details']:
+        return kai_access, 'denied', 'You do not have permission to view this report.'
+    return kai_access, None, None
+
+
+def kai_case_context(user, report, kai_committee, kai_access):
+    """
+    What ``manage_kai_report`` shows about ``report`` besides the report itself,
+    for a viewer ``kai_case_access`` let in: the redacted activity feed, linked
+    and linkable cases, closure requests, custom answers, the recusal seats
+    (materialised by ``_sync_recusals``, as every load of the page does) and the
+    pickers this viewer's access unlocks. Shared with the app.
+    """
     # Get activity log
     #
     # v3.18.1: redacted before it reaches either template. Both the Activity
@@ -2395,7 +2566,7 @@ You may submit another closure request in the future if circumstances change.
         report.recusals.select_related('user', 'replacement')
         .defer(*member_defer('user', 'replacement'))
     )
-    can_appoint = _can_appoint_standins(request.user, kai_committee)
+    can_appoint = _can_appoint_standins(user, kai_committee)
     eligible_standins = (
         list(KaiRecusal.eligible_standins(report)) if can_appoint else []
     )
@@ -2419,16 +2590,13 @@ You may submit another closure request in the future if circumstances change.
         if kai_access['can_edit_open_cases'] else []
     )
 
-    context = {
-        'report': report,
-        'kai_committee': kai_committee,
+    return {
         'activity_log': activity_log,
         'related_reports': related_reports,
         'available_reports': available_reports,
         'all_members': all_members,
         'closure_requests': closure_requests,
         'custom_responses': custom_responses,
-        'kai_access': kai_access,
         # v3.16.3: the tag editor is a checkbox list over the closed vocabulary
         # rather than a free-text box. `selected_tags` includes any legacy
         # out-of-vocabulary value still on the record so the checkbox state is
@@ -2450,8 +2618,6 @@ You may submit another closure request in the future if circumstances change.
         'appeal_window_days': KaiAppeal.APPEAL_WINDOW_DAYS,
         'appeal_days_remaining': KaiAppeal.days_remaining(report),
     }
-
-    return render(request, 'kai/manage_report.html', context)
 
 
 @login_required
@@ -2535,36 +2701,23 @@ def kai_dashboard(request):
     return redirect('view_kai_reports')
 
 
-@login_required
-@require_feature_flag('kai_reports')
-@log_function_call
-def bulk_actions_kai_reports(request):
-    """Handle bulk actions on multiple Kai reports"""
-    if request.method != 'POST':
-        return redirect('view_kai_reports')
-
-    try:
-        kai_committee = Committee.objects.get(is_kai_committee=True)
-    except Committee.DoesNotExist:
-        messages.error(request, 'Kai committee not found.')
-        return redirect('home')
-
-    kai_access = _get_kai_access(request.user, kai_committee)
-    if not kai_access['can_view_report_list']:
-        messages.error(request, 'You do not have permission to perform bulk actions.')
-        return redirect('home')
-
-    # Get selected report IDs and action
-    report_ids = request.POST.getlist('report_ids')
-    action = request.POST.get('bulk_action')
-
+def apply_kai_bulk_action(request, kai_access, report_ids, action):
+    """
+    ``bulk_actions_kai_reports``' work: ``action`` (``mark_reviewed``,
+    ``mark_pending``, ``archive`` or ``export_csv``) over ``report_ids`` for a
+    caller holding ``can_view_report_list``. Returns ``(notes, response)``:
+    the ``KaiNotes`` the page flashes, and the CSV ``HttpResponse`` for
+    ``export_csv`` (else None). Cases the caller is the accused on are never
+    touched, nor, for the write actions, cases they filed. Shared with the app.
+    """
+    notes = KaiNotes()
     # Action-level permission check
     if action in ('mark_reviewed', 'mark_pending') and not kai_access['can_edit_open_cases']:
-        messages.error(request, 'You do not have permission to edit cases.')
-        return redirect('view_kai_reports')
+        notes.error('You do not have permission to edit cases.')
+        return notes, None
     if action == 'archive' and not kai_access['can_close_cases']:
-        messages.error(request, 'You do not have permission to close cases.')
-        return redirect('view_kai_reports')
+        notes.error('You do not have permission to close cases.')
+        return notes, None
     # v3.17.7 — WHY `export_csv` HAS NO EXTRA ACTION-LEVEL GATE.
     # The two checks above guard *write* actions with write permissions.
     # Exporting is a read, and after this release its read scope is exactly the
@@ -2576,12 +2729,12 @@ def bulk_actions_kai_reports(request):
     # viewing, change BOTH and say so here.
 
     if not report_ids:
-        messages.warning(request, 'No reports selected.')
-        return redirect('view_kai_reports')
+        notes.warning('No reports selected.')
+        return notes, None
 
     if not action:
-        messages.warning(request, 'No action selected.')
-        return redirect('view_kai_reports')
+        notes.warning('No action selected.')
+        return notes, None
 
     try:
         # Get the reports
@@ -2627,7 +2780,7 @@ def bulk_actions_kai_reports(request):
                 object_type='KaiReport',
                 metadata={'action': 'bulk_mark_reviewed', 'count': count},
             )
-            messages.success(request, f'{count} report(s) marked as reviewed.')
+            notes.success(f'{count} report(s) marked as reviewed.')
 
         elif action == 'archive':
             # Archive all
@@ -2650,7 +2803,7 @@ def bulk_actions_kai_reports(request):
                 object_type='KaiReport',
                 metadata={'action': 'bulk_archive', 'count': updated},
             )
-            messages.success(request, f'{updated} report(s) archived.')
+            notes.success(f'{updated} report(s) archived.')
 
         elif action == 'mark_pending':
             # Mark all as pending
@@ -2673,7 +2826,7 @@ def bulk_actions_kai_reports(request):
                 object_type='KaiReport',
                 metadata={'action': 'bulk_mark_pending', 'count': updated},
             )
-            messages.success(request, f'{updated} report(s) marked as pending.')
+            notes.success(f'{updated} report(s) marked as pending.')
 
         elif action == 'export_csv':
             # Export selected reports to CSV.
@@ -2693,10 +2846,10 @@ def bulk_actions_kai_reports(request):
             for report in reports.select_related('submitted_by', 'reviewed_by', 'targeted_to').defer(*member_defer('submitted_by', 'reviewed_by', 'targeted_to')):
                 writer.writerow(_kai_csv_row(report, kai_access))
 
-            return response
+            return notes, response
 
         else:
-            messages.error(request, 'Invalid action selected.')
+            notes.error('Invalid action selected.')
 
     except Exception as e:
         # v3.17.7: was `f'Error performing bulk action: {str(e)}'`. Raw
@@ -2705,9 +2858,145 @@ def bulk_actions_kai_reports(request):
         # `str(e)` removals v3.17.5 made in changelog.py. Log it, show a
         # generic message.
         logger.exception('Bulk Kai action %r failed for user %s', action, request.user.user_id)
-        messages.error(request, 'Something went wrong performing that bulk action.')
+        notes.error('Something went wrong performing that bulk action.')
 
+    return notes, None
+
+
+@login_required
+@require_feature_flag('kai_reports')
+@log_function_call
+def bulk_actions_kai_reports(request):
+    """Handle bulk actions on multiple Kai reports"""
+    if request.method != 'POST':
+        return redirect('view_kai_reports')
+
+    try:
+        kai_committee = Committee.objects.get(is_kai_committee=True)
+    except Committee.DoesNotExist:
+        messages.error(request, 'Kai committee not found.')
+        return redirect('home')
+
+    kai_access = _get_kai_access(request.user, kai_committee)
+    if not kai_access['can_view_report_list']:
+        messages.error(request, 'You do not have permission to perform bulk actions.')
+        return redirect('home')
+
+    # Get selected report IDs and action
+    report_ids = request.POST.getlist('report_ids')
+    action = request.POST.get('bulk_action')
+
+    notes, response = apply_kai_bulk_action(request, kai_access, report_ids, action)
+    if response is not None:
+        return response
+    notes.flash(request)
     return redirect('view_kai_reports')
+
+
+def kai_template_access(user):
+    """
+    ``(kai_committee, allowed)`` for the report-template pages: a chair of the
+    Kai committee (``Committee.is_chair``) or a site admin. ``kai_committee``
+    is None when there isn't one.
+
+    Templates hold no case data — only the starting title, description and
+    tags a reporter's form is pre-filled with — so this is the committee's
+    ordinary chair gate, not ``_get_kai_access``.
+    """
+    try:
+        kai_committee = Committee.objects.get(is_kai_committee=True)
+    except Committee.DoesNotExist:
+        return None, False
+    return kai_committee, bool(kai_committee.is_chair(user) or user.is_admin)
+
+
+def _template_tags(data):
+    # v3.16.3: same closed vocabulary as KaiReport.tags — suggested_tags
+    # feeds that field, so free text here would be a side door.
+    return KaiReport.normalize_tags(
+        data.getlist('suggested_tags') or data.get('suggested_tags', '')
+    )
+
+
+def create_kai_template_from(data, user):
+    """
+    ``create_kai_template``'s save: ``(template or None, notes)``. Every field
+    but ``is_active`` (``'on'``) and ``suggested_tags`` is required.
+    """
+    notes = KaiNotes()
+    name = data.get('name')
+    description = data.get('description')
+    category = data.get('category')
+    title_template = data.get('title_template')
+    description_template = data.get('description_template')
+    suggested_tags, rejected_tags = _template_tags(data)
+    is_active = data.get('is_active') == 'on'
+
+    if rejected_tags:
+        notes.error(
+            'These suggested tags are not in the allowed list: ' + ', '.join(rejected_tags)
+            + '. Template not created.'
+        )
+    elif name and description and category and title_template and description_template:
+        template = KaiReportTemplate.objects.create(
+            name=name,
+            description=description,
+            category=category,
+            title_template=title_template,
+            description_template=description_template,
+            suggested_tags=suggested_tags,
+            is_active=is_active,
+            created_by=user
+        )
+        notes.success(f'Template "{template.name}" created successfully.')
+        return template, notes
+    else:
+        notes.error('Please fill in all required fields.')
+    return None, notes
+
+
+def update_kai_template_from(template, data):
+    """``edit_kai_template``'s save; returns the notes (an error means nothing was saved)."""
+    notes = KaiNotes()
+    template.name = data.get('name')
+    template.description = data.get('description')
+    template.category = data.get('category')
+    template.title_template = data.get('title_template')
+    template.description_template = data.get('description_template')
+    # v3.16.3: closed vocabulary — see KaiReport.TAG_CHOICES.
+    accepted_tags, rejected_tags = _template_tags(data)
+    if rejected_tags:
+        notes.error(
+            'These suggested tags are not in the allowed list: ' + ', '.join(rejected_tags)
+            + '. No changes were saved.'
+        )
+        return notes
+
+    template.suggested_tags = accepted_tags
+    template.is_active = data.get('is_active') == 'on'
+    template.save(update_fields=['name', 'description', 'category', 'title_template', 'description_template', 'suggested_tags', 'is_active'])
+
+    notes.success(f'Template "{template.name}" updated successfully.')
+    return notes
+
+
+def delete_kai_template_row(template):
+    """``delete_kai_template``'s delete; returns its success message."""
+    template_name = template.name
+    template.delete()
+    return f'Template "{template_name}" deleted successfully.'
+
+
+def _template_gate(request, refusal):
+    """The template pages' shared refusal (a redirect), or None to carry on."""
+    kai_committee, allowed = kai_template_access(request.user)
+    if kai_committee is None:
+        messages.error(request, 'Kai committee not found.')
+        return None, redirect('home')
+    if not allowed:
+        messages.error(request, refusal)
+        return None, redirect('home')
+    return kai_committee, None
 
 
 @login_required
@@ -2715,15 +3004,9 @@ def bulk_actions_kai_reports(request):
 @log_function_call
 def manage_kai_templates(request):
     """Manage Kai report templates (for chairs only)"""
-    # Check if user is a Kai chair or admin
-    try:
-        kai_committee = Committee.objects.get(is_kai_committee=True)
-        if not (kai_committee.is_chair(request.user) or request.user.is_admin):
-            messages.error(request, 'Only Kai chairs can manage templates.')
-            return redirect('home')
-    except Committee.DoesNotExist:
-        messages.error(request, 'Kai committee not found.')
-        return redirect('home')
+    kai_committee, refused = _template_gate(request, 'Only Kai chairs can manage templates.')
+    if refused:
+        return refused
 
     templates = KaiReportTemplate.objects.all()
 
@@ -2740,50 +3023,15 @@ def manage_kai_templates(request):
 @log_function_call
 def create_kai_template(request):
     """Create a new Kai report template"""
-    # Check if user is a Kai chair or admin
-    try:
-        kai_committee = Committee.objects.get(is_kai_committee=True)
-        if not (kai_committee.is_chair(request.user) or request.user.is_admin):
-            messages.error(request, 'Only Kai chairs can create templates.')
-            return redirect('home')
-    except Committee.DoesNotExist:
-        messages.error(request, 'Kai committee not found.')
-        return redirect('home')
+    kai_committee, refused = _template_gate(request, 'Only Kai chairs can create templates.')
+    if refused:
+        return refused
 
     if request.method == 'POST':
-        name = request.POST.get('name')
-        description = request.POST.get('description')
-        category = request.POST.get('category')
-        title_template = request.POST.get('title_template')
-        description_template = request.POST.get('description_template')
-        # v3.16.3: same closed vocabulary as KaiReport.tags — suggested_tags
-        # feeds that field, so free text here would be a side door.
-        suggested_tags, rejected_tags = KaiReport.normalize_tags(
-            request.POST.getlist('suggested_tags') or request.POST.get('suggested_tags', '')
-        )
-        is_active = request.POST.get('is_active') == 'on'
-
-        if rejected_tags:
-            messages.error(
-                request,
-                'These suggested tags are not in the allowed list: ' + ', '.join(rejected_tags)
-                + '. Template not created.'
-            )
-        elif name and description and category and title_template and description_template:
-            template = KaiReportTemplate.objects.create(
-                name=name,
-                description=description,
-                category=category,
-                title_template=title_template,
-                description_template=description_template,
-                suggested_tags=suggested_tags,
-                is_active=is_active,
-                created_by=request.user
-            )
-            messages.success(request, f'Template "{template.name}" created successfully.')
+        template, notes = create_kai_template_from(request.POST, request.user)
+        notes.flash(request)
+        if template is not None:
             return redirect('manage_kai_templates')
-        else:
-            messages.error(request, 'Please fill in all required fields.')
 
     context = {
         'kai_committee': kai_committee,
@@ -2799,41 +3047,16 @@ def create_kai_template(request):
 @log_function_call
 def edit_kai_template(request, template_id):
     """Edit an existing Kai report template"""
-    # Check if user is a Kai chair or admin
-    try:
-        kai_committee = Committee.objects.get(is_kai_committee=True)
-        if not (kai_committee.is_chair(request.user) or request.user.is_admin):
-            messages.error(request, 'Only Kai chairs can edit templates.')
-            return redirect('home')
-    except Committee.DoesNotExist:
-        messages.error(request, 'Kai committee not found.')
-        return redirect('home')
+    kai_committee, refused = _template_gate(request, 'Only Kai chairs can edit templates.')
+    if refused:
+        return refused
 
     template = get_object_or_404(KaiReportTemplate, id=template_id)
 
     if request.method == 'POST':
-        template.name = request.POST.get('name')
-        template.description = request.POST.get('description')
-        template.category = request.POST.get('category')
-        template.title_template = request.POST.get('title_template')
-        template.description_template = request.POST.get('description_template')
-        # v3.16.3: closed vocabulary — see KaiReport.TAG_CHOICES.
-        accepted_tags, rejected_tags = KaiReport.normalize_tags(
-            request.POST.getlist('suggested_tags') or request.POST.get('suggested_tags', '')
-        )
-        if rejected_tags:
-            messages.error(
-                request,
-                'These suggested tags are not in the allowed list: ' + ', '.join(rejected_tags)
-                + '. No changes were saved.'
-            )
+        notes = update_kai_template_from(template, request.POST).flash(request)
+        if notes.errors:
             return redirect('edit_kai_template', template_id=template.id)
-
-        template.suggested_tags = accepted_tags
-        template.is_active = request.POST.get('is_active') == 'on'
-        template.save(update_fields=['name', 'description', 'category', 'title_template', 'description_template', 'suggested_tags', 'is_active'])
-
-        messages.success(request, f'Template "{template.name}" updated successfully.')
         return redirect('manage_kai_templates')
 
     context = {
@@ -2851,21 +3074,12 @@ def edit_kai_template(request, template_id):
 @require_POST
 def delete_kai_template(request, template_id):
     """Delete a Kai report template"""
-    # Check if user is a Kai chair or admin
-    try:
-        kai_committee = Committee.objects.get(is_kai_committee=True)
-        if not (kai_committee.is_chair(request.user) or request.user.is_admin):
-            messages.error(request, 'Only Kai chairs can delete templates.')
-            return redirect('home')
-    except Committee.DoesNotExist:
-        messages.error(request, 'Kai committee not found.')
-        return redirect('home')
+    _kai_committee, refused = _template_gate(request, 'Only Kai chairs can delete templates.')
+    if refused:
+        return refused
 
     template = get_object_or_404(KaiReportTemplate, id=template_id)
-    template_name = template.name
-    template.delete()
-
-    messages.success(request, f'Template "{template_name}" deleted successfully.')
+    messages.success(request, delete_kai_template_row(template))
     return redirect('manage_kai_templates')
 
 
@@ -3082,42 +3296,50 @@ def _apply_standin(recusal, replacement, committee, actor):
     return recusal
 
 
-@login_required
-@require_feature_flag('kai_reports')
-@log_function_call
-def appoint_kai_standin(request, report_id):
-    """Appoint a member to fill a recused seat on one case."""
-    if request.method != 'POST':
-        return redirect('manage_kai_report', report_id=report_id)
+def _kai_redirect(notes, where, report_id):
+    """The page a stand-in / recusal action lands on (see ``*_action``)."""
+    if where == 'home':
+        return redirect('home')
+    if where == 'list':
+        return redirect('view_kai_reports')
+    return redirect('manage_kai_report', report_id=report_id)
 
+
+def appoint_kai_standin_action(request, report_id, data):
+    """
+    ``appoint_kai_standin``' work, shared with the app. Appoint ``data['replacement']`` to the recused seat ``data['recusal_id']``.
+    Returns ``(notes, where)``: the ``KaiNotes`` and where the page goes next —
+    ``'case'`` (back to the case), or ``'list'`` / ``'home'`` when the caller
+    may not do this at all.
+    """
+    notes = KaiNotes()
     report = get_object_or_404(KaiReport, id=report_id)
     committee = Committee.objects.filter(is_kai_committee=True).first()
     if committee is None:
-        messages.error(request, 'Kai committee not found.')
-        return redirect('home')
+        notes.error('Kai committee not found.')
+        return notes, 'home'
 
     # A recused member must not appoint their own replacement — and since
     # 07-31-26 that includes a member who recused themselves by hand.
     if _is_recused_from(report, request.user):
-        messages.error(request, 'You are recused from this case and cannot appoint a stand-in.')
-        return redirect('view_kai_reports')
+        notes.error('You are recused from this case and cannot appoint a stand-in.')
+        return notes, 'list'
 
     if not _can_appoint_standins(request.user, committee):
-        messages.error(request, 'Only the head of Kai may appoint a stand-in.')
-        return redirect('manage_kai_report', report_id=report.id)
+        notes.error('Only the head of Kai may appoint a stand-in.')
+        return notes, 'case'
 
-    recusal = get_object_or_404(KaiRecusal, id=request.POST.get('recusal_id'), report=report)
-    replacement = get_object_or_404(ParliamentUser, pk=request.POST.get('replacement'))
+    recusal = get_object_or_404(KaiRecusal, id=data.get('recusal_id'), report=report)
+    replacement = get_object_or_404(ParliamentUser, pk=data.get('replacement'))
 
     # Re-check eligibility server-side. The <select> is built from the same
     # queryset, but a POST is not a form — never trust the option list.
     if not recusal.is_eligible_replacement(replacement):
-        messages.error(
-            request,
+        notes.error(
             f'{replacement.name} cannot stand in on this case. Stand-ins must be '
             f'active members or advisors who are not already involved in it.',
         )
-        return redirect('manage_kai_report', report_id=report.id)
+        return notes, 'case'
 
     _apply_standin(recusal, replacement, committee, request.user)
 
@@ -3145,29 +3367,41 @@ def appoint_kai_standin(request, report_id):
             'actor': str(request.user.pk),
         },
     )
-    messages.success(request, f'{replacement.name} is now standing in on this case.')
-    return redirect('manage_kai_report', report_id=report.id)
+    notes.success(f'{replacement.name} is now standing in on this case.')
+    return notes, 'case'
 
 
 @login_required
 @require_feature_flag('kai_reports')
 @log_function_call
-def remove_kai_standin(request, report_id):
-    """Withdraw a stand-in appointment, leaving the seat vacant again."""
+def appoint_kai_standin(request, report_id):
+    """Appoint a member to fill a recused seat on one case."""
     if request.method != 'POST':
         return redirect('manage_kai_report', report_id=report_id)
 
+    notes, where = appoint_kai_standin_action(request, report_id, request.POST)
+    return _kai_redirect(notes.flash(request), where, report_id)
+
+
+def remove_kai_standin_action(request, report_id, data):
+    """
+    ``remove_kai_standin``' work, shared with the app. Withdraw the stand-in on the seat ``data['recusal_id']``.
+    Returns ``(notes, where)``: the ``KaiNotes`` and where the page goes next —
+    ``'case'`` (back to the case), or ``'list'`` / ``'home'`` when the caller
+    may not do this at all.
+    """
+    notes = KaiNotes()
     report = get_object_or_404(KaiReport, id=report_id)
     committee = Committee.objects.filter(is_kai_committee=True).first()
     if committee is None or _is_recused_from(report, request.user) \
             or not _can_appoint_standins(request.user, committee):
-        messages.error(request, 'Only the head of Kai may withdraw a stand-in.')
-        return redirect('view_kai_reports')
+        notes.error('Only the head of Kai may withdraw a stand-in.')
+        return notes, 'list'
 
-    recusal = get_object_or_404(KaiRecusal, id=request.POST.get('recusal_id'), report=report)
+    recusal = get_object_or_404(KaiRecusal, id=data.get('recusal_id'), report=report)
     former = recusal.replacement
     if former is None:
-        return redirect('manage_kai_report', report_id=report.id)
+        return notes, 'case'
 
     recusal.replacement = None
     recusal.granted_permissions = {}
@@ -3180,42 +3414,40 @@ def remove_kai_standin(request, report_id):
         action='standin_removed',
         details=f'{former.name} withdrawn as stand-in for {recusal.user.name}.',
     )
-    messages.success(request, f'{former.name} is no longer standing in on this case.')
-    return redirect('manage_kai_report', report_id=report.id)
+    notes.success(f'{former.name} is no longer standing in on this case.')
+    return notes, 'case'
 
 
 @login_required
 @require_feature_flag('kai_reports')
 @log_function_call
-def recuse_kai_member(request, report_id):
-    """
-    Recuse a committee member from one case by hand — bylaws §§ vi–ix.
-
-    v3.18.0. `_sync_recusals` records the seats the *case* vacates: the accused.
-    It cannot see the other reason a seat needs filling — the holder is simply
-    **not available**. Travelling, ill, or standing back from one case for a
-    reason the data does not know about. § vi covers both ("should members of
-    the Kai Committee be recused from their duties…"); only one of them is
-    computable.
-
-    `accused` and `submitter` are NOT offered here. Those are derived from the
-    case itself, so letting someone assert them by hand would record a
-    relationship the data contradicts — and, worse, `_case_access` would ignore
-    it, so the record and the enforcement would disagree.
-    """
+def remove_kai_standin(request, report_id):
+    """Withdraw a stand-in appointment, leaving the seat vacant again."""
     if request.method != 'POST':
         return redirect('manage_kai_report', report_id=report_id)
 
+    notes, where = remove_kai_standin_action(request, report_id, request.POST)
+    return _kai_redirect(notes.flash(request), where, report_id)
+
+
+def recuse_kai_member_action(request, report_id, data):
+    """
+    ``recuse_kai_member``' work, shared with the app. Recuse the members ``data.getlist('member')`` (with ``reason`` / ``replacement`` lists and ``notes``).
+    Returns ``(notes, where)``: the ``KaiNotes`` and where the page goes next —
+    ``'case'`` (back to the case), or ``'list'`` / ``'home'`` when the caller
+    may not do this at all.
+    """
+    notes = KaiNotes()
     report = get_object_or_404(KaiReport, id=report_id)
     committee = Committee.objects.filter(is_kai_committee=True).first()
     if committee is None:
-        messages.error(request, 'Kai committee not found.')
-        return redirect('home')
+        notes.error('Kai committee not found.')
+        return notes, 'home'
 
     if _is_recused_from(report, request.user) \
             or not _can_appoint_standins(request.user, committee):
-        messages.error(request, 'Only the head of Kai may recuse a member.')
-        return redirect('view_kai_reports')
+        notes.error('Only the head of Kai may recuse a member.')
+        return notes, 'list'
 
     # v3.18.0: several at once. A committee reshuffling for one case usually
     # moves more than one seat, and doing it one at a time meant re-opening the
@@ -3226,10 +3458,10 @@ def recuse_kai_member(request, report_id):
     # The form posts three parallel lists, one entry per row. A `<select>`
     # always submits a value (the placeholder posts ''), so the lists stay
     # aligned; a row with a blank member is an untouched "Add another" row.
-    member_pks = request.POST.getlist('member')
-    reasons = request.POST.getlist('reason')
-    replacements = request.POST.getlist('replacement')
-    notes = (request.POST.get('notes') or '').strip()
+    member_pks = data.getlist('member')
+    reasons = data.getlist('reason')
+    replacements = data.getlist('replacement')
+    recusal_notes = (data.get('notes') or '').strip()
 
     rows = []
     for i, member_pk in enumerate(member_pks):
@@ -3242,8 +3474,8 @@ def recuse_kai_member(request, report_id):
                      replacements[i] if i < len(replacements) else ''))
 
     if not rows:
-        messages.error(request, 'Select at least one member to recuse.')
-        return redirect('manage_kai_report', report_id=report.id)
+        notes.error('Select at least one member to recuse.')
+        return notes, 'case'
 
     by_pk = {
         str(u.pk): u for u in ParliamentUser.objects.filter(
@@ -3267,7 +3499,7 @@ def recuse_kai_member(request, report_id):
             continue
         recusal, created = KaiRecusal.objects.get_or_create(
             report=report, user=member,
-            defaults={'reason': reason, 'notes': notes, 'recorded_by': request.user},
+            defaults={'reason': reason, 'notes': recusal_notes, 'recorded_by': request.user},
         )
         if not created:
             skipped.append(f'{member.name} (already recused)')
@@ -3312,22 +3544,79 @@ def recuse_kai_member(request, report_id):
         )
         names = ', '.join(m.name for m in recused)
         if any(m.pk == request.user.pk for m in recused):
-            messages.warning(
-                request,
+            notes.warning(
                 f'{names} recused. You recused yourself from this case, so you can '
                 f'no longer view or act on it — including appointing stand-ins. '
                 f'Another chair or an admin must fill the remaining seats.',
             )
         else:
-            messages.success(
-                request,
+            notes.success(
                 f'{names} recused from this case. Appoint stand-ins to fill the seats.',
             )
     if filled:
-        messages.success(request, 'Standing in: ' + '; '.join(filled) + '.')
+        notes.success('Standing in: ' + '; '.join(filled) + '.')
     for note in skipped:
-        messages.info(request, f'Skipped {note}.')
-    return redirect('manage_kai_report', report_id=report.id)
+        notes.info(f'Skipped {note}.')
+    return notes, 'case'
+
+
+@login_required
+@require_feature_flag('kai_reports')
+@log_function_call
+def recuse_kai_member(request, report_id):
+    """
+    Recuse a committee member from one case by hand — bylaws §§ vi–ix.
+
+    v3.18.0. `_sync_recusals` records the seats the *case* vacates: the accused.
+    It cannot see the other reason a seat needs filling — the holder is simply
+    **not available**. Travelling, ill, or standing back from one case for a
+    reason the data does not know about. § vi covers both ("should members of
+    the Kai Committee be recused from their duties…"); only one of them is
+    computable.
+
+    `accused` and `submitter` are NOT offered here. Those are derived from the
+    case itself, so letting someone assert them by hand would record a
+    relationship the data contradicts — and, worse, `_case_access` would ignore
+    it, so the record and the enforcement would disagree.
+    """
+    if request.method != 'POST':
+        return redirect('manage_kai_report', report_id=report_id)
+
+    notes, where = recuse_kai_member_action(request, report_id, request.POST)
+    return _kai_redirect(notes.flash(request), where, report_id)
+
+
+def end_kai_recusal_action(request, report_id, data):
+    """
+    ``end_kai_recusal``' work, shared with the app. Lift the manual recusal ``data['recusal_id']``.
+    Returns ``(notes, where)``: the ``KaiNotes`` and where the page goes next —
+    ``'case'`` (back to the case), or ``'list'`` / ``'home'`` when the caller
+    may not do this at all.
+    """
+    notes = KaiNotes()
+    report = get_object_or_404(KaiReport, id=report_id)
+    committee = Committee.objects.filter(is_kai_committee=True).first()
+    if committee is None or _is_recused_from(report, request.user) \
+            or not _can_appoint_standins(request.user, committee):
+        notes.error('Only the head of Kai may end a recusal.')
+        return notes, 'list'
+
+    recusal = get_object_or_404(KaiRecusal, id=data.get('recusal_id'), report=report)
+    if recusal.reason not in KaiRecusal.MANUAL_REASONS:
+        notes.error(
+            'This recusal comes from the case itself and cannot be lifted by hand.',
+        )
+        return notes, 'case'
+
+    member_name = recusal.user.name
+    recusal.delete()
+
+    KaiReportActivity.objects.create(
+        report=report, user=request.user, action='standin_removed',
+        details=f'{member_name} is no longer recused from this case.',
+    )
+    notes.success(f'{member_name} has been restored to this case.')
+    return notes, 'case'
 
 
 @login_required
@@ -3345,27 +3634,5 @@ def end_kai_recusal(request, report_id):
     if request.method != 'POST':
         return redirect('manage_kai_report', report_id=report_id)
 
-    report = get_object_or_404(KaiReport, id=report_id)
-    committee = Committee.objects.filter(is_kai_committee=True).first()
-    if committee is None or _is_recused_from(report, request.user) \
-            or not _can_appoint_standins(request.user, committee):
-        messages.error(request, 'Only the head of Kai may end a recusal.')
-        return redirect('view_kai_reports')
-
-    recusal = get_object_or_404(KaiRecusal, id=request.POST.get('recusal_id'), report=report)
-    if recusal.reason not in KaiRecusal.MANUAL_REASONS:
-        messages.error(
-            request,
-            'This recusal comes from the case itself and cannot be lifted by hand.',
-        )
-        return redirect('manage_kai_report', report_id=report.id)
-
-    member_name = recusal.user.name
-    recusal.delete()
-
-    KaiReportActivity.objects.create(
-        report=report, user=request.user, action='standin_removed',
-        details=f'{member_name} is no longer recused from this case.',
-    )
-    messages.success(request, f'{member_name} has been restored to this case.')
-    return redirect('manage_kai_report', report_id=report.id)
+    notes, where = end_kai_recusal_action(request, report_id, request.POST)
+    return _kai_redirect(notes.flash(request), where, report_id)

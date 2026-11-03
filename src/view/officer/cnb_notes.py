@@ -46,40 +46,78 @@ def _back(request, resolution):
     return redirect(reverse('cnb_resolution_detail', args=[resolution.pk]) + '#notes')
 
 
-def _clean_body(request):
-    body = (request.POST.get('body') or '').strip()
+def clean_body(raw):
+    """(body, error): the note's text, or why it can't be saved."""
+    body = (raw or '').strip()
     if not body:
-        messages.error(request, 'A note cannot be empty.')
-        return None
+        return None, 'A note cannot be empty.'
     if len(body) > ResolutionNote.MAX_LENGTH:
-        messages.error(request, f'Notes are limited to {ResolutionNote.MAX_LENGTH} characters.')
-        return None
-    return body
+        return None, f'Notes are limited to {ResolutionNote.MAX_LENGTH} characters.'
+    return body, None
 
 
-def _clean_anchor(request, default=''):
-    """'' (not pinned) or one of ANCHOR_CHOICES; anything else keeps `default`."""
-    if 'anchor' not in request.POST:
+def clean_anchor(raw, default=''):
+    """'' (not pinned) or one of ANCHOR_CHOICES; anything else (or None) keeps `default`."""
+    if raw is None:
         return default
-    anchor = request.POST.get('anchor', '')
-    return anchor if (anchor == '' or anchor in _ANCHORS) else default
+    return raw if (raw == '' or raw in _ANCHORS) else default
 
 
-def _clean_color(request, default='yellow'):
-    color = request.POST.get('color', default)
-    return color if color in _COLORS else default
+def clean_color(raw, default='yellow'):
+    return raw if raw in _COLORS else default
+
+
+# ── Shared with the app (src/mobile/views_cnb_manage.py) ─────────────────────
+
+def create_note(resolution, user, body, color, anchor):
+    return ResolutionNote.objects.create(
+        resolution=resolution, body=body, color=color, anchor=anchor, created_by=user,
+    )
+
+
+def update_note(note, user, body, color, anchor):
+    """Save a changed note, recording who edited it; an unchanged one is left alone."""
+    if (body, color, anchor) != (note.body, note.color, note.anchor):
+        note.body, note.color, note.anchor = body, color, anchor
+        note.edited_by, note.edited_at = user, timezone.now()
+        note.save(update_fields=['body', 'color', 'anchor', 'edited_by', 'edited_at'])
+
+
+def toggle_note_done(note, user):
+    note.is_done = not note.is_done
+    if note.is_done:
+        note.done_by, note.done_at = user, timezone.now()
+    else:
+        note.done_by, note.done_at = None, None
+    note.save(update_fields=['is_done', 'done_by', 'done_at'])
+
+
+DELETE_REFUSED = ('Only the person who wrote a note (or a C&B chair) can delete it. '
+                  'You can mark it done instead.')
+
+
+def delete_note(note, user):
+    """Delete ``note`` if ``user`` may; returns the refusal message otherwise."""
+    if not note.user_can_delete(user):
+        return DELETE_REFUSED
+    note.delete()
+    return None
+
+
+def _post_anchor(request, default=''):
+    return clean_anchor(request.POST['anchor'] if 'anchor' in request.POST else None, default)
 
 
 @login_required
 @require_POST
 def add_resolution_note(request, resolution_id):
     resolution = _resolution_for_notes(request, resolution_id)
-    body = _clean_body(request)
-    if body is not None:
-        ResolutionNote.objects.create(
-            resolution=resolution, body=body, color=_clean_color(request),
-            anchor=_clean_anchor(request), created_by=request.user,
-        )
+    body, error = clean_body(request.POST.get('body'))
+    if error:
+        messages.error(request, error)
+    else:
+        create_note(resolution, request.user, body, clean_color(request.POST.get('color', 'yellow')),
+                    _post_anchor(request))
     return _back(request, resolution)
 
 
@@ -88,14 +126,13 @@ def add_resolution_note(request, resolution_id):
 def edit_resolution_note(request, resolution_id, note_id):
     resolution = _resolution_for_notes(request, resolution_id)
     note = get_object_or_404(ResolutionNote, pk=note_id, resolution=resolution)
-    body = _clean_body(request)
-    if body is not None:
-        color = _clean_color(request, default=note.color)
-        anchor = _clean_anchor(request, default=note.anchor)
-        if (body, color, anchor) != (note.body, note.color, note.anchor):
-            note.body, note.color, note.anchor = body, color, anchor
-            note.edited_by, note.edited_at = request.user, timezone.now()
-            note.save(update_fields=['body', 'color', 'anchor', 'edited_by', 'edited_at'])
+    body, error = clean_body(request.POST.get('body'))
+    if error:
+        messages.error(request, error)
+    else:
+        update_note(note, request.user, body,
+                    clean_color(request.POST.get('color', note.color), default=note.color),
+                    _post_anchor(request, default=note.anchor))
     return _back(request, resolution)
 
 
@@ -104,12 +141,7 @@ def edit_resolution_note(request, resolution_id, note_id):
 def toggle_resolution_note_done(request, resolution_id, note_id):
     resolution = _resolution_for_notes(request, resolution_id)
     note = get_object_or_404(ResolutionNote, pk=note_id, resolution=resolution)
-    note.is_done = not note.is_done
-    if note.is_done:
-        note.done_by, note.done_at = request.user, timezone.now()
-    else:
-        note.done_by, note.done_at = None, None
-    note.save(update_fields=['is_done', 'done_by', 'done_at'])
+    toggle_note_done(note, request.user)
     return _back(request, resolution)
 
 
@@ -118,8 +150,7 @@ def toggle_resolution_note_done(request, resolution_id, note_id):
 def delete_resolution_note(request, resolution_id, note_id):
     resolution = _resolution_for_notes(request, resolution_id)
     note = get_object_or_404(ResolutionNote, pk=note_id, resolution=resolution)
-    if not note.user_can_delete(request.user):
-        messages.error(request, 'Only the person who wrote a note (or a C&B chair) can delete it. You can mark it done instead.')
-    else:
-        note.delete()
+    error = delete_note(note, request.user)
+    if error:
+        messages.error(request, error)
     return _back(request, resolution)

@@ -74,6 +74,74 @@ def _absence_json(req):
             'review_note': req.review_note or ''}
 
 
+def my_tasks_json(pledge):
+    """
+    ``pledge``'s My Tasks page (``build_pledge_tasks_context``). Shared by his
+    own screen and the education committee's "view as pledge" preview
+    (src/mobile/views_education_manage.py), so the two can't differ.
+    """
+    ctx = pt.build_pledge_tasks_context(pledge)
+    big = ctx['my_big']
+    return {
+        'phase_label': ctx['pledge_phase_label'],
+        'progress': {
+            'required_total': ctx['all_required'],
+            'required_done': ctx['required_done'],
+            'percent': ctx['overall_percent'],
+            'overdue_count': ctx['overdue_count'],
+        },
+        'points': {
+            'tasks': ctx['task_points'],
+            'attendance': ctx['attendance_points'],
+            'total': ctx['total_points'],
+        },
+        'phases': [{
+            'phase': g['phase'],
+            'label': g['label'],
+            'completed': g['completed'],
+            'total': g['total'],
+            'required_done': g['required_done'],
+            'required_total': g['required_total'],
+            'tasks': [{
+                **_task_json(i['task']),
+                'completion': _my_completion_json(i['completion']),
+                'overdue': i['overdue'],
+                'points_earned': i['points_earned'],
+                'points_scaled': i['points_scaled'],
+                'show_analysis': i['task'].task_type == 'quiz' and i['task'].show_analysis_to_pledges,
+                'song': _song_json(i['task'].song) if i['task'].task_type == 'song' else None,
+            } for i in g['items']],
+        } for g in ctx['phase_groups']],
+        'upcoming_meetings': [{
+            **_meeting_json(m),
+            'description': m.event.description or '',
+            'homework': [{'id': t.id, 'title': t.title,
+                          'due_date': t.due_date.isoformat() if t.due_date else None}
+                         for t in m.homework.all()],
+            'absence_request': _absence_json(m.my_absence_request),
+        } for m in ctx['upcoming_meetings']],
+        'attendance': [{
+            'meeting': {'id': r.meeting_id, 'title': r.meeting.event.title,
+                        'date_time': r.meeting.event.date_time.isoformat()},
+            'status': r.status,
+            'status_label': r.get_status_display(),
+            'points': r.points_earned,
+            'max_points': r.meeting.points,
+        } for r in ctx['attendance_history']],
+        'meetings_attended': ctx['meetings_attended'],
+        'missed_count': ctx['missed_count'],
+        'big': {
+            'name': big.get_display_name(),
+            'house': big.get_house_display(),
+            'pledge_class': big.pledge_class_greek or big.pledge_class or '',
+            'role_number': big.role_number or '',
+            'revealed_at': ctx['my_big_revealed_at'].isoformat(),
+        } if big else None,
+        'study': _study_json(pledge) if ctx['study'] else None,
+        'phase_names': PHASE_LABELS,
+    }
+
+
 class MyTasksView(_PledgeView):
     web_page = 'my_pledge_tasks'
 
@@ -81,66 +149,7 @@ class MyTasksView(_PledgeView):
         # As my_pledge_tasks: a reveal that's due is applied before the page is built.
         from src.big_reveal import reveal_due_bigs
         reveal_due_bigs()
-        ctx = pt.build_pledge_tasks_context(request.user)
-        big = ctx['my_big']
-        return Response({
-            'phase_label': ctx['pledge_phase_label'],
-            'progress': {
-                'required_total': ctx['all_required'],
-                'required_done': ctx['required_done'],
-                'percent': ctx['overall_percent'],
-                'overdue_count': ctx['overdue_count'],
-            },
-            'points': {
-                'tasks': ctx['task_points'],
-                'attendance': ctx['attendance_points'],
-                'total': ctx['total_points'],
-            },
-            'phases': [{
-                'phase': g['phase'],
-                'label': g['label'],
-                'completed': g['completed'],
-                'total': g['total'],
-                'required_done': g['required_done'],
-                'required_total': g['required_total'],
-                'tasks': [{
-                    **_task_json(i['task']),
-                    'completion': _my_completion_json(i['completion']),
-                    'overdue': i['overdue'],
-                    'points_earned': i['points_earned'],
-                    'points_scaled': i['points_scaled'],
-                    'show_analysis': i['task'].task_type == 'quiz' and i['task'].show_analysis_to_pledges,
-                    'song': _song_json(i['task'].song) if i['task'].task_type == 'song' else None,
-                } for i in g['items']],
-            } for g in ctx['phase_groups']],
-            'upcoming_meetings': [{
-                **_meeting_json(m),
-                'description': m.event.description or '',
-                'homework': [{'id': t.id, 'title': t.title,
-                              'due_date': t.due_date.isoformat() if t.due_date else None}
-                             for t in m.homework.all()],
-                'absence_request': _absence_json(m.my_absence_request),
-            } for m in ctx['upcoming_meetings']],
-            'attendance': [{
-                'meeting': {'id': r.meeting_id, 'title': r.meeting.event.title,
-                            'date_time': r.meeting.event.date_time.isoformat()},
-                'status': r.status,
-                'status_label': r.get_status_display(),
-                'points': r.points_earned,
-                'max_points': r.meeting.points,
-            } for r in ctx['attendance_history']],
-            'meetings_attended': ctx['meetings_attended'],
-            'missed_count': ctx['missed_count'],
-            'big': {
-                'name': big.get_display_name(),
-                'house': big.get_house_display(),
-                'pledge_class': big.pledge_class_greek or big.pledge_class or '',
-                'role_number': big.role_number or '',
-                'revealed_at': ctx['my_big_revealed_at'].isoformat(),
-            } if big else None,
-            'study': _study_json(request.user) if ctx['study'] else None,
-            'phase_names': PHASE_LABELS,
-        })
+        return Response(my_tasks_json(request.user))
 
 
 class QuizView(_PledgeView):

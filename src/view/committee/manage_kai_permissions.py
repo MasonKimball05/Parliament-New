@@ -49,15 +49,12 @@ def _serialize_kai_perm(perm):
     return data
 
 
-@login_required
-def manage_kai_permissions(request, code):
-    """Kai chair/admin: manage per-member Kai access for any chapter member."""
-    committee = get_object_or_404(Committee, code=code, is_kai_committee=True)
-
-    if not _require_kai_chair(request, committee):
-        messages.error(request, 'Only Kai chairs can manage member permissions.')
-        return redirect('committee_home', code=code)
-
+def kai_permission_rows(committee):
+    """
+    The permissions page's rows: every chair, member and voting member of the
+    Kai committee by name, each ``{'member', 'is_chair', <the seven flags>}``.
+    A chair's flags are all True (full access, nothing to grant).
+    """
     chairs_pks = set(committee.chairs.values_list('pk', flat=True))
     members_pks = set(committee.members.values_list('pk', flat=True))
     voting_pks = set(committee.voting_members.values_list('pk', flat=True))
@@ -80,10 +77,43 @@ def manage_kai_permissions(request, code):
         for field in KAI_PERM_FIELDS:
             row[field] = True if is_chair else (getattr(perm, field) if perm else False)
         member_rows.append(row)
+    return member_rows
+
+
+def set_kai_member_permission(committee, member, flags, granted_by):
+    """
+    Save ``member``'s Kai grant: ``flags`` maps each of ``KAI_PERM_FIELDS`` to
+    a bool (a missing one is False, as the page posts every checkbox). Not for
+    a chair — the caller refuses those.
+    """
+    defaults = {field: bool(flags.get(field)) for field in KAI_PERM_FIELDS}
+    defaults['granted_by'] = granted_by
+    perm, _ = KaiMemberPermission.objects.update_or_create(
+        committee=committee,
+        user=member,
+        defaults=defaults,
+    )
+    return perm
+
+
+def reset_kai_member_permissions(committee):
+    """Delete every grant on the committee; returns how many there were."""
+    deleted_count, _ = KaiMemberPermission.objects.filter(committee=committee).delete()
+    return deleted_count
+
+
+@login_required
+def manage_kai_permissions(request, code):
+    """Kai chair/admin: manage per-member Kai access for any chapter member."""
+    committee = get_object_or_404(Committee, code=code, is_kai_committee=True)
+
+    if not _require_kai_chair(request, committee):
+        messages.error(request, 'Only Kai chairs can manage member permissions.')
+        return redirect('committee_home', code=code)
 
     context = {
         'committee': committee,
-        'member_rows': member_rows,
+        'member_rows': kai_permission_rows(committee),
         'perm_fields': KAI_PERM_FIELDS,
     }
     return render(request, 'committee/manage_kai_permissions.html', context)
@@ -110,13 +140,10 @@ def update_kai_member_permission(request, code, user_id):
     if _is_kai_chair(member, committee):
         return JsonResponse({'error': 'Chairs always have full access; no explicit permission needed'}, status=400)
 
-    defaults = {field: request.POST.get(field) == 'true' for field in KAI_PERM_FIELDS}
-    defaults['granted_by'] = request.user
-
-    perm, _ = KaiMemberPermission.objects.update_or_create(
-        committee=committee,
-        user=member,
-        defaults=defaults,
+    perm = set_kai_member_permission(
+        committee, member,
+        {field: request.POST.get(field) == 'true' for field in KAI_PERM_FIELDS},
+        request.user,
     )
 
     return JsonResponse({'success': True, **_serialize_kai_perm(perm)})
@@ -131,7 +158,7 @@ def reset_kai_permissions(request, code):
     if not _require_kai_chair(request, committee):
         return JsonResponse({'error': 'Permission denied'}, status=403)
 
-    deleted_count, _ = KaiMemberPermission.objects.filter(committee=committee).delete()
+    deleted_count = reset_kai_member_permissions(committee)
     return JsonResponse({
         'success': True,
         'message': f'Reset {deleted_count} member permission(s) to default (no access).',

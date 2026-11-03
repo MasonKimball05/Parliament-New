@@ -5,6 +5,7 @@ from django.contrib import messages
 from django.http import HttpResponseForbidden
 from django.shortcuts import render, get_object_or_404, redirect
 from django.core.exceptions import ValidationError
+from src import chapter_votes
 from src.utils.file_validation import validate_uploaded_file
 
 @officer_required
@@ -26,11 +27,8 @@ def submit_new_version(request, legislation_id):
 
         form = LegislationForm(request.POST, request.FILES)
         if form.is_valid():
-            new_legislation = form.save(commit=False)
-            new_legislation.posted_by = request.user
-            # Optionally: mark this as a new version of the old legislation
-            new_legislation.previous_version = legislation  # Assuming you have a previous_version field
-            new_legislation.save()
+            # v4.4.2: src/chapter_votes.py, shared with the app.
+            chapter_votes.save_new_version(form, legislation, request.user)
 
             messages.success(request, "New version of the legislation has been submitted.")
             return redirect('view_legislation_history')  # Redirect to the history page or wherever appropriate

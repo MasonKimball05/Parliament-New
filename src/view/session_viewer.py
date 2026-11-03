@@ -17,23 +17,63 @@ logger = logging.getLogger('function_calls')
 security_logger = logging.getLogger('admin_actions')
 
 
-@login_required
-def session_list(request):
-    """Display all active sessions for the current user."""
-    current_session_key = request.session.session_key
-
+def sessions_for(user, current_session_key=None):
+    """
+    The member's browser sessions, expired ones swept first, the current one
+    (if any) first and then most recently active. Shared with the app
+    (src/mobile/views_account_security.py), which has no current one.
+    """
     # Cleanup expired sessions first
     UserSession.cleanup_expired_sessions()
 
     # Get all sessions for the user
-    sessions = UserSession.objects.filter(user=request.user)
+    sessions = UserSession.objects.filter(user=user)
 
     # Mark the current session
     for session in sessions:
         session.is_current = (session.session_key == current_session_key)
 
     # Sort to put current session first
-    sessions = sorted(sessions, key=lambda s: (not s.is_current, -s.last_activity.timestamp()))
+    return sorted(sessions, key=lambda s: (not s.is_current, -s.last_activity.timestamp()))
+
+
+def end_session(user, user_session):
+    """Log one of ``user``'s sessions out: the Django session and its display row."""
+    # Delete the Django session
+    try:
+        UserSession.delete_session_from_store(user_session.session_key)
+    except Exception as e:
+        logger.warning(f"Could not delete Django session {user_session.session_key}: {e}")
+
+    # Delete the user session record
+    ip_address = user_session.ip_address
+    device = user_session.device_type
+    user_session.delete()
+
+    security_logger.info(
+        f"SESSION REVOKED: User '{user.name}' revoked session from {device} ({ip_address})"
+    )
+
+
+def end_other_sessions(user, keep_session_key=None, keep_mobile_device_id=None):
+    """The "log out all other sessions" button (app installs too); returns how many browser sessions ended."""
+    # v3.27.0 — shared with change_password / forced_password_change, so a
+    # password change gets the exact same "other devices are actually logged
+    # out now" behaviour as clicking this button, rather than a weaker,
+    # separately-maintained copy of it. See UserSession.revoke_other_sessions.
+    count = UserSession.revoke_other_sessions(user, keep_session_key=keep_session_key,
+                                              keep_mobile_device_id=keep_mobile_device_id)
+    if count:
+        security_logger.info(
+            f"ALL SESSIONS REVOKED: User '{user.name}' revoked {count} other sessions"
+        )
+    return count
+
+
+@login_required
+def session_list(request):
+    """Display all active sessions for the current user."""
+    sessions = sessions_for(request.user, request.session.session_key)
 
     # Mobile plan, Phase 1: signed-in app installs. A web-view session is
     # also listed above as a session; this is the device behind it.
@@ -73,32 +113,17 @@ def revoke_session(request, session_key):
             session_key=session_key,
             user=request.user
         )
-
-        # Delete the Django session
-        try:
-            UserSession.delete_session_from_store(session_key)
-        except Exception as e:
-            logger.warning(f"Could not delete Django session {session_key}: {e}")
-
-        # Delete the user session record
-        ip_address = user_session.ip_address
-        device = user_session.device_type
-        user_session.delete()
-
-        security_logger.info(
-            f"SESSION REVOKED: User '{request.user.name}' revoked session from {device} ({ip_address})"
-        )
-
-        return JsonResponse({
-            'status': 'success',
-            'message': 'Session has been logged out.'
-        })
-
     except UserSession.DoesNotExist:
         return JsonResponse({
             'status': 'error',
             'message': 'Session not found.'
         }, status=404)
+
+    end_session(request.user, user_session)
+    return JsonResponse({
+        'status': 'success',
+        'message': 'Session has been logged out.'
+    })
 
 
 @login_required
@@ -107,13 +132,7 @@ def revoke_all_other_sessions(request):
     if request.method != 'POST':
         return JsonResponse({'status': 'error', 'message': 'POST required'}, status=405)
 
-    current_session_key = request.session.session_key
-
-    # v3.27.0 — shared with change_password / forced_password_change, so a
-    # password change gets the exact same "other devices are actually logged
-    # out now" behaviour as clicking this button, rather than a weaker,
-    # separately-maintained copy of it. See UserSession.revoke_other_sessions.
-    count = UserSession.revoke_other_sessions(request.user, keep_session_key=current_session_key)
+    count = end_other_sessions(request.user, keep_session_key=request.session.session_key)
 
     if count == 0:
         return JsonResponse({
@@ -121,10 +140,6 @@ def revoke_all_other_sessions(request):
             'message': 'No other sessions to revoke.',
             'revoked_count': 0
         })
-
-    security_logger.info(
-        f"ALL SESSIONS REVOKED: User '{request.user.name}' revoked {count} other sessions"
-    )
 
     return JsonResponse({
         'status': 'success',

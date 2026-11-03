@@ -22,8 +22,9 @@ The app's Constitution & Bylaws reader (mobile plan, Phase 3g).
 * ``GET cnb/resolutions/<id>/`` — one resolution, read-only
   (``resolution_detail``): its clauses, body, notes and amendments.
 
-Writing and managing stay on the website (the app links there): drafting a
-resolution, editing it, the officer manager and the PDF.
+Writing stays on the website (the app links there): drafting a resolution,
+editing it and the PDF. The manager and resolution notes are
+``views_cnb_manage.py``.
 """
 from django.db.models import Count
 from django.shortcuts import get_object_or_404
@@ -33,7 +34,7 @@ from rest_framework.response import Response
 from src.cnb_crossrefs import Structure, anchor_for, find_references
 from src.mobile.api import MobileAPIView
 from src.mobile.views_excuses_polls import BadRequest
-from src.models import Resolution
+from src.models import Resolution, ResolutionNote
 from src.view.cnb_history import (
     documents_as_of, history_section_or_404, parse_as_of, section_anchor, section_versions,
 )
@@ -227,5 +228,7 @@ class CnbResolutionView(MobileAPIView):
                 'applied': a.applied,
             } for a in r.amendments.all()],
             'can_edit': can_edit,
+            # Batch 6: the working group's sticky notes (views_cnb_manage).
+            'can_use_notes': ResolutionNote.user_can_use_notes(request.user, r),
             'web_path': reverse('cnb_resolution_detail', kwargs={'resolution_id': r.pk}),
         })

@@ -7,6 +7,9 @@ from django.utils import timezone
 from src.models import Committee, ChatChannel, ChatChannelPermission, ParliamentUser
 from src.models.users import member_defer
 
+#: A guest permission's four switches.
+GUEST_FLAGS = ('can_read', 'can_write', 'can_delete', 'can_edit')
+
 
 def _check_chair_access(request, committee):
     """Return (is_chair, is_vp, is_admin) or JsonResponse 403 if unauthorized."""
@@ -39,6 +42,114 @@ def _serialize_perm(perm):
     }
 
 
+# ── Shared with the app (src/mobile/views_committee_settings.py) ─────────────
+
+def can_manage_chat_permissions(user, committee):
+    """These pages' rule: the committee's chairs, its VP and admins."""
+    return bool(committee.is_chair(user) or committee.is_vp(user) or user.is_admin)
+
+
+def committee_chat_channel(committee):
+    """The committee's chat channel, or None (the pages refuse without one)."""
+    return _get_channel(committee)
+
+
+def chat_guest_permissions(committee, channel):
+    """Guest permissions: user-specific perms for non-members (includes alumni)."""
+    committee_member_ids = list(committee.members.values_list('user_id', flat=True))
+    return ChatChannelPermission.objects.filter(
+        channel=channel,
+        user__isnull=False
+    ).exclude(
+        user__user_id__in=committee_member_ids
+    ).select_related('user').defer(*member_defer('user')).order_by('user__member_status', 'user__name')
+
+
+def chat_guest_candidates(committee):
+    """Who the page offers as guests: active + alumni, excluding committee members."""
+    committee_member_ids = list(committee.members.values_list('user_id', flat=True))
+    return ParliamentUser.objects.filter(
+        member_status__in=['Active', 'Alumni']
+    ).exclude(
+        user_id__in=committee_member_ids
+    ).order_by('member_status', 'name')
+
+
+def parse_guest_expiry(raw):
+    """
+    ``(expires_at, error)`` for the optional expiry: empty is none; otherwise an
+    ISO date-time in the future (one without an offset is local time).
+    """
+    raw = (raw or '').strip()
+    if not raw:
+        return None, None
+    try:
+        from datetime import datetime
+        expires_at = datetime.fromisoformat(raw)
+        if timezone.is_naive(expires_at):
+            expires_at = timezone.make_aware(expires_at)
+    except (ValueError, TypeError):
+        return None, 'Invalid expiry date format'
+    if expires_at <= timezone.now():
+        return None, 'Expiry date must be in the future'
+    return expires_at, None
+
+
+def save_guest_permission(channel, guest_user, flags, expires_at):
+    """Grant or replace one guest's permission. Returns ``(perm, created)``."""
+    return ChatChannelPermission.objects.update_or_create(
+        channel=channel,
+        user=guest_user,
+        defaults={**{f: bool(flags.get(f)) for f in GUEST_FLAGS}, 'expires_at': expires_at},
+    )
+
+
+def bulk_save_guest_permissions(committee, channel, user_ids, flags, expires_at):
+    """
+    The same grant for several people; committee members and unknown ids are
+    skipped. Returns ``(added names, skipped ids)``.
+    """
+    committee_member_ids = set(committee.members.values_list('user_id', flat=True))
+    added, skipped = [], []
+
+    for user_id in user_ids:
+        if user_id in committee_member_ids:
+            skipped.append(user_id)
+            continue
+        try:
+            guest_user = ParliamentUser.objects.get(user_id=user_id)
+        except ParliamentUser.DoesNotExist:
+            skipped.append(user_id)
+            continue
+        save_guest_permission(channel, guest_user, flags, expires_at)
+        added.append(guest_user.name)
+    return added, skipped
+
+
+def update_guest_permission_row(permission, flags, expires_at):
+    """Overwrite an existing guest permission's four switches and expiry."""
+    for f in GUEST_FLAGS:
+        setattr(permission, f, bool(flags.get(f)))
+    permission.expires_at = expires_at
+    permission.save()
+    return permission
+
+
+def remove_guest_permissions(channel, user_ids):
+    """Delete these people's permissions on the channel. Returns how many went."""
+    deleted_count, _ = ChatChannelPermission.objects.filter(
+        channel=channel,
+        user__user_id__in=user_ids
+    ).delete()
+    return deleted_count
+
+
+def _post_flags(request):
+    return {f: request.POST.get(f) == 'true' for f in GUEST_FLAGS}
+
+
+# ── Pages ───────────────────────────────────────────────────────────────────
+
 @login_required
 def manage_chat_permissions(request, code):
     """Allow committee chair/admin to manage guest chat permissions."""
@@ -54,22 +165,8 @@ def manage_chat_permissions(request, code):
         messages.error(request, 'Chat channel not found for this committee')
         return redirect('committee_home', code=code)
 
-    committee_member_ids = list(committee.members.values_list('user_id', flat=True))
-
-    # Guest permissions: user-specific perms for non-members (includes alumni)
-    guest_permissions = ChatChannelPermission.objects.filter(
-        channel=channel,
-        user__isnull=False
-    ).exclude(
-        user__user_id__in=committee_member_ids
-    ).select_related('user').defer(*member_defer('user')).order_by('user__member_status', 'user__name')
-
-    # Available users: active + alumni, excluding committee members
-    available_users = ParliamentUser.objects.filter(
-        member_status__in=['Active', 'Alumni']
-    ).exclude(
-        user_id__in=committee_member_ids
-    ).order_by('member_status', 'name')
+    guest_permissions = chat_guest_permissions(committee, channel)
+    available_users = chat_guest_candidates(committee)
 
     already_added_ids = set(guest_permissions.values_list('user__user_id', flat=True))
 
@@ -101,28 +198,17 @@ def add_guest_permission(request, code):
         return JsonResponse({'error': 'Chat channel not found'}, status=404)
 
     user_id = request.POST.get('user_id')
-    can_read = request.POST.get('can_read') == 'true'
-    can_write = request.POST.get('can_write') == 'true'
-    can_delete = request.POST.get('can_delete') == 'true'
-    can_edit = request.POST.get('can_edit') == 'true'
-    expires_at_raw = request.POST.get('expires_at', '').strip()
+    flags = _post_flags(request)
 
     if not user_id:
         return JsonResponse({'error': 'User ID is required'}, status=400)
 
-    if not can_read and not can_write:
+    if not flags['can_read'] and not flags['can_write']:
         return JsonResponse({'error': 'Guest must have at least read or write permission'}, status=400)
 
-    # Parse optional expiry date
-    expires_at = None
-    if expires_at_raw:
-        try:
-            from datetime import datetime
-            expires_at = timezone.make_aware(datetime.fromisoformat(expires_at_raw))
-            if expires_at <= timezone.now():
-                return JsonResponse({'error': 'Expiry date must be in the future'}, status=400)
-        except (ValueError, TypeError):
-            return JsonResponse({'error': 'Invalid expiry date format'}, status=400)
+    expires_at, error = parse_guest_expiry(request.POST.get('expires_at', ''))
+    if error:
+        return JsonResponse({'error': error}, status=400)
 
     try:
         guest_user = ParliamentUser.objects.get(user_id=user_id)
@@ -132,17 +218,7 @@ def add_guest_permission(request, code):
     if committee.is_member(guest_user):
         return JsonResponse({'error': 'This user is already a committee member'}, status=400)
 
-    perm, created = ChatChannelPermission.objects.update_or_create(
-        channel=channel,
-        user=guest_user,
-        defaults={
-            'can_read': can_read,
-            'can_write': can_write,
-            'can_delete': can_delete,
-            'can_edit': can_edit,
-            'expires_at': expires_at,
-        }
-    )
+    perm, created = save_guest_permission(channel, guest_user, flags, expires_at)
 
     return JsonResponse({
         'success': True,
@@ -166,54 +242,19 @@ def bulk_add_guest_permissions(request, code):
         return JsonResponse({'error': 'Chat channel not found'}, status=404)
 
     user_ids = request.POST.getlist('user_ids')
-    can_read = request.POST.get('can_read') == 'true'
-    can_write = request.POST.get('can_write') == 'true'
-    can_delete = request.POST.get('can_delete') == 'true'
-    can_edit = request.POST.get('can_edit') == 'true'
-    expires_at_raw = request.POST.get('expires_at', '').strip()
+    flags = _post_flags(request)
 
     if not user_ids:
         return JsonResponse({'error': 'No users selected'}, status=400)
 
-    if not can_read and not can_write:
+    if not flags['can_read'] and not flags['can_write']:
         return JsonResponse({'error': 'Must grant at least read or write permission'}, status=400)
 
-    # Parse optional expiry date
-    expires_at = None
-    if expires_at_raw:
-        try:
-            from datetime import datetime
-            expires_at = timezone.make_aware(datetime.fromisoformat(expires_at_raw))
-            if expires_at <= timezone.now():
-                return JsonResponse({'error': 'Expiry date must be in the future'}, status=400)
-        except (ValueError, TypeError):
-            return JsonResponse({'error': 'Invalid expiry date format'}, status=400)
+    expires_at, error = parse_guest_expiry(request.POST.get('expires_at', ''))
+    if error:
+        return JsonResponse({'error': error}, status=400)
 
-    committee_member_ids = set(committee.members.values_list('user_id', flat=True))
-    added, skipped = [], []
-
-    for user_id in user_ids:
-        if user_id in committee_member_ids:
-            skipped.append(user_id)
-            continue
-        try:
-            guest_user = ParliamentUser.objects.get(user_id=user_id)
-        except ParliamentUser.DoesNotExist:
-            skipped.append(user_id)
-            continue
-
-        ChatChannelPermission.objects.update_or_create(
-            channel=channel,
-            user=guest_user,
-            defaults={
-                'can_read': can_read,
-                'can_write': can_write,
-                'can_delete': can_delete,
-                'can_edit': can_edit,
-                'expires_at': expires_at,
-            }
-        )
-        added.append(guest_user.name)
+    added, skipped = bulk_save_guest_permissions(committee, channel, user_ids, flags, expires_at)
 
     return JsonResponse({
         'success': True,
@@ -247,41 +288,22 @@ def update_guest_permission(request, code, user_id):
     except ChatChannelPermission.DoesNotExist:
         return JsonResponse({'error': 'Permission not found'}, status=404)
 
-    can_read = request.POST.get('can_read') == 'true'
-    can_write = request.POST.get('can_write') == 'true'
-    can_delete = request.POST.get('can_delete') == 'true'
-    can_edit = request.POST.get('can_edit') == 'true'
-    expires_at_raw = request.POST.get('expires_at', '').strip()
+    flags = _post_flags(request)
 
-    if not can_read and not can_write:
+    if not flags['can_read'] and not flags['can_write']:
         return JsonResponse({'error': 'Guest must retain at least read or write permission'}, status=400)
 
-    # Parse optional expiry date (empty string clears it)
-    if expires_at_raw:
-        try:
-            from datetime import datetime
-            expires_at = timezone.make_aware(datetime.fromisoformat(expires_at_raw))
-            if expires_at <= timezone.now():
-                return JsonResponse({'error': 'Expiry date must be in the future'}, status=400)
-        except (ValueError, TypeError):
-            return JsonResponse({'error': 'Invalid expiry date format'}, status=400)
-    else:
-        expires_at = None
+    # Optional expiry date (empty string clears it)
+    expires_at, error = parse_guest_expiry(request.POST.get('expires_at', ''))
+    if error:
+        return JsonResponse({'error': error}, status=400)
 
-    permission.can_read = can_read
-    permission.can_write = can_write
-    permission.can_delete = can_delete
-    permission.can_edit = can_edit
-    permission.expires_at = expires_at
-    permission.save()
+    update_guest_permission_row(permission, flags, expires_at)
 
     return JsonResponse({
         'success': True,
         'message': f'Updated permissions for {guest_user.name}',
-        'can_read': can_read,
-        'can_write': can_write,
-        'can_delete': can_delete,
-        'can_edit': can_edit,
+        **flags,
         'expires_at': permission.expires_at.isoformat() if permission.expires_at else None,
     })
 
@@ -305,12 +327,7 @@ def remove_guest_permission(request, code, user_id):
     except ParliamentUser.DoesNotExist:
         return JsonResponse({'error': 'User not found'}, status=404)
 
-    deleted_count, _ = ChatChannelPermission.objects.filter(
-        channel=channel,
-        user=guest_user
-    ).delete()
-
-    if deleted_count > 0:
+    if remove_guest_permissions(channel, [guest_user.user_id]) > 0:
         return JsonResponse({'success': True, 'message': f'Removed {guest_user.name} from guest list'})
     return JsonResponse({'error': 'Permission not found'}, status=404)
 
@@ -333,10 +350,7 @@ def bulk_remove_guest_permissions(request, code):
     if not user_ids:
         return JsonResponse({'error': 'No users selected'}, status=400)
 
-    deleted_count, _ = ChatChannelPermission.objects.filter(
-        channel=channel,
-        user__user_id__in=user_ids
-    ).delete()
+    deleted_count = remove_guest_permissions(channel, user_ids)
 
     return JsonResponse({
         'success': True,

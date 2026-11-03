@@ -1441,7 +1441,7 @@ class UserSession(models.Model):
         engine.SessionStore(session_key=session_key).delete()
 
     @classmethod
-    def revoke_other_sessions(cls, user, keep_session_key=None):
+    def revoke_other_sessions(cls, user, keep_session_key=None, keep_mobile_device_id=None):
         """
         Log a user out of every session except (optionally) one, deleting both
         the real Django session row and this table's display row for each.
@@ -1472,9 +1472,15 @@ class UserSession(models.Model):
         kept session (``src/mobile/revocation.py``). This runs before the
         early return below: a member with no other browser sessions still
         expects their other phones signed out. Not counted in the return value.
+
+        Batch 6: from the app itself (its native "sign out other sessions" and
+        password change) there is no kept browser session; the install making
+        the request is kept instead (``keep_mobile_device_id``) and every
+        browser session is closed.
         """
         from src.mobile.revocation import revoke_for_sign_out_everywhere
-        revoke_for_sign_out_everywhere(user, keep_session_key=keep_session_key)
+        revoke_for_sign_out_everywhere(user, keep_session_key=keep_session_key,
+                                       keep_device_id=keep_mobile_device_id)
 
         other_sessions = cls.objects.filter(user=user)
         if keep_session_key:

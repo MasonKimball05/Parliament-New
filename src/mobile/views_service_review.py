@@ -132,7 +132,7 @@ class _ServiceReviewView(MobileAPIView):
         super().initial(request, *args, **kwargs)
         if not user_is_vpp(request.user):
             raise exceptions.PermissionDenied(
-                'Only the Vice President of Programming can review service hours.', code='forbidden')
+                'Only the Vice President of Programming can manage service hours.', code='forbidden')
 
 
 class ServiceDashboardView(_ServiceReviewView):

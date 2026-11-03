@@ -4,6 +4,7 @@ from ..models import Legislation
 from django.contrib import messages
 from django.http import HttpResponseForbidden
 from django.views.decorators.http import require_POST
+from src import chapter_votes
 from src.feature_flag_decorators import require_feature_flag
 
 @officer_required
@@ -13,22 +14,15 @@ from src.feature_flag_decorators import require_feature_flag
 def reopen_legislation(request, legislation_id):
     legislation = get_object_or_404(Legislation, id=legislation_id)
 
-    # Prevent reopening if already passed
-    if legislation.status == 'passed':
-        messages.error(request, "This legislation has already passed and cannot be reopened.")
+    # v4.4.2: the rule (never a passed bill; only the uploader) and the reset
+    # are src/chapter_votes.py, shared with the app.
+    try:
+        chapter_votes.reopen(legislation, request.user)
+    except chapter_votes.ChapterVoteError as exc:
+        if exc.code == 'forbidden':
+            return HttpResponseForbidden(exc.message)
+        messages.error(request, exc.message)
         return redirect('view_legislation_history')  # Redirect to the history page after the message
-
-    if request.user != legislation.posted_by:
-        return HttpResponseForbidden("Only the uploader can reopen this legislation.")
-
-    # v3.13.3: also reset status — end_vote leaves it 'failed'/'passed', and
-    # the vote page excludes those, so a reopened vote never reappeared on the
-    # vote page. 'draft' is the open status. voting_ended_at is cleared so the
-    # tally poller doesn't treat it as just-closed.
-    legislation.voting_closed = False  # Reopen the voting
-    legislation.status = 'draft'
-    legislation.voting_ended_at = None
-    legislation.save(update_fields=['voting_closed', 'status', 'voting_ended_at'])
 
     messages.success(request, "Legislation has been reopened.")
     return redirect('view_legislation_history')

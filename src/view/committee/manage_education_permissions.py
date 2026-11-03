@@ -35,37 +35,27 @@ EDUCATION_PERM_FIELDS = [
 ]
 
 
+def may_manage_education_permissions(user, committee):
+    """
+    Return True if `user` may manage education permissions for `committee`.
+    Real chair (not `Committee.is_chair()`, which also returns True for any
+    member of an `is_exec_board`-flagged committee) or admin — the same
+    definition `_get_education_access` uses for full access, on purpose; see
+    the module docstring. Shared with the app.
+    """
+    return committee.chairs.filter(pk=user.pk).exists() or user.is_admin
+
+
 def _require_education_chair(request, committee):
+    return may_manage_education_permissions(request.user, committee)
+
+
+def education_permission_rows(committee):
     """
-    Return True if this user may manage education permissions for
-    `committee`. Real chair (not `Committee.is_chair()`, which also returns
-    True for any member of an `is_exec_board`-flagged committee) or admin —
-    the same definition `_get_education_access` uses for full access, on
-    purpose; see the module docstring.
+    Every chair, member and voting member of `committee`, by name, with what
+    each may do: `{member, is_chair, <field>: bool...}`. Chairs show full
+    access (their switches are disabled). Shared with the app.
     """
-    return committee.chairs.filter(pk=request.user.pk).exists() or request.user.is_admin
-
-
-def _serialize_education_perm(perm):
-    data = {
-        'user_id': perm.user.user_id,
-        'user_name': perm.user.name,
-        'member_type': perm.user.member_type,
-    }
-    for field in EDUCATION_PERM_FIELDS:
-        data[field] = getattr(perm, field)
-    return data
-
-
-@login_required
-def manage_education_permissions(request, code):
-    """Education chair/admin: manage per-member education access."""
-    committee = get_object_or_404(Committee, code=code, is_education_committee=True)
-
-    if not _require_education_chair(request, committee):
-        messages.error(request, 'Only education chairs can manage member permissions.')
-        return redirect('committee_home', code=code)
-
     chairs_pks = set(committee.chairs.values_list('pk', flat=True))
     members_pks = set(committee.members.values_list('pk', flat=True))
     voting_pks = set(committee.voting_members.values_list('pk', flat=True))
@@ -89,10 +79,58 @@ def manage_education_permissions(request, code):
         for field in EDUCATION_PERM_FIELDS:
             row[field] = True if is_chair else (getattr(perm, field) if perm else False)
         member_rows.append(row)
+    return member_rows
+
+
+def set_education_permission(committee, member, flags, granted_by):
+    """
+    Save `member`'s education permissions (`flags`: field -> bool; a field
+    left out is False, as an unticked box). Returns (perm, None), or
+    (None, error message) for a chair, who already has everything. Shared
+    with the app.
+    """
+    # Chairs already have full access — don't create redundant permission rows
+    if committee.chairs.filter(pk=member.pk).exists():
+        return None, 'Chairs always have full access; no explicit permission needed'
+    defaults = {field: bool(flags.get(field)) for field in EDUCATION_PERM_FIELDS}
+    defaults['granted_by'] = granted_by
+    perm, _ = EducationMemberPermission.objects.update_or_create(
+        committee=committee,
+        user=member,
+        defaults=defaults,
+    )
+    return perm, None
+
+
+def reset_education_permission_rows(committee):
+    """Delete every permission row for `committee`; returns how many. Shared with the app."""
+    deleted_count, _ = EducationMemberPermission.objects.filter(committee=committee).delete()
+    return deleted_count
+
+
+def _serialize_education_perm(perm):
+    data = {
+        'user_id': perm.user.user_id,
+        'user_name': perm.user.name,
+        'member_type': perm.user.member_type,
+    }
+    for field in EDUCATION_PERM_FIELDS:
+        data[field] = getattr(perm, field)
+    return data
+
+
+@login_required
+def manage_education_permissions(request, code):
+    """Education chair/admin: manage per-member education access."""
+    committee = get_object_or_404(Committee, code=code, is_education_committee=True)
+
+    if not _require_education_chair(request, committee):
+        messages.error(request, 'Only education chairs can manage member permissions.')
+        return redirect('committee_home', code=code)
 
     context = {
         'committee': committee,
-        'member_rows': member_rows,
+        'member_rows': education_permission_rows(committee),
         'perm_fields': EDUCATION_PERM_FIELDS,
     }
     return render(request, 'committee/manage_education_permissions.html', context)
@@ -112,18 +150,11 @@ def update_education_member_permission(request, code, user_id):
     except ParliamentUser.DoesNotExist:
         return JsonResponse({'error': 'User not found'}, status=404)
 
-    # Chairs already have full access — don't create redundant permission rows
-    if committee.chairs.filter(pk=member.pk).exists():
-        return JsonResponse({'error': 'Chairs always have full access; no explicit permission needed'}, status=400)
-
-    defaults = {field: request.POST.get(field) == 'true' for field in EDUCATION_PERM_FIELDS}
-    defaults['granted_by'] = request.user
-
-    perm, _ = EducationMemberPermission.objects.update_or_create(
-        committee=committee,
-        user=member,
-        defaults=defaults,
-    )
+    perm, error = set_education_permission(
+        committee, member, {field: request.POST.get(field) == 'true' for field in EDUCATION_PERM_FIELDS},
+        request.user)
+    if error:
+        return JsonResponse({'error': error}, status=400)
 
     return JsonResponse({'success': True, **_serialize_education_perm(perm)})
 
@@ -137,7 +168,7 @@ def reset_education_permissions(request, code):
     if not _require_education_chair(request, committee):
         return JsonResponse({'error': 'Permission denied'}, status=403)
 
-    deleted_count, _ = EducationMemberPermission.objects.filter(committee=committee).delete()
+    deleted_count = reset_education_permission_rows(committee)
     return JsonResponse({
         'success': True,
         'message': f'Reset {deleted_count} member permission(s) to default (no access).',

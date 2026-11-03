@@ -51,15 +51,15 @@ def revoke_user_devices(user_id, reason, except_device_id=None):
     return count
 
 
-def revoke_for_sign_out_everywhere(user, keep_session_key=None):
+def revoke_for_sign_out_everywhere(user, keep_session_key=None, keep_device_id=None):
     """
     "Log out all other sessions": also sign out every app install, except the
     one whose web view is the session being kept (signing yourself out of the
     app from inside the app would be surprising, and that device is the one
-    the member is holding).
+    the member is holding). From the app's own screens, ``keep_device_id`` is
+    the install making the request.
     """
-    keep_device_id = None
-    if keep_session_key:
+    if keep_device_id is None and keep_session_key:
         try:
             from importlib import import_module
             from django.conf import settings

@@ -1,8 +1,108 @@
+"""
+Custom chat channels: the admin create / edit / delete pages.
+
+The saving is in helpers (``create_custom_channel``, ``update_custom_channel``,
+``delete_custom_channel``, ``set_channel_access``, ``channel_form_context``)
+so the app (src/mobile/views_chat_channels.py) makes exactly the same rows.
+"""
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from src.decorators import admin_required
 from src.models import ChatChannel, ChatChannelPermission, ParliamentUser
 from src.feature_flag_decorators import require_feature_flag
+
+DEFAULT_ICON = '💬'
+DEFAULT_COLOR = '#003DA5'
+
+
+def set_channel_access(channel, *, user_ids=(), member_types=(), chairs_only=False,
+                       officers_only=False, alumni_only=False):
+    """
+    Replace a channel's permission rows with the form's choices. Only a
+    ``restricted`` channel gets any; an ``open`` one is left with none. Every
+    row is read + write, as the edit page has always saved them.
+    """
+    ChatChannelPermission.objects.filter(channel=channel).delete()
+    if channel.access_type != 'restricted':
+        return
+    rows = [ChatChannelPermission(channel=channel, user_id=uid, can_read=True, can_write=True)
+            for uid in user_ids if uid]
+    rows += [ChatChannelPermission(channel=channel, member_type=mt, can_read=True, can_write=True)
+             for mt in member_types if mt]
+    for flag, on in (('chairs_only', chairs_only), ('officers_only', officers_only),
+                     ('alumni_only', alumni_only)):
+        if on:
+            rows.append(ChatChannelPermission(channel=channel, can_read=True, can_write=True,
+                                              **{flag: True}))
+    for row in rows:
+        row.save()
+
+
+def create_custom_channel(actor, *, name, description='', access_type='restricted',
+                          icon=DEFAULT_ICON, color=DEFAULT_COLOR, **access):
+    """A new custom channel created by ``actor``, with its access rows."""
+    channel = ChatChannel.objects.create(
+        name=name,
+        description=description,
+        channel_type='custom',
+        access_type=access_type,
+        created_by=actor,
+        icon=icon,
+        color=color,
+    )
+    set_channel_access(channel, **access)
+    return channel
+
+
+def update_custom_channel(channel, *, name, description='', access_type='restricted',
+                          icon=DEFAULT_ICON, color=DEFAULT_COLOR, is_active=False,
+                          is_read_only=False, **access):
+    """Save the edit page's fields and replace the channel's access rows."""
+    channel.name = name
+    channel.description = description
+    channel.access_type = access_type
+    channel.icon = icon
+    channel.color = color
+    channel.is_active = is_active
+    channel.is_read_only = is_read_only
+    channel.save()
+    set_channel_access(channel, **access)
+    return channel
+
+
+def delete_custom_channel(channel):
+    """Delete the channel (its messages and permission rows go with it)."""
+    name = channel.name
+    channel.delete()
+    return name
+
+
+def channel_form_users():
+    """The people the form offers: active members, by name."""
+    return ParliamentUser.objects.filter(member_status='Active').order_by('name')
+
+
+def channel_access_state(channel):
+    """The edit page's current choices for ``channel``."""
+    perms = channel.permissions
+    return {
+        'current_user_permissions': list(perms.filter(user__isnull=False).values_list('user_id', flat=True)),
+        'current_member_type_permissions': list(
+            perms.filter(member_type__isnull=False).values_list('member_type', flat=True)),
+        'current_chairs_only': perms.filter(chairs_only=True).exists(),
+        'current_officers_only': perms.filter(officers_only=True).exists(),
+        'current_alumni_only': perms.filter(alumni_only=True).exists(),
+    }
+
+
+def _posted_access(post):
+    return {
+        'user_ids': post.getlist('users'),
+        'member_types': post.getlist('member_types'),
+        'chairs_only': bool(post.get('chairs_only')),
+        'officers_only': bool(post.get('officers_only')),
+        'alumni_only': bool(post.get('alumni_only')),
+    }
 
 
 @admin_required
@@ -11,67 +111,27 @@ def create_channel(request):
     """Admin-only: Create custom chat channel"""
     if request.method == 'POST':
         name = request.POST.get('name')
-        description = request.POST.get('description', '')
-        access_type = request.POST.get('access_type', 'restricted')
-        icon = request.POST.get('icon', '💬')
-        color = request.POST.get('color', '#003DA5')
 
         if not name:
             messages.error(request, 'Channel name is required')
             return redirect('create_channel')
 
-        # Create channel
-        channel = ChatChannel.objects.create(
+        create_custom_channel(
+            request.user,
             name=name,
-            description=description,
-            channel_type='custom',
-            access_type=access_type,
-            created_by=request.user,
-            icon=icon,
-            color=color
+            description=request.POST.get('description', ''),
+            access_type=request.POST.get('access_type', 'restricted'),
+            icon=request.POST.get('icon', DEFAULT_ICON),
+            color=request.POST.get('color', DEFAULT_COLOR),
+            **_posted_access(request.POST),
         )
-
-        # Add permissions if restricted
-        if access_type == 'restricted':
-            # Specific users
-            user_ids = request.POST.getlist('users')
-            for user_id in user_ids:
-                if user_id:
-                    ChatChannelPermission.objects.create(
-                        channel=channel,
-                        user_id=user_id
-                    )
-
-            # Member types
-            member_types = request.POST.getlist('member_types')
-            for member_type in member_types:
-                if member_type:
-                    ChatChannelPermission.objects.create(
-                        channel=channel,
-                        member_type=member_type
-                    )
-
-            # Special roles
-            if request.POST.get('chairs_only'):
-                ChatChannelPermission.objects.create(
-                    channel=channel,
-                    chairs_only=True
-                )
-
-            if request.POST.get('officers_only'):
-                ChatChannelPermission.objects.create(
-                    channel=channel,
-                    officers_only=True
-                )
 
         messages.success(request, f'Channel "{name}" created successfully!')
         return redirect('chat_index')
 
     # GET: Show form
-    all_users = ParliamentUser.objects.filter(member_status='Active').order_by('name')
-
     return render(request, 'chat/create_channel.html', {
-        'all_users': all_users,
+        'all_users': channel_form_users(),
         'member_types': ChatChannelPermission.MEMBER_TYPES
     })
 
@@ -88,79 +148,27 @@ def edit_channel(request, channel_id):
         return redirect('chat_index')
 
     if request.method == 'POST':
-        channel.name = request.POST.get('name', channel.name)
-        channel.description = request.POST.get('description', '')
-        channel.access_type = request.POST.get('access_type', 'restricted')
-        channel.icon = request.POST.get('icon', '💬')
-        channel.color = request.POST.get('color', '#003DA5')
-        channel.is_active = request.POST.get('is_active') == 'true'
-        channel.is_read_only = request.POST.get('is_read_only') == 'true'
-        channel.save()
-
-        # Clear existing permissions
-        ChatChannelPermission.objects.filter(channel=channel).delete()
-
-        # Re-add permissions if restricted
-        if channel.access_type == 'restricted':
-            # Specific users
-            user_ids = request.POST.getlist('users')
-            for user_id in user_ids:
-                if user_id:
-                    ChatChannelPermission.objects.create(
-                        channel=channel,
-                        user_id=user_id,
-                        can_read=True, can_write=True,
-                    )
-
-            # Member types
-            member_types = request.POST.getlist('member_types')
-            for member_type in member_types:
-                if member_type:
-                    ChatChannelPermission.objects.create(
-                        channel=channel,
-                        member_type=member_type,
-                        can_read=True, can_write=True,
-                    )
-
-            # Special roles
-            if request.POST.get('chairs_only'):
-                ChatChannelPermission.objects.create(
-                    channel=channel, chairs_only=True,
-                    can_read=True, can_write=True,
-                )
-            if request.POST.get('officers_only'):
-                ChatChannelPermission.objects.create(
-                    channel=channel, officers_only=True,
-                    can_read=True, can_write=True,
-                )
-            if request.POST.get('alumni_only'):
-                ChatChannelPermission.objects.create(
-                    channel=channel, alumni_only=True,
-                    can_read=True, can_write=True,
-                )
+        update_custom_channel(
+            channel,
+            name=request.POST.get('name', channel.name),
+            description=request.POST.get('description', ''),
+            access_type=request.POST.get('access_type', 'restricted'),
+            icon=request.POST.get('icon', DEFAULT_ICON),
+            color=request.POST.get('color', DEFAULT_COLOR),
+            is_active=request.POST.get('is_active') == 'true',
+            is_read_only=request.POST.get('is_read_only') == 'true',
+            **_posted_access(request.POST),
+        )
 
         messages.success(request, f'Channel "{channel.name}" updated successfully!')
         return redirect('edit_channel', channel_id=channel.id)
 
     # GET: Show form
-    all_active_users = ParliamentUser.objects.filter(member_status='Active').order_by('name')
-
-    # Get current permissions
-    current_user_permissions = list(channel.permissions.filter(user__isnull=False).values_list('user_id', flat=True))
-    current_member_type_permissions = list(channel.permissions.filter(member_type__isnull=False).values_list('member_type', flat=True))
-    current_chairs_only = channel.permissions.filter(chairs_only=True).exists()
-    current_officers_only = channel.permissions.filter(officers_only=True).exists()
-    current_alumni_only = channel.permissions.filter(alumni_only=True).exists()
-
     return render(request, 'chat/edit_channel.html', {
         'channel': channel,
-        'all_users': all_active_users,
+        'all_users': channel_form_users(),
         'member_types': ChatChannelPermission.MEMBER_TYPES,
-        'current_user_permissions': current_user_permissions,
-        'current_member_type_permissions': current_member_type_permissions,
-        'current_chairs_only': current_chairs_only,
-        'current_officers_only': current_officers_only,
-        'current_alumni_only': current_alumni_only,
+        **channel_access_state(channel),
     })
 
 
@@ -176,8 +184,7 @@ def delete_channel(request, channel_id):
         return redirect('chat_index')
 
     if request.method == 'POST':
-        channel_name = channel.name
-        channel.delete()
+        channel_name = delete_custom_channel(channel)
         messages.success(request, f'Channel "{channel_name}" deleted successfully!')
         return redirect('chat_index')
 

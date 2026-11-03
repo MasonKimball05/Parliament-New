@@ -8,6 +8,7 @@ The app's Calendar tab (mobile plan, Phase 3).
 * ``GET    events/<id>/`` — one event. Hidden, inactive or archived is a 404.
 * ``POST   events/<id>/signup/`` — sign up (or join the waitlist).
 * ``DELETE events/<id>/signup/`` — cancel.
+* ``GET    events/<id>/signups/`` — the officer sign-up list (batch 6).
 * ``GET    calendar/subscription/`` — the member's ``webcal://`` feed URL,
   for "Subscribe" (behind the ``calendar_subscriptions`` flag, like the web).
 
@@ -241,6 +242,56 @@ class EventSignupView(_CalendarBase):
 
     def delete(self, request, event_id):
         return self._run(request, event_id, event_signups.cancel, 'event_cancel_signup')
+
+
+class EventSignupListView(_CalendarBase):
+    """
+    ``GET events/<id>/signups/``: the officer sign-up list (``event_signup_list``,
+    ``officer_required`` + the calendar toggle): confirmed, waitlist and
+    cancelled, through the page's own query (``event_signups.roster``). The CSV
+    export stays on the website (a bulk member-data export, geo-restricted).
+    """
+    web_page = 'event_signup_list'
+    web_page_toggle = False   # the calendar toggle is checked below, as the page's decorator does
+
+    def initial(self, request, *args, **kwargs):
+        super().initial(request, *args, **kwargs)
+        if not user_is_officer_or_chair(request.user):
+            raise exceptions.PermissionDenied('Officers and chairs only.', code='forbidden')
+        check_web_page(request.user, 'calendar')
+
+    def get(self, request, event_id):
+        event = Event.objects.filter(pk=event_id, is_active=True, requires_signup=True).first()
+        if event is None:
+            raise Http404
+        confirmed, waitlist, cancelled = event_signups.roster(event)
+
+        def row(s):
+            return {
+                'id': s.id,
+                'user_id': s.user.user_id,
+                'name': s.user.get_display_name(),
+                'signed_up_at': s.signed_up_at.isoformat(),
+                'waitlist_position': s.waitlist_position,
+                'cancelled_at': s.cancelled_at.isoformat() if s.cancelled_at else None,
+            }
+
+        return Response({
+            'event': {
+                'id': event.id,
+                'title': event.title,
+                'date_time': event.date_time.isoformat(),
+                'max_signups': event.max_signups,
+                'signups_open': event.signups_open,
+                'allow_waitlist': event.allow_waitlist,
+            },
+            'signups': [row(s) for s in confirmed],
+            'waitlist': [row(s) for s in waitlist],
+            'cancelled': [row(s) for s in cancelled],
+            'signup_count': len(confirmed),
+            'waitlist_count': len(waitlist),
+            'web_path': reverse('event_signup_list', args=[event.id]),
+        })
 
 
 class CalendarSubscriptionView(MobileAPIView):

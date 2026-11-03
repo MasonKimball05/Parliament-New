@@ -232,7 +232,7 @@ class NoExportBuildsItsOwnRowTests(TestCase):
         function it always is. Assert the CSV paths go through the builder.
         """
         source = inspect.getsource(kai_module)
-        for func_name in ('export_kai_reports_csv', 'bulk_actions_kai_reports'):
+        for func_name in ('export_kai_reports_csv', 'bulk_actions_kai_reports', 'apply_kai_bulk_action'):
             func_src = inspect.getsource(getattr(kai_module, func_name))
             # v3.45.2: the exports now call `safe_csv_writer`.
             if 'csv.writer' not in func_src and 'csv_writer(' not in func_src:

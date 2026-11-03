@@ -1,4 +1,4 @@
-from django.db.models import Count, Q
+from django.db.models import Q
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
@@ -6,16 +6,12 @@ from django.core.exceptions import ValidationError
 from django.http import JsonResponse, HttpResponseForbidden
 from django.views.decorators.http import require_POST
 from django.utils import timezone
-from django.utils.timezone import make_aware
-from django.utils.dateparse import parse_datetime
 from datetime import timedelta
-from ..models import Legislation, Vote, Attendance, ParliamentUser, ActivityLog
+from ..models import Legislation, Vote, ParliamentUser
 from src.utils.file_validation import validate_uploaded_file
 from src.feature_flag_decorators import require_page_enabled, require_feature_flag
 from src.view.webauthn import check_vote_reauth
-from src.utils.vote_events import broadcast_vote_event
-from src import ballots
-import logging
+from src import ballots, chapter_votes
 
 
 def _attendance_can_vote(user):
@@ -38,13 +34,11 @@ def upload_chapter_legislation(request):
     vote.html upload form posts here.
     """
     user = request.user
-    if user.member_type not in ['Chair', 'Officer']:
+    if not chapter_votes.can_upload(user):
         # The old multiplexed view silently fell through to a page render
         # for non-officers — say it instead (v3.13.3 no-silent-drops rule).
         messages.error(request, "Only chairs and officers can upload legislation.")
         return redirect('vote')
-    title = request.POST.get('title')
-    description = request.POST.get('description')
     document = request.FILES.get('document')
 
     # Validate uploaded file for security
@@ -55,172 +49,15 @@ def upload_chapter_legislation(request):
             messages.error(request, f'File upload error: {str(e)}')
             return redirect('home')
 
-    anonymous = request.POST.get('anonymous') == 'on'
-    allow_abstain = not (request.POST.get('remove_abstain') == 'on')
-    required_percentage = int(request.POST.get('required_percentage', 51))
-
-    raw_available_at = request.POST.get('available_at')
-    parsed_available_at = parse_datetime(raw_available_at)
-    available_at = make_aware(parsed_available_at) if parsed_available_at else None
-
-    # Parse voting_starts_at (optional - defaults to available_at if not set)
-    raw_voting_starts_at = request.POST.get('voting_starts_at')
-    voting_starts_at = None
-    if raw_voting_starts_at:
-        parsed_voting_starts_at = parse_datetime(raw_voting_starts_at)
-        voting_starts_at = make_aware(parsed_voting_starts_at) if parsed_voting_starts_at else None
-
-    # v3.14.0: the "Now" buttons send an explicit is_now flag that the
-    # SERVER resolves — the browser-filled text is cosmetic. This makes
-    # "open it now" immune to any skew between the user's device clock /
-    # timezone and the server's (reported live: Now-filled votes landing
-    # minutes-to-hours in the future and never opening).
-    if request.POST.get('available_at_is_now') == '1':
-        available_at = timezone.now()
-    if request.POST.get('voting_starts_at_is_now') == '1' and voting_starts_at:
-        voting_starts_at = timezone.now()
-
-    # v3.13.3: voting-mode toggle. 'separate' + no start time means voting
-    # stays closed until the author hits "Open Voting Now". Anything else
-    # (including forms that don't send the field — committee push, older
-    # clients) keeps the historical unified behavior: blank start = voting
-    # opens at available_at.
-    voting_manual_open = (
-        request.POST.get('voting_mode_choice') == 'separate'
-        and not voting_starts_at
-    )
-
-    # Parse voting_ends_at (optional)
-    raw_voting_ends_at = request.POST.get('voting_ends_at')
-    voting_ends_at = None
-    if raw_voting_ends_at:
-        parsed_voting_ends_at = parse_datetime(raw_voting_ends_at)
-        voting_ends_at = make_aware(parsed_voting_ends_at) if parsed_voting_ends_at else None
-
-    vote_mode = request.POST.get('vote_mode', 'percentage')
-    plurality_options = []
-    required_number = None
-    plurality_votes_allowed = 1
-    plurality_runoff_enabled = False
-    plurality_runoff_count = 2
-
-    if vote_mode == 'plurality':
-        # Support up to 10 plurality options
-        for i in range(1, 11):
-            val = request.POST.get(f'plurality_option_{i}')
-            if val and val.strip():
-                plurality_options.append(val.strip())
-
-        if len(plurality_options) < 2:
-            messages.error(request, "Plurality voting requires at least two options.")
-            return redirect('vote')
-
-        # Parse multi-select settings
-        votes_allowed_raw = request.POST.get('plurality_votes_allowed', '1')
-        try:
-            plurality_votes_allowed = max(1, min(10, int(votes_allowed_raw)))
-        except (ValueError, TypeError):
-            plurality_votes_allowed = 1
-
-        # Ensure votes_allowed doesn't exceed number of options
-        plurality_votes_allowed = min(plurality_votes_allowed, len(plurality_options))
-
-        # Parse runoff settings
-        plurality_runoff_enabled = request.POST.get('plurality_runoff_enabled') == 'on'
-        if plurality_runoff_enabled:
-            runoff_count_raw = request.POST.get('plurality_runoff_count', '2')
-            try:
-                plurality_runoff_count = max(2, min(len(plurality_options), int(runoff_count_raw)))
-            except (ValueError, TypeError):
-                plurality_runoff_count = 2
-
-    elif vote_mode == 'piecewise':
-        required_number = request.POST.get('required_number')
-        if not required_number or int(required_number) < 1:
-            messages.error(request, "Piecewise voting requires a valid number of required votes (at least 1).")
-            return redirect('vote')
-        required_number = int(required_number)
-
-    # v3.13.3: document is optional when the description is detailed
-    # (20+ characters — same rule as the legislation tracker's add form)
-    # or for plurality votes.
-    detailed_description = description and len(description.strip()) >= 20
-    if title and description and available_at and (
-            document or vote_mode == 'plurality' or detailed_description):
-        new_legislation = Legislation.objects.create(
-            title=title,
-            description=description,
-            document=document if vote_mode != 'plurality' else None,
-            posted_by=user,
-            available_at=available_at,
-            voting_starts_at=voting_starts_at,
-            voting_manual_open=voting_manual_open,
-            voting_ends_at=voting_ends_at,
-            anonymous_vote=anonymous,
-            allow_abstain=allow_abstain,
-            required_percentage=required_percentage,
-            vote_mode=vote_mode,
-            plurality_options=plurality_options if vote_mode == 'plurality' else None,
-            plurality_votes_allowed=plurality_votes_allowed if vote_mode == 'plurality' else 1,
-            plurality_runoff_enabled=plurality_runoff_enabled if vote_mode == 'plurality' else False,
-            plurality_runoff_count=plurality_runoff_count if vote_mode == 'plurality' else 2,
-            required_number=required_number if vote_mode == 'piecewise' else None
-        )
-
-        logger = logging.getLogger('function_calls')
-        logger.info(f"{user.username} uploaded legislation titled '{title}' (mode: {vote_mode}, required %: {required_percentage})")
-        ActivityLog.log_activity(
-            action_type='legislation_created',
-            user=user,
-            description=f'{user.name} created legislation "{title}" ({vote_mode} vote, {"anonymous" if anonymous else "non-anonymous"})',
-            request=request,
-            object_type='Legislation',
-            object_id=new_legislation.id,
-            object_repr=title,
-            metadata={
-                'vote_mode': vote_mode,
-                'anonymous': anonymous,
-                'required_percentage': required_percentage if vote_mode == 'percentage' else None,
-                'required_number': required_number if vote_mode == 'piecewise' else None,
-                'plurality_options': plurality_options if vote_mode == 'plurality' else None,
-            },
-        )
-
-        # v3.13.3: echo back the parsed schedule so any clock/timezone
-        # mismatch is visible immediately instead of surfacing later as
-        # "it opened at the wrong time".
-        _now = timezone.now()
-        _visible = timezone.localtime(available_at)
-        if voting_manual_open:
-            _opens_text = 'when you open it (use "Open Voting Now" on the card)'
-        else:
-            _opens = timezone.localtime(voting_starts_at or available_at)
-            _opens_text = ('now' if (voting_starts_at or available_at) <= _now
-                           else _opens.strftime('%b %d at %I:%M %p'))
-        _msg = "Legislation uploaded — visible {} · voting opens {}.".format(
-            'now' if available_at <= _now else _visible.strftime('%b %d at %I:%M %p'),
-            _opens_text,
-        )
-        # If anything is scheduled for later, show the server's own clock —
-        # makes device-clock/timezone skew instantly visible (v3.14.0)
-        if available_at > _now or (
-                not voting_manual_open and (voting_starts_at or available_at) > _now):
-            _msg += " Server time is now {}.".format(
-                timezone.localtime(_now).strftime('%I:%M %p'))
-        messages.success(request, _msg)
-        if available_at <= _now:
-            broadcast_vote_event('opened', new_legislation.id)
+    # v4.4.2: parsing, the rules, the log and the broadcast are
+    # src/chapter_votes.py, shared with the app.
+    try:
+        _leg, message = chapter_votes.create_chapter_legislation(user, request.POST, document, request)
+    except chapter_votes.ChapterVoteError as exc:
+        messages.error(request, exc.message)
         return redirect('vote')
-    else:
-        # v3.13.3: explain instead of silently ignoring the POST
-        messages.error(
-            request,
-            "Legislation was NOT saved — title, description, and a go-live "
-            "time are required. A document is also required unless the "
-            "description is detailed (at least 20 characters) or it's a "
-            "plurality vote."
-        )
-        return redirect('vote')
+    messages.success(request, message)
+    return redirect('vote')
 
 
 @login_required
@@ -236,7 +73,7 @@ def mark_attendance_quick(request):
     # v3.13.3: respond with JSON so the panel JS can detect failures and
     # revert its optimistic UI. Previously this redirected to a full page
     # render per click (and errors were invisible to the panel).
-    if user.member_type not in ['Chair', 'Officer']:
+    if not chapter_votes.can_upload(user):
         return JsonResponse({'ok': False, 'error': 'Not allowed.'}, status=403)
     target_user_id = request.POST.get('target_user_id')
     new_status = request.POST.get('attendance_status')
@@ -247,37 +84,7 @@ def mark_attendance_quick(request):
     except ParliamentUser.DoesNotExist:
         return JsonResponse({'ok': False, 'error': 'Unknown member.'}, status=404)
 
-    now = timezone.now()
-    # v3.17.4: localdate(), not now().date(). `Attendance.date` is written on the
-    # Central calendar; a UTC date here missed the row every evening and this
-    # endpoint inserted a duplicate instead of updating — which is what the
-    # MultipleObjectsReturned branch below was really healing.
-    lookup = {
-        'user': target,
-        'date': timezone.localdate(),
-        'attendance_type': 'committee',
-        'committee': None,
-    }
-    defaults = {
-        'status': new_status,
-        'created_at': now,
-        'marked_by': user,
-        'marked_at': now,
-    }
-    try:
-        Attendance.objects.update_or_create(**lookup, defaults=defaults)
-    except Attendance.MultipleObjectsReturned:
-        # No unique constraint on the lookup keys, so two rapid clicks
-        # could race update_or_create into creating duplicate rows —
-        # after which every subsequent update_or_create for that member
-        # 500s and the panel silently stops saving (v3.13.3). Heal by
-        # keeping the newest row and updating it.
-        dupes = Attendance.objects.filter(**lookup).order_by('-created_at')
-        keep = dupes.first()
-        dupes.exclude(pk=keep.pk).delete()
-        for field, value in defaults.items():
-            setattr(keep, field, value)
-        keep.save()
+    chapter_votes.mark_attendance_quick(user, target, new_status)
     return JsonResponse({'ok': True, 'status': new_status})
 
 
@@ -376,22 +183,7 @@ def vote_view(request):
     vote_data = {}
     for leg in available_legislation:
         if leg.posted_by == user:
-            choice_counts = {
-                row['vote_choice']: row['n']
-                for row in Vote.objects.filter(legislation=leg)
-                .values('vote_choice').annotate(n=Count('id'))
-            }
-            if leg.vote_mode == 'plurality':
-                tally = {opt: choice_counts.get(opt, 0) for opt in leg.plurality_options}
-                tally['total'] = sum(choice_counts.values())
-                vote_data[leg.id] = tally
-            else:
-                vote_data[leg.id] = {
-                    'yes': choice_counts.get('yes', 0),
-                    'no': choice_counts.get('no', 0),
-                    'abstain': choice_counts.get('abstain', 0),
-                    'total': sum(choice_counts.values())
-                }
+            vote_data[leg.id] = chapter_votes.owner_tally(leg)
 
     from src.models import Role
     appointment_roles = Role.objects.all().order_by('name')
@@ -401,17 +193,7 @@ def vote_view(request):
     members_attendance = None
     attendance_present_count = 0
     if user.member_type in ['Chair', 'Officer']:
-        all_members = ParliamentUser.objects.filter(member_status='Active').order_by('name')
-        recent_atts = {}
-        for att in Attendance.objects.filter(
-            user__in=all_members,
-            created_at__gte=three_hours_ago
-        ).order_by('created_at'):  # ascending so later records win
-            recent_atts[att.user_id] = att.status
-        members_attendance = [
-            {'member': m, 'status': recent_atts.get(m.user_id, 'absent')}
-            for m in all_members
-        ]
+        members_attendance = chapter_votes.attendance_panel(three_hours_ago)
         attendance_present_count = sum(
             1 for m in members_attendance if m['status'] in ('present', 'late')
         )
@@ -419,26 +201,14 @@ def vote_view(request):
         # v3.14.0: live turnout per open vote — ballots cast vs voting-eligible
         # members currently present, plus who hasn't voted yet (names only;
         # reveals participation, never choices — anonymous-vote safe).
-        _present_voters = [
-            m['member'] for m in members_attendance
-            if m['status'] in ('present', 'late') and m['member'].can_vote
-        ]
         # One query for all open votes instead of one per bill (07-16 N+1 nit).
         _open_legs = [
             leg for leg in available_legislation
             if not leg.voting_closed and leg.voting_has_started()
         ]
-        _voters_by_leg = {}
-        for _leg_id, _user_pk in Vote.objects.filter(
-                legislation__in=_open_legs).values_list('legislation_id', 'user'):
-            _voters_by_leg.setdefault(_leg_id, set()).add(_user_pk)
+        _turnout = chapter_votes.turnout(members_attendance, _open_legs)
         for leg in _open_legs:
-            _voter_pks = _voters_by_leg.get(leg.id, set())
-            leg.turnout_info = {
-                'voted': len(_voter_pks),
-                'present': len(_present_voters),
-                'not_voted': [m for m in _present_voters if m.pk not in _voter_pks],
-            }
+            leg.turnout_info = _turnout[leg.id]
 
     # v3.14.0: legislation the user already voted on — the template shows a
     # "vote recorded" state instead of re-offering the ballot form
@@ -507,54 +277,15 @@ def open_legislation_now(request, legislation_id):
     poll cycle (votable_ids reload).
     """
     legislation = get_object_or_404(Legislation, id=legislation_id)
-    if request.user != legislation.posted_by and not request.user.is_admin:
+    if not chapter_votes.can_run_vote(request.user, legislation):
         return HttpResponseForbidden("Only the uploader or an admin can open this legislation.")
-    if legislation.voting_closed:
-        messages.error(request, "Voting on this legislation has already ended.")
+    # v4.4.2: src/chapter_votes.py, shared with the app.
+    try:
+        level, message = chapter_votes.open_now(legislation, request.user, request.POST.get('mode'), request)
+    except chapter_votes.ChapterVoteError as exc:
+        messages.error(request, exc.message)
         return redirect('vote')
-
-    mode = 'show' if request.POST.get('mode') == 'show' else 'open'
-    now = timezone.now()
-    update_fields = []
-
-    if legislation.available_at and legislation.available_at > now:
-        legislation.available_at = now
-        update_fields.append('available_at')
-    if mode == 'open':
-        if legislation.voting_starts_at and legislation.voting_starts_at > now:
-            legislation.voting_starts_at = now
-            update_fields.append('voting_starts_at')
-        elif legislation.voting_manual_open and not legislation.voting_starts_at:
-            # Manual-open mode: this click IS the act of opening voting
-            legislation.voting_starts_at = now
-            update_fields.append('voting_starts_at')
-
-    if update_fields:
-        legislation.save(update_fields=update_fields)
-        ActivityLog.log_activity(
-            action_type='legislation_created',
-            user=request.user,
-            description=(
-                f'{request.user.name} opened "{legislation.title}" early '
-                f'({"voting started" if mode == "open" else "made visible"} via Now button)'
-            ),
-            request=request,
-            object_type='Legislation',
-            object_id=legislation.id,
-            object_repr=legislation.title,
-            metadata={'action': 'open_now', 'mode': mode,
-                      'fields_advanced': update_fields},
-        )
-        if legislation.voting_has_started():
-            messages.success(request, f'"{legislation.title}" is now open for voting.')
-        else:
-            messages.success(
-                request,
-                f'"{legislation.title}" is now visible; voting opens at its scheduled time.'
-            )
-        broadcast_vote_event('opened', legislation.id)
-    else:
-        messages.info(request, "This legislation is already open.")
+    getattr(messages, level)(request, message)
     return redirect('vote')
 
 
@@ -580,17 +311,7 @@ def vote_tally_json(request):
             tallies[leg.id] = {'closed': False}
             continue
 
-        votes = Vote.objects.filter(legislation=leg)
-        if leg.vote_mode == 'plurality':
-            tally = {opt: votes.filter(vote_choice=opt).count() for opt in (leg.plurality_options or [])}
-            tally['total'] = votes.count()
-        else:
-            tally = {
-                'yes': votes.filter(vote_choice='yes').count(),
-                'no': votes.filter(vote_choice='no').count(),
-                'abstain': votes.filter(vote_choice='abstain').count(),
-                'total': votes.count(),
-            }
+        tally = chapter_votes.owner_tally(leg)
         tally['closed'] = False
         tallies[leg.id] = tally
 

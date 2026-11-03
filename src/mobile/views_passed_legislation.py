@@ -25,8 +25,10 @@ the pledge restriction on ``passed_legislation_detail`` applies to it. The
 list's per-bill present-members roster is shown to Officers only (the page's
 ``member_type == 'Officer'`` check, not admins); the detail page shows it to
 every member, as the website does. The officer-only parts of the page (Add
-Legislation, editing the officer note, assigning a passed appointment) stay on
-the website: ``can_manage`` and each row's ``links`` point there.
+Legislation, editing the officer note, assigning a passed appointment) are
+native since v4.4.2 (src/mobile/views_legislation_manage.py); ``can_manage``
+says who sees them, and each row's ``links`` still carry the site paths older
+builds open.
 
 A bill still on the ballot (``on_ballot``) opens in the app's vote screen
 (``votes/<id>/``, src/mobile/views_votes.py), which serves only those.
@@ -246,5 +248,31 @@ class PassedLegislationDetailView(MobileAPIView):
             'present_members': [a.user.name for a in ctx.get('present_members') or []],
             'roll_call': [{'name': v.user.name, 'choice': v.vote_choice}
                           for v in ctx.get('individual_votes') or []],
+            # v4.4.2: what the viewer may do to it natively (each the web view's own rule).
+            'actions': bill_actions(leg, request.user),
             'links': {'page': reverse('passed_legislation_detail', kwargs={'pk': leg.id})},
         })
+
+
+def bill_actions(leg, user):
+    """Which of the website's bill tools ``user`` may use on ``leg`` (views_legislation_manage)."""
+    from src import chapter_votes as cv
+    from src.mobile.views_legislation_manage import can_runoff
+    from src.permissions import user_is_officer_or_chair
+    officer = user_is_officer_or_chair(user)
+    uploader = user.pk == leg.posted_by_id
+    try:
+        cv.edit_access(user, leg)
+        editable = True
+    except cv.ChapterVoteError:
+        editable = False
+    return {
+        'edit': editable,
+        'note': cv.can_manage_tracker(user),
+        'end': bool(cv.can_run_vote(user, leg) and not leg.voting_closed and leg.voting_has_started()),
+        'reopen': bool(officer and uploader and leg.voting_closed and leg.status != 'passed'),
+        'runoff': bool(leg.voting_closed and can_runoff(leg, user)),
+        'new_version': bool(officer and uploader and leg.status == 'passed'),
+        'assign': bool(officer and leg.legislation_type == 'appointment' and leg.appointment_role_id
+                       and not cv.not_assignable(leg)),
+    }

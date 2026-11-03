@@ -107,10 +107,12 @@ def _script_safe_json(data):
     return json.dumps(data).replace('<', '\\u003c')
 
 
-def _apply_task_fields(request, task):
+def _apply_task_fields(data, task):
     """
-    Read the task form into `task`. Not saved here, and `assigned_to` (an M2M)
-    is not touched here either — the caller does both, so it can wrap them in
+    Read the task form (`request.POST`, or the app's JSON through
+    `FormData` in src/mobile/views_education_manage.py) into `task`. Not
+    saved here, and `assigned_to` (an M2M) is not touched here either — the
+    caller does both (`save_new_task` / `save_task`), so it can wrap them in
     one `transaction.atomic()` alongside anything else it needs to do.
 
     ⚠️ SHARED BY ADD AND EDIT ON PURPOSE, mirroring `_apply_meeting_fields`
@@ -129,25 +131,28 @@ def _apply_task_fields(request, task):
     """
     from django.utils.dateparse import parse_date, parse_datetime
 
-    title = (request.POST.get('title') or '').strip()
+    title = (data.get('title') or '').strip()
     if not title:
         return 'Title is required'
+    # The column is 200 wide; longer was a database error (a 500) on PostgreSQL.
+    if len(title) > PledgeTask._meta.get_field('title').max_length:
+        return 'Title must be 200 characters or fewer'
 
     _valid_task_types = {c[0] for c in PledgeTask.TASK_TYPES}
     _valid_phases = {c[0] for c in PledgeTask.PHASE_CHOICES}
-    task_type = request.POST.get('task_type', 'task')
+    task_type = data.get('task_type', 'task')
     if task_type not in _valid_task_types:
         task_type = 'task'
-    phase = request.POST.get('phase', 'all')
+    phase = data.get('phase', 'all')
     if phase not in _valid_phases:
         phase = 'all'
 
     _valid_activation_modes = {c[0] for c in PledgeTask.ACTIVATION_MODES}
-    activation_mode = request.POST.get('activation_mode', 'immediate')
+    activation_mode = data.get('activation_mode', 'immediate')
     if activation_mode not in _valid_activation_modes:
         activation_mode = 'immediate'
 
-    activates_at_raw = (request.POST.get('activates_at') or '').strip()
+    activates_at_raw = (data.get('activates_at') or '').strip()
     activates_at = None
     if activation_mode == 'timed' and activates_at_raw:
         parsed = parse_datetime(activates_at_raw)
@@ -155,26 +160,26 @@ def _apply_task_fields(request, task):
             parsed = timezone.make_aware(parsed)
         activates_at = parsed
 
-    due_date_raw = (request.POST.get('due_date') or '').strip()
+    due_date_raw = (data.get('due_date') or '').strip()
     due_date = parse_date(due_date_raw) if due_date_raw else None
 
     task.title = title
-    task.description = (request.POST.get('description') or '').strip()
+    task.description = (data.get('description') or '').strip()
     task.task_type = task_type
     task.phase = phase
     task.due_date = due_date
-    task.is_required = request.POST.get('is_required') == 'on'
-    task.points = _parse_non_negative_int(request.POST.get('points'), 0)
+    task.is_required = data.get('is_required') == 'on'
+    task.points = _parse_non_negative_int(data.get('points'), 0)
     # Blank = not scored. `_parse_non_negative_int` would turn '' into 0, and a
     # task scored out of 0 is not the same thing as an unscored one.
-    task.max_score = _parse_optional_positive_int(request.POST.get('max_score'))
+    task.max_score = _parse_optional_positive_int(data.get('max_score'))
     # v3.48.0 — quizzes only; anything else (or a bad value) is 'full'.
-    points_mode = request.POST.get('points_mode', 'full')
+    points_mode = data.get('points_mode', 'full')
     if task_type != 'quiz' or points_mode not in {c[0] for c in PledgeTask.POINTS_MODE_CHOICES}:
         points_mode = 'full'
     task.points_mode = points_mode
-    task.show_analysis_to_pledges = request.POST.get('show_analysis_to_pledges') == 'on'
-    task.display_order = _parse_non_negative_int(request.POST.get('display_order'), 0)
+    task.show_analysis_to_pledges = data.get('show_analysis_to_pledges') == 'on'
+    task.display_order = _parse_non_negative_int(data.get('display_order'), 0)
     task.activation_mode = activation_mode
     task.activates_at = activates_at
     if activation_mode == 'immediate':
@@ -199,7 +204,7 @@ def _apply_task_fields(request, task):
     # only has to not be stricter than they are.
     task.song = None
     if task_type == 'song':
-        song_pk = _parse_optional_positive_int(request.POST.get('song'))
+        song_pk = _parse_optional_positive_int(data.get('song'))
         if song_pk:
             task.song = Song.objects.filter(pk=song_pk).first()
     return None
@@ -568,6 +573,27 @@ def education_overview(committee):
     }
 
 
+def big_board(pledges):
+    """
+    The Bigs section: (rows of {pledge, assignment or None}, the brothers who
+    can be a big, how many pairings are still drafts). Shared by
+    `education_home` and the app's Bigs screen. Callers check
+    `can_manage_tasks` first: drafts are for that permission only.
+    """
+    from src.big_reveal import eligible_bigs
+    assignments = {
+        a.pledge_id: a
+        for a in PledgeBigAssignment.objects
+        .filter(pledge__in=pledges)
+        .select_related('big')
+        .defer(*member_defer('big'))
+    }
+    rows = [{'pledge': p, 'assignment': assignments.get(p.pk)} for p in pledges]
+    unrevealed = sum(1 for a in assignments.values() if not a.is_revealed)
+    candidates = list(eligible_bigs().only('user_id', 'name', 'preferred_name'))
+    return rows, candidates, unrevealed
+
+
 @login_required
 @require_page_enabled('committee_home')
 def education_home(request, code):
@@ -613,17 +639,7 @@ def education_home(request, code):
     # even queried for anyone else.
     big_rows, big_candidates, unrevealed_big_count = [], [], 0
     if access['can_manage_tasks']:
-        from src.big_reveal import eligible_bigs
-        assignments = {
-            a.pledge_id: a
-            for a in PledgeBigAssignment.objects
-            .filter(pledge__in=pledges)
-            .select_related('big')
-            .defer(*member_defer('big'))
-        }
-        big_rows = [{'pledge': p, 'assignment': assignments.get(p.pk)} for p in pledges]
-        unrevealed_big_count = sum(1 for a in assignments.values() if not a.is_revealed)
-        big_candidates = list(eligible_bigs().only('user_id', 'name', 'preferred_name'))
+        big_rows, big_candidates, unrevealed_big_count = big_board(pledges)
 
     context = {
         'committee': committee,
@@ -652,7 +668,7 @@ def education_home(request, code):
         'all_pledges': pledges,
         'quiz_questions_map': quiz_questions_map,
         # For the Add Task modal's song picker (task_type='song').
-        'songs': Song.objects.filter(is_active=True).select_related('category').order_by('title'),
+        'songs': task_song_choices(),
         # For the shared "Adjust Points" modal's history panel — see
         # `_script_safe_json`'s docstring for why this isn't rendered with
         # the bare `|safe` filter.
@@ -660,6 +676,30 @@ def education_home(request, code):
         'POINT_ADJUSTMENT_LIMIT': POINT_ADJUSTMENT_LIMIT,
     }
     return render(request, 'committee/education_dashboard.html', context)
+
+
+def adjust_points(committee, pledge, user, data):
+    """
+    Record one manual point adjustment from the Adjust Points form (`data`:
+    `current_delta`, `max_delta`, `reason`). Returns (adjustment, None), or
+    (None, error message). Shared by `education_adjust_points` and the app.
+    """
+    current_delta = _parse_signed_int(data.get('current_delta'))
+    max_delta = _parse_signed_int(data.get('max_delta'))
+    if current_delta == 0 and max_delta == 0:
+        return None, 'Enter a nonzero amount to adjust current or max points by.'
+    if abs(current_delta) > POINT_ADJUSTMENT_LIMIT or abs(max_delta) > POINT_ADJUSTMENT_LIMIT:
+        return None, f'Adjustments are limited to ±{POINT_ADJUSTMENT_LIMIT} points at a time.'
+    reason = (data.get('reason') or '').strip()[:200]
+    adjustment = PledgePointAdjustment.objects.create(
+        committee=committee,
+        pledge=pledge,
+        current_delta=current_delta,
+        max_delta=max_delta,
+        reason=reason,
+        created_by=user,
+    )
+    return adjustment, None
 
 
 @login_required
@@ -693,30 +733,9 @@ def education_adjust_points(request, code, pledge_pk):
 
     pledge = get_object_or_404(ParliamentUser, pk=pledge_pk, member_type='Pledge')
 
-    current_delta = _parse_signed_int(request.POST.get('current_delta'))
-    max_delta = _parse_signed_int(request.POST.get('max_delta'))
-    if current_delta == 0 and max_delta == 0:
-        return JsonResponse(
-            {'error': 'Enter a nonzero amount to adjust current or max points by.'},
-            status=400,
-        )
-
-    if abs(current_delta) > POINT_ADJUSTMENT_LIMIT or abs(max_delta) > POINT_ADJUSTMENT_LIMIT:
-        return JsonResponse(
-            {'error': f'Adjustments are limited to ±{POINT_ADJUSTMENT_LIMIT} points at a time.'},
-            status=400,
-        )
-
-    reason = (request.POST.get('reason') or '').strip()[:200]
-
-    adjustment = PledgePointAdjustment.objects.create(
-        committee=committee,
-        pledge=pledge,
-        current_delta=current_delta,
-        max_delta=max_delta,
-        reason=reason,
-        created_by=request.user,
-    )
+    adjustment, error = adjust_points(committee, pledge, request.user, request.POST)
+    if error:
+        return JsonResponse({'error': error}, status=400)
     return JsonResponse({
         'id': adjustment.pk,
         'current_delta': adjustment.current_delta,
@@ -748,6 +767,42 @@ def education_delete_point_adjustment(request, code, adjustment_pk):
     return JsonResponse({'deleted': True})
 
 
+def save_new_task(task, assigned_pks):
+    """
+    Save a task `_apply_task_fields` has just filled in, and assign it to the
+    pledges in `assigned_pks` (empty = all pledges). Shared by
+    `education_add_task` and the app.
+    """
+    # New tasks in manual/timed mode start as drafts. `_apply_task_fields`
+    # only forces `is_published` True for immediate mode on purpose (see its
+    # docstring) — a brand new task has no already-published state to
+    # protect, so the create path closes the other half here explicitly.
+    if task.activation_mode != 'immediate':
+        task.is_published = False
+    task.save()
+
+    # Specific pledge assignment (empty = all pledges)
+    if assigned_pks:
+        task.assigned_to.set(
+            ParliamentUser.objects.filter(pk__in=assigned_pks, member_type='Pledge')
+        )
+
+
+def save_task(task, assigned_pks):
+    """
+    Save an edited task and replace who it is assigned to. Shared by
+    `education_edit_task` and the app.
+    """
+    with transaction.atomic():
+        task.save()
+        # `set()` handles all three cases — added, removed, cleared — so
+        # unticking every pledge actually reopens the task to everyone
+        # rather than silently leaving the old assignment in place.
+        task.assigned_to.set(
+            ParliamentUser.objects.filter(pk__in=assigned_pks, member_type='Pledge')
+        )
+
+
 @login_required
 @require_page_enabled('committee_home')
 @require_POST
@@ -758,23 +813,10 @@ def education_add_task(request, code):
         return denied
 
     task = PledgeTask(created_by=request.user)
-    error = _apply_task_fields(request, task)
+    error = _apply_task_fields(request.POST, task)
     if error:
         return JsonResponse({'error': error}, status=400)
-    # New tasks in manual/timed mode start as drafts. `_apply_task_fields`
-    # only forces `is_published` True for immediate mode on purpose (see its
-    # docstring) — a brand new task has no already-published state to
-    # protect, so the create path closes the other half here explicitly.
-    if task.activation_mode != 'immediate':
-        task.is_published = False
-    task.save()
-
-    # Specific pledge assignment (empty = all pledges)
-    assigned_pks = request.POST.getlist('assigned_to')
-    if assigned_pks:
-        task.assigned_to.set(
-            ParliamentUser.objects.filter(pk__in=assigned_pks, member_type='Pledge')
-        )
+    save_new_task(task, request.POST.getlist('assigned_to'))
 
     # ⚠️ v3.31.6 — Mason: a chair who just created a quiz still has to find it
     # in the grid and click "Questions" to actually put questions on it,
@@ -789,6 +831,20 @@ def education_add_task(request, code):
             reverse('education_manage_quiz_questions', args=[code, task.pk]) + '?created=1'
         )
     return redirect('education_home', code=code)
+
+
+def task_song_choices(task=None):
+    """
+    The songs a task form offers. Editing includes the task's own linked song
+    even if it has since been soft-deleted from the songbook — otherwise it
+    silently vanishes from the dropdown and saving the form (without the
+    chair touching this field at all) would clear a link they never meant to
+    remove. Shared by the web forms and the app's.
+    """
+    q = Q(is_active=True)
+    if task is not None and task.song_id:
+        q |= Q(pk=task.song_id)
+    return Song.objects.filter(q).select_related('category').order_by('title')
 
 
 @login_required
@@ -810,19 +866,10 @@ def education_edit_task(request, code, task_pk):
     task = get_object_or_404(PledgeTask, pk=task_pk, is_active=True)
 
     if request.method == 'POST':
-        error = _apply_task_fields(request, task)
+        error = _apply_task_fields(request.POST, task)
         if error:
             return JsonResponse({'error': error}, status=400)
-        with transaction.atomic():
-            task.save()
-            # `set()` handles all three cases — added, removed, cleared — so
-            # unticking every pledge actually reopens the task to everyone
-            # rather than silently leaving the old assignment in place.
-            task.assigned_to.set(
-                ParliamentUser.objects.filter(
-                    pk__in=request.POST.getlist('assigned_to'), member_type='Pledge',
-                )
-            )
+        save_task(task, request.POST.getlist('assigned_to'))
         return redirect('education_home', code=code)
 
     return render(request, 'committee/education_task_form.html', {
@@ -839,9 +886,7 @@ def education_edit_task(request, code, task_pk):
         # soft-deleted from the songbook — otherwise it silently vanishes
         # from the dropdown and saving the form (without the chair touching
         # this field at all) would clear a link they never meant to remove.
-        'songs': Song.objects.filter(
-            Q(is_active=True) | Q(pk=task.song_id)
-        ).select_related('category').order_by('title'),
+        'songs': task_song_choices(task),
     })
 
 
@@ -985,6 +1030,44 @@ def education_toggle_completion(request, code, task_pk, pledge_pk):
     })
 
 
+def update_page_restriction(url_name, display_name, phases, user):
+    """
+    Create or update the restriction on one page. Returns (restriction, None),
+    or (None, error message). Shared by `education_update_page_restriction`
+    and the app.
+    """
+    url_name = (url_name or '').strip()
+    if not url_name:
+        return None, 'url_name required'
+    # v3.50.0 — restrictions are now enforced on every page (see
+    # src/middleware/pledge_pages.py), so the name has to be a real page: a
+    # typo used to save and silently restrict nothing.
+    from src.middleware.pledge_pages import is_always_allowed, restrictable_url_names
+    if is_always_allowed(url_name):
+        return None, f'"{url_name}" can\'t be restricted: pledges need it to sign in or set up their account.'
+    if url_name not in restrictable_url_names() and not PledgePageRestriction.objects.filter(url_name=url_name).exists():
+        return None, f'There is no page called "{url_name}". Pick one from the list.'
+
+    _valid_phases = {'all', '1', '2', '3'}
+    phases = [p for p in phases if p in _valid_phases]
+    display_name = (display_name or '').strip()
+
+    restriction, _ = PledgePageRestriction.objects.get_or_create(url_name=url_name)
+    restriction.display_name = display_name or restriction.display_name
+    restriction.allowed_phases = phases
+    restriction.updated_by = user
+    restriction.save()
+    PledgePageRestriction.invalidate_cache(url_name)
+    return restriction, None
+
+
+def delete_page_restriction(restriction):
+    """Remove a restriction (the page is open to every pledge again: no row means open) and its cache entry."""
+    url_name = restriction.url_name
+    restriction.delete()
+    PledgePageRestriction.invalidate_cache(url_name)
+
+
 @login_required
 @require_page_enabled('committee_home')
 @require_POST
@@ -999,45 +1082,27 @@ def education_update_page_restriction(request, code):
     if denied:
         return denied
 
-    url_name = request.POST.get('url_name', '').strip()
-    if not url_name:
-        return JsonResponse({'error': 'url_name required'}, status=400)
-    # v3.50.0 — restrictions are now enforced on every page (see
-    # src/middleware/pledge_pages.py), so the name has to be a real page: a
-    # typo used to save and silently restrict nothing.
-    from src.middleware.pledge_pages import is_always_allowed, restrictable_url_names
-    if is_always_allowed(url_name):
-        return JsonResponse({'error': f'"{url_name}" can\'t be restricted: pledges need it to sign in or set up their account.'}, status=400)
-    if url_name not in restrictable_url_names() and not PledgePageRestriction.objects.filter(url_name=url_name).exists():
-        return JsonResponse({'error': f'There is no page called "{url_name}". Pick one from the list.'}, status=400)
-
-    _valid_phases = {'all', '1', '2', '3'}
-    phases = [p for p in request.POST.getlist('phases') if p in _valid_phases]
-    display_name = request.POST.get('display_name', '').strip()
-
-    restriction, _ = PledgePageRestriction.objects.get_or_create(url_name=url_name)
-    restriction.display_name = display_name or restriction.display_name
-    restriction.allowed_phases = phases
-    restriction.updated_by = request.user
-    restriction.save()
-    PledgePageRestriction.invalidate_cache(url_name)
-
-    return JsonResponse({'url_name': url_name, 'allowed_phases': phases})
+    restriction, error = update_page_restriction(
+        request.POST.get('url_name', ''), request.POST.get('display_name', ''),
+        request.POST.getlist('phases'), request.user)
+    if error:
+        return JsonResponse({'error': error}, status=400)
+    return JsonResponse({'url_name': restriction.url_name, 'allowed_phases': restriction.allowed_phases})
 
 
 @login_required
 @require_page_enabled('committee_home')
 @require_POST
 def education_delete_page_restriction(request, code, restriction_pk):
-    """Remove a PledgePageRestriction entry (page returns to fully blocked). Requires `can_manage_tasks`."""
+    """
+    Remove a PledgePageRestriction entry. No row means open, so every pledge
+    can open the page again. Requires `can_manage_tasks`.
+    """
     _, access = _education_committee_or_404(code, request.user)
     denied = _require_education_permission(access, 'can_manage_tasks')
     if denied:
         return denied
-    obj = get_object_or_404(PledgePageRestriction, pk=restriction_pk)
-    url_name = obj.url_name
-    obj.delete()
-    PledgePageRestriction.invalidate_cache(url_name)
+    delete_page_restriction(get_object_or_404(PledgePageRestriction, pk=restriction_pk))
     return JsonResponse({'deleted': True})
 
 
@@ -1093,6 +1158,22 @@ def education_delete_task(request, code, task_pk):
 
 # ── Quiz question management ──────────────────────────────────────────────────
 
+def apply_question_fields(data, question):
+    """
+    Read the question form (`question_text`, `answer_hint`, `display_order`)
+    into `question`; not saved. A blank or bad order keeps the question's
+    current one (0 for a new question). Shared by add and edit, here and in
+    the app. Returns an error message, or None.
+    """
+    question_text = (data.get('question_text') or '').strip()
+    if not question_text:
+        return 'Question text is required.'
+    question.question_text = question_text
+    question.answer_hint = (data.get('answer_hint') or '').strip()
+    question.display_order = _parse_non_negative_int(data.get('display_order'), question.display_order)
+    return None
+
+
 @login_required
 @require_page_enabled('committee_home')
 @require_POST
@@ -1108,19 +1189,11 @@ def education_add_quiz_question(request, code, task_pk):
         return denied
     task = get_object_or_404(PledgeTask, pk=task_pk, is_active=True, task_type='quiz')
 
-    question_text = request.POST.get('question_text', '').strip()
-    if not question_text:
-        return JsonResponse({'error': 'Question text is required.'}, status=400)
-
-    answer_hint = request.POST.get('answer_hint', '').strip()
-    display_order = _parse_non_negative_int(request.POST.get('display_order'), 0)
-
-    question = PledgeTaskQuestion.objects.create(
-        task=task,
-        question_text=question_text,
-        answer_hint=answer_hint,
-        display_order=display_order,
-    )
+    question = PledgeTaskQuestion(task=task, display_order=0)
+    error = apply_question_fields(request.POST, question)
+    if error:
+        return JsonResponse({'error': error}, status=400)
+    question.save()
     return JsonResponse({
         'question_id': question.pk,
         'question_text': question.question_text,
@@ -1151,15 +1224,9 @@ def education_edit_quiz_question(request, code, task_pk, question_pk):
     task = get_object_or_404(PledgeTask, pk=task_pk, is_active=True, task_type='quiz')
     question = get_object_or_404(PledgeTaskQuestion, pk=question_pk, task=task)
 
-    question_text = request.POST.get('question_text', '').strip()
-    if not question_text:
-        return JsonResponse({'error': 'Question text is required.'}, status=400)
-
-    question.question_text = question_text
-    question.answer_hint = request.POST.get('answer_hint', '').strip()
-    question.display_order = _parse_non_negative_int(
-        request.POST.get('display_order'), question.display_order,
-    )
+    error = apply_question_fields(request.POST, question)
+    if error:
+        return JsonResponse({'error': error}, status=400)
     question.save(update_fields=['question_text', 'answer_hint', 'display_order'])
 
     return JsonResponse({
@@ -1333,18 +1400,32 @@ def education_add_meeting(request, code):
     if denied:
         return denied
 
-    # ⚠️ `visible_to=None` means "everyone", which is what Mason asked for:
-    # brothers should see when the pledge class meets. Only ATTENDANCE is
-    # pledge-only, and that is enforced by the attendance table, not by
-    # hiding the event.
-    event = Event(created_by=request.user, visible_to=None)
-    meeting = EducationMeeting(committee=committee, created_by=request.user)
+    meeting, event = new_meeting(committee, request.user)
 
     # Shared with the edit view — see `_apply_meeting_fields`.
-    error = _apply_meeting_fields(request, meeting, event)
+    error = _apply_meeting_fields(request.POST, meeting, event)
     if error:
         return JsonResponse({'error': error}, status=400)
+    save_new_meeting(meeting, event, request.POST.getlist('homework'))
+    return redirect('education_home', code=code)
 
+
+def new_meeting(committee, user):
+    """
+    An unsaved (meeting, event) pair for `_apply_meeting_fields` to fill in.
+
+    ⚠️ `visible_to=None` means "everyone", which is what Mason asked for:
+    brothers should see when the pledge class meets. Only ATTENDANCE is
+    pledge-only, and that is enforced by the attendance table, not by
+    hiding the event.
+    """
+    event = Event(created_by=user, visible_to=None)
+    meeting = EducationMeeting(committee=committee, created_by=user)
+    return meeting, event
+
+
+def save_new_meeting(meeting, event, homework_pks):
+    """Save a new meeting and its calendar event. Shared by `education_add_meeting` and the app."""
     # ⚠️ v3.21.5 — ATOMIC, because a meeting is two rows and a half-written one
     # is worse than none. `EducationMeeting.event` is a OneToOne, so the Event
     # has to be saved first; if the second save raised, the Event survived as a
@@ -1357,17 +1438,37 @@ def education_add_meeting(request, code):
         event.save()
         meeting.event = event
         meeting.save()
-
-        homework_pks = request.POST.getlist('homework')
         if homework_pks:
             meeting.homework.set(PledgeTask.objects.filter(pk__in=homework_pks, is_active=True))
 
-    return redirect('education_home', code=code)
+
+def save_meeting(meeting, homework_pks):
+    """Save an edited meeting, its event and its homework. Shared by `education_edit_meeting` and the app."""
+    # Atomic for the same reason as the create path, one degree milder: a
+    # failure between these two saves leaves the calendar entry showing a
+    # new time and the education dashboard showing the old one.
+    with transaction.atomic():
+        meeting.event.save()
+        meeting.save()
+        # `set()` handles all three cases — added, removed, cleared — so an
+        # unticked box actually unassigns rather than silently persisting.
+        meeting.homework.set(PledgeTask.objects.filter(pk__in=homework_pks, is_active=True))
 
 
-def _apply_meeting_fields(request, meeting, event):
+def delete_meeting(meeting):
     """
-    Read the meeting form into `event` and `meeting`. Neither is saved here.
+    Delete a meeting through its calendar entry. The Event owns the calendar
+    entry and the meeting is a OneToOne on it, so deleting the event cascades
+    to the meeting and its attendance. Deleting the meeting alone would strand
+    a pledge-education event on the calendar with nothing behind it.
+    """
+    meeting.event.delete()
+
+
+def _apply_meeting_fields(data, meeting, event):
+    """
+    Read the meeting form (`request.POST`, or the app's JSON) into `event` and
+    `meeting`. Neither is saved here.
 
     ⚠️ SHARED BY CREATE AND EDIT ON PURPOSE (v3.20.1). Two copies of this
     parsing would drift the first time a field was added to one form, and the
@@ -1377,11 +1478,16 @@ def _apply_meeting_fields(request, meeting, event):
     """
     from django.utils.dateparse import parse_datetime
 
-    title = (request.POST.get('title') or '').strip()
+    title = (data.get('title') or '').strip()
     if not title:
         return 'Title is required'
+    # The event's columns are 200 and 300 wide; longer was a 500 on PostgreSQL.
+    if len(title) > Event._meta.get_field('title').max_length:
+        return 'Title must be 200 characters or fewer'
+    if len((data.get('location') or '').strip()) > Event._meta.get_field('location').max_length:
+        return 'Location must be 300 characters or fewer'
 
-    raw_when = (request.POST.get('date_time') or '').strip()
+    raw_when = (data.get('date_time') or '').strip()
     when = parse_datetime(raw_when) if raw_when else None
     if when is None:
         return 'A valid date and time is required'
@@ -1389,19 +1495,19 @@ def _apply_meeting_fields(request, meeting, event):
         when = timezone.make_aware(when)
 
     _valid_types = {c[0] for c in EducationMeeting.MEETING_TYPES}
-    meeting_type = request.POST.get('meeting_type', 'meeting')
+    meeting_type = data.get('meeting_type', 'meeting')
     if meeting_type not in _valid_types:
         meeting_type = 'meeting'
 
     event.title = title
-    event.description = (request.POST.get('description') or '').strip()
+    event.description = (data.get('description') or '').strip()
     event.date_time = when
-    event.location = (request.POST.get('location') or '').strip()
+    event.location = (data.get('location') or '').strip()
 
     meeting.meeting_type = meeting_type
-    meeting.attendance_required = request.POST.get('attendance_required') == 'on'
-    meeting.points = _parse_non_negative_int(request.POST.get('points'), 0)
-    meeting.notes = (request.POST.get('notes') or '').strip()
+    meeting.attendance_required = data.get('attendance_required') == 'on'
+    meeting.points = _parse_non_negative_int(data.get('points'), 0)
+    meeting.notes = (data.get('notes') or '').strip()
     return None
 
 
@@ -1432,21 +1538,10 @@ def education_edit_meeting(request, code, meeting_pk):
     )
 
     if request.method == 'POST':
-        error = _apply_meeting_fields(request, meeting, meeting.event)
+        error = _apply_meeting_fields(request.POST, meeting, meeting.event)
         if error:
             return JsonResponse({'error': error}, status=400)
-
-        # Atomic for the same reason as the create path, one degree milder: a
-        # failure between these two saves leaves the calendar entry showing a
-        # new time and the education dashboard showing the old one.
-        with transaction.atomic():
-            meeting.event.save()
-            meeting.save()
-            # `set()` handles all three cases — added, removed, cleared — so an
-            # unticked box actually unassigns rather than silently persisting.
-            meeting.homework.set(
-                PledgeTask.objects.filter(pk__in=request.POST.getlist('homework'), is_active=True)
-            )
+        save_meeting(meeting, request.POST.getlist('homework'))
         return redirect('education_home', code=code)
 
     return render(request, 'committee/education_meeting_form.html', {
@@ -1477,12 +1572,7 @@ def education_delete_meeting(request, code, meeting_pk):
     if denied:
         return denied
 
-    meeting = get_object_or_404(EducationMeeting, pk=meeting_pk, committee=committee)
-    # The Event owns the calendar entry and the meeting is a OneToOne on it, so
-    # deleting the event cascades to the meeting and its attendance. Deleting
-    # the meeting alone would strand a pledge-education event on the calendar
-    # with nothing behind it.
-    meeting.event.delete()
+    delete_meeting(get_object_or_404(EducationMeeting, pk=meeting_pk, committee=committee))
     return redirect('education_home', code=code)
 
 
@@ -1732,8 +1822,19 @@ def education_duplicate_task(request, code, task_pk):
     denied = _require_education_permission(access, 'can_manage_tasks')
     if denied:
         return denied
-    original = get_object_or_404(PledgeTask, pk=task_pk, is_active=True)
+    clone = duplicate_task(get_object_or_404(PledgeTask, pk=task_pk, is_active=True), request.user)
+    return JsonResponse({
+        'duplicated': True,
+        'task_pk': clone.pk,
+        'title': clone.title,
+    })
 
+
+def duplicate_task(original, user):
+    """
+    Clone `original` as a draft (see `education_duplicate_task` for what is and
+    isn't copied). Shared by that view and the app. Returns the clone.
+    """
     clone = PledgeTask.objects.create(
         title=f'{original.title} (copy)',
         description=original.description,
@@ -1748,7 +1849,7 @@ def education_duplicate_task(request, code, task_pk):
         due_date=None,
         activation_mode='manual',
         is_published=False,
-        created_by=request.user,
+        created_by=user,
         song=original.song,
     )
     clone.assigned_to.set(original.assigned_to.all())
@@ -1763,12 +1864,7 @@ def education_duplicate_task(request, code, task_pk):
             answer_hint=question.answer_hint,
             display_order=question.display_order,
         )
-
-    return JsonResponse({
-        'duplicated': True,
-        'task_pk': clone.pk,
-        'title': clone.title,
-    })
+    return clone
 
 
 @login_required
@@ -2013,11 +2109,21 @@ def education_review_absence(request, code, request_pk):
     decision = (request.POST.get('decision') or '').strip()
     if decision not in ('approved', 'denied'):
         return JsonResponse({'error': 'Unknown decision'}, status=400)
+    review_absence(absence, request.user, decision, request.POST.get('review_note'))
+    return redirect('education_home', code=code)
 
+
+def review_absence(absence, user, decision, review_note):
+    """
+    Record a decision (`approved` or `denied`, checked by the caller) on an
+    absence request; an approval marks him excused at the meeting. Shared by
+    `education_review_absence` and the app.
+    """
+    now = timezone.now()
     absence.status = decision
-    absence.reviewed_by = request.user
-    absence.reviewed_at = timezone.now()
-    absence.review_note = (request.POST.get('review_note') or '').strip()
+    absence.reviewed_by = user
+    absence.reviewed_at = now
+    absence.review_note = (review_note or '').strip()
     absence.save(update_fields=['status', 'reviewed_by', 'reviewed_at', 'review_note'])
 
     if decision == 'approved':
@@ -2026,12 +2132,10 @@ def education_review_absence(request, code, request_pk):
             pledge=absence.pledge,
             defaults={
                 'status': 'excused',
-                'marked_by': request.user,
-                'marked_at': timezone.now(),
+                'marked_by': user,
+                'marked_at': now,
             },
         )
-
-    return redirect('education_home', code=code)
 
 
 # ── Pledge bigs (v3.39.0, 10-01-26) ─────────────────────────────────────────
@@ -2069,27 +2173,40 @@ def _big_view_setup(request, code, pledge_pk):
 def education_set_big(request, code, pledge_pk):
     """Create or update a pledge's big pairing (draft, or timed reveal)."""
     from django.contrib import messages
-    from django.utils.dateparse import parse_datetime
-    from src.big_reveal import eligible_bigs, change_big
 
     committee, pledge, assignment, denied = _big_view_setup(request, code, pledge_pk)
     if denied:
         return denied
+    message, error = set_big(committee, pledge, assignment, request.user, request.POST)
+    if error:
+        messages.error(request, error)
+    else:
+        messages.success(request, message)
+    return _bigs_redirect(code)
 
-    big = eligible_bigs().filter(pk=(request.POST.get('big') or '').strip()).first()
+
+def set_big(committee, pledge, assignment, user, data):
+    """
+    Create or update `pledge`'s pairing from the form (`big`, `reveal_mode`,
+    `reveals_at`). `assignment` is his current one, or None. Returns
+    (success message, None) or (None, error message). Shared by
+    `education_set_big` and the app.
+    """
+    from django.utils.dateparse import parse_datetime
+    from src.big_reveal import eligible_bigs, change_big
+
+    big = eligible_bigs().filter(pk=(data.get('big') or '').strip()).first()
     if big is None or big.pk == pledge.pk:
-        messages.error(request, f'Pick an active brother as {pledge.name}\'s big.')
-        return _bigs_redirect(code)
+        return None, f'Pick an active brother as {pledge.name}\'s big.'
 
-    reveal_mode = request.POST.get('reveal_mode', 'manual')
+    reveal_mode = data.get('reveal_mode', 'manual')
     if reveal_mode not in {m for m, _ in PledgeBigAssignment.REVEAL_MODES}:
         reveal_mode = 'manual'
     reveals_at = None
     if reveal_mode == 'timed':
-        reveals_at = parse_datetime((request.POST.get('reveals_at') or '').strip())
+        reveals_at = parse_datetime((data.get('reveals_at') or '').strip())
         if reveals_at is None:
-            messages.error(request, 'Pick a date and time for a timed reveal.')
-            return _bigs_redirect(code)
+            return None, 'Pick a date and time for a timed reveal.'
         if timezone.is_naive(reveals_at):
             reveals_at = timezone.make_aware(reveals_at)
 
@@ -2097,10 +2214,9 @@ def education_set_big(request, code, pledge_pk):
         PledgeBigAssignment.objects.create(
             committee=committee, pledge=pledge, big=big,
             reveal_mode=reveal_mode, reveals_at=reveals_at,
-            created_by=request.user,
+            created_by=user,
         )
-        messages.success(request, f'Big set for {pledge.name}. Not visible outside this dashboard until revealed.')
-        return _bigs_redirect(code)
+        return f'Big set for {pledge.name}. Not visible outside this dashboard until revealed.', None
 
     if assignment.big_id != big.pk:
         change_big(assignment, big)
@@ -2108,8 +2224,7 @@ def education_set_big(request, code, pledge_pk):
         assignment.reveal_mode = reveal_mode
         assignment.reveals_at = reveals_at
         assignment.save(update_fields=['reveal_mode', 'reveals_at', 'updated_at'])
-    messages.success(request, f'Updated {pledge.name}\'s big.')
-    return _bigs_redirect(code)
+    return f'Updated {pledge.name}\'s big.', None
 
 
 @login_required
@@ -2136,21 +2251,31 @@ def education_reveal_big(request, code, pledge_pk):
 def education_unreveal_big(request, code, pledge_pk):
     """Take a revealed pairing back to a draft (e.g. revealed by mistake)."""
     from django.contrib import messages
-    from src.big_reveal import unreveal
 
     _, pledge, assignment, denied = _big_view_setup(request, code, pledge_pk)
     if denied:
         return denied
     if assignment is None:
         raise Http404
-    if assignment.is_revealed:
-        unreveal(assignment)
-        # Back to a manual draft, so a passed timed reveal doesn't immediately
-        # re-reveal it on the next beat tick.
-        assignment.reveal_mode = 'manual'
-        assignment.save(update_fields=['reveal_mode', 'updated_at'])
+    if unreveal_big(assignment):
         messages.success(request, f'{pledge.name}\'s big is hidden again (back to draft).')
     return _bigs_redirect(code)
+
+
+def unreveal_big(assignment):
+    """
+    Take a revealed pairing back to a manual draft. Returns False if it
+    wasn't revealed. Shared by `education_unreveal_big` and the app.
+    """
+    from src.big_reveal import unreveal
+    if not assignment.is_revealed:
+        return False
+    unreveal(assignment)
+    # Back to a manual draft, so a passed timed reveal doesn't immediately
+    # re-reveal it on the next beat tick.
+    assignment.reveal_mode = 'manual'
+    assignment.save(update_fields=['reveal_mode', 'updated_at'])
+    return True
 
 
 @login_required
@@ -2159,19 +2284,24 @@ def education_unreveal_big(request, code, pledge_pk):
 def education_delete_big(request, code, pledge_pk):
     """Remove a pairing. A revealed one is un-revealed first."""
     from django.contrib import messages
-    from src.big_reveal import unreveal
 
     _, pledge, assignment, denied = _big_view_setup(request, code, pledge_pk)
     if denied:
         return denied
     if assignment is None:
         raise Http404
+    delete_big(assignment)
+    messages.success(request, f'Removed {pledge.name}\'s big.')
+    return _bigs_redirect(code)
+
+
+def delete_big(assignment):
+    """Remove a pairing, un-revealing it first if it is live. Shared by `education_delete_big` and the app."""
+    from src.big_reveal import unreveal
     with transaction.atomic():
         if assignment.is_revealed:
             unreveal(assignment)
         assignment.delete()
-    messages.success(request, f'Removed {pledge.name}\'s big.')
-    return _bigs_redirect(code)
 
 
 @login_required
@@ -2180,19 +2310,27 @@ def education_delete_big(request, code, pledge_pk):
 def education_reveal_all_bigs(request, code):
     """Reveal every unrevealed pairing at once (after the ritual)."""
     from django.contrib import messages
-    from src.big_reveal import reveal
 
     committee, access = _education_committee_or_404(code, request.user)
     denied = _require_education_permission(access, 'can_manage_tasks')
     if denied:
         return denied
+    count = reveal_all_bigs()
+    messages.success(request, f'Revealed {count} big{"s" if count != 1 else ""}.')
+    return _bigs_redirect(code)
+
+
+def reveal_all_bigs():
+    """
+    Reveal every active pledge's draft pairing; returns how many. Shared by
+    `education_reveal_all_bigs` and the app.
+    """
+    from src.big_reveal import reveal
     pending = (PledgeBigAssignment.objects
                .filter(revealed_at__isnull=True, pledge__member_type='Pledge',
                        pledge__is_active=True)
                .select_related('pledge', 'big'))
-    count = sum(1 for a in pending if reveal(a))
-    messages.success(request, f'Revealed {count} big{"s" if count != 1 else ""}.')
-    return _bigs_redirect(code)
+    return sum(1 for a in pending if reveal(a))
 
 
 # ── Pledge phases (v3.46.0) ──────────────────────────────────────────────────
@@ -2224,11 +2362,37 @@ def education_set_pledge_phase(request, code, pledge_pk):
     if phase not in PHASES:
         messages.error(request, 'Choose Phase 1, 2 or 3.')
         return _progress_redirect(code)
-    if pledge.pledge_phase != phase:
-        pledge.pledge_phase = phase
-        pledge.save(update_fields=['pledge_phase'])
+    if set_pledge_phase(pledge, phase):
         messages.success(request, f'{pledge.name} is now in Phase {phase}.')
     return _progress_redirect(code)
+
+
+def set_pledge_phase(pledge, phase):
+    """Put `pledge` in `phase` (checked by the caller). Returns True if it changed. Shared with the app."""
+    if pledge.pledge_phase == phase:
+        return False
+    pledge.pledge_phase = phase
+    pledge.save(update_fields=['pledge_phase'])
+    return True
+
+
+def advance_all_phases():
+    """
+    Move every active pledge up one phase; returns how many moved. Shared by
+    `education_advance_all_phases` and the app.
+    """
+    from src.pledge_phases import next_phase
+    moved = 0
+    with transaction.atomic():
+        for pledge in (ParliamentUser.objects.select_for_update()
+                       .filter(member_type='Pledge', is_active=True)
+                       .only('pk', 'pledge_phase')):
+            following = next_phase(pledge.pledge_phase)
+            if following:
+                pledge.pledge_phase = following
+                pledge.save(update_fields=['pledge_phase'])
+                moved += 1
+    return moved
 
 
 @login_required
@@ -2240,22 +2404,12 @@ def education_advance_all_phases(request, code):
     stay there, and a pledge held back stays one phase behind the others.
     """
     from django.contrib import messages
-    from src.pledge_phases import next_phase
 
     committee, access = _education_committee_or_404(code, request.user)
     denied = _require_education_permission(access, 'can_manage_tasks')
     if denied:
         return denied
-    moved = 0
-    with transaction.atomic():
-        for pledge in (ParliamentUser.objects.select_for_update()
-                       .filter(member_type='Pledge', is_active=True)
-                       .only('pk', 'pledge_phase')):
-            following = next_phase(pledge.pledge_phase)
-            if following:
-                pledge.pledge_phase = following
-                pledge.save(update_fields=['pledge_phase'])
-                moved += 1
+    moved = advance_all_phases()
     if moved:
         messages.success(request, f'Advanced {moved} pledge{"s" if moved != 1 else ""} one phase.')
     else:

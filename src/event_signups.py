@@ -136,3 +136,28 @@ def cancel(event_id, user):
                     waitlist_position=models.F('waitlist_position') - 1
                 )
         return _result(event, False)
+
+
+def roster(event):
+    """
+    The officer sign-up list (``event_signup_list``, and the app's
+    ``events/<id>/signups/``): ``(confirmed, waitlist, cancelled)``, each a
+    list of ``EventSignup`` with its user. Live ones in waitlist order then
+    sign-up time; cancelled ones by when they cancelled.
+    """
+    from src.models.users import member_defer
+    all_active = list(
+        EventSignup.objects
+        .filter(event=event, is_cancelled=False)
+        .select_related('user').defer(*member_defer('user'))
+        .order_by('waitlist_position', 'signed_up_at')
+    )
+    cancelled = list(
+        EventSignup.objects
+        .filter(event=event, is_cancelled=True)
+        .select_related('user').defer(*member_defer('user'))
+        .order_by('cancelled_at')
+    )
+    return ([s for s in all_active if s.waitlist_position is None],
+            [s for s in all_active if s.waitlist_position is not None],
+            cancelled)

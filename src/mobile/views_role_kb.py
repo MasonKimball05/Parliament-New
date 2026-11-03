@@ -1,7 +1,7 @@
 """
 The app's Role Knowledge Base (v4.4.0), the native version of the website's
 ``role_knowledge_base_index`` (/role-knowledge-base/) and
-``role_knowledge_base`` (/officers/roles/<id>/knowledge/) pages, and (v4.5.0)
+``role_knowledge_base`` (/officers/roles/<id>/knowledge/) pages, and (v4.4.2)
 ``role_knowledge_base_history`` and ``edit_role_knowledge_base``.
 
 * ``GET role-knowledge-base/?q=`` — every Role with its active holders and

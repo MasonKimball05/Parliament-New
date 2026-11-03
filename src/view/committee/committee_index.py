@@ -139,6 +139,20 @@ def committee_index(request):
     return render(request, 'committee/committee_index.html', context)
 
 
+def save_new_committee(form, actor):
+    """Save a valid CommitteeCreateForm (with its initial members and chairs) and log it."""
+    committee = form.save()
+    logger.info(f"{actor.username} created committee: {committee.name} ({committee.code})")
+    return committee
+
+
+def committee_create_choices():
+    """The create form's choices: every role, and active members for members / chairs."""
+    roles = Role.objects.all().order_by('name')
+    members = ParliamentUser.objects.filter(member_status=MemberStatus.ACTIVE).order_by('name')
+    return roles, members
+
+
 @login_required
 @admin_required
 @require_feature_flag('committee_system')
@@ -147,19 +161,14 @@ def create_committee(request):
     if request.method == 'POST':
         form = CommitteeCreateForm(request.POST)
         if form.is_valid():
-            committee = form.save()
-
-            logger.info(f"{request.user.username} created committee: {committee.name} ({committee.code})")
+            committee = save_new_committee(form, request.user)
             messages.success(request, f'Committee "{committee.name}" created successfully.')
             return redirect('committee_home', code=committee.code)
     else:
         form = CommitteeCreateForm()
 
-    # Get roles for the dropdown
-    roles = Role.objects.all().order_by('name')
-
-    # Get active members for the multi-select
-    members = ParliamentUser.objects.filter(member_status=MemberStatus.ACTIVE).order_by('name')
+    # Roles for the dropdown, active members for the multi-selects
+    roles, members = committee_create_choices()
 
     context = {
         'form': form,
@@ -170,11 +179,11 @@ def create_committee(request):
     return render(request, 'committee/create_committee.html', context)
 
 
-@login_required
-@officer_required
-@require_feature_flag('committee_system')
-def manage_committees(request):
-    """Manage all committees - list, add, edit, delete (officers and admins)"""
+def managed_committee_rows():
+    """
+    Every committee for the Manage Committees page, by name, with its member,
+    chair and advisor counts. Shared with the app.
+    """
     # v3.17.4: three COUNTs per committee became one conditional aggregate —
     # the same fix `committee_index` got in v3.17.3, which was never carried to
     # this page. `distinct=True` is load-bearing: three multi-valued joins in one
@@ -188,8 +197,7 @@ def manage_committees(request):
         )
         .order_by('name')
     )
-
-    committees_data = [
+    return [
         {
             'committee': committee,
             'member_count': committee.member_total,
@@ -199,11 +207,17 @@ def manage_committees(request):
         for committee in committees
     ]
 
-    # Get roles for the create form
-    roles = Role.objects.all().order_by('name')
 
-    # Get active members for the multi-select
-    members = ParliamentUser.objects.filter(member_status=MemberStatus.ACTIVE).order_by('name')
+@login_required
+@officer_required
+@require_feature_flag('committee_system')
+def manage_committees(request):
+    """Manage all committees - list, add, edit, delete (officers and admins)"""
+    committees_data = managed_committee_rows()
+    committees = [row['committee'] for row in committees_data]
+
+    # Roles and active members for the create form
+    roles, members = committee_create_choices()
 
     context = {
         'committees_data': committees_data,
@@ -216,42 +230,37 @@ def manage_committees(request):
     return render(request, 'committee/manage_committees.html', context)
 
 
-@login_required
-@officer_required
-@require_feature_flag('committee_system')
-@require_http_methods(['GET', 'POST'])
-def committee_detail_api(request, committee_id):
-    """Get or update a committee's details."""
-    committee = get_object_or_404(Committee, id=committee_id)
+def committee_detail_json(committee):
+    """The edit form's values (``committee_detail_api`` GET)."""
+    return {
+        'id': committee.id,
+        'name': committee.name,
+        'code': committee.code,
+        'role_id': committee.role_id,
+        'role_name': committee.role.name if committee.role else None,
+        'is_ad_hoc': committee.is_ad_hoc,
+        'ad_hoc_expiration': committee.ad_hoc_expiration.isoformat() if committee.ad_hoc_expiration else None,
+        'is_active': committee.is_active,
+        'is_archived': committee.is_archived,
+        'member_ids': list(committee.members.values_list('user_id', flat=True)),
+        'chair_ids': list(committee.chairs.values_list('user_id', flat=True)),
+    }
 
-    if request.method == 'GET':
-        return JsonResponse({
-            'success': True,
-            'committee': {
-                'id': committee.id,
-                'name': committee.name,
-                'code': committee.code,
-                'role_id': committee.role_id,
-                'role_name': committee.role.name if committee.role else None,
-                'is_ad_hoc': committee.is_ad_hoc,
-                'ad_hoc_expiration': committee.ad_hoc_expiration.isoformat() if committee.ad_hoc_expiration else None,
-                'is_active': committee.is_active,
-                'is_archived': committee.is_archived,
-                'member_ids': list(committee.members.values_list('user_id', flat=True)),
-                'chair_ids': list(committee.chairs.values_list('user_id', flat=True)),
-            }
-        })
 
-    # POST - Update committee
-    try:
-        data = json.loads(request.body)
-    except json.JSONDecodeError:
-        return JsonResponse({'success': False, 'error': 'Invalid JSON data'}, status=400)
-
+def apply_committee_changes(committee, data, actor, request=None):
+    """
+    Apply the Manage Committees edit (any of name, code, role_id, is_ad_hoc,
+    ad_hoc_expiration, is_active, is_archived, member_ids, chair_ids) and log
+    what changed. Returns ``(changes, error)``; on an error nothing is saved.
+    Shared with the app (src/mobile/views_committee_settings.py).
+    """
     # Track changes
     changes = []
 
     if 'name' in data and data['name'] != committee.name:
+        # v4.x: a taken name was an IntegrityError (a 500); say so instead.
+        if Committee.objects.filter(name=data['name']).exclude(id=committee.id).exists():
+            return [], 'A committee with this name already exists.'
         changes.append(f"name: {committee.name} -> {data['name']}")
         committee.name = data['name']
 
@@ -260,7 +269,7 @@ def committee_detail_api(request, committee_id):
         if new_code != committee.code:
             # Check for duplicate code
             if Committee.objects.filter(code__iexact=new_code).exclude(id=committee.id).exists():
-                return JsonResponse({'success': False, 'error': 'A committee with this code already exists.'}, status=400)
+                return [], 'A committee with this code already exists.'
             changes.append(f"code: {committee.code} -> {new_code}")
             committee.code = new_code
 
@@ -333,8 +342,8 @@ def committee_detail_api(request, committee_id):
     if changes:
         ActivityLog.log_activity(
             action_type='other',
-            user=request.user,
-            description=f'{request.user.get_display_name()} updated committee {committee.name}: {", ".join(changes)}',
+            user=actor,
+            description=f'{actor.get_display_name()} updated committee {committee.name}: {", ".join(changes)}',
             request=request,
             metadata={
                 'action': 'edit_committee',
@@ -343,14 +352,78 @@ def committee_detail_api(request, committee_id):
                 'changes': changes,
             }
         )
-        logger.info(f"User {request.user.user_id} updated committee {committee.id}: {changes}")
+        logger.info(f"User {actor.user_id} updated committee {committee.id}: {changes}")
         membership_changes = [c for c in changes if any(k in c for k in ('role', 'chair', 'member'))]
         if membership_changes:
             log_admin_action(
-                actor=request.user, action='role_changed', request=request,
+                actor=actor, action='role_changed', request=request,
                 target_repr=committee.name,
                 detail=', '.join(membership_changes),
             )
+
+    return changes, None
+
+
+def delete_committee_if_unused(committee, actor, request=None):
+    """
+    Delete a committee that has no legislation, documents or minutes, and log
+    it. Returns an error message instead when it has any.
+    """
+    committee_name = committee.name
+    committee_code = committee.code
+    committee_id_val = committee.id
+
+    # Check if committee has any important data
+    has_legislation = CommitteeLegislation.objects.filter(committee=committee).exists()
+    has_documents = CommitteeDocument.objects.filter(committee=committee).exists()
+    has_minutes = CommitteeMinutes.objects.filter(committee=committee).exists()
+
+    if has_legislation or has_documents or has_minutes:
+        return (f'Cannot delete committee "{committee_name}" - it has associated legislation, documents, or minutes. '
+                'Please archive these first or set the committee to inactive instead.')
+
+    committee.delete()
+
+    # Log the activity
+    ActivityLog.log_activity(
+        action_type='other',
+        user=actor,
+        description=f'{actor.get_display_name()} deleted committee {committee_name} ({committee_code})',
+        request=request,
+        metadata={
+            'action': 'delete_committee',
+            'committee_id': committee_id_val,
+            'committee_name': committee_name,
+            'committee_code': committee_code,
+        }
+    )
+    logger.info(f"User {actor.user_id} deleted committee {committee_id_val}: {committee_name}")
+    return None
+
+
+@login_required
+@officer_required
+@require_feature_flag('committee_system')
+@require_http_methods(['GET', 'POST'])
+def committee_detail_api(request, committee_id):
+    """Get or update a committee's details."""
+    committee = get_object_or_404(Committee, id=committee_id)
+
+    if request.method == 'GET':
+        return JsonResponse({
+            'success': True,
+            'committee': committee_detail_json(committee),
+        })
+
+    # POST - Update committee
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'Invalid JSON data'}, status=400)
+
+    changes, error = apply_committee_changes(committee, data, request.user, request)
+    if error:
+        return JsonResponse({'success': False, 'error': error}, status=400)
 
     return JsonResponse({
         'success': True,
@@ -366,38 +439,11 @@ def committee_detail_api(request, committee_id):
 def delete_committee(request, committee_id):
     """Delete a committee."""
     committee = get_object_or_404(Committee, id=committee_id)
-
     committee_name = committee.name
-    committee_code = committee.code
-    committee_id_val = committee.id
 
-    # Check if committee has any important data
-    has_legislation = CommitteeLegislation.objects.filter(committee=committee).exists()
-    has_documents = CommitteeDocument.objects.filter(committee=committee).exists()
-    has_minutes = CommitteeMinutes.objects.filter(committee=committee).exists()
-
-    if has_legislation or has_documents or has_minutes:
-        return JsonResponse({
-            'success': False,
-            'error': f'Cannot delete committee "{committee_name}" - it has associated legislation, documents, or minutes. Please archive these first or set the committee to inactive instead.'
-        }, status=400)
-
-    committee.delete()
-
-    # Log the activity
-    ActivityLog.log_activity(
-        action_type='other',
-        user=request.user,
-        description=f'{request.user.get_display_name()} deleted committee {committee_name} ({committee_code})',
-        request=request,
-        metadata={
-            'action': 'delete_committee',
-            'committee_id': committee_id_val,
-            'committee_name': committee_name,
-            'committee_code': committee_code,
-        }
-    )
-    logger.info(f"User {request.user.user_id} deleted committee {committee_id_val}: {committee_name}")
+    error = delete_committee_if_unused(committee, request.user, request)
+    if error:
+        return JsonResponse({'success': False, 'error': error}, status=400)
 
     return JsonResponse({
         'success': True,

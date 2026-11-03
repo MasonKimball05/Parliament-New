@@ -155,3 +155,21 @@ class SupportTests(TestCase):
                                                  'priority': 'bogus', 'page': 'bogus'})
         fb = FeedbackRequest.objects.get(pk=r.json()['id'])
         self.assertEqual((fb.request_type, len(fb.title), fb.priority, fb.page), ('support_ticket', 200, 'medium', ''))
+
+    def test_feedback_takes_a_photo_attachment(self):
+        # v4.4.2: the app attaches a photo with the screenshot's checks.
+        body = self.api.get(API + 'support/feedback/', **bearer(self.access)).json()
+        self.assertEqual(body['attachment']['max_bytes'], 10 * 1024 * 1024)
+        r = self.api.post(API + 'support/feedback/', {'title': 'Mockup', 'description': 'See it',
+                                                      'attachment': _png()}, **bearer(self.access))
+        self.assertEqual(r.status_code, 201, r.content)
+        self.assertIsNone(r.json()['attachment_problem'])
+        self.assertTrue(FeedbackRequest.objects.get(pk=r.json()['id']).attachment)
+
+    def test_a_bad_feedback_photo_keeps_the_request(self):
+        fake = SimpleUploadedFile('mock.pdf', b'%PDF-1.4', content_type='application/pdf')
+        r = self.api.post(API + 'support/feedback/', {'title': 'Mockup', 'description': 'See it',
+                                                      'attachment': fake}, **bearer(self.access))
+        self.assertEqual(r.status_code, 201)
+        self.assertEqual(r.json()['attachment_problem'], 'Screenshots must be PNG, JPEG, WebP or GIF.')
+        self.assertFalse(FeedbackRequest.objects.get(pk=r.json()['id']).attachment)

@@ -37,6 +37,15 @@ class EndVoteTestCase(TestCase):
         response = self.client.post(reverse('end_vote', args=[self.legislation.id]))
         self.assertEqual(response.status_code, 403)  # Forbidden
 
+    def test_a_closed_vote_is_not_ended_again(self):
+        self.client.force_login(self.uploader)
+        self.client.post(reverse('end_vote', args=[self.legislation.id]))
+        logs = ActivityLog.objects.count()
+        response = self.client.post(reverse('end_vote', args=[self.legislation.id]))
+        self.assertRedirects(response, reverse('legislation_detail', args=[self.legislation.id]),
+                             fetch_redirect_response=False)
+        self.assertEqual(ActivityLog.objects.count(), logs)   # not closed, logged or announced again
+
 class VoteTallyTestCase(TestCase):
     def setUp(self):
 

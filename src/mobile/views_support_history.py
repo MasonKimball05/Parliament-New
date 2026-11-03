@@ -19,7 +19,7 @@ src/view/feedback.py), so the app lists exactly what the pages do.
   summary counts, the filter choices and who posted each. A filter value that
   isn't one of the choices is ignored.
 
-v4.5.0 — the bug tracker, each bug report's and submission's detail page and
+v4.4.2 — the bug tracker, each bug report's and submission's detail page and
 the two admin pages, natively, through the web views' own helpers
 (``tracked_bug_reports``, ``bug_report_counts``, ``bug_report_for_detail``,
 ``update_bug_report``, ``screenshot_visible_to``; ``feedback_for_detail``,
@@ -193,7 +193,7 @@ class FeedbackIdeasView(MobileAPIView):
 
 
 
-# ── v4.5.0: the bug tracker, detail pages and admin pages ────────────────────
+# ── v4.4.2: the bug tracker, detail pages and admin pages ────────────────────
 
 def _name(member):
     """The pages' ``name|default:"Anonymous"``."""

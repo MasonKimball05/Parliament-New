@@ -623,15 +623,17 @@ def delete_recruitment_event(request, code, recruitment_event_id):
 # Permission management
 # ---------------------------------------------------------------------------
 
-@login_required
-@require_page_enabled('committee_home')
-def manage_recruitment_permissions(request, code):
-    committee = _get_committee(code)
+def can_manage_recruitment_permissions(user, committee):
+    """The permission page's rule: the committee's chairs and admins."""
+    return bool(committee.is_chair(user) or user.is_admin)
 
-    if not (committee.is_chair(request.user) or request.user.is_admin):
-        messages.error(request, 'Only recruitment chairs can manage permissions.')
-        return redirect('committee_home', code=code)
 
+def recruitment_permission_rows(committee):
+    """
+    The page's table: every chair and member by name, with each permission
+    (chairs always have all of them). Shared with the app
+    (src/mobile/views_committee_settings.py).
+    """
     chairs_pks = set(committee.chairs.values_list('pk', flat=True))
     members_pks = set(committee.members.values_list('pk', flat=True))
     all_pks = chairs_pks | members_pks
@@ -651,10 +653,42 @@ def manage_recruitment_permissions(request, code):
         for field in RECRUIT_PERM_FIELDS:
             row[field] = True if is_chair else (getattr(perm, field) if perm else False)
         member_rows.append(row)
+    return member_rows
+
+
+def set_recruitment_permission(committee, member, flags, granted_by):
+    """
+    Save one member's permissions (every field; a missing one is off). Returns
+    the saved switches. (Before v4.x this also returned ``granted_by``, a
+    ParliamentUser, which the web endpoint then failed to JSON-encode.)
+    """
+    values = {field: bool(flags.get(field)) for field in RECRUIT_PERM_FIELDS}
+    RecruitmentMemberPermission.objects.update_or_create(
+        committee=committee,
+        user=member,
+        defaults={**values, 'granted_by': granted_by},
+    )
+    return values
+
+
+def reset_recruitment_permission_rows(committee):
+    """Drop every member's permissions on the committee. Returns how many rows went."""
+    deleted_count, _ = RecruitmentMemberPermission.objects.filter(committee=committee).delete()
+    return deleted_count
+
+
+@login_required
+@require_page_enabled('committee_home')
+def manage_recruitment_permissions(request, code):
+    committee = _get_committee(code)
+
+    if not can_manage_recruitment_permissions(request.user, committee):
+        messages.error(request, 'Only recruitment chairs can manage permissions.')
+        return redirect('committee_home', code=code)
 
     context = {
         'committee': committee,
-        'member_rows': member_rows,
+        'member_rows': recruitment_permission_rows(committee),
         'perm_fields': RECRUIT_PERM_FIELDS,
     }
     return render(request, 'committee/manage_recruitment_permissions.html', context)
@@ -666,7 +700,7 @@ def manage_recruitment_permissions(request, code):
 def update_recruitment_permission(request, code, user_id):
     committee = _get_committee(code)
 
-    if not (committee.is_chair(request.user) or request.user.is_admin):
+    if not can_manage_recruitment_permissions(request.user, committee):
         return JsonResponse({'error': 'Permission denied'}, status=403)
 
     try:
@@ -677,14 +711,8 @@ def update_recruitment_permission(request, code, user_id):
     if committee.is_chair(member):
         return JsonResponse({'error': 'Chairs always have full access'}, status=400)
 
-    defaults = {field: request.POST.get(field) == 'true' for field in RECRUIT_PERM_FIELDS}
-    defaults['granted_by'] = request.user
-
-    perm, _ = RecruitmentMemberPermission.objects.update_or_create(
-        committee=committee,
-        user=member,
-        defaults=defaults,
-    )
+    defaults = set_recruitment_permission(
+        committee, member, {field: request.POST.get(field) == 'true' for field in RECRUIT_PERM_FIELDS}, request.user)
 
     return JsonResponse({'success': True, 'user_id': user_id, **defaults})
 
@@ -695,10 +723,10 @@ def update_recruitment_permission(request, code, user_id):
 def reset_recruitment_permissions(request, code):
     committee = _get_committee(code)
 
-    if not (committee.is_chair(request.user) or request.user.is_admin):
+    if not can_manage_recruitment_permissions(request.user, committee):
         return JsonResponse({'error': 'Permission denied'}, status=403)
 
-    deleted_count, _ = RecruitmentMemberPermission.objects.filter(committee=committee).delete()
+    deleted_count = reset_recruitment_permission_rows(committee)
     return JsonResponse({'success': True, 'deleted': deleted_count})
 
 

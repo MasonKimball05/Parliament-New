@@ -39,6 +39,7 @@ from src.utils.content_disposition import apply_disposition
 from src.view.committee.committee_minutes_editor import (
     can_edit_committee_minutes, can_edit_specific_minutes, is_committee_member_or_above,
 )
+from src.view.committee.edit_committee_chat import can_edit_committee_chat
 from src.view.committee.member_permissions import can_designate, can_manage_documents
 
 RECENT_DOCUMENTS = 5
@@ -201,6 +202,11 @@ class CommitteeDashboardView(_CommitteeView):
             links.append(web('Slating dashboard', reverse('slating_dashboard'), 'dashboard'))
         if committee.is_kai_committee:
             links.append(web('Kai reports', reverse('view_kai_reports'), 'dashboard'))
+            # Batch 6: the chairs' Kai grants page (native in newer builds) —
+            # committee_home's own gate: an actual Kai chair, never an admin.
+            from src.view.kai_reports import _is_kai_chair
+            if _is_kai_chair(user, committee):
+                links.append(web('Kai member permissions', reverse('manage_kai_permissions', args=[code]), 'tool'))
         if access.can_manage and not committee.is_archived:
             links += [
                 web('Upload a document', reverse('upload_document', args=[code]), 'tool'),
@@ -211,6 +217,9 @@ class CommitteeDashboardView(_CommitteeView):
             ]
             if check_feature_enabled('chats'):
                 links.append(web('Chat permissions', reverse('manage_chat_permissions', args=[code]), 'tool'))
+                # Batch 6: the chat's icon and colour (chairs and admins, not the VP).
+                if can_edit_committee_chat(user, committee):
+                    links.append(web('Chat settings', reverse('edit_committee_chat_settings', args=[code]), 'tool'))
             if can_designate(user, committee):
                 links.append(web('Member permissions', reverse('committee_member_permissions', args=[code]), 'tool'))
         elif not committee.is_archived:

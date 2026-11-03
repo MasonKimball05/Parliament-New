@@ -16,6 +16,7 @@ from ..models import (
     Legislation, Vote, Attendance, ParliamentUser,
     MEMBER_DISPLAY_FIELDS, MEMBER_PROFILE_FIELDS,
 )
+from src import chapter_votes
 from src.feature_flag_decorators import require_page_enabled
 
 logger = logging.getLogger(__name__)
@@ -619,77 +620,19 @@ def add_legislation(request):
     optional document, and optional vote results.
     """
     # Check permissions
-    if not request.user.is_admin and request.user.member_type != 'Officer':
+    if not chapter_votes.can_manage_tracker(request.user):
         messages.error(request, 'You do not have permission to add legislation.')
         return redirect('passed_legislation')
 
-    title = request.POST.get('title', '').strip()
-    status = request.POST.get('status', 'pending')
-    description = request.POST.get('description', '').strip()
-    document = request.FILES.get('document')
-    include_votes = request.POST.get('include_votes') == 'on'
-
-    # Validation
-    if not title:
-        messages.error(request, 'Title is required.')
+    # v4.4.2: validation and the saved record are src/chapter_votes.py,
+    # shared with the app.
+    try:
+        legislation = chapter_votes.add_tracker_legislation(
+            request.user, request.POST, request.FILES.get('document'))
+    except chapter_votes.ChapterVoteError as exc:
+        messages.error(request, exc.message)
         return redirect('passed_legislation')
-
-    if not document and len(description) < 20:
-        messages.error(request, 'Please provide either a document or a detailed description (at least 20 characters).')
-        return redirect('passed_legislation')
-
-    # Validate status
-    valid_statuses = ['pending', 'active', 'passed', 'failed', 'tabled']
-    if status not in valid_statuses:
-        status = 'pending'
-
-    # Determine if voting is closed based on status
-    # Tabled legislation also has voting closed (it's on hold, not being voted on)
-    voting_closed = status in ['passed', 'failed', 'tabled']
-    passed = status == 'passed'
-
-    # Create the legislation
-    now = timezone.now()
-    legislation = Legislation.objects.create(
-        title=title,
-        description=description,
-        document=document,
-        status=status,
-        posted_by=request.user,
-        available_at=now,
-        voting_starts_at=now,
-        voting_closed=voting_closed,
-        passed=passed,
-        required_percentage=request.POST.get('required_percentage', '51'),
-    )
-
-    # If voting is closed (passed, failed, or tabled), set voting_ended_at
-    if voting_closed:
-        legislation.voting_ended_at = now
-        legislation.save(update_fields=['voting_ended_at'])
-
-    # For pending status, set voting_starts_at to future (so it doesn't appear as active)
-    if status == 'pending':
-        legislation.voting_starts_at = None
-        legislation.save(update_fields=['voting_starts_at'])
-
-    # Handle vote results if included
-    if include_votes and voting_closed:
-        try:
-            yes_votes = int(request.POST.get('yes_votes', 0))
-            no_votes = int(request.POST.get('no_votes', 0))
-            abstain_votes = int(request.POST.get('abstain_votes', 0))
-
-            # Store historical vote counts on the legislation
-            legislation.historical_yes_votes = yes_votes
-            legislation.historical_no_votes = no_votes
-            legislation.historical_abstain_votes = abstain_votes
-            legislation.save(update_fields=['historical_yes_votes', 'historical_no_votes', 'historical_abstain_votes'])
-        except (ValueError, TypeError):
-            pass  # Ignore invalid vote counts
-
-    logger.info(f"{request.user.username} added legislation: {title} with status {status}")
-    messages.success(request, f'Legislation "{title}" has been added.')
+    messages.success(request, f'Legislation "{legislation.title}" has been added.')
     return redirect('passed_legislation')
 
 
@@ -703,13 +646,9 @@ def update_legislation_note(request, legislation_id):
     """
     from django.http import JsonResponse
 
-    if not request.user.is_admin and request.user.member_type != 'Officer':
+    if not chapter_votes.can_manage_tracker(request.user):
         return JsonResponse({'ok': False, 'error': 'Permission denied.'}, status=403)
 
     legislation = get_object_or_404(Legislation, id=legislation_id)
-    note = request.POST.get('note', '').strip()
-    legislation.admin_note = note
-    legislation.save(update_fields=['admin_note'])
-
-    logger.info(f"{request.user.username} updated note on legislation '{legislation.title}' (ID: {legislation_id})")
+    note = chapter_votes.update_note(legislation, request.user, request.POST.get('note', ''))
     return JsonResponse({'ok': True, 'note': note})

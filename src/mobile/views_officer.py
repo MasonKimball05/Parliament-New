@@ -163,6 +163,9 @@ class OfficerHubView(_OfficerView):
             # Archived events (views_officer_events; admin_required), the
             # third tab of All events.
             'can_view_archived_events': bool(request.user.is_admin),
+            # Batch 6: Manage Committees (views_committee_settings;
+            # officer_required, this hub's gate, plus the committee_system flag).
+            'can_manage_committees': check_feature_enabled('committee_system'),
         })
 
 
@@ -278,7 +281,7 @@ class OfficerAnnouncementView(_OfficerView):
 
 class OfficerAnnouncementStatsView(_OfficerView):
     """
-    ``GET officer/announcements/<id>/stats/`` (v4.5.0) — the website's
+    ``GET officer/announcements/<id>/stats/`` (v4.4.2) — the website's
     ``announcement_stats``: the frozen audience, who opened it on the site
     and from the email (with when), and who hasn't yet. Through the page's
     own ``announcement_stats_data``, so the counts and the names agree as

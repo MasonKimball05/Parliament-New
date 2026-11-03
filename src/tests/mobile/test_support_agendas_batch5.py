@@ -1,5 +1,5 @@
 """
-v4.5.0 — app screens that used to open the website:
+v4.4.2 — app screens that used to open the website:
 
 * the bug tracker, a bug report's detail page, the bug admin page and its
   status/notes update (src/mobile/views_support_history.py);

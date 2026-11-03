@@ -479,6 +479,167 @@ def manage_document(request, doc_type):
     return render(request, 'cnb/manage_document.html', context)
 
 
+# ── Shared with the app (src/mobile/views_cnb_manage.py) ─────────────────────
+#
+# Each helper does one manager action's checks and writes and returns an error
+# message (None when it worked), so the web views below and the app's endpoints
+# refuse and record exactly the same things. Every change to a section's text
+# or status goes through `Section.record_revision` first, so section history
+# (`src/view/cnb_history.py`) stays correct whichever surface made it.
+
+def save_section_text(section, content, title, user):
+    """`edit_section`'s save: new text and title, the old ones kept as a revision."""
+    content = (content or '').strip()
+    title = (title or '').strip()
+    if not content:
+        return 'Section content cannot be empty.'
+    if len(title) > 200:
+        return 'A section title is at most 200 characters.'
+    if (content, title) != (section.content, section.title):
+        # 09-25-26 — a direct edit changes governing text outside the
+        # resolution process; keep what it replaced (SectionRevision).
+        section.record_revision('direct_edit', by=user)
+    section.content = content
+    section.title = title
+    section.save(update_fields=['content', 'title'])
+    return None
+
+
+def set_section_active(section, active, reason, user):
+    """Suspend (a reason is required) or reinstate a section, recorded as a revision."""
+    if active == section.is_active:
+        return None
+    if not active:
+        reason = (reason or '').strip()
+        if not reason:
+            return 'A reason is required to deactivate a section.'
+        # 09-25-26 (auto-run finding) — a status change is history too: without
+        # this, `?as_of=` for a date before the ruling showed the section as
+        # already inactive. `direct_edit` + a note, so no new choice/migration.
+        section.record_revision('direct_edit', by=user, note=f'Deactivated: {reason}')
+        section.is_active = False
+        section.deactivation_reason = reason
+        section.deactivated_by = user
+        section.deactivated_at = timezone.now()
+    else:
+        section.record_revision('direct_edit', by=user, note='Reactivated')
+        section.is_active = True
+        section.deactivation_reason = ''
+        section.deactivated_by = None
+        section.deactivated_at = None
+    section.save(update_fields=['is_active', 'deactivation_reason', 'deactivated_by', 'deactivated_at'])
+    return None
+
+
+def create_section(article, number, title, content):
+    """`add_section`: a new last section of ``article``. Returns (section, error)."""
+    number, title, content = (number or '').strip(), (title or '').strip(), (content or '').strip()
+    if not number or not content:
+        return None, 'Section number and content are required.'
+    if len(number) > 20 or len(title) > 200:
+        return None, 'A section number is at most 20 characters, its title 200.'
+    if article.sections.filter(number=number).exists():
+        return None, f'Section {number} already exists in Article {article.number}.'
+    last = article.sections.order_by('-display_order').first()
+    display_order = (last.display_order + 1) if last else 1
+    section = Section.objects.create(
+        article=article, number=number, title=title,
+        content=content, display_order=display_order,
+    )
+    return section, None
+
+
+def create_article(document, number, title):
+    """`add_article`: a new last article of ``document``. Returns (article, error)."""
+    number, title = (number or '').strip(), (title or '').strip()
+    if not number or not title:
+        return None, 'Article number and title are required.'
+    if len(number) > 20 or len(title) > 200:
+        return None, 'An article number is at most 20 characters, its title 200.'
+    if document.articles.filter(number=number).exists():
+        return None, f'Article {number} already exists.'
+    last = document.articles.order_by('-display_order').first()
+    display_order = (last.display_order + 1) if last else 1
+    article = Article.objects.create(
+        document=document, number=number, title=title,
+        display_order=display_order,
+    )
+    return article, None
+
+
+def retitle_article(request, article, title):
+    """
+    `rename_article`: returns ('error' | 'same' | 'ok', title). Logged, because
+    it changes the live document without a vote. ``request`` is the Django
+    request (the activity log reads its IP).
+    """
+    title = (title or '').strip()[:200]
+    if not title:
+        return 'error', title
+    if title == article.title:
+        return 'same', title
+    old = article.title
+    article.title = title
+    article.save(update_fields=['title'])
+    from src.models import ActivityLog
+    ActivityLog.log_activity(
+        action_type='other', user=request.user, request=request,
+        description=(f'{request.user.get_display_name()} renamed {article.document.get_doc_type_display()} '
+                     f'Article {article.number}: "{old}" → "{title}"'),
+        metadata={'action': 'cnb_rename_article', 'article_id': article.pk, 'old': old, 'new': title},
+    )
+    return 'ok', title
+
+
+def add_section_partial(section, ref, reason, user):
+    """`add_partial_suspension`: suspend one sub-item of a section."""
+    ref, reason = (ref or '').strip(), (reason or '').strip()
+    if not ref or not reason:
+        return 'A sub-item reference and reason are both required.'
+    suspensions = list(section.partial_suspensions or [])
+    suspensions.append({
+        'ref': ref,
+        'reason': reason,
+        'suspended_at': timezone.localdate().isoformat(),   # v3.17.4: local calendar date
+        'suspended_by_name': user.name,
+    })
+    section.partial_suspensions = suspensions
+    section.save(update_fields=['partial_suspensions'])
+    return None
+
+
+def remove_section_partial(section, idx):
+    """`remove_partial_suspension`: the entry lifted, or None for an index out of range."""
+    suspensions = list(section.partial_suspensions or [])
+    if not 0 <= idx < len(suspensions):
+        return None
+    removed = suspensions.pop(idx)
+    section.partial_suspensions = suspensions
+    section.save(update_fields=['partial_suspensions'])
+    return removed
+
+
+def set_article_active(article, active, reason, user):
+    """Suspend (a reason is required) or reinstate a whole article."""
+    if active == article.is_active:
+        return None
+    if not active:
+        reason = (reason or '').strip()
+        if not reason:
+            return 'A reason is required to deactivate an article.'
+        article.is_active = False
+        article.deactivation_reason = reason
+        article.deactivated_by = user
+        article.deactivated_at = timezone.now()
+    else:
+        article.is_active = True
+        article.deactivation_reason = ''
+        article.deactivated_by = None
+        article.deactivated_at = None
+    article.save(update_fields=['is_active', 'deactivation_reason', 'deactivated_by', 'deactivated_at'])
+    return None
+
+
 @login_required
 @cnb_required
 def edit_section(request, section_id):
@@ -486,18 +647,11 @@ def edit_section(request, section_id):
     section = get_object_or_404(Section, pk=section_id)
 
     if request.method == 'POST':
-        new_content = request.POST.get('content', '').strip()
-        if not new_content:
-            messages.error(request, 'Section content cannot be empty.')
+        error = save_section_text(section, request.POST.get('content', ''),
+                                  request.POST.get('title', section.title), request.user)
+        if error:
+            messages.error(request, error)
         else:
-            new_title = request.POST.get('title', section.title).strip()
-            if (new_content, new_title) != (section.content, section.title):
-                # 09-25-26 — a direct edit changes governing text outside the
-                # resolution process; keep what it replaced (SectionRevision).
-                section.record_revision('direct_edit', by=request.user)
-            section.content = new_content
-            section.title = new_title
-            section.save(update_fields=['content', 'title'])
             messages.success(request, f'{section.full_identifier} updated.')
             return redirect('cnb_manage_document', doc_type=section.article.document.doc_type)
 
@@ -511,31 +665,14 @@ def edit_section(request, section_id):
 def toggle_section_active(request, section_id):
     """Activate or deactivate a section (IFC/governing body ruling)."""
     section = get_object_or_404(Section, pk=section_id)
-
-    if section.is_active:
-        reason = request.POST.get('reason', '').strip()
-        if not reason:
-            messages.error(request, 'A reason is required to deactivate a section.')
-            return redirect('cnb_manage_document', doc_type=section.article.document.doc_type)
-        # 09-25-26 (auto-run finding) — a status change is history too: without
-        # this, `?as_of=` for a date before the ruling showed the section as
-        # already inactive. `direct_edit` + a note, so no new choice/migration.
-        section.record_revision('direct_edit', by=request.user, note=f'Deactivated: {reason}')
-        section.is_active = False
-        section.deactivation_reason = reason
-        section.deactivated_by = request.user
-        section.deactivated_at = timezone.now()
-        section.save(update_fields=['is_active', 'deactivation_reason', 'deactivated_by', 'deactivated_at'])
+    deactivating = section.is_active
+    error = set_section_active(section, not deactivating, request.POST.get('reason', ''), request.user)
+    if error:
+        messages.error(request, error)
+    elif deactivating:
         messages.warning(request, f'{section.full_identifier} deactivated.')
     else:
-        section.record_revision('direct_edit', by=request.user, note='Reactivated')
-        section.is_active = True
-        section.deactivation_reason = ''
-        section.deactivated_by = None
-        section.deactivated_at = None
-        section.save(update_fields=['is_active', 'deactivation_reason', 'deactivated_by', 'deactivated_at'])
         messages.success(request, f'{section.full_identifier} reactivated.')
-
     return redirect('cnb_manage_document', doc_type=section.article.document.doc_type)
 
 
@@ -545,22 +682,12 @@ def toggle_section_active(request, section_id):
 def add_section(request, article_id):
     """Add a new section to an article."""
     article = get_object_or_404(Article, pk=article_id)
-    number = request.POST.get('number', '').strip()
-    title = request.POST.get('title', '').strip()
-    content = request.POST.get('content', '').strip()
-
-    if not number or not content:
-        messages.error(request, 'Section number and content are required.')
-    elif article.sections.filter(number=number).exists():
-        messages.error(request, f'Section {number} already exists in Article {article.number}.')
+    section, error = create_section(article, request.POST.get('number', ''), request.POST.get('title', ''),
+                                    request.POST.get('content', ''))
+    if error:
+        messages.error(request, error)
     else:
-        last = article.sections.order_by('-display_order').first()
-        display_order = (last.display_order + 1) if last else 1
-        Section.objects.create(
-            article=article, number=number, title=title,
-            content=content, display_order=display_order,
-        )
-        messages.success(request, f'Section {number} added to Article {article.number}.')
+        messages.success(request, f'Section {section.number} added to Article {article.number}.')
 
     return redirect('cnb_manage_document', doc_type=article.document.doc_type)
 
@@ -571,21 +698,11 @@ def add_section(request, article_id):
 def add_article(request, doc_type):
     """Add a new article to a governing document."""
     document = get_object_or_404(GoverningDocument, doc_type=doc_type)
-    number = request.POST.get('number', '').strip()
-    title = request.POST.get('title', '').strip()
-
-    if not number or not title:
-        messages.error(request, 'Article number and title are required.')
-    elif document.articles.filter(number=number).exists():
-        messages.error(request, f'Article {number} already exists.')
+    article, error = create_article(document, request.POST.get('number', ''), request.POST.get('title', ''))
+    if error:
+        messages.error(request, error)
     else:
-        last = document.articles.order_by('-display_order').first()
-        display_order = (last.display_order + 1) if last else 1
-        Article.objects.create(
-            document=document, number=number, title=title,
-            display_order=display_order,
-        )
-        messages.success(request, f'Article {number} — {title} added.')
+        messages.success(request, f'Article {article.number} — {article.title} added.')
 
     return redirect('cnb_manage_document', doc_type=doc_type)
 
@@ -601,22 +718,12 @@ def rename_article(request, article_id):
     without a vote.
     """
     article = get_object_or_404(Article.objects.select_related('document'), pk=article_id)
-    title = request.POST.get('title', '').strip()[:200]
-    if not title:
+    outcome, title = retitle_article(request, article, request.POST.get('title', ''))
+    if outcome == 'error':
         messages.error(request, 'An article needs a title.')
-    elif title == article.title:
+    elif outcome == 'same':
         messages.info(request, 'That is already the title.')
     else:
-        old = article.title
-        article.title = title
-        article.save(update_fields=['title'])
-        from src.models import ActivityLog
-        ActivityLog.log_activity(
-            action_type='other', user=request.user, request=request,
-            description=(f'{request.user.get_display_name()} renamed {article.document.get_doc_type_display()} '
-                         f'Article {article.number}: "{old}" → "{title}"'),
-            metadata={'action': 'cnb_rename_article', 'article_id': article.pk, 'old': old, 'new': title},
-        )
         messages.success(request, f'Article {article.number} is now "{title}".')
     return redirect('cnb_manage_document', doc_type=article.document.doc_type)
 
@@ -628,20 +735,10 @@ def add_partial_suspension(request, section_id):
     """Suspend a specific sub-item within a section without suspending the whole section."""
     section = get_object_or_404(Section, pk=section_id)
     ref = request.POST.get('ref', '').strip()
-    reason = request.POST.get('reason', '').strip()
-
-    if not ref or not reason:
-        messages.error(request, 'A sub-item reference and reason are both required.')
+    error = add_section_partial(section, ref, request.POST.get('reason', ''), request.user)
+    if error:
+        messages.error(request, error)
     else:
-        suspensions = list(section.partial_suspensions or [])
-        suspensions.append({
-            'ref': ref,
-            'reason': reason,
-            'suspended_at': timezone.localdate().isoformat(),   # v3.17.4: local calendar date
-            'suspended_by_name': request.user.name,
-        })
-        section.partial_suspensions = suspensions
-        section.save(update_fields=['partial_suspensions'])
         messages.success(request, f'§ {section.number}({ref}) partially suspended.')
 
     return redirect('cnb_manage_document', doc_type=section.article.document.doc_type)
@@ -653,12 +750,8 @@ def add_partial_suspension(request, section_id):
 def remove_partial_suspension(request, section_id, idx):
     """Remove one partial suspension entry from a section."""
     section = get_object_or_404(Section, pk=section_id)
-    suspensions = list(section.partial_suspensions or [])
-
-    if 0 <= idx < len(suspensions):
-        removed = suspensions.pop(idx)
-        section.partial_suspensions = suspensions
-        section.save(update_fields=['partial_suspensions'])
+    removed = remove_section_partial(section, idx)
+    if removed is not None:
         messages.success(request, f'Partial suspension on "{removed.get("ref")}" lifted.')
 
     return redirect('cnb_manage_document', doc_type=section.article.document.doc_type)
@@ -670,26 +763,14 @@ def remove_partial_suspension(request, section_id, idx):
 def toggle_article_active(request, article_id):
     """Activate or deactivate an entire article."""
     article = get_object_or_404(Article, pk=article_id)
-
-    if article.is_active:
-        reason = request.POST.get('reason', '').strip()
-        if not reason:
-            messages.error(request, 'A reason is required to deactivate an article.')
-            return redirect('cnb_manage_document', doc_type=article.document.doc_type)
-        article.is_active = False
-        article.deactivation_reason = reason
-        article.deactivated_by = request.user
-        article.deactivated_at = timezone.now()
-        article.save(update_fields=['is_active', 'deactivation_reason', 'deactivated_by', 'deactivated_at'])
+    deactivating = article.is_active
+    error = set_article_active(article, not deactivating, request.POST.get('reason', ''), request.user)
+    if error:
+        messages.error(request, error)
+    elif deactivating:
         messages.warning(request, f'Article {article.number} deactivated.')
     else:
-        article.is_active = True
-        article.deactivation_reason = ''
-        article.deactivated_by = None
-        article.deactivated_at = None
-        article.save(update_fields=['is_active', 'deactivation_reason', 'deactivated_by', 'deactivated_at'])
         messages.success(request, f'Article {article.number} reactivated.')
-
     return redirect('cnb_manage_document', doc_type=article.document.doc_type)
 
 

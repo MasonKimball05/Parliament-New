@@ -1,15 +1,12 @@
 from ..decorators import log_function_call
-from ..models import Legislation, Vote, ActivityLog, ParliamentUser
-from django.db.models import Count
+from ..models import Legislation
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.http import HttpResponseForbidden
-from django.utils import timezone
 from django.views.decorators.http import require_POST
+from src import chapter_votes
 from src.feature_flag_decorators import require_feature_flag
-from src.notification_service import notify_users
-from src.utils.vote_events import broadcast_vote_event
 from src.models.users import member_defer
 
 @login_required
@@ -20,118 +17,27 @@ def end_vote(request, legislation_id):
     legislation = get_object_or_404(Legislation, id=legislation_id)
 
     # Allow the uploader OR admins to end the vote
-    if request.user != legislation.posted_by and not request.user.is_admin:
+    if not chapter_votes.can_run_vote(request.user, legislation):
         return HttpResponseForbidden("Only the uploader or an admin can end the vote.")
 
-    # Close voting
-    legislation.voting_closed = True
-    legislation.save(update_fields=['voting_closed'])
+    # v4.4.2: a vote ends once. A second POST (a double tap, a resent form)
+    # used to close it again and send every voter the result again.
+    if legislation.voting_closed:
+        messages.info(request, 'Voting on this legislation has already ended.')
+        return redirect('legislation_detail', legislation_id=legislation.id)
 
-    # Gather votes
-    votes = Vote.objects.filter(legislation=legislation)
-    vote_summary = votes.values('vote_choice').annotate(count=Count('id'))
-
-    # Count totals
-    yes_votes = votes.filter(vote_choice='yes').count()
-    no_votes = votes.filter(vote_choice='no').count()
-    abstain_votes = votes.filter(vote_choice='abstain').count()
-    total_votes = votes.exclude(vote_choice='abstain').count()
-
-    if legislation.vote_mode == 'plurality':
-        vote_breakdown_dict = {str(option): votes.filter(vote_choice=option).count() for option in (legislation.plurality_options or [])}
-        winner = max(vote_breakdown_dict, key=vote_breakdown_dict.get) if vote_breakdown_dict else None
-        vote_breakdown = {'keys': list(vote_breakdown_dict.keys()), 'values': list(vote_breakdown_dict.values())}
-    else:
-        vote_breakdown = {
-            'yes': yes_votes,
-            'no': no_votes,
-            'abstain': abstain_votes,
-        }
-        winner = None
-
-    vote_passed = False
-    required_pct = None
-    yes_percentage = None
-    if legislation.vote_mode == 'percentage':
-        required_pct = int(legislation.required_percentage or 51)
-        yes_percentage = (yes_votes / total_votes) * 100 if total_votes > 0 else 0
-        vote_passed = yes_percentage >= required_pct
-    elif legislation.vote_mode == 'piecewise':
-        required_number = legislation.required_number or 0
-        vote_passed = yes_votes >= required_number
-    elif legislation.vote_mode == 'plurality':
-        plurality_counts = {
-            option: votes.filter(vote_choice=option).count()
-            for option in (legislation.plurality_options or [])
-        }
-        most_voted = max(plurality_counts, key=plurality_counts.get, default=None)
-
-        # Check for ties - find all options with the max vote count
-        if plurality_counts:
-            max_count = max(plurality_counts.values())
-            tied_options = [opt for opt, cnt in plurality_counts.items() if cnt == max_count]
-            has_tie = len(tied_options) > 1 and max_count > 0
-        else:
-            has_tie = False
-            tied_options = []
-
-        # Only passes if there's a clear winner (no tie). v3.51.1: and at
-        # least one vote — 0-0 was "no tie" above, so the first option "won"
-        # a vote nobody voted in (and became assignable as an appointment).
-        from src.vote_rules import plurality_passed
-        vote_passed = plurality_passed(plurality_counts)
-        winner = most_voted if vote_passed else None
-
-    # Update status based on vote outcome
-    # v3.13.3: failed votes are now marked 'failed', not 'removed' — the
-    # legislation history page excludes 'removed' entirely, so failed votes
-    # were vanishing from history and its Failed tab could never populate.
-    # ('removed' is reserved for admin deletion/removal.) The `passed` bool is
-    # also set now (the old set_passed() call was commented out), which the
-    # history pages' fallback filters rely on.
-    if vote_passed:
-        legislation.status = 'passed'
-    else:
-        legislation.status = 'failed'
-    legislation.passed = vote_passed
-    legislation.save(update_fields=['status', 'passed'])
-    broadcast_vote_event('closed', legislation.id)  # v3.14.0: live page update
-
-    _end_meta = {
-        'result': 'passed' if vote_passed else 'failed',
-        'vote_mode': legislation.vote_mode,
-        'anonymous': legislation.anonymous_vote,
-        'total_votes': total_votes,
-    }
-    if not legislation.anonymous_vote:
-        _end_meta['vote_breakdown'] = vote_breakdown
-    ActivityLog.log_activity(
-        action_type='vote_ended',
-        user=request.user,
-        description=f'{request.user.name} ended voting on "{legislation.title}" — {"Passed" if vote_passed else "Did Not Pass"}',
-        request=request,
-        object_type='Legislation',
-        object_id=legislation.id,
-        object_repr=legislation.title,
-        metadata=_end_meta,
-    )
-
-    # Send in-app notification to all users who voted
-    try:
-        voter_user_ids = votes.values_list('user', flat=True)
-        voter_users = ParliamentUser.objects.filter(pk__in=voter_user_ids)
-        result_text = 'Passed' if vote_passed else 'Did Not Pass'
-        notify_users(
-            voter_users,
-            'vote_ended',
-            f'Vote Ended: {legislation.title} — {result_text}',
-            link=f'/legislation/detail/{legislation.pk}/',
-            source_type='Legislation',
-            source_id=legislation.id,
-        )
-    except Exception as e:
-        import logging
-        logging.getLogger(__name__).error(f"Failed to create vote-ended notifications: {e}", exc_info=True)
+    # v4.4.2: the close, outcome, broadcast, log and notifications are
+    # src/chapter_votes.py, shared with the app.
+    outcome = chapter_votes.end_vote(legislation, request.user, request)
+    votes = outcome['votes']
+    vote_summary = outcome['vote_summary']
+    vote_passed = outcome['passed']
+    total_votes = outcome['total_votes']
+    yes_votes = outcome['yes_votes']
+    yes_percentage = outcome['yes_percentage']
+    required_pct = outcome['required_pct']
+    vote_breakdown = outcome['vote_breakdown']
+    winner = outcome['winner']
 
     context = {
         'legislation': legislation,
@@ -208,65 +114,14 @@ def create_runoff(request, legislation_id):
     original = get_object_or_404(Legislation, id=legislation_id)
 
     # Verify permissions
-    if request.user != original.posted_by and not request.user.is_admin:
+    if not chapter_votes.can_run_vote(request.user, original):
         return HttpResponseForbidden("Only the uploader or an admin can create a runoff.")
 
-    # Verify this is a plurality vote with runoff enabled
-    if original.vote_mode != 'plurality':
-        messages.error(request, "Runoff votes can only be created for plurality votes.")
+    # v4.4.2: the checks, the new vote and its log are src/chapter_votes.py.
+    try:
+        runoff, top_options = chapter_votes.create_runoff(original, request.user, request)
+    except chapter_votes.ChapterVoteError as exc:
+        messages.error(request, exc.message)
         return redirect('vote')
-
-    if not original.plurality_runoff_enabled:
-        messages.error(request, "Runoff voting is not enabled for this legislation.")
-        return redirect('vote')
-
-    if not original.voting_closed:
-        messages.error(request, "The original vote must be closed before creating a runoff.")
-        return redirect('vote')
-
-    # Check if runoff already exists
-    if original.runoff_votes.exists():
-        messages.error(request, "A runoff vote has already been created for this legislation.")
-        return redirect('vote')
-
-    # Get top options for runoff
-    top_options = original.get_top_options_for_runoff()
-    if len(top_options) < 2:
-        messages.error(request, "Not enough options for a runoff vote.")
-        return redirect('vote')
-
-    # Create the runoff legislation
-    runoff = Legislation.objects.create(
-        title=f"Runoff: {original.title}",
-        description=f"Runoff vote for: {original.description}\n\nTop {len(top_options)} options from original vote.",
-        document=None,
-        posted_by=request.user,
-        available_at=timezone.now(),
-        voting_starts_at=timezone.now(),
-        anonymous_vote=original.anonymous_vote,
-        allow_abstain=original.allow_abstain,
-        vote_mode='plurality',
-        plurality_options=top_options,
-        plurality_votes_allowed=1,  # Runoff is typically single vote
-        plurality_runoff_enabled=False,  # No nested runoffs
-        plurality_is_runoff=True,
-        plurality_parent=original,
-    )
-
-    ActivityLog.log_activity(
-        action_type='legislation_created',
-        user=request.user,
-        description=f'{request.user.name} created runoff vote for "{original.title}"',
-        request=request,
-        object_type='Legislation',
-        object_id=runoff.id,
-        object_repr=runoff.title,
-        metadata={
-            'is_runoff': True,
-            'parent_legislation_id': original.id,
-            'parent_title': original.title,
-            'runoff_options': top_options,
-        },
-    )
     messages.success(request, f"Runoff vote created with top {len(top_options)} options: {', '.join(top_options)}")
     return redirect('vote')

@@ -24,7 +24,7 @@ SCREENSHOT_EXTENSIONS = ('.png', '.jpg', '.jpeg', '.webp', '.gif')
 SCREENSHOT_MAX_BYTES = 10 * 1024 * 1024
 
 
-def _screenshot_error(upload):
+def screenshot_error(upload):
     """None if `upload` is an acceptable screenshot, else a message for the member."""
     name = (upload.name or '').lower()
     if not name.endswith(SCREENSHOT_EXTENSIONS):
@@ -123,7 +123,7 @@ def create_bug_report(request, data, screenshot=None):
     # member is told why.
     screenshot_problem = None
     if screenshot is not None:
-        screenshot_problem = _screenshot_error(screenshot)
+        screenshot_problem = screenshot_error(screenshot)
         if screenshot_problem is None:
             bug_report.screenshot = screenshot
 
