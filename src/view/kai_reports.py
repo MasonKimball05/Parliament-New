@@ -2502,6 +2502,24 @@ def kai_case_access(user, report, kai_committee):
     return kai_access, None, None
 
 
+def party_label(person_id, name, report, kai_access):
+    """
+    `name`, unless `person_id` is a party to `report` whose identity this
+    viewer may not see: then "The submitter" or "The accused".
+
+    v4.4.2 — the case page printed two names past the identity flags: who
+    filed a closure or drop request ("Requested by <name>", always the
+    submitter or the accused) and whose seat the recusal panel lists (the
+    accused, when the accused sits on the committee). Both now go through
+    this, on the website and in the app.
+    """
+    if person_id and person_id == report.targeted_to_id and not kai_access.get('can_view_accused_identity'):
+        return 'The accused'
+    if person_id and person_id == report.submitted_by_id and not kai_access.get('can_view_submitter_identity'):
+        return 'The submitter'
+    return name
+
+
 def kai_case_context(user, report, kai_committee, kai_access):
     """
     What ``manage_kai_report`` shows about ``report`` besides the report itself,
@@ -2566,6 +2584,12 @@ def kai_case_context(user, report, kai_committee, kai_access):
         report.recusals.select_related('user', 'replacement')
         .defer(*member_defer('user', 'replacement'))
     )
+    # v4.4.2: names a viewer without the identity flags may not see.
+    for cr in closure_requests:
+        cr.requester_label = party_label(
+            cr.requested_by_id, cr.requested_by.name if cr.requested_by_id else None, report, kai_access)
+    for r in recusals:
+        r.member_label = party_label(r.user_id, r.user.name, report, kai_access)
     can_appoint = _can_appoint_standins(user, kai_committee)
     eligible_standins = (
         list(KaiRecusal.eligible_standins(report)) if can_appoint else []

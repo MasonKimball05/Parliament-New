@@ -83,7 +83,7 @@ class KaiDashboardView(MobileAPIView):
             'report_id': rec.report_id,
             'case_number': rec.report.display_number,
             'title': rec.report.title,
-            'standing_in_for': rec.user.name,
+            'standing_in_for': rec.seat_label,   # v4.4.2: no party names
             'appointed_at': _iso(rec.appointed_at),
             'path': reverse('manage_kai_report', args=[rec.report_id]),
         } for rec in ctx['standin_recusals']]

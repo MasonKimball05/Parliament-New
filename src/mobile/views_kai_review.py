@@ -369,7 +369,7 @@ def _case_json(user, report, committee, kai_access):
         recusals = {
             'seats': [{
                 'id': r.id,
-                'member': r.user.name,
+                'member': r.member_label,   # v4.4.2: party_label
                 'reason': r.reason,
                 'reason_label': r.get_reason_display(),
                 'recorded_by': (r.recorded_by.name if r.recorded_by_id and r.reason != 'accused' else None),
@@ -427,7 +427,7 @@ def _case_json(user, report, committee, kai_access):
             'id': cr.id,
             'type': cr.request_type,
             'type_label': 'Drop Request' if cr.request_type == 'drop' else 'Closure Request',
-            'requested_by': cr.requested_by.name if cr.requested_by_id else None,
+            'requested_by': cr.requester_label,   # v4.4.2: party_label
             'requested_at': _iso(cr.requested_at),
             'reason': cr.reason,
             'status': cr.status,

@@ -81,6 +81,11 @@ def member_dashboard(user):
         .defer(*member_defer('user'))
         .order_by('-appointed_at', '-created_at')
     )
+    # v4.4.2: a party's seat (the accused, or the submitter, on the committee)
+    # isn't named here. The case page names them only to those with the
+    # identity flags, and a stand-in may hold none.
+    for rec in standin_recusals:
+        rec.seat_label = 'a recused member' if rec.reason in ('accused', 'submitter') else rec.user.name
 
     return {
         'submitted_reports': submitted_reports,

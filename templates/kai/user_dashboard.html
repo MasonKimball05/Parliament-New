@@ -182,7 +182,7 @@
             <p class="text-xs font-mono text-gray-400 dark:text-gray-500">{{ recusal.report.display_number }}</p>
             <p class="text-sm font-semibold text-gray-900 dark:text-white truncate">{{ recusal.report.title }}</p>
             <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-              Standing in for {{ recusal.user.name }}
+              Standing in for {{ recusal.seat_label }}
               {% if recusal.appointed_at %}&middot; appointed {{ recusal.appointed_at|date:"M d, Y" }}{% endif %}
             </p>
           </div>

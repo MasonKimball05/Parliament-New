@@ -291,6 +291,38 @@ class CaseReadTests(_Base):
         self.assertEqual([s['reason'] for s in b['recusals']['seats']], ['accused'])
         self.assertFalse(b['recusals']['seats'][0]['can_end'])
 
+    def test_party_names_follow_the_identity_flags(self):
+        # v4.4.2: who asked to close or drop a case, and whose seat is
+        # recused, were named past the identity flags, on the page and here.
+        c = self.case(to=self.member)
+        KaiClosureRequest.objects.create(report=c, requested_by=self.reporter, reason='Done', request_type='drop')
+        viewer = make_user('kr-closer')
+        self.grant(viewer, can_view_report_list=True, can_view_report_details=True, can_close_cases=True)
+        b = self.get(viewer, f'kai/review/{c.id}/').json()
+        self.assertEqual(b['closure_requests'][0]['requested_by'], 'The submitter')
+        self.assertEqual(b['recusals']['seats'][0]['member'], 'The accused')
+        page = self.web(viewer).get(reverse('manage_kai_report', args=[c.id]))
+        self.assertContains(page, 'Requested by The submitter')
+        self.assertNotContains(page, self.reporter.name)
+        self.assertNotContains(page, self.member.name)
+        # With the flags, the names are shown.
+        KaiMemberPermission.objects.filter(user=viewer).update(
+            can_view_submitter_identity=True, can_view_accused_identity=True)
+        b = self.get(viewer, f'kai/review/{c.id}/').json()
+        self.assertEqual(b['closure_requests'][0]['requested_by'], self.reporter.name)
+        self.assertEqual(b['recusals']['seats'][0]['member'], self.member.name)
+
+    def test_a_stand_in_is_not_told_whose_seat_it_is(self):
+        c = self.case(to=self.member)
+        self.get(self.chair, f'kai/review/{c.id}/')   # materialises the accused's seat
+        standin = make_user('kr-standin')
+        KaiRecusal.objects.filter(report=c, user=self.member).update(replacement=standin)
+        b = self.get(standin, 'kai/').json()
+        self.assertEqual(b['standing_in'][0]['standing_in_for'], 'a recused member')
+        page = self.web(standin).get(reverse('user_kai_dashboard'))
+        self.assertContains(page, 'Standing in for a recused member')
+        self.assertNotContains(page, self.member.name)
+
 
 class CaseActionTests(_Base):
 

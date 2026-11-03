@@ -27,7 +27,7 @@ Only rendered when there is a seat to show, so an ordinary case is unchanged.
       <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
         <div class="min-w-0">
           <p class="text-sm font-semibold text-gray-800 dark:text-gray-100">
-            {{ recusal.user.name }}
+            {{ recusal.member_label }}
           </p>
           <p class="text-xs text-amber-800 dark:text-amber-300 mt-0.5">
             {% if recusal.reason == 'accused' %}
@@ -118,7 +118,7 @@ Only rendered when there is a seat to show, so an ordinary case is unchanged.
           {% csrf_token %}
           <input type="hidden" name="recusal_id" value="{{ recusal.id }}">
           <button type="submit" class="text-xs text-gray-500 dark:text-gray-400 underline hover:no-underline">
-            {{ recusal.user.name }} is available again &mdash; end this recusal
+            {{ recusal.member_label }} is available again &mdash; end this recusal
           </button>
         </form>
         {% endif %}
