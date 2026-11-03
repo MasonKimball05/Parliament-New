@@ -32,6 +32,7 @@ from src.mobile import (
 
 from src.mobile import views_guide, views_study_hours
 from src.mobile import views_account_security, views_cnb_manage
+from src.mobile import views_passkeys
 from src.mobile import views_slating_apply, views_slating_committee
 from src.mobile import views_service_admin
 from src.mobile import views_document_manage, views_member_admin, views_songbook_manage
@@ -751,6 +752,16 @@ urlpatterns = [
          name='mobile_account_sessions_revoke_all'),
     path('account/sessions/<int:session_id>/revoke/', views_account_security.SessionRevokeView.as_view(),
          name='mobile_account_session_revoke'),
+    # v4.4.3: your passkeys (views_passkeys.py, the website's code).
+    path('account/passkeys/', views_passkeys.PasskeyListView.as_view(), name='mobile_account_passkeys'),
+    path('account/passkeys/register/begin/', views_passkeys.PasskeyRegisterBeginView.as_view(),
+         name='mobile_account_passkey_register_begin'),
+    path('account/passkeys/register/complete/', views_passkeys.PasskeyRegisterCompleteView.as_view(),
+         name='mobile_account_passkey_register_complete'),
+    path('account/passkeys/<int:pk>/rename/', views_passkeys.PasskeyRenameView.as_view(),
+         name='mobile_account_passkey_rename'),
+    path('account/passkeys/<int:pk>/delete/', views_passkeys.PasskeyDeleteView.as_view(),
+         name='mobile_account_passkey_delete'),
     path('events/<int:event_id>/signups/', views_calendar.EventSignupListView.as_view(),
          name='mobile_event_signups'),
     # Check-in and poll QR codes shown from the app (v4.4.3)

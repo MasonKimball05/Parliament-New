@@ -87,4 +87,9 @@ def _static_deleted(sender, instance, **kwargs):
 
 @receiver(post_delete, sender=WebAuthnCredential, dispatch_uid='mobile_revoke_on_passkey_delete')
 def _passkey_deleted(sender, instance, **kwargs):
-    revoke_user_devices(instance.user_id, 'passkey removed')
+    # v4.4.3: removed from the app's Passkeys screen with the password, the
+    # install that asked stays signed in (as a password change keeps it) —
+    # unless it signed in with a passkey, which may be this one
+    # (src/mobile/views_passkeys.py decides; see view.remove_passkey).
+    revoke_user_devices(instance.user_id, 'passkey removed',
+                        except_device_id=getattr(instance, '_keep_mobile_device_id', None))

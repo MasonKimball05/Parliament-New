@@ -197,6 +197,8 @@ class MobileAuthTicket(models.Model):
     PURPOSE_DELETE_GRANT = 'delete_grant'
     # v4.4.3: Site admin's passkey unlock (src/mobile/views_site_admin.py).
     PURPOSE_ADMIN_PASSKEY = 'admin_passkey'
+    # v4.4.3: adding a passkey from the app (src/mobile/views_passkeys.py).
+    PURPOSE_PASSKEY_REGISTER = 'passkey_register'
     PURPOSE_CHOICES = [
         (PURPOSE_MFA, '2FA step after password'),
         (PURPOSE_PASSKEY_LOGIN, 'Passkey sign-in challenge'),
@@ -206,6 +208,7 @@ class MobileAuthTicket(models.Model):
         (PURPOSE_VOTE_GRANT, 'One-shot vote re-auth grant'),
         (PURPOSE_DELETE_GRANT, 'One-shot account-deletion re-auth grant'),
         (PURPOSE_ADMIN_PASSKEY, 'Site admin passkey unlock challenge'),
+        (PURPOSE_PASSKEY_REGISTER, 'Passkey registration challenge'),
     ]
     #: Lifetimes, seconds.
     TTL = {
@@ -217,6 +220,8 @@ class MobileAuthTicket(models.Model):
         PURPOSE_VOTE_GRANT: 120,
         PURPOSE_DELETE_GRANT: 120,
         PURPOSE_ADMIN_PASSKEY: 120,
+        # Long enough for the system sheet and Face ID, no longer.
+        PURPOSE_PASSKEY_REGISTER: 180,
     }
 
     purpose = models.CharField(max_length=20, choices=PURPOSE_CHOICES)

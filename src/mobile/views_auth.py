@@ -511,6 +511,7 @@ class MeView(MobileAPIView):
     def get(self, request):
         from src.models_feature_flags import FeatureFlag, PageToggle
         from src.mobile.site_admin import is_site_admin
+        from src.models.webauthn import WebAuthnCredential
         from src.permissions import user_is_officer_or_chair
         user = request.user
         device = request.auth
@@ -537,6 +538,10 @@ class MeView(MobileAPIView):
             # v4.4.3: on the admin-v2 allowlist, so the More tab shows "Site
             # admin" (src/mobile/site_admin.py). False for everyone else.
             'site_admin': is_site_admin(user),
+            # v4.4.3: any passkey on the account, for the app's "Create a
+            # passkey" offer after a password sign-in (and, by being present,
+            # that this server has account/passkeys/).
+            'has_passkeys': WebAuthnCredential.objects.filter(user=user).exists(),
             # FeatureFlag fails OPEN for an unseeded flag, exactly as the views do.
             # No 'calendar' flag: that FeatureFlag row is dead (it never gated
             # anything; see prune_dead_feature_flags.py). The calendar's real

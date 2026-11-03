@@ -68,20 +68,30 @@ def _check_password_reauth(request, cache_prefix):
     guesses across endpoints. cache_prefix is kept for log attribution only.
     Vote confirmation ('vote_pw') deliberately stays a separate, laxer bucket.
     """
+    return check_credential_change_password(
+        request, request.user, request.POST.get('password', ''), cache_prefix)
+
+
+def check_credential_change_password(request, user, password, cache_prefix):
+    """
+    ``_check_password_reauth`` for a caller that has the password itself
+    (v4.4.3: the app's passkey register / remove, ``src/mobile/views_passkeys.py``).
+    Same bucket (``cred_change_attempts_<pk>``), limits and log lines, so the
+    app and the website draw from one failure budget.
+    """
     from django.core.cache import cache
-    key = f'cred_change_attempts_{request.user.pk}'
+    key = f'cred_change_attempts_{user.pk}'
     failures = cache.get(key, 0)
     if failures >= _REAUTH_MAX_FAILURES:
         security_logger.warning(
-            f'{cache_prefix}: rate-limited for {request.user.username} '
+            f'{cache_prefix}: rate-limited for {user.username} '
             f'from {get_client_ip(request)} ({failures} failed password attempts)'
         )
         return 'rate_limited'
-    password = request.POST.get('password', '')
-    if not password or not request.user.check_password(password):
+    if not password or not isinstance(password, str) or not user.check_password(password):
         cache.set(key, failures + 1, _REAUTH_WINDOW_SECONDS)
         security_logger.warning(
-            f'{cache_prefix}: bad password for {request.user.username} '
+            f'{cache_prefix}: bad password for {user.username} '
             f'from {get_client_ip(request)}'
         )
         return 'denied'
@@ -116,6 +126,111 @@ _rp_config = rp_config  # the name every view in this module uses
 
 
 # ── Registration ──────────────────────────────────────────────────────────────
+#
+# v4.4.3: the option-building, verifying and saving steps are functions so the
+# app's passkey screen (src/mobile/views_passkeys.py) runs the same code; the
+# web views below behave exactly as before.
+
+def passkey_registration_options(user, rp_id):
+    """
+    Registration options for ``user``: their existing keys excluded (so the
+    authenticator doesn't re-register one), resident key preferred, user
+    verification required.
+    """
+    existing = [
+        PublicKeyCredentialDescriptor(id=bytes(cred.credential_id))
+        for cred in user.webauthn_credentials.all()
+    ]
+    return webauthn.generate_registration_options(
+        rp_id=rp_id,
+        rp_name='Parliament',
+        user_id=str(user.pk).encode(),
+        user_name=user.username,
+        user_display_name=getattr(user, 'name', user.username),
+        authenticator_selection=AuthenticatorSelectionCriteria(
+            resident_key=ResidentKeyRequirement.PREFERRED,
+            user_verification=UserVerificationRequirement.REQUIRED,
+        ),
+        exclude_credentials=existing,
+    )
+
+
+def verify_passkey_registration(credential_json, challenge, rp_id, origin, require_user_verification=False):
+    """py_webauthn's verify_registration_response; raises on any failure."""
+    return webauthn.verify_registration_response(
+        credential=credential_json,
+        expected_challenge=challenge,
+        expected_rp_id=rp_id,
+        expected_origin=origin,
+        require_user_verification=require_user_verification,
+    )
+
+
+def save_registered_passkey(request, user, verification, name, via=''):
+    """
+    Store a verified registration, with the website's log line and the
+    "A new passkey was added" notification and email. ``via`` (e.g.
+    ``' from the app'``) only extends the log line.
+    """
+    cred = WebAuthnCredential.objects.create(
+        user=user,
+        credential_id=verification.credential_id,
+        public_key=verification.credential_public_key,
+        sign_count=verification.sign_count,
+        aaguid=str(verification.aaguid) if verification.aaguid else '',
+        name=name,
+    )
+    ip_address = get_client_ip(request)
+    security_logger.info(
+        f'Passkey registered for {user.username}: "{name}" from {ip_address}{via}')
+    from src.security_notifications import notify_user_security_event
+    notify_user_security_event(
+        user,
+        'A new passkey was added to your account',
+        f'A new passkey ("{name}") was just registered on your Parliament account.',
+        ip_address=ip_address,
+    )
+    return cred
+
+
+def remove_passkey(request, user, cred, via='', keep_mobile_device_id=None):
+    """
+    Delete one of ``user``'s passkeys (password already confirmed), with the
+    website's log line and "A passkey was removed" notification and email.
+    Deleting a passkey signs every app install out (src/mobile/revocation.py);
+    ``keep_mobile_device_id`` spares the install that asked, as a password
+    change does.
+    """
+    name = cred.name
+    cred._keep_mobile_device_id = keep_mobile_device_id
+    cred.delete()
+    ip_address = get_client_ip(request)
+    security_logger.info(
+        f'Passkey "{name}" deleted by {user.username} from {ip_address} '
+        f'(password re-auth passed){via}'
+    )
+    from src.security_notifications import notify_user_security_event
+    notify_user_security_event(
+        user,
+        'A passkey was removed from your account',
+        f'The passkey "{name}" was just removed from your Parliament account '
+        f'after a correct password was entered.',
+        ip_address=ip_address,
+    )
+    return name
+
+
+def rename_passkey(user, cred, new_name):
+    """Rename ``cred``; returns the saved name, or None when it would be empty."""
+    new_name = (new_name or '').strip()[:100] if isinstance(new_name, str) else ''
+    if not new_name:
+        return None
+    old_name = cred.name
+    cred.name = new_name
+    cred.save(update_fields=['name'])
+    logger.info(f'Passkey renamed by {user.username}: "{old_name}" → "{new_name}"')
+    return new_name
+
 
 @login_required
 @require_POST
@@ -139,26 +254,7 @@ def passkey_register_begin(request):
             {'error': 'Incorrect password.'}, status=403)
 
     rp_id, _ = _rp_config(request)
-    user = request.user
-
-    # Exclude already-registered credentials so the authenticator doesn't re-register so the authenticator doesn't re-register
-    existing = [
-        PublicKeyCredentialDescriptor(id=bytes(cred.credential_id))
-        for cred in user.webauthn_credentials.all()
-    ]
-
-    options = webauthn.generate_registration_options(
-        rp_id=rp_id,
-        rp_name='Parliament',
-        user_id=str(user.pk).encode(),
-        user_name=user.username,
-        user_display_name=getattr(user, 'name', user.username),
-        authenticator_selection=AuthenticatorSelectionCriteria(
-            resident_key=ResidentKeyRequirement.PREFERRED,
-            user_verification=UserVerificationRequirement.REQUIRED,
-        ),
-        exclude_credentials=existing,
-    )
+    options = passkey_registration_options(request.user, rp_id)
 
     # Store challenge as list of ints for JSON-safe session serialization
     request.session[_SESSION_REG_CHALLENGE] = list(options.challenge)
@@ -182,35 +278,13 @@ def passkey_register_complete(request):
     name = request.headers.get('X-Passkey-Name', '').strip()[:100] or 'Passkey'
 
     try:
-        verification = webauthn.verify_registration_response(
-            credential=request.body.decode(),
-            expected_challenge=bytes(challenge_list),
-            expected_rp_id=rp_id,
-            expected_origin=origin,
-        )
+        verification = verify_passkey_registration(
+            request.body.decode(), bytes(challenge_list), rp_id, origin)
     except Exception as exc:
         logger.warning(f'Passkey registration failed for {request.user.username}: {exc}')
         return JsonResponse({'error': 'Registration verification failed.'}, status=400)
 
-    WebAuthnCredential.objects.create(
-        user=request.user,
-        credential_id=verification.credential_id,
-        public_key=verification.credential_public_key,
-        sign_count=verification.sign_count,
-        aaguid=str(verification.aaguid) if verification.aaguid else '',
-        name=name,
-    )
-
-    ip_address = get_client_ip(request)
-    security_logger.info(
-        f'Passkey registered for {request.user.username}: "{name}" from {ip_address}')
-    from src.security_notifications import notify_user_security_event
-    notify_user_security_event(
-        request.user,
-        'A new passkey was added to your account',
-        f'A new passkey ("{name}") was just registered on your Parliament account.',
-        ip_address=ip_address,
-    )
+    save_registered_passkey(request, request.user, verification, name)
     return JsonResponse({'ok': True, 'name': name})
 
 
@@ -521,21 +595,7 @@ def passkey_delete(request, pk):
         messages.error(request, 'Incorrect password. The passkey was NOT removed.')
         return redirect('profile')
 
-    name = cred.name
-    cred.delete()
-    ip_address = get_client_ip(request)
-    security_logger.info(
-        f'Passkey "{name}" deleted by {request.user.username} from {ip_address} '
-        f'(password re-auth passed)'
-    )
-    from src.security_notifications import notify_user_security_event
-    notify_user_security_event(
-        request.user,
-        'A passkey was removed from your account',
-        f'The passkey "{name}" was just removed from your Parliament account '
-        f'after a correct password was entered.',
-        ip_address=ip_address,
-    )
+    name = remove_passkey(request, request.user, cred)
     messages.success(request, f'Passkey "{name}" has been removed.')
     return redirect('profile')
 
@@ -552,8 +612,5 @@ def passkey_rename(request, pk):
         return JsonResponse({'error': 'Invalid request.'}, status=400)
     if not new_name:
         return JsonResponse({'error': 'Name cannot be empty.'}, status=400)
-    old_name = cred.name
-    cred.name = new_name
-    cred.save(update_fields=['name'])
-    logger.info(f'Passkey renamed by {request.user.username}: "{old_name}" → "{new_name}"')
+    rename_passkey(request.user, cred, new_name)
     return JsonResponse({'ok': True, 'name': new_name})
