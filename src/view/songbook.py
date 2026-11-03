@@ -66,9 +66,17 @@ def create_song(user, form):
     return song
 
 
-def update_song(user, form):
-    """Save a valid ``SongForm`` bound to an existing song (``song_edit``)."""
-    song = form.save()
+def update_song(user, form, remove_audio=False):
+    """
+    Save a valid ``SongForm`` bound to an existing song (``song_edit``).
+    ``remove_audio`` (v4.4.2, the app's "Remove the recording") takes the
+    recording off when no new one was uploaded; the web form, which has no
+    such control, never passes it.
+    """
+    song = form.save(commit=False)
+    if remove_audio and not form.files.get('audio_file'):
+        song.audio_file = None
+    song.save()
     logger.info(f"{user.username} edited song: {song.title}")
     return song
 

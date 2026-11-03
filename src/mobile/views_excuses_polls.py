@@ -3,9 +3,13 @@ The app's My Excuses and Polls screens (mobile plan, Phase 3d).
 
 * ``GET my/excuses/`` — My Excuses: the member's requests (newest first) with
   the web page's status counts, and the upcoming events they can still ask to
-  be excused from. Same filters as ``my_excuses``.
+  be excused from. Same filters as ``my_excuses``. v4.4.2: ``document`` gives
+  the supporting document's extensions and size limit.
 * ``POST my/excuses/`` ``{event_id, reason}`` — submit one, under every rule
-  ``submit_excuse`` applies. A supporting document is attached on the website.
+  ``submit_excuse`` applies. v4.4.2: or as ``multipart/form-data`` with a
+  ``supporting_document`` (a doctor's note: PDF, Word or a photo), checked by
+  the web view's ``excuse_document_error``; a refused file is 400
+  ``invalid_input`` and nothing is saved.
 * ``POST my/excuses/<id>/cancel/`` — withdraw a pending request.
 * ``GET polls/`` — every poll on an announcement the member can see, split
   into open and closed as ``polls_view`` splits them.
@@ -19,6 +23,7 @@ from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
 from rest_framework import exceptions
+from rest_framework.parsers import JSONParser, MultiPartParser
 from rest_framework.response import Response
 
 from src.feature_flag_decorators import check_feature_enabled
@@ -27,13 +32,17 @@ from src.models import (
     ActivityLog, Announcement, AnnouncementPollAnswer, AnnouncementPollResponse, AttendanceExcuse, Event,
 )
 from src.models.users import member_defer
+from src.utils.file_validation import MAX_FILE_SIZE
 from src.utils.visibility import visible_to_q
+from src.view.submit_excuse import excuse_document_error
 
 EXCUSE_LIMIT = 100
 POLL_LIMIT = 100
 REASON_MIN = 10
 REASON_MAX = 5000
 TEXT_ANSWER_MAX = 5000
+#: submit_excuse.html's file input ``accept`` list (validate_uploaded_file decides).
+DOCUMENT_EXTENSIONS = ['.pdf', '.doc', '.docx', '.jpg', '.jpeg', '.png']
 
 
 class BadRequest(exceptions.APIException):
@@ -81,6 +90,7 @@ def _excuse_json(excuse):
 class MyExcusesView(MobileAPIView):
     web_page = 'my_excuses'
     web_page_toggle = False   # the web page has only the feature flags
+    parser_classes = [JSONParser, MultiPartParser]
 
     def get(self, request):
         _require_excuses()
@@ -106,6 +116,8 @@ class MyExcusesView(MobileAPIView):
                  'requires_attendance': e.requires_attendance}
                 for e in _available_events(request.user)
             ],
+            # v4.4.2: a supporting document may be sent; the web form's accept list.
+            'document': {'extensions': DOCUMENT_EXTENSIONS, 'max_bytes': MAX_FILE_SIZE},
         })
 
     def post(self, request):
@@ -135,10 +147,15 @@ class MyExcusesView(MobileAPIView):
                                              code='reason_too_short')
         if len(reason) > REASON_MAX:
             raise BadRequest('That reason is too long.', code='reason_too_long')
+        document = request.FILES.get('supporting_document')
+        if document is not None:
+            problem = excuse_document_error(document)
+            if problem:
+                raise BadRequest(problem, code='invalid_input')
 
         with transaction.atomic():
             excuse, created = AttendanceExcuse.objects.get_or_create(
-                event=event, user=user, defaults={'reason': reason})
+                event=event, user=user, defaults={'reason': reason, 'supporting_document': document})
         if not created:
             raise exceptions.PermissionDenied('You have already submitted an excuse for this event.',
                                               code='already_submitted')

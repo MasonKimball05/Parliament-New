@@ -167,9 +167,11 @@ class SupportTests(TestCase):
         self.assertTrue(FeedbackRequest.objects.get(pk=r.json()['id']).attachment)
 
     def test_a_bad_feedback_photo_keeps_the_request(self):
-        fake = SimpleUploadedFile('mock.pdf', b'%PDF-1.4', content_type='application/pdf')
+        # v4.4.2: a PDF is allowed now, so the bad file is one that isn't a photo or a PDF.
+        fake = SimpleUploadedFile('mock.txt', b'%PDF-1.4', content_type='text/plain')
         r = self.api.post(API + 'support/feedback/', {'title': 'Mockup', 'description': 'See it',
                                                       'attachment': fake}, **bearer(self.access))
         self.assertEqual(r.status_code, 201)
-        self.assertEqual(r.json()['attachment_problem'], 'Screenshots must be PNG, JPEG, WebP or GIF.')
+        self.assertEqual(r.json()['attachment_problem'],
+                         'Attachments must be a photo (PNG, JPEG, WebP or GIF) or a PDF.')
         self.assertFalse(FeedbackRequest.objects.get(pk=r.json()['id']).attachment)

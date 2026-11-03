@@ -453,3 +453,115 @@ class DetailActionsTests(_Base):
                          voting_closed=True, status='passed', passed=True)
         self.assertTrue(self.actions(appt, self.officer)['assign'])
         self.assertFalse(self.actions(appt, self.member)['assign'])
+
+
+def _pdf(name='Bill Text.pdf'):
+    from django.core.files.uploadedfile import SimpleUploadedFile
+    content = b'%PDF-1.4\n1 0 obj\n<< /Type /Catalog >>\nendobj\n% x\ntrailer\n%%EOF\n'
+    return SimpleUploadedFile(name, content, content_type='application/pdf')
+
+
+class DocumentUploadTests(_Base):
+    """v4.4.2 — the app's file picker: multipart with a ``document`` on every legislation form."""
+
+    def setUp(self):
+        super().setUp()
+        import shutil
+        import tempfile
+        self.media = tempfile.mkdtemp(prefix='parliament-mobile-b6-upload-')
+        self.addCleanup(shutil.rmtree, self.media, ignore_errors=True)
+        override = override_settings(MEDIA_ROOT=self.media)
+        override.enable()
+        self.addCleanup(override.disable)
+
+    def multipart(self, path, body, user=None):
+        return self.api.post(API + path, body, **bearer(self.tokens[(user or self.chair).pk]))
+
+    def later(self, days=2):
+        return (timezone.now() + timedelta(days=days)).isoformat()
+
+    def test_new_vote_with_a_document_and_a_short_description(self):
+        # As on the web: a description is still required, but 20 characters only without a document.
+        r = self.multipart('votes/new/', {'title': 'Doc bill', 'description': 'See attached.', 'available_now': 'true',
+                                          'vote_mode': 'percentage', 'required_percentage': '51',
+                                          'document': _pdf()})
+        self.assertEqual(r.status_code, 201, r.content)
+        leg = Legislation.objects.get(title='Doc bill')
+        self.assertTrue(leg.document.name.startswith('legislation_docs/'))
+        self.assertIsNotNone(self.get(f'legislation/{leg.id}/edit/', user=self.admin).json()['bill']['document'])
+
+    def test_new_vote_refuses_a_bad_file_and_members(self):
+        from unittest import mock
+        with mock.patch('src.utils.file_validation.MAX_FILE_SIZE', 16):
+            r = self.multipart('votes/new/', {'title': 'Big', 'description': LONG, 'available_now': 'true',
+                                              'document': _pdf()})
+        self.assertEqual((r.status_code, r.json()['error']), (400, 'invalid_input'))
+        self.assertIn('exceeds maximum', r.json()['detail'])
+        r = self.multipart('votes/new/', {'title': 'Member', 'description': LONG, 'available_now': 'true',
+                                          'document': _pdf()}, user=self.member)
+        self.assertEqual(r.status_code, 403)
+        self.assertFalse(Legislation.objects.exists())
+
+    def test_edit_attaches_and_replaces_a_document(self):
+        later = timezone.now() + timedelta(days=1)
+        leg = self.bill('Scheduled', posted_by=self.member, available_at=later, voting_starts_at=later)
+        body = {'title': 'Scheduled', 'description': 'short', 'available_at': self.later(),
+                'required_percentage': '51', 'allow_abstain': 'true'}
+        # A short description is fine once there is a document.
+        r = self.multipart(f'legislation/{leg.id}/edit/', {**body, 'document': _pdf()}, user=self.member)
+        self.assertEqual(r.status_code, 200, r.content)
+        leg.refresh_from_db()
+        self.assertTrue(leg.document)
+        self.assertEqual((leg.description, leg.allow_abstain), ('short', True))
+        self.assertIsNotNone(r.json()['bill']['document'])
+        # A JSON edit afterwards keeps it.
+        r = self.post(f'legislation/{leg.id}/edit/', {**body, 'title': 'Kept'}, user=self.member)
+        self.assertEqual(r.status_code, 200, r.content)
+        leg.refresh_from_db()
+        self.assertTrue(leg.document)
+        fake = SimpleUploaded('bill.docx', b'not a docx')
+        r = self.multipart(f'legislation/{leg.id}/edit/', {**body, 'document': fake}, user=self.member)
+        self.assertEqual((r.status_code, r.json()['error']), (400, 'invalid_input'))
+
+    def test_edit_upload_by_someone_without_access(self):
+        later = timezone.now() + timedelta(days=1)
+        leg = self.bill('Scheduled', posted_by=self.member, available_at=later, voting_starts_at=later)
+        stranger = make_user('b6-up-stranger')
+        self.tokens[stranger.pk] = make_device(stranger)[1]
+        r = self.multipart(f'legislation/{leg.id}/edit/', {'title': 'X', 'description': LONG,
+                                                           'available_at': self.later(), 'document': _pdf()},
+                           user=stranger)
+        self.assertEqual(r.status_code, 403)
+        leg.refresh_from_db()
+        self.assertFalse(leg.document)
+
+    def test_new_version_with_a_document(self):
+        leg = self.bill('Old', status='passed', passed=True, voting_closed=True)
+        r = self.multipart(f'legislation/{leg.id}/new-version/', {
+            'title': 'Old v2', 'description': 'See attached.', 'available_at': self.later(), 'required_percentage': '51',
+            'document': _pdf(),
+        })
+        self.assertEqual(r.status_code, 201, r.content)
+        new = Legislation.objects.get(title='Old v2')
+        self.assertTrue(new.document)
+        self.assertEqual(self.multipart(f'legislation/{leg.id}/new-version/', {
+            'title': 'Old v3', 'description': LONG, 'available_at': self.later(), 'document': _pdf(),
+        }, user=self.officer).status_code, 403)
+
+    def test_tracker_add_with_a_document(self):
+        r = self.multipart('legislation/passed/add/', {'title': 'Archived', 'status': 'passed', 'description': '',
+                                                       'document': _pdf()}, user=self.officer)
+        self.assertEqual(r.status_code, 201, r.content)
+        self.assertTrue(Legislation.objects.get(title='Archived').document)
+        r = self.multipart('legislation/passed/add/', {'title': 'Fake', 'description': '',
+                                                       'document': SimpleUploaded('x.pdf', b'nope')},
+                           user=self.officer)
+        self.assertEqual((r.status_code, r.json()['error']), (400, 'invalid_input'))
+        self.assertEqual(self.multipart('legislation/passed/add/', {'title': 'Chair', 'description': '',
+                                                                    'document': _pdf()}).status_code, 403)
+        self.assertFalse(Legislation.objects.filter(title__in=['Fake', 'Chair']).exists())
+
+
+def SimpleUploaded(name, content):
+    from django.core.files.uploadedfile import SimpleUploadedFile
+    return SimpleUploadedFile(name, content, content_type='application/octet-stream')

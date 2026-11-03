@@ -69,14 +69,17 @@ from src.view.kai_user_dashboard import (
     file_kai_appeal,
 )
 
-#: KaiReportForm.clean_attachment's limits (the app sends photos: JPG or PNG).
-REPORT_ATTACHMENT = {'extensions': ['.jpg', '.jpeg', '.png'], 'max_bytes': 20 * 1024 * 1024}
+#: KaiReportForm.clean_attachment's limits. v4.4.2: its whole list (build 19's
+#: file picker sends PDFs and Office files; older builds send JPG or PNG).
+REPORT_ATTACHMENT = {'extensions': ['.pdf', '.docx', '.doc', '.xlsx', '.xls', '.jpg', '.jpeg', '.png'],
+                     'max_bytes': 20 * 1024 * 1024}
 
 #: The website's success messages (messages.success in the two submit views).
 REPORT_SUBMITTED = 'Your Kai report has been submitted successfully! The Kai chair(s) have been notified.'
 COMMENDATION_SUBMITTED = 'Your commendation has been submitted. The Kai chair(s) have been notified.'
 
-#: The form builder's types; the app draws them all (a file field takes a photo).
+#: The form builder's types; the app draws them all (a file field takes a photo,
+#: or with build 19's file picker a document).
 FIELD_TYPES = {'text', 'textarea', 'number', 'email', 'date', 'select', 'multiselect', 'checkbox', 'radio',
                'file', 'member_select'}
 

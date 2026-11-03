@@ -17,9 +17,10 @@ entry are the website's.
 * ``GET support/feedback/`` — the choices (idea or support ticket, pages,
   priorities, the attachment limits). ``POST`` ``{request_type, title,
   description, page, priority, feature, page_url}`` as JSON, or as
-  ``multipart/form-data`` with an optional ``attachment`` photo (v4.4.2; the
-  bug report screenshot's checks, so images only — PDFs stay on the website).
-  A bad photo is dropped like a bad screenshot. 201 ``{id, request_type,
+  ``multipart/form-data`` with an optional ``attachment``: a photo (the bug
+  report screenshot's checks) or, v4.4.2, a PDF (checked to really be one, 10
+  MB), through ``attachment_error`` as on the website. A bad one is dropped
+  like a bad screenshot. 201 ``{id, request_type,
   attachment_problem}``; 400 ``missing_fields``.
 
 Every signed-in member, like the web pages (``@login_required`` only, no page
@@ -32,9 +33,10 @@ from src.mobile.api import MobileAPIView
 from src.mobile.views_excuses_polls import BadRequest
 from src.view.bug_report import (
     SCREENSHOT_EXTENSIONS, SCREENSHOT_MAX_BYTES, BugReportInvalid, bug_report_choices, create_bug_report,
-    screenshot_error,
 )
-from src.view.feedback import FeedbackInvalid, create_feedback, feedback_choices
+from src.view.feedback import (
+    ATTACHMENT_EXTENSIONS, ATTACHMENT_MAX_BYTES, FeedbackInvalid, attachment_error, create_feedback, feedback_choices,
+)
 
 
 def _choices(pairs):
@@ -82,12 +84,12 @@ class FeedbackView(MobileAPIView):
             'pages': _choices(c['page_choices']),
             'priorities': _choices(c['priority_choices']),
             'default_priority': 'medium',
-            'attachment': {'extensions': list(SCREENSHOT_EXTENSIONS), 'max_bytes': SCREENSHOT_MAX_BYTES},
+            'attachment': {'extensions': list(ATTACHMENT_EXTENSIONS), 'max_bytes': ATTACHMENT_MAX_BYTES},
         })
 
     def post(self, request):
         attachment = request.FILES.get('attachment')
-        attachment_problem = screenshot_error(attachment) if attachment is not None else None
+        attachment_problem = attachment_error(attachment) if attachment is not None else None
         try:
             feedback = create_feedback(request, _body(request), None if attachment_problem else attachment)
         except FeedbackInvalid:

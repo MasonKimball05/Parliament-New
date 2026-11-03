@@ -17,6 +17,19 @@ from src.feature_flag_decorators import require_feature_flag
 from src.models.users import member_defer
 
 
+def excuse_document_error(document):
+    """
+    None if ``document`` may be an excuse's supporting document, else the
+    message (v4.4.2: ``submit_excuse`` and the app's src/mobile/
+    views_excuses_polls.py). ``validate_uploaded_file`` reads the content.
+    """
+    try:
+        validate_uploaded_file(document)
+    except ValidationError as e:
+        return f'File upload error: {str(e)}'
+    return None
+
+
 @login_required
 @require_feature_flag('attendance_tracking', 'excuse_system')
 def my_excuses(request):
@@ -114,10 +127,9 @@ def submit_excuse(request, event_id):
 
         # Validate uploaded file if provided
         if supporting_document:
-            try:
-                validate_uploaded_file(supporting_document)
-            except ValidationError as e:
-                messages.error(request, f'File upload error: {str(e)}')
+            problem = excuse_document_error(supporting_document)
+            if problem:
+                messages.error(request, problem)
                 return render(request, 'submit_excuse.html', {'event': event})
 
         # Validate reason

@@ -43,9 +43,11 @@ button rules: End Vote is offered once voting has started and until it ends,
 so the app refuses ending a vote that isn't open (``not_open``) rather than
 closing (and re-announcing) it a second time.
 
-Documents: the app has no document picker yet, so its forms send text and a
-bill that needs a file is attached on the website. The upload endpoints
-already take multipart with a ``document`` for a later build.
+Documents: the upload, edit, new-version and tracker endpoints take
+multipart with a ``document`` (checked by ``validate_uploaded_file``, then by
+``LegislationForm`` where the web view uses it). From v4.4.2 the app sends
+one when a file was picked; an app build without the file picker sends JSON
+and a bill that needs a file is attached on the website.
 """
 from datetime import datetime, timedelta, timezone as dt_timezone
 

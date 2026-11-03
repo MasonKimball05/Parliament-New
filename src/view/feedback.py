@@ -20,10 +20,43 @@ from django.utils.http import url_has_allowed_host_and_scheme
 from django.core.mail import EmailMultiAlternatives
 from django.template.loader import render_to_string
 from django.utils.html import strip_tags
+from django.core.exceptions import ValidationError
 
 from src.models import FeedbackRequest, ActivityLog
 from src.models.users import member_defer
 from src.decorators import feedback_admin_required
+from src.utils.file_validation import validate_uploaded_file
+from src.view.bug_report import SCREENSHOT_EXTENSIONS, SCREENSHOT_MAX_BYTES, screenshot_error
+
+
+#: What a feedback attachment may be (v4.4.2): the bug report screenshot's
+#: images, or a PDF — the page's ``accept="image/*,.pdf"``.
+ATTACHMENT_EXTENSIONS = SCREENSHOT_EXTENSIONS + ('.pdf',)
+ATTACHMENT_MAX_BYTES = SCREENSHOT_MAX_BYTES
+
+
+def attachment_error(upload):
+    """
+    None if ``upload`` is an acceptable feedback attachment, else a message for
+    the member (v4.4.2, the web form and the app's alike). A photo gets the bug
+    report screenshot's checks (``screenshot_error``); a PDF must be one —
+    ``validate_uploaded_file`` reads the content, so a renamed file is refused —
+    under the same 10 MB.
+    """
+    name = (upload.name or '').lower()
+    if not name.endswith('.pdf'):
+        if not name.endswith(SCREENSHOT_EXTENSIONS):
+            return 'Attachments must be a photo (PNG, JPEG, WebP or GIF) or a PDF.'
+        return screenshot_error(upload)
+    if upload.size > ATTACHMENT_MAX_BYTES:
+        return 'Attachments can be at most 10 MB.'
+    try:
+        validate_uploaded_file(upload)
+    except ValidationError:
+        return "That file isn't a readable PDF."
+    finally:
+        upload.seek(0)
+    return None
 
 
 class FeedbackInvalid(Exception):
@@ -141,11 +174,17 @@ def submit_feedback(request):
     View for submitting a feature idea or a support ticket.
     """
     if request.method == 'POST':
+        # v4.4.2 — the attachment is checked (it was saved unchecked); a bad
+        # one doesn't lose the request, as in the app: it's sent without it.
+        attachment = request.FILES.get('attachment')
+        problem = attachment_error(attachment) if attachment is not None else None
         try:
-            feedback = create_feedback(request, request.POST, request.FILES.get('attachment'))
+            feedback = create_feedback(request, request.POST, None if problem else attachment)
         except FeedbackInvalid as e:
             messages.error(request, str(e))
             return redirect('feedback_request')
+        if problem:
+            messages.warning(request, f'It was sent without the attachment. {problem}')
 
         if feedback.request_type == 'feature_idea':
             messages.success(request, 'Thanks! Your idea has been posted to the feedback board.')

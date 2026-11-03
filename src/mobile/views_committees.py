@@ -112,6 +112,7 @@ def _document_json(doc, code):
         'extension': os.path.splitext(name)[1].lstrip('.').lower(),
         'published_to_chapter': doc.published_to_chapter,
         'file': f'committees/{code}/documents/{doc.id}/file/',
+        'version': doc.get_version_string(),   # v4.4.2: shown beside Replace
     }
 
 
@@ -297,10 +298,13 @@ class CommitteeDocumentsView(_CommitteeView):
             drafts = [{'id': m.id, 'title': m.title, 'date': m.date.isoformat(), 'status': m.status}
                       for m in ChapterMinutes.objects.filter(committee=committee).exclude(status='published')
                       .order_by('-date')]
-        # v4.4.0: publish/unpublish and delete are native; uploading stays on the website.
+        # v4.4.0: publish/unpublish and delete are native. v4.4.2: so are upload
+        # and replace (views_committee_documents) for a build with the file
+        # picker; `upload_path` stays for the builds without one.
         can_manage = can_manage_documents(user, committee)
         return Response({'documents': [_document_json(d, code) for d in docs], 'unpublished_minutes': drafts,
                          'can_manage': can_manage,
+                         'can_replace': can_manage and check_feature_enabled('document_versioning'),
                          'upload_path': reverse('upload_document', args=[code]) if can_manage else None})
 
 

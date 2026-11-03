@@ -30,8 +30,8 @@ permissions, attendance and document publish/delete pages.
 
 Every permission check, the work and its side effects (logs, activity log,
 security events) are the web views', via ``src.committee_management`` and
-``src.view.committee.member_permissions``. Uploading a document stays on the
-website (its form takes PDFs and Word files, which the app can't pick).
+``src.view.committee.member_permissions``. Uploading and replacing a
+document's file are in views_committee_documents (v4.4.2, the file picker).
 None of these pages has a page toggle, so ``web_page_toggle`` is off.
 """
 from django.http import Http404

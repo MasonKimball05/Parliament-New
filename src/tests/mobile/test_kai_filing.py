@@ -118,7 +118,8 @@ class FormTests(_Base):
         self.assertEqual(b['fields'][0]['name'], f'custom_field_{text.id}')
         self.assertTrue(b['fields'][0]['required'])
         self.assertEqual(b['fields'][1]['options'], [{'value': 'A', 'label': 'A'}, {'value': 'b', 'label': 'Bee'}])
-        self.assertEqual(b['attachment']['extensions'], ['.jpg', '.jpeg', '.png'])
+        self.assertEqual(b['attachment']['extensions'],   # v4.4.2: KaiReportForm's whole list
+                         ['.pdf', '.docx', '.doc', '.xlsx', '.xls', '.jpg', '.jpeg', '.png'])
 
     def test_commendation_form(self):
         KaiFormField.objects.create(field_name='kf_praise', label='Praise', field_type='text',

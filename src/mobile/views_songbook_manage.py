@@ -6,7 +6,7 @@ officer tools batch 5), through the Songbook's own helpers
 * ``POST songbook/songs/`` ``{title, category?, lyrics}`` — ``song_create``.
 * ``GET songbook/songs/<id>/edit/`` — the song as the edit form shows it;
   ``POST`` the same fields — ``song_edit``. A recording already on the song
-  stays when none is sent.
+  stays when none is sent; ``remove_audio: "true"`` (v4.4.2) takes it off.
 * ``POST songbook/songs/<id>/delete/`` — ``song_delete`` (hides the song).
 * ``GET songbook/categories/`` — ``manage_song_categories``: the categories with
   their song counts, the choristers and who could become one;
@@ -14,10 +14,14 @@ officer tools batch 5), through the Songbook's own helpers
   page's four forms.
 
 Songs: ``can_manage_songs`` (officers, chairs, admins and Choristers), no page
-toggle. Categories: admins only. All also multipart, so an ``audio_file`` the
-form accepts is accepted here; the app has no audio picker, so it links to the
-website's song form to add or replace a recording.
+toggle. Categories: admins only. All also multipart, so an ``audio_file`` goes
+through ``SongForm.clean_audio_file`` exactly as on the website (MP3, WAV, M4A,
+OGG or FLAC, 50 MB); a refused one is 400 ``invalid_input`` with the form's
+message. v4.4.2: build 19's file picker sends it; older builds link to the
+website's song form instead.
 """
+import os
+
 from django.shortcuts import get_object_or_404
 from django.urls import reverse
 from rest_framework import exceptions
@@ -54,6 +58,7 @@ def _song_json(song):
         'category_id': song.category_id,
         'lyrics': song.lyrics,
         'has_audio': bool(song.audio_file),
+        'audio_name': os.path.basename(song.audio_file.name) if song.audio_file else '',   # v4.4.2
         'is_active': song.is_active,
     }
 
@@ -87,7 +92,8 @@ class SongEditView(_SongManagers):
 
     def post(self, request, song_id):
         song = get_object_or_404(Song, pk=song_id)
-        song = update_song(request.user, _song_form(request, song))
+        remove_audio = str(_form_data(request).get('remove_audio') or '').lower() in ('true', 'on', '1')
+        song = update_song(request.user, _song_form(request, song), remove_audio=remove_audio)
         return Response({'song': _song_json(song), 'message': f'Song "{song.title}" has been updated.'})
 
 

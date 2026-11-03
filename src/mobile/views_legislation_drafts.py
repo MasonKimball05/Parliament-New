@@ -8,7 +8,8 @@ saved or published from the app is the one the website would have made.
 * ``GET legislation/drafts/form/`` — what the editor offers: the vote modes and
   thresholds (the form's choices), the new draft's defaults, the help texts and
   whether the member ``can_publish``.
-* ``POST legislation/drafts/`` — a new draft (JSON). Fields: ``title``,
+* ``POST legislation/drafts/`` — a new draft (JSON, or multipart with a
+  ``document``). Fields: ``title``,
   ``description``, ``notes``, ``planned_available_at`` and
   ``planned_voting_ends_at`` (ISO 8601 or null), ``vote_mode``,
   ``required_percentage``, ``anonymous_vote``, ``allow_abstain``. 201
@@ -19,6 +20,8 @@ saved or published from the app is the one the website would have made.
   attachment's site path when it has one. ``POST`` — the edited draft, the
   same fields as creating one; a field left out keeps its saved value. 200
   ``{draft, message}``; 400 ``invalid_input``; 400 ``already_published``.
+  v4.4.2: multipart with a ``document`` attaches it (or replaces the one
+  there); ``remove_document: true`` removes it.
 * ``POST legislation/drafts/<id>/delete/`` — delete it. 200 ``{ok, message}``.
 * ``POST legislation/drafts/<id>/publish/`` — publish it. Officers and chairs
   only (the web's ``@officer_required``, through the same ``_can_publish``):
@@ -29,22 +32,31 @@ saved or published from the app is the one the website would have made.
 Every read is ``_get_own_draft``, so another member's draft is a 404 and never
 a 403: for a private document the existence is part of what is private.
 
-The app sends text fields only. The optional document stays on the website
-(the app has no document picker): the app's form leaves the field out
-altogether, so an edit from the app can neither replace nor clear the file,
-and a draft that has one reports its site path (the author-only
-``legislation_draft_document`` route) for the app to open.
+Documents (v4.4.2, with the app's file picker): a save that carries a
+``document`` (multipart) or ``remove_document: true`` goes through the
+website's own ``LegislationDraftForm`` with the file field, so the file gets
+the web's checks (``clean_document``: PDF or DOCX, 20 MB, MIME sniffed), the
+same ``legislation_drafts/<uuid>`` storage, the remembered original name, and
+the replaced or removed file unlinked after commit, exactly as the edit page
+does. The upload is first checked by ``validate_uploaded_file``, as the app's
+other legislation uploads are. A save with neither leaves the field out
+altogether (``AppDraftForm``), so a plain JSON edit, as older app builds send,
+can neither replace nor clear the file; the raw ``document-clear`` checkbox is
+never passed through. A draft that has a document reports its site path (the
+author-only ``legislation_draft_document`` route) for the app to open.
 """
+from django.core.exceptions import ValidationError
 from django.forms.models import model_to_dict
 from django.urls import reverse
 from rest_framework import exceptions
-from rest_framework.parsers import JSONParser
+from rest_framework.parsers import JSONParser, MultiPartParser
 from rest_framework.response import Response
 
 from src.forms import LegislationDraftForm
 from src.mobile.api import MobileAPIView
 from src.mobile.views_excuses_polls import BadRequest
 from src.models import LegislationDraft
+from src.utils.file_validation import MAX_FILE_SIZE, validate_uploaded_file
 from src.view.legislation_drafts import _can_publish, _get_own_draft, publish_draft, publish_message
 
 #: The form's fields the app edits: all of them but the document.
@@ -123,13 +135,38 @@ def _draft_json(draft, user):
     }
 
 
+def _flag(value):
+    return value is True or (isinstance(value, str) and value.lower() in ('true', 'on', '1'))
+
+
+def _form(request, draft=None):
+    """
+    The form for this save (v4.4.2). With an upload or ``remove_document``,
+    the website's ``LegislationDraftForm`` with its file field; otherwise
+    ``AppDraftForm``, which cannot touch the file.
+    """
+    data = _form_data(request, draft)
+    document = request.FILES.get('document') if hasattr(request, 'FILES') else None
+    if document is not None:
+        try:
+            validate_uploaded_file(document)
+        except ValidationError as e:
+            raise BadRequest(f'File upload error: {" ".join(e.messages)}', code='invalid_input')
+        return LegislationDraftForm(data, {'document': document}, instance=draft)
+    body = request.data if hasattr(request.data, 'get') else {}
+    if draft is not None and draft.document and _flag(body.get('remove_document')):
+        # The edit page's "Clear" checkbox, set by the server for this one flag.
+        return LegislationDraftForm({**data, 'document-clear': 'on'}, instance=draft)
+    return AppDraftForm(data, instance=draft)
+
+
 def _choices(field):
     return [{'value': str(v), 'label': str(label)} for v, label in field.choices if v != '']
 
 
 class _Drafts(MobileAPIView):
     web_page_toggle = False   # the web views have no @require_page_enabled
-    parser_classes = [JSONParser]
+    parser_classes = [JSONParser, MultiPartParser]
 
 
 class LegislationDraftFormView(_Drafts):
@@ -149,6 +186,8 @@ class LegislationDraftFormView(_Drafts):
             },
             'help': {name: str(form.fields[name].help_text or '') for name in APP_FIELDS},
             'can_publish': _can_publish(request.user),
+            # v4.4.2: what a draft's document may be (LegislationDraftForm.clean_document).
+            'document': {'extensions': ['pdf', 'docx'], 'max_bytes': min(MAX_FILE_SIZE, 20 * 1024 * 1024)},
         })
 
 
@@ -156,7 +195,7 @@ class LegislationDraftsView(_Drafts):
     web_page = 'create_legislation_draft'
 
     def post(self, request):
-        form = AppDraftForm(_form_data(request))
+        form = _form(request)
         if not form.is_valid():
             raise BadRequest(_form_errors(form), code='invalid_input')
         draft = form.save(commit=False)
@@ -179,9 +218,10 @@ class LegislationDraftView(_Drafts):
         if draft.is_published:
             raise BadRequest('This draft has already been published. Edit the bill itself instead.',
                              code='already_published')
-        form = AppDraftForm(_form_data(request, draft), instance=draft)
+        form = _form(request, draft)
         if not form.is_valid():
             raise BadRequest(_form_errors(form), code='invalid_input')
+        # The website's save: on a replace or remove it unlinks the old file after commit.
         draft = form.save()
         return Response({'draft': _draft_json(draft, request.user), 'message': 'Draft updated.'})
 

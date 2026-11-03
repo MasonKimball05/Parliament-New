@@ -5,8 +5,9 @@ The app must keep the website's promises about a draft: only its author can
 see, edit or delete it (another member's draft is a 404, not a 403); any member
 can draft but only officers and chairs publish; publishing goes through the
 same ``publish_draft`` as the web view and refuses a draft below the publish
-floor; and the app, which sends text fields only, can never replace or clear
-the document a draft was given on the website.
+floor; a plain JSON save (an app build without the file picker) can never
+replace or clear the draft's document; and from v4.4.2 a multipart save
+attaches, replaces or removes it with the website's checks and file handling.
 
     python manage.py test src.tests.mobile.test_legislation_drafts
 """
@@ -16,7 +17,10 @@ import tempfile
 from datetime import timedelta
 
 from django.core.cache import cache
+from unittest import mock
+
 from django.core.files.base import ContentFile
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client, TestCase, override_settings
 from django.utils import timezone
 
@@ -26,6 +30,11 @@ from src.tests.mobile.test_home_and_notifications import restrict
 
 API = '/api/mobile/v1/'
 LONG = 'A description comfortably over the twenty character floor.'
+
+
+def _pdf(name='Dues Amendment.pdf'):
+    content = b'%PDF-1.4\n1 0 obj\n<< /Type /Catalog >>\nendobj\n% x\ntrailer\n%%EOF\n'
+    return SimpleUploadedFile(name, content, content_type='application/pdf')
 
 
 @override_settings(ALLOWED_HOSTS=['testserver', 'localhost'])
@@ -242,3 +251,127 @@ class PublishTests(_Base):
         d = self.get(f'legislation/drafts/{draft.id}/', self.officer_access).json()
         self.assertEqual(d['notes'], 'officer scratch')
         self.assertIsNotNone(d['links']['bill'])
+
+
+class DocumentUploadTests(_Base):
+    """v4.4.2 — the app's file picker: multipart saves through the web form's file field."""
+
+    def setUp(self):
+        super().setUp()
+        self.media = tempfile.mkdtemp(prefix='parliament-mobile-draft-upload-')
+        self.addCleanup(shutil.rmtree, self.media, ignore_errors=True)
+        override = override_settings(MEDIA_ROOT=self.media)
+        override.enable()
+        self.addCleanup(override.disable)
+
+    def multipart(self, path, body, access=None):
+        return self.api.post(API + path, body, **bearer(access or self.access))
+
+    def on_disk(self, name):
+        return os.path.isfile(os.path.join(self.media, name))
+
+    def test_form_says_what_a_document_may_be(self):
+        doc = self.get('legislation/drafts/form/').json()['document']
+        self.assertEqual(doc['extensions'], ['pdf', 'docx'])
+        self.assertEqual(doc['max_bytes'], 20 * 1024 * 1024)
+
+    def test_create_with_a_document(self):
+        r = self.multipart('legislation/drafts/', {
+            'title': 'With a file', 'description': '', 'anonymous_vote': 'true', 'allow_abstain': 'false',
+            'planned_available_at': '', 'vote_mode': 'percentage', 'required_percentage': '51',
+            'document': _pdf(),
+        })
+        self.assertEqual(r.status_code, 201, r.content)
+        draft = LegislationDraft.objects.get(pk=r.json()['draft']['id'])
+        self.assertEqual(draft.author, self.author)
+        self.assertTrue(draft.document.name.startswith('legislation_drafts/'))
+        self.assertNotIn('Dues', draft.document.name)   # the uuid name, as on the web
+        self.assertEqual(draft.document_original_name, 'Dues Amendment.pdf')
+        self.assertTrue(self.on_disk(draft.document.name))
+        self.assertEqual((draft.anonymous_vote, draft.allow_abstain, draft.planned_available_at),
+                         (True, False, None))
+        self.assertEqual(r.json()['draft']['document']['name'], 'Dues Amendment.pdf')
+
+    def test_attach_replace_and_remove(self):
+        r = self.multipart(f'legislation/drafts/{self.draft.id}/', {'document': _pdf('First.pdf')})
+        self.assertEqual(r.status_code, 200, r.content)
+        self.draft.refresh_from_db()
+        first = self.draft.document.name
+        # Fields left out kept their values.
+        self.assertEqual((self.draft.title, self.draft.notes), ('Dues restructuring', 'private scratch'))
+
+        with self.captureOnCommitCallbacks(execute=True):
+            r = self.multipart(f'legislation/drafts/{self.draft.id}/', {'title': 'Renamed',
+                                                                        'document': _pdf('Second.pdf')})
+        self.assertEqual(r.status_code, 200, r.content)
+        self.draft.refresh_from_db()
+        self.assertEqual((self.draft.title, self.draft.document_original_name), ('Renamed', 'Second.pdf'))
+        self.assertNotEqual(self.draft.document.name, first)
+        self.assertFalse(self.on_disk(first))   # the replaced file is unlinked, as on the web
+        second = self.draft.document.name
+
+        with self.captureOnCommitCallbacks(execute=True):
+            r = self.post(f'legislation/drafts/{self.draft.id}/', {'remove_document': True})
+        self.assertEqual(r.status_code, 200, r.content)
+        self.draft.refresh_from_db()
+        self.assertFalse(self.draft.document)
+        self.assertEqual(self.draft.document_original_name, '')
+        self.assertFalse(self.on_disk(second))
+        self.assertIsNone(r.json()['draft']['document'])
+
+    def test_wrong_type_is_refused_and_nothing_is_saved(self):
+        fake = SimpleUploadedFile('bill.pdf', b'not really a pdf', content_type='application/pdf')
+        r = self.multipart(f'legislation/drafts/{self.draft.id}/', {'title': 'Changed', 'document': fake})
+        self.assertEqual((r.status_code, r.json()['error']), (400, 'invalid_input'))
+        self.assertIn('File upload error', r.json()['detail'])
+        exe = SimpleUploadedFile('bill.exe', b'MZ\x90\x00', content_type='application/octet-stream')
+        r = self.multipart('legislation/drafts/', {'title': 'New', 'document': exe})
+        self.assertEqual((r.status_code, r.json()['error']), (400, 'invalid_input'))
+        self.draft.refresh_from_db()
+        self.assertEqual(self.draft.title, 'Dues restructuring')
+        self.assertFalse(self.draft.document)
+        self.assertEqual(LegislationDraft.objects.count(), 1)
+        self.assertEqual(os.listdir(self.media), [])
+
+    def test_too_big_is_refused(self):
+        with mock.patch('src.utils.file_validation.MAX_FILE_SIZE', 16):
+            r = self.multipart(f'legislation/drafts/{self.draft.id}/', {'document': _pdf()})
+        self.assertEqual((r.status_code, r.json()['error']), (400, 'invalid_input'))
+        self.assertIn('exceeds maximum', r.json()['detail'])
+        self.draft.refresh_from_db()
+        self.assertFalse(self.draft.document)
+
+    def test_another_members_draft_is_404_and_untouched(self):
+        r = self.multipart(f'legislation/drafts/{self.draft.id}/', {'document': _pdf()}, self.other_access)
+        self.assertEqual(r.status_code, 404)
+        r = self.post(f'legislation/drafts/{self.draft.id}/', {'remove_document': True}, self.other_access)
+        self.assertEqual(r.status_code, 404)
+        self.draft.refresh_from_db()
+        self.assertFalse(self.draft.document)
+
+    def test_a_published_draft_takes_no_document(self):
+        self.draft.published_legislation = Legislation.objects.create(
+            title='Bill', description=LONG, posted_by=self.officer, available_at=timezone.now())
+        self.draft.save()
+        r = self.multipart(f'legislation/drafts/{self.draft.id}/', {'document': _pdf()})
+        self.assertEqual((r.status_code, r.json()['error']), (400, 'already_published'))
+
+    def test_an_officer_publishes_a_draft_whose_only_content_is_its_document(self):
+        r = self.multipart('legislation/drafts/', {
+            'title': 'File only', 'description': '',
+            'planned_available_at': (timezone.now() + timedelta(days=3)).isoformat(),
+            'vote_mode': 'percentage', 'required_percentage': '51', 'document': _pdf(),
+        }, self.officer_access)
+        self.assertEqual(r.status_code, 201, r.content)
+        d = r.json()['draft']
+        self.assertTrue(d['ready_to_publish'], d['not_ready_reason'])
+        private = LegislationDraft.objects.get(pk=d['id']).document.name
+        with self.captureOnCommitCallbacks(execute=True):
+            r = self.post(f'legislation/drafts/{d["id"]}/publish/', access=self.officer_access)
+        self.assertEqual(r.status_code, 200, r.content)
+        bill = Legislation.objects.get(pk=r.json()['bill']['id'])
+        self.assertTrue(bill.document.name.startswith('legislation_docs/'))
+        self.assertIn('dues-amendment', bill.document.name)   # the uploaded name, slugified
+        self.assertEqual(bill.description, '')
+        self.assertFalse(self.on_disk(private))     # the private original goes, as on the web
+        self.assertIsNone(r.json()['draft']['document'])

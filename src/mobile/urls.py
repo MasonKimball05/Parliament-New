@@ -37,6 +37,7 @@ from src.mobile import views_document_manage, views_member_admin, views_songbook
 from src.mobile import views_chat_channels
 from src.mobile import views_committee_settings
 from src.mobile import views_kai_review
+from src.mobile import views_committee_documents
 
 app_name = 'mobile'
 
@@ -618,6 +619,11 @@ urlpatterns = [
          views_committee_management.CommitteeDocumentPublishView.as_view(), name='mobile_committee_document_publish'),
     path('committees/<str:code>/documents/<int:document_id>/delete/',
          views_committee_management.CommitteeDocumentDeleteView.as_view(), name='mobile_committee_document_delete'),
+    # v4.4.2: upload and replace with the app's file picker
+    path('committees/<str:code>/documents/upload/', views_committee_documents.CommitteeDocumentUploadView.as_view(),
+         name='mobile_committee_document_upload'),
+    path('committees/<str:code>/documents/<int:document_id>/replace/',
+         views_committee_documents.CommitteeDocumentReplaceView.as_view(), name='mobile_committee_document_replace'),
     # Committee settings (batch 6): guest chat permissions, chat look, recruitment permissions, Manage Committees
     path('committees/<str:code>/chat-permissions/', views_committee_settings.CommitteeChatPermissionsView.as_view(),
          name='mobile_committee_chat_permissions'),

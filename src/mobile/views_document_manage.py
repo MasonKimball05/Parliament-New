@@ -8,9 +8,9 @@ the website pages' own helpers:
   may file under, document types).
 * ``POST officer/documents/`` multipart ``{file, title, description?,
   document_type?, chapter_folder?, committee?, publish_now?}`` — the upload
-  page (``upload_chapter_document``), ``validate_uploaded_file`` and all. The
-  app has no document picker in this build, so it opens the website's upload
-  page instead; this is here for the build that does.
+  page (``upload_chapter_document``), ``validate_uploaded_file`` and all. v4.4.2:
+  build 19's file picker sends it; older builds open the website's upload
+  page instead.
 * ``GET officer/documents/<id>/`` — one document as its manage page shows it,
   with the committees it may move to; ``POST`` ``{action: update, title,
   description, document_type, committee, chapter_folder,

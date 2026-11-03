@@ -1,5 +1,4 @@
 from django import forms
-import magic  # python-magic for MIME type detection
 
 from src.models import KaiReport, KaiCommendation, ParliamentUser
 
@@ -77,26 +76,19 @@ class KaiReportForm(forms.ModelForm):
             if file.size > 20 * 1024 * 1024:
                 raise forms.ValidationError('File size must not exceed 20 MB.')
 
-            # Check MIME type
+            # Check the content. v4.4.2 — was `magic.from_buffer(first 2 KB)`
+            # against a MIME list, which can't name an OOXML file (libmagic
+            # says zip or octet-stream for a real .docx/.xlsx; see
+            # OOXML_MARKERS in src/utils/file_validation.py), so every Word and
+            # Excel attachment was refused. `validate_uploaded_file` — the
+            # commendation form's check — reads those containers and sniffs the
+            # rest; the extension list above still narrows what's allowed.
+            from src.utils.file_validation import validate_uploaded_file
             try:
-                mime = magic.from_buffer(file.read(2048), mime=True)
-                file.seek(0)  # Reset file pointer
-
-                allowed_mimes = [
-                    'application/pdf',
-                    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-                    'application/msword',
-                    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                    'application/vnd.ms-excel',
-                    'image/jpeg',
-                    'image/png',
-                ]
-
-                if mime not in allowed_mimes:
-                    raise forms.ValidationError(
-                        f'Invalid file type detected: {mime}. Please upload a valid file.'
-                    )
-            except Exception as e:
+                validate_uploaded_file(file)
+            except forms.ValidationError:
+                raise
+            except Exception:
                 raise forms.ValidationError('Unable to verify file type. Please try again.')
 
         return file

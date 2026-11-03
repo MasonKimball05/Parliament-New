@@ -65,31 +65,37 @@ class SongForm(forms.ModelForm):
                     f'Invalid file type. Allowed types: MP3, WAV, M4A, OGG, FLAC.'
                 )
 
-            # Check MIME type
+            # Check MIME type. v4.4.2: only a failure of the check itself is
+            # let through; the ValidationError used to be raised inside this
+            # try and swallowed by its own `except`, so any file with an
+            # audio extension passed.
             try:
                 mime = magic.from_buffer(file.read(2048), mime=True)
-                file.seek(0)
-
-                allowed_mimes = [
-                    'audio/mpeg',       # MP3
-                    'audio/mp3',        # MP3 alternate
-                    'audio/wav',        # WAV
-                    'audio/x-wav',      # WAV alternate
-                    'audio/mp4',        # M4A
-                    'audio/x-m4a',      # M4A alternate
-                    'audio/ogg',        # OGG
-                    'audio/flac',       # FLAC
-                    'audio/x-flac',     # FLAC alternate
-                ]
-
-                if mime not in allowed_mimes:
-                    raise forms.ValidationError(
-                        f'Invalid audio file type. Expected audio file, but got {mime}.'
-                    )
             except Exception as e:
                 logger.warning(f"Audio file MIME check failed: {e}")
-                # Allow if we can't check MIME but extension is valid
-                pass
+                mime = None   # can't check; the extension is valid
+            finally:
+                file.seek(0)
+
+            allowed_mimes = [
+                'audio/mpeg',       # MP3
+                'audio/mp3',        # MP3 alternate
+                'audio/wav',        # WAV
+                'audio/x-wav',      # WAV alternate
+                'audio/vnd.wave',   # WAV alternate
+                'audio/mp4',        # M4A
+                'audio/x-m4a',      # M4A alternate
+                'video/mp4',        # M4A: libmagic reads an iPhone recording's MP4 container as video
+                'audio/ogg',        # OGG
+                'application/ogg',  # OGG alternate
+                'audio/flac',       # FLAC
+                'audio/x-flac',     # FLAC alternate
+            ]
+
+            if mime is not None and mime not in allowed_mimes:
+                raise forms.ValidationError(
+                    f'Invalid audio file type. Expected audio file, but got {mime}.'
+                )
 
         return file
 
