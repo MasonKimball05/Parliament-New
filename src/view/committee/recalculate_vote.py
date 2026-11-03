@@ -4,7 +4,8 @@ from django.views.decorators.http import require_POST
 from django.contrib import messages
 from django.utils.http import url_has_allowed_host_and_scheme
 from src.next_url import safe_referer
-from src.committee_management import apply_vote_result, vote_tally
+from src import committee_management as cm
+from src.committee_management import vote_tally
 from src.models import CommitteeLegislation
 from src.feature_flag_decorators import require_feature_flag
 import logging
@@ -29,10 +30,9 @@ def recalculate_committee_vote(request, legislation_id):
     user = request.user
 
     # Check permissions - must be chair or officer
-    is_chair = committee.is_chair(user)
-    is_officer = user.member_type == 'Officer'
-
-    if not (is_chair or is_officer):
+    # v4.4.3: the rule and the recalculation (with its activity log) are
+    # src/committee_management, shared with the app.
+    if not cm.can_recalculate_any(user, committee):
         messages.error(request, "You don't have permission to recalculate this vote.")
         return redirect(safe_referer(request) or 'chapter_documents')
 
@@ -40,14 +40,8 @@ def recalculate_committee_vote(request, legislation_id):
         messages.error(request, "Cannot recalculate - voting is still open.")
         return redirect(safe_referer(request) or 'chapter_documents')
 
-    tally = get_vote_tally(legislation)
-    total_votes = tally['total']
-
-    if total_votes > 0:
-        apply_vote_result(legislation, tally)
-        legislation.save()
-        result_text = "passed" if legislation.passed else "did not pass"
-        logger.info(f"{user.username} recalculated vote result for '{legislation.title}' (ID: {legislation.id}) - {result_text}")
+    result_text = cm.recalculate_committee_vote(legislation, user, request)
+    if result_text:
         messages.success(request, f"Vote result recalculated. The vote {result_text}.")
     else:
         messages.warning(request, "No votes to calculate result from.")

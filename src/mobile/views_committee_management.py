@@ -10,7 +10,15 @@ permissions, attendance and document publish/delete pages.
   vote (``committee_create_vote``; chairs). No attachment: the app has no
   document picker, so a vote needs a description.
 * ``POST committees/<code>/votes/<id>/recalculate/`` — "Recalculate Result"
-  on a closed vote (chairs, as on the vote page).
+  on a closed vote (v4.4.3: ``recalculate_committee_vote``'s rule, chairs or
+  officers; the vote page's own button is chairs only).
+* ``GET committees/<code>/votes/<id>/result/`` — the result page
+  (``committee_vote_result``, v4.4.3): who may look and what they see are the
+  web page's (voter names only when the vote isn't anonymous).
+* ``POST committees/<code>/votes/<id>/end/`` — "End Vote" (v4.4.3: chairs or
+  whoever posted it).
+* ``POST committees/<code>/votes/<id>/runoff/`` — ``create_committee_runoff``
+  (v4.4.3: chairs or whoever posted it).
 * ``POST committees/<code>/votes/<id>/push/`` / ``unpush/`` — publish its
   results to the chapter documents page, or take them off (chairs).
 * ``POST committees/<code>/votes/<id>/delete/`` — delete it (chairs, admins).
@@ -131,7 +139,9 @@ def _vote_json(leg, viewer, committee, is_chair, voted_ids):
         'has_chapter_vote': leg.chapter_legislation_id is not None,
         'results': results,
         'total_votes': tally['total'] if tally else None,
-        'can_recalculate': is_chair and leg.voting_closed,
+        # v4.4.3: recalculate_committee_vote's rule (chairs or officers).
+        'can_recalculate': leg.voting_closed and (is_chair or viewer.member_type == 'Officer'),
+        'can_end': not leg.voting_closed and (is_chair or leg.posted_by_id == viewer.pk),
         'can_push': is_chair and leg.voting_closed,
         'can_delete': is_chair or viewer.is_admin,
         # Making a chapter vote from it stays on the website.
@@ -242,15 +252,133 @@ class CommitteeVoteCreateView(_VoteToolView):
 
 
 class CommitteeVoteRecalculateView(_VoteToolView):
+    web_page = 'recalculate_committee_vote'
 
     def post(self, request, code, legislation_id):
         _require_voting()
         committee = _committee(code)
         leg = self.legislation(committee, legislation_id)
-        if not (committee.is_chair(request.user) and leg.voting_closed):
+        # v4.4.3: recalculate_committee_vote's checks and messages.
+        if not cm.can_recalculate_any(request.user, committee):
             _refuse('You don’t have permission to recalculate this vote.')
+        if not leg.voting_closed:
+            raise Conflict('Cannot recalculate - voting is still open.', code='not_closed')
         result = cm.recalculate_committee_vote(leg, request.user, request._request)
         return Response({'result': result, 'vote': _one_vote(leg, request, committee)})
+
+
+class CommitteeVoteEndView(_VoteToolView):
+    """The vote page's "End Vote" (v4.4.3)."""
+
+    def post(self, request, code, legislation_id):
+        _require_voting()
+        committee = _committee(code)
+        leg = self.legislation(committee, legislation_id)
+        if not cm.can_end_vote(request.user, committee, leg):
+            _refuse('You don’t have permission to end this vote.')
+        try:
+            result = cm.end_committee_vote(leg, request.user, request._request)
+        except cm.CommitteeActionError as exc:
+            raise Conflict(exc.message, code=exc.code)
+        return Response({
+            'result': result,
+            'message': f"Voting on '{leg.title}' has been ended. The vote {result}.",
+            'vote': _one_vote(leg, request, committee),
+        })
+
+
+class CommitteeVoteRunoffView(_VoteToolView):
+    """``create_committee_runoff`` (v4.4.3)."""
+    web_page = 'create_committee_runoff'
+
+    def post(self, request, code, legislation_id):
+        _require_voting()
+        committee = _committee(code)
+        leg = self.legislation(committee, legislation_id)
+        if not cm.can_end_vote(request.user, committee, leg):
+            _refuse('Only committee chairs or the vote creator can create a runoff.')
+        try:
+            runoff, options = cm.create_committee_runoff(leg, request.user, request._request)
+        except cm.CommitteeActionError as exc:
+            raise Conflict(exc.message, code=exc.code)
+        return Response({
+            'runoff': {'id': runoff.id, 'title': runoff.title},
+            'options': options,
+            'message': f"Runoff vote created with top {len(options)} options: {', '.join(options)}",
+        }, status=status.HTTP_201_CREATED)
+
+
+def _names(votes):
+    return [v.user.name for v in votes]
+
+
+class CommitteeVoteResultView(_VoteToolView):
+    """
+    ``committee_vote_result`` (v4.4.3). The figures are cm.vote_result, the
+    web page's; ``voters`` is null throughout when the vote is anonymous.
+    """
+    web_page = 'committee_vote_result'
+
+    def get(self, request, code, legislation_id):
+        _require_voting()
+        committee = _committee(code)
+        leg = self.legislation(committee, legislation_id)
+        user = request.user
+        if not cm.can_view_vote_result(user, committee, leg):
+            _refuse('You don’t have permission to view these results.')
+        figures = cm.vote_result(leg, user)
+        anonymous = leg.anonymous_vote
+        parent = leg.plurality_parent
+        body = {
+            'committee': {'code': committee.code, 'name': committee.name},
+            'vote': {
+                'id': leg.id,
+                'title': leg.title,
+                'description': leg.description,
+                'vote_mode': leg.vote_mode,
+                'anonymous': anonymous,
+                'posted_by': leg.posted_by.get_display_name() if leg.posted_by else '',
+                'available_at': leg.available_at.isoformat() if leg.available_at else None,
+                'voting_closed': leg.voting_closed,
+                'voting_ended_at': leg.voting_ended_at.isoformat() if leg.voting_ended_at else None,
+                'required_number': leg.required_number if leg.vote_mode == 'piecewise' else None,
+                'votes_allowed': (leg.plurality_votes_allowed or 1) if leg.vote_mode == 'plurality' else 1,
+                'is_runoff': leg.plurality_is_runoff,
+                'parent': {'id': parent.id, 'title': parent.title} if parent and parent.committee_id == committee.id
+                else None,
+                'runoffs': [{'id': r.id, 'title': r.title, 'voting_closed': r.voting_closed, 'passed': bool(r.passed)}
+                            for r in leg.runoff_votes.all().order_by('id')],
+            },
+            'total_votes': figures['total_votes'],
+            'can_end': not leg.voting_closed and cm.can_end_vote(user, committee, leg),
+            'can_recalculate': leg.voting_closed and cm.can_recalculate_any(user, committee),
+            'can_create_runoff': bool(figures.get('can_create_runoff')),
+        }
+        if leg.vote_mode == 'plurality':
+            voters = {r['option']: r['voters'] for r in figures['plurality_results']['results']}
+            body.update({
+                'passed': bool(leg.passed) if leg.voting_closed else None,
+                'options': [{**bar, 'voters': None if anonymous else voters.get(bar['option'], [])}
+                            for bar in figures['plurality_bars']],
+                'unique_voter_count': figures['unique_voter_count'],
+                'winning_option': figures['winning_option'],
+                'tied_options': figures['tied_options'],
+                'has_tie': figures['has_tie'],
+                'runoff_enabled': leg.plurality_runoff_enabled,
+                'top_options_for_runoff': figures['top_options_for_runoff'],
+            })
+        else:
+            body.update({
+                'passed': bool(figures['passed']),
+                'yes_percentage': figures['yes_percentage'],
+                'required_percentage': figures['required_percentage'],
+                'choices': [
+                    {'option': option, 'count': figures[f'{option}_count'],
+                     'voters': None if anonymous else _names(figures[group])}
+                    for option, group in (('yes', 'in_favor'), ('no', 'against'), ('abstain', 'abstain'))
+                ],
+            })
+        return Response(body)
 
 
 class CommitteeVotePushView(_VoteToolView):

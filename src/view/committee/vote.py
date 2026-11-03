@@ -5,11 +5,11 @@ from django.utils import timezone
 from django.contrib import messages
 from django.contrib.auth import authenticate
 from datetime import timedelta
-from src.models import Committee, CommitteeLegislation, CommitteeVote, Attendance, ActivityLog
+from src.models import Committee, CommitteeLegislation, CommitteeVote, Attendance
 from src.view.webauthn import check_vote_reauth
 from src.feature_flag_decorators import require_feature_flag
-from src.vote_rules import plurality_passed  # v3.51.1
 from src import ballots
+from src import committee_management as cm
 from src.committee_management import recalculate_committee_vote
 import logging
 
@@ -71,67 +71,19 @@ def committee_vote(request, code):
         return redirect('vote', code=code)
 
     # Handle end vote action (chair or poster only)
+    # v4.4.3: the close, result and activity log are src/committee_management
+    # (shared with the app).
     if request.method == 'POST' and 'end_vote' in request.POST:
         legislation_id = request.POST.get('legislation_id')
         legislation = get_object_or_404(CommitteeLegislation, id=legislation_id, committee=committee)
 
-        # Check permission: must be chair or the person who posted it
-        if is_chair or legislation.posted_by == user:
-            if not legislation.voting_closed:
-                legislation.voting_closed = True
-                legislation.voting_ended_at = timezone.now()
-
-                # Calculate if the vote passed
-                tally = get_vote_tally(legislation)
-                total_votes = tally['total']
-
-                if total_votes > 0:
-                    if legislation.vote_mode == 'plurality':
-                        # Plurality: winner is the option with most votes
-                        legislation.passed = plurality_passed(tally)  # v3.51.1: a tie doesn't pass
-                        legislation.status = 'passed' if legislation.passed else 'draft'
-                    elif legislation.vote_mode == 'piecewise':
-                        # Piecewise: need exact number of yes votes
-                        required = legislation.required_number or 0
-                        legislation.passed = tally.get('yes', 0) >= required
-                        legislation.status = 'passed' if legislation.passed else 'draft'
-                    else:
-                        # Percentage: calculate yes percentage of non-abstain votes
-                        yes_votes = tally.get('yes', 0)
-                        no_votes = tally.get('no', 0)
-                        countable_votes = yes_votes + no_votes
-                        if countable_votes > 0:
-                            yes_percentage = (yes_votes / countable_votes) * 100
-                            required_pct = int(legislation.required_percentage)
-                            legislation.passed = yes_percentage >= required_pct
-                            legislation.status = 'passed' if legislation.passed else 'draft'
-
-                legislation.save(update_fields=['voting_closed', 'voting_ended_at', 'passed', 'status'])
-
-                result_text = "passed" if legislation.passed else "did not pass"
-                logger.info(f"{user.username} ended voting on '{legislation.title}' (ID: {legislation.id}) - {result_text}")
-                _end_meta = {
-                    'result': result_text,
-                    'vote_mode': legislation.vote_mode,
-                    'anonymous': legislation.anonymous_vote,
-                    'committee': committee.code,
-                    'total_votes': tally['total'],
-                }
-                if not legislation.anonymous_vote:
-                    _end_meta['vote_tally'] = {k: v for k, v in tally.items() if k != 'total'}
-                ActivityLog.log_activity(
-                    action_type='vote_ended',
-                    user=user,
-                    description=f'{user.name} ended committee vote on "{legislation.title}" — {result_text}',
-                    request=request,
-                    object_type='CommitteeLegislation',
-                    object_id=legislation.id,
-                    object_repr=legislation.title,
-                    metadata=_end_meta,
-                )
-                messages.success(request, f"Voting on '{legislation.title}' has been ended. The vote {result_text}.")
+        if cm.can_end_vote(user, committee, legislation):
+            try:
+                result_text = cm.end_committee_vote(legislation, user, request)
+            except cm.CommitteeActionError as exc:
+                messages.warning(request, exc.message)
             else:
-                messages.warning(request, "Voting has already been closed.")
+                messages.success(request, f"Voting on '{legislation.title}' has been ended. The vote {result_text}.")
         else:
             messages.error(request, "You don't have permission to end this vote.")
         return redirect('vote', code=code)
@@ -242,69 +194,14 @@ def create_committee_runoff(request, code, legislation_id):
     user = request.user
 
     # Verify permissions - must be chair or the person who posted it
-    is_chair = committee.is_chair(user)
-    if not is_chair and original.posted_by != user:
+    # v4.4.3: the checks, the new vote and its log are src/committee_management.
+    if not cm.can_end_vote(user, committee, original):
         messages.error(request, "Only committee chairs or the vote creator can create a runoff.")
         return redirect('vote', code=code)
-
-    # Verify this is a plurality vote with runoff enabled
-    if original.vote_mode != 'plurality':
-        messages.error(request, "Runoff votes can only be created for plurality votes.")
+    try:
+        runoff, top_options = cm.create_committee_runoff(original, user, request)
+    except cm.CommitteeActionError as exc:
+        messages.error(request, exc.message)
         return redirect('vote', code=code)
-
-    if not original.plurality_runoff_enabled:
-        messages.error(request, "Runoff voting is not enabled for this legislation.")
-        return redirect('vote', code=code)
-
-    if not original.voting_closed:
-        messages.error(request, "The original vote must be closed before creating a runoff.")
-        return redirect('vote', code=code)
-
-    # Check if runoff already exists
-    if original.runoff_votes.exists():
-        messages.error(request, "A runoff vote has already been created for this legislation.")
-        return redirect('vote', code=code)
-
-    # Get top options for runoff
-    top_options = original.get_top_options_for_runoff()
-    if len(top_options) < 2:
-        messages.error(request, "Not enough options for a runoff vote.")
-        return redirect('vote', code=code)
-
-    # Create the runoff legislation
-    runoff = CommitteeLegislation.objects.create(
-        committee=committee,
-        title=f"Runoff: {original.title}",
-        description=f"Runoff vote for: {original.description}\n\nTop {len(top_options)} options from original vote.",
-        document=None,
-        posted_by=user,
-        available_at=timezone.now(),
-        anonymous_vote=original.anonymous_vote,
-        allow_abstain=original.allow_abstain,
-        vote_mode='plurality',
-        plurality_options=top_options,
-        plurality_votes_allowed=1,  # Runoff is typically single vote
-        plurality_runoff_enabled=False,  # No nested runoffs
-        plurality_is_runoff=True,
-        plurality_parent=original,
-    )
-
-    logger.info(f"{user.username} created runoff vote for committee legislation '{original.title}' (ID: {original.id})")
-    ActivityLog.log_activity(
-        action_type='legislation_created',
-        user=user,
-        description=f'{user.name} created committee runoff vote for "{original.title}" in {committee.code}',
-        request=request,
-        object_type='CommitteeLegislation',
-        object_id=runoff.id,
-        object_repr=runoff.title,
-        metadata={
-            'is_runoff': True,
-            'parent_legislation_id': original.id,
-            'parent_title': original.title,
-            'runoff_options': top_options,
-            'committee': committee.code,
-        },
-    )
     messages.success(request, f"Runoff vote created with top {len(top_options)} options: {', '.join(top_options)}")
     return redirect('vote', code=code)

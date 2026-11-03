@@ -218,6 +218,240 @@ def unpush_from_chapter(legislation, user):
     logger.info(f"{user.username} unpublished '{legislation.title}' from {legislation.committee.code} chapter documents")
 
 
+# v4.4.3: ending a vote, its result page and runoffs, shared with the app.
+
+def can_end_vote(user, committee, legislation):
+    """The vote page's "End Vote": its committee's chairs, or whoever posted it."""
+    return committee.is_chair(user) or legislation.posted_by_id == user.pk
+
+
+def can_recalculate_any(user, committee):
+    """``recalculate_committee_vote`` (the chapter documents page's button): chairs or officers."""
+    return committee.is_chair(user) or user.member_type == 'Officer'
+
+
+def end_committee_vote(legislation, user, request):
+    """
+    Close an open committee vote and record its result (the vote page's "End
+    Vote"; the caller has checked ``can_end_vote``). Returns
+    ``'passed'`` / ``'did not pass'``; raises CommitteeActionError if it's
+    already closed.
+    """
+    from src.models import ActivityLog
+    if legislation.voting_closed:
+        raise CommitteeActionError('Voting has already been closed.', code='already_closed')
+    legislation.voting_closed = True
+    legislation.voting_ended_at = timezone.now()
+    tally = vote_tally(legislation)
+    apply_vote_result(legislation, tally)
+    legislation.save(update_fields=['voting_closed', 'voting_ended_at', 'passed', 'status'])
+
+    result_text = 'passed' if legislation.passed else 'did not pass'
+    logger.info(f"{user.username} ended voting on '{legislation.title}' (ID: {legislation.id}) - {result_text}")
+    meta = {
+        'result': result_text,
+        'vote_mode': legislation.vote_mode,
+        'anonymous': legislation.anonymous_vote,
+        'committee': legislation.committee.code,
+        'total_votes': tally['total'],
+    }
+    if not legislation.anonymous_vote:
+        meta['vote_tally'] = {k: v for k, v in tally.items() if k != 'total'}
+    ActivityLog.log_activity(
+        action_type='vote_ended',
+        user=user,
+        description=f'{user.name} ended committee vote on "{legislation.title}" — {result_text}',
+        request=request,
+        object_type='CommitteeLegislation',
+        object_id=legislation.id,
+        object_repr=legislation.title,
+        metadata=meta,
+    )
+    return result_text
+
+
+def runoff_refusal(original):
+    """Why ``create_committee_runoff`` would refuse ``original`` (the website's messages), or ''."""
+    if original.vote_mode != 'plurality':
+        return 'Runoff votes can only be created for plurality votes.'
+    if not original.plurality_runoff_enabled:
+        return 'Runoff voting is not enabled for this legislation.'
+    if not original.voting_closed:
+        return 'The original vote must be closed before creating a runoff.'
+    if original.runoff_votes.exists():
+        return 'A runoff vote has already been created for this legislation.'
+    if len(original.get_top_options_for_runoff()) < 2:
+        return 'Not enough options for a runoff vote.'
+    return ''
+
+
+def create_committee_runoff(original, user, request):
+    """
+    A runoff from a closed plurality committee vote with its top options (the
+    caller has checked ``can_end_vote``: chairs or the poster). Raises
+    CommitteeActionError. Returns (runoff, top_options).
+    """
+    from src.models import ActivityLog, CommitteeLegislation
+    refusal = runoff_refusal(original)
+    if refusal:
+        raise CommitteeActionError(refusal, code='runoff_refused')
+    top_options = original.get_top_options_for_runoff()
+    committee = original.committee
+    runoff = CommitteeLegislation.objects.create(
+        committee=committee,
+        title=f"Runoff: {original.title}",
+        description=f"Runoff vote for: {original.description}\n\nTop {len(top_options)} options from original vote.",
+        document=None,
+        posted_by=user,
+        available_at=timezone.now(),
+        anonymous_vote=original.anonymous_vote,
+        allow_abstain=original.allow_abstain,
+        vote_mode='plurality',
+        plurality_options=top_options,
+        plurality_votes_allowed=1,  # Runoff is typically single vote
+        plurality_runoff_enabled=False,  # No nested runoffs
+        plurality_is_runoff=True,
+        plurality_parent=original,
+    )
+    logger.info(f"{user.username} created runoff vote for committee legislation '{original.title}' (ID: {original.id})")
+    ActivityLog.log_activity(
+        action_type='legislation_created',
+        user=user,
+        description=f'{user.name} created committee runoff vote for "{original.title}" in {committee.code}',
+        request=request,
+        object_type='CommitteeLegislation',
+        object_id=runoff.id,
+        object_repr=runoff.title,
+        metadata={
+            'is_runoff': True,
+            'parent_legislation_id': original.id,
+            'parent_title': original.title,
+            'runoff_options': top_options,
+            'committee': committee.code,
+        },
+    )
+    return runoff, top_options
+
+
+def can_view_vote_result(user, committee, legislation):
+    """
+    ``committee_vote_result``: anyone who voted on it, the committee's chairs,
+    members and voting members, and anyone at all once voting is closed.
+    """
+    from src.models import CommitteeVote
+    return bool(
+        legislation.voting_closed
+        or committee.is_chair(user) or committee.is_voter(user) or committee.is_member(user)
+        or CommitteeVote.objects.filter(user=user, legislation=legislation).exists()
+    )
+
+
+def vote_result(legislation, user):
+    """
+    The result page's figures (``committee_vote_result``). Voter names are
+    only included when the vote isn't anonymous (CONFIDENTIALITY_MATRIX:
+    ``CommitteeVote`` on anonymous legislation → tallies only).
+
+    Plurality: ``vote_breakdown``, ``plurality_results`` (voters per option),
+    ``plurality_bars``, ``total_votes``, ``unique_voter_count``, ``has_tie``,
+    ``winning_option``, ``tied_options``, ``top_options_for_runoff``,
+    ``can_create_runoff``. Otherwise: ``in_favor`` / ``against`` /
+    ``abstain`` (CommitteeVote querysets; empty when anonymous), their
+    counts, ``total_votes``, ``yes_percentage``, ``required_percentage``,
+    ``passed``.
+    """
+    from src.models import CommitteeVote
+    from src.models.users import member_defer
+    votes = CommitteeVote.objects.filter(legislation=legislation).select_related('user').defer(*member_defer('user'))
+    anonymous = legislation.anonymous_vote
+
+    if legislation.vote_mode == 'plurality':
+        vote_breakdown = {}
+        plurality_results = {'results': []}
+        for option in (legislation.plurality_options or []):
+            option_votes = votes.filter(vote_choice=option)
+            vote_breakdown[option] = option_votes.count()
+            if not anonymous:
+                plurality_results['results'].append({'option': option, 'voters': [v.user.name for v in option_votes]})
+
+        has_tie = legislation.has_plurality_tie()
+        top_options = legislation.get_top_options_for_runoff()
+        winning_option = None
+        tied_options = []
+        max_votes = max(vote_breakdown.values()) if vote_breakdown else 0
+        if max_votes > 0:
+            winners = [opt for opt, count in vote_breakdown.items() if count == max_votes]
+            if len(winners) == 1:
+                winning_option = winners[0]
+            else:
+                tied_options = winners
+                has_tie = True
+
+        can_create_runoff = (
+            legislation.voting_closed
+            and legislation.plurality_runoff_enabled
+            and not legislation.plurality_is_runoff
+            and not legislation.runoff_votes.exists()
+            and can_end_vote(user, legislation.committee, legislation)
+            and len(top_options) >= 2
+        )
+
+        # Per-option horizontal bars (v3.15.9) — same treatment as the chapter
+        # results page; pie slices are hard to compare in close races.
+        ranked = sorted(vote_breakdown.items(), key=lambda kv: kv[1], reverse=True)
+        lead = ranked[0][1] if ranked else 0
+        denom = sum(vote_breakdown.values())
+        plurality_bars = [
+            {
+                'option': opt,
+                'count': cnt,
+                'pct': round(cnt * 100.0 / denom, 1) if denom else 0,
+                'width': round(cnt * 100.0 / lead, 1) if lead else 0,
+                'is_winner': winning_option is not None and opt == winning_option,
+            }
+            for opt, cnt in ranked
+        ]
+        return {
+            'votes': votes,
+            'vote_breakdown': vote_breakdown,
+            'plurality_results': plurality_results,
+            'plurality_bars': plurality_bars,
+            'total_votes': votes.count(),
+            'unique_voter_count': votes.values('user').distinct().count(),
+            'has_tie': has_tie,
+            'winning_option': winning_option,
+            'tied_options': tied_options,
+            'top_options_for_runoff': top_options,
+            'can_create_runoff': can_create_runoff,
+        }
+
+    none = votes.none()
+    in_favor = votes.filter(vote_choice='yes')
+    against = votes.filter(vote_choice='no')
+    abstain = votes.filter(vote_choice='abstain')
+    yes_count, no_count, abstain_count = in_favor.count(), against.count(), abstain.count()
+    countable_votes = yes_count + no_count
+    yes_percentage = round((yes_count / countable_votes) * 100, 1) if countable_votes else 0
+    required_percentage = int(legislation.required_percentage)
+    if legislation.voting_closed:
+        passed = legislation.passed
+    else:
+        passed = yes_percentage >= required_percentage if countable_votes > 0 else False
+    return {
+        'votes': votes,
+        'in_favor': none if anonymous else in_favor,
+        'against': none if anonymous else against,
+        'abstain': none if anonymous else abstain,
+        'yes_count': yes_count,
+        'no_count': no_count,
+        'abstain_count': abstain_count,
+        'total_votes': votes.count(),
+        'yes_percentage': yes_percentage,
+        'required_percentage': required_percentage,
+        'passed': passed,
+    }
+
+
 # ── Members ─────────────────────────────────────────────────────────────────
 
 #: role_type → the committee's m2m field (committee_add_member / _remove_member).

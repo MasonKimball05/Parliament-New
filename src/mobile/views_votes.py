@@ -349,10 +349,20 @@ class CommitteeVoteListView(_CommitteeBase):
         rows = list(_committee_on_ballot(committee).order_by('-available_at'))
         voted = set(CommitteeVote.objects.filter(user=request.user, legislation__in=rows)
                     .values_list('legislation_id', flat=True))
+        # v4.4.3: the vote page's "Voting History" (its last 20 closed votes),
+        # each opening the native result screen.
+        from src.models import CommitteeLegislation
+        closed = (CommitteeLegislation.objects.filter(committee=committee, voting_closed=True)
+                  .order_by('-voting_ended_at', '-available_at')[:20])
         return Response({
             'committee': {'code': committee.code, 'name': committee.name},
             'attendance_ok': ballots.attendance_ok(request.user),
             'votes': [_summary(leg, voted) for leg in rows],
+            'closed': [{
+                'id': leg.id, 'title': leg.title, 'vote_mode': leg.vote_mode, 'passed': bool(leg.passed),
+                'anonymous': leg.anonymous_vote,
+                'voting_ended_at': leg.voting_ended_at.isoformat() if leg.voting_ended_at else None,
+            } for leg in closed],
         })
 
 

@@ -20,6 +20,7 @@ from src.mobile import (
     views_account, views_chat_safety,
 )
 from src.mobile import views_legislation_drafts
+from src.mobile import views_qr
 from src.mobile import views_legislation_manage
 from src.mobile import views_committee_management
 from src.mobile import views_kai_filing
@@ -38,6 +39,7 @@ from src.mobile import views_chat_channels
 from src.mobile import views_committee_settings
 from src.mobile import views_kai_review
 from src.mobile import views_committee_documents
+from src.mobile import views_officer_logs
 
 app_name = 'mobile'
 
@@ -152,6 +154,9 @@ urlpatterns = [
     # Officer tools, batch 3 (v4.x): All Activity, houses and bigs, Kai
     # commendations, legacy resolutions.
     path('officer/activity/', views_officer_activity.OfficerActivityView.as_view(), name='mobile_officer_activity'),
+    # v4.4.3: the officer log pages (Activity Logs, System Logs).
+    path('officer/activity-logs/', views_officer_logs.ActivityLogsView.as_view(), name='mobile_officer_activity_logs'),
+    path('officer/system-logs/', views_officer_logs.SystemLogsView.as_view(), name='mobile_officer_system_logs'),
     path('officer/house-assignments/', views_member_family.HouseAssignmentsView.as_view(),
          name='mobile_officer_house_assignments'),
     path('officer/members/<str:user_id>/house/', views_member_family.MemberHouseView.as_view(),
@@ -597,6 +602,13 @@ urlpatterns = [
          name='mobile_committee_vote_create'),
     path('committees/<str:code>/votes/<int:legislation_id>/recalculate/',
          views_committee_management.CommitteeVoteRecalculateView.as_view(), name='mobile_committee_vote_recalculate'),
+    # v4.4.3: the result page, End Vote and runoffs
+    path('committees/<str:code>/votes/<int:legislation_id>/result/',
+         views_committee_management.CommitteeVoteResultView.as_view(), name='mobile_committee_vote_result'),
+    path('committees/<str:code>/votes/<int:legislation_id>/end/',
+         views_committee_management.CommitteeVoteEndView.as_view(), name='mobile_committee_vote_end'),
+    path('committees/<str:code>/votes/<int:legislation_id>/runoff/',
+         views_committee_management.CommitteeVoteRunoffView.as_view(), name='mobile_committee_vote_runoff'),
     path('committees/<str:code>/votes/<int:legislation_id>/push/',
          views_committee_management.CommitteeVotePushView.as_view(), name='mobile_committee_vote_push'),
     path('committees/<str:code>/votes/<int:legislation_id>/unpush/',
@@ -740,4 +752,16 @@ urlpatterns = [
          name='mobile_account_session_revoke'),
     path('events/<int:event_id>/signups/', views_calendar.EventSignupListView.as_view(),
          name='mobile_event_signups'),
+    # Check-in and poll QR codes shown from the app (v4.4.3)
+    path('officer/events/<int:event_id>/qr/', views_qr.CheckinQRView.as_view(), name='mobile_checkin_qr'),
+    path('officer/events/<int:event_id>/qr/open/', views_qr.CheckinQROpenView.as_view(),
+         name='mobile_checkin_qr_open'),
+    path('officer/events/<int:event_id>/qr/close/', views_qr.CheckinQRCloseView.as_view(),
+         name='mobile_checkin_qr_close'),
+    path('officer/events/<int:event_id>/qr/embed/', views_qr.CheckinQREmbedView.as_view(),
+         name='mobile_checkin_qr_embed'),
+    path('officer/announcements/<int:announcement_id>/poll/qr/', views_qr.PollQRView.as_view(),
+         name='mobile_poll_qr'),
+    path('officer/announcements/<int:announcement_id>/poll/qr/embed/', views_qr.PollQREmbedView.as_view(),
+         name='mobile_poll_qr_embed'),
 ]

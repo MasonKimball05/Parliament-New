@@ -35,6 +35,74 @@ def _tail_lines(path, max_lines=LOG_DISPLAY_LINES, tail_bytes=LOG_TAIL_BYTES):
     return chunk.decode('utf-8', errors='replace').splitlines()[-max_lines:]
 
 
+def read_log_entries():
+    """
+    The last `LOG_DISPLAY_LINES` lines of `django_actions.log`, newest first,
+    parsed and Kai-redacted: `(entries, state, error)`, `state` one of
+    `'ok'`, `'missing'` or `'error'` (then `error` is the exception).
+
+    v4.4.3 — pulled out of `view_logs` so the app's System Logs screen
+    (`src/mobile/views_officer_logs.py`) reads the same tail through the same
+    redaction. Read the view's docstring before changing what this returns.
+    """
+    from src.kai_audit import (_username_pattern, kai_log_view_names,
+                               member_usernames, redact_kai_log_message)
+
+    # Both computed ONCE per request, not per line: the view-name set walks
+    # a module and the username pattern is a query.
+    kai_views = kai_log_view_names()
+    usernames = _username_pattern(member_usernames())
+    logs = []
+
+    try:
+        logger.debug("view_logs: reading %s (exists=%s)", LOG_FILE_PATH, os.path.exists(LOG_FILE_PATH))
+
+        if os.path.exists(LOG_FILE_PATH):
+            log_lines = _tail_lines(LOG_FILE_PATH)
+            logger.debug("view_logs: read %d lines from file", len(log_lines))
+
+            for line in reversed(log_lines):
+                line = line.strip()
+                if not line:
+                    continue
+
+                match = LOG_PATTERN.match(line)
+                if match:
+                    timestamp, level, logger_name, message = match.groups()
+                    message = redact_kai_log_message(message, kai_views, usernames)
+                    logs.append({
+                        'timestamp': timestamp,
+                        'logger': logger_name,
+                        'level': level,
+                        'message': f"[{level}] {message}",
+                        # v4.4.3 — the message without the level prefix, for
+                        # the app, which shows the level as its own chip.
+                        'text': message,
+                    })
+                else:
+                    # Fallback for lines the timestamp pattern did not parse —
+                    # a wrapped traceback, say. Redacted too, and with the whole
+                    # raw line rather than a message: the redactor searches
+                    # rather than anchors precisely so it works on both, and a
+                    # line matching neither trigger comes back unchanged.
+                    logs.append({
+                        'timestamp': '',
+                        'logger': '',
+                        'level': '',
+                        'message': redact_kai_log_message(line, kai_views, usernames),
+                        'text': None,
+                    })
+
+            logger.debug("view_logs: parsed %d log entries", len(logs))
+        else:
+            logger.warning("view_logs: log file not found at %s", LOG_FILE_PATH)
+            return logs, 'missing', None
+    except Exception as e:
+        logger.exception("view_logs: error reading log file")
+        return [], 'error', e
+    return logs, 'ok', None
+
+
 # ⚠️ v3.25.2 — NARROWED FROM `officer_or_advisor_required` TO `officer_required`.
 #
 # This page had a WIDER audience than every page whose actions it records.
@@ -77,57 +145,11 @@ def view_logs(request):
     username pattern are computed **once per request**, not per line — the
     first walks a module, the second is a query.
     """
-    from src.kai_audit import (_username_pattern, kai_log_view_names,
-                               member_usernames, redact_kai_log_message)
-
-    # Both computed ONCE per request, not per line: the view-name set walks
-    # a module and the username pattern is a query.
-    kai_views = kai_log_view_names()
-    usernames = _username_pattern(member_usernames())
-    logs = []
-
-    try:
-        logger.debug("view_logs: reading %s (exists=%s)", LOG_FILE_PATH, os.path.exists(LOG_FILE_PATH))
-
-        if os.path.exists(LOG_FILE_PATH):
-            log_lines = _tail_lines(LOG_FILE_PATH)
-            logger.debug("view_logs: read %d lines from file", len(log_lines))
-
-            for line in reversed(log_lines):
-                line = line.strip()
-                if not line:
-                    continue
-
-                match = LOG_PATTERN.match(line)
-                if match:
-                    timestamp, level, logger_name, message = match.groups()
-                    message = redact_kai_log_message(message, kai_views, usernames)
-                    logs.append({
-                        'timestamp': timestamp,
-                        'logger': logger_name,
-                        'level': level,
-                        'message': f"[{level}] {message}",
-                    })
-                else:
-                    # Fallback for lines the timestamp pattern did not parse —
-                    # a wrapped traceback, say. Redacted too, and with the whole
-                    # raw line rather than a message: the redactor searches
-                    # rather than anchors precisely so it works on both, and a
-                    # line matching neither trigger comes back unchanged.
-                    logs.append({
-                        'timestamp': '',
-                        'logger': '',
-                        'level': '',
-                        'message': redact_kai_log_message(line, kai_views, usernames)
-                    })
-
-            logger.debug("view_logs: parsed %d log entries", len(logs))
-        else:
-            messages.warning(request, "Log file not found.")
-            logger.warning("view_logs: log file not found at %s", LOG_FILE_PATH)
-    except Exception as e:
-        messages.error(request, f"Error reading log file: {e}")
-        logger.exception("view_logs: error reading log file")
+    logs, state, error = read_log_entries()
+    if state == 'missing':
+        messages.warning(request, "Log file not found.")
+    elif state == 'error':
+        messages.error(request, f"Error reading log file: {error}")
 
     logger.debug("view_logs: returning %d logs to template", len(logs))
     return render(request, 'admin/view_logs.html', {'logs': logs})

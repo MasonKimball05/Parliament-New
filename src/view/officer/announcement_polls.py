@@ -200,7 +200,31 @@ def _export_poll_csv(poll, questions, responses):
 # announcements.py) exists only to give that same image a stable,
 # unauthenticated fetch address for pasting into a slide deck — see its
 # docstring for why that's safe.
+#
+# v4.4.3 — the URL and embed steps are helpers so the app's poll QR screen
+# (src/mobile/views_qr.py) runs the same code as these pages.
 # ---------------------------------------------------------------------------
+
+def poll_take_url(request, announcement):
+    """The absolute URL the poll's QR encodes (take_poll)."""
+    return request.build_absolute_uri(reverse('take_poll', args=[announcement.id]))
+
+
+def poll_embed_url(request, announcement, poll):
+    """The poll's active, unauthenticated embed image URL, or None."""
+    embed = AnnouncementPollEmbed.objects.filter(poll=poll, revoked_at__isnull=True).first()
+    if not embed:
+        return None
+    return request.build_absolute_uri(reverse('poll_qr_embed_image', args=[announcement.id, embed.token]))
+
+
+def revoke_poll_embed(poll):
+    """Revoke the poll's active embed link. True if there was one."""
+    embed = AnnouncementPollEmbed.objects.filter(poll=poll, revoked_at__isnull=True).first()
+    if embed:
+        embed.revoke()
+    return bool(embed)
+
 
 @login_required
 @officer_required
@@ -209,18 +233,10 @@ def manage_poll_qr(request, announcement_id):
     stable embed link for pasting into slides."""
     announcement = get_object_or_404(Announcement, id=announcement_id)
     poll = get_object_or_404(AnnouncementPoll, announcement=announcement)
-    embed = AnnouncementPollEmbed.objects.filter(poll=poll, revoked_at__isnull=True).first()
-
-    embed_url = None
-    if embed:
-        embed_url = request.build_absolute_uri(
-            reverse('poll_qr_embed_image', args=[announcement.id, embed.token])
-        )
-
     return render(request, 'officer/manage_poll_qr.html', {
         'announcement': announcement,
         'poll': poll,
-        'embed_url': embed_url,
+        'embed_url': poll_embed_url(request, announcement, poll),
     })
 
 
@@ -241,8 +257,7 @@ def poll_qr_image(request, announcement_id):
 
     from src.utils.qr_svg import render_qr_svg
 
-    poll_url = request.build_absolute_uri(reverse('take_poll', args=[announcement.id]))
-    response = HttpResponse(render_qr_svg(poll_url), content_type='image/svg+xml')
+    response = HttpResponse(render_qr_svg(poll_take_url(request, announcement)), content_type='image/svg+xml')
     response['Cache-Control'] = 'no-store'
     return response
 
@@ -269,9 +284,7 @@ def revoke_poll_qr_embed_link(request, announcement_id):
     reviving this one."""
     announcement = get_object_or_404(Announcement, id=announcement_id)
     poll = get_object_or_404(AnnouncementPoll, announcement=announcement)
-    embed = AnnouncementPollEmbed.objects.filter(poll=poll, revoked_at__isnull=True).first()
-    if embed:
-        embed.revoke()
+    if revoke_poll_embed(poll):
         messages.success(request, 'Embed link revoked. Generate a new one to keep using it elsewhere.')
     return redirect('manage_poll_qr', announcement_id=announcement.id)
 
@@ -301,8 +314,7 @@ def poll_qr_embed_image(request, announcement_id, embed_token):
     if not announcement.is_published() or not poll.is_accepting_responses():
         response = HttpResponse(POLL_WAITING_PLACEHOLDER_SVG, content_type='image/svg+xml')
     else:
-        poll_url = request.build_absolute_uri(reverse('take_poll', args=[announcement.id]))
-        response = HttpResponse(render_qr_svg(poll_url), content_type='image/svg+xml')
+        response = HttpResponse(render_qr_svg(poll_take_url(request, announcement)), content_type='image/svg+xml')
 
     # No caching — the same url should stop showing a QR the moment the
     # poll closes, and start again if it's reopened, without anyone having

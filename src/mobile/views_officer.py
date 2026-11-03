@@ -166,6 +166,11 @@ class OfficerHubView(_OfficerView):
             # Batch 6: Manage Committees (views_committee_settings;
             # officer_required, this hub's gate, plus the committee_system flag).
             'can_manage_committees': check_feature_enabled('committee_system'),
+            # v4.4.3: Activity Logs (views_officer_logs; officer_required plus
+            # the activity_logs flag) and System Logs (officer_required, this
+            # hub's own gate; sent so the app knows the server has it).
+            'can_view_activity_logs': check_feature_enabled('activity_logs'),
+            'can_view_system_logs': True,
         })
 
 
@@ -539,6 +544,8 @@ class OfficerAttendanceView(_OfficerView):
                       # The page's "Time & adjustments" link on a minimum-stay event
                       # (views_study_hours.EventTimeView), for whoever may adjust time.
                       'checkin_min_minutes': event.checkin_min_minutes,
+                      # v4.4.3: the "Show check-in QR" screen (views_qr; manage_qr_checkin's flags).
+                      'qr_checkin': check_feature_enabled('qr_attendance_checkin'),
                       'time_path': (reverse('event_time', args=[event.id])
                                     if event.checkin_min_minutes and location_time.can_adjust(self.request.user)
                                     else None)},

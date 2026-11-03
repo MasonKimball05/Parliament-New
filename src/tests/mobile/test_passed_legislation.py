@@ -15,6 +15,7 @@ plus these two paths) so the tests stand on their own.
 """
 from datetime import timedelta
 
+from django.core import signing
 from django.core.cache import cache
 from django.test import Client, TestCase, override_settings
 from django.urls import include, path
@@ -23,6 +24,7 @@ from django.utils import timezone
 from src.mobile import views_passed_legislation as v
 from src.models import Attendance, Legislation, Vote
 from src.tests.mobile.sess_helpers import bearer, make_device, make_user
+from src.utils.vote_receipts import RECEIPT_SALT
 from src.tests.mobile.test_home_and_notifications import restrict, toggle
 
 API = '/api/mobile/v1/'
@@ -257,8 +259,13 @@ class WebPageUnchangedTests(_Base):
                              [b['id'] for b in app['bills']], status)
         r = web.get('/passed-legislation/?status=personal')
         app = self.get('legislation/passed/?status=personal').json()
-        self.assertEqual([b['receipt'] for b in r.context['personal_ballots']],
-                         [b['receipt'] for b in app['ballots']])
+        # Receipts carry the second they were signed (signing.dumps is
+        # timestamped), so two requests can differ in that alone: compare
+        # what they say.
+        def said(tokens):
+            return [tok and signing.loads(tok, salt=RECEIPT_SALT) for tok in tokens]
+        self.assertEqual(said([b['receipt'] for b in r.context['personal_ballots']]),
+                         said([b['receipt'] for b in app['ballots']]))
 
         r = web.get(f'/legislation/detail/{self.failed.id}/')
         self.assertEqual(r.status_code, 200)

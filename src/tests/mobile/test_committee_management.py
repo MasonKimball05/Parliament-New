@@ -165,8 +165,7 @@ class VoteToolTests(_Base):
         leg = _leg(self.c, self.chair, voting_closed=True, required_percentage='51')
         CommitteeVote.objects.create(user=self.voter, legislation=leg, vote_choice='yes')
         self.assertEqual(self.post(self.member, f'FIN/votes/{leg.id}/recalculate/').status_code, 403)
-        # vote.py's recalculation is chair-only; an officer uses the chapter documents page.
-        self.assertEqual(self.post(self.officer, f'FIN/votes/{leg.id}/recalculate/').status_code, 403)
+        # v4.4.3: recalculate_committee_vote's rule, chairs or officers (test_committee_vote_results).
         r = self.post(self.chair, f'FIN/votes/{leg.id}/recalculate/')
         self.assertEqual(r.json()['result'], 'passed')
         leg.refresh_from_db()
@@ -177,7 +176,7 @@ class VoteToolTests(_Base):
 
     def test_recalculate_needs_a_closed_vote_and_votes(self):
         open_leg = _leg(self.c, self.chair)
-        self.assertEqual(self.post(self.chair, f'FIN/votes/{open_leg.id}/recalculate/').status_code, 403)
+        self.assertEqual(self.post(self.chair, f'FIN/votes/{open_leg.id}/recalculate/').status_code, 409)
         empty = _leg(self.c, self.chair, voting_closed=True)
         self.assertIsNone(self.post(self.chair, f'FIN/votes/{empty.id}/recalculate/').json()['result'])
         self.assertFalse(ActivityLog.objects.filter(object_type='CommitteeLegislation').exists())

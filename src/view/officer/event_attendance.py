@@ -433,33 +433,91 @@ def review_excuses(request, event_id=None):
 # v3.27.0 — QR self-check-in. Officer-facing: open/close a window, view the
 # code. See EventCheckinWindow's docstring (src/models/events.py) for why this
 # is time-boxed and why it never touches the manual marking logic above.
+#
+# v4.4.3 — the steps are module-level helpers so the app's check-in QR screen
+# (src/mobile/views_qr.py) runs the same code as these pages: opening (with
+# its finalized check and activity log), closing early, the encoded URL, and
+# the embed link.
 # ---------------------------------------------------------------------------
 
+#: The feature flags every QR check-in page and endpoint needs, web and app.
+QR_CHECKIN_FLAGS = ('attendance_tracking', 'event_attendance', 'qr_attendance_checkin')
+
+
+class CheckinFinalized(Exception):
+    """open_checkin_window on an event whose attendance is finalized."""
+
+
+def open_checkin_window(event, user, http_request=None):
+    """Start a new 15-minute window for `event` as `user`, logged as the
+    website always has. Raises CheckinFinalized for a finalized event."""
+    if event.attendance_finalized:
+        raise CheckinFinalized('Attendance for this event has already been finalized.')
+    window = EventCheckinWindow.open_for(event, opened_by=user)
+    ActivityLog.log_activity(
+        action_type='attendance_taken',
+        user=user,
+        description=(
+            f'{user.name} opened a {EventCheckinWindow.WINDOW_MINUTES}-minute '
+            f'QR check-in window for {event.title}'
+        ),
+        request=http_request,
+        object_type='Event',
+        object_id=event.id,
+        object_repr=str(event),
+    )
+    return window
+
+
+def close_checkin_window(event, user):
+    """End `event`'s open window early. The window closed, or None if none was open."""
+    window = EventCheckinWindow.get_open_window(event)
+    if window:
+        window.closed_early_at = timezone.now()
+        window.closed_early_by = user
+        window.save(update_fields=['closed_early_at', 'closed_early_by'])
+    return window
+
+
+def checkin_url(request, event, window):
+    """The absolute URL a window's QR encodes (event_qr_checkin)."""
+    return request.build_absolute_uri(reverse('event_qr_checkin', args=[event.id, window.token]))
+
+
+def checkin_embed_url(request, event):
+    """The active, unauthenticated embed image URL for `event`, or None."""
+    embed = EventCheckinEmbed.objects.filter(event=event, revoked_at__isnull=True).first()
+    if not embed:
+        return None
+    return request.build_absolute_uri(reverse('event_checkin_embed_image', args=[event.id, embed.token]))
+
+
+def revoke_checkin_embed(event):
+    """Revoke `event`'s active embed link. True if there was one."""
+    embed = EventCheckinEmbed.objects.filter(event=event, revoked_at__isnull=True).first()
+    if embed:
+        embed.revoke()
+    return bool(embed)
+
+
 @login_required
-@require_feature_flag('attendance_tracking', 'event_attendance', 'qr_attendance_checkin')
+@require_feature_flag(*QR_CHECKIN_FLAGS)
 @officer_required
 def manage_qr_checkin(request, event_id):
     """Show the current (or most recently open) QR check-in window for an
     event, with controls to open a new one or close the current one early."""
     event = get_object_or_404(Event, id=event_id, requires_attendance=True)
     window = EventCheckinWindow.get_open_window(event)
-    embed = EventCheckinEmbed.objects.filter(event=event, revoked_at__isnull=True).first()
-
-    embed_url = None
-    if embed:
-        embed_url = request.build_absolute_uri(
-            reverse('event_checkin_embed_image', args=[event.id, embed.token])
-        )
 
     return render(request, 'officer/manage_qr_checkin.html', {
         'event': event,
         'window': window,
-        'embed_url': embed_url,
+        'embed_url': checkin_embed_url(request, event),
     })
 
 
 @login_required
-@require_feature_flag('attendance_tracking', 'event_attendance', 'qr_attendance_checkin')
+@require_feature_flag(*QR_CHECKIN_FLAGS)
 @officer_required
 def open_qr_checkin(request, event_id):
     """Start a new 15-minute check-in window for an event."""
@@ -468,24 +526,11 @@ def open_qr_checkin(request, event_id):
 
     event = get_object_or_404(Event, id=event_id, requires_attendance=True)
 
-    if event.attendance_finalized:
-        messages.error(request, 'Attendance for this event has already been finalized.')
+    try:
+        open_checkin_window(event, request.user, request)
+    except CheckinFinalized as e:
+        messages.error(request, str(e))
         return redirect('manage_qr_checkin', event_id=event.id)
-
-    window = EventCheckinWindow.open_for(event, opened_by=request.user)
-
-    ActivityLog.log_activity(
-        action_type='attendance_taken',
-        user=request.user,
-        description=(
-            f'{request.user.name} opened a {EventCheckinWindow.WINDOW_MINUTES}-minute '
-            f'QR check-in window for {event.title}'
-        ),
-        request=request,
-        object_type='Event',
-        object_id=event.id,
-        object_repr=str(event),
-    )
 
     messages.success(
         request,
@@ -495,7 +540,7 @@ def open_qr_checkin(request, event_id):
 
 
 @login_required
-@require_feature_flag('attendance_tracking', 'event_attendance', 'qr_attendance_checkin')
+@require_feature_flag(*QR_CHECKIN_FLAGS)
 @officer_required
 def close_qr_checkin(request, event_id):
     """End the currently open window early."""
@@ -503,12 +548,7 @@ def close_qr_checkin(request, event_id):
         return redirect('manage_qr_checkin', event_id=event_id)
 
     event = get_object_or_404(Event, id=event_id, requires_attendance=True)
-    window = EventCheckinWindow.get_open_window(event)
-
-    if window:
-        window.closed_early_at = timezone.now()
-        window.closed_early_by = request.user
-        window.save(update_fields=['closed_early_at', 'closed_early_by'])
+    if close_checkin_window(event, request.user):
         messages.success(request, 'QR check-in window closed.')
     else:
         messages.info(request, 'There is no open QR check-in window for this event.')
@@ -517,7 +557,7 @@ def close_qr_checkin(request, event_id):
 
 
 @login_required
-@require_feature_flag('attendance_tracking', 'event_attendance', 'qr_attendance_checkin')
+@require_feature_flag(*QR_CHECKIN_FLAGS)
 @officer_required
 def qr_checkin_image(request, event_id):
     """
@@ -538,16 +578,13 @@ def qr_checkin_image(request, event_id):
 
     from src.utils.qr_svg import render_qr_svg
 
-    checkin_url = request.build_absolute_uri(
-        reverse('event_qr_checkin', args=[event.id, window.token])
-    )
-    response = HttpResponse(render_qr_svg(checkin_url), content_type='image/svg+xml')
+    response = HttpResponse(render_qr_svg(checkin_url(request, event, window)), content_type='image/svg+xml')
     response['Cache-Control'] = 'no-store'  # this SVG encodes a live, still-valid token
     return response
 
 
 @login_required
-@require_feature_flag('attendance_tracking', 'event_attendance', 'qr_attendance_checkin')
+@require_feature_flag(*QR_CHECKIN_FLAGS)
 @officer_required
 def generate_qr_embed_link(request, event_id):
     """
@@ -568,7 +605,7 @@ def generate_qr_embed_link(request, event_id):
 
 
 @login_required
-@require_feature_flag('attendance_tracking', 'event_attendance', 'qr_attendance_checkin')
+@require_feature_flag(*QR_CHECKIN_FLAGS)
 @officer_required
 def revoke_qr_embed_link(request, event_id):
     """Kill the current embed link (e.g. it leaked somewhere unintended).
@@ -578,9 +615,7 @@ def revoke_qr_embed_link(request, event_id):
         return redirect('manage_qr_checkin', event_id=event_id)
 
     event = get_object_or_404(Event, id=event_id, requires_attendance=True)
-    embed = EventCheckinEmbed.objects.filter(event=event, revoked_at__isnull=True).first()
-    if embed:
-        embed.revoke()
+    if revoke_checkin_embed(event):
         messages.success(request, 'Embed link revoked.')
     else:
         messages.info(request, 'There is no active embed link for this event.')

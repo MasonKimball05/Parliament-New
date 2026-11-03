@@ -22,6 +22,22 @@ def render_qr_svg(data):
     return stream.getvalue()
 
 
+def render_qr_png_data_uri(data):
+    """`data` rendered as a PNG QR code, as a ``data:image/png;base64,...``
+    URI (v4.4.3). The app shows it with React Native's own Image, which
+    can't draw SVG and has no QR library, so this needs no native module.
+    Black on white with the standard 4-module quiet zone, 10px a module: a
+    sharp, scannable image a few KB in size."""
+    import base64
+
+    from qrcode.image.pil import PilImage
+
+    img = qrcode.make(data, image_factory=PilImage, box_size=10, border=4)
+    stream = io.BytesIO()
+    img.save(stream, format='PNG')
+    return 'data:image/png;base64,' + base64.b64encode(stream.getvalue()).decode('ascii')
+
+
 #: Shown by the embed endpoint when no check-in window is currently open —
 #: an embed link is pasted into a slide deck once and reused every week, so
 #: it needs SOMETHING to display between meetings and before an officer opens

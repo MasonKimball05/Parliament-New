@@ -24,41 +24,30 @@ from src.feature_flag_decorators import require_feature_flag
 EXPORT_LIMIT = 5000
 
 
-@officer_required
-@require_feature_flag('activity_logs')
-def activity_logs_view(request):
-    """
-    View for officers to see comprehensive activity logs with filtering
-    """
-    # Get filter parameters
-    action_category = request.GET.get('category', '')
-    action_type = request.GET.get('type', '')
-    user_filter = request.GET.get('user', '')
-    search_query = request.GET.get('q', '')
-    date_range = request.GET.get('date_range', '7')  # Default to last 7 days
+DATE_RANGES = ('1', '7', '30', '90', 'all')
 
-    # Start with all logs
+
+def filtered_activity_logs(viewer, *, category='', action_type='', user_filter='',
+                           search_query='', date_range='7'):
+    """
+    The page's queryset for these filters, as `viewer` may see it.
+
+    v4.4.3 — one helper for the page, its CSV export and the app's Activity
+    Logs screen (`src/mobile/views_officer_logs.py`), so the Kai exclusion on
+    the author filter and the audit search predicate can't drift between them.
+    Rows still need `redact_kai_logs` before they're shown.
+    """
     logs = ActivityLog.objects.all().select_related('user').defer(*member_defer('user'))
 
     # Apply date range filter
-    now = timezone.now()
-    if date_range == '1':
-        start_date = now - timedelta(days=1)
-        logs = logs.filter(timestamp__gte=start_date)
-    elif date_range == '7':
-        start_date = now - timedelta(days=7)
-        logs = logs.filter(timestamp__gte=start_date)
-    elif date_range == '30':
-        start_date = now - timedelta(days=30)
-        logs = logs.filter(timestamp__gte=start_date)
-    elif date_range == '90':
-        start_date = now - timedelta(days=90)
-        logs = logs.filter(timestamp__gte=start_date)
-    # 'all' shows everything
+    days = {'1': 1, '7': 7, '30': 30, '90': 90}.get(date_range)
+    if days:
+        logs = logs.filter(timestamp__gte=timezone.now() - timedelta(days=days))
+    # 'all' (or anything else) shows everything
 
     # Apply category filter
-    if action_category:
-        logs = logs.filter(action_category=action_category)
+    if category:
+        logs = logs.filter(action_category=category)
 
     # Apply action type filter
     if action_type:
@@ -96,7 +85,7 @@ def activity_logs_view(request):
     # the very page the module was written for. Found 08-03-26.
     if user_filter:
         logs = exclude_kai_logs(
-            logs.filter(user__user_id=user_filter), request.user,
+            logs.filter(user__user_id=user_filter), viewer,
         )
 
     # Apply search filter
@@ -108,7 +97,53 @@ def activity_logs_view(request):
     # filtering on the input is the oracle v3.16.3 and v3.18.1 both closed
     # elsewhere. See `src/kai_audit.py`.
     if search_query:
-        logs = logs.filter(audit_search_q(search_query, request.user))
+        logs = logs.filter(audit_search_q(search_query, viewer))
+
+    return logs
+
+
+def activity_category_counts(logs):
+    """
+    `{code: {'name', 'count'}}` for the categories `logs` has rows in, in the
+    model's order.
+
+    v3.17.3 (second pass): was one COUNT round trip per category — nine of
+    them, every load, over the same filtered queryset, and this page is
+    already scanning a date-ranged slice of the largest table in the schema.
+    One GROUP BY answers all nine. Categories with no rows are dropped by the
+    comprehension, matching the previous `if count > 0`.
+    """
+    _counts = {
+        row['action_category']: row['n']
+        for row in logs.values('action_category').annotate(n=Count('id'))
+    }
+    category_counts = {
+        code: {'name': name, 'count': _counts[code]}
+        for code, name in ActivityLog.ACTION_CATEGORIES
+        if _counts.get(code)
+    }
+    return category_counts
+
+
+@officer_required
+@require_feature_flag('activity_logs')
+def activity_logs_view(request):
+    """
+    View for officers to see comprehensive activity logs with filtering
+    """
+    # Get filter parameters
+    action_category = request.GET.get('category', '')
+    action_type = request.GET.get('type', '')
+    user_filter = request.GET.get('user', '')
+    search_query = request.GET.get('q', '')
+    date_range = request.GET.get('date_range', '7')  # Default to last 7 days
+
+    # v4.4.3 — the filters live in `filtered_activity_logs`, shared with the
+    # export and the app. Read its notes before changing a predicate.
+    logs = filtered_activity_logs(
+        request.user, category=action_category, action_type=action_type,
+        user_filter=user_filter, search_query=search_query, date_range=date_range,
+    )
 
     # Pagination
     paginator = Paginator(logs, 50)  # Show 50 logs per page
@@ -140,22 +175,9 @@ def activity_logs_view(request):
     total_logs = logs.count()
     unique_users = logs.values('user').distinct().count()
 
-    # Category counts for the filtered results.
-    #
-    # v3.17.3 (second pass): was one COUNT round trip per category — nine of
-    # them, every load, over the same filtered queryset, and this page is
-    # already scanning a date-ranged slice of the largest table in the schema.
-    # One GROUP BY answers all nine. Categories with no rows are dropped by the
-    # comprehension, matching the previous `if count > 0`.
-    _counts = {
-        row['action_category']: row['n']
-        for row in logs.values('action_category').annotate(n=Count('id'))
-    }
-    category_counts = {
-        code: {'name': name, 'count': _counts[code]}
-        for code, name in ActivityLog.ACTION_CATEGORIES
-        if _counts.get(code)
-    }
+    # Category counts for the filtered results (v4.4.3: a helper, shared
+    # with the app).
+    category_counts = activity_category_counts(logs)
 
     context = {
         'page_obj': page_obj,
@@ -189,44 +211,14 @@ def export_activity_logs(request):
     search_query = request.GET.get('q', '')
     date_range = request.GET.get('date_range', '7')
 
-    # Apply same filters as the main view
-    logs = ActivityLog.objects.all().select_related('user').defer(*member_defer('user'))
-
-    # Apply date range filter
-    now = timezone.now()
-    if date_range == '1':
-        start_date = now - timedelta(days=1)
-        logs = logs.filter(timestamp__gte=start_date)
-    elif date_range == '7':
-        start_date = now - timedelta(days=7)
-        logs = logs.filter(timestamp__gte=start_date)
-    elif date_range == '30':
-        start_date = now - timedelta(days=30)
-        logs = logs.filter(timestamp__gte=start_date)
-    elif date_range == '90':
-        start_date = now - timedelta(days=90)
-        logs = logs.filter(timestamp__gte=start_date)
-
-    if action_category:
-        logs = logs.filter(action_category=action_category)
-
-    if action_type:
-        logs = logs.filter(action_type=action_type)
-
-    # 🔴 v3.18.4 — same exclusion as the page, for the same reason, and this is
-    # the half that leaves the app. The export link in `activity_logs.html`
-    # forwards `user={{ selected_user }}`, so every filter combination the page
-    # offers is reachable here as a file. See the long note on the view.
-    if user_filter:
-        logs = exclude_kai_logs(
-            logs.filter(user__user_id=user_filter), request.user,
-        )
-
-    # v3.18.2 — same predicate as the view. The export used to duplicate the
-    # raw Q, which is how `_kai_search_q`'s two call sites drifted apart in
-    # v3.18.0; one helper, both callers.
-    if search_query:
-        logs = logs.filter(audit_search_q(search_query, request.user))
+    # v4.4.3 — same helper as the page (and the app), so every filter
+    # combination the page offers is reachable here only as the page allows.
+    # The Kai exclusion on `user` is the half that leaves the app as a file;
+    # see `filtered_activity_logs`.
+    logs = filtered_activity_logs(
+        request.user, category=action_category, action_type=action_type,
+        user_filter=user_filter, search_query=search_query, date_range=date_range,
+    )
 
     # v3.18.4 — bounded. See `EXPORT_LIMIT`. `truncated` drives a TRAILING CSV
     # row saying so, because a silently short export is worse than a refused
