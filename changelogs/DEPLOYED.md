@@ -242,6 +242,7 @@ which predate this file and are more specific than their commit dates.
 | v4.4.0 | *not deployed* | `d912f18` | See `changelogs/v4.4.0.md`. |
 | v4.4.1 | *not deployed* | `5334960` | See `changelogs/v4.4.1.md`. |
 | v4.4.2 | *not deployed* | `b04cae8` | See `changelogs/v4.4.2.md`. |
+| v4.4.3 | *not deployed* | `1a24464` | See `changelogs/v4.4.3.md`. |
 
 > **‡ 10-19-26 — Mason: "All deployments are live on prod."** Every row marked ‡
 > had been left *not deployed* while it shipped. He deploys as he goes; the exact
