@@ -13,8 +13,11 @@ The website's Admin v2 needs two things: the member's id in
   (``admin_v2.admin_v2_step_up``): the same per-member rate limit
   (``admin_v2_attempts_<pk>``, 5 tries then 15 minutes, shared with the
   website), the same ``security_violation`` / ``admin_v2_access`` rows, the
-  secret compared in constant time. No passkey: the app can't add one
-  without a native module.
+  secret compared in constant time. Or a passkey (v4.4.3,
+  ``admin/unlock/passkey/begin|complete/``): the website's passkey checks
+  (``admin_v2_passkey_options`` / ``admin_v2_passkey_verify``, the same
+  counter and rows), user verification enforced, the challenge a single-use
+  ticket bound to the member and the install, 120 seconds.
 * **Per device, in the database.** Success sets
   ``MobileDevice.admin_unlocked_until`` on the install that asked, 12 hours
   ahead (shorter than the website's 7 days: a phone is easier to lose). The

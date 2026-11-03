@@ -26,6 +26,7 @@ or typed by the admin, and the alert note that stores it is withheld), push
 tokens, hashes, environment values (setup checks are booleans, as on the
 website). Kai rows are excluded from member activity as on the member page.
 """
+import json
 import uuid
 
 from django.core.paginator import Paginator
@@ -79,12 +80,18 @@ def _status(device):
 # ── Gate ─────────────────────────────────────────────────────────────────────
 
 class StatusView(SiteAdminAPIView):
-    """GET → ``{unlocked, unlocked_until}`` for this install."""
+    """
+    GET → ``{unlocked, unlocked_until, has_passkeys}`` for this install.
+    ``has_passkeys`` (v4.4.3): whether to offer "Unlock with passkey", as the
+    website's Admin v2 sign-in page decides.
+    """
     requires_unlock = False
     web_page = 'admin_v2_login'
 
     def get(self, request):
-        return Response(_status(request.auth))
+        from src.models.webauthn import WebAuthnCredential
+        return Response({**_status(request.auth),
+                         'has_passkeys': WebAuthnCredential.objects.filter(user=request.user).exists()})
 
 
 class UnlockView(SiteAdminAPIView):
@@ -104,6 +111,94 @@ class UnlockView(SiteAdminAPIView):
         if not isinstance(password, str) or not isinstance(secret, str) or len(password) > 500 or len(secret) > 500:
             raise BadRequest('Enter your password and the secret key.', code='invalid_input')
         code, message = admin_v2_step_up(_http(request), request.user, password, secret, via=' from the app')
+        if code != 'ok':
+            raise exceptions.PermissionDenied(message, code=f'admin_{code}')
+        unlock_device(request.auth)
+        return Response(_status(request.auth))
+
+
+class PasskeyUnlockBeginView(SiteAdminAPIView):
+    """
+    POST → ``{challenge_id, expires_at, options}`` (v4.4.3): the website's
+    passkey step-up (``admin_v2_passkey_options``: the member's own keys,
+    user verification required, the shared rate limit). The challenge is a
+    ``MobileAuthTicket`` bound to this member and this install, single use,
+    120 seconds. Refusals are 403 ``admin_rate_limited`` / ``admin_no_passkeys``
+    with the website's message.
+    """
+    requires_unlock = False
+    web_page = 'admin_v2_login'
+
+    def post(self, request):
+        from webauthn import options_to_json
+        from src.mobile.views_auth import _b64url
+        from src.models.mobile import MobileAuthTicket
+        from src.view.admin_v2 import admin_v2_passkey_options
+        from src.view.webauthn import rp_config
+
+        rp_id, _ = rp_config(_http(request))
+        code, message, options = admin_v2_passkey_options(request.user, rp_id)
+        if code != 'ok':
+            raise exceptions.PermissionDenied(message, code=f'admin_{code}')
+        raw, ticket = MobileAuthTicket.issue(
+            MobileAuthTicket.PURPOSE_ADMIN_PASSKEY, user=request.user, device=request.auth,
+            payload={'challenge': _b64url(options.challenge)})
+        return Response({
+            'challenge_id': raw,
+            'expires_at': ticket.expires_at.isoformat(),
+            'options': json.loads(options_to_json(options)),
+        })
+
+
+class PasskeyUnlockCompleteView(SiteAdminAPIView):
+    """
+    POST ``{challenge_id, credential}`` → ``{unlocked, unlocked_until}``
+    (v4.4.3). The challenge must be a live, unused one issued to this member
+    on this install (taken atomically, so it can't be replayed); then the
+    website's checks (``admin_v2_passkey_verify``) with user verification
+    enforced and the app's origins (as the other app passkey flows). Success
+    is the same 12-hour unlock of this install as the password step.
+    Failures are 403 ``admin_<code>`` with the website's message; a bad
+    challenge (``admin_bad_challenge``) counts toward the shared limit.
+    """
+    requires_unlock = False
+    web_page = 'admin_v2_login'
+
+    def post(self, request):
+        from django.core.cache import cache
+        from webauthn import base64url_to_bytes
+        from src.mobile.views_auth import expected_passkey_origins
+        from src.models.mobile import MobileAuthTicket
+        from src.view import admin_v2
+        from src.view.webauthn import rp_config
+
+        user = request.user
+        rate_key = f'admin_v2_attempts_{user.pk}'
+        if cache.get(rate_key, 0) >= admin_v2.ADMIN_V2_MAX_ATTEMPTS:
+            raise exceptions.PermissionDenied(
+                'Too many failed attempts. Try again in 15 minutes.', code='admin_rate_limited')
+        data = request.data if isinstance(request.data, dict) else {}
+        challenge_id, credential = data.get('challenge_id'), data.get('credential')
+        if not isinstance(challenge_id, str) or not isinstance(credential, (dict, str)) \
+                or len(challenge_id) > 200:
+            raise BadRequest('challenge_id and credential are required.', code='invalid_input')
+
+        ticket = MobileAuthTicket.consume(MobileAuthTicket.PURPOSE_ADMIN_PASSKEY, challenge_id,
+                                          device=request.auth)
+        if ticket is None or ticket.user_id != user.pk:
+            cache.set(rate_key, cache.get(rate_key, 0) + 1, admin_v2.ADMIN_V2_LOCKOUT_SECONDS)
+            admin_v2._security_logger.warning(
+                f'Admin-v2 passkey auth from the app: unknown, used or expired challenge from {user.username}')
+            raise exceptions.PermissionDenied(
+                'That passkey request expired. Try again.', code='admin_bad_challenge')
+
+        rp_id, _ = rp_config(_http(request))
+        code, message = admin_v2.admin_v2_passkey_verify(
+            _http(request), user,
+            credential if isinstance(credential, str) else json.dumps(credential),
+            base64url_to_bytes(ticket.payload['challenge']),
+            rp_id, expected_passkey_origins(request),
+            require_user_verification=True, via=' from the app')
         if code != 'ok':
             raise exceptions.PermissionDenied(message, code=f'admin_{code}')
         unlock_device(request.auth)

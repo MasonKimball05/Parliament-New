@@ -8,8 +8,11 @@ writes the same log rows.
 
     python manage.py test src.tests.mobile.test_site_admin
 """
+import base64
+import json
 import os
 from datetime import timedelta
+from types import SimpleNamespace
 from unittest import mock
 
 from django.core import mail
@@ -23,7 +26,8 @@ from src.mobile.site_admin import UNLOCK_HOURS
 from src.models import (
     ActivityLog, AdminActionLog, LoginAlert, LoginLockout, SystemLockdown, TwoFactorRequirement,
 )
-from src.models.mobile import MobileDevice
+from src.models.mobile import MobileAuthTicket, MobileDevice
+from src.models.webauthn import WebAuthnCredential
 from src.models_feature_flags import FeatureFlag, PageToggle
 from src.tests.mobile.sess_helpers import bearer, make_device, make_user
 from src.view import admin_v2
@@ -100,7 +104,8 @@ class GateTests(_Base):
                 self.assertEqual(r.status_code, 404, f'{name} {method.__name__}: {r.status_code}')
 
     def test_every_route_except_status_unlock_lock_needs_the_unlock(self):
-        open_routes = {'mobile_admin_status', 'mobile_admin_unlock', 'mobile_admin_lock'}
+        open_routes = {'mobile_admin_status', 'mobile_admin_unlock', 'mobile_admin_lock',
+                       'mobile_admin_unlock_passkey_begin', 'mobile_admin_unlock_passkey_complete'}
         for name, path in admin_routes():
             if name in open_routes:
                 continue
@@ -122,7 +127,7 @@ class GateTests(_Base):
 
     def test_status_while_locked(self):
         r = self.get('admin/status/')
-        self.assertEqual(r.json(), {'unlocked': False, 'unlocked_until': None})
+        self.assertEqual(r.json(), {'unlocked': False, 'unlocked_until': None, 'has_passkeys': False})
 
 
 class UnlockTests(_Base):
@@ -254,6 +259,210 @@ class WebLoginUnchangedTests(_Base):
             self.assertEqual(r.status_code, 200)
             self.assertContains(r, message)
         self.assertFalse(self.web.session.get('admin_v2_authenticated'))
+
+
+# ── Passkey unlock (v4.4.3) ──────────────────────────────────────────────────
+# Verification is mocked, as in test_passkey.py / test_votes.py.
+
+CRED_ID = b'\x07admin-passkey'
+
+
+def b64url(raw):
+    return base64.urlsafe_b64encode(raw).rstrip(b'=').decode()
+
+
+def assertion(cred_id=CRED_ID):
+    return {'id': b64url(cred_id), 'rawId': b64url(cred_id), 'type': 'public-key', 'response': {}}
+
+
+class PasskeyUnlockTests(_Base):
+
+    def setUp(self):
+        super().setUp()
+        self.cred = WebAuthnCredential.objects.create(
+            user=self.admin, credential_id=CRED_ID, public_key=b'pk', sign_count=1, name='Phone')
+
+    def begin(self, token=None):
+        r = self.post('admin/unlock/passkey/begin/', token=token)
+        self.assertEqual(r.status_code, 200, r.content)
+        return r.json()
+
+    def complete(self, challenge_id, cred_id=CRED_ID, token=None):
+        return self.post('admin/unlock/passkey/complete/',
+                         {'challenge_id': challenge_id, 'credential': assertion(cred_id)}, token=token)
+
+    def test_status_says_whether_to_offer_it(self):
+        self.assertIs(self.get('admin/status/').json()['has_passkeys'], True)
+
+    def test_not_on_the_allowlist_is_404_before_anything(self):
+        member = make_user('sa-pk-member', is_admin=True)
+        WebAuthnCredential.objects.create(user=member, credential_id=b'm', public_key=b'pk', name='M')
+        _, token, _ = make_device(member)
+        for path in ('admin/unlock/passkey/begin/', 'admin/unlock/passkey/complete/'):
+            self.assertEqual(self.post(path, token=token).status_code, 404, path)
+        self.assertFalse(MobileAuthTicket.objects.exists())
+
+    def test_begin_asks_for_my_keys_with_user_verification(self):
+        data = self.begin()
+        self.assertEqual(data['options']['userVerification'], 'required')
+        self.assertEqual([c['id'] for c in data['options']['allowCredentials']], [b64url(CRED_ID)])
+        ticket = MobileAuthTicket.objects.get(purpose=MobileAuthTicket.PURPOSE_ADMIN_PASSKEY)
+        self.assertEqual((ticket.user, ticket.device), (self.admin, self.device))
+        self.assertAlmostEqual((ticket.expires_at - timezone.now()).total_seconds(), 120, delta=10)
+
+    @mock.patch('webauthn.verify_authentication_response')
+    def test_success_unlocks_only_this_device_and_logs_like_the_website(self, verify):
+        verify.return_value = SimpleNamespace(new_sign_count=5)
+        other_device, other_token, _ = make_device(self.admin, name='iPad')
+        before = timezone.now()
+        r = self.complete(self.begin()['challenge_id'])
+        self.assertEqual(r.status_code, 200, r.content)
+        self.assertTrue(r.json()['unlocked'])
+        kwargs = verify.call_args.kwargs
+        self.assertTrue(kwargs['require_user_verification'])
+        self.assertIsInstance(kwargs['expected_origin'], list)   # the site + the Android APK origins
+        self.device.refresh_from_db()
+        self.assertAlmostEqual(
+            (self.device.admin_unlocked_until - before).total_seconds(), UNLOCK_HOURS * 3600, delta=30)
+        other_device.refresh_from_db()
+        self.assertIsNone(other_device.admin_unlocked_until)
+        self.assertEqual(self.get('admin/home/').status_code, 200)
+        self.assertEqual(self.code(self.get('admin/home/', token=other_token)), 'admin_locked')
+        row = ActivityLog.objects.get(action_type='admin_v2_access')
+        self.assertEqual(row.description,
+                         f'{self.admin.get_display_name()} accessed Admin v2 via passkey "Phone" from the app')
+        self.cred.refresh_from_db()
+        self.assertEqual(self.cred.sign_count, 5)
+
+    @mock.patch('webauthn.verify_authentication_response')
+    def test_a_challenge_is_single_use(self, verify):
+        verify.return_value = SimpleNamespace(new_sign_count=2)
+        challenge = self.begin()['challenge_id']
+        self.assertEqual(self.complete(challenge).status_code, 200)
+        self.post('admin/lock/')
+        r = self.complete(challenge)   # replay
+        self.assertEqual((r.status_code, self.code(r)), (403, 'admin_bad_challenge'))
+        self.device.refresh_from_db()
+        self.assertIsNone(self.device.admin_unlocked_until)
+        self.assertEqual(cache.get(f'admin_v2_attempts_{self.admin.pk}'), 1)
+
+    @mock.patch('webauthn.verify_authentication_response')
+    def test_an_expired_or_unknown_challenge_is_refused(self, verify):
+        verify.return_value = SimpleNamespace(new_sign_count=2)
+        challenge = self.begin()['challenge_id']
+        MobileAuthTicket.objects.update(expires_at=timezone.now() - timedelta(seconds=1))
+        for c in (challenge, 'made-up'):
+            r = self.complete(c)
+            self.assertEqual((r.status_code, self.code(r)), (403, 'admin_bad_challenge'))
+        verify.assert_not_called()
+        self.device.refresh_from_db()
+        self.assertIsNone(self.device.admin_unlocked_until)
+
+    @mock.patch('webauthn.verify_authentication_response')
+    def test_a_challenge_from_another_device_is_refused(self, verify):
+        verify.return_value = SimpleNamespace(new_sign_count=2)
+        challenge = self.begin()['challenge_id']
+        other_device, other_token, _ = make_device(self.admin, name='iPad')
+        r = self.complete(challenge, token=other_token)
+        self.assertEqual(self.code(r), 'admin_bad_challenge')
+        verify.assert_not_called()
+        other_device.refresh_from_db()
+        self.assertIsNone(other_device.admin_unlocked_until)
+
+    @mock.patch('webauthn.verify_authentication_response')
+    def test_another_users_credential_is_refused(self, verify):
+        verify.return_value = SimpleNamespace(new_sign_count=2)
+        other = make_user('sa-pk-other')
+        WebAuthnCredential.objects.create(user=other, credential_id=b'theirs', public_key=b'pk', name='Theirs')
+        r = self.complete(self.begin()['challenge_id'], cred_id=b'theirs')
+        self.assertEqual((r.status_code, self.code(r)), (403, 'admin_unknown_credential'))
+        verify.assert_not_called()
+        self.device.refresh_from_db()
+        self.assertIsNone(self.device.admin_unlocked_until)
+        self.assertEqual(cache.get(f'admin_v2_attempts_{self.admin.pk}'), 1)
+
+    @mock.patch('webauthn.verify_authentication_response', side_effect=ValueError('bad sig'))
+    def test_a_bad_signature_logs_and_counts_toward_the_shared_limit(self, verify):
+        for _ in range(5):
+            r = self.complete(self.begin()['challenge_id'])
+            self.assertEqual(self.code(r), 'admin_failed')
+        self.assertEqual(ActivityLog.objects.filter(action_type='security_violation').count(), 5)
+        r = self.post('admin/unlock/passkey/begin/')
+        self.assertEqual((r.status_code, self.code(r)), (403, 'admin_rate_limited'))
+        # The same counter as the password step and the website.
+        r = self.post('admin/unlock/', {'password': PW, 'secret_key': SECRET})
+        self.assertEqual(self.code(r), 'admin_rate_limited')
+        self.device.refresh_from_db()
+        self.assertIsNone(self.device.admin_unlocked_until)
+
+    def test_bad_input(self):
+        r = self.post('admin/unlock/passkey/complete/', {'challenge_id': 5})
+        self.assertEqual((r.status_code, self.code(r)), (400, 'invalid_input'))
+
+    def test_no_passkeys(self):
+        self.cred.delete()
+        _, token, _ = make_device(self.admin, name='fresh')   # deleting a passkey may sign devices out
+        r = self.post('admin/unlock/passkey/begin/', token=token)
+        self.assertEqual((r.status_code, self.code(r)), (403, 'admin_no_passkeys'))
+
+
+class WebPasskeyUnchangedTests(_Base):
+    """The website's Admin v2 passkey step runs the shared helpers; its responses and rows are as before."""
+
+    def setUp(self):
+        super().setUp()
+        WebAuthnCredential.objects.create(user=self.admin, credential_id=CRED_ID, public_key=b'pk',
+                                          sign_count=1, name='Laptop')
+        self.web = Client()
+        self.web.force_login(self.admin)
+
+    def web_complete(self, cred_id=CRED_ID):
+        return self.web.post(reverse('admin_v2_passkey_auth_complete'), json.dumps(assertion(cred_id)),
+                             content_type='application/json')
+
+    @mock.patch('webauthn.verify_authentication_response')
+    def test_success(self, verify):
+        verify.return_value = SimpleNamespace(new_sign_count=2)
+        r = self.web.post(reverse('admin_v2_passkey_auth_begin'))
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.json()['userVerification'], 'required')
+        r = self.web_complete()
+        self.assertEqual(r.json(), {'ok': True, 'redirect': reverse('admin_v2_dashboard')})
+        self.assertTrue(self.web.session['admin_v2_authenticated'])
+        self.assertEqual(verify.call_args.kwargs['expected_origin'].__class__, str)
+        # v4.4.3: the website now holds the passkey to the user verification it asks for
+        self.assertIs(verify.call_args.kwargs['require_user_verification'], True)
+        row = ActivityLog.objects.get(action_type='admin_v2_access')
+        self.assertEqual(row.description, f'{self.admin.get_display_name()} accessed Admin v2 via passkey "Laptop"')
+        # The web's own session never unlocks a phone.
+        self.device.refresh_from_db()
+        self.assertIsNone(self.device.admin_unlocked_until)
+
+    def test_no_challenge(self):
+        r = self.web_complete()
+        self.assertEqual((r.status_code, r.json()), (400, {'error': 'No authentication in progress.'}))
+
+    @mock.patch('webauthn.verify_authentication_response')
+    def test_failures_keep_their_messages(self, verify):
+        verify.side_effect = ValueError('bad sig')
+        self.web.post(reverse('admin_v2_passkey_auth_begin'))
+        r = self.web_complete(cred_id=b'not-mine')
+        self.assertEqual((r.status_code, r.json()), (400, {'error': 'Unknown or unauthorized credential.'}))
+        self.web.post(reverse('admin_v2_passkey_auth_begin'))
+        r = self.web_complete()
+        self.assertEqual((r.status_code, r.json()), (400, {'error': 'Passkey verification failed.'}))
+        row = ActivityLog.objects.get(action_type='security_violation')
+        self.assertEqual(row.description, f'Failed Admin v2 passkey attempt by {self.admin.get_display_name()}')
+        self.web.post(reverse('admin_v2_passkey_auth_begin'))
+        r = self.web.post(reverse('admin_v2_passkey_auth_complete'), 'not json', content_type='application/json')
+        self.assertEqual((r.status_code, r.json()), (400, {'error': 'Invalid request body.'}))
+        self.assertFalse(self.web.session.get('admin_v2_authenticated'))
+
+    def test_rate_limit_is_shared(self):
+        cache.set(f'admin_v2_attempts_{self.admin.pk}', 5, 900)
+        r = self.web.post(reverse('admin_v2_passkey_auth_begin'))
+        self.assertEqual((r.status_code, r.json()),
+                         (429, {'error': 'Too many failed attempts. Try again in 15 minutes.'}))
 
 
 # ── Actions ──────────────────────────────────────────────────────────────────

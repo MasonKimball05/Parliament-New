@@ -191,28 +191,26 @@ _SESSION_ADMIN_V2_PASSKEY_CHALLENGE = 'admin_v2_passkey_challenge'
 _security_logger = logging.getLogger('security')
 
 
-@require_POST
-def admin_v2_passkey_auth_begin(request):
+def admin_v2_passkey_options(user, rp_id):
     """
-    Generate WebAuthn assertion options for admin-v2 second-factor auth.
-    User must already be logged in and in ALLOWED_USER_IDS.
-    Scopes allow_credentials to this user's registered keys so the authenticator
-    can prompt immediately without needing a discoverable/resident key.
+    The passkey half of the admin-v2 step-up, first leg: assertion options
+    scoped to the member's own keys, user verification required. Returns
+    ``(code, message, options)``: ``('ok', None, options)``, else
+    ``rate_limited`` (the shared ``admin_v2_attempts_<pk>`` counter) or
+    ``no_passkeys`` with the website's message.
+
+    v4.4.3: factored out of `admin_v2_passkey_auth_begin` so the app's passkey
+    unlock (src/mobile/views_site_admin.py) asks for the same thing. Where the
+    challenge is kept is the caller's business (the website: the session; the
+    app: a single-use, device-bound MobileAuthTicket).
     """
-    if not request.user.is_authenticated:
-        return JsonResponse({'error': 'Not logged in.'}, status=403)
-    if not hasattr(request.user, 'user_id') or request.user.user_id not in ALLOWED_USER_IDS:
-        return JsonResponse({'error': 'Unauthorized.'}, status=403)
+    rate_key = f'admin_v2_attempts_{user.pk}'
+    if cache.get(rate_key, 0) >= ADMIN_V2_MAX_ATTEMPTS:
+        return 'rate_limited', 'Too many failed attempts. Try again in 15 minutes.', None
 
-    _rate_key = f'admin_v2_attempts_{request.user.pk}'
-    if cache.get(_rate_key, 0) >= ADMIN_V2_MAX_ATTEMPTS:
-        return JsonResponse({'error': 'Too many failed attempts. Try again in 15 minutes.'}, status=429)
-
-    rp_id, _ = _webauthn_rp_config(request)
-
-    user_creds = list(WebAuthnCredential.objects.filter(user=request.user))
+    user_creds = list(WebAuthnCredential.objects.filter(user=user))
     if not user_creds:
-        return JsonResponse({'error': 'No passkeys registered for this account.'}, status=400)
+        return 'no_passkeys', 'No passkeys registered for this account.', None
 
     allowed = [
         PublicKeyCredentialDescriptor(id=bytes(c.credential_id))
@@ -224,6 +222,115 @@ def admin_v2_passkey_auth_begin(request):
         user_verification=UserVerificationRequirement.REQUIRED,
         allow_credentials=allowed,
     )
+    return 'ok', None, options
+
+
+def admin_v2_passkey_verify(request, user, credential, expected_challenge, rp_id, expected_origin,
+                            require_user_verification=False, via=''):
+    """
+    The passkey half of the admin-v2 step-up, second leg: check an assertion
+    against ``expected_challenge`` (already taken from wherever the caller
+    kept it, so it can't be used twice). Returns ``(code, message)``:
+    ``('ok', None)``, else ``rate_limited``, ``invalid_body``,
+    ``invalid_credential``, ``unknown_credential`` or ``failed`` with the
+    website's message.
+
+    The SAME rules for the website and the app (v4.4.3, factored out of
+    `admin_v2_passkey_auth_complete`): the shared ``admin_v2_attempts_<pk>``
+    counter (5, then 15 minutes, with the password step), the credential must
+    be the member's own (no lateral movement), the same ``security`` log lines
+    and ``security_violation`` / ``admin_v2_access`` rows, the sign count
+    updated. ``credential`` is the AuthenticationResponseJSON as text (or
+    bytes, as the website's request body). ``expected_origin`` is a string or
+    a list (the app's Android APK origins). ``require_user_verification``
+    makes py_webauthn check the UV flag (it doesn't unless asked; the app
+    passes True). ``via`` is appended to the success row's description.
+    """
+    rate_key = f'admin_v2_attempts_{user.pk}'
+    attempts = cache.get(rate_key, 0)
+    if attempts >= ADMIN_V2_MAX_ATTEMPTS:
+        return 'rate_limited', 'Too many failed attempts. Try again in 15 minutes.'
+
+    try:
+        body_json = json.loads(credential)
+    except Exception:
+        return 'invalid_body', 'Invalid request body.'
+
+    try:
+        cred_id_bytes = base64url_to_bytes(body_json['rawId'])
+    except Exception:
+        return 'invalid_credential', 'Invalid credential data.'
+
+    # Credential must be registered to the currently authenticated user — no lateral movement possible
+    db_cred = WebAuthnCredential.objects.filter(
+        credential_id=cred_id_bytes,
+        user=user,
+    ).first()
+    if not db_cred:
+        cache.set(rate_key, attempts + 1, ADMIN_V2_LOCKOUT_SECONDS)
+        _security_logger.warning(
+            f'Admin-v2 passkey auth: unknown or unauthorized credential from {user.username}{via}'
+        )
+        return 'unknown_credential', 'Unknown or unauthorized credential.'
+
+    try:
+        verification = webauthn.verify_authentication_response(
+            credential=credential.decode() if isinstance(credential, bytes) else credential,
+            expected_challenge=expected_challenge,
+            expected_rp_id=rp_id,
+            expected_origin=expected_origin,
+            credential_public_key=bytes(db_cred.public_key),
+            credential_current_sign_count=db_cred.sign_count,
+            require_user_verification=require_user_verification,
+        )
+    except Exception as exc:
+        cache.set(rate_key, attempts + 1, ADMIN_V2_LOCKOUT_SECONDS)
+        _security_logger.warning(
+            f'Admin-v2 passkey verification failed for {user.username}{via}: {exc}'
+        )
+        ActivityLog.log_activity(
+            action_type='security_violation',
+            user=user,
+            description=f'Failed Admin v2 passkey attempt by {user.get_display_name()}{via}',
+            request=request,
+        )
+        return 'failed', 'Passkey verification failed.'
+
+    # All good — update sign count
+    db_cred.mark_used(verification.new_sign_count)
+    cache.delete(rate_key)
+
+    ActivityLog.log_activity(
+        action_type='admin_v2_access',
+        user=user,
+        description=f'{user.get_display_name()} accessed Admin v2 via passkey "{db_cred.name}"{via}',
+        request=request,
+    )
+    return 'ok', None
+
+
+#: admin_v2_passkey_verify code → the website's HTTP status.
+_PASSKEY_STATUS = {'rate_limited': 429}
+
+
+@require_POST
+def admin_v2_passkey_auth_begin(request):
+    """
+    Generate WebAuthn assertion options for admin-v2 second-factor auth.
+    User must already be logged in and in ALLOWED_USER_IDS.
+    Scopes allow_credentials to this user's registered keys so the authenticator
+    can prompt immediately without needing a discoverable/resident key.
+    (v4.4.3: the checks are `admin_v2_passkey_options`, shared with the app.)
+    """
+    if not request.user.is_authenticated:
+        return JsonResponse({'error': 'Not logged in.'}, status=403)
+    if not hasattr(request.user, 'user_id') or request.user.user_id not in ALLOWED_USER_IDS:
+        return JsonResponse({'error': 'Unauthorized.'}, status=403)
+
+    rp_id, _ = _webauthn_rp_config(request)
+    code, message, options = admin_v2_passkey_options(request.user, rp_id)
+    if code != 'ok':
+        return JsonResponse({'error': message}, status=_PASSKEY_STATUS.get(code, 400))
 
     request.session[_SESSION_ADMIN_V2_PASSKEY_CHALLENGE] = list(options.challenge)
     return JsonResponse(json.loads(options_to_json(options)))
@@ -235,6 +342,7 @@ def admin_v2_passkey_auth_complete(request):
     Verify a WebAuthn assertion and grant admin-v2 access.
     The credential must belong to the already-logged-in user (ownership enforced).
     On success, sets the same admin_v2_authenticated session flag as password auth.
+    (v4.4.3: the checks are `admin_v2_passkey_verify`, shared with the app.)
     """
     if not request.user.is_authenticated:
         return JsonResponse({'error': 'Not logged in.'}, status=403)
@@ -247,70 +355,19 @@ def admin_v2_passkey_auth_complete(request):
     if not challenge_list:
         return JsonResponse({'error': 'No authentication in progress.'}, status=400)
 
-    _rate_key = f'admin_v2_attempts_{request.user.pk}'
-    _attempts = cache.get(_rate_key, 0)
-    if _attempts >= ADMIN_V2_MAX_ATTEMPTS:
-        return JsonResponse({'error': 'Too many failed attempts. Try again in 15 minutes.'}, status=429)
+    # v4.4.3: the options always asked for user verification; now the answer
+    # is held to it (py_webauthn only checks the UV flag when told to).
+    code, message = admin_v2_passkey_verify(
+        request, request.user, request.body, bytes(challenge_list), rp_id, origin,
+        require_user_verification=True)
+    if code != 'ok':
+        return JsonResponse({'error': message}, status=_PASSKEY_STATUS.get(code, 400))
 
-    try:
-        body_json = json.loads(request.body)
-    except Exception:
-        return JsonResponse({'error': 'Invalid request body.'}, status=400)
-
-    try:
-        cred_id_bytes = base64url_to_bytes(body_json['rawId'])
-    except Exception:
-        return JsonResponse({'error': 'Invalid credential data.'}, status=400)
-
-    # Credential must be registered to the currently authenticated user — no lateral movement possible
-    db_cred = WebAuthnCredential.objects.filter(
-        credential_id=cred_id_bytes,
-        user=request.user,
-    ).first()
-    if not db_cred:
-        cache.set(_rate_key, _attempts + 1, ADMIN_V2_LOCKOUT_SECONDS)
-        _security_logger.warning(
-            f'Admin-v2 passkey auth: unknown or unauthorized credential from {request.user.username}'
-        )
-        return JsonResponse({'error': 'Unknown or unauthorized credential.'}, status=400)
-
-    try:
-        verification = webauthn.verify_authentication_response(
-            credential=request.body.decode(),
-            expected_challenge=bytes(challenge_list),
-            expected_rp_id=rp_id,
-            expected_origin=origin,
-            credential_public_key=bytes(db_cred.public_key),
-            credential_current_sign_count=db_cred.sign_count,
-        )
-    except Exception as exc:
-        cache.set(_rate_key, _attempts + 1, ADMIN_V2_LOCKOUT_SECONDS)
-        _security_logger.warning(
-            f'Admin-v2 passkey verification failed for {request.user.username}: {exc}'
-        )
-        ActivityLog.log_activity(
-            action_type='security_violation',
-            user=request.user,
-            description=f'Failed Admin v2 passkey attempt by {request.user.get_display_name()}',
-            request=request,
-        )
-        return JsonResponse({'error': 'Passkey verification failed.'}, status=400)
-
-    # All good — update sign count and grant access
-    db_cred.mark_used(verification.new_sign_count)
-    cache.delete(_rate_key)
-
+    # Grant access
     request.session['admin_v2_authenticated'] = True
     request.session['admin_v2_auth_time'] = timezone.now().isoformat()
     request.session.modified = True
     request.session.set_expiry(7 * 24 * 60 * 60)
-
-    ActivityLog.log_activity(
-        action_type='admin_v2_access',
-        user=request.user,
-        description=f'{request.user.get_display_name()} accessed Admin v2 via passkey "{db_cred.name}"',
-        request=request,
-    )
 
     from django.urls import reverse
     return JsonResponse({'ok': True, 'redirect': reverse('admin_v2_dashboard')})

@@ -769,6 +769,11 @@ urlpatterns = [
     # the per-device unlock → 403 admin_locked (src/mobile/site_admin.py).
     path('admin/status/', views_site_admin.StatusView.as_view(), name='mobile_admin_status'),
     path('admin/unlock/', views_site_admin.UnlockView.as_view(), name='mobile_admin_unlock'),
+    # v4.4.3: unlock with a passkey (the website's Admin v2 passkey checks).
+    path('admin/unlock/passkey/begin/', views_site_admin.PasskeyUnlockBeginView.as_view(),
+         name='mobile_admin_unlock_passkey_begin'),
+    path('admin/unlock/passkey/complete/', views_site_admin.PasskeyUnlockCompleteView.as_view(),
+         name='mobile_admin_unlock_passkey_complete'),
     path('admin/lock/', views_site_admin.LockView.as_view(), name='mobile_admin_lock'),
     path('admin/home/', views_site_admin.HomeView.as_view(), name='mobile_admin_home'),
     path('admin/flags/<int:flag_id>/', views_site_admin.FlagView.as_view(), name='mobile_admin_flag'),
