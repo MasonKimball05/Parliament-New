@@ -39,6 +39,12 @@ def _setup_checks():
 
 @require_admin_v2_auth
 def admin_v2_mobile(request):
+    return render(request, 'admin_v2/mobile.html', mobile_overview())
+
+
+def mobile_overview():
+    """The App installs page's numbers and lists. v4.4.3: factored out of
+    `admin_v2_mobile` for the app's Site admin (setup checks stay booleans)."""
     now = timezone.now()
     live = MobileDevice.objects.filter(revoked_at__isnull=True, refresh_expires_at__gt=now)
     stats = live.aggregate(
@@ -54,7 +60,7 @@ def admin_v2_mobile(request):
     push_members = (ParliamentUser.objects
                     .filter(mobile_devices__in=live.exclude(push_token=''))
                     .distinct().order_by('name').only('user_id', 'name', 'preferred_name'))
-    context = {
+    return {
         'stats': stats,
         'versions': versions,
         'recent': recent,
@@ -62,7 +68,32 @@ def admin_v2_mobile(request):
         'awaiting_receipts': MobilePushTicket.objects.count(),
         'setup': _setup_checks(),
     }
-    return render(request, 'admin_v2/mobile.html', context)
+
+
+def send_test_push(request, actor, member):
+    """
+    Send the test push to every live, push-enabled device of ``member``.
+    Returns ``(outcome, accepted, devices)``: outcome is ``no_devices``,
+    ``expo_down``, ``accepted`` or ``refused``. Writes the `user_edited` row
+    when Expo answered. v4.4.3: shared by `admin_v2_mobile_push` and the app.
+    """
+    devices = expo.live_push_devices([member.pk])
+    if not devices:
+        return 'no_devices', 0, 0
+    try:
+        ok = expo.send_to_devices(
+            devices, 'Test from Parliament',
+            f'Sent by {actor.get_display_name()} from the admin panel. Push works.',
+            data={'url': '/notifications/', 'screen': 'notifications'})
+    except expo.ExpoTransientError:
+        return 'expo_down', 0, len(devices)
+    ActivityLog.log_activity(
+        action_type='user_edited', user=actor,
+        description=f'{actor.get_display_name()} sent a test push to {member.get_display_name()} '
+                    f'({ok} of {len(devices)} device(s) accepted)',
+        object_type='ParliamentUser', object_id=str(member.user_id), object_repr=member.get_display_name(),
+        request=request)
+    return ('accepted' if ok else 'refused'), ok, len(devices)
 
 
 @require_admin_v2_auth
@@ -70,26 +101,15 @@ def admin_v2_mobile(request):
 def admin_v2_mobile_push(request):
     """Send a test push to every live, push-enabled device of one member."""
     member = get_object_or_404(ParliamentUser, user_id=request.POST.get('user_id', ''))
-    devices = expo.live_push_devices([member.pk])
-    if not devices:
+    outcome, ok, n = send_test_push(request, request.user, member)
+    if outcome == 'no_devices':
         messages.warning(request, f'{member.get_display_name()} has no signed-in app with notifications on.')
         return redirect('admin_v2_mobile')
-    try:
-        ok = expo.send_to_devices(
-            devices, 'Test from Parliament',
-            f'Sent by {request.user.get_display_name()} from the admin panel. Push works.',
-            data={'url': '/notifications/', 'screen': 'notifications'})
-    except expo.ExpoTransientError:
+    if outcome == 'expo_down':
         messages.error(request, 'Expo did not answer. Try again in a minute.')
         return redirect('admin_v2_mobile')
-    ActivityLog.log_activity(
-        action_type='user_edited', user=request.user,
-        description=f'{request.user.get_display_name()} sent a test push to {member.get_display_name()} '
-                    f'({ok} of {len(devices)} device(s) accepted)',
-        object_type='ParliamentUser', object_id=str(member.user_id), object_repr=member.get_display_name(),
-        request=request)
     if ok:
-        messages.success(request, f'Expo accepted the test push for {ok} of {len(devices)} device(s). '
+        messages.success(request, f'Expo accepted the test push for {ok} of {n} device(s). '
                                   'It should arrive within a few seconds.')
     else:
         messages.error(request, 'Expo refused the push. The server log has the reason '

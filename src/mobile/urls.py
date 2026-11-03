@@ -40,6 +40,7 @@ from src.mobile import views_committee_settings
 from src.mobile import views_kai_review
 from src.mobile import views_committee_documents
 from src.mobile import views_officer_logs
+from src.mobile import views_site_admin
 
 app_name = 'mobile'
 
@@ -764,4 +765,41 @@ urlpatterns = [
          name='mobile_poll_qr'),
     path('officer/announcements/<int:announcement_id>/poll/qr/embed/', views_qr.PollQREmbedView.as_view(),
          name='mobile_poll_qr_embed'),
+    # Site admin (v4.4.3; src/mobile/views_site_admin.py). Allowlist → 404, then
+    # the per-device unlock → 403 admin_locked (src/mobile/site_admin.py).
+    path('admin/status/', views_site_admin.StatusView.as_view(), name='mobile_admin_status'),
+    path('admin/unlock/', views_site_admin.UnlockView.as_view(), name='mobile_admin_unlock'),
+    path('admin/lock/', views_site_admin.LockView.as_view(), name='mobile_admin_lock'),
+    path('admin/home/', views_site_admin.HomeView.as_view(), name='mobile_admin_home'),
+    path('admin/flags/<int:flag_id>/', views_site_admin.FlagView.as_view(), name='mobile_admin_flag'),
+    path('admin/pages/<int:toggle_id>/', views_site_admin.PageView.as_view(), name='mobile_admin_page'),
+    path('admin/lockdown/', views_site_admin.LockdownView.as_view(), name='mobile_admin_lockdown'),
+    path('admin/members/', views_site_admin.MemberSearchView.as_view(), name='mobile_admin_members'),
+    path('admin/members/<str:user_id>/', views_site_admin.MemberView.as_view(), name='mobile_admin_member'),
+    path('admin/members/<str:user_id>/security/', views_site_admin.MemberSecurityView.as_view(),
+         name='mobile_admin_member_security'),
+    path('admin/members/<str:user_id>/sign-out/', views_site_admin.MemberSignOutView.as_view(),
+         name='mobile_admin_member_sign_out'),
+    path('admin/members/<str:user_id>/devices/<str:device_id>/revoke/',
+         views_site_admin.MemberDeviceRevokeView.as_view(), name='mobile_admin_member_revoke_device'),
+    path('admin/members/<str:user_id>/release-lockout/', views_site_admin.MemberReleaseLockoutView.as_view(),
+         name='mobile_admin_member_release_lockout'),
+    path('admin/members/<str:user_id>/password-reset/', views_site_admin.MemberPasswordResetView.as_view(),
+         name='mobile_admin_member_password_reset'),
+    path('admin/members/<str:user_id>/reset-2fa/', views_site_admin.MemberResetTwoFactorView.as_view(),
+         name='mobile_admin_member_reset_2fa'),
+    path('admin/members/<str:user_id>/2fa-requirement/', views_site_admin.MemberTwoFactorRequirementView.as_view(),
+         name='mobile_admin_member_2fa_requirement'),
+    path('admin/lockouts/', views_site_admin.LockoutsView.as_view(), name='mobile_admin_lockouts'),
+    path('admin/lockouts/<int:lockout_id>/clear/', views_site_admin.LockoutClearView.as_view(),
+         name='mobile_admin_lockout_clear'),
+    path('admin/alerts/', views_site_admin.AlertsView.as_view(), name='mobile_admin_alerts'),
+    path('admin/alerts/<int:alert_id>/dismiss/', views_site_admin.AlertDismissView.as_view(),
+         name='mobile_admin_alert_dismiss'),
+    path('admin/alerts/dismiss-all/', views_site_admin.AlertDismissAllView.as_view(),
+         name='mobile_admin_alerts_dismiss_all'),
+    path('admin/audit-log/', views_site_admin.AuditLogView.as_view(), name='mobile_admin_audit_log'),
+    path('admin/app-installs/', views_site_admin.AppInstallsView.as_view(), name='mobile_admin_app_installs'),
+    path('admin/app-installs/test-push/', views_site_admin.TestPushView.as_view(),
+         name='mobile_admin_test_push'),
 ]

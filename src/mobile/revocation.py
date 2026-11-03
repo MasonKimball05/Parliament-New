@@ -45,7 +45,8 @@ def revoke_user_devices(user_id, reason, except_device_id=None):
     if except_device_id is not None:
         qs = qs.exclude(pk=except_device_id)
     from django.utils import timezone
-    count = qs.update(revoked_at=timezone.now(), revoked_reason=reason[:100], push_token='')
+    count = qs.update(revoked_at=timezone.now(), revoked_reason=reason[:100], push_token='',
+                      admin_unlocked_until=None)
     if count:
         logger.info('MOBILE DEVICES REVOKED: %s device(s) of user %s (%s)', count, user_id, reason)
     return count

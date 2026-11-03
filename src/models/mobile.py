@@ -120,6 +120,11 @@ class MobileDevice(models.Model):
     last_seen_at = models.DateTimeField(null=True, blank=True)
     revoked_at = models.DateTimeField(null=True, blank=True)
     revoked_reason = models.CharField(max_length=100, blank=True)
+    # v4.4.3: the app's Site admin step-up (password + ADMIN_V2_SECRET_KEY, as
+    # the website's admin-v2 login) unlocks admin on THIS install until then
+    # (12 hours; src/mobile/site_admin.py). Kept on the device row, not in the
+    # cache, so it holds across server processes and ends with the device.
+    admin_unlocked_until = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         ordering = ['-last_seen_at', '-created_at']
@@ -143,7 +148,8 @@ class MobileDevice(models.Model):
             self.revoked_at = timezone.now()
             self.revoked_reason = reason[:100]
             self.push_token = ''
-            self.save(update_fields=['revoked_at', 'revoked_reason', 'push_token'])
+            self.admin_unlocked_until = None
+            self.save(update_fields=['revoked_at', 'revoked_reason', 'push_token', 'admin_unlocked_until'])
 
     @classmethod
     def revoke_all_for(cls, user, reason, except_device=None):
@@ -151,7 +157,8 @@ class MobileDevice(models.Model):
         qs = cls.objects.filter(user=user, revoked_at__isnull=True)
         if except_device is not None:
             qs = qs.exclude(pk=except_device.pk)
-        return qs.update(revoked_at=timezone.now(), revoked_reason=reason[:100], push_token='')
+        return qs.update(revoked_at=timezone.now(), revoked_reason=reason[:100], push_token='',
+                         admin_unlocked_until=None)
 
     def still_allowed(self, user=None):
         """

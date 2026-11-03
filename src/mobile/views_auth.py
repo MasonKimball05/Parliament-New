@@ -510,6 +510,7 @@ class MeView(MobileAPIView):
 
     def get(self, request):
         from src.models_feature_flags import FeatureFlag, PageToggle
+        from src.mobile.site_admin import is_site_admin
         from src.permissions import user_is_officer_or_chair
         user = request.user
         device = request.auth
@@ -533,6 +534,9 @@ class MeView(MobileAPIView):
             # The announcement page's own gate (officer_required), for the app's
             # "New announcement" quick action. is_officer alone misses chairs.
             'can_post_announcements': user_is_officer_or_chair(user),
+            # v4.4.3: on the admin-v2 allowlist, so the More tab shows "Site
+            # admin" (src/mobile/site_admin.py). False for everyone else.
+            'site_admin': is_site_admin(user),
             # FeatureFlag fails OPEN for an unseeded flag, exactly as the views do.
             # No 'calendar' flag: that FeatureFlag row is dead (it never gated
             # anything; see prune_dead_feature_flags.py). The calendar's real

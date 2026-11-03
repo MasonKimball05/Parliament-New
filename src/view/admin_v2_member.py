@@ -93,6 +93,15 @@ def search_content(term):
 @require_admin_v2_auth
 def admin_v2_member(request, user_id):
     member = get_object_or_404(ParliamentUser, user_id=user_id)
+    return render(request, 'admin_v2/member.html', member_page_data(member, request.user))
+
+
+def member_page_data(member, viewer):
+    """
+    Everything the member page shows. v4.4.3: factored out of
+    `admin_v2_member` so the app's Site admin member screen reads the same
+    rows (activity with Kai rows excluded for ``viewer``, as here).
+    """
     now = timezone.now()
 
     from django_otp.plugins.otp_totp.models import TOTPDevice
@@ -111,9 +120,9 @@ def admin_v2_member(request, user_id):
                 .order_by('-locked_at')[:5] if lo.is_active()]
 
     watch = UserWatchFlag.objects.filter(user=member, is_active=True).first()
-    activity = list(exclude_kai_logs(ActivityLog.objects.filter(user=member), request.user).order_by('-timestamp')[:15])
+    activity = list(exclude_kai_logs(ActivityLog.objects.filter(user=member), viewer).order_by('-timestamp')[:15])
 
-    context = {
+    return {
         'member': member,
         'roles': list(member.roles.all().order_by('name')),
         'committees': list(member.committees.all().order_by('name')),
@@ -130,7 +139,6 @@ def admin_v2_member(request, user_id):
         'activity': activity,
         'chapter': chapter_summary(member),
     }
-    return render(request, 'admin_v2/member.html', context)
 
 
 def chapter_summary(member):
@@ -164,10 +172,10 @@ def chapter_summary(member):
             'service': service, 'service_period': period}
 
 
-def _log(request, member, description):
+def _log(request, member, description, actor=None):
     ActivityLog.log_activity(
         action_type='user_edited',
-        user=request.user,
+        user=actor or request.user,
         description=description,
         object_type='ParliamentUser',
         object_id=str(member.user_id),
@@ -176,16 +184,39 @@ def _log(request, member, description):
     )
 
 
+def sign_member_out_everywhere(request, actor, member, keep_session_key=None, keep_device_id=None):
+    """
+    End every web session and sign out every app install of ``member``, except
+    the one the admin is using when the member is themself (the web session on
+    the website, ``keep_device_id`` from the app). Writes the `user_edited`
+    row. Returns the number of web sessions ended. v4.4.3: shared with the app.
+    """
+    devices_before = MobileDevice.objects.filter(user=member, revoked_at__isnull=True).count()
+    sessions = UserSession.revoke_other_sessions(member, keep_session_key=keep_session_key,
+                                                 keep_mobile_device_id=keep_device_id)
+    _log(request, member, f'{actor.get_display_name()} signed {member.get_display_name()} out '
+                          f'everywhere ({sessions} web session(s), {devices_before} app device(s))', actor)
+    return sessions
+
+
+def revoke_member_device(request, actor, member, device):
+    """Sign out one app install of ``member`` and write the `user_edited` row
+    (nothing if it was already signed out). v4.4.3: shared with the app."""
+    if device.revoked_at is not None:
+        return False
+    device.revoke(f'revoked by admin {actor.user_id}')
+    _log(request, member, f'{actor.get_display_name()} signed out {member.get_display_name()}\'s '
+                          f'{device.get_platform_display()} app ({device.device_name or "unnamed device"})', actor)
+    return True
+
+
 @require_admin_v2_auth
 @require_POST
 def admin_v2_member_sign_out(request, user_id):
     """End every web session and sign out every app install of this member."""
     member = get_object_or_404(ParliamentUser, user_id=user_id)
-    devices_before = MobileDevice.objects.filter(user=member, revoked_at__isnull=True).count()
     keep = request.session.session_key if member.pk == request.user.pk else None
-    sessions = UserSession.revoke_other_sessions(member, keep_session_key=keep)
-    _log(request, member, f'{request.user.get_display_name()} signed {member.get_display_name()} out '
-                          f'everywhere ({sessions} web session(s), {devices_before} app device(s))')
+    sessions = sign_member_out_everywhere(request, request.user, member, keep_session_key=keep)
     messages.success(request, f'Signed {member.get_display_name()} out of {sessions} web session(s) '
                               f'and their app.')
     return redirect('admin_v2_member', user_id=member.user_id)
@@ -196,9 +227,6 @@ def admin_v2_member_sign_out(request, user_id):
 def admin_v2_member_revoke_device(request, user_id, device_id):
     member = get_object_or_404(ParliamentUser, user_id=user_id)
     device = get_object_or_404(MobileDevice, public_id=device_id, user=member)
-    if device.revoked_at is None:
-        device.revoke(f'revoked by admin {request.user.user_id}')
-        _log(request, member, f'{request.user.get_display_name()} signed out {member.get_display_name()}\'s '
-                              f'{device.get_platform_display()} app ({device.device_name or "unnamed device"})')
+    if revoke_member_device(request, request.user, member, device):
         messages.success(request, 'That app install is signed out.')
     return redirect('admin_v2_member', user_id=member.user_id)

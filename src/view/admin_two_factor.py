@@ -213,6 +213,63 @@ def update_two_factor_policy(request):
         return JsonResponse({'success': False, 'error': str(e)}, status=500)
 
 
+def set_member_2fa_requirement(request, actor, member, requirement, reason=''):
+    """
+    ``requirement``: 'required', 'exempt', or 'clear' (back to the site
+    policy). Writes the `other` row. False for an unknown value (nothing
+    changed). v4.4.3: shared by `set_two_factor_requirement` and the app.
+    """
+    if requirement == 'clear':
+        # Remove individual requirement
+        TwoFactorRequirement.objects.filter(user=member).delete()
+        action = 'Cleared 2FA requirement'
+    elif requirement in ['required', 'exempt']:
+        # Set individual requirement
+        TwoFactorRequirement.objects.update_or_create(
+            user=member,
+            defaults={
+                'requirement': requirement,
+                'reason': reason,
+                'set_by': actor,
+            }
+        )
+        action = f'Set 2FA requirement to {requirement}'
+    else:
+        return False
+
+    # Log the change
+    ActivityLog.log_activity(
+        action_type='other',
+        user=actor,
+        description=f'{action} for {member.name}',
+        request=request,
+        object_type='TwoFactorRequirement',
+        object_id=member.user_id,
+        object_repr=f'{member.name} - {requirement}'
+    )
+    return True
+
+
+def reset_member_2fa(request, actor, member):
+    """
+    Remove ``member``'s authenticator (admin recovery) and write the
+    `security_violation` row when there was one; returns how many were
+    removed. v4.4.3: shared by `reset_user_2fa` and the app.
+    """
+    deleted_count = TOTPDevice.objects.filter(user=member).delete()[0]
+    if deleted_count > 0:
+        ActivityLog.log_activity(
+            action_type='security_violation',
+            user=actor,
+            description=f'Admin reset 2FA for {member.name}',
+            request=request,
+            object_type='TOTPDevice',
+            object_id=member.user_id,
+            object_repr=f'{member.name}'
+        )
+    return deleted_count
+
+
 @require_admin_v2_auth
 @require_POST
 def set_two_factor_requirement(request, user_id):
@@ -226,34 +283,8 @@ def set_two_factor_requirement(request, user_id):
 
         member = get_object_or_404(ParliamentUser, user_id=user_id)
 
-        if requirement == 'clear':
-            # Remove individual requirement
-            TwoFactorRequirement.objects.filter(user=member).delete()
-            action = 'Cleared 2FA requirement'
-        elif requirement in ['required', 'exempt']:
-            # Set individual requirement
-            req, created = TwoFactorRequirement.objects.update_or_create(
-                user=member,
-                defaults={
-                    'requirement': requirement,
-                    'reason': reason,
-                    'set_by': request.user,
-                }
-            )
-            action = f'Set 2FA requirement to {requirement}'
-        else:
+        if not set_member_2fa_requirement(request, request.user, member, requirement, reason):
             return JsonResponse({'success': False, 'error': 'Invalid requirement'}, status=400)
-
-        # Log the change
-        ActivityLog.log_activity(
-            action_type='other',
-            user=request.user,
-            description=f'{action} for {member.name}',
-            request=request,
-            object_type='TwoFactorRequirement',
-            object_id=member.user_id,
-            object_repr=f'{member.name} - {requirement}'
-        )
 
         return JsonResponse({
             'success': True,
@@ -347,21 +378,10 @@ def reset_user_2fa(request, user_id):
     try:
         member = get_object_or_404(ParliamentUser, user_id=user_id)
 
-        # Delete all TOTP devices for this user
-        deleted_count = TOTPDevice.objects.filter(user=member).delete()[0]
+        # Delete all TOTP devices for this user (and log it)
+        deleted_count = reset_member_2fa(request, request.user, member)
 
         if deleted_count > 0:
-            # Log the action
-            ActivityLog.log_activity(
-                action_type='security_violation',
-                user=request.user,
-                description=f'Admin reset 2FA for {member.name}',
-                request=request,
-                object_type='TOTPDevice',
-                object_id=member.user_id,
-                object_repr=f'{member.name}'
-            )
-
             return JsonResponse({
                 'success': True,
                 'message': f'2FA has been reset for {member.name}',

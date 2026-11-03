@@ -66,6 +66,64 @@ ADMIN_V2_MAX_ATTEMPTS = 5
 ADMIN_V2_LOCKOUT_SECONDS = 15 * 60  # 15 minutes
 
 
+def is_admin_v2_allowlisted(user):
+    """The first half of the admin-v2 gate: the user's id is in ADMIN_V2_USER_IDS.
+
+    v4.4.3: shared with the app's Site admin (src/mobile/site_admin.py). Reads
+    the module attribute each time, so a test's patch of ALLOWED_USER_IDS applies."""
+    return bool(user and user.is_authenticated and getattr(user, 'user_id', None) in ALLOWED_USER_IDS)
+
+
+def admin_v2_step_up(request, user, user_password, secret_key, via=''):
+    """
+    The second half of the admin-v2 gate: the member's password AND
+    ADMIN_V2_SECRET_KEY. Returns ``(code, message)``: ``('ok', None)`` on
+    success, else one of ``rate_limited``, ``wrong_password``,
+    ``not_configured``, ``wrong_secret`` with the website's own message.
+
+    v4.4.3: factored out of `admin_v2_login` so the app's unlock
+    (src/mobile/views_site_admin.py) runs the SAME checks: one rate-limit
+    counter per member (``admin_v2_attempts_<pk>``) across the website and
+    every phone, and the same ``security_violation`` / ``admin_v2_access``
+    rows. ``via`` is appended to the success row's description (the app passes
+    `` from the app``; the website passes nothing, so its rows are unchanged).
+    The secret is compared in constant time.
+    """
+    import hmac
+
+    rate_key = f'admin_v2_attempts_{user.pk}'
+    attempts = cache.get(rate_key, 0)
+    if attempts >= ADMIN_V2_MAX_ATTEMPTS:
+        return 'rate_limited', 'Too many failed attempts. Try again in 15 minutes.'
+
+    if not user.check_password(user_password or ''):
+        cache.set(rate_key, attempts + 1, ADMIN_V2_LOCKOUT_SECONDS)
+        return 'wrong_password', 'Invalid user password'
+
+    env_secret = os.environ.get('ADMIN_V2_SECRET_KEY', '')
+    if not env_secret:
+        return 'not_configured', 'Admin v2 secret key not configured. Contact system administrator.'
+
+    if not hmac.compare_digest((secret_key or '').encode(), env_secret.encode()):
+        cache.set(rate_key, attempts + 1, ADMIN_V2_LOCKOUT_SECONDS)
+        ActivityLog.log_activity(
+            action_type='security_violation',
+            user=user,
+            description=f'Failed Admin v2 secret key attempt by {user.get_display_name()}',
+            request=request
+        )
+        return 'wrong_secret', 'Invalid secret key'
+
+    cache.delete(rate_key)
+    ActivityLog.log_activity(
+        action_type='admin_v2_access',
+        user=user,
+        description=f'{user.get_display_name()} successfully accessed Admin v2{via}',
+        request=request
+    )
+    return 'ok', None
+
+
 def generate_random_password(length=16):
     """Generate a secure random password"""
     alphabet = string.ascii_letters + string.digits + string.punctuation
@@ -101,53 +159,22 @@ def admin_v2_login(request):
                 pass  # Invalid time, continue to login form
 
     if request.method == 'POST':
-        _rate_key = f'admin_v2_attempts_{request.user.pk}'
-        _attempts = cache.get(_rate_key, 0)
-        if _attempts >= ADMIN_V2_MAX_ATTEMPTS:
-            messages.error(request, 'Too many failed attempts. Try again in 15 minutes.')
-            return render(request, 'admin_v2/login.html')
-
-        user_password = request.POST.get('user_password', '')
-        secret_key = request.POST.get('secret_key', '')
-
-        # Verify user password
-        if not request.user.check_password(user_password):
-            cache.set(_rate_key, _attempts + 1, ADMIN_V2_LOCKOUT_SECONDS)
-            messages.error(request, 'Invalid user password')
-            return render(request, 'admin_v2/login.html')
-
-        # Verify secret key from environment
-        env_secret = os.environ.get('ADMIN_V2_SECRET_KEY', '')
-        if not env_secret:
-            messages.error(request, 'Admin v2 secret key not configured. Contact system administrator.')
-            return render(request, 'admin_v2/login.html')
-
-        if secret_key != env_secret:
-            cache.set(_rate_key, _attempts + 1, ADMIN_V2_LOCKOUT_SECONDS)
-            messages.error(request, 'Invalid secret key')
-            ActivityLog.log_activity(
-                action_type='security_violation',
-                user=request.user,
-                description=f'Failed Admin v2 secret key attempt by {request.user.get_display_name()}',
-                request=request
-            )
+        # v4.4.3: the checks, rate limit and log rows are `admin_v2_step_up`
+        # (shared with the app's unlock); messages and pages are unchanged.
+        code, message = admin_v2_step_up(
+            request, request.user,
+            request.POST.get('user_password', ''), request.POST.get('secret_key', ''))
+        if code != 'ok':
+            messages.error(request, message)
             return render(request, 'admin_v2/login.html')
 
         # Both passwords correct - grant access
-        cache.delete(_rate_key)
         request.session['admin_v2_authenticated'] = True
         request.session['admin_v2_auth_time'] = timezone.now().isoformat()
         # Explicitly mark session as modified to ensure it's saved
         request.session.modified = True
         # Set session to expire in 7 days (in seconds)
         request.session.set_expiry(7 * 24 * 60 * 60)
-
-        ActivityLog.log_activity(
-            action_type='admin_v2_access',
-            user=request.user,
-            description=f'{request.user.get_display_name()} successfully accessed Admin v2',
-            request=request
-        )
 
         messages.success(request, 'Admin v2 access granted')
         return redirect('admin_v2_dashboard')
@@ -566,6 +593,36 @@ def seed_dashboard_defaults():
     _seed_site_settings(CHAT_SETTINGS_DEFAULTS + EVENT_REMINDER_DEFAULTS + APP_UPDATE_DEFAULTS)
 
 
+def dashboard_celery_summary():
+    """The dashboard's Celery card: workers answering a ping, scheduled tasks,
+    stale and disabled ones. v4.4.3: factored out of `admin_v2_dashboard` for
+    the app's Site admin home; same numbers, same 1-second ping."""
+    celery_summary = {'workers_up': False, 'task_count': 0, 'stale_count': 0, 'disabled_count': 0}
+    try:
+        from django_celery_beat.models import PeriodicTask as _PT, IntervalSchedule as _IV
+        from celery import current_app as _celery_app
+        ping = _celery_app.control.inspect(timeout=1).ping() or {}
+        celery_summary['workers_up'] = bool(ping)
+        tasks = list(_PT.objects.select_related('interval', 'crontab').all())
+        celery_summary['task_count'] = len(tasks)
+        celery_summary['disabled_count'] = sum(1 for t in tasks if not t.enabled)
+        _period_secs = {'days': 86400, 'hours': 3600, 'minutes': 60, 'seconds': 1}
+        stale = 0
+        for t in tasks:
+            if t.enabled and t.last_run_at:
+                if t.interval:
+                    threshold = t.interval.every * _period_secs.get(t.interval.period, 60) * 2
+                    if (timezone.now() - t.last_run_at).total_seconds() > threshold:
+                        stale += 1
+                elif t.crontab and (timezone.now() - t.last_run_at).total_seconds() > 90000:
+                    stale += 1
+        celery_summary['stale_count'] = stale
+    except Exception:
+        pass
+
+    return celery_summary
+
+
 @require_admin_v2_auth
 def admin_v2_dashboard(request):
     """
@@ -861,29 +918,8 @@ def admin_v2_dashboard(request):
         ),
     }
 
-    # Celery health summary for dashboard card
-    celery_summary = {'workers_up': False, 'task_count': 0, 'stale_count': 0, 'disabled_count': 0}
-    try:
-        from django_celery_beat.models import PeriodicTask as _PT, IntervalSchedule as _IV
-        from celery import current_app as _celery_app
-        ping = _celery_app.control.inspect(timeout=1).ping() or {}
-        celery_summary['workers_up'] = bool(ping)
-        tasks = list(_PT.objects.select_related('interval', 'crontab').all())
-        celery_summary['task_count'] = len(tasks)
-        celery_summary['disabled_count'] = sum(1 for t in tasks if not t.enabled)
-        _period_secs = {'days': 86400, 'hours': 3600, 'minutes': 60, 'seconds': 1}
-        stale = 0
-        for t in tasks:
-            if t.enabled and t.last_run_at:
-                if t.interval:
-                    threshold = t.interval.every * _period_secs.get(t.interval.period, 60) * 2
-                    if (timezone.now() - t.last_run_at).total_seconds() > threshold:
-                        stale += 1
-                elif t.crontab and (timezone.now() - t.last_run_at).total_seconds() > 90000:
-                    stale += 1
-        celery_summary['stale_count'] = stale
-    except Exception:
-        pass
+    # Celery health summary for dashboard card (v4.4.3: `celery_summary`, shared with the app)
+    celery_summary = dashboard_celery_summary()
 
     context = {
         'stats': stats,
@@ -909,6 +945,41 @@ def admin_v2_dashboard(request):
     return render(request, 'admin_v2/dashboard.html', context)
 
 
+def apply_feature_flag_toggle(request, user, flag):
+    """Flip one feature flag and write its `feature_flag_toggle` row; returns
+    'enabled' / 'disabled'. v4.4.3: shared by `toggle_feature_flag` and the
+    app's Site admin (which also turns maintenance mode on and off with it)."""
+    flag.is_enabled = not flag.is_enabled
+    flag.last_toggled_by = user.get_display_name()
+    flag.last_toggled_at = timezone.now()
+    flag.save(update_fields=['is_enabled', 'last_toggled_by', 'last_toggled_at'])
+    status = "enabled" if flag.is_enabled else "disabled"
+    ActivityLog.log_activity(
+        action_type='feature_flag_toggle',
+        user=user,
+        description=f'{user.get_display_name()} {status} feature: {flag.display_name}',
+        request=request
+    )
+    return status
+
+
+def apply_page_toggle(request, user, toggle):
+    """Flip one page switch and write its `page_toggle` row; returns
+    'enabled' / 'disabled'. v4.4.3: shared by `toggle_page` and the app."""
+    toggle.is_enabled = not toggle.is_enabled
+    toggle.last_toggled_by = user.get_display_name()
+    toggle.last_toggled_at = timezone.now()
+    toggle.save(update_fields=['is_enabled', 'last_toggled_by', 'last_toggled_at'])
+    status = "enabled" if toggle.is_enabled else "disabled"
+    ActivityLog.log_activity(
+        action_type='page_toggle',
+        user=user,
+        description=f'{user.get_display_name()} {status} page: {toggle.display_name}',
+        request=request
+    )
+    return status
+
+
 @require_admin_v2_auth
 def toggle_feature_flag(request, flag_id):
     """
@@ -917,20 +988,8 @@ def toggle_feature_flag(request, flag_id):
     if request.method == 'POST':
         try:
             flag = FeatureFlag.objects.get(id=flag_id)
-            flag.is_enabled = not flag.is_enabled
-            flag.last_toggled_by = request.user.get_display_name()
-            flag.last_toggled_at = timezone.now()
-            flag.save(update_fields=['is_enabled', 'last_toggled_by', 'last_toggled_at'])
-
-            status = "enabled" if flag.is_enabled else "disabled"
+            status = apply_feature_flag_toggle(request, request.user, flag)
             messages.success(request, f'Feature "{flag.display_name}" has been {status}')
-
-            ActivityLog.log_activity(
-                action_type='feature_flag_toggle',
-                user=request.user,
-                description=f'{request.user.get_display_name()} {status} feature: {flag.display_name}',
-                request=request
-            )
         except FeatureFlag.DoesNotExist:
             messages.error(request, 'Feature flag not found')
 
@@ -947,25 +1006,16 @@ def toggle_page(request, toggle_id):
     if request.method == 'POST':
         try:
             toggle = PageToggle.objects.get(id=toggle_id)
-            toggle.is_enabled = not toggle.is_enabled
-            toggle.last_toggled_by = request.user.get_display_name()
-            toggle.last_toggled_at = timezone.now()
-            toggle.save(update_fields=['is_enabled', 'last_toggled_by', 'last_toggled_at'])
-
-            status = "enabled" if toggle.is_enabled else "disabled"
+            # v4.4.3: the `page_toggle` row is written for the dashboard's
+            # in-place (XHR) switch too; it returned before logging, so the
+            # switch most admins use left no record.
+            status = apply_page_toggle(request, request.user, toggle)
 
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                 from django.http import JsonResponse
                 return JsonResponse({'is_enabled': toggle.is_enabled, 'status': status})
 
             messages.success(request, f'Page "{toggle.display_name}" has been {status}')
-
-            ActivityLog.log_activity(
-                action_type='page_toggle',
-                user=request.user,
-                description=f'{request.user.get_display_name()} {status} page: {toggle.display_name}',
-                request=request
-            )
         except PageToggle.DoesNotExist:
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                 from django.http import JsonResponse
@@ -1382,21 +1432,8 @@ def toggle_committee_active(request, committee_id):
     return redirect('admin_v2_manage_committees')
 
 
-@require_admin_v2_auth
-def manage_users(request):
-    """
-    Manage all users with filtering
-    """
-    from django.core.paginator import Paginator
-
-    # Get filter parameters
-    status_filter = request.GET.get('status', '')
-    type_filter = request.GET.get('type', '')
-    admin_filter = request.GET.get('admin', '')
-    picture_filter = request.GET.get('picture', '')
-    search_query = request.GET.get('search', '')
-
-    # Build query
+def users_queryset(status_filter='', type_filter='', admin_filter='', picture_filter='', search_query=''):
+    """The Users page's filters. v4.4.3: factored out of `manage_users` for the app."""
     users_list = ParliamentUser.objects.order_by('name')
 
     if status_filter:
@@ -1426,6 +1463,25 @@ def manage_users(request):
             Q(role_number__icontains=search_query) |
             Q(user_id__icontains=search_query)
         )
+    return users_list
+
+
+@require_admin_v2_auth
+def manage_users(request):
+    """
+    Manage all users with filtering
+    """
+    from django.core.paginator import Paginator
+
+    # Get filter parameters
+    status_filter = request.GET.get('status', '')
+    type_filter = request.GET.get('type', '')
+    admin_filter = request.GET.get('admin', '')
+    picture_filter = request.GET.get('picture', '')
+    search_query = request.GET.get('search', '')
+
+    # Build query (v4.4.3: `users_queryset`, shared with the app's member search)
+    users_list = users_queryset(status_filter, type_filter, admin_filter, picture_filter, search_query)
 
     # Paginate
     paginator = Paginator(users_list, 50)
@@ -1800,15 +1856,9 @@ def edit_user_profile(request, user_id):
     })
 
 
-@require_admin_v2_auth
-def user_login_security(request, user_id):
-    """
-    Detailed login security view for a specific user
-    Shows login history, alerts, IP addresses, and security controls
-    """
-    user = get_object_or_404(ParliamentUser, user_id=user_id)
-
-    # Get login history
+def login_security_data(user):
+    """(login_history, alerts, ip_info, stats) for one member's Login security
+    page. v4.4.3: factored out of `user_login_security` for the app."""
     login_history = LoginHistory.objects.filter(user=user).order_by('-timestamp')[:50]
 
     # Get security alerts (limited to last 25)
@@ -1843,6 +1893,20 @@ def user_login_security(request, user_id):
         'unique_ips': len(unique_ips),
         'unique_locations': len(set(login.location_display for login in login_history if login.city)),
     }
+
+    return login_history, alerts, ip_info, stats
+
+
+@require_admin_v2_auth
+def user_login_security(request, user_id):
+    """
+    Detailed login security view for a specific user
+    Shows login history, alerts, IP addresses, and security controls
+    """
+    user = get_object_or_404(ParliamentUser, user_id=user_id)
+
+    # v4.4.3: `login_security_data`, shared with the app's member security screen
+    login_history, alerts, ip_info, stats = login_security_data(user)
 
     # Check if there's a temporary password to display from session
     temp_password_data = request.session.pop('temp_password_display', None)
@@ -1991,6 +2055,43 @@ def toggle_watch_flag(request, user_id):
     return redirect('admin_v2_user_login_security', user_id=user_id)
 
 
+def release_member_lockouts(request, actor, user):
+    """
+    Release every login lockout on one member and record it (the
+    `account_unlocked` AdminActionLog row). Returns `clear_lockouts_for`'s
+    result. v4.4.3: factored out of `release_user_lockout` for the app.
+    """
+    from src.utils.security_utils import clear_lockouts_for
+
+    # Clear by username. Deliberately NOT by IP: a member's lockout is on his
+    # account, and his last-known IP may be shared (campus NAT, or a Cloudflare
+    # edge in any row written before v3.18.8). Clearing an IP lockout because
+    # one member is locked out would release everyone behind that address,
+    # which is a different and much larger decision than the one this button
+    # says it makes.
+    cleared = clear_lockouts_for(username=user.username, cleared_by=actor)
+
+    # 'account_unlocked' already exists in AdminActionLog.ACTION_CHOICES, so
+    # this needs no migration and lands in the same audit filter as the other
+    # unlock paths.
+    log_admin_action(
+        actor=actor,
+        action='account_unlocked',
+        request=request,
+        target_user=user,
+        target_repr=user.username,
+        detail=(
+            f'Released login lockouts from the user security page: '
+            f"{len(cleared['cache_keys'])} cache keys cleared, "
+            f"{cleared['lockout_rows']} LoginLockout record(s) marked cleared"
+        ),
+    )
+    logger.info(
+        f"Admin {actor.username} released login lockouts for {user.username}"
+    )
+    return cleared
+
+
 @require_admin_v2_auth
 @require_POST
 def release_user_lockout(request, user_id):
@@ -2011,33 +2112,8 @@ def release_user_lockout(request, user_id):
     counter re-locks the account on the next failed attempt while reporting
     success.
     """
-    from src.utils.security_utils import clear_lockouts_for
-
     user = get_object_or_404(ParliamentUser, user_id=user_id)
-
-    # Clear by username. Deliberately NOT by IP: a member's lockout is on his
-    # account, and his last-known IP may be shared (campus NAT, or a Cloudflare
-    # edge in any row written before v3.18.8). Clearing an IP lockout because
-    # one member is locked out would release everyone behind that address,
-    # which is a different and much larger decision than the one this button
-    # says it makes.
-    cleared = clear_lockouts_for(username=user.username, cleared_by=request.user)
-
-    # 'account_unlocked' already exists in AdminActionLog.ACTION_CHOICES, so
-    # this needs no migration and lands in the same audit filter as the other
-    # unlock paths.
-    log_admin_action(
-        actor=request.user,
-        action='account_unlocked',
-        request=request,
-        target_user=user,
-        target_repr=user.username,
-        detail=(
-            f'Released login lockouts from the user security page: '
-            f"{len(cleared['cache_keys'])} cache keys cleared, "
-            f"{cleared['lockout_rows']} LoginLockout record(s) marked cleared"
-        ),
-    )
+    cleared = release_member_lockouts(request, request.user, user)
 
     if cleared['lockout_rows']:
         messages.success(
@@ -2059,36 +2135,32 @@ def release_user_lockout(request, user_id):
             f"nothing changed.",
         )
 
-    logger.info(
-        f"Admin {request.user.username} released login lockouts for {user.username}"
-    )
     if request.POST.get('return_to') == 'member':  # v4.1.0: from the member page
         return redirect('admin_v2_member', user_id=user_id)
     return redirect('admin_v2_user_login_security', user_id=user_id)
 
 
-@require_admin_v2_auth
-@require_POST
-def force_password_reset(request, user_id):
+def perform_force_password_reset(request, actor, user, reason, password_type='random', custom_password='',
+                                 send_email=False):
     """
-    Force a user to reset their password
+    Set a new password for ``user``: a random one, or ``custom_password``
+    (9+ characters). Writes the `forced_password_reset` row and the member's
+    "Password Reset by Administrator" alert, and emails the password when
+    ``send_email`` and the member has an address.
+
+    Returns ``{'error', 'password', 'send_email', 'email_sent', 'email_error'}``;
+    on ``error`` nothing was changed. v4.4.3: factored out of
+    `force_password_reset`; the app's caller never sends ``password`` back to
+    the phone.
     """
     from django.core.mail import send_mail
 
-    user = get_object_or_404(ParliamentUser, user_id=user_id)
-    reason = request.POST.get('reason', 'Security concern flagged by admin')
-    password_type = request.POST.get('password_type', 'random')
-    send_email = request.POST.get('send_email') == 'true'
-
-    # Determine the new password
     if password_type == 'custom':
-        temp_password = request.POST.get('custom_password', '').strip()
+        temp_password = (custom_password or '').strip()
         if not temp_password:
-            messages.error(request, 'Custom password cannot be empty')
-            return redirect('admin_v2_user_login_security', user_id=user_id)
+            return {'error': 'Custom password cannot be empty'}
         if len(temp_password) < 9:
-            messages.error(request, 'Custom password should be at least 9 characters')
-            return redirect('admin_v2_user_login_security', user_id=user_id)
+            return {'error': 'Custom password should be at least 9 characters'}
     else:
         # Generate a temporary random password
         temp_password = generate_random_password(length=16)
@@ -2102,8 +2174,8 @@ def force_password_reset(request, user_id):
     # Log the action
     ActivityLog.log_activity(
         action_type='forced_password_reset',
-        user=request.user,
-        description=f'{request.user.get_display_name()} forced password reset for {user.get_display_name()}. Reason: {reason}',
+        user=actor,
+        description=f'{actor.get_display_name()} forced password reset for {user.get_display_name()}. Reason: {reason}',
         request=request,
         object_type='user',
         object_id=user.user_id,
@@ -2111,14 +2183,14 @@ def force_password_reset(request, user_id):
     )
 
     # Create a security alert for the user
-    alert = LoginAlert.objects.create(
+    LoginAlert.objects.create(
         user=user,
         alert_type='other',
         severity='high',
         status='resolved',
         title='Password Reset by Administrator',
         description=f'Your password was reset by an administrator. Reason: {reason}',
-        reviewed_by=request.user,
+        reviewed_by=actor,
         reviewed_at=timezone.now(),
         resolution_notes=f'New password: {temp_password}',
         user_notified=send_email
@@ -2126,6 +2198,7 @@ def force_password_reset(request, user_id):
 
     # Send email notification if requested
     email_sent = False
+    email_error = None
     if send_email and user.email:
         try:
             email_subject = 'Your Parliament Password Has Been Reset'
@@ -2153,11 +2226,39 @@ Parliament Administration Team"""
             )
             email_sent = True
         except Exception as e:
-            messages.warning(
-                request,
-                f'Password was reset but email failed to send to {user.email}. Error: {str(e)}. '
-                f'New password is stored in security alert resolution notes.'
-            )
+            email_error = str(e)
+    return {'error': None, 'password': temp_password, 'send_email': send_email,
+            'email_sent': email_sent, 'email_error': email_error}
+
+
+@require_admin_v2_auth
+@require_POST
+def force_password_reset(request, user_id):
+    """
+    Force a user to reset their password
+    """
+    user = get_object_or_404(ParliamentUser, user_id=user_id)
+    # v4.4.3: the reset, its log row, the member's alert and the email are
+    # `perform_force_password_reset` (shared with the app); messages unchanged.
+    result = perform_force_password_reset(
+        request, request.user, user,
+        reason=request.POST.get('reason', 'Security concern flagged by admin'),
+        password_type=request.POST.get('password_type', 'random'),
+        custom_password=request.POST.get('custom_password', ''),
+        send_email=request.POST.get('send_email') == 'true',
+    )
+    if result['error']:
+        messages.error(request, result['error'])
+        return redirect('admin_v2_user_login_security', user_id=user_id)
+    temp_password = result['password']
+    send_email = result['send_email']
+    email_sent = result['email_sent']
+    if result['email_error']:
+        messages.warning(
+            request,
+            f'Password was reset but email failed to send to {user.email}. Error: {result["email_error"]}. '
+            f'New password is stored in security alert resolution notes.'
+        )
 
     # Store the password in request.session to show it only on the next admin panel page
     # This prevents it from showing on login screen if user gets logged out
@@ -2403,6 +2504,34 @@ def manage_security_alerts(request):
     return render(request, 'admin_v2/security_alerts.html', context)
 
 
+def dismiss_login_alert(actor, alert, notes='Dismissed by admin'):
+    """Mark one security alert resolved (no log row, as on the website).
+    v4.4.3: shared by `dismiss_alert` and the app."""
+    alert.status = 'resolved'
+    alert.reviewed_by = actor
+    alert.reviewed_at = timezone.now()
+    alert.resolution_notes = notes
+    alert.save(update_fields=['status', 'reviewed_by', 'reviewed_at', 'resolution_notes'])
+
+
+def dismiss_all_login_alerts(request, actor):
+    """Resolve every new security alert and write the `security` row; returns
+    the count. v4.4.3: shared by `dismiss_all_alerts` and the app."""
+    count = LoginAlert.objects.filter(status='new').update(
+        status='resolved',
+        reviewed_by=actor,
+        reviewed_at=timezone.now(),
+        resolution_notes='Bulk dismissed by admin',
+    )
+    ActivityLog.log_activity(
+        action_type='security',
+        user=actor,
+        description=f'{actor.get_display_name()} bulk-dismissed {count} security alert(s)',
+        request=request,
+    )
+    return count
+
+
 @require_admin_v2_auth
 def dismiss_alert(request, alert_id):
     """Dismiss a single security alert (mark as resolved)."""
@@ -2410,11 +2539,7 @@ def dismiss_alert(request, alert_id):
         return JsonResponse({'error': 'POST required'}, status=405)
     try:
         alert = LoginAlert.objects.get(id=alert_id)
-        alert.status = 'resolved'
-        alert.reviewed_by = request.user
-        alert.reviewed_at = timezone.now()
-        alert.resolution_notes = request.POST.get('notes', 'Dismissed by admin')
-        alert.save(update_fields=['status', 'reviewed_by', 'reviewed_at', 'resolution_notes'])
+        dismiss_login_alert(request.user, alert, request.POST.get('notes', 'Dismissed by admin'))
         return JsonResponse({'success': True, 'new_count': LoginAlert.objects.filter(status='new').count()})
     except LoginAlert.DoesNotExist:
         return JsonResponse({'error': 'Alert not found'}, status=404)
@@ -2425,18 +2550,7 @@ def dismiss_all_alerts(request):
     """Dismiss all new security alerts."""
     if request.method != 'POST':
         return JsonResponse({'error': 'POST required'}, status=405)
-    count = LoginAlert.objects.filter(status='new').update(
-        status='resolved',
-        reviewed_by=request.user,
-        reviewed_at=timezone.now(),
-        resolution_notes='Bulk dismissed by admin',
-    )
-    ActivityLog.log_activity(
-        action_type='security',
-        user=request.user,
-        description=f'{request.user.get_display_name()} bulk-dismissed {count} security alert(s)',
-        request=request,
-    )
+    count = dismiss_all_login_alerts(request, request.user)
     return JsonResponse({'success': True, 'dismissed': count})
 
 
@@ -3187,6 +3301,27 @@ def quarantine_management(request):
     })
 
 
+def activate_lockdown(actor, reason, whitelisted_ips):
+    """Turn emergency lockdown on, log it and send the security alert.
+    v4.4.3: shared by `lockdown_control` and the app."""
+    from src.models import SystemLockdown
+    from src.security_notifications import alert_lockdown_activated
+
+    SystemLockdown.get_instance().activate(actor, reason, whitelisted_ips)
+    logger.critical(f"LOCKDOWN ACTIVATED by {actor.username}: {reason}")
+    alert_lockdown_activated(actor, reason)
+
+
+def deactivate_lockdown(actor):
+    """Turn emergency lockdown off, log it and send the alert (v4.4.3, shared)."""
+    from src.models import SystemLockdown
+    from src.security_notifications import alert_lockdown_deactivated
+
+    SystemLockdown.get_instance().deactivate(actor)
+    logger.info(f"Lockdown deactivated by {actor.username}")
+    alert_lockdown_deactivated(actor)
+
+
 @require_admin_v2_auth
 def lockdown_control(request):
     """Control emergency lockdown mode."""
@@ -3205,22 +3340,12 @@ def lockdown_control(request):
             whitelisted_ips_str = request.POST.get('whitelisted_ips', '')
             whitelisted_ips = [ip.strip() for ip in whitelisted_ips_str.split(',') if ip.strip()]
 
-            lockdown.activate(request.user, reason, whitelisted_ips)
+            activate_lockdown(request.user, reason, whitelisted_ips)
             messages.warning(request, 'EMERGENCY LOCKDOWN ACTIVATED. All non-whitelisted access is blocked.')
-            logger.critical(f"LOCKDOWN ACTIVATED by {request.user.username}: {reason}")
-
-            # Send alert
-            from src.security_notifications import alert_lockdown_activated
-            alert_lockdown_activated(request.user, reason)
 
         elif action == 'deactivate':
-            lockdown.deactivate(request.user)
+            deactivate_lockdown(request.user)
             messages.success(request, 'Emergency lockdown has been deactivated. Normal operations resumed.')
-            logger.info(f"Lockdown deactivated by {request.user.username}")
-
-            # Send alert
-            from src.security_notifications import alert_lockdown_deactivated
-            alert_lockdown_deactivated(request.user)
 
         elif action == 'update_whitelist':
             whitelisted_ips_str = request.POST.get('whitelisted_ips', '')
@@ -3403,6 +3528,34 @@ def blacklist_all_honeypot_ips(request):
     return redirect('admin_v2_honeypot_logs')
 
 
+def clear_lockout_row(actor, lockout):
+    """
+    Clear ONE lockout row and every cache key behind it (the Lockouts page's
+    "Clear" button). v4.4.3: shared by `manage_lockouts` and the app.
+    """
+    # v3.19.2: was a hand-written list of six cache keys under a
+    # comment claiming "all three systems". It missed the entire
+    # `account_*` family — the username lockout `login_view.py`
+    # sets, which is the one a member actually hits by mistyping his
+    # password. This button reported success and left him locked
+    # out. One helper now knows every key; see `clear_lockouts_for`.
+    from src.utils.security_utils import clear_lockouts_for
+    # v3.19.3: `match='all'`. This button clears ONE row, and passing
+    # both values with the default OR marked cleared every lockout
+    # sharing either the username or the IP — on a campus-NAT address
+    # that is everyone behind it, while the message named one IP.
+    # `release_user_lockout` states the rule; this call site was
+    # outside it.
+    cleared = clear_lockouts_for(
+        username=lockout.username or None,
+        ip_address=lockout.ip_address,
+        cleared_by=actor,
+        match='all',
+    )
+    logger.info(f"Admin {actor.username} cleared lockout for IP {lockout.ip_address}")
+    return cleared
+
+
 @require_admin_v2_auth
 def manage_lockouts(request):
     """View and manage active login lockouts."""
@@ -3423,26 +3576,7 @@ def manage_lockouts(request):
                 lockout = LoginLockout.objects.get(pk=lockout_id)
                 ip = lockout.ip_address
                 username = lockout.username
-
-                # v3.19.2: was a hand-written list of six cache keys under a
-                # comment claiming "all three systems". It missed the entire
-                # `account_*` family — the username lockout `login_view.py`
-                # sets, which is the one a member actually hits by mistyping his
-                # password. This button reported success and left him locked
-                # out. One helper now knows every key; see `clear_lockouts_for`.
-                from src.utils.security_utils import clear_lockouts_for
-                # v3.19.3: `match='all'`. This button clears ONE row, and passing
-                # both values with the default OR marked cleared every lockout
-                # sharing either the username or the IP — on a campus-NAT address
-                # that is everyone behind it, while the message named one IP.
-                # `release_user_lockout` states the rule; this call site was
-                # outside it.
-                cleared = clear_lockouts_for(
-                    username=username or None,
-                    ip_address=ip,
-                    cleared_by=request.user,
-                    match='all',
-                )
+                cleared = clear_lockout_row(request.user, lockout)
 
                 messages.success(
                     request,
@@ -3450,7 +3584,6 @@ def manage_lockouts(request):
                     + (f' ({username}).' if username else '.')
                     + f" {cleared['lockout_rows']} record(s) marked cleared.",
                 )
-                logger.info(f"Admin {request.user.username} cleared lockout for IP {ip}")
             except LoginLockout.DoesNotExist:
                 messages.error(request, 'Lockout record not found.')
 
@@ -3637,6 +3770,34 @@ def security_notifications_log(request):
 # Admin Action Audit Log Viewer
 # ---------------------------------------------------------------------------
 
+def audit_log_queryset(action_filter='', actor_filter='', date_from='', date_to=''):
+    """The Audit log page's filtered AdminActionLog rows, newest first.
+    v4.4.3: factored out of `audit_log` for the app."""
+    from src.models import AdminActionLog
+    from django.utils.dateparse import parse_date
+
+    qs = AdminActionLog.objects.select_related('actor', 'target_user').defer(*member_defer('actor', 'target_user')).order_by('-timestamp')
+    if action_filter:
+        qs = qs.filter(action=action_filter)
+    if actor_filter:
+        qs = qs.filter(actor__user_id=actor_filter)
+    if date_from:
+        try:
+            d = parse_date(date_from)
+            if d:
+                qs = qs.filter(timestamp__date__gte=d)
+        except Exception:
+            pass
+    if date_to:
+        try:
+            d = parse_date(date_to)
+            if d:
+                qs = qs.filter(timestamp__date__lte=d)
+        except Exception:
+            pass
+    return qs
+
+
 @require_admin_v2_auth
 def audit_log(request):
     """
@@ -3650,34 +3811,13 @@ def audit_log(request):
     from src.models import AdminActionLog
     from django.core.paginator import Paginator
 
-    qs = AdminActionLog.objects.select_related('actor', 'target_user').defer(*member_defer('actor', 'target_user')).order_by('-timestamp')
-
     # Filters
     action_filter = request.GET.get('action', '').strip()
     actor_filter = request.GET.get('actor', '').strip()
     date_from = request.GET.get('date_from', '').strip()
     date_to = request.GET.get('date_to', '').strip()
-
-    if action_filter:
-        qs = qs.filter(action=action_filter)
-    if actor_filter:
-        qs = qs.filter(actor__user_id=actor_filter)
-    if date_from:
-        try:
-            from django.utils.dateparse import parse_date
-            d = parse_date(date_from)
-            if d:
-                qs = qs.filter(timestamp__date__gte=d)
-        except Exception:
-            pass
-    if date_to:
-        try:
-            from django.utils.dateparse import parse_date
-            d = parse_date(date_to)
-            if d:
-                qs = qs.filter(timestamp__date__lte=d)
-        except Exception:
-            pass
+    # v4.4.3: `audit_log_queryset`, shared with the app's read-only audit log
+    qs = audit_log_queryset(action_filter, actor_filter, date_from, date_to)
 
     # CSV export — streams the full filtered set, no pagination
     if request.GET.get('export') == 'csv':
