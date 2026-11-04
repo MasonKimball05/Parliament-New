@@ -177,7 +177,7 @@
         }
         g.addEventListener('click', function (e) { e.stopPropagation(); if (n.kind !== 'root') select(n); });
         var kids = visibleKids(n);
-        if (kids.length) {
+        if (kids.length && n.kind !== 'root') {
             var tg = svg('g', { 'class': 'sm-toggle', transform: 'translate(' + NODE_W + ',' + NODE_H / 2 + ')' });
             var label2 = expanded.has(n) ? '−' : '+';
             tg.appendChild(svg('circle', { r: 9 }));
@@ -284,7 +284,9 @@
     }
     if (wide.addEventListener) wide.addEventListener('change', draw);
 
-    function toggle(n) { if (expanded.has(n)) expanded.delete(n); else expanded.add(n); draw(); }
+    // The top "Site" node always stays open: closing it would hide every page
+    // and leave the map blank, so it has no open/close control.
+    function toggle(n) { if (n.kind === 'root') return; if (expanded.has(n)) expanded.delete(n); else expanded.add(n); draw(); }
     function setShowAll(v) {
         showAll = v;
         document.getElementById('sm-show-all').checked = v;
