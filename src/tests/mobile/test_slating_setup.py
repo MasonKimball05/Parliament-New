@@ -321,6 +321,26 @@ class PositionTests(_SetupBase):
         self.assertEqual(self.call('get', self.positions_path(rest=f'{other.id}/'), user=self.manager).status_code,
                          404)
 
+    def test_web_edit_keeps_what_its_form_does_not_show(self):
+        role = Role.objects.create(name='Ritual chair', code='RIT_WEB')
+        self.pres.role = role
+        self.pres.requires_prior_experience = True
+        self.pres.eligible_member_types = ['active']
+        self.pres.save()
+        web = Client()
+        web.force_login(self.manager)
+        url = reverse('slating_edit_position', args=[self.period.id, self.pres.id])
+        # What the web modal posts with abstain unticked: the hidden "off" alone.
+        web.post(url, {'title': 'Chapter President', 'description': '', 'min_gpa': '', 'allow_abstain': 'off'})
+        self.pres.refresh_from_db()
+        self.assertEqual((self.pres.title, self.pres.role, self.pres.requires_prior_experience,
+                          self.pres.eligible_member_types, self.pres.allow_abstain),
+                         ('Chapter President', role, True, ['active'], False))
+        # Ticked: the hidden "off" then the box's "on", which wins.
+        web.post(url, {'title': 'Chapter President', 'allow_abstain': ['off', 'on']})
+        self.pres.refresh_from_db()
+        self.assertTrue(self.pres.allow_abstain)
+
     def test_delete_deactivates_and_admins_hard_delete(self):
         r = self.call('post', self.positions_path(rest=f'{self.vp.id}/delete/'), {'action': 'hard_delete'},
                       user=self.manager)

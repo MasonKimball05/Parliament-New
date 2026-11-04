@@ -22,9 +22,11 @@ The app's Constitution & Bylaws reader (mobile plan, Phase 3g).
 * ``GET cnb/resolutions/<id>/`` — one resolution, read-only
   (``resolution_detail``): its clauses, body, notes and amendments.
 
-Writing stays on the website (the app links there): drafting a resolution,
-editing it and the PDF. The manager and resolution notes are
-``views_cnb_manage.py``.
+The resolution builder (drafting, editing, amendments, structure changes,
+status, collaborators) is ``views_cnb_resolutions.py``; the resolution's
+response carries its status buttons, structure changes and collaborators
+(``builder_payload``). The print view, the document preview and the PDF stay
+on the website. The manager and resolution notes are ``views_cnb_manage.py``.
 """
 from django.db.models import Count
 from django.shortcuts import get_object_or_404
@@ -206,7 +208,13 @@ class CnbResolutionView(MobileAPIView):
             pk=resolution_id,
         )
         can_edit = r.status in ('draft', 'pending') and _can_edit_resolution(request.user, r)
+        # 11-04-26: the builder (views_cnb_resolutions.py) — status buttons,
+        # structure changes, collaborators and per-amendment extras.
+        from src.mobile.views_cnb_resolutions import builder_payload
+        builder = builder_payload(request.user, r, can_edit)
+        extra = builder.pop('amendment_extra')
         return Response({
+            **builder,
             **_resolution_summary(r),
             'sponsors': r.sponsors,
             'whereas': [line.strip() for line in (r.whereas_clauses or '').splitlines() if line.strip()],
@@ -226,6 +234,7 @@ class CnbResolutionView(MobileAPIView):
                 'proposed': a.proposed_text,
                 'removes_section': a.is_whole_section_removal,
                 'applied': a.applied,
+                **extra.get(a.id, {}),
             } for a in r.amendments.all()],
             'can_edit': can_edit,
             # Batch 6: the working group's sticky notes (views_cnb_manage).

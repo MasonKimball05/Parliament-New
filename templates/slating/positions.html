@@ -191,6 +191,8 @@
                         </div>
 
                         <div class="flex items-center gap-3">
+                            {# An unticked box posts nothing; this sends "off" then, and a ticked box's "on" comes after it and wins. #}
+                            <input type="hidden" name="allow_abstain" value="off">
                             <input type="checkbox" name="allow_abstain" id="add_allow_abstain" checked
                                 class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500">
                             <label for="add_allow_abstain" class="text-sm font-medium text-gray-700 dark:text-gray-300">Allow abstain in individual voting</label>
@@ -241,6 +243,8 @@
                         </div>
 
                         <div class="flex items-center gap-3">
+                            {# An unticked box posts nothing; this sends "off" then, and a ticked box's "on" comes after it and wins. #}
+                            <input type="hidden" name="allow_abstain" value="off">
                             <input type="checkbox" name="allow_abstain" id="edit_allow_abstain"
                                 class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500">
                             <label for="edit_allow_abstain" class="text-sm font-medium text-gray-700 dark:text-gray-300">Allow abstain in individual voting</label>

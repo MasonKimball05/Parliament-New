@@ -106,6 +106,46 @@ class ActivityLogsTests(_Base):
         self.assertFalse({r['id'] for r in first['logs']} & {r['id'] for r in second['logs']})
 
 
+class ActivityLogsExportTests(_Base):
+    """The page's Export CSV, through the app: same gate, file, redaction and log entry."""
+
+    def setUp(self):
+        super().setUp()
+        flag('activity_logs', True)
+        ActivityLog.log_activity(action_type='vote_cast', user=self.officer,
+                                 description='Officer voted on Bill A', object_repr='Bill A')
+        self.committee = Committee.objects.create(name='Kai', code='KAI', is_kai_committee=True)
+        self.submitter = make_user('lg-xsub', name=SUBMITTER)
+        report = KaiReport.objects.create(title='Case', description='x', submitted_by=self.submitter,
+                                          targeted_to=self.member)
+        ActivityLog.log_activity(
+            action_type='kai_action', user=self.submitter, ip_address='10.9.9.9',
+            description=f'{SUBMITTER} submitted Kai case {report.display_number}',
+            object_type='KaiReport', object_id=report.id, object_repr=report.display_number,
+            metadata={'action': 'submitted'})
+
+    def test_officers_and_chairs_only_like_the_web(self):
+        for user, code in ((self.officer, 200), (self.chair, 200), (self.advisor, 403), (self.member, 403)):
+            self.assertEqual(self.get(user, 'officer/activity-logs/export/').status_code, code, user.member_type)
+        flag('activity_logs', False)
+        self.assertEqual(self.get(self.officer, 'officer/activity-logs/export/').json()['error'], 'feature_disabled')
+
+    def test_the_websites_file_redacted_and_logged(self):
+        r = self.get(self.officer, 'officer/activity-logs/export/?q=Bill')
+        self.assertEqual(r.status_code, 200)
+        self.assertIn('text/csv', r['Content-Type'])
+        self.assertIn('attachment', r['Content-Disposition'])
+        body = b''.join(r.streaming_content if r.streaming else [r.content]).decode()
+        self.assertIn('Officer voted on Bill A', body)
+        self.assertNotIn('submitted Kai case', body)    # the q filter applied
+        r = self.get(self.officer, 'officer/activity-logs/export/?category=kai')
+        body = b''.join(r.streaming_content if r.streaming else [r.content]).decode()
+        self.assertNotIn(SUBMITTER, body)
+        self.assertNotIn('10.9.9.9', body)
+        self.assertTrue(ActivityLog.objects.filter(user=self.officer,
+                                                   description__contains='exported').exists())
+
+
 class ActivityLogsKaiTests(_Base):
     """The page's Kai rules, through the app: redaction and the author-filter exclusion."""
 

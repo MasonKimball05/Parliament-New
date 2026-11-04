@@ -27,7 +27,9 @@ from src.feature_flag_decorators import check_feature_enabled
 from src.kai_audit import redact_kai_logs
 from src.mobile.views_officer_tools import _Officers
 from src.models import ActivityLog, ParliamentUser
-from src.view.activity_logs import DATE_RANGES, activity_category_counts, filtered_activity_logs
+from src.view.activity_logs import (
+    DATE_RANGES, activity_category_counts, activity_logs_csv, filtered_activity_logs,
+)
 from src.view.officer.view_logs import LOG_DISPLAY_LINES, read_log_entries
 
 PAGE_SIZE = 50   # the web page's
@@ -95,6 +97,17 @@ class ActivityLogsView(_Officers):
                             for u in ParliamentUser.objects.filter(member_status='Active')
                             .only('user_id', 'name', 'preferred_name').order_by('name')]
         return Response(out)
+
+
+class ActivityLogsExportView(_Officers):
+    """The page's Export CSV: the same file, filters, redaction, limit and log entry."""
+    web_page = 'export_activity_logs'
+    web_page_toggle = False
+
+    def get(self, request):
+        if not check_feature_enabled('activity_logs'):
+            raise exceptions.PermissionDenied('Activity logs are turned off.', code='feature_disabled')
+        return activity_logs_csv(request, request.query_params)
 
 
 class SystemLogsView(_Officers):

@@ -36,8 +36,8 @@ and collaborators; anyone else gets a 404, as on the website):
   holder; others are told to mark it done instead).
 * ``POST cnb/resolutions/<id>/notes/<note_id>/done/`` — tick off or reopen.
 
-Left on the website: the resolution builder itself (drafting, amendments,
-structure changes, status, collaborators) and the PDF.
+The resolution builder itself (drafting, amendments, structure changes,
+status, collaborators) is ``views_cnb_resolutions.py``.
 """
 from django.http import Http404
 from django.shortcuts import get_object_or_404

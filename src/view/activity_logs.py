@@ -204,12 +204,20 @@ def export_activity_logs(request):
     """
     Export activity logs to CSV with applied filters
     """
+    return activity_logs_csv(request, request.GET)
+
+
+def activity_logs_csv(request, params):
+    """
+    The CSV for the page's filters in ``params`` (the web's query string, or
+    the app's): redacted, bounded and logged the same way for both.
+    """
     # Get filter parameters (same as main view)
-    action_category = request.GET.get('category', '')
-    action_type = request.GET.get('type', '')
-    user_filter = request.GET.get('user', '')
-    search_query = request.GET.get('q', '')
-    date_range = request.GET.get('date_range', '7')
+    action_category = params.get('category', '')
+    action_type = params.get('type', '')
+    user_filter = params.get('user', '')
+    search_query = params.get('q', '')
+    date_range = params.get('date_range', '7')
 
     # v4.4.3 — same helper as the page (and the app), so every filter
     # combination the page offers is reachable here only as the page allows.

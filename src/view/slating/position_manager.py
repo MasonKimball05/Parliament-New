@@ -304,8 +304,18 @@ def edit_position(request, period_id, position_id):
         # Return JSON for AJAX modal
         return JsonResponse(position_data(position))
 
-    # POST - update position
-    update_position(period, position, request.user, request.POST)
+    # POST - update position. The edit form shows only the title, description,
+    # GPA and abstain; keep the fields it doesn't show as they are, rather than
+    # clearing the linked role and eligibility on every save.
+    data = request.POST.copy()
+    if 'role' not in data:
+        data['role'] = str(position.role_id or '')
+    if 'requires_prior_experience' not in data and position.requires_prior_experience:
+        data['requires_prior_experience'] = 'on'
+    for key in ('eligible_member_types', 'eligible_class_years'):
+        if key not in data:
+            data.setlist(key, list(getattr(position, key) or []))
+    update_position(period, position, request.user, data)
 
     messages.success(request, f'Position "{position.title}" updated.')
     return redirect('slating_positions', period_id=period_id)

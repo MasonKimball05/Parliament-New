@@ -32,6 +32,7 @@ from src.mobile import (
 
 from src.mobile import views_guide, views_study_hours
 from src.mobile import views_account_security, views_cnb_manage
+from src.mobile import views_cnb_resolutions
 from src.mobile import views_passkeys
 from src.mobile import views_slating_apply, views_slating_committee
 from src.mobile import views_slating_setup
@@ -160,6 +161,8 @@ urlpatterns = [
     path('officer/activity/', views_officer_activity.OfficerActivityView.as_view(), name='mobile_officer_activity'),
     # v4.4.3: the officer log pages (Activity Logs, System Logs).
     path('officer/activity-logs/', views_officer_logs.ActivityLogsView.as_view(), name='mobile_officer_activity_logs'),
+    path('officer/activity-logs/export/', views_officer_logs.ActivityLogsExportView.as_view(),
+         name='mobile_officer_activity_logs_export'),
     path('officer/system-logs/', views_officer_logs.SystemLogsView.as_view(), name='mobile_officer_system_logs'),
     path('officer/house-assignments/', views_member_family.HouseAssignmentsView.as_view(),
          name='mobile_officer_house_assignments'),
@@ -795,6 +798,28 @@ urlpatterns = [
          name='mobile_cnb_resolution_note'),
     path('cnb/resolutions/<int:resolution_id>/notes/<int:note_id>/done/',
          views_cnb_manage.ResolutionNoteDoneView.as_view(), name='mobile_cnb_resolution_note_done'),
+    # The C&B resolution builder (11-04-26, views_cnb_resolutions.py)
+    path('cnb/resolutions/create/', views_cnb_resolutions.CnbResolutionCreateView.as_view(),
+         name='mobile_cnb_resolution_create'),
+    path('cnb/resolutions/<int:resolution_id>/edit/', views_cnb_resolutions.CnbResolutionEditView.as_view(),
+         name='mobile_cnb_resolution_edit'),
+    path('cnb/resolutions/<int:resolution_id>/amendments/', views_cnb_resolutions.CnbResolutionAmendmentsView.as_view(),
+         name='mobile_cnb_resolution_amendments'),
+    path('cnb/resolutions/<int:resolution_id>/amendments/<int:amendment_id>/',
+         views_cnb_resolutions.CnbResolutionAmendmentView.as_view(), name='mobile_cnb_resolution_amendment'),
+    path('cnb/resolutions/<int:resolution_id>/sections/<int:section_id>/',
+         views_cnb_resolutions.CnbResolutionSectionView.as_view(), name='mobile_cnb_resolution_section'),
+    path('cnb/resolutions/<int:resolution_id>/structure/', views_cnb_resolutions.CnbResolutionStructureView.as_view(),
+         name='mobile_cnb_resolution_structure'),
+    path('cnb/resolutions/<int:resolution_id>/structure/<int:change_id>/',
+         views_cnb_resolutions.CnbResolutionStructureChangeView.as_view(),
+         name='mobile_cnb_resolution_structure_change'),
+    path('cnb/resolutions/<int:resolution_id>/status/', views_cnb_resolutions.CnbResolutionStatusView.as_view(),
+         name='mobile_cnb_resolution_status'),
+    path('cnb/resolutions/<int:resolution_id>/collaborators/',
+         views_cnb_resolutions.CnbResolutionCollaboratorsView.as_view(), name='mobile_cnb_resolution_collaborators'),
+    path('cnb/resolutions/<int:resolution_id>/collaborators/<int:collaborator_id>/',
+         views_cnb_resolutions.CnbResolutionCollaboratorView.as_view(), name='mobile_cnb_resolution_collaborator'),
     path('account/password/', views_account_security.ChangePasswordView.as_view(), name='mobile_account_password'),
     path('account/sessions/', views_account_security.SessionListView.as_view(), name='mobile_account_sessions'),
     path('account/sessions/revoke-all/', views_account_security.SessionRevokeAllView.as_view(),
