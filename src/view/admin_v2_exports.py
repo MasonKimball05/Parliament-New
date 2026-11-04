@@ -10,6 +10,12 @@ listed: it belongs to the Kai committee's pages.
 
 Every CSV goes through safe_csv_writer (spreadsheet formula injection), and
 the three views are in geo_restriction.RESTRICTED_EXPORT_VIEWS by these names.
+
+v4.4.4: each CSV is a function of the request and its parameters
+(``members_csv`` / ``attendance_csv`` / ``service_csv``), so the app's Site
+admin (src/mobile/views_site_admin_ops.py) sends the same file with the same
+ActivityLog row; the app refuses a device signed in from abroad as the
+middleware refuses such a session here.
 """
 from datetime import timedelta
 from decimal import Decimal
@@ -37,12 +43,12 @@ def _csv_response(request, name, kind):
     return response
 
 
-def _status(request):
+def _status(params):
     """`?status=` limited to the known values ('' = everyone but Removed).
 
     v4.2.0: the raw value went into the CSV's Content-Disposition filename.
     """
-    status = request.GET.get('status', 'Active')
+    status = params.get('status', 'Active')
     return status if status in STATUSES else ''
 
 
@@ -61,9 +67,13 @@ def admin_v2_exports(request):
 
 @require_admin_v2_auth
 def admin_v2_export_members(request):
+    return members_csv(request, request.GET)
+
+
+def members_csv(request, params):
     from django_otp.plugins.otp_totp.models import TOTPDevice
 
-    status = _status(request)
+    status = _status(params)
     members = list(_members(status).prefetch_related(
         Prefetch('roles', queryset=Role.objects.order_by('name')), 'committees'))
     totp = set(TOTPDevice.objects.filter(confirmed=True).values_list('user_id', flat=True))
@@ -86,12 +96,16 @@ def admin_v2_export_members(request):
 
 @require_admin_v2_auth
 def admin_v2_export_attendance(request):
+    return attendance_csv(request, request.GET)
+
+
+def attendance_csv(request, params):
     """Per member: required events in the window and how they went (same rate as My attendance)."""
     try:
-        days = max(1, min(int(request.GET.get('days', 90)), 730))
-    except ValueError:
+        days = max(1, min(int(params.get('days', 90)), 730))
+    except (TypeError, ValueError):
         days = 90
-    status = _status(request)
+    status = _status(params)
     now = timezone.now()
     window = Q(attendance_records__attendance_type='event', attendance_records__event__requires_attendance=True,
                attendance_records__event__is_active=True, attendance_records__event__date_time__lt=now,
@@ -115,12 +129,15 @@ def admin_v2_export_attendance(request):
 
 @require_admin_v2_auth
 def admin_v2_export_service(request):
-    """Per member, for one service period: expected, approved, pending, remaining."""
-    from src.view.service_user_dashboard import get_user_service_stats
+    return service_csv(request, request.GET)
 
-    raw = request.GET.get('period') or ''
+
+def service_csv(request, params):
+    """Per member, for one service period: expected, approved, pending, remaining."""
+    raw = params.get('period') or ''
     # v4.2.0: a non-numeric ?period= was a 500.
-    period = (ServicePeriod.objects.filter(pk=int(raw)).first() if raw.isdigit() else None) \
+    period = (ServicePeriod.objects.filter(pk=int(raw)).first() if isinstance(raw, str) and raw.isdigit()
+              else None) \
         or ServicePeriod.objects.filter(is_active=True).order_by('-start_date').first()
     response = _csv_response(request, 'service_hours', f'service hours ({period.name if period else "no period"})')
     w = safe_csv_writer(response)
@@ -141,7 +158,7 @@ def admin_v2_export_service(request):
     adjusted = {r['member_id']: r['total'] or Decimal('0') for r in
                 ServiceHoursAdjustment.objects.filter(period=period).values('member_id').annotate(total=Sum('hours'))}
     expected_map = dict(period.member_expectations.values_list('member_id', 'expected_hours'))
-    for m in _members(_status(request)):
+    for m in _members(_status(params)):
         approved_hours = approved.get(m.pk, Decimal('0')) + adjusted.get(m.pk, Decimal('0'))
         expected = expected_map.get(m.pk, period.default_hours_required)
         if expected > 0:

@@ -1,0 +1,654 @@
+/* =========================================================================
+   Website refresh — the member-facing site in the mobile app's look.
+
+   Loaded by base.html ONLY when `ui_refresh` is on (the `web_refresh` flag,
+   or a browser's ?ui=refresh preview; see src/ui_refresh.py), which also puts
+   `ui-refresh` on <html>. Never on Admin v2.
+
+   Plain CSS, not built by Tailwind. Three parts:
+     1. Tokens: the app's palettes (parliament-mobile src/theme/index.ts),
+        light and dark, as custom properties.
+     2. Remaps: the Tailwind utilities and components the site already uses
+        everywhere (bg-white, gray borders and text, btn-*, badge, card,
+        form-input, flash messages, the nav) pointed at the tokens. Every
+        remap is written `:where(.ui-refresh) <the same selector Tailwind
+        generates>`, so it has exactly Tailwind's specificity and wins only by
+        coming later: hover/focus/dark variants keep working the way they do
+        in tailwind.css.
+     3. Components (`rf-*`) for the app-style markup on Home and Committees:
+        hero banner, stat tiles, grouped list rows, icon tiles, pills,
+        section titles. Mirrors src/components/kit.tsx.
+   ========================================================================= */
+
+/* ---------- 1. Tokens ---------------------------------------------------- */
+
+:root.ui-refresh {
+    --rf-bg: #e6ecf5;
+    --rf-surface: #f6f8fb;
+    --rf-surface-muted: #e8ebf1;
+    --rf-separator: #d8d8de;
+    --rf-text: #111827;
+    --rf-text-secondary: #4b5563;
+    /* Light surfaces are off-white, not #fff (user's call, 11-04-26): page
+       #e6ecf5, cards #f6f8fb. The app's textMuted (#8a8f98) is ~3:1 on them,
+       too faint for the web's 12px text, so muted ink is darkened to stay AA
+       (4.5:1+) on all three light surfaces. */
+    --rf-text-muted: #646973;
+    --rf-accent: #003da5;
+    --rf-accent-hover: #003090;
+    --rf-accent-text: #ffffff;
+    --rf-accent-soft: #e6edf9;
+    --rf-danger: #c0392b;
+    --rf-danger-soft: #fdecea;
+    --rf-success: #1b7535; /* app #1e7d3a, a shade darker for AA on the off-white page */
+    --rf-success-soft: #e7f5ec;
+    --rf-warning: #8c5900; /* app #9a6200, likewise */
+    --rf-warning-soft: #fff4dc;
+    --rf-badge: #e5383b;
+    --rf-card-border: #d5def0;
+    --rf-shadow: rgba(15, 35, 80, 0.07);
+    --rf-hero: #003da5;
+    --rf-hero-text: #ffffff;
+    --rf-hero-muted: rgba(255, 255, 255, 0.78);
+    --rf-hero-glass: rgba(255, 255, 255, 0.16);
+    --rf-hero-glass-border: rgba(255, 255, 255, 0.28);
+    --rf-gold: #e9c46a;
+    --rf-hero-fade: #c9d7f0;
+    --rf-surface-glass: rgba(246, 248, 251, 0.7);
+    --rf-seal-opacity: 0.26;
+
+    /* tileColors: the same in both modes (white glyph on a solid square). */
+    --rf-tile-blue: #003da5;
+    --rf-tile-sky: #2f80ed;
+    --rf-tile-teal: #0f8b8d;
+    --rf-tile-green: #2e9e4f;
+    --rf-tile-gold: #b8860b;
+    --rf-tile-orange: #e8710a;
+    --rf-tile-red: #d93a3a;
+    --rf-tile-purple: #6d4fc2;
+    --rf-tile-gray: #7c828d;
+
+    --rf-radius-card: 14px;
+    --rf-radius-stat: 16px;
+    --rf-radius-control: 10px;
+    /* The app's READABLE_WIDTH is 720 (iPad); a little wider on the web. */
+    --rf-readable: 840px;
+
+    color-scheme: light;
+}
+
+:root.ui-refresh.dark {
+    --rf-bg: #0a1428;
+    --rf-surface: #14213d;
+    --rf-surface-muted: #1b2b4d;
+    --rf-separator: #22355f;
+    --rf-text: #f3f4f6;
+    --rf-text-secondary: #c7cad1;
+    --rf-text-muted: #9499a3;
+    --rf-accent: #6f97e6;
+    --rf-accent-hover: #86a9ec;
+    --rf-accent-text: #0b1220;
+    --rf-accent-soft: #1e3a6e;
+    --rf-danger: #ff6b5e;
+    --rf-danger-soft: #3a1d1a;
+    --rf-success: #4cc274;
+    --rf-success-soft: #163221;
+    --rf-warning: #f0b44c;
+    --rf-warning-soft: #3a2c12;
+    --rf-badge: #ff453a;
+    --rf-card-border: #1f3260;
+    --rf-shadow: rgba(0, 0, 0, 0);
+    --rf-hero: #0f2a5c;
+    --rf-hero-muted: rgba(255, 255, 255, 0.72);
+    --rf-hero-fade: #0c1d40;
+    --rf-surface-glass: rgba(20, 33, 61, 0.72);
+    --rf-seal-opacity: 0.2;
+
+    color-scheme: dark;
+}
+
+/* ---------- 2. Remaps ---------------------------------------------------- */
+
+/* Page + type */
+:where(.ui-refresh) body {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    color: var(--rf-text);
+}
+:where(.ui-refresh) .bg-gray-50 { background-color: var(--rf-bg); }
+:where(.ui-refresh) .dark\:bg-gray-900:is(.dark *) { background-color: var(--rf-bg); }
+:where(.ui-refresh) .dark\:bg-gray-900\/50:is(.dark *) { background-color: rgba(10, 20, 40, 0.5); }
+
+/* Surfaces */
+:where(.ui-refresh) .bg-white { background-color: var(--rf-surface); }
+:where(.ui-refresh) .bg-gray-100 { background-color: var(--rf-surface-muted); }
+:where(.ui-refresh) .hover\:bg-gray-50:hover,
+:where(.ui-refresh) .hover\:bg-gray-100:hover { background-color: var(--rf-surface-muted); }
+:where(.ui-refresh) .dark\:bg-gray-800:is(.dark *) { background-color: var(--rf-surface); }
+:where(.ui-refresh) .dark\:bg-gray-800\/50:is(.dark *),
+:where(.ui-refresh) .dark\:bg-gray-800\/60:is(.dark *) { background-color: rgba(20, 33, 61, 0.6); }
+:where(.ui-refresh) .dark\:bg-gray-700:is(.dark *) { background-color: var(--rf-surface-muted); }
+:where(.ui-refresh) .dark\:bg-gray-700\/50:is(.dark *),
+:where(.ui-refresh) .dark\:bg-gray-700\/60:is(.dark *) { background-color: rgba(27, 43, 77, 0.6); }
+:where(.ui-refresh) .dark\:hover\:bg-gray-700:hover:is(.dark *),
+:where(.ui-refresh) .dark\:hover\:bg-gray-700\/50:hover:is(.dark *),
+:where(.ui-refresh) .dark\:hover\:bg-gray-600:hover:is(.dark *) { background-color: var(--rf-separator); }
+
+/* Hairlines */
+:where(.ui-refresh) .border-gray-100,
+:where(.ui-refresh) .border-gray-200 { border-color: var(--rf-card-border); }
+:where(.ui-refresh) .border-gray-300 { border-color: var(--rf-separator); }
+:where(.ui-refresh) .dark\:border-gray-700:is(.dark *) { border-color: var(--rf-card-border); }
+:where(.ui-refresh) .dark\:border-gray-600:is(.dark *) { border-color: var(--rf-separator); }
+:where(.ui-refresh) .divide-gray-100 > :not([hidden]) ~ :not([hidden]),
+:where(.ui-refresh) .divide-gray-200 > :not([hidden]) ~ :not([hidden]) { border-color: var(--rf-separator); }
+:where(.ui-refresh) .dark\:divide-gray-700:is(.dark *) > :not([hidden]) ~ :not([hidden]) { border-color: var(--rf-separator); }
+
+/* Ink: text is never the accent except links */
+:where(.ui-refresh) .text-gray-900 { color: var(--rf-text); }
+:where(.ui-refresh) .text-gray-800,
+:where(.ui-refresh) .text-gray-700,
+:where(.ui-refresh) .text-gray-600,
+:where(.ui-refresh) .text-gray-500 { color: var(--rf-text-secondary); }
+:where(.ui-refresh) .text-gray-400 { color: var(--rf-text-muted); }
+:where(.ui-refresh) .dark\:text-white:is(.dark *),
+:where(.ui-refresh) .dark\:text-gray-100:is(.dark *) { color: var(--rf-text); }
+:where(.ui-refresh) .dark\:text-gray-200:is(.dark *),
+:where(.ui-refresh) .dark\:text-gray-300:is(.dark *),
+:where(.ui-refresh) .dark\:text-gray-400:is(.dark *) { color: var(--rf-text-secondary); }
+:where(.ui-refresh) .dark\:text-gray-500:is(.dark *) { color: var(--rf-text-muted); }
+:where(.ui-refresh) .text-primary-600,
+:where(.ui-refresh) .text-primary-700 { color: var(--rf-accent); }
+:where(.ui-refresh) .dark\:text-primary-300:is(.dark *),
+:where(.ui-refresh) .dark\:text-primary-400:is(.dark *) { color: var(--rf-accent); }
+:where(.ui-refresh) .hover\:text-primary-600:hover { color: var(--rf-accent); }
+:where(.ui-refresh) .dark\:hover\:text-primary-400:hover:is(.dark *) { color: var(--rf-accent); }
+:where(.ui-refresh) .bg-primary-50 { background-color: var(--rf-accent-soft); }
+:where(.ui-refresh) .dark\:bg-primary-900\/30:is(.dark *) { background-color: var(--rf-accent-soft); }
+
+/* Cards: the app's 14px radius, a hairline edge and a soft lift. The ring is
+   drawn in box-shadow so no layout moves by a pixel. */
+:where(.ui-refresh) .rounded-xl { border-radius: var(--rf-radius-card); }
+:where(.ui-refresh) .rounded-lg { border-radius: var(--rf-radius-control); }
+:where(.ui-refresh) .shadow-sm {
+    --tw-shadow: 0 0 0 1px var(--rf-card-border), 0 3px 10px var(--rf-shadow);
+}
+:where(.ui-refresh) .shadow,
+:where(.ui-refresh) .shadow-md,
+:where(.ui-refresh) .hover\:shadow-md:hover {
+    --tw-shadow: 0 0 0 1px var(--rf-card-border), 0 4px 14px var(--rf-shadow);
+}
+:where(.ui-refresh) .card {
+    background-color: var(--rf-surface);
+    border-color: var(--rf-card-border);
+    border-radius: var(--rf-radius-card);
+}
+
+/* Page banners (`bg-gradient-to-br from-primary-600 …`, on most list pages):
+   the app's flat chapter blue, with the crest's gold rule kept. */
+:where(.ui-refresh) .bg-gradient-to-br.from-primary-600 {
+    background-image: none;
+    background-color: var(--rf-hero);
+    border-radius: 20px;
+    --tw-shadow: 0 0 #0000;
+}
+
+/* Buttons (PrimaryButton: 10px radius, 600 weight; secondary is outlined in
+   the accent; danger takes the accent's ink in dark, as the app does) */
+:where(.ui-refresh) .btn-primary,
+:where(.ui-refresh) .btn-secondary,
+:where(.ui-refresh) .btn-danger,
+:where(.ui-refresh) .btn-ghost {
+    border-radius: var(--rf-radius-control);
+    font-weight: 600;
+    --tw-shadow: 0 0 #0000;
+    min-height: 2.5rem;
+}
+:where(.ui-refresh) .btn-sm { min-height: 2rem; }
+:where(.ui-refresh) .btn-primary { background-color: var(--rf-accent); color: var(--rf-accent-text); }
+:where(.ui-refresh) .btn-primary:hover { background-color: var(--rf-accent-hover); }
+:where(.ui-refresh) .btn-secondary {
+    background-color: transparent;
+    border-color: var(--rf-accent);
+    color: var(--rf-accent);
+}
+:where(.ui-refresh) .btn-secondary:hover { background-color: var(--rf-accent-soft); }
+:where(.ui-refresh) .btn-danger { background-color: var(--rf-danger); color: #ffffff; }
+:where(.ui-refresh.dark) .btn-danger { color: var(--rf-accent-text); }
+:where(.ui-refresh) .btn-ghost { color: var(--rf-accent); }
+:where(.ui-refresh) .btn-ghost:hover { background-color: var(--rf-accent-soft); }
+/* Utility-built primary buttons (bg-primary-600 + text-white) in dark: the
+   app's lighter accent with dark ink. Limited to links/buttons so banners
+   and the nav keep their blue. */
+:where(.ui-refresh.dark) :is(a, button).bg-primary-600 {
+    background-color: var(--rf-accent);
+    color: var(--rf-accent-text);
+}
+:where(.ui-refresh.dark) :is(a, button).bg-primary-600:hover { background-color: var(--rf-accent-hover); }
+
+/* Inputs (form.tsx Field: filled, borderless, 10px) */
+:where(.ui-refresh) .form-input,
+:where(.ui-refresh) main input:is([type="text"], [type="email"], [type="search"], [type="number"], [type="password"], [type="tel"], [type="url"], [type="date"], [type="datetime-local"], [type="time"]),
+:where(.ui-refresh) main select,
+:where(.ui-refresh) main textarea {
+    background-color: var(--rf-surface-muted);
+    border-color: transparent;
+    border-radius: var(--rf-radius-control);
+    color: var(--rf-text);
+}
+:where(.ui-refresh) .form-input:focus,
+:where(.ui-refresh) main :is(input, select, textarea):focus {
+    background-color: var(--rf-surface);
+    border-color: var(--rf-accent);
+    outline: 2px solid transparent;
+    --tw-ring-color: var(--rf-accent);
+}
+:where(.ui-refresh) main :is(input, textarea)::placeholder { color: var(--rf-text-muted); }
+
+/* Badges (kit Pill: 999px, 12px/600, tinted fill + toned ink) */
+:where(.ui-refresh) .badge {
+    border-radius: 999px;
+    padding: 3px 8px;
+    font-weight: 600;
+    background-color: var(--rf-surface-muted);
+    color: var(--rf-text-secondary);
+}
+:where(.ui-refresh) .badge-blue { background-color: var(--rf-accent-soft); color: var(--rf-accent); }
+:where(.ui-refresh) .badge-green { background-color: var(--rf-success-soft); color: var(--rf-success); }
+:where(.ui-refresh) .badge-yellow { background-color: var(--rf-warning-soft); color: var(--rf-warning); }
+:where(.ui-refresh) .badge-red { background-color: var(--rf-danger-soft); color: var(--rf-danger); }
+
+/* Flash messages (base.html .js-flash-message) */
+:where(.ui-refresh) .js-flash-message {
+    border-radius: var(--rf-radius-card);
+    border-color: var(--rf-card-border);
+    background-color: var(--rf-accent-soft);
+    color: var(--rf-accent);
+}
+:where(.ui-refresh) .js-flash-message[data-message-tags~="success"] { background-color: var(--rf-success-soft); color: var(--rf-success); }
+:where(.ui-refresh) .js-flash-message[data-message-tags~="error"] { background-color: var(--rf-danger-soft); color: var(--rf-danger); }
+:where(.ui-refresh) .js-flash-message[data-message-tags~="warning"] { background-color: var(--rf-warning-soft); color: var(--rf-warning); }
+:where(.ui-refresh) .js-flash-message [class*="text-"] { color: inherit; }
+
+/* Top nav: the app's navigation bar — chapter blue (navy in dark), no
+   shadow, so it runs straight into Home's banner. Links are glass pills. */
+:where(.ui-refresh) body > nav.bg-primary-700 {
+    background-color: var(--rf-hero);
+    --tw-shadow: 0 0 #0000;
+    color: var(--rf-hero-text);
+}
+:where(.ui-refresh) body > nav #mobile-menu {
+    background-color: var(--rf-hero);
+    border-color: var(--rf-hero-glass-border);
+}
+:where(.ui-refresh) body > nav .hover\:bg-primary-600:hover { background-color: var(--rf-hero-glass); }
+:where(.ui-refresh) body > nav a.rounded-md,
+:where(.ui-refresh) body > nav button.rounded-md { border-radius: 999px; font-weight: 600; }
+/* Desktop links: muted white, full white on hover (mockup nav) */
+:where(.ui-refresh) body > nav .xl\:flex > a { color: var(--rf-hero-muted); padding-left: 12px; padding-right: 12px; }
+:where(.ui-refresh) body > nav .xl\:flex > a:hover { color: var(--rf-hero-text); }
+/* However many links a member's Preferences turn on (base.html keeps every
+   user_prefs.show_*_menu condition), the bar never pushes the page wider:
+   the link strip takes the room left between the brand and the right-hand
+   buttons and scrolls sideways, fading at its edge. */
+:where(.ui-refresh) body > nav .h-14 > div:first-child { flex: 1 1 auto; min-width: 0; margin-right: 12px; }
+:where(.ui-refresh) body > nav .h-14 > div:last-child { flex-shrink: 0; }
+:where(.ui-refresh) body > nav .h-14 > div:first-child > a { flex-shrink: 0; }
+:where(.ui-refresh) body > nav .h-14 .xl\:flex {
+    min-width: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+    padding-right: 24px;
+    -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent);
+    mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent);
+}
+/* With the Officers pill, it stays pinned at the strip's right end (never
+   scrolled or faded out of view) and its own left shadow does the fading. */
+:where(.ui-refresh) body > nav .h-14 .xl\:flex:has(.rf-officer) {
+    padding-right: 0;
+    -webkit-mask-image: none;
+    mask-image: none;
+}
+:where(.ui-refresh) body > nav .h-14 .xl\:flex::-webkit-scrollbar { display: none; }
+:where(.ui-refresh) body > nav .h-14 .xl\:flex > * { flex-shrink: 0; }
+/* Officers (user.can_manage_events): a gold-outlined pill, desktop and menu */
+:where(.ui-refresh) body > nav a.rf-officer {
+    color: var(--rf-gold);
+    box-shadow: inset 0 0 0 1.5px var(--rf-gold);
+    border-radius: 999px;
+}
+:where(.ui-refresh) body > nav .h-14 .xl\:flex a.rf-officer {
+    position: sticky;
+    right: 0;
+    z-index: 1;
+    margin-left: 8px;
+    background-color: var(--rf-hero);
+    box-shadow: inset 0 0 0 1.5px var(--rf-gold), -20px 0 14px -6px var(--rf-hero);
+}
+:where(.ui-refresh) body > nav a.rf-officer:hover { background-color: rgba(233, 196, 106, 0.16); color: #ffffff; }
+:where(.ui-refresh) body > nav #mobile-menu a.rf-officer { display: inline-block; margin: 4px 0 4px 4px; }
+:where(.ui-refresh) body > nav .bg-gray-600 {
+    background-color: var(--rf-hero-glass);
+    box-shadow: inset 0 0 0 1px var(--rf-hero-glass-border);
+}
+:where(.ui-refresh) body > nav .hover\:bg-gray-700:hover { background-color: rgba(255, 255, 255, 0.24); }
+:where(.ui-refresh) body > nav input[name="q"] {
+    background-color: var(--rf-hero-glass);
+    border-color: var(--rf-hero-glass-border);
+    border-radius: var(--rf-radius-control);
+    color: #ffffff;
+}
+:where(.ui-refresh) body > nav input[name="q"]::placeholder { color: var(--rf-hero-muted); }
+:where(.ui-refresh) body > nav input[name="q"]:focus { background-color: rgba(255, 255, 255, 0.24); }
+:where(.ui-refresh) body > nav a[href] img.rounded-full { background-color: transparent; }
+
+/* Footer sits on the page color, like the app's screens */
+:where(.ui-refresh) body > footer { background-color: transparent; border-color: var(--rf-separator); }
+
+/* ---------- 3. Components (rf-*) --------------------------------------- */
+
+.rf-readable { width: 100%; max-width: var(--rf-readable); margin-left: auto; margin-right: auto; }
+
+/* Home follows the approved mockup (scratchpad web-refresh-mockup.html):
+   every section of the current Home, restyled. */
+.rf-col { width: 100%; max-width: 1080px; margin-left: auto; margin-right: auto; }
+
+/* Welcome banner: name, member type · number, gold rule; the coat of arms as
+   a glass pill that opens the existing modal. Fades into the page. */
+.rf-hero {
+    background: linear-gradient(180deg, var(--rf-hero) 0%, var(--rf-hero) 52%, var(--rf-hero-fade) 86%, var(--rf-bg) 100%);
+    color: var(--rf-hero-text);
+    padding: 26px 16px 70px;
+}
+.rf-hero .rf-col { display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap; }
+.rf-hero h1 { margin: 0; font-size: clamp(24px, 4vw, 32px); line-height: 1.15; font-weight: 800; letter-spacing: -0.02em; text-wrap: balance; }
+.rf-hero-sub { margin: 4px 0 0; color: var(--rf-hero-muted); font-size: 15px; font-weight: 500; }
+.rf-hero-rule { width: 44px; height: 3px; border-radius: 2px; background: var(--rf-gold); margin-top: 12px; }
+.rf-arms {
+    display: flex; align-items: center; gap: 12px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 999px;
+    padding: 6px 16px 6px 6px;
+    cursor: pointer;
+    color: var(--rf-hero-text);
+    text-align: left;
+    transition: background-color 0.12s;
+}
+.rf-arms:hover { background: rgba(255, 255, 255, 0.16); }
+.rf-arms:focus-visible { outline: 2px solid #ffffff; outline-offset: 2px; }
+.rf-arms img { width: 40px; height: 40px; flex: none; border-radius: 999px; background: #ffffff; padding: 2px; object-fit: contain; }
+.rf-arms-greek { display: block; font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif; font-size: 15px; color: var(--rf-gold); }
+.rf-arms-eng { display: block; font-size: 12px; color: var(--rf-hero-muted); font-weight: 600; letter-spacing: 0.03em; text-transform: uppercase; }
+
+/* The content column on Home rides up over the banner's fade */
+.rf-home {
+    position: relative;
+    margin-top: -50px;
+    max-width: calc(1080px + 32px);
+    padding-left: 16px;
+    padding-right: 16px;
+}
+.rf-home.space-y-4 > .rf-section-title { margin-top: 22px; }
+.rf-home.space-y-4 > .rf-section-title + * { margin-top: 0; }
+
+/* Stat buttons: links styled as pressable cards (tile, number, label, chevron) */
+.rf-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+@media (min-width: 900px) { .rf-stats { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.rf-stat {
+    display: flex; align-items: center; gap: 12px; min-width: 0;
+    padding: 14px;
+    border: 1px solid var(--rf-card-border);
+    border-radius: var(--rf-radius-card);
+    background: var(--rf-surface-glass);
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+    box-shadow: 0 4px 16px var(--rf-shadow);
+    color: var(--rf-text);
+    text-decoration: none;
+    transition: transform 0.12s, background-color 0.12s, box-shadow 0.12s;
+}
+.rf-stat:hover { background: var(--rf-surface); box-shadow: 0 6px 20px var(--rf-shadow); transform: translateY(-1px); }
+.rf-stat:active { transform: translateY(0) scale(0.985); background: var(--rf-surface-muted); }
+.rf-stat:focus-visible { outline: 2px solid var(--rf-accent); outline-offset: 2px; }
+.rf-stat-text { flex: 1; min-width: 0; }
+.rf-stat-count { font-size: 24px; line-height: 1.1; font-weight: 800; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.rf-stat-count.is-zero { color: var(--rf-text-muted); }
+.rf-stat-label { font-size: 13px; font-weight: 600; color: var(--rf-text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rf-stat-label.is-alert { color: var(--rf-accent); }
+.rf-stat .rf-chev { margin-left: auto; }
+@media (max-width: 420px) { .rf-stat .rf-chev { display: none; } .rf-arms-eng { display: none; } }
+
+/* Icon tile (IconTile: white glyph on a solid rounded square) */
+.rf-tile {
+    position: relative;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #ffffff;
+    background: var(--rf-tile-blue);
+}
+.rf-tile svg { width: 18px; height: 18px; }
+.rf-tile-lg { width: 40px; height: 40px; border-radius: 10px; }
+.rf-tile-lg svg { width: 22px; height: 22px; }
+.rf-tile-img { object-fit: cover; padding: 0; }
+.rf-tile .rf-badge { position: absolute; top: -6px; right: -7px; min-width: 18px; height: 18px; padding: 0 5px; font-size: 11px; border: 2px solid var(--rf-surface); box-sizing: content-box; }
+.rf-tile.is-blue { background: var(--rf-tile-blue); }
+.rf-tile.is-sky { background: var(--rf-tile-sky); }
+.rf-tile.is-teal { background: var(--rf-tile-teal); }
+.rf-tile.is-green { background: var(--rf-tile-green); }
+.rf-tile.is-gold { background: var(--rf-tile-gold); }
+.rf-tile.is-orange { background: var(--rf-tile-orange); }
+.rf-tile.is-red { background: var(--rf-tile-red); }
+.rf-tile.is-purple { background: var(--rf-tile-purple); }
+.rf-tile.is-gray { background: var(--rf-tile-gray); }
+.rf-chev { width: 16px; height: 16px; color: var(--rf-text-muted); flex: none; }
+
+/* Section title: small caps label over a grouped card, a "View All" link */
+.rf-section-title {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    margin: 22px 4px 8px;
+}
+.rf-section-title h2 { margin: 0; font-size: 13px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--rf-text-muted); }
+.rf-section-title a { font-size: 14px; font-weight: 600; color: var(--rf-accent); text-decoration: none; }
+.rf-section-title a:hover { text-decoration: underline; }
+
+/* Three columns (Events, Announcements, Legislation); one column under 900px */
+.rf-grid3 { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; align-items: start; }
+@media (min-width: 900px) { .rf-grid3 { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; } }
+.rf-grid3 > div { min-width: 0; }
+
+/* Pending votes: a card with a row per bill and its Vote Now button */
+.rf-ballot-head { display: flex; align-items: center; gap: 14px; padding: 14px 16px; }
+.rf-ballot-head .rf-row-title { font-weight: 700; }
+.rf-btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    border-radius: 12px; padding: 8px 16px; min-height: 40px;
+    font-weight: 700; font-size: 14px; text-decoration: none; flex: none;
+    background: var(--rf-accent); color: var(--rf-accent-text);
+    transition: background-color 0.12s;
+}
+.rf-btn:hover { background: var(--rf-accent-hover); }
+.rf-btn:focus-visible { outline: 2px solid var(--rf-accent); outline-offset: 2px; }
+
+/* Featured (Attendance, Kai, Service, Songbook): cards with a large tile */
+.rf-featured { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
+@media (min-width: 640px) { .rf-featured { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; } }
+@media (min-width: 1024px) { .rf-featured { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.rf-feat { display: flex; align-items: center; gap: 12px; padding: 14px; color: var(--rf-text); text-decoration: none; transition: background-color 0.12s; }
+.rf-feat:hover { background: var(--rf-surface-muted); }
+.rf-feat:focus-visible { outline: 2px solid var(--rf-accent); outline-offset: -2px; }
+
+/* Card + grouped rows (Card padded=false + Row) */
+.rf-card {
+    background: var(--rf-surface);
+    border-radius: var(--rf-radius-card);
+    box-shadow: 0 0 0 1px var(--rf-card-border), 0 3px 10px var(--rf-shadow);
+    overflow: hidden;
+}
+.rf-card.is-glass { background: var(--rf-surface-glass); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); }
+.rf-card.is-padded { padding: 16px; }
+.rf-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    min-height: 56px;
+    color: var(--rf-text);
+    text-decoration: none;
+}
+.rf-row + .rf-row { border-top: 1px solid var(--rf-separator); }
+@media (min-resolution: 2dppx) { .rf-row + .rf-row { border-top-width: 0.5px; } }
+a.rf-row:hover, button.rf-row:hover { background: var(--rf-surface-muted); }
+a.rf-row:focus-visible { outline: 2px solid var(--rf-accent); outline-offset: -2px; }
+.rf-row-icon { min-width: 30px; display: flex; justify-content: center; flex-shrink: 0; }
+.rf-row-body { flex: 1; min-width: 0; }
+.rf-row-title { font-size: 15px; font-weight: 600; line-height: 1.3; color: var(--rf-text); overflow-wrap: anywhere; }
+.rf-row-sub { font-size: 13px; line-height: 1.35; color: var(--rf-text-secondary); margin-top: 2px; overflow-wrap: anywhere; }
+.rf-row-trailing { font-size: 14px; color: var(--rf-text-muted); text-align: right; flex-shrink: 1; max-width: 40%; }
+.rf-row-pills { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.rf-chevron { font-size: 20px; line-height: 1; color: var(--rf-text-muted); margin-left: 2px; flex-shrink: 0; }
+.rf-row.is-empty { color: var(--rf-text-secondary); }
+
+/* Announcement card (Home) */
+.rf-stack { display: flex; flex-direction: column; gap: 10px; }
+.rf-announcement { display: block; padding: 16px; color: var(--rf-text); text-decoration: none; }
+.rf-announcement:hover { background: var(--rf-surface-muted); }
+.rf-byline { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+.rf-avatar {
+    width: 30px; height: 30px; border-radius: 999px; flex-shrink: 0;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: var(--rf-accent-soft); color: var(--rf-accent);
+    font-size: 12px; font-weight: 700;
+}
+.rf-byline-name { flex: 1; min-width: 0; font-size: 14px; font-weight: 600; color: var(--rf-text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rf-byline-time { font-size: 13px; color: var(--rf-text-muted); }
+.rf-announcement-title { font-size: 17px; font-weight: 700; line-height: 1.3; }
+.rf-announcement-body { font-size: 15px; color: var(--rf-text-secondary); margin-top: 4px; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+
+/* Date block (DateBlock: month strip over the day) */
+.rf-date { width: 44px; border-radius: 10px; text-align: center; background: var(--rf-accent-soft); color: var(--rf-accent); padding: 4px 0; flex-shrink: 0; }
+.rf-date-month { font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
+.rf-date-day { font-size: 18px; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
+
+/* Chip (kit Pill) */
+.rf-chip { display: inline-flex; align-items: center; border-radius: 999px; padding: 2px 8px; font-size: 12px; font-weight: 600; background: var(--rf-surface-muted); color: var(--rf-text-secondary); }
+.rf-chip.is-accent { background: var(--rf-accent-soft); color: var(--rf-accent); }
+.rf-chip.is-success { background: var(--rf-success-soft); color: var(--rf-success); }
+.rf-chip.is-warning { background: var(--rf-warning-soft); color: var(--rf-warning); }
+.rf-chip.is-danger { background: var(--rf-danger-soft); color: var(--rf-danger); }
+
+/* Count badge (kit Badge) */
+.rf-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 11px; background: var(--rf-badge); color: #ffffff; font-size: 12px; font-weight: 700; flex-shrink: 0; }
+.rf-badge.is-sm { min-width: 18px; height: 18px; padding: 0 5px; font-size: 11px; }
+
+/* Quick links as pills (QuickLinks.tsx) */
+.rf-pills { display: flex; flex-wrap: wrap; gap: 8px; }
+.rf-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px;
+    border-radius: 999px;
+    background: var(--rf-surface);
+    box-shadow: inset 0 0 0 1px var(--rf-card-border);
+    color: var(--rf-text);
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.2;
+    text-decoration: none;
+    transition: background-color 0.12s;
+}
+.rf-pill:hover { background: var(--rf-surface-muted); }
+.rf-pill:focus-visible { outline: 2px solid var(--rf-accent); outline-offset: 2px; }
+.rf-pill svg { width: 16px; height: 16px; color: var(--rf-text-secondary); flex-shrink: 0; }
+.rf-pill.is-accent { background: var(--rf-accent-soft); color: var(--rf-accent); }
+.rf-pill.is-accent svg { color: var(--rf-accent); }
+.rf-pill.is-warning { background: var(--rf-warning-soft); color: var(--rf-warning); }
+.rf-pill.is-warning svg { color: var(--rf-warning); }
+.rf-pill.is-pro svg { color: var(--rf-tile-purple); }
+:where(.ui-refresh.dark) .rf-pill.is-pro svg { color: #a48ce6; }
+.rf-pill.is-admin svg { color: var(--rf-tile-red); }
+:where(.ui-refresh.dark) .rf-pill.is-admin svg { color: #ff8a80; }
+.rf-pill.is-accent:hover, .rf-pill.is-warning:hover { filter: brightness(0.97); }
+
+
+@media (prefers-reduced-motion: reduce) {
+    .rf-stat, .rf-pill, .rf-arms, .rf-feat, .rf-btn { transition: none; }
+    .rf-stat:hover, .rf-stat:active { transform: none; }
+}
+
+/* The rf-* parts are spans inside links (valid inline content); lay them out as blocks. */
+.rf-row-title, .rf-row-sub, .rf-date-month, .rf-date-day,
+.rf-announcement-title, .rf-announcement-body, .rf-stat-count, .rf-stat-label { display: block; }
+.rf-announcement-body { display: -webkit-box; }
+
+/* Committees (committee/_committee_list_refresh.html): a row with its own
+   links inside, so the row itself is not one big link. */
+.rf-row-group { align-items: flex-start; }
+.rf-row-group .rf-row-icon, .rf-row-group .rf-chevron { margin-top: 2px; }
+.rf-row-group:hover { background: var(--rf-surface-muted); }
+.rf-row-group.is-archived { opacity: 0.75; }
+.rf-row-link { color: var(--rf-text); text-decoration: none; font-weight: 600; }
+.rf-row-link:hover { color: var(--rf-accent); }
+.rf-row-link:focus-visible, a.rf-chevron:focus-visible, .rf-row-actions a:focus-visible { outline: 2px solid var(--rf-accent); outline-offset: 2px; border-radius: 4px; }
+a.rf-chevron { text-decoration: none; padding: 0 4px; }
+.rf-row-pills { align-items: center; }
+.rf-row-actions { display: inline-flex; gap: 12px; margin-left: auto; padding-left: 8px; }
+.rf-row-actions a { font-size: 14px; font-weight: 600; color: var(--rf-accent); text-decoration: none; }
+.rf-row-actions a:hover { text-decoration: underline; }
+.rf-section-title .rf-row-trailing { max-width: none; }
+
+/* Announcements column: entries inside one card, as in the mockup */
+.rf-ann { display: block; padding: 13px 14px; color: var(--rf-text); text-decoration: none; }
+.rf-ann + .rf-ann { border-top: 1px solid var(--rf-separator); }
+.rf-ann:hover { background: var(--rf-surface-muted); }
+.rf-ann:focus-visible { outline: 2px solid var(--rf-accent); outline-offset: -2px; }
+.rf-ann-meta { display: block; font-size: 12px; font-weight: 600; color: var(--rf-text-muted); }
+.rf-ann-title { display: block; margin: 3px 0; font-size: 15px; font-weight: 700; }
+.rf-ann-body { display: -webkit-box; font-size: 14px; color: var(--rf-text-secondary); -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.rf-row-sub.is-clip { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rf-empty-link { display: inline-block; margin-top: 2px; font-size: 13px; font-weight: 600; color: var(--rf-accent); text-decoration: none; }
+.rf-empty-link:hover { text-decoration: underline; }
+.rf-ballot-head + .rf-row { border-top: 1px solid var(--rf-separator); }
+@media (max-width: 640px) { .rf-stat { padding: 12px; gap: 10px; } .rf-stat-label { white-space: normal; } }
+
+/* Home: the crest as a faint watermark behind the content (the app's Home
+   watermark). The anchor sits right under the banner with no height; the
+   wrap clips the crest at the page edge, so it never adds a scrollbar. */
+.rf-seal-anchor { position: relative; height: 0; z-index: 0; pointer-events: none; }
+.rf-seal-wrap { position: absolute; top: 0; left: 0; right: 0; height: 900px; overflow: hidden; pointer-events: none; }
+.rf-seal {
+    position: absolute;
+    top: 110px;
+    right: max(16px, calc((100% - 1080px) / 2));
+    width: min(480px, 78vw);
+    height: auto;
+    aspect-ratio: 1;
+    opacity: var(--rf-seal-opacity);
+    user-select: none;
+}
+.rf-home { z-index: 1; }
+/* …and Home's cards are glass, so it shows through (surfaceGlass) */
+.rf-home .rf-card,
+.rf-home .rf-stat,
+.rf-home .bg-white,
+.rf-home .dark\:bg-gray-800:is(.dark *) {
+    background-color: var(--rf-surface-glass);
+    -webkit-backdrop-filter: blur(2px);
+    backdrop-filter: blur(2px);
+}
+.rf-home a.rf-row:hover, .rf-home .rf-feat:hover, .rf-home .rf-ann:hover { background-color: var(--rf-surface-muted); }
+.rf-home .rf-stat:hover { background-color: var(--rf-surface); }
+/* Pinned Officers pill: hover tints over its solid blue, so links scrolled under it never show through. */
+:where(.ui-refresh) body > nav .h-14 .xl\:flex a.rf-officer:hover {
+    background-color: var(--rf-hero);
+    background-image: linear-gradient(rgba(233, 196, 106, 0.16), rgba(233, 196, 106, 0.16));
+}

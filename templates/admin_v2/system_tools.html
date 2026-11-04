@@ -1,0 +1,127 @@
+{% extends "admin_v2/base.html" %}
+
+{% comment %}
+System tools (v4.4.4): src/view/admin_v2_system.py. Every action is a POST
+that needs confirm=yes; the buttons in the lists are links that open the
+confirm panel at the top (no script, no inline handlers).
+{% endcomment %}
+
+{% block title %}System tools - Admin{% endblock %}
+
+{% block admin_content %}
+<div class="px-4 sm:px-6 py-6 max-w-6xl">
+    <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">System tools</h1>
+    <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Clear part of the cache, run a scheduled job now, and see recent server errors and slow pages. Every action is recorded in Admin activity.</p>
+
+    {% if confirm %}
+    <section class="mt-5 rounded-xl p-5 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800" aria-labelledby="confirm-title">
+        {% if confirm.kind == 'cache' %}
+        <h2 id="confirm-title" class="font-semibold text-amber-900 dark:text-amber-100">Clear "{{ confirm.label }}"?</h2>
+        <p class="mt-1 text-sm text-amber-800 dark:text-amber-200">{{ confirm.help }} Nobody is signed out and no lockout is reset.</p>
+        <form method="post" action="{% url 'admin_v2_system_clear_cache' %}" class="mt-3 flex flex-wrap gap-2">
+            {% csrf_token %}
+            <input type="hidden" name="scope" value="{{ confirm.scope }}">
+            <input type="hidden" name="confirm" value="yes">
+            <button type="submit" class="btn-primary">Clear it</button>
+            <a href="{% url 'admin_v2_system' %}#cache" class="btn-secondary">Cancel</a>
+        </form>
+        {% else %}
+        <h2 id="confirm-title" class="font-semibold text-amber-900 dark:text-amber-100">Run "{{ confirm.task.name }}" now?</h2>
+        <p class="mt-1 text-sm text-amber-800 dark:text-amber-200">Queues <code class="font-mono text-xs">{{ confirm.task.task }}</code> once, in addition to its schedule. Anything it sends (emails, pushes) goes out the same as on a scheduled run.</p>
+        <form method="post" action="{% url 'admin_v2_system_run_job' %}" class="mt-3 flex flex-wrap gap-2">
+            {% csrf_token %}
+            <input type="hidden" name="task" value="{{ confirm.task.pk }}">
+            <input type="hidden" name="confirm" value="yes">
+            <button type="submit" class="btn-primary">Run it now</button>
+            <a href="{% url 'admin_v2_system' %}#jobs" class="btn-secondary">Cancel</a>
+        </form>
+        {% endif %}
+    </section>
+    {% endif %}
+
+    <div class="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Cache -->
+        <section id="cache" class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-5">
+            <h2 class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-3">Clear cache</h2>
+            <ul class="divide-y divide-gray-100 dark:divide-gray-700 text-sm">
+                {% for key, label, help in scopes %}
+                <li class="py-2 flex items-start justify-between gap-3">
+                    <span><span class="font-medium text-gray-900 dark:text-gray-100">{{ label }}</span><span class="block text-xs text-gray-500 dark:text-gray-400">{{ help }}</span></span>
+                    <a href="?confirm=cache&amp;scope={{ key }}" class="btn-secondary whitespace-nowrap">Clear…</a>
+                </li>
+                {% endfor %}
+            </ul>
+            <details class="mt-3 text-xs text-gray-600 dark:text-gray-300">
+                <summary class="cursor-pointer font-medium">Not offered here, and why</summary>
+                <ul class="mt-2 space-y-1">
+                    {% for label, why in not_offered %}<li><span class="font-medium">{{ label }}:</span> {{ why }}</li>{% endfor %}
+                </ul>
+            </details>
+        </section>
+
+        <!-- Jobs -->
+        <section id="jobs" class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-5">
+            <h2 class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Run a scheduled job now</h2>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">Queued for the Celery worker. Health and schedules are on <a href="{% url 'admin_v2_celery_health' %}" class="underline">Scheduled jobs</a>.</p>
+            <ul class="divide-y divide-gray-100 dark:divide-gray-700 text-sm">
+                {% for row in job_rows %}
+                <li class="py-2 flex items-start justify-between gap-3">
+                    <span class="min-w-0">
+                        <span class="font-medium text-gray-900 dark:text-gray-100">{{ row.task.name }}</span>
+                        <span class="block text-xs text-gray-500 dark:text-gray-400 font-mono break-all">{{ row.task.task }}</span>
+                        <span class="block text-xs text-gray-500 dark:text-gray-400">{% if row.task.last_run_at %}Last run {{ row.task.last_run_at|timesince }} ago{% else %}Never run{% endif %}{% if row.status == 'overdue' %} · <span class="text-amber-700 dark:text-amber-400">overdue</span>{% endif %}</span>
+                        {% if row.refusal %}<span class="block text-xs text-gray-500 dark:text-gray-400 italic">{{ row.refusal }}</span>{% endif %}
+                    </span>
+                    {% if not row.refusal %}<a href="?confirm=job&amp;task={{ row.task.pk }}" class="btn-secondary whitespace-nowrap">Run now…</a>{% endif %}
+                </li>
+                {% empty %}
+                <li class="py-2 text-gray-500 dark:text-gray-400">No scheduled jobs registered. Run <code class="font-mono text-xs">python manage.py setup_celery_schedules</code> on the server.</li>
+                {% endfor %}
+            </ul>
+        </section>
+
+        <!-- Errors -->
+        <section id="errors" class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-5 lg:col-span-2">
+            <h2 class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Recent server errors</h2>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">ERROR and CRITICAL lines from the end of {{ log_name|default:"the server log" }}, newest first. Passwords, tokens, cookies and token-like strings are hidden. The full log is on <a href="{% url 'view_logs' %}" class="underline">System logs</a>.</p>
+            {% if errors_problem %}
+            <p class="text-sm text-gray-700 dark:text-gray-300">{{ errors_problem }}</p>
+            {% else %}
+            <ul class="divide-y divide-gray-100 dark:divide-gray-700 text-sm">
+                {% for e in errors %}
+                <li class="py-2">
+                    <p class="text-gray-900 dark:text-gray-100 break-words"><span class="font-semibold {% if e.level == 'CRITICAL' %}text-red-700 dark:text-red-400{% else %}text-amber-700 dark:text-amber-400{% endif %}">{{ e.level }}</span> <span class="text-xs text-gray-500 dark:text-gray-400">{{ e.timestamp }} · {{ e.logger }}</span><br>{{ e.message }}</p>
+                    {% if e.trace %}
+                    <details class="mt-1">
+                        <summary class="cursor-pointer text-xs text-gray-500 dark:text-gray-400">Traceback ({{ e.trace|length }} line{{ e.trace|length|pluralize }})</summary>
+                        <pre class="mt-1 p-2 rounded-lg bg-gray-50 dark:bg-gray-900 text-xs font-mono whitespace-pre-wrap break-all max-h-64 overflow-auto text-gray-700 dark:text-gray-300">{{ e.trace|join:"&#10;" }}</pre>
+                    </details>
+                    {% endif %}
+                </li>
+                {% empty %}
+                <li class="py-2 text-gray-500 dark:text-gray-400">No errors in the recent log.</li>
+                {% endfor %}
+            </ul>
+            {% endif %}
+        </section>
+
+        <!-- Slow pages -->
+        <section id="slow" class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-5 lg:col-span-2">
+            <h2 class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Slow pages</h2>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">Requests over {{ slow_ms }} ms still in the timing buffer (about the last day; every slow request is kept, other requests are sampled 1 in {{ perf.sample_rate }}). {{ perf.total_requests }} request(s) counted; average {{ perf.avg_response_time_ms }} ms over the last hour's samples (an estimate, biased up).</p>
+            <div class="overflow-x-auto">
+                <table class="min-w-full text-sm text-left">
+                    <thead><tr class="text-xs text-gray-500 dark:text-gray-400"><th class="py-1 pr-4 font-medium">Page</th><th class="py-1 pr-4 font-medium">Time</th><th class="py-1 pr-4 font-medium">Queries</th><th class="py-1 pr-4 font-medium">DB time</th><th class="py-1 pr-4 font-medium">When</th></tr></thead>
+                    <tbody class="divide-y divide-gray-100 dark:divide-gray-700 text-gray-800 dark:text-gray-200">
+                        {% for r in slow %}
+                        <tr><td class="py-1 pr-4 font-mono text-xs break-all">{{ r.path }}</td><td class="py-1 pr-4 whitespace-nowrap">{{ r.ms }} ms</td><td class="py-1 pr-4">{{ r.queries }}</td><td class="py-1 pr-4 whitespace-nowrap">{{ r.db_ms }} ms</td><td class="py-1 pr-4 whitespace-nowrap">{{ r.when|timesince }} ago</td></tr>
+                        {% empty %}
+                        <tr><td colspan="5" class="py-2 text-gray-500 dark:text-gray-400">No slow requests in the buffer.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </div>
+</div>
+{% endblock %}

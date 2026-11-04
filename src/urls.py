@@ -160,6 +160,11 @@ from src.view import admin_v2_bulk as admin_v2_bulk_views
 from src.view import admin_v2_activity as admin_v2_activity_views
 from src.view import admin_v2_exports as admin_v2_exports_views
 from src.view import admin_v2_trends as admin_v2_trends_views
+from src.view import admin_v2_health as admin_v2_health_views
+from src.view import admin_v2_system as admin_v2_system_views
+from src.view import admin_v2_push as admin_v2_push_views
+from src.view import admin_v2_permissions as admin_v2_permissions_views
+from src.view import admin_v2_sitemap as admin_v2_sitemap_views
 from src.view.admin_v2 import (
     admin_v2_login, admin_v2_dashboard, toggle_feature_flag,
     toggle_page, admin_v2_logout, manage_legislation, delete_legislation,
@@ -1141,6 +1146,19 @@ urlpatterns = [
     path('admin-v2/event-reminder-logs/<int:log_id>/', event_reminder_log_detail, name='admin_v2_event_reminder_log_detail'),
     path('admin-v2/celery/', celery_health, name='admin_v2_celery_health'),
     path('admin-v2/url-explorer/', admin_v2_url_explorer, name='admin_v2_url_explorer'),
+    # v4.4.4: interactive site map (src/view/admin_v2_sitemap.py)
+    path('admin-v2/sitemap/', admin_v2_sitemap_views.admin_v2_sitemap, name='admin_v2_sitemap'),
+    path('admin-v2/sitemap/node/', admin_v2_sitemap_views.admin_v2_sitemap_node, name='admin_v2_sitemap_node'),
+    path('admin-v2/sitemap/open/', admin_v2_sitemap_views.admin_v2_sitemap_open, name='admin_v2_sitemap_open'),
+    path('admin-v2/sitemap/return/', admin_v2_sitemap_views.admin_v2_sitemap_return, name='admin_v2_sitemap_return'),
+    path('admin-v2/sitemap/check/', admin_v2_sitemap_views.admin_v2_sitemap_check, name='admin_v2_sitemap_check'),
+    path('admin-v2/sitemap/members/', admin_v2_sitemap_views.admin_v2_sitemap_members, name='admin_v2_sitemap_members'),
+    path('admin-v2/sitemap/page-toggle/', admin_v2_sitemap_views.admin_v2_sitemap_page_toggle,
+         name='admin_v2_sitemap_page_toggle'),
+    path('admin-v2/sitemap/feature-flag/', admin_v2_sitemap_views.admin_v2_sitemap_feature_flag,
+         name='admin_v2_sitemap_feature_flag'),
+    path('admin-v2/sitemap/pledge-restriction/', admin_v2_sitemap_views.admin_v2_sitemap_pledge_restriction,
+         name='admin_v2_sitemap_pledge_restriction'),
     path('admin-v2/passkey/auth/begin/', admin_v2_passkey_auth_begin, name='admin_v2_passkey_auth_begin'),
     path('admin-v2/passkey/auth/complete/', admin_v2_passkey_auth_complete, name='admin_v2_passkey_auth_complete'),
 
@@ -1179,6 +1197,16 @@ urlpatterns = [
     path('admin-v2/mobile/test-push/', admin_v2_mobile_views.admin_v2_mobile_push, name='admin_v2_mobile_push'),
     path('admin-v2/backups/', admin_v2_ops_views.admin_v2_backups, name='admin_v2_backups'),
     path('admin-v2/trends/', admin_v2_trends_views.admin_v2_trends, name='admin_v2_trends'),
+    # v4.4.4: chapter health and system tools
+    path('admin-v2/health/', admin_v2_health_views.admin_v2_health, name='admin_v2_health'),
+    path('admin-v2/system/', admin_v2_system_views.admin_v2_system, name='admin_v2_system'),
+    path('admin-v2/system/clear-cache/', admin_v2_system_views.admin_v2_system_clear_cache,
+         name='admin_v2_system_clear_cache'),
+    path('admin-v2/system/run-job/', admin_v2_system_views.admin_v2_system_run_job, name='admin_v2_system_run_job'),
+    # v4.4.4: push composer and permissions map
+    path('admin-v2/push/', admin_v2_push_views.admin_v2_push, name='admin_v2_push'),
+    path('admin-v2/push/send/', admin_v2_push_views.admin_v2_push_send, name='admin_v2_push_send'),
+    path('admin-v2/permissions/', admin_v2_permissions_views.admin_v2_permissions, name='admin_v2_permissions'),
     path('admin-v2/exports/', admin_v2_exports_views.admin_v2_exports, name='admin_v2_exports'),
     path('admin-v2/exports/members.csv', admin_v2_exports_views.admin_v2_export_members, name='admin_v2_export_members'),
     path('admin-v2/exports/attendance.csv', admin_v2_exports_views.admin_v2_export_attendance, name='admin_v2_export_attendance'),

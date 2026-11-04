@@ -1,6 +1,6 @@
 {% load static static_version %}
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en"{% if ui_refresh %} class="ui-refresh"{% endif %}>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -14,7 +14,7 @@
     <meta name="theme-color" content="#003DA5">
 
     <!-- Tailwind CSS (self-hosted, no CDN) -->
-    <link rel="stylesheet" href="{% static_v 'css/tailwind.css' %}">
+    <link rel="stylesheet" href="{% static_v 'css/tailwind.css' %}">{% if ui_refresh %}<link rel="stylesheet" href="{% static_v 'css/refresh.css' %}">{% endif %}
 
     <!-- Alpine.js: hide x-cloak elements until Alpine initialises -->
     <style>[x-cloak]{display:none!important}</style>
@@ -79,6 +79,35 @@
         </a>
     </div>
     {% endif %}
+
+    <!-- Site map return bar (v4.4.4): a page opened from Admin v2's Site map, like the login-as banner above -->
+    {% with sitemap_return=request.session.admin_v2_sitemap_return %}
+    {% if sitemap_return and user.is_authenticated %}
+    <div class="bg-sky-600 text-white px-4 py-2 text-sm font-medium flex items-center justify-between gap-4 flex-wrap">
+        <div class="flex items-center gap-2 min-w-0">
+            <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/>
+            </svg>
+            <span class="truncate">Opened from the Site map: <strong>{{ sitemap_return.label }}</strong></span>
+        </div>
+        <div class="flex items-center gap-2 flex-shrink-0">
+            <a href="{% url 'admin_v2_sitemap_return' %}"
+               class="flex items-center gap-1.5 px-3 py-1 rounded-md bg-sky-950 text-sky-50 text-xs font-semibold hover:bg-sky-900 transition-colors">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 17l-5-5m0 0l5-5m-5 5h12"/>
+                </svg>
+                Back to the site map
+            </a>
+            <form method="post" action="{% url 'admin_v2_sitemap_return' %}" class="m-0">
+                {% csrf_token %}
+                <input type="hidden" name="close" value="1">
+                <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                <button type="submit" class="px-2 py-1 rounded-md text-xs font-semibold text-sky-50 hover:bg-sky-700 transition-colors" aria-label="Close this bar">Close</button>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+    {% endwith %}
 
     <!-- Backup Code Warning Banner -->
     {% if user.is_authenticated and backup_codes_warning %}
@@ -188,7 +217,7 @@
                             </a>
                             {% endif %}
                             {% if user.can_manage_events %}
-                            <a href="{% url 'officer_home' %}" class="px-2 py-1.5 text-sm rounded-md hover:bg-primary-600 transition-colors whitespace-nowrap">
+                            <a href="{% url 'officer_home' %}" class="px-2 py-1.5 text-sm rounded-md hover:bg-primary-600 transition-colors whitespace-nowrap{% if ui_refresh %} rf-officer{% endif %}">
                                 Officers
                             </a>
                             {% endif %}
@@ -407,7 +436,7 @@
                     📇 Directory
                 </a>
                 {% if user.can_manage_events %}
-                <a href="{% url 'officer_home' %}" class="block px-3 py-2 rounded-md text-base font-medium hover:bg-primary-600 transition-colors">
+                <a href="{% url 'officer_home' %}" class="block px-3 py-2 rounded-md text-base font-medium hover:bg-primary-600 transition-colors{% if ui_refresh %} rf-officer{% endif %}">
                     ⚙️ Officers
                 </a>
                 {% endif %}

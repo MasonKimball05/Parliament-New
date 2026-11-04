@@ -255,6 +255,20 @@ class QuickLinksTests(HomeTests):
         _, pledge_access = self.as_pledge()
         self.assertNotIn('slating', self.keys(pledge_access))
 
+    def test_admin_v2_only_for_its_allowlist(self):
+        from unittest import mock
+        from src.view import admin_v2
+        self.assertNotIn('admin_v2', self.keys())
+        admin = make_user('home-adm', member_type='Officer')
+        admin.is_admin = True
+        admin.save(update_fields=['is_admin'])
+        _, access = make_device(admin)[:2]
+        self.assertNotIn('admin_v2', self.keys(access))          # is_admin alone isn't enough
+        with mock.patch.object(admin_v2, 'ALLOWED_USER_IDS', {admin.user_id}):
+            links = {q['key']: q for q in self.get('home/', access=access).json()['quick_links']}
+        self.assertEqual(links['admin_v2']['path'], '/admin-v2/')
+        self.assertEqual(list(links)[-1], 'admin_v2')
+
     def test_a_turned_off_page_is_left_out(self):
         flag('chats', False)
         self.assertNotIn('chat', self.keys())

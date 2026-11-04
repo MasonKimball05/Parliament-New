@@ -1,0 +1,163 @@
+{% extends "admin_v2/base.html" %}
+{% load static_version %}
+
+{% comment %}
+Site map (v4.4.4): src/view/admin_v2_sitemap.py builds the tree from the URL
+conf; static/js/admin_v2/sitemap.js draws it (SVG on wide screens, an
+indented list on narrow ones) and fills the details panel from the node
+endpoint. Every change is a POST that needs confirm=yes from the confirm
+panel below (a GET with ?confirm= only shows the panel), as on System tools.
+{% endcomment %}
+
+{% block title %}Site map - Admin{% endblock %}
+
+{% block admin_content %}
+<style>
+    .sm-canvas { height: 70vh; min-height: 420px; touch-action: none; cursor: grab; }
+    .sm-canvas.sm-dragging { cursor: grabbing; }
+    .sm-canvas svg { width: 100%; height: 100%; display: block; user-select: none; }
+    .sm-edge { fill: none; stroke: #cbd5e1; stroke-width: 1.25; }
+    .sm-link { fill: none; stroke: #b45309; stroke-width: 1.5; stroke-dasharray: 5 4; }
+    .sm-node { cursor: pointer; }
+    .sm-node rect.sm-box { fill: #fff; stroke: #d1d5db; stroke-width: 1; }
+    .sm-node:hover rect.sm-box { stroke: #6e8fd5; }
+    .sm-node text { font-size: 12px; fill: #111827; dominant-baseline: middle; }
+    .sm-node text.sm-sub { font-size: 10px; fill: #6b7280; }
+    .sm-node.sm-hiddenkind rect.sm-box { stroke-dasharray: 3 3; }
+    .sm-node.sm-match rect.sm-box { fill: #fef3c7; stroke: #d97706; }
+    .sm-node.sm-selected rect.sm-box { stroke: #003da5; stroke-width: 2.5; }
+    .sm-toggle circle { fill: #f3f4f6; stroke: #9ca3af; }
+    .sm-toggle text { font-size: 12px; fill: #374151; text-anchor: middle; dominant-baseline: central; }
+    .sm-warn { fill: #b45309; font-weight: 700; }
+    .sm-dot-page { fill: #2a56b8; } .sm-dot-api { fill: #7c3aed; } .sm-dot-mobile { fill: #0d9488; }
+    .sm-dot-static { fill: #9ca3af; } .sm-dot-action { fill: #d97706; } .sm-dot-redirect { fill: #64748b; } .sm-dot-trap { fill: #dc2626; } .sm-dot-group { fill: none; stroke: #9ca3af; }
+    .sm-dot-root { fill: #111827; }
+    .dark .sm-edge { stroke: #4b5563; }
+    .dark .sm-link { stroke: #fbbf24; }
+    .dark .sm-node rect.sm-box { fill: #1f2937; stroke: #4b5563; }
+    .dark .sm-node text { fill: #f3f4f6; }
+    .dark .sm-node text.sm-sub { fill: #9ca3af; }
+    .dark .sm-node.sm-match rect.sm-box { fill: rgba(146, 64, 14, .45); stroke: #fbbf24; }
+    .dark .sm-node.sm-selected rect.sm-box { stroke: #6e8fd5; }
+    .dark .sm-toggle circle { fill: #374151; stroke: #6b7280; }
+    .dark .sm-toggle text { fill: #e5e7eb; }
+    .dark .sm-warn { fill: #fbbf24; }
+    .dark .sm-dot-page { fill: #6e8fd5; } .dark .sm-dot-api { fill: #a78bfa; } .dark .sm-dot-mobile { fill: #2dd4bf; }
+    .dark .sm-dot-root { fill: #f3f4f6; }
+    .sm-list ul { list-style: none; margin: 0; padding-left: 1rem; }
+    .sm-list > ul { padding-left: 0; }
+    .sm-results { max-height: 18rem; overflow-y: auto; }
+    .sm-kind { display: inline-block; width: .55rem; height: .55rem; border-radius: 9999px; }
+    .sm-kind.page { background: #2a56b8; } .sm-kind.api { background: #7c3aed; } .sm-kind.mobile { background: #0d9488; }
+    .sm-kind.static { background: #9ca3af; } .sm-kind.action { background: #d97706; } .sm-kind.redirect { background: #64748b; } .sm-kind.trap { background: #dc2626; } .sm-kind.group { border: 1px solid #9ca3af; }
+    .sm-wide { display: none; }
+    @media (min-width: 1024px) { .sm-wide { display: inline-flex; } }
+    @media (min-width: 1024px) { .sm-panel { width: 26rem; flex-shrink: 0; max-height: 70vh; overflow-y: auto; } }
+</style>
+
+<div class="px-4 sm:px-6 py-6">
+    <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Site map</h1>
+    <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Every page, generated from the URL conf and nested by path, with committees and recent elections filled in. Pick a page to see what decides who can open it, check a member against it, and change its switches. Every change is recorded in Admin activity.</p>
+
+    {% if confirm %}
+    <section class="mt-5 rounded-xl p-5 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800" aria-labelledby="confirm-title">
+        {% if confirm.kind == 'page' or confirm.kind == 'flag' %}
+        <h2 id="confirm-title" class="font-semibold text-amber-900 dark:text-amber-100">Turn {% if confirm.enabled %}off{% else %}on{% endif %} {% if confirm.kind == 'page' %}the page{% else %}the feature{% endif %} "{{ confirm.display }}"?</h2>
+        <p class="mt-1 text-sm text-amber-800 dark:text-amber-200">
+            {% if confirm.kind == 'page' %}{% if confirm.enabled %}Members who open it see its "unavailable" message instead, until it's turned back on.{% else %}Members can open it again.{% endif %}
+            Same switch as on the Maintenance page (PageToggle <code class="font-mono text-xs">{{ confirm.target }}</code>).
+            {% else %}{% if confirm.enabled %}Every page and feature that needs it stops working until it's turned back on.{% else %}Everything that needs it starts working again.{% endif %}
+            Same switch as on the Maintenance page (FeatureFlag <code class="font-mono text-xs">{{ confirm.target }}</code>).{% endif %}
+        </p>
+        <form method="post" action="{% if confirm.kind == 'page' %}{% url 'admin_v2_sitemap_page_toggle' %}{% else %}{% url 'admin_v2_sitemap_feature_flag' %}{% endif %}" class="mt-3 flex flex-wrap gap-2">
+            {% csrf_token %}
+            <input type="hidden" name="target" value="{{ confirm.target }}">
+            <input type="hidden" name="node" value="{{ confirm.node }}">
+            <input type="hidden" name="confirm" value="yes">
+            <button type="submit" class="btn-primary">Turn it {% if confirm.enabled %}off{% else %}on{% endif %}</button>
+            <a href="?node={{ confirm.node|urlencode }}" class="btn-secondary">Cancel</a>
+        </form>
+        {% elif confirm.kind == 'pledge_set' %}
+        <h2 id="confirm-title" class="font-semibold text-amber-900 dark:text-amber-100">Restrict "{{ confirm.display }}" for pledges?</h2>
+        <p class="mt-1 text-sm text-amber-800 dark:text-amber-200">Tick the phases that may open it. Leave every box empty to block all pledges. Same rule the education dashboard sets (PledgePageRestriction <code class="font-mono text-xs">{{ confirm.target }}</code>), enforced on every page.</p>
+        <form method="post" action="{% url 'admin_v2_sitemap_pledge_restriction' %}" class="mt-3">
+            {% csrf_token %}
+            <input type="hidden" name="target" value="{{ confirm.target }}">
+            <input type="hidden" name="node" value="{{ confirm.node }}">
+            <input type="hidden" name="action" value="set">
+            <input type="hidden" name="confirm" value="yes">
+            <div class="flex flex-wrap gap-4 text-sm text-amber-900 dark:text-amber-100">
+                {% for value, label in confirm.phase_choices %}
+                <label class="flex items-center gap-2"><input type="checkbox" name="phases" value="{{ value }}" class="rounded border-gray-300 dark:border-gray-600" {% if value in confirm.phases %}checked{% endif %}> {{ label }}</label>
+                {% endfor %}
+            </div>
+            <div class="mt-3 flex flex-wrap gap-2">
+                <button type="submit" class="btn-primary">Save restriction</button>
+                <a href="?node={{ confirm.node|urlencode }}" class="btn-secondary">Cancel</a>
+            </div>
+        </form>
+        {% elif confirm.kind == 'pledge_remove' %}
+        <h2 id="confirm-title" class="font-semibold text-amber-900 dark:text-amber-100">Remove the pledge restriction on "{{ confirm.display }}"?</h2>
+        <p class="mt-1 text-sm text-amber-800 dark:text-amber-200">With no restriction every pledge can open it again (allowed now: {{ confirm.phases|join:", "|default:"no phase" }}).</p>
+        <form method="post" action="{% url 'admin_v2_sitemap_pledge_restriction' %}" class="mt-3 flex flex-wrap gap-2">
+            {% csrf_token %}
+            <input type="hidden" name="target" value="{{ confirm.target }}">
+            <input type="hidden" name="node" value="{{ confirm.node }}">
+            <input type="hidden" name="action" value="remove">
+            <input type="hidden" name="confirm" value="yes">
+            <button type="submit" class="btn-primary">Remove it</button>
+            <a href="?node={{ confirm.node|urlencode }}" class="btn-secondary">Cancel</a>
+        </form>
+        {% endif %}
+    </section>
+    {% endif %}
+
+    <!-- Toolbar -->
+    <div class="mt-5 bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 flex flex-col md:flex-row md:items-center gap-3 text-sm">
+        <div class="relative flex-1 min-w-0">
+            <label for="sm-search" class="sr-only">Search pages</label>
+            <input id="sm-search" type="search" autocomplete="off" spellcheck="false" placeholder="Search by name, url name or path"
+                   class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 text-sm"
+                   role="combobox" aria-expanded="false" aria-controls="sm-search-results">
+            <ul id="sm-search-results" class="sm-results hidden absolute z-20 left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg py-1" role="listbox"></ul>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+            <button type="button" class="btn-secondary" data-sm="expand">Expand all</button>
+            <button type="button" class="btn-secondary" data-sm="collapse">Collapse all</button>
+            <span class="sm-wide gap-1" data-sm-zoom>
+                <button type="button" class="btn-secondary" data-sm="zoom-out" aria-label="Zoom out">−</button>
+                <button type="button" class="btn-secondary" data-sm="zoom-in" aria-label="Zoom in">+</button>
+                <button type="button" class="btn-secondary" data-sm="fit">Fit</button>
+            </span>
+            <label class="flex items-center gap-2 text-gray-700 dark:text-gray-200">
+                <input id="sm-show-all" type="checkbox" class="rounded border-gray-300 dark:border-gray-600">
+                Show API, mobile, files, actions, redirects and traps
+            </label>
+        </div>
+    </div>
+    <div class="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
+        {% for k in kinds %}<span class="inline-flex items-center gap-1.5"><span class="sm-kind {{ k.key }}"></span>{{ k.label }} · {{ k.n }}</span>{% endfor %}
+        <span>{{ total }} in all{% if django_admin %}; {{ django_admin }} Django admin routes not mapped{% endif %}.</span>
+        <span class="sm-wide">Drag to pan, ⌘/Ctrl + scroll to zoom, click a page for details, its circle to open or close it.</span>
+    </div>
+
+    <div class="mt-4 lg:flex lg:items-start gap-4">
+        <div class="flex-1 min-w-0">
+            <div id="sm-canvas" class="sm-canvas hidden bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden" aria-label="Site map diagram"></div>
+            <div id="sm-list" class="sm-list hidden bg-white dark:bg-gray-800 rounded-xl shadow-sm p-3 text-sm" aria-label="Site map"></div>
+        </div>
+        <aside id="sm-panel" class="sm-panel mt-4 lg:mt-0 bg-white dark:bg-gray-800 rounded-xl shadow-sm p-5 text-sm" aria-live="polite">
+            <p class="text-gray-500 dark:text-gray-400">Pick a page to see who can open it.</p>
+        </aside>
+    </div>
+</div>
+
+{{ tree|json_script:"sm-data" }}
+<div id="sm-config" hidden
+     data-node-url="{% url 'admin_v2_sitemap_node' %}"
+     data-open-url="{% url 'admin_v2_sitemap_open' %}"
+     data-check-url="{% url 'admin_v2_sitemap_check' %}"
+     data-members-url="{% url 'admin_v2_sitemap_members' %}"
+     data-selected="{{ selected }}"></div>
+<script src="{% static_v 'js/admin_v2/sitemap.js' %}"></script>
+{% endblock %}

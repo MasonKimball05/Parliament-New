@@ -1,0 +1,44 @@
+{% comment %}
+Website refresh (src/ui_refresh.py): the committee list as the app's
+Committees screen draws it — one grouped card, a row per committee (icon
+tile, name, admin and counts, your role as pills, chevron), with Chat and Docs
+as small links under the row. Same context and the same fields as the card
+grid it replaces in committee_index.html.
+{% endcomment %}
+{% if committees %}
+<div>
+    <div class="rf-section-title"><h2>{% if show_all %}All committees{% else %}Your committees{% endif %}</h2><span class="rf-row-trailing">{{ committees|length }}</span></div>
+    <div class="rf-card">
+        {% for item in committees %}
+        <div class="rf-row rf-row-group{% if item.committee.is_archived %} is-archived{% endif %}">
+            <span class="rf-row-icon"><span class="rf-tile {% if item.committee.is_archived %}is-orange{% elif not item.committee.is_active %}is-gray{% elif item.committee.is_ad_hoc %}is-purple{% else %}is-teal{% endif %}" aria-hidden="true"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg></span></span>
+            <span class="rf-row-body">
+                <a href="{% url 'committee_home' item.committee.code %}" class="rf-row-title rf-row-link">{{ item.committee.name }}</a>
+                <span class="rf-row-sub">{% if item.committee.role %}{{ item.committee.role.name }}{% if item.committee_vp %} · {{ item.committee_vp.name }}{% endif %}{% elif item.committee.admin %}{{ item.committee.admin.name }}{% else %}No admin assigned{% endif %} · {{ item.member_count }} member{{ item.member_count|pluralize }}{% if item.chair_count %} · {{ item.chair_count }} chair{{ item.chair_count|pluralize }}{% endif %}{% if item.advisor_count %} · {{ item.advisor_count }} advisor{{ item.advisor_count|pluralize }}{% endif %}</span>
+                <span class="rf-row-pills">
+                    {% if item.committee.is_archived %}<span class="rf-chip is-warning">Archived</span>{% elif not item.committee.is_active %}<span class="rf-chip">Inactive</span>{% endif %}
+                    {% if item.committee.is_ad_hoc %}<span class="rf-chip is-accent">Ad-hoc</span>{% endif %}
+                    {% for role in item.roles %}{% if role == 'Chair' %}<span class="rf-chip is-accent">Chair</span>{% elif role == 'Advisor' %}<span class="rf-chip is-success">Advisor</span>{% elif role == 'Member' %}<span class="rf-chip">Member</span>{% endif %}{% endfor %}
+                    {% if item.is_voting_member %}<span class="rf-chip is-accent">Voting</span>{% endif %}
+                    {% if not item.roles and not item.is_voting_member %}<span class="rf-chip">Observer</span>{% endif %}
+                    <span class="rf-row-actions">
+                        {% if feature_flags.chats %}<a href="{% url 'committee_chat' item.committee.code %}">Chat</a>{% endif %}
+                        <a href="{% url 'committee_documents' item.committee.code %}">Docs</a>
+                    </span>
+                </span>
+            </span>
+            <a href="{% url 'committee_home' item.committee.code %}" class="rf-chevron" aria-label="Open {{ item.committee.name }}">›</a>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% else %}
+<div>
+    <div class="rf-card">
+        <div class="rf-row is-empty">
+            <span class="rf-row-icon"><span class="rf-tile is-gray" aria-hidden="true"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5"/></svg></span></span>
+            <span class="rf-row-body"><span class="rf-row-title">{% if show_all %}No committees found in the chapter{% else %}You're not on any committees yet{% endif %}</span></span>
+        </div>
+    </div>
+</div>
+{% endif %}

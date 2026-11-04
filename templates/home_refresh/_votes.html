@@ -1,0 +1,18 @@
+{% comment %}Website refresh: home_modern's pending-votes alert as a card — the same count line, then each bill with its Vote Now button.{% endcomment %}
+{% if pending_votes %}
+<div class="rf-card" role="region" aria-label="Legislation that needs your vote">
+    <div class="rf-ballot-head">
+        <span class="rf-tile is-blue" aria-hidden="true"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg></span>
+        <span class="rf-row-body"><span class="rf-row-title">{{ pending_votes|length }} piece{{ pending_votes|length|pluralize }} of legislation need{{ pending_votes|length|pluralize:",s" }} your vote</span></span>
+    </div>
+    {% for legislation in pending_votes %}
+    <div class="rf-row">
+        <span class="rf-row-body">
+            <span class="rf-row-title">{{ legislation.title }}</span>
+            {% if legislation.voting_ends_at %}<span class="rf-row-sub">Closes {{ legislation.voting_ends_at|date:"D M j, g:i A" }}</span>{% endif %}
+        </span>
+        <a href="{% url 'vote' %}" class="rf-btn">Vote Now</a>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}

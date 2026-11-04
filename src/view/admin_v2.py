@@ -1617,18 +1617,12 @@ def remove_user_profile_picture(request, user_id):
     return redirect(_safe_referer(request, 'admin_v2_manage_users'))
 
 
-@require_admin_v2_auth
-def manage_login_history(request):
-    """
-    View and manage login history
-    """
-    from django.core.paginator import Paginator
+LOGIN_HISTORY_PAGE_SIZE = 50
 
-    # Get filter parameters
-    suspicious_filter = request.GET.get('suspicious', '')
-    user_search = request.GET.get('user', '')
 
-    # Build query
+def login_history_queryset(suspicious_filter='', user_search=''):
+    """The Login history page's filtered rows, newest first.
+    v4.4.4: factored out of `manage_login_history` for the app."""
     logins_list = LoginHistory.objects.select_related('user').defer(*member_defer('user')).order_by('-timestamp')
 
     if suspicious_filter == 'yes':
@@ -1642,9 +1636,25 @@ def manage_login_history(request):
             Q(user__preferred_name__icontains=user_search) |
             Q(user__username__icontains=user_search)
         )
+    return logins_list
+
+
+@require_admin_v2_auth
+def manage_login_history(request):
+    """
+    View and manage login history
+    """
+    from django.core.paginator import Paginator
+
+    # Get filter parameters
+    suspicious_filter = request.GET.get('suspicious', '')
+    user_search = request.GET.get('user', '')
+
+    # Build query (v4.4.4: `login_history_queryset`, shared with the app)
+    logins_list = login_history_queryset(suspicious_filter, user_search)
 
     # Paginate
-    paginator = Paginator(logins_list, 50)
+    paginator = Paginator(logins_list, LOGIN_HISTORY_PAGE_SIZE)
     page_number = request.GET.get('page')
     logins = paginator.get_page(page_number)
 
@@ -2346,66 +2356,73 @@ def force_password_reset(request, user_id):
     return redirect('admin_v2_user_login_security', user_id=user_id)
 
 
-@require_admin_v2_auth
-@require_POST
-def add_ip_to_whitelist(request):
-    """
-    Add an IP address to the whitelist
-    """
-    ip_address = request.POST.get('ip_address', '').strip()
-    description = request.POST.get('description', '')
+# ── IP lists: shared with the app (v4.4.4, src/mobile/views_site_admin_ops.py) ──
+#
+# Each helper is the whole of what the website's form did: the same checks,
+# the same rows, the same cache keys and the same ActivityLog entry, so the
+# app's Site admin changes the lists exactly as the page does. They return
+# ``(code, message)``: 'ok', or 'required' / 'invalid' / 'exists' with the
+# page's own wording.
+#
+# v4.4.4 — two fixes on the way into the helpers, for both the page and the
+# app: an address that was on the list before and was removed (the row kept,
+# ``is_active=False``) is put back on the list instead of a 500 (the column is
+# unique, so a second ``create`` raised IntegrityError); and the blacklist
+# runs its model's own ``validate_ipv46_address`` (matching is exact, so a
+# range or a typo was a ban that blocked nobody). Text over the columns'
+# lengths is cut to fit rather than a database error.
 
+IP_MAX_LENGTH = 45
+IP_NOTE_MAX_LENGTH = 200
+
+
+def _ip_input(ip_address):
+    ip_address = (ip_address or '').strip() if isinstance(ip_address, str) else ''
     if not ip_address:
-        messages.error(request, 'IP address is required')
-        return redirect(_safe_referer(request, 'admin_v2_dashboard'))
+        return None, ('required', 'IP address is required')
+    if len(ip_address) > IP_MAX_LENGTH:
+        return None, ('invalid', 'Enter a valid IPv4 or IPv6 address.')
+    return ip_address, None
 
-    # Check if already whitelisted
+
+def add_ip_whitelist_entry(request, actor, ip_address, description):
+    ip_address, refused = _ip_input(ip_address)
+    if refused:
+        return refused
+    description = (description or '')[:IP_NOTE_MAX_LENGTH]
     if IPWhitelist.objects.filter(ip_address=ip_address, is_active=True).exists():
-        messages.warning(request, f'IP {ip_address} is already whitelisted')
-        return redirect(_safe_referer(request, 'admin_v2_dashboard'))
-
-    # Create whitelist entry
-    IPWhitelist.objects.create(
-        ip_address=ip_address,
-        description=description or f'Added by {request.user.get_display_name()}',
-        added_by=request.user
-    )
-
+        return 'exists', f'IP {ip_address} is already whitelisted'
+    note = description or f'Added by {actor.get_display_name()}'
+    if not IPWhitelist.objects.filter(ip_address=ip_address).update(
+            description=note, added_by=actor, added_at=timezone.now(), is_active=True):
+        IPWhitelist.objects.create(ip_address=ip_address, description=note, added_by=actor)
     ActivityLog.log_activity(
         action_type='ip_whitelisted',
-        user=request.user,
-        description=f'{request.user.get_display_name()} added {ip_address} to whitelist: {description}',
+        user=actor,
+        description=f'{actor.get_display_name()} added {ip_address} to whitelist: {description}',
         request=request
     )
-
-    messages.success(request, f'IP {ip_address} has been added to whitelist')
-    return redirect(_safe_referer(request, 'admin_v2_dashboard'))
+    return 'ok', f'IP {ip_address} has been added to whitelist'
 
 
-@require_admin_v2_auth
-@require_POST
-def add_ip_to_blacklist(request):
-    """
-    Add an IP address to the blacklist
-    """
-    ip_address = request.POST.get('ip_address', '').strip()
-    reason = request.POST.get('reason', '')
+def add_ip_blacklist_entry(request, actor, ip_address, reason):
+    from django.core.exceptions import ValidationError
+    from django.core.validators import validate_ipv46_address
 
-    if not ip_address:
-        messages.error(request, 'IP address is required')
-        return redirect(_safe_referer(request, 'admin_v2_dashboard'))
-
-    # Check if already blacklisted
+    ip_address, refused = _ip_input(ip_address)
+    if refused:
+        return refused
+    try:
+        validate_ipv46_address(ip_address)
+    except ValidationError:
+        return 'invalid', 'Enter a single IPv4 or IPv6 address. Ranges are not supported: matching is exact.'
+    reason = (reason or '')[:IP_NOTE_MAX_LENGTH]
     if IPBlacklist.objects.filter(ip_address=ip_address, is_active=True).exists():
-        messages.warning(request, f'IP {ip_address} is already blacklisted')
-        return redirect(_safe_referer(request, 'admin_v2_dashboard'))
-
-    # Create blacklist entry
-    IPBlacklist.objects.create(
-        ip_address=ip_address,
-        reason=reason or 'Suspicious activity',
-        added_by=request.user
-    )
+        return 'exists', f'IP {ip_address} is already blacklisted'
+    note = reason or 'Suspicious activity'
+    if not IPBlacklist.objects.filter(ip_address=ip_address).update(
+            reason=note, added_by=actor, added_at=timezone.now(), is_active=True, expires_at=None):
+        IPBlacklist.objects.create(ip_address=ip_address, reason=note, added_by=actor)
 
     # Immediately invalidate any cached "not blacklisted" result for this IP
     cache.delete(f'ip_blacklisted_{ip_address}')
@@ -2414,72 +2431,86 @@ def add_ip_to_blacklist(request):
 
     ActivityLog.log_activity(
         action_type='ip_blacklisted',
-        user=request.user,
-        description=f'{request.user.get_display_name()} blacklisted {ip_address}: {reason}',
+        user=actor,
+        description=f'{actor.get_display_name()} blacklisted {ip_address}: {reason}',
         request=request
     )
+    return 'ok', f'IP {ip_address} has been added to blacklist'
 
-    messages.success(request, f'IP {ip_address} has been added to blacklist')
+
+def remove_ip_whitelist_entry(request, actor, ip_address):
+    ip_address, refused = _ip_input(ip_address)
+    if refused:
+        return refused
+    entries = IPWhitelist.objects.filter(ip_address=ip_address, is_active=True)
+    count = entries.count()
+    entries.update(is_active=False)
+    ActivityLog.log_activity(
+        action_type='ip_whitelist_removed',
+        user=actor,
+        description=f'{actor.get_display_name()} removed {ip_address} from whitelist',
+        request=request
+    )
+    return 'ok', f'IP {ip_address} has been removed from whitelist ({count} entries deactivated)'
+
+
+def remove_ip_blacklist_entry(request, actor, ip_address):
+    ip_address, refused = _ip_input(ip_address)
+    if refused:
+        return refused
+    entries = IPBlacklist.objects.filter(ip_address=ip_address, is_active=True)
+    count = entries.count()
+    entries.update(is_active=False)
+    # Clear cached block state so the next request re-checks the DB
+    cache.delete(f'ip_blacklisted_{ip_address}')
+    ActivityLog.log_activity(
+        action_type='ip_blacklist_removed',
+        user=actor,
+        description=f'{actor.get_display_name()} removed {ip_address} from blacklist',
+        request=request
+    )
+    return 'ok', f'IP {ip_address} has been removed from blacklist ({count} entries deactivated)'
+
+
+_IP_MESSAGE_LEVEL = {'ok': messages.success, 'exists': messages.warning}
+
+
+def _ip_list_redirect(request, outcome):
+    code, text = outcome
+    _IP_MESSAGE_LEVEL.get(code, messages.error)(request, text)
     return redirect(_safe_referer(request, 'admin_v2_dashboard'))
+
+
+@require_admin_v2_auth
+@require_POST
+def add_ip_to_whitelist(request):
+    """Add an IP address to the whitelist (``add_ip_whitelist_entry``)."""
+    return _ip_list_redirect(request, add_ip_whitelist_entry(
+        request, request.user, request.POST.get('ip_address', ''), request.POST.get('description', '')))
+
+
+@require_admin_v2_auth
+@require_POST
+def add_ip_to_blacklist(request):
+    """Add an IP address to the blacklist (``add_ip_blacklist_entry``)."""
+    return _ip_list_redirect(request, add_ip_blacklist_entry(
+        request, request.user, request.POST.get('ip_address', ''), request.POST.get('reason', '')))
 
 
 @require_admin_v2_auth
 @require_POST
 def remove_ip_from_whitelist(request):
-    """
-    Remove an IP address from the whitelist
-    """
-    ip_address = request.POST.get('ip_address', '').strip()
-
-    if not ip_address:
-        messages.error(request, 'IP address is required')
-        return redirect(_safe_referer(request, 'admin_v2_dashboard'))
-
-    # Deactivate whitelist entry
-    entries = IPWhitelist.objects.filter(ip_address=ip_address, is_active=True)
-    count = entries.count()
-    entries.update(is_active=False)
-
-    ActivityLog.log_activity(
-        action_type='ip_whitelist_removed',
-        user=request.user,
-        description=f'{request.user.get_display_name()} removed {ip_address} from whitelist',
-        request=request
-    )
-
-    messages.success(request, f'IP {ip_address} has been removed from whitelist ({count} entries deactivated)')
-    return redirect(_safe_referer(request, 'admin_v2_dashboard'))
+    """Remove an IP address from the whitelist (``remove_ip_whitelist_entry``)."""
+    return _ip_list_redirect(request, remove_ip_whitelist_entry(
+        request, request.user, request.POST.get('ip_address', '')))
 
 
 @require_admin_v2_auth
 @require_POST
 def remove_ip_from_blacklist(request):
-    """
-    Remove an IP address from the blacklist
-    """
-    ip_address = request.POST.get('ip_address', '').strip()
-
-    if not ip_address:
-        messages.error(request, 'IP address is required')
-        return redirect(_safe_referer(request, 'admin_v2_dashboard'))
-
-    # Deactivate blacklist entry
-    entries = IPBlacklist.objects.filter(ip_address=ip_address, is_active=True)
-    count = entries.count()
-    entries.update(is_active=False)
-
-    # Clear cached block state so the next request re-checks the DB
-    cache.delete(f'ip_blacklisted_{ip_address}')
-
-    ActivityLog.log_activity(
-        action_type='ip_blacklist_removed',
-        user=request.user,
-        description=f'{request.user.get_display_name()} removed {ip_address} from blacklist',
-        request=request
-    )
-
-    messages.success(request, f'IP {ip_address} has been removed from blacklist ({count} entries deactivated)')
-    return redirect(_safe_referer(request, 'admin_v2_dashboard'))
+    """Remove an IP address from the blacklist (``remove_ip_blacklist_entry``)."""
+    return _ip_list_redirect(request, remove_ip_blacklist_entry(
+        request, request.user, request.POST.get('ip_address', '')))
 
 
 @require_admin_v2_auth
@@ -3019,16 +3050,17 @@ def test_email_targeting(request):
     return render(request, 'admin_v2/test_email_targeting.html', context)
 
 
-@require_admin_v2_auth
-def email_logs(request):
-    """
-    View all announcement email logs with detailed send information.
-    Also shows pending scheduled announcements that haven't sent emails yet.
-    """
+EMAIL_LOGS_LIMIT = 50
+
+
+def email_logs_data():
+    """The Email logs page's rows: the newest 50 sends, and the active
+    announcements still waiting to email. v4.4.4: factored out of `email_logs`
+    for the app."""
     # Get sent email logs
     logs = AnnouncementEmailLog.objects.select_related(
         'announcement', 'initiated_by'
-    ).defer(*member_defer('initiated_by')).prefetch_related('recipients').order_by('-created_at')[:50]
+    ).defer(*member_defer('initiated_by')).prefetch_related('recipients').order_by('-created_at')[:EMAIL_LOGS_LIMIT]
 
     # Get pending scheduled announcements (haven't sent emails yet)
     pending_announcements = Announcement.objects.filter(
@@ -3036,6 +3068,29 @@ def email_logs(request):
         email_sent_at__isnull=True,
         is_active=True,
     ).select_related('posted_by').defer(*member_defer('posted_by')).order_by('-posted_at')
+    return logs, pending_announcements
+
+
+def email_log_recipients_by_status(log):
+    """{status label: [recipients]} in the recipients' order, as the Email log
+    detail page groups them. v4.4.4: shared with the app."""
+    recipients_by_status = {}
+    for recipient in log.recipients.all():
+        status = recipient.get_status_display()
+        if status not in recipients_by_status:
+            recipients_by_status[status] = []
+        recipients_by_status[status].append(recipient)
+    return recipients_by_status
+
+
+@require_admin_v2_auth
+def email_logs(request):
+    """
+    View all announcement email logs with detailed send information.
+    Also shows pending scheduled announcements that haven't sent emails yet.
+    """
+    # v4.4.4: `email_logs_data`, shared with the app
+    logs, pending_announcements = email_logs_data()
 
     context = {
         'logs': logs,
@@ -3052,13 +3107,8 @@ def email_log_detail(request, log_id):
     """
     log = get_object_or_404(AnnouncementEmailLog, id=log_id)
 
-    # Group recipients by status
-    recipients_by_status = {}
-    for recipient in log.recipients.all():
-        status = recipient.get_status_display()
-        if status not in recipients_by_status:
-            recipients_by_status[status] = []
-        recipients_by_status[status].append(recipient)
+    # Group recipients by status (v4.4.4: shared with the app)
+    recipients_by_status = email_log_recipients_by_status(log)
 
     # Count by status
     status_counts = {}
@@ -3784,36 +3834,49 @@ def manage_lockouts(request):
     })
 
 
+SECURITY_NOTIFICATIONS_PAGE_SIZE = 50
+
+
+def security_notifications_queryset(severity_filter='', event_filter=''):
+    """The Security notifications page's filtered rows, newest first.
+    v4.4.4: factored out of `security_notifications_log` for the app."""
+    from src.models import SecurityNotificationLog
+    notifications = SecurityNotificationLog.objects.order_by('-sent_at')
+    # Filter by severity if specified
+    if severity_filter:
+        notifications = notifications.filter(severity=severity_filter)
+    # Filter by event type if specified
+    if event_filter:
+        notifications = notifications.filter(event_type__icontains=event_filter)
+    return notifications
+
+
+def security_notification_event_types():
+    """The distinct event types for the page's filter."""
+    from src.models import SecurityNotificationLog
+    return SecurityNotificationLog.objects.values_list('event_type', flat=True).distinct()
+
+
 @require_admin_v2_auth
 def security_notifications_log(request):
     """View security notification history."""
     if not request.user.is_admin:
         return HttpResponseForbidden("Admin access required")
 
-    from src.models import SecurityNotificationLog
     from django.core.paginator import Paginator
 
-    notifications = SecurityNotificationLog.objects.order_by('-sent_at')
-
-    # Filter by severity if specified
     severity_filter = request.GET.get('severity', '')
-    if severity_filter:
-        notifications = notifications.filter(severity=severity_filter)
-
-    # Filter by event type if specified
     event_filter = request.GET.get('event_type', '')
-    if event_filter:
-        notifications = notifications.filter(event_type__icontains=event_filter)
+    # v4.4.4: `security_notifications_queryset`, shared with the app
+    notifications = security_notifications_queryset(severity_filter, event_filter)
 
     # Paginate
-    paginator = Paginator(notifications, 50)
+    paginator = Paginator(notifications, SECURITY_NOTIFICATIONS_PAGE_SIZE)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
 
     # Get distinct event types for filter dropdown
-    event_types = SecurityNotificationLog.objects.values_list(
-        'event_type', flat=True
-    ).distinct()
+    event_types = security_notification_event_types()
 
     return render(request, 'admin_v2/security_notifications.html', {
         'notifications': page_obj,
@@ -4056,20 +4119,24 @@ def _page_visit_user_q(term):
 _PAGE_VISIT_STATUSES = ('Active', 'Inactive', 'Alumni', 'Removed')
 
 
-@require_admin_v2_auth
-def page_visits_dashboard(request):
+def page_visits_data(sort='total', drill_path='', user_filter='', status_filter=''):
     """
-    Admin v2 view: aggregated page visit stats, sortable by total visits or user count.
-    Supports drilling into a specific path to see per-user breakdown, and
-    filtering both views by member name/username (v3.15.6) and by member
-    status — Active/Inactive/Alumni/Removed (v3.15.7).
+    The page-visits dashboard's data, shared with the app (v4.4.4,
+    src/mobile/views_site_admin_ops.py): the filters as the page cleans them,
+    then either ``rows`` (the per-member breakdown for ``drill_path``) or
+    ``pages`` (per-path totals) and ``matched_users``. Querysets, unevaluated.
     """
-    sort = request.GET.get('sort', 'total')
-    drill_path = request.GET.get('path', '').strip()
-    user_filter = request.GET.get('user', '').strip()
-    status_filter = request.GET.get('status', '').strip()
+    drill_path = (drill_path or '').strip()
+    user_filter = (user_filter or '').strip()
+    status_filter = (status_filter or '').strip()
     if status_filter not in _PAGE_VISIT_STATUSES:
         status_filter = ''  # unknown value -> All statuses
+    data = {
+        'sort': sort,
+        'user_filter': user_filter,
+        'status_filter': status_filter,
+        'status_choices': _PAGE_VISIT_STATUSES,
+    }
 
     if drill_path:
         # Per-user breakdown for a specific path
@@ -4083,14 +4150,7 @@ def page_visits_dashboard(request):
             rows = rows.filter(_page_visit_user_q(user_filter))
         if status_filter:
             rows = rows.filter(user__member_status=status_filter)
-        return render(request, 'admin_v2/page_visits.html', {
-            'drill_path': drill_path,
-            'rows': rows,
-            'sort': sort,
-            'user_filter': user_filter,
-            'status_filter': status_filter,
-            'status_choices': _PAGE_VISIT_STATUSES,
-        })
+        return {**data, 'drill_path': drill_path, 'rows': rows}
 
     # Aggregate by path — optionally restricted to visits by matching member(s),
     # so the dashboard can answer "what has this member been looking at" without
@@ -4128,16 +4188,21 @@ def page_visits_dashboard(request):
         qs = qs.order_by('-unique_users', '-total')
     else:
         qs = qs.order_by('-total', '-unique_users')
+    return {**data, 'drill_path': None, 'pages': qs, 'matched_users': matched_users}
 
-    return render(request, 'admin_v2/page_visits.html', {
-        'pages': qs,
-        'sort': sort,
-        'drill_path': None,
-        'user_filter': user_filter,
-        'status_filter': status_filter,
-        'status_choices': _PAGE_VISIT_STATUSES,
-        'matched_users': matched_users,
-    })
+
+@require_admin_v2_auth
+def page_visits_dashboard(request):
+    """
+    Admin v2 view: aggregated page visit stats, sortable by total visits or user count.
+    Supports drilling into a specific path to see per-user breakdown, and
+    filtering both views by member name/username (v3.15.6) and by member
+    status — Active/Inactive/Alumni/Removed (v3.15.7). Data: ``page_visits_data``.
+    """
+    return render(request, 'admin_v2/page_visits.html', page_visits_data(
+        sort=request.GET.get('sort', 'total'), drill_path=request.GET.get('path', ''),
+        user_filter=request.GET.get('user', ''), status_filter=request.GET.get('status', ''),
+    ))
 
 
 # =============================================================================
@@ -4151,25 +4216,10 @@ def event_reminder_logs(request):
     Shows upcoming events with pending reminders and completed reminder history.
     """
     from django.utils import timezone as tz
-    from django.db.models import Count, Q
     now = tz.now()
 
-    # emails_viewed is annotated (not a stored EventReminderLog field) because,
-    # unlike the other counts, it keeps changing after the row is created —
-    # someone can open the email days later. A stored count would be stale the
-    # moment it was written.
-    logs = EventReminderLog.objects.select_related('event').annotate(
-        emails_viewed=Count('recipients', filter=Q(recipients__viewed_at__isnull=False)),
-    ).order_by('-sent_at')[:100]
-
-    # Events with at least one reminder enabled that hasn't fired yet
-    pending_events = Event.objects.filter(
-        is_active=True,
-        date_time__gt=now,
-    ).filter(
-        Q(reminder_1_enabled=True, reminder_1_sent_at__isnull=True) |
-        Q(reminder_2_enabled=True, reminder_2_sent_at__isnull=True)
-    ).order_by('date_time')
+    # v4.4.4: `event_reminder_logs_data`, shared with the app
+    logs, pending_events = event_reminder_logs_data(now)
 
     return render(request, 'admin_v2/event_reminder_logs.html', {
         'logs': logs,
@@ -4193,6 +4243,39 @@ def event_reminder_log_detail(request, log_id):
     set by track_event_reminder_email_view).
     """
     log = get_object_or_404(EventReminderLog, id=log_id)
+    # v4.4.4: `event_reminder_log_detail_data`, shared with the app
+    return render(request, 'admin_v2/event_reminder_log_detail.html',
+                  {'log': log, **event_reminder_log_detail_data(log)})
+
+
+def event_reminder_logs_data(now):
+    """The Event reminder logs page's rows: the newest 100 dispatches (with
+    ``emails_viewed``), and upcoming events with a reminder still to fire.
+    v4.4.4: factored out of `event_reminder_logs` for the app."""
+    from django.db.models import Count, Q
+
+    # emails_viewed is annotated (not a stored EventReminderLog field) because,
+    # unlike the other counts, it keeps changing after the row is created —
+    # someone can open the email days later. A stored count would be stale the
+    # moment it was written.
+    logs = EventReminderLog.objects.select_related('event').annotate(
+        emails_viewed=Count('recipients', filter=Q(recipients__viewed_at__isnull=False)),
+    ).order_by('-sent_at')[:100]
+
+    # Events with at least one reminder enabled that hasn't fired yet
+    pending_events = Event.objects.filter(
+        is_active=True,
+        date_time__gt=now,
+    ).filter(
+        Q(reminder_1_enabled=True, reminder_1_sent_at__isnull=True) |
+        Q(reminder_2_enabled=True, reminder_2_sent_at__isnull=True)
+    ).order_by('date_time')
+    return logs, pending_events
+
+
+def event_reminder_log_detail_data(log):
+    """One reminder dispatch's recipient breakdown (see `event_reminder_log_detail`).
+    v4.4.4: shared with the app."""
     recipients = log.recipients.select_related('user').defer(*member_defer('user')).order_by('status', 'user_name')
 
     dispatched = recipients.filter(status='dispatched')
@@ -4202,15 +4285,13 @@ def event_reminder_log_detail(request, log_id):
     emails_dispatched_qs = recipients.filter(email_status='dispatched')
     emails_viewed = emails_dispatched_qs.filter(viewed_at__isnull=False).order_by('-viewed_at')
     emails_not_viewed = emails_dispatched_qs.filter(viewed_at__isnull=True)
-
-    return render(request, 'admin_v2/event_reminder_log_detail.html', {
-        'log': log,
+    return {
         'dispatched': dispatched,
         'skipped': skipped,
         'email_enabled': email_enabled,
         'emails_viewed': emails_viewed,
         'emails_not_viewed': emails_not_viewed,
-    })
+    }
 
 
 

@@ -89,8 +89,8 @@ def delete_account(request):
 
 # ── Admin ───────────────────────────────────────────────────────────────────
 
-@require_admin_v2_auth
-def admin_v2_account_deletions(request):
+def account_deletions_data():
+    """The admin page's two lists, shared with the app (v4.4.4, src/mobile/views_site_admin_ops.py)."""
     closed = list(ParliamentUser.objects.closed_accounts()
                   .only('user_id', 'name', 'preferred_name', 'role_number', 'pledge_class',
                         'member_status', 'deletion_requested_at', 'deletion_requested_via',
@@ -98,9 +98,12 @@ def admin_v2_account_deletions(request):
                   .order_by('-deletion_requested_at')[:500])
     pending = [{'member': m, 'purge_on': deletion.purge_on(m)} for m in closed if not m.account_deleted_at]
     purged = [m for m in closed if m.account_deleted_at]
-    return render(request, 'admin_v2/account_deletions.html', {
-        'pending': pending, 'purged': purged, 'purge_days': deletion.PURGE_AFTER.days,
-    })
+    return {'pending': pending, 'purged': purged, 'purge_days': deletion.PURGE_AFTER.days}
+
+
+@require_admin_v2_auth
+def admin_v2_account_deletions(request):
+    return render(request, 'admin_v2/account_deletions.html', account_deletions_data())
 
 
 @require_admin_v2_auth

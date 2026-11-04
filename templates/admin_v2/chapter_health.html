@@ -1,0 +1,149 @@
+{% extends "admin_v2/base.html" %}
+
+{% comment %}
+Chapter health (v4.4.4): src/view/admin_v2_health.py. Read-only. Bars are
+plain divs with an inline width/height (style-src allows inline style
+attributes; no chart library, no script).
+{% endcomment %}
+
+{% block title %}Chapter health - Admin{% endblock %}
+
+{% block admin_content %}
+<div class="px-4 sm:px-6 py-6 max-w-6xl">
+    <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Chapter health</h1>
+    <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Who is slipping: sign-ins, attendance, the app, pledge tasks and service hours. Active members, Advisors left out. Updated {{ health.computed_at|timesince }} ago (numbers are kept for {{ cache_seconds }} seconds).</p>
+
+    {% with a=health.attendance s=health.service %}
+    <div class="mt-5 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4"><p class="text-2xl font-bold text-gray-900 dark:text-gray-100">{{ health.inactive.n }}</p><p class="text-xs text-gray-500 dark:text-gray-400">Not seen in {{ days }} days</p></div>
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4"><p class="text-2xl font-bold text-gray-900 dark:text-gray-100">{% if a.overall is not None %}{{ a.overall }}%{% else %}—{% endif %}</p><p class="text-xs text-gray-500 dark:text-gray-400">Attendance this semester</p></div>
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4"><p class="text-2xl font-bold text-gray-900 dark:text-gray-100">{{ health.app.n }}</p><p class="text-xs text-gray-500 dark:text-gray-400">Without the app (of {{ health.app.total }})</p></div>
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4"><p class="text-2xl font-bold text-gray-900 dark:text-gray-100">{{ health.pledges.n }}</p><p class="text-xs text-gray-500 dark:text-gray-400">Pledges behind (of {{ health.pledges.pledges }})</p></div>
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4"><p class="text-2xl font-bold text-gray-900 dark:text-gray-100">{% if s.period %}{{ s.n }}{% else %}—{% endif %}</p><p class="text-xs text-gray-500 dark:text-gray-400">Below service hours</p></div>
+    </div>
+
+    <div class="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Inactive -->
+        <section id="inactive" class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-5">
+            <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+                <h2 class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Not seen in {{ days }} days</h2>
+                <nav aria-label="Inactive for" class="flex gap-1 text-xs">
+                    {% for d in day_options %}
+                    <a href="?days={{ d }}#inactive" class="px-2 py-1 rounded-md {% if d == days %}bg-primary-50 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300 font-semibold{% else %}text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700{% endif %}" {% if d == days %}aria-current="true"{% endif %}>{{ d }} days</a>
+                    {% endfor %}
+                </nav>
+            </div>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">Last seen on the website or the app, or last password sign-in, whichever is newest.</p>
+            <ul class="divide-y divide-gray-100 dark:divide-gray-700 text-sm">
+                {% for m in health.inactive.members %}
+                <li class="py-1.5 flex justify-between gap-3"><a href="{% url 'admin_v2_member' m.user_id %}" class="font-medium text-gray-900 dark:text-gray-100 hover:underline truncate">{{ m.name }}</a><span class="text-gray-500 dark:text-gray-400 whitespace-nowrap">{{ m.days }} days · {{ m.last|date:"M j, Y" }}</span></li>
+                {% empty %}
+                <li class="py-1.5 text-gray-500 dark:text-gray-400">Everyone has been on in the last {{ days }} days.</li>
+                {% endfor %}
+            </ul>
+            {% if health.inactive.n > health.inactive.members|length %}<p class="mt-2 text-xs text-gray-500 dark:text-gray-400">Showing the {{ health.inactive.members|length }} longest away of {{ health.inactive.n }}.</p>{% endif %}
+
+            <h3 class="mt-5 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">Never signed in ({{ health.inactive.never_count }})</h3>
+            <ul class="divide-y divide-gray-100 dark:divide-gray-700 text-sm">
+                {% for m in health.inactive.never %}
+                <li class="py-1.5 flex justify-between gap-3"><a href="{% url 'admin_v2_member' m.user_id %}" class="font-medium text-gray-900 dark:text-gray-100 hover:underline truncate">{{ m.name }}</a><span class="text-gray-500 dark:text-gray-400 whitespace-nowrap">{{ m.member_type }}</span></li>
+                {% empty %}
+                <li class="py-1.5 text-gray-500 dark:text-gray-400">Everyone has signed in at least once.</li>
+                {% endfor %}
+            </ul>
+        </section>
+
+        <!-- Attendance -->
+        <section class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-5">
+            <h2 class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Attendance this semester</h2>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">Since {{ a.start|date:"M j" }}: {{ a.meetings }} finalized meeting(s) that required attendance. Present or late counts as attended.</p>
+            {% if a.meetings %}
+            <div class="flex items-end gap-1 h-32 border-b border-gray-200 dark:border-gray-700" role="img" aria-label="Weekly attendance rate since {{ a.start|date:'M j' }}">
+                {% for w in a.weeks %}
+                <div class="flex-1 h-full flex items-end" title="Week of {{ w.week|date:'M j' }}: {% if w.rate is not None %}{{ w.rate }}%{% else %}no meeting{% endif %}">
+                    {% if w.rate is not None %}<div class="w-full rounded-t bg-primary-600" style="height: {{ w.rate }}%"></div>{% endif %}
+                </div>
+                {% endfor %}
+            </div>
+            <div class="flex justify-between text-xs text-gray-400 dark:text-gray-500 mt-1"><span>{{ a.weeks.0.week|date:"M j" }}</span><span>This week</span></div>
+            <details class="mt-2 text-xs text-gray-600 dark:text-gray-300">
+                <summary class="cursor-pointer">Show the numbers</summary>
+                <ul class="mt-1">{% for w in a.weeks %}<li>Week of {{ w.week|date:"M j" }}: {% if w.rate is not None %}{{ w.rate }}% ({{ w.events }} meeting{{ w.events|pluralize }}){% else %}no meeting{% endif %}</li>{% endfor %}</ul>
+            </details>
+
+            <h3 class="mt-5 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">Lowest attendance</h3>
+            <ul class="space-y-2 text-sm">
+                {% for m in a.lowest %}
+                <li>
+                    <div class="flex justify-between gap-3"><a href="{% url 'admin_v2_member' m.user_id %}" class="font-medium text-gray-900 dark:text-gray-100 hover:underline truncate">{{ m.name }}</a><span class="text-gray-500 dark:text-gray-400 whitespace-nowrap">{{ m.rate }}% · {{ m.attended }} of {{ m.total }}</span></div>
+                    <div class="mt-1 h-2 rounded-full bg-gray-200 dark:bg-gray-700" aria-hidden="true"><div class="h-2 rounded-full {% if m.rate < 50 %}bg-red-500{% elif m.rate < 75 %}bg-amber-500{% else %}bg-primary-600{% endif %}" style="width: {{ m.rate }}%"></div></div>
+                </li>
+                {% empty %}
+                <li class="text-gray-500 dark:text-gray-400">No attendance recorded for members yet.</li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <p class="text-sm text-gray-500 dark:text-gray-400">No finalized meetings this semester yet.</p>
+            {% endif %}
+        </section>
+
+        <!-- App -->
+        <section class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-5">
+            <h2 class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Without the app ({{ health.app.n }})</h2>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">No signed-in install (signed out, expired or never installed). See Mobile app for installs.</p>
+            {% if health.app.total %}
+            <div class="mb-1 h-2 rounded-full bg-gray-200 dark:bg-gray-700" role="img" aria-label="{{ health.app.with_app_percent }}% have the app"><div class="h-2 rounded-full bg-primary-600" style="width: {{ health.app.with_app_percent }}%"></div></div>
+            <p class="mb-3 text-xs text-gray-500 dark:text-gray-400">{{ health.app.with_app_percent }}% have the app.</p>
+            {% endif %}
+            <ul class="divide-y divide-gray-100 dark:divide-gray-700 text-sm">
+                {% for m in health.app.members %}
+                <li class="py-1.5 flex justify-between gap-3"><a href="{% url 'admin_v2_member' m.user_id %}" class="font-medium text-gray-900 dark:text-gray-100 hover:underline truncate">{{ m.name }}</a><span class="text-gray-500 dark:text-gray-400 whitespace-nowrap">{{ m.member_type }}</span></li>
+                {% empty %}
+                <li class="py-1.5 text-gray-500 dark:text-gray-400">Everyone has the app.</li>
+                {% endfor %}
+            </ul>
+            {% if health.app.n > health.app.members|length %}<p class="mt-2 text-xs text-gray-500 dark:text-gray-400">Showing {{ health.app.members|length }} of {{ health.app.n }}.</p>{% endif %}
+        </section>
+
+        <!-- Pledges -->
+        <section class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-5">
+            <h2 class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Pledges falling behind</h2>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">Tasks past their due date, not completed or waived (only tasks the pledge's phase has unlocked). The bar is required tasks done.</p>
+            <ul class="space-y-2 text-sm">
+                {% for m in health.pledges.members %}
+                <li>
+                    <div class="flex justify-between gap-3"><a href="{% url 'admin_v2_member' m.user_id %}" class="font-medium text-gray-900 dark:text-gray-100 hover:underline truncate">{{ m.name }}</a><span class="text-red-700 dark:text-red-400 whitespace-nowrap">{{ m.overdue }} overdue</span></div>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 truncate">{{ m.titles|join:", " }}{% if m.overdue > m.titles|length %}, …{% endif %}</p>
+                    <div class="mt-1 h-2 rounded-full bg-gray-200 dark:bg-gray-700" role="img" aria-label="{{ m.completed }} of {{ m.required }} required tasks done"><div class="h-2 rounded-full bg-primary-600" style="width: {{ m.percent }}%"></div></div>
+                </li>
+                {% empty %}
+                <li class="text-gray-500 dark:text-gray-400">{% if health.pledges.pledges %}No pledge has an overdue task.{% else %}No active pledges.{% endif %}</li>
+                {% endfor %}
+            </ul>
+        </section>
+
+        <!-- Service -->
+        <section class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-5 lg:col-span-2">
+            <h2 class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Service hours</h2>
+            {% if s.period %}
+            <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">{{ s.period.name }} (ends {{ s.period.end_date|date:"M j, Y" }}, {{ s.elapsed }}% of the period gone): {{ s.n }} member(s) below their requirement. Approved hours and adjustments; pending submissions don't count yet.</p>
+            <ul class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 text-sm">
+                {% for m in s.members %}
+                <li>
+                    <div class="flex justify-between gap-3"><a href="{% url 'admin_v2_member' m.user_id %}" class="font-medium text-gray-900 dark:text-gray-100 hover:underline truncate">{{ m.name }}</a><span class="text-gray-500 dark:text-gray-400 whitespace-nowrap">{{ m.hours|floatformat:"-1" }} of {{ m.expected|floatformat:"-1" }} h</span></div>
+                    <div class="mt-1 h-2 rounded-full bg-gray-200 dark:bg-gray-700" aria-hidden="true"><div class="h-2 rounded-full {% if m.percent < s.elapsed %}bg-amber-500{% else %}bg-primary-600{% endif %}" style="width: {{ m.percent }}%"></div></div>
+                </li>
+                {% empty %}
+                <li class="text-gray-500 dark:text-gray-400">Everyone has met the requirement.</li>
+                {% endfor %}
+            </ul>
+            {% if s.n > s.members|length %}<p class="mt-2 text-xs text-gray-500 dark:text-gray-400">Showing the {{ s.members|length }} furthest behind of {{ s.n }}.</p>{% endif %}
+            <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">Amber: further behind than the share of the period that has passed.</p>
+            {% else %}
+            <p class="text-sm text-gray-500 dark:text-gray-400">No active service period, so there is no requirement to measure against.</p>
+            {% endif %}
+        </section>
+    </div>
+    {% endwith %}
+</div>
+{% endblock %}

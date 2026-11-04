@@ -4,12 +4,12 @@
 
 {% block title %}Home - Parliament{% endblock %}
 
-{% block content %}
-<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-4">
+{% block content %}{% if ui_refresh %}{% include "home_refresh/_hero.html" %}{% endif %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-4{% if ui_refresh %} rf-home{% endif %}">
 
 {% include "components/onboarding_checklist.html" %}
 
-    <!-- ── WELCOME HEADER ───────────────────────────────────────── -->
+    {% if ui_refresh %}{% else %}<!-- ── WELCOME HEADER ───────────────────────────────────────── -->
     <div class="bg-gradient-to-br from-primary-600 via-primary-700 to-primary-800 rounded-xl shadow-lg p-4 text-white flex items-center justify-between gap-3 relative overflow-hidden">
         <div class="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-yellow-400/60 to-transparent pointer-events-none"></div>
         <div>
@@ -27,7 +27,7 @@
                 <span class="block text-xs italic opacity-75">Virtue Stands Alone</span>
             </span>
         </button>
-    </div>
+    </div>{% endif %}
 
     <!-- Coat of Arms Modal -->
     <div id="coat-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70">
@@ -40,7 +40,7 @@
         </div>
     </div>
 
-    <!-- ── STAT STRIP ────────────────────────────────────────────── -->
+    {% if ui_refresh %}{% include "home_refresh/_stats.html" %}{% else %}<!-- ── STAT STRIP ────────────────────────────────────────────── -->
     <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <a href="{% url 'member_directory' %}" class="bg-white dark:bg-gray-800 rounded-xl shadow-sm px-4 py-3 flex items-center gap-3 hover:shadow-md transition-shadow">
             <div class="w-9 h-9 rounded-lg bg-primary-50 dark:bg-primary-900/30 flex items-center justify-center flex-shrink-0">
@@ -84,7 +84,7 @@
                 <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">My Committee{{ user_committees_count|pluralize }}</p>
             </div>
         </a>
-    </div>
+    </div>{% endif %}
 
     <!-- ── TRANSITION CHECKLIST CARD (v3.14.1) ───────────────────── -->
     {% for cl in transition_checklists %}
@@ -263,7 +263,7 @@
 
     {% endif %}{# end show_slating_card #}
 
-    <!-- ── PENDING VOTES ALERT ───────────────────────────────────── -->
+    {% if ui_refresh %}{% include "home_refresh/_votes.html" %}{% else %}<!-- ── PENDING VOTES ALERT ───────────────────────────────────── -->
     {% if pending_votes %}
     <div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-4 flex items-start gap-3">
         <svg class="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
@@ -279,9 +279,9 @@
             </div>
         </div>
     </div>
-    {% endif %}
+    {% endif %}{% endif %}
 
-    <!-- ── 3-COLUMN CONTENT GRID ─────────────────────────────────── -->
+    {% if ui_refresh %}{% include "home_refresh/_lists.html" %}{% else %}<!-- ── 3-COLUMN CONTENT GRID ─────────────────────────────────── -->
     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
 
         <!-- EVENTS -->
@@ -360,9 +360,9 @@
             </div>
         </div>
 
-    </div>
+    </div>{% endif %}
 
-    {% comment %}
+    {% if ui_refresh %}{% include "home_refresh/_featured.html" %}{% else %}{% comment %}
     FEATURED CARDS. v3.22.0 added My Attendance as a fourth, so the grid is
     2-up on small screens and 4-up on large rather than 3-up. Quote Book
     (09-14-26) deliberately does NOT go here — a 5th card in a 4-column
@@ -411,9 +411,9 @@
             </div>
         </a>
 
-    </div>
+    </div>{% endif %}
 
-    <!-- ── QUICK LINKS ───────────────────────────────────────────── -->
+    {% if ui_refresh %}{% include "home_refresh/_quick_links.html" %}{% else %}<!-- ── QUICK LINKS ───────────────────────────────────────────── -->
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm px-5 py-4">
         <h2 class="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-3">Quick Links</h2>
         <div class="flex flex-wrap gap-2">
@@ -552,7 +552,7 @@
             {% endif %}
 
         </div>
-    </div>
+    </div>{% endif %}
 
 </div>
 

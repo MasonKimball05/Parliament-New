@@ -16,6 +16,8 @@ NAV = [
     ('Overview', [
         ('Dashboard', 'admin_v2_dashboard', (), 'home overview stats attention'),
         ('Trends', 'admin_v2_trends', (), 'charts graphs weekly sign ins app adoption failed logins'),
+        ('Chapter health', 'admin_v2_health', (),
+         'engagement inactive never signed in attendance lowest app installed pledges behind service hours'),
         ('Admin activity', 'admin_v2_admin_activity', (), 'who changed what admins did changes history'),
     ]),
     ('People', [
@@ -23,6 +25,7 @@ NAV = [
                                               'admin_v2_user_login_security'),
          'users brothers profiles admin access'),
         ('Bulk edit', 'admin_v2_bulk_members', (), 'bulk alumni year end transition status roles many'),
+        ('Permissions', 'admin_v2_permissions', (), 'who has access roles admins chairs allowlist api tokens kai elevated audit'),
         ('Account deletions', 'admin_v2_account_deletions', (), 'delete deleted account restore rebuild purge former member erase'),
         ('Two-factor', 'admin_v2_two_factor', ('admin_v2_two_factor_update_policy',),
          '2fa totp otp policy'),
@@ -44,6 +47,7 @@ NAV = [
         ('Event reminders', 'admin_v2_event_reminder_logs', ('admin_v2_event_reminder_log_detail',),
          'reminder emails'),
         ('Mobile app', 'admin_v2_mobile', ('admin_v2_mobile_push',), 'app devices phones expo push ios android'),
+        ('Push composer', 'admin_v2_push', ('admin_v2_push_send',), 'send push notification broadcast message group everyone officers committee'),
         ('Web push', 'admin_v2_push_subscriptions', (), 'browser push subscriptions'),
     ]),
     ('Security', [
@@ -65,9 +69,11 @@ NAV = [
         ('Bug reports', 'bug_admin', ('bug_admin_update',), 'bugs bug tracker triage'),
         ('Maintenance', 'admin_v2_maintenance', (), 'maintenance mode feature flags pages settings'),
         ('Scheduled jobs', 'admin_v2_celery_health', (), 'celery workers queue tasks beat cron timers overdue'),
+        ('System tools', 'admin_v2_system', (), 'clear cache run job now errors slow pages 500 exceptions'),
         ('Page visits', 'admin_v2_page_visits', (), 'analytics traffic'),
         ('API tokens', 'admin_api_tokens', ('admin_api_token_logs',), 'rest api keys'),
         ('URL explorer', 'admin_v2_url_explorer', (), 'routes urls endpoints'),
+        ('Site map', 'admin_v2_sitemap', (), 'sitemap tree pages flow chart who can open page access debug'),
     ]),
 ]
 

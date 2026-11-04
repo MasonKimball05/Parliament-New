@@ -1,0 +1,23 @@
+{% load static %}{% comment %}Website refresh: home_modern's featured cards (My Attendance, Kai Report, Service Hours, Songbook) — same links and copy — as cards with a large icon tile and a chevron.{% endcomment %}
+<div class="rf-featured">
+    <a href="{% url 'my_attendance' %}" class="rf-card rf-feat">
+        <span class="rf-tile rf-tile-lg is-orange" aria-hidden="true"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></span>
+        <span class="rf-row-body"><span class="rf-row-title">My Attendance</span><span class="rf-row-sub">Your record and the chapter average</span></span>
+        <svg class="rf-chev" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.4" d="M9 6l6 6-6 6"/></svg>
+    </a>
+    <a href="{% url 'user_kai_dashboard' %}" class="rf-card rf-feat">
+        <img src="{% static 'images/beta-dragon.jpeg' %}" alt="" class="rf-tile rf-tile-lg rf-tile-img">
+        <span class="rf-row-body"><span class="rf-row-title">Kai Report</span><span class="rf-row-sub">View reports or submit a new one</span></span>
+        <svg class="rf-chev" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.4" d="M9 6l6 6-6 6"/></svg>
+    </a>
+    <a href="{% url 'user_service_dashboard' %}" class="rf-card rf-feat">
+        <span class="rf-tile rf-tile-lg is-purple" aria-hidden="true"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg></span>
+        <span class="rf-row-body"><span class="rf-row-title">Service Hours</span><span class="rf-row-sub">Track and submit service hours</span></span>
+        <svg class="rf-chev" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.4" d="M9 6l6 6-6 6"/></svg>
+    </a>
+    <a href="{% url 'songbook' %}" class="rf-card rf-feat">
+        <span class="rf-tile rf-tile-lg is-sky" aria-hidden="true"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"/></svg></span>
+        <span class="rf-row-body"><span class="rf-row-title">Songbook</span><span class="rf-row-sub">Chapter songs and lyrics</span></span>
+        <svg class="rf-chev" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.4" d="M9 6l6 6-6 6"/></svg>
+    </a>
+</div>

@@ -147,6 +147,12 @@ def _quick_links(user, pending_votes):
             'icon': {'ios': ios, 'android': android}, 'tone': tone,
             'badge': len(pending_votes or []) if key == 'vote' else 0,
         })
+    from src.mobile.site_admin import is_site_admin
+    if is_site_admin(user):
+        out.append({
+            'key': 'admin_v2', 'label': 'Admin v2', 'path': reverse('admin_v2_login'),
+            'icon': {'ios': 'lock.shield', 'android': 'shield'}, 'tone': 'pro', 'badge': 0,
+        })
     return out
 
 

@@ -45,6 +45,8 @@ from src.mobile import views_kai_review
 from src.mobile import views_committee_documents
 from src.mobile import views_officer_logs
 from src.mobile import views_site_admin
+from src.mobile import views_site_admin_ops
+from src.mobile import views_site_admin_logs
 
 app_name = 'mobile'
 
@@ -892,4 +894,44 @@ urlpatterns = [
     path('admin/app-installs/', views_site_admin.AppInstallsView.as_view(), name='mobile_admin_app_installs'),
     path('admin/app-installs/test-push/', views_site_admin.TestPushView.as_view(),
          name='mobile_admin_test_push'),
+    # v4.4.4: IP lists, exports, page visits, trends, account deletions (views_site_admin_ops.py)
+    path('admin/ip/whitelist/', views_site_admin_ops.IPWhitelistView.as_view(), name='mobile_admin_ip_whitelist'),
+    path('admin/ip/whitelist/add/', views_site_admin_ops.IPWhitelistAddView.as_view(),
+         name='mobile_admin_ip_whitelist_add'),
+    path('admin/ip/whitelist/remove/', views_site_admin_ops.IPWhitelistRemoveView.as_view(),
+         name='mobile_admin_ip_whitelist_remove'),
+    path('admin/ip/blacklist/', views_site_admin_ops.IPBlacklistView.as_view(), name='mobile_admin_ip_blacklist'),
+    path('admin/ip/blacklist/add/', views_site_admin_ops.IPBlacklistAddView.as_view(),
+         name='mobile_admin_ip_blacklist_add'),
+    path('admin/ip/blacklist/remove/', views_site_admin_ops.IPBlacklistRemoveView.as_view(),
+         name='mobile_admin_ip_blacklist_remove'),
+    path('admin/exports/', views_site_admin_ops.ExportsView.as_view(), name='mobile_admin_exports'),
+    path('admin/exports/members/', views_site_admin_ops.ExportMembersView.as_view(),
+         name='mobile_admin_export_members'),
+    path('admin/exports/attendance/', views_site_admin_ops.ExportAttendanceView.as_view(),
+         name='mobile_admin_export_attendance'),
+    path('admin/exports/service-hours/', views_site_admin_ops.ExportServiceView.as_view(),
+         name='mobile_admin_export_service'),
+    path('admin/page-visits/', views_site_admin_ops.PageVisitsView.as_view(), name='mobile_admin_page_visits'),
+    path('admin/trends/', views_site_admin_ops.TrendsView.as_view(), name='mobile_admin_trends'),
+    path('admin/account-deletions/', views_site_admin_ops.AccountDeletionsView.as_view(),
+         name='mobile_admin_account_deletions'),
+    path('admin/account-deletions/<str:user_id>/restore/', views_site_admin_ops.AccountRestoreView.as_view(),
+         name='mobile_admin_account_restore'),
+    path('admin/account-deletions/<str:user_id>/rebuild/', views_site_admin_ops.AccountRebuildView.as_view(),
+         name='mobile_admin_account_rebuild'),
+    # Site admin log pages, read only (v4.4.4; src/mobile/views_site_admin_logs.py)
+    path('admin/email-logs/', views_site_admin_logs.EmailLogsView.as_view(), name='mobile_admin_email_logs'),
+    path('admin/email-logs/<int:log_id>/', views_site_admin_logs.EmailLogDetailView.as_view(),
+         name='mobile_admin_email_log'),
+    path('admin/event-reminder-logs/', views_site_admin_logs.EventReminderLogsView.as_view(),
+         name='mobile_admin_event_reminder_logs'),
+    path('admin/event-reminder-logs/<int:log_id>/', views_site_admin_logs.EventReminderLogDetailView.as_view(),
+         name='mobile_admin_event_reminder_log'),
+    path('admin/login-history/', views_site_admin_logs.LoginHistoryView.as_view(),
+         name='mobile_admin_login_history'),
+    path('admin/admin-activity/', views_site_admin_logs.AdminActivityView.as_view(),
+         name='mobile_admin_admin_activity'),
+    path('admin/security-notifications/', views_site_admin_logs.SecurityNotificationsView.as_view(),
+         name='mobile_admin_security_notifications'),
 ]

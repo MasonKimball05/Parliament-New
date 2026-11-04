@@ -41,7 +41,8 @@ PW = 'pw-' + ADMIN   # sess_helpers.make_user's password
 def admin_routes():
     """(url_name, path) for every Site admin route, with sample arguments."""
     samples = {'flag_id': '1', 'toggle_id': '1', 'user_id': 'nobody', 'device_id':
-               '00000000-0000-0000-0000-000000000000', 'lockout_id': '1', 'alert_id': '1'}
+               '00000000-0000-0000-0000-000000000000', 'lockout_id': '1', 'alert_id': '1',
+               'log_id': '1'}
     found = []
 
     def walk(patterns, prefix):

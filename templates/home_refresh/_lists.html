@@ -1,0 +1,67 @@
+{% comment %}
+Website refresh: home_modern's three columns — Upcoming Events, Announcements,
+Recent Legislation, each with its View All link and empty state — as grouped
+cards. Reads only the fields the old columns read, so the view's query
+narrowing (src/view/home.py) still covers it.
+{% endcomment %}
+<div class="rf-grid3">
+    <div>
+        <div class="rf-section-title"><h2>Upcoming Events</h2><a href="{% url 'calendar' %}">View All</a></div>
+        <div class="rf-card">
+            {% for event in upcoming_events %}
+            <div class="rf-row">
+                <span class="rf-date" aria-hidden="true"><span class="rf-date-month">{{ event.date_time|date:"M" }}</span><span class="rf-date-day">{{ event.date_time|date:"j" }}</span></span>
+                <span class="rf-row-body">
+                    <span class="rf-row-title">{{ event.title }}</span>
+                    <span class="rf-row-sub is-clip">{{ event.date_time|date:"M j" }} at {{ event.date_time|date:"g:i A" }}{% if event.location %} · {{ event.location }}{% endif %}</span>
+                </span>
+            </div>
+            {% empty %}
+            <div class="rf-row is-empty">
+                <span class="rf-tile is-gray" aria-hidden="true"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg></span>
+                <span class="rf-row-body"><span class="rf-row-title">No upcoming events</span><a href="{% url 'calendar' %}" class="rf-empty-link">View calendar →</a></span>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div>
+        <div class="rf-section-title"><h2>Announcements</h2><a href="{% url 'announcements' %}">View All</a></div>
+        <div class="rf-card">
+            {% for announcement in announcements %}
+            <div class="rf-ann">
+                <span class="rf-ann-meta">{{ announcement.posted_at|date:"M j" }} · {{ announcement.posted_by.get_display_name }}{% if announcement.event_date %} · <span class="rf-chip is-accent">Event</span>{% endif %}</span>
+                <span class="rf-ann-title">{{ announcement.title }}</span>
+                <span class="rf-ann-body">{{ announcement.content|truncatewords:20 }}</span>
+            </div>
+            {% empty %}
+            <div class="rf-row is-empty">
+                <span class="rf-tile is-gray" aria-hidden="true"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z"/></svg></span>
+                <span class="rf-row-body"><span class="rf-row-title">No recent announcements</span></span>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div>
+        <div class="rf-section-title"><h2>Recent Legislation</h2><a href="{% url 'passed_legislation' %}">View All</a></div>
+        <div class="rf-card">
+            {% for item in legislation_previews %}
+            <a href="{{ item.detail_url }}" class="rf-row">
+                <span class="rf-tile is-green" aria-hidden="true"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg></span>
+                <span class="rf-row-body">
+                    <span class="rf-row-title">{{ item.title }}</span>
+                    <span class="rf-row-sub">{{ item.total_votes }} vote{{ item.total_votes|pluralize }}</span>
+                </span>
+                {% if item.vote_mode == "percentage" %}<span class="rf-chip is-success">{{ item.yes_percentage }}</span>{% elif item.vote_mode == "plurality" %}<span class="rf-chip is-accent">{{ item.winner|default:"—" }}</span>{% else %}<span class="rf-chip is-success">{{ item.yes_votes }}</span>{% endif %}
+                <svg class="rf-chev" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.4" d="M9 6l6 6-6 6"/></svg>
+            </a>
+            {% empty %}
+            <div class="rf-row is-empty">
+                <span class="rf-tile is-gray" aria-hidden="true"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg></span>
+                <span class="rf-row-body"><span class="rf-row-title">No recent legislation</span><a href="{% url 'vote' %}" class="rf-empty-link">Go vote →</a></span>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>

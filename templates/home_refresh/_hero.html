@@ -1,0 +1,21 @@
+{% load static %}{% comment %}
+Website refresh (src/ui_refresh.py): Home's welcome header on the app's blue
+banner — the same name, member type · #role_number and coat-of-arms button as
+home_modern's header (the button keeps id="coat-modal-open", which the page's
+script binds to the existing modal). The blue fades into the page and the
+column below (.rf-home) rides up over the fade.
+{% endcomment %}
+<section class="rf-hero" aria-label="Welcome">
+    <div class="rf-col">
+        <div>
+            <h1>Welcome, {{ user.get_display_name }}</h1>
+            <p class="rf-hero-sub">{{ user.member_type }}{% if not user.is_pledge and user.role_number %} · #{{ user.role_number }}{% endif %}</p>
+            <div class="rf-hero-rule" aria-hidden="true"></div>
+        </div>
+        <button type="button" id="coat-modal-open" class="rf-arms" aria-label="Show the Alpha Mu coat of arms">
+            <img src="{% static 'images/am-coat-of-arms.png' %}" alt="">
+            <span><span class="rf-arms-greek" lang="grc">Ἀρετὴ Μονάζει</span><span class="rf-arms-eng">Virtue Stands Alone</span></span>
+        </button>
+    </div>
+</section>
+<div class="rf-seal-anchor" aria-hidden="true"><div class="rf-seal-wrap"><img class="rf-seal" src="{% static 'images/am-coat-of-arms.png' %}" alt=""></div></div>

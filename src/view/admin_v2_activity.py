@@ -44,14 +44,19 @@ def admin_activity(viewer, actor='', action='', q=''):
     return qs
 
 
+def admin_activity_actions():
+    """The action types in the feed, for the page's filter (v4.4.4: shared with the app)."""
+    return (ActivityLog.objects.filter(user__in=admin_actors()).exclude(action_type__in=ROUTINE)
+            .values_list('action_type', flat=True).distinct().order_by('action_type'))
+
+
 @require_admin_v2_auth
 def admin_v2_admin_activity(request):
     actor = request.GET.get('actor', '')
     action = request.GET.get('action', '')
     q = (request.GET.get('q') or '').strip()[:100]
     page = Paginator(admin_activity(request.user, actor, action, q), PAGE_SIZE).get_page(request.GET.get('page'))
-    actions = (ActivityLog.objects.filter(user__in=admin_actors()).exclude(action_type__in=ROUTINE)
-               .values_list('action_type', flat=True).distinct().order_by('action_type'))
+    actions = admin_activity_actions()
     return render(request, 'admin_v2/admin_activity.html', {
         'page': page, 'actor': actor, 'action': action, 'q': q,
         'actors': admin_actors().order_by('name').only('user_id', 'name', 'preferred_name'),

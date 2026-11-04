@@ -64,8 +64,10 @@ class FeatureFlag(models.Model):
     #: that user for the rest of the session, including the Kai/Slating
     #: identity boundaries. A missing row must not silently leave that
     #: reachable — see `seed_feature_flags.py`'s entry for the full reasoning.
+    #: 'web_refresh' (the website in the app's look, src/ui_refresh.py): a
+    #: missing row must leave everyone on the look they know.
     DISABLED_BY_DEFAULT = ['maintenance_mode', 'cnb_foreword', 'qr_attendance_checkin', 'login_as_user',
-                       'location_checkin']
+                       'location_checkin', 'web_refresh']
 
     @classmethod
     def is_feature_enabled(cls, feature_name):

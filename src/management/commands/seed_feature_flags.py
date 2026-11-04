@@ -76,6 +76,23 @@ class Command(BaseCommand):
                 'is_enabled': True,
             },
             {
+                # The website in the mobile app's look (src/ui_refresh.py,
+                # static/css/refresh.css). Seeded OFF and in
+                # DISABLED_BY_DEFAULT. Admin v2 is never restyled.
+                'name': 'web_refresh',
+                'display_name': 'Website Refresh (app look)',
+                'description': (
+                    'Shows the member-facing website in the mobile app\'s look: '
+                    'its colors (light and dark), cards, grouped lists, pills '
+                    'and buttons, with an app-style Home and Committees page. '
+                    'Off: the current look. Any browser can preview it with '
+                    '?ui=refresh (and ?ui=classic / ?ui=default). Admin v2 is '
+                    'unchanged either way.'
+                ),
+                'category': 'ui',
+                'is_enabled': False,
+            },
+            {
                 # ⚠️ v3.26.0 — WAS SEEDED `is_enabled: False` HERE WHILE GATING
                 # NOTHING, SO IT DID NOTHING. Now that FeatureFlagGatedEmailBackend
                 # reads this flag on every send, `False` would silently stop all

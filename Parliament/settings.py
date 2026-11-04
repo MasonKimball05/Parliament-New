@@ -195,6 +195,7 @@ MIDDLEWARE = [
     'src.middleware.js_resubmit.JsResubmitEnvelopeMiddleware',  # v3.29.33: wraps the JS fetch-resubmit response — must stay directly after MessageMiddleware (response phase runs in reverse, so this reads/consumes messages before MessageMiddleware persists them)
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'src.middleware.geo_restriction.GeoRestrictionMiddleware',  # Block export endpoints for non-US sessions
+    'src.ui_refresh.UIPreviewMiddleware',  # ?ui=refresh|classic|default: this browser's preview of the website refresh (CSS/layout only; see src/ui_refresh.py)
     # Developer mode — MUST be last. Its request phase runs after everything
     # above (so request.user and request.csp_nonce exist), and its response phase
     # runs before them (so the injected panel is in the body before

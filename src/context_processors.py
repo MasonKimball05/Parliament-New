@@ -231,7 +231,7 @@ def feature_flags(request):
     cache_key = 'context_feature_flags'
     cached_data = cache.get(cache_key)
     if cached_data is not None:
-        return cached_data
+        return _with_ui_refresh(request, cached_data)
 
     # Get all flags in ONE query — not just the enabled ones. See
     # `dark_mode_enabled` below for why: v3.26.0 originally read `dark_mode`
@@ -276,11 +276,25 @@ def feature_flags(request):
         'feature_flags': enabled_features,
         'enabled_pages': enabled_pages,
         'dark_mode_enabled': dark_mode_enabled,
+        # The website refresh (src/ui_refresh.py): fails CLOSED like the
+        # dict above (it is in DISABLED_BY_DEFAULT too), read from the same
+        # query so it costs nothing. Per-request preview cookie applied in
+        # _with_ui_refresh, outside the cache.
+        'web_refresh_flag': any(f.name == 'web_refresh' and f.is_enabled for f in all_flags),
     }
 
     # Cache for 60 seconds
     cache.set(cache_key, result, 60)
-    return result
+    return _with_ui_refresh(request, result)
+
+
+def _with_ui_refresh(request, data):
+    """Add `ui_refresh` (per request: the flag plus this browser's preview
+    cookie, never on Admin v2) to the cached feature-flag context."""
+    from src.ui_refresh import ui_refresh_for
+    out = dict(data)
+    out['ui_refresh'] = ui_refresh_for(request, data.get('web_refresh_flag', False))
+    return out
 
 
 def maintenance_mode(request):
