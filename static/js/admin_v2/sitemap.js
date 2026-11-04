@@ -103,8 +103,11 @@
             var y;
             if (!kids.length) { y = row * ROW_H; row++; }
             else {
+                // A parent sits level with its first child (an outline, like a
+                // file tree), so opening a branch pushes the rows below it down
+                // instead of moving the parent to the middle of a long list.
                 var ys = kids.map(function (k) { return walk(k, depth + 1); });
-                y = (ys[0] + ys[ys.length - 1]) / 2;
+                y = ys[0];
             }
             pos.set(n, { x: depth * COL_W, y: y });
             return y;
@@ -144,26 +147,16 @@
             }
             boxes.appendChild(nodeEl(n, p));
         });
-        if (selected && pos.has(selected)) {
-            var s = pos.get(selected);
-            links.forEach(function (src) {
-                if (!pos.has(src) || src === selected) return;
-                // Out of the right side of each linking page, round in an arc to the
-                // right of the column, and into the selected page's right side: the
-                // further apart, the wider the arc, so arcs nest instead of
-                // crossing through the gaps between stacked boxes.
-                var a = pos.get(src), GAP = 14;  // clears the +/- control on the box's edge
-                var x1 = a.x + NODE_W + GAP, y1 = a.y + NODE_H / 2, x2 = s.x + NODE_W + GAP, y2 = s.y + NODE_H / 2;
-                var cx = Math.max(x1, x2) + 24 + Math.min(220, Math.abs(y2 - y1) * 0.18);
-                linkG.appendChild(svg('path', { 'class': 'sm-link', d: 'M' + x1 + ',' + y1 + ' C' + cx + ',' + y1 + ' ' + cx + ',' + y2 + ' ' + x2 + ',' + y2 }));
-            });
-        }
+        // Pages that link to the selected one are outlined (sm-linked) rather
+        // than joined by lines: with dozens of links across columns, lines
+        // tangle. The panel lists them by name.
         canvas.appendChild(svgEl);
         applyView();
     }
 
     function nodeEl(n, p) {
         var cls = 'sm-node' + (n === selected ? ' sm-selected' : '') + (matches.has(n) ? ' sm-match' : '') +
+            (n !== selected && links.indexOf(n) >= 0 ? ' sm-linked' : '') +
             (n.kind !== 'root' && !SHOWN[n.kind] ? ' sm-hiddenkind' : '');
         var g = svg('g', { 'class': cls, transform: 'translate(' + p.x + ',' + p.y + ')', role: 'treeitem',
                            'aria-selected': n === selected ? 'true' : 'false' });
@@ -295,7 +288,15 @@
 
     // The top "Site" node always stays open: closing it would hide every page
     // and leave the map blank, so it has no open/close control.
-    function toggle(n) { if (n.kind === 'root') return; if (expanded.has(n)) expanded.delete(n); else expanded.add(n); draw(); }
+    function toggle(n) {
+        if (n.kind === 'root') return;
+        var before = pos.get(n);
+        if (expanded.has(n)) expanded.delete(n); else expanded.add(n);
+        draw();
+        // Keep the box that was clicked where it was on screen.
+        var after = pos.get(n);
+        if (before && after && gEl) { view.x -= (after.x - before.x) * view.k; view.y -= (after.y - before.y) * view.k; applyView(); }
+    }
     function setShowAll(v) {
         showAll = v;
         document.getElementById('sm-show-all').checked = v;

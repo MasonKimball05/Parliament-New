@@ -26,6 +26,7 @@ panel below (a GET with ?confirm= only shows the panel), as on System tools.
     .sm-node.sm-hiddenkind rect.sm-box { stroke-dasharray: 3 3; }
     .sm-node.sm-match rect.sm-box { fill: #fef3c7; stroke: #d97706; }
     .sm-node.sm-selected rect.sm-box { stroke: #003da5; stroke-width: 2.5; }
+    .sm-node.sm-linked rect.sm-box { stroke: #b45309; stroke-width: 1.75; stroke-dasharray: 5 3; }
     .sm-toggle circle { fill: #f3f4f6; stroke: #9ca3af; }
     .sm-toggle text { font-size: 12px; fill: #374151; text-anchor: middle; dominant-baseline: central; }
     .sm-warn { fill: #b45309; font-weight: 700; }
@@ -34,6 +35,7 @@ panel below (a GET with ?confirm= only shows the panel), as on System tools.
     .sm-dot-root { fill: #111827; }
     .dark .sm-edge { stroke: #4b5563; }
     .dark .sm-link { stroke: #fbbf24; }
+    .dark .sm-node.sm-linked rect.sm-box { stroke: #fbbf24; }
     .dark .sm-node rect.sm-box { fill: #1f2937; stroke: #4b5563; }
     .dark .sm-node text { fill: #f3f4f6; }
     .dark .sm-node text.sm-sub { fill: #9ca3af; }
@@ -138,7 +140,7 @@ panel below (a GET with ?confirm= only shows the panel), as on System tools.
     <div class="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
         {% for k in kinds %}<span class="inline-flex items-center gap-1.5"><span class="sm-kind {{ k.key }}"></span>{{ k.label }} · {{ k.n }}</span>{% endfor %}
         <span>{{ total }} in all{% if django_admin %}; {{ django_admin }} Django admin routes not mapped{% endif %}.</span>
-        <span class="sm-wide">Drag to pan, ⌘/Ctrl + scroll to zoom, click a page for details, its circle to open or close it.</span>
+        <span class="sm-wide">Drag to pan, ⌘/Ctrl + scroll to zoom, click a page for details, its circle to open or close it. Pages that link to the selected one have a gold dashed outline.</span>
     </div>
 
     <div class="mt-4 lg:flex lg:items-start gap-4">
