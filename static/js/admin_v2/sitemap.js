@@ -133,8 +133,14 @@
         pos.forEach(function (p, n) {
             if (n.up && pos.has(n.up)) {
                 var q = pos.get(n.up);
+                // An elbow (across, down the parent's trunk, across), so a parent's
+                // children hang off one straight vertical line instead of a fan of curves.
                 var x1 = q.x + NODE_W, y1 = q.y + NODE_H / 2, x2 = p.x, y2 = p.y + NODE_H / 2, mx = (x1 + x2) / 2;
-                edges.appendChild(svg('path', { 'class': 'sm-edge', d: 'M' + x1 + ',' + y1 + ' C' + mx + ',' + y1 + ' ' + mx + ',' + y2 + ' ' + x2 + ',' + y2 }));
+                var r = Math.min(8, Math.abs(y2 - y1) / 2), dir = y2 > y1 ? 1 : -1;
+                var d = Math.abs(y2 - y1) < 1 ? 'M' + x1 + ',' + y1 + ' H' + x2
+                    : 'M' + x1 + ',' + y1 + ' H' + (mx - r) + ' Q' + mx + ',' + y1 + ' ' + mx + ',' + (y1 + dir * r) +
+                      ' V' + (y2 - dir * r) + ' Q' + mx + ',' + y2 + ' ' + (mx + r) + ',' + y2 + ' H' + x2;
+                edges.appendChild(svg('path', { 'class': 'sm-edge', d: d }));
             }
             boxes.appendChild(nodeEl(n, p));
         });
@@ -142,11 +148,14 @@
             var s = pos.get(selected);
             links.forEach(function (src) {
                 if (!pos.has(src) || src === selected) return;
-                var a = pos.get(src);
-                var x1 = a.x + NODE_W / 2, y1 = a.y + NODE_H, x2 = s.x + NODE_W / 2, y2 = s.y;
-                if (a.y > s.y) { y1 = a.y; y2 = s.y + NODE_H; }
-                var dx = Math.max(60, Math.abs(x2 - x1) / 2);
-                linkG.appendChild(svg('path', { 'class': 'sm-link', d: 'M' + x1 + ',' + y1 + ' C' + (x1 + dx) + ',' + y1 + ' ' + (x2 + dx) + ',' + y2 + ' ' + x2 + ',' + y2 }));
+                // Out of the right side of each linking page, round in an arc to the
+                // right of the column, and into the selected page's right side: the
+                // further apart, the wider the arc, so arcs nest instead of
+                // crossing through the gaps between stacked boxes.
+                var a = pos.get(src), GAP = 14;  // clears the +/- control on the box's edge
+                var x1 = a.x + NODE_W + GAP, y1 = a.y + NODE_H / 2, x2 = s.x + NODE_W + GAP, y2 = s.y + NODE_H / 2;
+                var cx = Math.max(x1, x2) + 24 + Math.min(220, Math.abs(y2 - y1) * 0.18);
+                linkG.appendChild(svg('path', { 'class': 'sm-link', d: 'M' + x1 + ',' + y1 + ' C' + cx + ',' + y1 + ' ' + cx + ',' + y2 + ' ' + x2 + ',' + y2 }));
             });
         }
         canvas.appendChild(svgEl);
@@ -467,7 +476,7 @@
         var sw = [];
         d.page_switches.forEach(function (t) {
             var row = h('div', { 'class': 'mt-2 flex flex-wrap items-center gap-2' }, [
-                h('span', { 'class': 'text-gray-900 dark:text-gray-100', text: 'Page switch ' }), h('code', { 'class': 'font-mono text-xs', text: t.url_name }),
+                h('span', { 'class': 'text-gray-900 dark:text-gray-100', text: 'Page switch ' }), h('code', { 'class': 'font-mono text-xs text-gray-700 dark:text-gray-200', text: t.url_name }),
                 pill(t.enabled ? 'On' : 'Off', t.enabled ? 'ok' : 'bad')]);
             if (t.exists) row.appendChild(confirmLink(n, 'page', t.url_name, t.enabled ? 'Turn off…' : 'Turn on…'));
             sw.push(row);
@@ -477,7 +486,7 @@
         });
         d.feature_flags.forEach(function (f) {
             var row = h('div', { 'class': 'mt-2 flex flex-wrap items-center gap-2' }, [
-                h('span', { 'class': 'text-gray-900 dark:text-gray-100', text: 'Feature flag ' }), h('code', { 'class': 'font-mono text-xs', text: f.name }),
+                h('span', { 'class': 'text-gray-900 dark:text-gray-100', text: 'Feature flag ' }), h('code', { 'class': 'font-mono text-xs text-gray-700 dark:text-gray-200', text: f.name }),
                 pill(f.enabled ? 'On' : 'Off', f.enabled ? 'ok' : 'bad')]);
             if (f.exists) row.appendChild(confirmLink(n, 'flag', f.name, f.enabled ? 'Turn off…' : 'Turn on…'));
             sw.push(row);

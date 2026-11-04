@@ -130,11 +130,13 @@ def _walk(patterns, prefix='', ns=None):
 
 
 def _rel(path):
+    # site-packages first: on the server the virtualenv lives inside BASE_DIR,
+    # which showed Django's own files as venv/lib/python3.12/site-packages/django/...
+    if path and 'site-packages/' in path:
+        return path.split('site-packages/', 1)[1]
     base = str(settings.BASE_DIR)
     if path and path.startswith(base):
         return os.path.relpath(path, base)
-    if path and 'site-packages/' in path:
-        return path.split('site-packages/', 1)[1]
     return path or '?'
 
 
