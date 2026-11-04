@@ -397,3 +397,23 @@ class SitemapClassificationTests(AdminV2TestCase):
         for name in ('track_email_view', 'track_event_reminder_email_view', 'login-as', 'return_to_original_user'):
             self.assertEqual(routes[name]['kind'], sm.KIND_ACTION, name)
         self.assertEqual(routes['site_monitor_static_assets']['kind'], sm.KIND_API)
+
+
+class SitemapGapFlagTests(AdminV2TestCase):
+    """Only gaps a member could reach by shortening an address are flagged."""
+
+    def setUp(self):
+        super().setUp()
+        Committee.objects.create(name='Sitemap Exec', code='SMEXEC')
+        cache.clear()
+
+    def test_parameter_and_machine_gaps_are_not_flagged(self):
+        nodes = {n['id']: n for n in sm.build_tree()['nodes']}
+        card = next(n for i, n in nodes.items() if n['path'] == '/directory/<user_id>/card/')
+        self.assertEqual(card['m'], '')                                   # /directory/<user_id>/ has a parameter
+        self.assertFalse([n for n in nodes.values() if n['m'].startswith(('/api/', '/admin/'))])
+        self.assertEqual(nodes['/committee/SMEXEC/']['m'].strip('/'), 'committee')  # a member can trim to it
+
+    def test_json_views_are_not_pages(self):
+        routes = {r['name']: r for r in sm.build_tree()['routes']}
+        self.assertEqual(routes['profile_card']['kind'], sm.KIND_API)

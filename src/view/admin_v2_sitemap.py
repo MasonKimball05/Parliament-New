@@ -107,6 +107,23 @@ ACTION_SEGMENTS = {
     'push-to-chapter', 'unpush-from-chapter', 'add-member', 'remove-member', 'unlock', 'lock', 'logout',
 }
 STATIC_PREFIXES = ('/static/', '/media/', '/.well-known/')
+
+# An unrouted parent path is only flagged ("No page here") where a member
+# could plausibly reach it by shortening an address they were on. Not when
+# the gap still has a parameter (/directory/<user_id>/: nobody types an id
+# and stops there), and not under machine-only areas (the APIs, the Django
+# admin, media, push, internal endpoints), where a folder with no page is
+# normal.
+# (Built from bare segments: these are path prefixes, not pages, so they
+# must not read as hardcoded links to src.tests.guards.test_hardcoded_urls.)
+QUIET_GAP_PREFIXES = tuple(f'/{seg}/' for seg in (
+    'api', 'admin', 'static', 'media', '.well-known', 'internal', 'exportable-media', 'push'))
+
+
+def _gap_worth_flagging(gap, kind):
+    if not gap or '<' in gap or gap.startswith(QUIET_GAP_PREFIXES):
+        return False
+    return kind in (KIND_PAGE, KIND_GROUP)
 FILE_SUFFIX = re.compile(r'\.(js|json|txt|xml|webmanifest|ico|png|svg|css|map)/?$')
 _PARAM = re.compile(r'<(?:[^>:]+:)?([^>]+)>')
 _REGEX_GROUP = re.compile(r'\(\?P<(\w+)>[^)]*\)')
@@ -334,6 +351,10 @@ def _classify(path, name, ns, described, view):
     tokens = set((name or '').split('_'))
     if tokens & {'api', 'json', 'ajax'} or {'api', 'json'} & set(_segments(path)):
         return KIND_API, 'JSON endpoint (by name or path)'
+    # ...or by the view function's own name (profile_card -> profile_card_json).
+    fn_tokens = set(re.split(r'[._]', getattr(view, '__name__', '') or ''))
+    if fn_tokens & {'api', 'json', 'ajax'}:
+        return KIND_API, 'JSON endpoint (by view name)'
     if 'RedirectView' in mro:
         return KIND_REDIRECT, 'RedirectView'
     for d in described:
@@ -588,7 +609,21 @@ def build_tree():
                 parent = by_path[plural]
                 break
         n['p'] = '' if parent == n['id'] else parent
-        n['m'] = n['path'] if n['id'] in groups else missing
+        gap = n['path'] if n['id'] in groups else missing
+        n['m'] = gap if _gap_worth_flagging(gap, routes[n['r']]['kind']) else ''
+    # A "no page" group is only worth flagging when a real page sits somewhere
+    # under it; a folder of actions or JSON endpoints is never typed by hand.
+    has_page = set()
+    by_id = {n['id']: n for n in nodes}
+    for n in nodes:
+        if routes[n['r']]['kind'] == KIND_PAGE:
+            up = by_id.get(n['p'])
+            while up is not None and up['id'] not in has_page:
+                has_page.add(up['id'])
+                up = by_id.get(up['p'])
+    for n in nodes:
+        if n['id'] in groups and n['id'] not in has_page:
+            n['m'] = ''
 
     counts = {}
     for n in nodes:

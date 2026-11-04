@@ -437,8 +437,9 @@
             'View ', h('code', { 'class': 'font-mono', text: d.view }), ' · ', h('code', { 'class': 'font-mono', text: d.where })]));
         if (d.kind === 'group') {
             panel.appendChild(h('p', { 'class': 'mt-3 rounded-lg px-3 py-2 text-xs bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300',
-                text: 'Broken parent link: nothing is routed at ' + d.path + ', so a user trimming a URL back to it gets a 404. ' +
-                      n.children.length + ' route' + (n.children.length === 1 ? '' : 's') + ' sit under it.' }));
+                text: 'No page at ' + d.path + ': it only groups the ' + n.children.length + ' route' +
+                      (n.children.length === 1 ? '' : 's') + ' under it.' +
+                      (d.missing ? ' Someone who shortens an address to it sees "not found".' : '') }));
             return;
         }
         if (n.up && n.up.kind === 'group') panel.appendChild(muted('Nothing is routed at ' + n.up.id + ' (the group above).'));
@@ -451,7 +452,7 @@
         if (d.missing) {
             var up = n.up && n.up.id ? ' It is shown under ' + n.up.id + '.' : '';
             panel.appendChild(h('p', { 'class': 'mt-3 rounded-lg px-3 py-2 text-xs bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300',
-                text: 'Broken parent link: nothing is routed at ' + d.missing + ', so a user trimming the URL gets a 404.' + up }));
+                text: 'No page at ' + d.missing + ': someone who shortens this address to it sees "not found".' + up }));
         }
 
         // Guards
