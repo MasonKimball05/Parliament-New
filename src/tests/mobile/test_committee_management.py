@@ -211,6 +211,159 @@ class VoteToolTests(_Base):
         self.assertEqual(self.post(self.chair, 'NOPE/votes/new/').status_code, 404)
 
 
+class ChapterVoteTests(_Base):
+    """create_chapter_vote_from_committee / delete_chapter_vote_link in the app (cm.create_chapter_vote)."""
+
+    def setUp(self):
+        super().setUp()
+        self.leg = _leg(self.c, self.chair, voting_closed=True, passed=True, status='passed',
+                        required_percentage='67', anonymous_vote=True)
+        CommitteeVote.objects.create(user=self.voter, legislation=self.leg, vote_choice='yes')
+        CommitteeVote.objects.create(user=self.member, legislation=self.leg, vote_choice='no')
+        self.path = f'FIN/votes/{self.leg.id}/chapter-vote/'
+
+    def create(self, user, **body):
+        data = {'title': '[FIN] Budget', 'description': 'The budget', 'vote_mode': 'percentage',
+                'required_percentage': '51', 'show_committee_result': True,
+                'available_at': timezone.now().isoformat()}
+        data.update(body)
+        return self.post(user, self.path, data)
+
+    def test_permissions(self):
+        for user in (self.member, self.voter, self.officer, self.vp, self.outsider):
+            self.assertEqual(self.get(user, self.path).status_code, 403, user.pk)
+            r = self.create(user)
+            self.assertEqual((r.status_code, r.json()['error']), (403, 'no_access'), user.pk)
+        self.assertFalse(Legislation.objects.exists())
+        # Admins who aren't chairs may, as on the website.
+        self.assertEqual(self.get(self.admin, self.path).status_code, 200)
+        self.assertEqual(self.create(self.admin).status_code, 201)
+        self.assertEqual(Legislation.objects.get().posted_by, self.admin)
+
+    def test_feature_flags_and_not_found(self):
+        flag('legislation_voting', False)
+        self.assertEqual(self.get(self.chair, self.path).json()['error'], 'feature_disabled')
+        flag('legislation_voting', True)
+        flag('committee_voting', False)
+        self.assertEqual(self.create(self.chair).json()['error'], 'feature_disabled')
+        flag('committee_voting', True)
+        other = _leg(Committee.objects.create(name='Other', code='OTH'), self.chair, voting_closed=True)
+        self.assertEqual(self.get(self.chair, f'FIN/votes/{other.id}/chapter-vote/').status_code, 404)
+
+    def test_form_defaults_and_auto_summary(self):
+        body = self.get(self.chair, self.path).json()
+        self.assertEqual(body['defaults']['title'], '[FIN] Budget')
+        self.assertEqual(body['defaults']['description'], 'The budget')
+        self.assertEqual((body['defaults']['vote_mode'], body['defaults']['required_percentage']), ('percentage', '67'))
+        self.assertTrue(body['defaults']['anonymous'] and body['defaults']['show_committee_result'])
+        self.assertEqual((body['auto_summary'], body['passed_text'], body['has_digital_votes']),
+                         ('Yes: 1, No: 1, Abstain: 0', 'Passed', True))
+        self.assertEqual(body['max_options'], 5)
+        plural = _leg(self.c, self.chair, voting_closed=True, vote_mode='plurality',
+                      plurality_options=['A', 'B', 'C', 'D', 'E', 'F'])
+        CommitteeVote.objects.create(user=self.voter, legislation=plural, vote_choice='B')
+        body = self.get(self.chair, f'FIN/votes/{plural.id}/chapter-vote/').json()
+        self.assertEqual(body['auto_summary'], 'A: 0, B: 1, C: 0, D: 0, E: 0, F: 0')
+        self.assertEqual(body['defaults']['plurality_options'], ['A', 'B', 'C', 'D', 'E'])
+        self.assertEqual(body['passed_text'], 'Did Not Pass')
+
+    def test_creates_and_links(self):
+        with self.assertLogs('function_calls', 'INFO') as logs:
+            r = self.create(self.chair, required_percentage='75', anonymous=True, allow_abstain=False)
+        self.assertEqual(r.status_code, 201)
+        self.assertIn("created chapter vote for 'Budget' from FIN", logs.output[-1])
+        chapter = Legislation.objects.get()
+        self.leg.refresh_from_db()
+        self.assertEqual(self.leg.chapter_legislation, chapter)
+        self.assertEqual(r.json()['chapter_vote'], {'id': chapter.id, 'title': '[FIN] Budget'})
+        self.assertTrue(r.json()['vote']['has_chapter_vote'])
+        self.assertIsNone(r.json()['vote']['chapter_vote_path'])
+        self.assertTrue(r.json()['vote']['can_delete_chapter_vote'])
+        self.assertEqual((chapter.posted_by, chapter.required_percentage, chapter.vote_mode, chapter.required_number,
+                          chapter.plurality_options, chapter.anonymous_vote, chapter.allow_abstain),
+                         (self.chair, '75', 'percentage', None, None, True, False))
+        # Only once.
+        r = self.create(self.chair)
+        self.assertEqual((r.status_code, r.json()['error']), (409, 'already_exists'))
+        self.assertEqual(self.get(self.chair, self.path).status_code, 409)
+        self.assertEqual(Legislation.objects.count(), 1)
+
+    def test_description_with_the_committee_result(self):
+        self.create(self.chair)
+        self.assertEqual(Legislation.objects.get().description,
+                         'The budget\n\n---\n<strong>Committee Vote Result (Finance):</strong> Passed\n'
+                         'Yes: 1, No: 1, Abstain: 0')
+
+    def test_description_with_a_typed_summary_or_none(self):
+        self.create(self.chair, committee_vote_summary='Passed by voice vote')
+        self.assertEqual(Legislation.objects.get().description,
+                         'The budget\n\n---\n<strong>Committee Vote Result (Finance):</strong>\nPassed by voice vote')
+        self.post(self.chair, f'FIN/votes/{self.leg.id}/chapter-vote/delete/')
+        self.create(self.chair, show_committee_result=False, committee_vote_summary='ignored')
+        self.assertEqual(Legislation.objects.get().description, 'The budget')
+
+    def test_plurality_and_piecewise(self):
+        r = self.create(self.chair, vote_mode='plurality', plurality_options=[' A ', '', 'B'])
+        self.assertEqual(r.status_code, 201)
+        self.assertEqual(Legislation.objects.get().plurality_options, ['A', 'B'])
+        self.post(self.chair, f'FIN/votes/{self.leg.id}/chapter-vote/delete/')
+        self.create(self.chair, vote_mode='piecewise', required_number='12')
+        self.assertEqual(Legislation.objects.get().required_number, 12)
+
+    def test_validation(self):
+        cases = [
+            {'vote_mode': 'plurality', 'plurality_options': ['Only one']},
+            {'vote_mode': 'plurality', 'plurality_options': ['A', '']},
+            {'vote_mode': 'plurality', 'plurality_options': 'A,B'},
+            {'vote_mode': 'plurality', 'plurality_options': ['1', '2', '3', '4', '5', '6']},
+            {'vote_mode': 'piecewise'},
+            {'vote_mode': 'piecewise', 'required_number': 0},
+            {'vote_mode': 'piecewise', 'required_number': 'lots'},
+            {'vote_mode': 'ranked'},
+            {'required_percentage': '50'},
+            {'title': '  '},
+            {'available_at': 'tomorrow'},
+        ]
+        for body in cases:
+            r = self.create(self.chair, **body)
+            self.assertEqual((r.status_code, r.json()['error']), (400, 'invalid_input'), body)
+        self.assertIn('at least two options', self.create(self.chair, vote_mode='plurality').json()['detail'])
+        self.assertFalse(Legislation.objects.exists())
+        self.leg.refresh_from_db()
+        self.assertIsNone(self.leg.chapter_legislation)
+
+    def test_defaults_when_left_out(self):
+        r = self.post(self.chair, self.path, {})
+        self.assertEqual(r.status_code, 201)
+        chapter = Legislation.objects.get()
+        self.assertEqual((chapter.title, chapter.description, chapter.vote_mode, chapter.required_percentage),
+                         ('[FIN] Budget', 'The budget', 'percentage', '51'))
+        self.assertLess(abs((chapter.available_at - timezone.now()).total_seconds()), 60)
+
+    def test_unlink(self):
+        self.create(self.chair)
+        chapter = Legislation.objects.get()
+        delete = f'FIN/votes/{self.leg.id}/chapter-vote/delete/'
+        for user in (self.member, self.officer, self.vp):
+            self.assertEqual(self.post(user, delete).status_code, 403, user.pk)
+        with self.assertLogs('function_calls', 'INFO') as logs:
+            r = self.post(self.admin, delete)
+        self.assertEqual(r.json()['title'], '[FIN] Budget')
+        self.assertIn("deleted chapter vote '[FIN] Budget' linked from FIN", logs.output[-1])
+        self.assertFalse(Legislation.objects.filter(pk=chapter.pk).exists())
+        self.leg.refresh_from_db()
+        self.assertIsNone(self.leg.chapter_legislation)
+        self.assertTrue(CommitteeLegislation.objects.filter(pk=self.leg.pk).exists())
+        r = self.post(self.chair, delete)
+        self.assertEqual((r.status_code, r.json()['error']), (409, 'no_chapter_vote'))
+
+    def test_result_screen_offers_it_to_chairs(self):
+        path = f'FIN/votes/{self.leg.id}/result/'
+        self.assertEqual(self.get(self.chair, path).json()['chapter_vote_path'],
+                         reverse('create_chapter_vote', args=['FIN', self.leg.id]))
+        self.assertIsNone(self.get(self.officer, path).json()['chapter_vote_path'])
+
+
 class MemberToolTests(_Base):
 
     def test_members_screen_says_what_may_change(self):
@@ -478,3 +631,32 @@ class WebStillWorksTests(_Base):
         self.assertTrue(d.published_to_chapter)
         self.client.post(reverse('delete_committee_document', args=['FIN', d.id]))
         self.assertFalse(CommitteeDocument.objects.exists())
+
+    def test_web_create_and_delete_chapter_vote(self):
+        leg = _leg(self.c, self.chair, voting_closed=True, passed=False)
+        CommitteeVote.objects.create(user=self.voter, legislation=leg, vote_choice='no')
+        url = reverse('create_chapter_vote', args=['FIN', leg.id])
+        self.client.force_login(self.member)
+        self.assertRedirects(self.client.get(url), reverse('committee_home', args=['FIN']),
+                             fetch_redirect_response=False)
+        self.client.force_login(self.chair)
+        r = self.client.get(url)
+        self.assertEqual((r.context['auto_summary'], r.context['passed_text'], r.context['has_digital_votes']),
+                         ('Yes: 0, No: 1, Abstain: 0', 'Did Not Pass', True))
+        r = self.client.post(url, {'title': 'T', 'description': 'D', 'vote_mode': 'plurality',
+                                   'plurality_option_1': 'A'})
+        self.assertRedirects(r, url, fetch_redirect_response=False)
+        r = self.client.post(url, {'title': 'T', 'description': 'D', 'vote_mode': 'piecewise', 'required_number': '3',
+                                   'available_at': '2026-11-10T18:00', 'show_committee_result': 'on',
+                                   'remove_abstain': 'on'})
+        self.assertRedirects(r, '/committee/FIN/vote/', fetch_redirect_response=False)
+        chapter = Legislation.objects.get()
+        self.assertEqual((chapter.required_number, chapter.allow_abstain, chapter.description),
+                         (3, False, 'D\n\n---\n<strong>Committee Vote Result (Finance):</strong> Did Not Pass\n'
+                                    'Yes: 0, No: 1, Abstain: 0'))
+        leg.refresh_from_db()
+        self.assertEqual(leg.chapter_legislation, chapter)
+        self.client.post(reverse('delete_chapter_vote_link', args=['FIN']), {'legislation_id': leg.id})
+        leg.refresh_from_db()
+        self.assertIsNone(leg.chapter_legislation)
+        self.assertFalse(Legislation.objects.exists())

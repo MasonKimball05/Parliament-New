@@ -2,9 +2,11 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.utils.http import url_has_allowed_host_and_scheme
-from src.committee_management import CommitteeActionError, push_to_chapter
-from src.models import Committee, CommitteeLegislation, Legislation
-from src.feature_flag_decorators import require_feature_flag, check_feature_enabled
+from src.committee_management import (
+    CommitteeActionError, can_manage_chapter_vote, committee_result_summary, create_chapter_vote, push_to_chapter,
+)
+from src.models import Committee, CommitteeLegislation
+from src.feature_flag_decorators import require_feature_flag
 import logging
 from django.utils import timezone
 
@@ -63,7 +65,7 @@ def create_chapter_vote_from_committee(request, code, legislation_id):
     committee_leg = get_object_or_404(CommitteeLegislation, id=legislation_id, committee=committee)
 
     # Check permissions
-    if not committee.is_chair(request.user) and not request.user.is_admin:
+    if not can_manage_chapter_vote(request.user, committee):
         messages.error(request, 'Only committee chairs or admins can create chapter votes.')
         return redirect('committee_home', code=code)
 
@@ -79,9 +81,6 @@ def create_chapter_vote_from_committee(request, code, legislation_id):
         vote_mode = request.POST.get('vote_mode', 'percentage')
         required_percentage = request.POST.get('required_percentage', '51')
         required_number = request.POST.get('required_number')
-        anonymous_vote = request.POST.get('anonymous_vote') == 'on' and check_feature_enabled('anonymous_voting')
-        allow_abstain = not (request.POST.get('remove_abstain') == 'on') and check_feature_enabled('abstain_voting')
-        show_committee_result = request.POST.get('show_committee_result') == 'on'
 
         # Parse available_at
         from django.utils.dateparse import parse_datetime
@@ -93,93 +92,35 @@ def create_chapter_vote_from_committee(request, code, legislation_id):
         else:
             available_at = timezone.now()
 
-        # Handle plurality options
-        plurality_options = []
-        if vote_mode == 'plurality':
-            for i in range(1, 6):
-                val = request.POST.get(f'plurality_option_{i}')
-                if val:
-                    plurality_options.append(val.strip())
-            if len(plurality_options) < 2:
-                messages.error(request, "Plurality voting requires at least two options.")
-                return redirect(request.path)
+        # Validate, build the description and create the linked chapter vote
+        # (src.committee_management, shared with the app).
+        try:
+            create_chapter_vote(
+                committee, committee_leg, request.user,
+                title=title,
+                description=description,
+                vote_mode=vote_mode,
+                required_percentage=required_percentage,
+                required_number=required_number,
+                plurality_options=([request.POST.get(f'plurality_option_{i}') for i in range(1, 6)]
+                                   if vote_mode == 'plurality' else []),
+                anonymous=request.POST.get('anonymous_vote') == 'on',
+                remove_abstain=request.POST.get('remove_abstain') == 'on',
+                show_committee_result=request.POST.get('show_committee_result') == 'on',
+                committee_vote_summary=request.POST.get('committee_vote_summary', ''),
+                available_at=available_at,
+            )
+        except CommitteeActionError as exc:
+            messages.error(request, exc.message)
+            return redirect(request.path)
 
-        # Handle piecewise required number
-        if vote_mode == 'piecewise':
-            if not required_number or int(required_number) < 1:
-                messages.error(request, "Piecewise voting requires a valid number of required votes.")
-                return redirect(request.path)
-            required_number = int(required_number)
-        else:
-            required_number = None
-
-        # Get manual committee vote result if provided
-        committee_vote_summary = request.POST.get('committee_vote_summary', '')
-
-        # Build description with committee result if requested
-        final_description = description
-        if show_committee_result and committee_vote_summary:
-            final_description = f"{description}\n\n---\n<strong>Committee Vote Result ({committee.name}):</strong>\n{committee_vote_summary}"
-        elif show_committee_result and committee_leg.voting_closed:
-            # Auto-generate from actual votes
-            from src.models import CommitteeVote
-            votes = CommitteeVote.objects.filter(legislation=committee_leg)
-            if committee_leg.vote_mode == 'plurality':
-                tally = {opt: votes.filter(vote_choice=opt).count() for opt in (committee_leg.plurality_options or [])}
-                result_text = ", ".join([f"{opt}: {count}" for opt, count in tally.items()])
-            else:
-                yes = votes.filter(vote_choice='yes').count()
-                no = votes.filter(vote_choice='no').count()
-                abstain = votes.filter(vote_choice='abstain').count()
-                result_text = f"Yes: {yes}, No: {no}, Abstain: {abstain}"
-
-            passed_text = "Passed" if committee_leg.passed else "Did Not Pass"
-            final_description = f"{description}\n\n---\n<strong>Committee Vote Result ({committee.name}):</strong> {passed_text}\n{result_text}"
-
-        # Create chapter legislation
-        chapter_leg = Legislation.objects.create(
-            title=title,
-            description=final_description,
-            document=committee_leg.document,
-            posted_by=request.user,
-            available_at=available_at,
-            anonymous_vote=anonymous_vote,
-            allow_abstain=allow_abstain,
-            required_percentage=required_percentage,
-            vote_mode=vote_mode,
-            plurality_options=plurality_options if vote_mode == 'plurality' else None,
-            required_number=required_number,
-        )
-
-        # Link to committee legislation
-        committee_leg.chapter_legislation = chapter_leg
-        committee_leg.save()
-
-        logger.info(f"{request.user.username} created chapter vote for '{committee_leg.title}' from {committee.code}")
         messages.success(request, f"Chapter vote created! Members can now vote on the Vote page.")
 
         return redirect(f'/committee/{code}/vote/')
 
-    # GET request - show the configuration form
-    # Get existing vote data for defaults
-    from src.models import CommitteeVote
-    votes = CommitteeVote.objects.filter(legislation=committee_leg)
-
-    if committee_leg.vote_mode == 'plurality':
-        tally = {opt: votes.filter(vote_choice=opt).count() for opt in (committee_leg.plurality_options or [])}
-        auto_summary = ", ".join([f"{opt}: {count}" for opt, count in tally.items()])
-    else:
-        yes = votes.filter(vote_choice='yes').count()
-        no = votes.filter(vote_choice='no').count()
-        abstain = votes.filter(vote_choice='abstain').count()
-        auto_summary = f"Yes: {yes}, No: {no}, Abstain: {abstain}"
-
-    passed_text = "Passed" if committee_leg.passed else "Did Not Pass"
-
+    # GET request - show the configuration form, with the recorded committee result
     return render(request, 'committee/create_chapter_vote.html', {
         'committee': committee,
         'committee_leg': committee_leg,
-        'auto_summary': auto_summary,
-        'passed_text': passed_text,
-        'has_digital_votes': votes.exists(),
+        **committee_result_summary(committee_leg),
     })

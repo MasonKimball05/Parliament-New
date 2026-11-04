@@ -89,6 +89,276 @@ def check_and_auto_transition_status(period):
     return changed
 
 
+# ── Shared with the app (src/mobile/views_slating_setup.py, 11-04-26) ────────
+
+class PeriodSetupError(Exception):
+    """A refusal for the chair: ``code`` for the app, the web's message, and its level."""
+
+    def __init__(self, code, message, level='error'):
+        super().__init__(message)
+        self.code = code
+        self.level = level
+
+
+#: The schedule fields an edit sets (blank or left out clears one, as the web form does).
+PERIOD_DATE_FIELDS = [
+    'nominations_open_at', 'nominations_close_at',
+    'deliberation_start_at', 'voting_open_at',
+    'voting_close_at', 'results_publish_at'
+]
+
+
+def eligible_period_managers():
+    """Who the Slating Manager and Add-a-member pickers offer."""
+    return ParliamentUser.objects.filter(
+        member_status__in=['Active', 'Inactive'],
+        member_type__in=['Member', 'Chair', 'Officer']
+    ).order_by('name')
+
+
+def ensure_slating_committee(period):
+    """Backfill: auto-create the ad hoc committee if this period predates the feature."""
+    if not period.slating_committee_id:
+        ad_hoc_committee = Committee.objects.create(
+            name=f'Slating — {period.name} [{period.id}]',
+            is_slating_committee=True,
+            is_ad_hoc=True,
+        )
+        period.slating_committee = ad_hoc_committee
+        period.save(update_fields=['slating_committee'])
+
+
+def period_committee_members(period):
+    """The committee's members, its explicit admin (an FK, not in the M2M) first if he isn't one."""
+    committee_members = []
+    if period.slating_committee:
+        members_qs = list(period.slating_committee.members.all().order_by('name'))
+        admin = period.slating_committee.admin
+        if admin and not any(m.pk == admin.pk for m in members_qs):
+            committee_members = [admin] + members_qs
+        else:
+            committee_members = members_qs
+    return committee_members
+
+
+def create_slating_period(user, data):
+    """
+    Create a period from the form's fields (``data.get``), in setup, with its
+    ad hoc committee and the configurable values; logged. Raises
+    PeriodSetupError for a missing name or term.
+    """
+    name = data.get('name', '').strip()
+    academic_term = data.get('academic_term', '').strip()
+    description = data.get('description', '').strip()
+
+    if not name:
+        raise PeriodSetupError('invalid_input', 'Period name is required.')
+
+    if not academic_term:
+        raise PeriodSetupError('invalid_input', 'Academic term is required.')
+
+    # Create the period
+    period = SlatingPeriod.objects.create(
+        name=name,
+        academic_term=academic_term,
+        description=description,
+        created_by=user,
+        status='setup'
+    )
+
+    # Auto-create an invisible ad hoc committee for this period
+    ad_hoc_committee = Committee.objects.create(
+        name=f'Slating — {name} [{period.id}]',
+        is_slating_committee=True,
+        is_ad_hoc=True,
+    )
+    period.slating_committee = ad_hoc_committee
+    period.save(update_fields=['slating_committee'])
+
+    # Set configurable values
+    try:
+        period.min_gpa_requirement = float(data.get('min_gpa_requirement', 2.50))
+        period.gpa_level_2_threshold = float(data.get('gpa_level_2_threshold', 0.20))
+        period.required_approval_percentage = int(data.get('required_approval_percentage', 60))
+        period.save(update_fields=['min_gpa_requirement', 'gpa_level_2_threshold', 'required_approval_percentage'])
+    except (ValueError, TypeError):
+        pass
+
+    # Log activity
+    SlatingActivity.objects.create(
+        period=period,
+        user=user,
+        action='period_created',
+        details=f'Created slating period: {name}'
+    )
+    return period
+
+
+def save_period_settings(period, user, data):
+    """
+    The settings form's Save: name, term, description, the slating manager
+    (site admins only), the voting and GPA values (left as they were if one
+    isn't a number) and the schedule (a blank or missing date clears it).
+    """
+    period.name = data.get('name', period.name).strip()
+    period.academic_term = data.get('academic_term', period.academic_term).strip()
+    period.description = data.get('description', '').strip()
+
+    # Update slating manager (admin only can change this)
+    if user.is_admin:
+        manager_id = data.get('slating_manager', '').strip()
+        if manager_id:
+            try:
+                period.slating_manager = ParliamentUser.objects.get(user_id=manager_id)
+            except ParliamentUser.DoesNotExist:
+                pass
+        else:
+            period.slating_manager = None
+
+    # Update configuration
+    try:
+        period.min_gpa_requirement = float(data.get('min_gpa_requirement', period.min_gpa_requirement))
+        period.gpa_level_2_threshold = float(data.get('gpa_level_2_threshold', period.gpa_level_2_threshold))
+        period.required_approval_percentage = int(data.get('required_approval_percentage', period.required_approval_percentage))
+    except (ValueError, TypeError):
+        pass
+
+    # Update dates
+    for field in PERIOD_DATE_FIELDS:
+        value = data.get(field)
+        if value:
+            try:
+                from django.utils.dateparse import parse_datetime
+                from django.utils import timezone as tz
+                parsed = parse_datetime(value)
+                if parsed:
+                    if tz.is_naive(parsed):
+                        parsed = tz.make_aware(parsed)
+                    setattr(period, field, parsed)
+            except (ValueError, TypeError):
+                pass
+        else:
+            setattr(period, field, None)
+
+    period.save()
+
+
+def add_period_committee_member(period, member_id):
+    """Add a member (by user id) to the period's slating committee. Returns him; raises PeriodSetupError."""
+    member_id = (member_id or '').strip()
+    if period.slating_committee and member_id:
+        try:
+            member = ParliamentUser.objects.get(user_id=member_id)
+        except ParliamentUser.DoesNotExist:
+            raise PeriodSetupError('not_found', 'Member not found.')
+        period.slating_committee.members.add(member)
+        return member
+    raise PeriodSetupError('no_committee', 'No committee assigned to this period.')
+
+
+def remove_period_committee_member(period, member_id):
+    """Remove a member (by user id) from the committee. Returns him, or None if there was nothing to do."""
+    member_id = (member_id or '').strip()
+    if period.slating_committee and member_id:
+        try:
+            member = ParliamentUser.objects.get(user_id=member_id)
+        except ParliamentUser.DoesNotExist:
+            raise PeriodSetupError('not_found', 'Member not found.')
+        period.slating_committee.members.remove(member)
+        return member
+    return None
+
+
+def delete_slating_period(period, user):
+    """Delete a period and everything in it (site admins only), with its ad hoc committee. Returns its name."""
+    # Only site admins can delete periods
+    if not user.is_admin:
+        raise PeriodSetupError('forbidden', 'Only site administrators can delete slating periods.')
+
+    period_name = period.name
+    period_id = period.id
+
+    # Delete the auto-created ad hoc committee before deleting the period
+    # (SET_NULL on_delete means it survives otherwise)
+    ad_hoc = period.slating_committee
+    if ad_hoc and ad_hoc.is_ad_hoc:
+        ad_hoc_to_delete = ad_hoc
+    else:
+        ad_hoc_to_delete = None
+
+    # Delete the period (cascades to related objects including activity log)
+    period.delete()
+
+    if ad_hoc_to_delete:
+        ad_hoc_to_delete.delete()
+
+    # Log to Django's logging system since SlatingActivity is deleted with the period
+    import logging
+    logger = logging.getLogger('admin_actions')
+    logger.info(
+        f"[SLATING] User {user.name} ({user.user_id}) "
+        f"deleted slating period: {period_name} (ID: {period_id})"
+    )
+    return period_name
+
+
+def check_status_change(period, new_status):
+    """
+    The checks before Change status, in the web's order: a real status, a
+    change, and an active position before nominations open. Raises
+    PeriodSetupError (``unchanged`` is the web's info, not an error).
+    """
+    valid_statuses = dict(SlatingPeriod.STATUS_CHOICES).keys()
+    if new_status not in valid_statuses:
+        raise PeriodSetupError('invalid_status', 'Invalid status.')
+
+    # If same status, no change needed
+    if new_status == period.status:
+        raise PeriodSetupError('unchanged', 'Status unchanged.', level='info')
+
+    # Validation checks before certain transitions
+    if new_status == 'nominations_open':
+        # Must have at least one position
+        if not period.positions.filter(is_active=True).exists():
+            raise PeriodSetupError('no_positions', 'Add at least one position before opening nominations.')
+
+
+def apply_status_change(period, user, new_status):
+    """
+    Move the period to ``new_status`` (any but voting_open, which is
+    open_voting_round), log it, and announce nominations or results to every
+    active member — results are saved to the chapter's documents too.
+    Returns the old status.
+    """
+    old_status = period.status
+    # Update status
+    period.status = new_status
+    period.save()
+
+    # Log activity
+    SlatingActivity.objects.create(
+        period=period,
+        user=user,
+        action='period_status_changed',
+        details=f'Status changed from {old_status} to {new_status}',
+        metadata={'old_status': old_status, 'new_status': new_status}
+    )
+
+    # Send notifications for key transitions
+    if new_status == 'nominations_open':
+        _notify_nominations_open(period, user)
+    elif new_status == 'results_published':
+        _notify_results_published(period, user)
+        # Save results to chapter documents
+        try:
+            from src.view.slating.results import _save_results_to_documents
+            _save_results_to_documents(period, user)
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).error(f'Failed to save results to documents: {e}', exc_info=True)
+    return old_status
+
+
 @login_required
 @slating_admin_required
 def create_period(request):
@@ -96,61 +366,17 @@ def create_period(request):
     Create a new slating period. Admin only.
     """
     if request.method == 'POST':
-        name = request.POST.get('name', '').strip()
-        academic_term = request.POST.get('academic_term', '').strip()
-        description = request.POST.get('description', '').strip()
-
-        if not name:
-            messages.error(request, 'Period name is required.')
-            return redirect('slating_create_period')
-
-        if not academic_term:
-            messages.error(request, 'Academic term is required.')
-            return redirect('slating_create_period')
-
-        # Create the period
-        period = SlatingPeriod.objects.create(
-            name=name,
-            academic_term=academic_term,
-            description=description,
-            created_by=request.user,
-            status='setup'
-        )
-
-        # Auto-create an invisible ad hoc committee for this period
-        ad_hoc_committee = Committee.objects.create(
-            name=f'Slating — {name} [{period.id}]',
-            is_slating_committee=True,
-            is_ad_hoc=True,
-        )
-        period.slating_committee = ad_hoc_committee
-        period.save(update_fields=['slating_committee'])
-
-        # Set configurable values
         try:
-            period.min_gpa_requirement = float(request.POST.get('min_gpa_requirement', 2.50))
-            period.gpa_level_2_threshold = float(request.POST.get('gpa_level_2_threshold', 0.20))
-            period.required_approval_percentage = int(request.POST.get('required_approval_percentage', 60))
-            period.save(update_fields=['min_gpa_requirement', 'gpa_level_2_threshold', 'required_approval_percentage'])
-        except (ValueError, TypeError):
-            pass
+            period = create_slating_period(request.user, request.POST)
+        except PeriodSetupError as e:
+            messages.error(request, str(e))
+            return redirect('slating_create_period')
 
-        # Log activity
-        SlatingActivity.objects.create(
-            period=period,
-            user=request.user,
-            action='period_created',
-            details=f'Created slating period: {name}'
-        )
-
-        messages.success(request, f'Slating period "{name}" created successfully.')
+        messages.success(request, f'Slating period "{period.name}" created successfully.')
         return redirect('slating_period_setup', period_id=period.id)
 
     # GET - show create form
-    eligible_managers = ParliamentUser.objects.filter(
-        member_status__in=['Active', 'Inactive'],
-        member_type__in=['Member', 'Chair', 'Officer']
-    ).order_by('name')
+    eligible_managers = eligible_period_managers()
 
     context = {
         'eligible_managers': eligible_managers,
@@ -176,141 +402,47 @@ def edit_period(request, period_id):
         action = request.POST.get('action', 'save')
 
         if action == 'save':
-            # Update basic info
-            period.name = request.POST.get('name', period.name).strip()
-            period.academic_term = request.POST.get('academic_term', period.academic_term).strip()
-            period.description = request.POST.get('description', '').strip()
-
-            # Update slating manager (admin only can change this)
-            if request.user.is_admin:
-                manager_id = request.POST.get('slating_manager', '').strip()
-                if manager_id:
-                    try:
-                        period.slating_manager = ParliamentUser.objects.get(user_id=manager_id)
-                    except ParliamentUser.DoesNotExist:
-                        pass
-                else:
-                    period.slating_manager = None
-
-            # Update configuration
-            try:
-                period.min_gpa_requirement = float(request.POST.get('min_gpa_requirement', period.min_gpa_requirement))
-                period.gpa_level_2_threshold = float(request.POST.get('gpa_level_2_threshold', period.gpa_level_2_threshold))
-                period.required_approval_percentage = int(request.POST.get('required_approval_percentage', period.required_approval_percentage))
-            except (ValueError, TypeError):
-                pass
-
-            # Update dates
-            date_fields = [
-                'nominations_open_at', 'nominations_close_at',
-                'deliberation_start_at', 'voting_open_at',
-                'voting_close_at', 'results_publish_at'
-            ]
-            for field in date_fields:
-                value = request.POST.get(field)
-                if value:
-                    try:
-                        from django.utils.dateparse import parse_datetime
-                        from django.utils import timezone as tz
-                        parsed = parse_datetime(value)
-                        if parsed:
-                            if tz.is_naive(parsed):
-                                parsed = tz.make_aware(parsed)
-                            setattr(period, field, parsed)
-                    except (ValueError, TypeError):
-                        pass
-                else:
-                    setattr(period, field, None)
-
-            period.save()
+            save_period_settings(period, request.user, request.POST)
             messages.success(request, 'Period settings saved.')
 
             return redirect('slating_period_setup', period_id=period.id)
 
         elif action == 'add_committee_member':
-            member_id = request.POST.get('member_id', '').strip()
-            if period.slating_committee and member_id:
-                try:
-                    member = ParliamentUser.objects.get(user_id=member_id)
-                    period.slating_committee.members.add(member)
-                    messages.success(request, f'{member.name} added to slating committee.')
-                except ParliamentUser.DoesNotExist:
-                    messages.error(request, 'Member not found.')
-            else:
-                messages.error(request, 'No committee assigned to this period.')
+            try:
+                member = add_period_committee_member(period, request.POST.get('member_id', ''))
+                messages.success(request, f'{member.name} added to slating committee.')
+            except PeriodSetupError as e:
+                messages.error(request, str(e))
             return redirect('slating_period_setup', period_id=period.id)
 
         elif action == 'remove_committee_member':
-            member_id = request.POST.get('member_id', '').strip()
-            if period.slating_committee and member_id:
-                try:
-                    member = ParliamentUser.objects.get(user_id=member_id)
-                    period.slating_committee.members.remove(member)
+            try:
+                member = remove_period_committee_member(period, request.POST.get('member_id', ''))
+                if member:
                     messages.success(request, f'{member.name} removed from slating committee.')
-                except ParliamentUser.DoesNotExist:
-                    messages.error(request, 'Member not found.')
+            except PeriodSetupError as e:
+                messages.error(request, str(e))
             return redirect('slating_period_setup', period_id=period.id)
 
         elif action == 'delete':
-            # Only site admins can delete periods
-            if not request.user.is_admin:
-                messages.error(request, 'Only site administrators can delete slating periods.')
+            try:
+                period_name = delete_slating_period(period, request.user)
+            except PeriodSetupError as e:
+                messages.error(request, str(e))
                 return redirect('slating_period_setup', period_id=period.id)
-
-            period_name = period.name
-            period_id = period.id
-
-            # Delete the auto-created ad hoc committee before deleting the period
-            # (SET_NULL on_delete means it survives otherwise)
-            ad_hoc = period.slating_committee
-            if ad_hoc and ad_hoc.is_ad_hoc:
-                ad_hoc_to_delete = ad_hoc
-            else:
-                ad_hoc_to_delete = None
-
-            # Delete the period (cascades to related objects including activity log)
-            period.delete()
-
-            if ad_hoc_to_delete:
-                ad_hoc_to_delete.delete()
-
-            # Log to Django's logging system since SlatingActivity is deleted with the period
-            import logging
-            logger = logging.getLogger('admin_actions')
-            logger.info(
-                f"[SLATING] User {request.user.name} ({request.user.user_id}) "
-                f"deleted slating period: {period_name} (ID: {period_id})"
-            )
 
             messages.success(request, f'Slating period "{period_name}" has been deleted.')
             return redirect('slating_dashboard')
 
     # Backfill: auto-create the ad hoc committee if this period predates the feature
-    if not period.slating_committee_id:
-        ad_hoc_committee = Committee.objects.create(
-            name=f'Slating — {period.name} [{period.id}]',
-            is_slating_committee=True,
-            is_ad_hoc=True,
-        )
-        period.slating_committee = ad_hoc_committee
-        period.save(update_fields=['slating_committee'])
+    ensure_slating_committee(period)
 
     # GET - show edit form
-    eligible_managers = ParliamentUser.objects.filter(
-        member_status__in=['Active', 'Inactive'],
-        member_type__in=['Member', 'Chair', 'Officer']
-    ).order_by('name')
+    eligible_managers = eligible_period_managers()
 
     # Committee members for slating (who can view applications/interviews)
     # Includes the explicit committee admin (stored as FK, not in members M2M)
-    committee_members = []
-    if period.slating_committee:
-        members_qs = list(period.slating_committee.members.all().order_by('name'))
-        admin = period.slating_committee.admin
-        if admin and not any(m.pk == admin.pk for m in members_qs):
-            committee_members = [admin] + members_qs
-        else:
-            committee_members = members_qs
+    committee_members = period_committee_members(period)
 
     # Get counts for display
     position_count = period.positions.filter(is_active=True).count()
@@ -417,56 +549,22 @@ def edit_period(request, period_id):
         attendance_count = SlatingAttendance.objects.filter(period=period).count()
         quorum_met = period.quorum is None or attendance_count >= period.quorum
 
-    # Write-in support: blank positions and active members
-    blank_positions = []
-    write_in_candidates = []
-    active_members = []
+    # Write-in support: blank positions and active members (11-04-26: shared
+    # with the app's Blank positions screen, slate_builder.write_in_options)
+    from .slate_builder import write_in_options
+    write_ins = write_in_options(period)
+    blank_positions = write_ins['blank_positions']
+    write_in_candidates = write_ins['write_in_candidates']
+    active_members = write_ins['active_members']
     write_in_js_data = '{}'
-    if period.status in ['deliberation', 'voting_open']:
-        approved_slate = Slate.objects.filter(period=period, is_approved=True, slate_type='primary').first()
-        if approved_slate:
-            filled_ids = approved_slate.candidates.filter(is_runoff=False, write_in_member__isnull=True).values_list('position_id', flat=True)
-            blank_positions = list(period.positions.filter(is_active=True).exclude(id__in=filled_ids))
-            write_in_candidates = list(approved_slate.candidates.filter(write_in_member__isnull=False).select_related('position', 'write_in_member').defer(*member_defer('write_in_member')))
-            if blank_positions:
-                active_members = list(ParliamentUser.objects.filter(
-                    member_status__in=['Active', 'Inactive'],
-                    member_type__in=['Member', 'Chair', 'Officer']
-                ).order_by('name'))
-
-                # Build per-position applicant markers and already-slated set
-
-                # Who is already on the slate in any capacity
-                slated_user_ids = []
-                for sc in approved_slate.candidates.select_related('application__applicant', 'write_in_member').defer(*member_defer('application__applicant', 'write_in_member')):
-                    if sc.application_id:
-                        slated_user_ids.append(sc.application.applicant.user_id)
-                    elif sc.write_in_member_id:
-                        slated_user_ids.append(sc.write_in_member.user_id)
-
-                # Applicants by position (non-withdrawn)
-                apps = list(period.applications.exclude(
-                    status__in=['draft', 'withdrawn']
-                ).select_related('applicant').defer(*member_defer('applicant')))
-
-                pos_applicants = {}
-                for pos in blank_positions:
-                    entries = []
-                    for app in apps:
-                        tier = app.get_position_tier(pos.id)
-                        if tier and tier != 'do_not_want':
-                            entries.append({'id': app.applicant.user_id, 'tier': tier})
-                    pos_applicants[str(pos.id)] = entries
-
-                # Rendered into a <script> with |safe, and it carries member names.
-                from src.utils.script_json import script_safe_json
-                write_in_js_data = script_safe_json({
-                    'pos_applicants': pos_applicants,
-                    'slated_ids': slated_user_ids,
-                    'members': [{'id': m.user_id, 'name': m.name} for m in active_members],
-                })
-            else:
-                write_in_js_data = '{}'
+    if blank_positions:
+        # Rendered into a <script> with |safe, and it carries member names.
+        from src.utils.script_json import script_safe_json
+        write_in_js_data = script_safe_json({
+            'pos_applicants': write_ins['pos_applicants'],
+            'slated_ids': write_ins['slated_ids'],
+            'members': [{'id': m.user_id, 'name': m.name} for m in active_members],
+        })
 
     election = election_context(period)
     context = {
@@ -551,25 +649,14 @@ def change_period_status(request, period_id):
     period = get_object_or_404(SlatingPeriod, id=period_id)
     new_status = request.POST.get('status')
 
-    valid_statuses = dict(SlatingPeriod.STATUS_CHOICES).keys()
-    if new_status not in valid_statuses:
-        messages.error(request, 'Invalid status.')
-        return redirect('slating_period_setup', period_id=period_id)
-
     # Track old status for logging
     old_status = period.status
 
-    # If same status, no change needed
-    if new_status == old_status:
-        messages.info(request, 'Status unchanged.')
+    try:
+        check_status_change(period, new_status)
+    except PeriodSetupError as e:
+        getattr(messages, e.level)(request, str(e))
         return redirect('slating_period_setup', period_id=period_id)
-
-    # Validation checks before certain transitions
-    if new_status == 'nominations_open':
-        # Must have at least one position
-        if not period.positions.filter(is_active=True).exists():
-            messages.error(request, 'Add at least one position before opening nominations.')
-            return redirect('slating_period_setup', period_id=period_id)
 
     if new_status == 'voting_open':
         # 10-29-26: one copy, shared with the app (open_voting_round below).
@@ -587,31 +674,7 @@ def change_period_status(request, period_id):
         messages.success(request, f'Period status changed to {period.get_status_display()}.')
         return redirect('slating_period_setup', period_id=period_id)
 
-    # Update status
-    period.status = new_status
-    period.save()
-
-    # Log activity
-    SlatingActivity.objects.create(
-        period=period,
-        user=request.user,
-        action='period_status_changed',
-        details=f'Status changed from {old_status} to {new_status}',
-        metadata={'old_status': old_status, 'new_status': new_status}
-    )
-
-    # Send notifications for key transitions
-    if new_status == 'nominations_open':
-        _notify_nominations_open(period, request.user)
-    elif new_status == 'results_published':
-        _notify_results_published(period, request.user)
-        # Save results to chapter documents
-        try:
-            from src.view.slating.results import _save_results_to_documents
-            _save_results_to_documents(period, request.user)
-        except Exception as e:
-            import logging
-            logging.getLogger(__name__).error(f'Failed to save results to documents: {e}', exc_info=True)
+    apply_status_change(period, request.user, new_status)
 
     # Pausing voting sends the chair back to the vote page (they can reopen from there)
     if old_status == 'voting_open' and new_status == 'deliberation':

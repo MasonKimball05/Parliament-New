@@ -22,6 +22,11 @@ permissions, attendance and document publish/delete pages.
 * ``POST committees/<code>/votes/<id>/push/`` / ``unpush/`` — publish its
   results to the chapter documents page, or take them off (chairs).
 * ``POST committees/<code>/votes/<id>/delete/`` — delete it (chairs, admins).
+* ``GET|POST committees/<code>/votes/<id>/chapter-vote/`` — the form's
+  defaults and the recorded committee result; create a chapter-wide vote from
+  it (``create_chapter_vote_from_committee``: chairs, admins).
+* ``POST committees/<code>/votes/<id>/chapter-vote/delete/`` — delete that
+  chapter vote (``delete_chapter_vote_link``: chairs, admins).
 * ``GET committees/<code>/members/candidates/?role=`` — who "+ Add" offers.
 * ``POST committees/<code>/members/add/`` / ``remove/`` — a role on the
   committee (``committee_add_member`` / ``_remove_member``: chairs, the VP,
@@ -144,11 +149,19 @@ def _vote_json(leg, viewer, committee, is_chair, voted_ids):
         'can_end': not leg.voting_closed and (is_chair or leg.posted_by_id == viewer.pk),
         'can_push': is_chair and leg.voting_closed,
         'can_delete': is_chair or viewer.is_admin,
-        # Making a chapter vote from it stays on the website.
-        'chapter_vote_path': (reverse('create_chapter_vote', args=[committee.code, leg.id])
-                              if is_chair and leg.voting_closed and leg.chapter_legislation_id is None else None),
+        # The vote page's "Create Chapter Vote" / "Delete Chapter Vote" (closed votes, chairs). The
+        # path is the web page's; the app opens it natively (CommitteeChapterVoteView).
+        'chapter_vote_path': _chapter_vote_path(leg, committee, is_chair),
+        'can_delete_chapter_vote': is_chair and leg.voting_closed and leg.chapter_legislation_id is not None,
         'result_path': reverse('committee_vote_result', args=[committee.code, leg.id]),
     }
+
+
+def _chapter_vote_path(leg, committee, is_chair):
+    from django.urls import reverse
+    if is_chair and leg.voting_closed and leg.chapter_legislation_id is None:
+        return reverse('create_chapter_vote', args=[committee.code, leg.id])
+    return None
 
 
 def _one_vote(leg, request, committee):
@@ -353,6 +366,7 @@ class CommitteeVoteResultView(_VoteToolView):
             'can_end': not leg.voting_closed and cm.can_end_vote(user, committee, leg),
             'can_recalculate': leg.voting_closed and cm.can_recalculate_any(user, committee),
             'can_create_runoff': bool(figures.get('can_create_runoff')),
+            'chapter_vote_path': _chapter_vote_path(leg, committee, committee.is_chair(user)),
         }
         if leg.vote_mode == 'plurality':
             voters = {r['option']: r['voters'] for r in figures['plurality_results']['results']}
@@ -414,6 +428,154 @@ class CommitteeVoteDeleteView(_VoteToolView):
         if not (committee.is_chair(request.user) or request.user.is_admin):
             _refuse('Only committee chairs or admins can delete votes.')
         return Response({'ok': True, 'title': cm.delete_committee_vote(leg, request.user)})
+
+
+# ── A chapter vote made from a committee vote ───────────────────────────────
+
+CHAPTER_VOTE_MODES = [   # create_chapter_vote.html's labels
+    {'value': 'percentage', 'label': 'Percentage (Yes/No/Abstain)'},
+    {'value': 'piecewise', 'label': 'Piecewise (Fixed number of Yes votes)'},
+    {'value': 'plurality', 'label': 'Plurality (Multiple options)'},
+]
+CHAPTER_VOTE_THRESHOLDS = [
+    {'value': '51', 'label': '51% (Simple Majority)'},
+    {'value': '60', 'label': '60%'},
+    {'value': '67', 'label': '67% (Two-Thirds)'},
+    {'value': '75', 'label': '75% (Three-Quarters)'},
+    {'value': '100', 'label': '100% (Unanimous)'},
+]
+PIECEWISE_MESSAGE = 'Piecewise voting requires a valid number of required votes.'
+
+
+def _text(data, key, default):
+    value = data.get(key, default)
+    if value is None:
+        return default
+    if not isinstance(value, str):
+        raise BadRequest(f'Send {key} as text.', code='invalid_input')
+    return value
+
+
+class CommitteeChapterVoteView(_VoteToolView):
+    """
+    ``create_chapter_vote_from_committee`` and its form
+    (committee/create_chapter_vote.html). Who may, the refusals, the
+    validation, the description with the committee's result and the link on
+    the committee vote are cm.create_chapter_vote, the web view's. The form's
+    own constraints (a title, a listed mode and threshold, five option fields)
+    are checked here because a JSON body isn't limited by the form.
+    """
+    web_page = 'create_chapter_vote'
+
+    def chapter_vote(self, request, code, legislation_id):
+        _require_voting()
+        if not check_feature_enabled('legislation_voting'):
+            raise exceptions.PermissionDenied('Chapter voting is off.', code='feature_disabled')
+        committee = _committee(code)
+        leg = self.legislation(committee, legislation_id)
+        if not cm.can_manage_chapter_vote(request.user, committee):
+            _refuse('Only committee chairs or admins can create chapter votes.')
+        if leg.chapter_legislation_id:
+            raise Conflict('A chapter vote already exists for this item.', code='already_exists')
+        return committee, leg
+
+    def get(self, request, code, legislation_id):
+        committee, leg = self.chapter_vote(request, code, legislation_id)
+        thresholds = [t['value'] for t in CHAPTER_VOTE_THRESHOLDS]
+        return Response({
+            'committee': {'code': committee.code, 'name': committee.name},
+            'vote': {'id': leg.id, 'title': leg.title, 'vote_mode': leg.vote_mode,
+                     'voting_closed': leg.voting_closed, 'passed': bool(leg.passed)},
+            # The form's prefilled values: the committee vote's settings.
+            'defaults': {
+                'title': f"[{committee.code}] {leg.title}",
+                'description': leg.description or '',
+                'vote_mode': leg.vote_mode if leg.vote_mode in cm.VOTE_MODES else 'percentage',
+                'required_percentage': leg.required_percentage if leg.required_percentage in thresholds else '51',
+                'required_number': leg.required_number,
+                'plurality_options': list(leg.plurality_options or [])[:cm.CHAPTER_VOTE_PLURALITY_OPTIONS],
+                'anonymous': leg.anonymous_vote,
+                'allow_abstain': leg.allow_abstain,
+                'show_committee_result': True,
+            },
+            'vote_modes': CHAPTER_VOTE_MODES,
+            'thresholds': CHAPTER_VOTE_THRESHOLDS,
+            'max_options': cm.CHAPTER_VOTE_PLURALITY_OPTIONS,
+            'anonymous_available': check_feature_enabled('anonymous_voting'),
+            'abstain_optional': check_feature_enabled('abstain_voting'),
+            **cm.committee_result_summary(leg),
+        })
+
+    def post(self, request, code, legislation_id):
+        committee, leg = self.chapter_vote(request, code, legislation_id)
+        data = _data(request)
+        title = _text(data, 'title', f"[{committee.code}] {leg.title}")
+        if not title.strip():
+            raise BadRequest('Enter a title.', code='invalid_input')
+        if len(title) > 200:
+            raise BadRequest('Keep the title to 200 characters.', code='invalid_input')
+        description = _text(data, 'description', leg.description or '')
+        vote_mode = _text(data, 'vote_mode', 'percentage')
+        if vote_mode not in cm.VOTE_MODES:
+            raise BadRequest('Choose a voting mode.', code='invalid_input')
+        required_percentage = _text(data, 'required_percentage', '51')
+        if required_percentage not in [t['value'] for t in CHAPTER_VOTE_THRESHOLDS]:
+            raise BadRequest('Choose a required percentage.', code='invalid_input')
+        required_number = data.get('required_number')
+        if vote_mode == 'piecewise':
+            # The web view's int() would raise on anything else.
+            if isinstance(required_number, bool) or not (
+                    required_number in (None, '') or isinstance(required_number, int)
+                    or (isinstance(required_number, str) and required_number.strip().lstrip('-').isdigit())):
+                raise BadRequest(PIECEWISE_MESSAGE, code='invalid_input')
+        options = data.get('plurality_options') or []
+        if not isinstance(options, list) or not all(isinstance(o, str) for o in options):
+            raise BadRequest('Send plurality_options as a list of text.', code='invalid_input')
+        if len(options) > cm.CHAPTER_VOTE_PLURALITY_OPTIONS:
+            raise BadRequest(f'Plurality voting allows up to {cm.CHAPTER_VOTE_PLURALITY_OPTIONS} options.',
+                             code='invalid_input')
+        try:
+            chapter_leg = cm.create_chapter_vote(
+                committee, leg, request.user,
+                title=title,
+                description=description,
+                vote_mode=vote_mode,
+                required_percentage=required_percentage,
+                required_number=required_number,
+                plurality_options=options,
+                anonymous=data.get('anonymous') is True,
+                remove_abstain=data.get('allow_abstain') is False,
+                show_committee_result=data.get('show_committee_result') is True,
+                committee_vote_summary=_text(data, 'committee_vote_summary', ''),
+                available_at=_when(data.get('available_at'), 'available_at'),
+            )
+        except cm.CommitteeActionError as exc:
+            if exc.code == 'already_exists':
+                raise Conflict(exc.message, code=exc.code)
+            raise BadRequest(exc.message, code='invalid_input')
+        return Response({
+            'chapter_vote': {'id': chapter_leg.id, 'title': chapter_leg.title},
+            'message': 'Chapter vote created! Members can now vote on the Vote page.',
+            'vote': _one_vote(leg, request, committee),
+        }, status=status.HTTP_201_CREATED)
+
+
+class CommitteeChapterVoteDeleteView(_VoteToolView):
+    """``delete_chapter_vote_link``: the vote page's "Delete Chapter Vote" (chairs, admins)."""
+    web_page = 'delete_chapter_vote_link'
+
+    def post(self, request, code, legislation_id):
+        _require_voting()
+        committee = _committee(code)
+        if not cm.can_manage_chapter_vote(request.user, committee):
+            _refuse('Only committee chairs or admins can delete chapter votes.')
+        leg = self.legislation(committee, legislation_id)
+        try:
+            title = cm.delete_chapter_vote(committee, leg, request.user)
+        except cm.CommitteeActionError as exc:
+            raise Conflict(exc.message, code=exc.code)
+        return Response({'ok': True, 'title': title, 'message': 'Chapter vote deleted.',
+                         'vote': _one_vote(leg, request, committee)})
 
 
 # ── Members ─────────────────────────────────────────────────────────────────

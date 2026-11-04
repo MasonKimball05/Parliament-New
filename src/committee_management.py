@@ -218,6 +218,115 @@ def unpush_from_chapter(legislation, user):
     logger.info(f"{user.username} unpublished '{legislation.title}' from {legislation.committee.code} chapter documents")
 
 
+# A chapter-wide vote made from a committee vote (create_chapter_vote_from_committee
+# and delete_chapter_vote_link), shared with the app.
+
+#: create_chapter_vote.html has five plurality option fields, and the view reads only those.
+CHAPTER_VOTE_PLURALITY_OPTIONS = 5
+
+
+def can_manage_chapter_vote(user, committee):
+    """Making or deleting a committee vote's chapter vote: its committee's chairs, or admins."""
+    return committee.is_chair(user) or user.is_admin
+
+
+def _committee_result_text(legislation, votes):
+    if legislation.vote_mode == 'plurality':
+        tally = {opt: votes.filter(vote_choice=opt).count() for opt in (legislation.plurality_options or [])}
+        return ", ".join([f"{opt}: {count}" for opt, count in tally.items()])
+    yes = votes.filter(vote_choice='yes').count()
+    no = votes.filter(vote_choice='no').count()
+    abstain = votes.filter(vote_choice='abstain').count()
+    return f"Yes: {yes}, No: {no}, Abstain: {abstain}"
+
+
+def committee_result_summary(legislation):
+    """The form's "Recorded Vote": ``auto_summary``, ``passed_text`` and ``has_digital_votes``."""
+    from src.models import CommitteeVote
+    votes = CommitteeVote.objects.filter(legislation=legislation)
+    return {
+        'auto_summary': _committee_result_text(legislation, votes),
+        'passed_text': "Passed" if legislation.passed else "Did Not Pass",
+        'has_digital_votes': votes.exists(),
+    }
+
+
+def create_chapter_vote(committee, legislation, user, *, title, description, vote_mode, required_percentage,
+                        required_number, plurality_options, anonymous, remove_abstain, show_committee_result,
+                        committee_vote_summary, available_at=None):
+    """
+    Create a chapter-wide Legislation from a committee vote and link it
+    (``committee_leg.chapter_legislation``). The caller has checked
+    ``can_manage_chapter_vote``. ``plurality_options`` is the form's raw
+    option values (the first five are read; blanks skipped). Refusals are
+    the web view's messages. Returns the new Legislation.
+    """
+    from src.models import CommitteeVote, Legislation
+    if legislation.chapter_legislation_id:
+        raise CommitteeActionError('A chapter vote already exists for this item.', code='already_exists')
+    anonymous_vote = anonymous and check_feature_enabled('anonymous_voting')
+    allow_abstain = not remove_abstain and check_feature_enabled('abstain_voting')
+    available_at = available_at or timezone.now()
+
+    options = []
+    if vote_mode == 'plurality':
+        for val in list(plurality_options or [])[:CHAPTER_VOTE_PLURALITY_OPTIONS]:
+            if val:
+                options.append(val.strip())
+        if len(options) < 2:
+            raise CommitteeActionError("Plurality voting requires at least two options.")
+
+    if vote_mode == 'piecewise':
+        if not required_number or int(required_number) < 1:
+            raise CommitteeActionError("Piecewise voting requires a valid number of required votes.")
+        required_number = int(required_number)
+    else:
+        required_number = None
+
+    # The committee's result in the description, if asked: the summary typed
+    # in (a hand or voice vote), else the recorded ballots once voting closed.
+    final_description = description
+    if show_committee_result and committee_vote_summary:
+        final_description = (f"{description}\n\n---\n<strong>Committee Vote Result ({committee.name}):</strong>\n"
+                             f"{committee_vote_summary}")
+    elif show_committee_result and legislation.voting_closed:
+        result_text = _committee_result_text(legislation, CommitteeVote.objects.filter(legislation=legislation))
+        passed_text = "Passed" if legislation.passed else "Did Not Pass"
+        final_description = (f"{description}\n\n---\n<strong>Committee Vote Result ({committee.name}):</strong> "
+                             f"{passed_text}\n{result_text}")
+
+    chapter_leg = Legislation.objects.create(
+        title=title,
+        description=final_description,
+        document=legislation.document,
+        posted_by=user,
+        available_at=available_at,
+        anonymous_vote=anonymous_vote,
+        allow_abstain=allow_abstain,
+        required_percentage=required_percentage,
+        vote_mode=vote_mode,
+        plurality_options=options if vote_mode == 'plurality' else None,
+        required_number=required_number,
+    )
+    legislation.chapter_legislation = chapter_leg
+    legislation.save()
+    logger.info(f"{user.username} created chapter vote for '{legislation.title}' from {committee.code}")
+    return chapter_leg
+
+
+def delete_chapter_vote(committee, legislation, user):
+    """Delete the chapter vote made from a committee vote (chairs or admins). Returns its title."""
+    if not legislation.chapter_legislation:
+        raise CommitteeActionError('No chapter vote exists for this item.', code='no_chapter_vote')
+    chapter_leg = legislation.chapter_legislation
+    title = chapter_leg.title
+    legislation.chapter_legislation = None
+    legislation.save()
+    chapter_leg.delete()
+    logger.info(f"{user.username} deleted chapter vote '{title}' linked from {committee.code}")
+    return title
+
+
 # v4.4.3: ending a vote, its result page and runoffs, shared with the app.
 
 def can_end_vote(user, committee, legislation):

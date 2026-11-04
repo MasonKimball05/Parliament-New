@@ -2,7 +2,9 @@ from django.shortcuts import get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.utils.http import url_has_allowed_host_and_scheme
-from src.committee_management import CommitteeActionError, unpush_from_chapter
+from src.committee_management import (
+    CommitteeActionError, can_manage_chapter_vote, delete_chapter_vote, unpush_from_chapter,
+)
 from src.models import Committee, CommitteeLegislation
 from src.feature_flag_decorators import require_feature_flag
 import logging
@@ -51,7 +53,7 @@ def delete_chapter_vote_link(request, code):
     committee = get_object_or_404(Committee, code=code)
 
     # Check permissions
-    if not committee.is_chair(request.user) and not request.user.is_admin:
+    if not can_manage_chapter_vote(request.user, committee):
         messages.error(request, 'Only committee chairs or admins can delete chapter votes.')
         return redirect('committee_home', code=code)
 
@@ -59,16 +61,11 @@ def delete_chapter_vote_link(request, code):
         legislation_id = request.POST.get('legislation_id')
         committee_leg = get_object_or_404(CommitteeLegislation, id=legislation_id, committee=committee)
 
-        if not committee_leg.chapter_legislation:
-            messages.error(request, 'No chapter vote exists for this item.')
+        try:
+            delete_chapter_vote(committee, committee_leg, request.user)
+        except CommitteeActionError as exc:
+            messages.error(request, exc.message)
         else:
-            chapter_leg = committee_leg.chapter_legislation
-            title = chapter_leg.title
-            committee_leg.chapter_legislation = None
-            committee_leg.save()
-            chapter_leg.delete()
-
-            logger.info(f"{request.user.username} deleted chapter vote '{title}' linked from {committee.code}")
             messages.success(request, f"Chapter vote deleted.")
 
     # Redirect back to referring page (validate to prevent open redirect)

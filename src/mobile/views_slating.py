@@ -87,7 +87,14 @@ def _period_json(period, user):
         'is_committee': can_view_applications(user, period),
         'is_chair': can_manage_period(user, period),
         'manage_path': reverse('slating_period_setup', args=[period.id]),
+        # 11-04-26: the approved slate, natively (view_approved_slate).
+        'can_view_slate': _slate_public(period, user),
     }
+
+
+def _slate_public(period, user):
+    from src.mobile.views_slating_slate import slate_public
+    return slate_public(period, user)
 
 
 class _SlatingBase(MobileAPIView):
@@ -116,6 +123,8 @@ class SlatingHubView(_SlatingBase):
                 'can_withdraw': a.status in WITHDRAWABLE,
             } for a in apps],
             'can_vote': bool(user.can_vote),
+            # 11-04-26: the dashboard's "+ New" (create_period is site admins only).
+            'can_create_period': bool(user.is_admin),
         })
 
 
@@ -325,11 +334,18 @@ def _chair_overview(period):
         'can_attendance': period.status in ATTENDANCE_STATUSES,
         'can_paper': round_accepts_paper(period),
         'can_publish': period.status in PUBLISHABLE,
+        # 11-04-26: the slate builder's screens (views_slating_slate.py).
+        'slate_tools': _slate_tools(period),
         'web': {'setup': reverse('slating_period_setup', args=[period.id]),
                 'attendance': reverse('slating_attendance', args=[period.id]),
                 'paper': reverse('slating_paper_ballots', args=[period.id]),
                 'results': reverse('slating_results', args=[period.id])},
     }
+
+
+def _slate_tools(period):
+    from src.mobile.views_slating_slate import slate_tools
+    return slate_tools(period)
 
 
 class SlatingChairView(_ChairView):

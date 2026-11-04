@@ -34,9 +34,9 @@ The period's managers (``can_manage_period``, the web's
   ``{save_to_documents}``: notifies every active member, as the web does.
 
 Each one runs the web view's own helpers (``src/view/slating/``), so the
-checks, the activity log and the notifications are the same. Building the
-slate, period setup, positions, the form builder, importing and transferring
-the admin stay on the website.
+checks, the activity log and the notifications are the same. Period setup,
+positions and transferring the admin are ``views_slating_setup.py``
+(11-04-26); the form builder and importing stay on the website.
 """
 import os
 

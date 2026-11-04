@@ -55,11 +55,8 @@ def reorder_positions(request, period_id):
         data = json.loads(request.body)
         position_order = data.get('position_order', [])
 
-        for index, position_id in enumerate(position_order):
-            SlatingPosition.objects.filter(
-                id=position_id,
-                period=period
-            ).update(display_order=index)
+        from .position_manager import reorder_period_positions
+        reorder_period_positions(period, position_order)
 
         return JsonResponse({'status': 'success'})
     except Exception as e:
@@ -236,9 +233,19 @@ def slate_candidates(request, period_id, slate_id):
     """
     period = get_object_or_404(SlatingPeriod, id=period_id)
     slate = get_object_or_404(Slate, id=slate_id, period=period)
+    return JsonResponse({'candidates': slate_candidates_json(slate)})
 
+
+def slate_candidates_json(slate):
+    """
+    The slate's candidates as ``slate_candidates`` returns them (the app's
+    copy too). 11-04-26: a write-in's ``applicant`` is the member written in;
+    this used to fail on a slate with one (``application`` is None).
+    """
     candidates = []
-    for sc in slate.candidates.select_related('position', 'application__applicant').defer(*member_defer('application__applicant')):
+    for sc in slate.candidates.select_related('position', 'application__applicant', 'write_in_member').defer(
+            *member_defer('application__applicant', 'write_in_member')):
+        person = sc.application.applicant if sc.application_id else sc.write_in_member
         candidates.append({
             'id': sc.id,
             'position': {
@@ -246,13 +253,12 @@ def slate_candidates(request, period_id, slate_id):
                 'title': sc.position.title,
             },
             'applicant': {
-                'name': sc.application.applicant.name,
-                'user_id': sc.application.applicant.user_id,
+                'name': person.name if person else '',
+                'user_id': person.user_id if person else None,
             },
             'display_order': sc.display_order,
         })
-
-    return JsonResponse({'candidates': candidates})
+    return candidates
 
 
 @login_required
@@ -321,10 +327,8 @@ def toggle_position_active(request, period_id, position_id):
     period = get_object_or_404(SlatingPeriod, id=period_id)
     position = get_object_or_404(SlatingPosition, id=position_id, period=period)
 
-    position.is_active = not position.is_active
-    position.save()
-
+    from .position_manager import toggle_position
     return JsonResponse({
         'status': 'success',
-        'is_active': position.is_active
+        'is_active': toggle_position(position)
     })
