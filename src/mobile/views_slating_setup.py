@@ -145,7 +145,13 @@ def _check_period_form(data, dates=True):
     if dates:
         for field in PERIOD_DATE_FIELDS:
             value = data.get(field)
-            if value and parse_datetime(value) is None:
+            if not value:
+                continue
+            try:
+                parsed = parse_datetime(value)
+            except ValueError:   # date-shaped but impossible (Feb 30, hour 25)
+                parsed = None
+            if parsed is None:
                 problems.append(f'{field} isn’t a date and time.')
     if problems:
         raise BadRequest(' '.join(problems), code='invalid_input')

@@ -428,6 +428,8 @@ class WebPagesTests(_SlateBase):
         msgs = [str(m) for m in r.wsgi_request._messages]
         self.assertEqual(msgs, ['No approved primary slate found.',   # the write-in, not yet shown
                                 'Select a winner for President.', 'Select a winner for Secretary.'])
+        # The refused form left no empty approved slate behind.
+        self.assertFalse(Slate.objects.filter(period=self.build, slate_type='primary', is_approved=True).exists())
 
     def test_edit_page_invalid_replacement_message(self):
         url = reverse('slating_edit_approved_slate', args=[self.period.id])

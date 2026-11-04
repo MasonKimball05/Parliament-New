@@ -168,12 +168,13 @@ class SetupPageTests(_SetupBase):
         self.assertEqual(float(p.min_gpa_requirement), 2.75)
         self.assertEqual(p.nominations_open_at, datetime(2027, 1, 11, 1, 0, tzinfo=dt_timezone.utc))
         self.assertIsNone(p.voting_open_at)
-        # Only a site admin changes the manager: his blank was ignored.
+        # Only a site admin changes the manager: their blank was ignored.
         self.assertEqual(p.slating_manager, self.manager)
 
     def test_save_validation_changes_nothing(self):
         for bad in ({'name': ''}, {'required_approval_percentage': '0'}, {'min_gpa_requirement': '5'},
-                    {'gpa_level_2_threshold': 'x'}, {'voting_open_at': 'next tuesday'}):
+                    {'gpa_level_2_threshold': 'x'}, {'voting_open_at': 'next tuesday'},
+                    {'voting_open_at': '2027-02-30T10:00'}):
             r = self.call('post', self.setup_path(), self.settings_body(**bad), user=self.manager)
             self.assertEqual((r.status_code, r.json()['error']), (400, 'invalid_input'), bad)
         self.assertEqual(SlatingPeriod.objects.get(id=self.period.id).name, 'Fall')

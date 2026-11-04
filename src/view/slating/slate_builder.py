@@ -728,19 +728,6 @@ def record_manual_results(period, user, data):
     positions = period.positions.filter(is_active=True).order_by('display_order')
     vote_mode = data.get('vote_mode', 'none')  # none | overall | per_position
 
-    # Get or create the primary slate
-    slate, _ = Slate.objects.get_or_create(
-        period=period,
-        slate_type='primary',
-        defaults={'name': f'{period.name} Slate', 'created_by': user}
-    )
-    # Ensure it is approved
-    if not slate.is_approved:
-        slate.is_approved = True
-        slate.approved_at = timezone.now()
-        slate.approved_by = user
-        slate.save(update_fields=['is_approved', 'approved_at', 'approved_by'])
-
     errors = []
     assignments = []  # (position, member) tuples to create
 
@@ -758,6 +745,20 @@ def record_manual_results(period, user, data):
 
     if errors:
         raise ManualResultsError(errors)
+
+    # Get or create the primary slate. After the winners are checked, so a form
+    # missing one leaves no empty approved slate behind.
+    slate, _ = Slate.objects.get_or_create(
+        period=period,
+        slate_type='primary',
+        defaults={'name': f'{period.name} Slate', 'created_by': user}
+    )
+    # Ensure it is approved
+    if not slate.is_approved:
+        slate.is_approved = True
+        slate.approved_at = timezone.now()
+        slate.approved_by = user
+        slate.save(update_fields=['is_approved', 'approved_at', 'approved_by'])
 
     # Overall vote counts (optional)
     overall_approve = overall_reject = overall_abstain = None
