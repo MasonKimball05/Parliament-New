@@ -842,6 +842,7 @@ def delete_announcement(request, announcement_id):
         return redirect('manage_announcements')
 
     return render(request, 'officer/delete_announcement.html', {
+        'groupme_posted': announcement.groupme_messages.filter(status='sent').exists(),
         'announcement': announcement
     })
 

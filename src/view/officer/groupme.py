@@ -32,7 +32,7 @@ from django.views.decorators.http import require_POST
 
 from src.decorators import log_function_call, officer_required
 from src.groupme import (
-    GroupMeError, create_bot, destroy_bot, get_me, list_bots, list_groups, posting_enabled,
+    GroupMeError, can_delete_in_group, create_bot, destroy_bot, get_me, list_bots, list_groups, posting_enabled,
     queue_send,
 )
 from src.models import ActivityLog, GroupMeChannel, GroupMeMessage, GroupMeSettings
@@ -312,8 +312,18 @@ def check_connection_action(request, channel):
     _log(request, f'checked "{channel.name}" (no message sent)', channel)
     where = bot['group_name'] or channel.group_name or 'its group'
     off = '' if posting_enabled() else ' GroupMe posting is turned off site-wide, so nothing will post until it is turned on.'
+    # v4.4.5: deleting an announcement or event deletes its posts, which
+    # GroupMe allows only for an owner or admin of the group.
+    can_delete, who = can_delete_in_group(settings_row.access_token, bot['group_id'] or channel.group_id)
+    if can_delete is True:
+        deletes = f' Deleting an announcement or event on Parliament also deletes its post here ({who} is an admin of the group).'
+    elif can_delete is False:
+        deletes = (f' {who or "The connected account"} isn\'t an admin of this group, so deleting an announcement or '
+                   'event on Parliament can\'t delete its post here. Make them an admin in GroupMe to fix that.')
+    else:
+        deletes = ''
     return (f'"{channel.name}" is connected: the bot is in "{where}". Its posts appear in that group\'s main chat, '
-            f'visible to everyone in it. Nothing was posted.{off}')
+            f'visible to everyone in it. Nothing was posted.{off}{deletes}')
 
 
 # v4.4.5: the old name, kept so every route that used it (web, app, older app

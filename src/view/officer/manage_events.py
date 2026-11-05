@@ -397,6 +397,7 @@ def delete_event(request, event_id):
     scope = clean_scope(request.GET.get('scope')) if counts else SCOPE_THIS
     return render(request, 'officer/delete_event.html', {
         'event': event, 'scope_counts': counts, 'scope': scope,
+        'groupme_posted': event.groupme_messages.filter(status='sent').exists(),
     })
 
 

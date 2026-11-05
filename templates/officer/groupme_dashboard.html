@@ -262,7 +262,8 @@ The access token and bot ids are never rendered (bots show their last 4).
                         <td class="py-2 pr-4">{{ m.channel_name }}</td>
                         <td class="py-2 pr-4">{% if m.announcement %}{{ m.announcement.title|truncatechars:60 }}{% elif m.event %}Reminder: {{ m.event.title|truncatechars:50 }}{% else %}{{ m.get_kind_display }}{% endif %}</td>
                         <td class="py-2 pr-4">
-                            {% if m.status == 'sent' %}<span class="text-green-700 dark:text-green-400">Sent</span>
+                            {% if m.status == 'sent' %}<span class="text-green-700 dark:text-green-400">Sent</span>{% if m.error %} <span class="text-amber-700 dark:text-amber-400">· {{ m.error }}</span>{% endif %}
+                            {% elif m.status == 'deleted' %}<span class="text-gray-500 dark:text-gray-400">Deleted from GroupMe (deleted on Parliament)</span>
                             {% elif m.status == 'failed' %}<span class="text-red-600 dark:text-red-400">Failed{% if m.attempts > 1 %} ({{ m.attempts }} tries){% endif %}: {{ m.error }}</span>
                             {% elif m.status == 'skipped' %}<span class="text-gray-500 dark:text-gray-400">Skipped: {{ m.error }}</span>
                             {% else %}<span class="text-amber-600 dark:text-amber-400">Queued</span>{% endif %}

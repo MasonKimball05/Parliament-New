@@ -561,3 +561,24 @@ def reset_education_permissions_on_role_change(changed_role_pks):
 
 # Mobile plan, Phase 1: revoke app devices when a second factor is removed.
 import src.mobile.revocation  # noqa: E402,F401  (registers post_delete receivers)
+
+
+# ── v4.4.5: deleting an announcement or event takes its GroupMe posts down ──
+# Exec feedback 11-05-26. pre_delete (not post_delete): GroupMeMessage's FK is
+# SET_NULL, so after the delete the posts can no longer be found by owner.
+# Every delete path (web, app, Admin v2, a recurring series) sends this.
+from django.db.models.signals import pre_delete  # noqa: E402
+
+from src.models import Announcement, Event  # noqa: E402
+
+
+@receiver(pre_delete, sender=Announcement, dispatch_uid='groupme_take_down_announcement')
+def _groupme_take_down_announcement(sender, instance, **kwargs):
+    from src.groupme import messages_to_take_down, queue_take_down
+    queue_take_down(messages_to_take_down(announcement=instance))
+
+
+@receiver(pre_delete, sender=Event, dispatch_uid='groupme_take_down_event')
+def _groupme_take_down_event(sender, instance, **kwargs):
+    from src.groupme import messages_to_take_down, queue_take_down
+    queue_take_down(messages_to_take_down(event=instance))

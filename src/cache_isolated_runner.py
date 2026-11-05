@@ -424,3 +424,7 @@ class CacheIsolatedTestRunner(DiscoverRunner):
     def setup_test_environment(self, **kwargs):
         super().setup_test_environment(**kwargs)
         install_cache_isolation()
+        # v4.4.5: no test may reach the real GroupMe (src/groupme.py
+        # `_request`). An env var, so spawned parallel workers inherit it.
+        import os
+        os.environ['PARLIAMENT_GROUPME_OFFLINE'] = '1'

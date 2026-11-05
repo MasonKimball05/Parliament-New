@@ -52,7 +52,18 @@ class GroupMeError(Exception):
 # in a header (GroupMe's own advice), and never logged.
 # ---------------------------------------------------------------------------
 
-def _request(method, path, *, token=None, json=None, params=None):
+#: v4.4.5 — the real `requests.request`, captured at import. A test run sets
+#: PARLIAMENT_GROUPME_OFFLINE (src/cache_isolated_runner.py); while it is set,
+#: a call that would reach the real api.groupme.com (nothing patched it) is
+#: refused, so no test can ever post in, read or delete from a real group.
+_REAL_REQUEST = requests.request
+OFFLINE_ENV = 'PARLIAMENT_GROUPME_OFFLINE'
+
+
+def _request(method, path, *, token=None, json=None, params=None, allow=()):
+    import os
+    if os.environ.get(OFFLINE_ENV) and requests.request is _REAL_REQUEST:
+        raise GroupMeError('GroupMe is offline during tests (nothing patched requests.request).')
     headers = {'Content-Type': 'application/json'}
     if token:
         headers['X-Access-Token'] = token
@@ -65,6 +76,8 @@ def _request(method, path, *, token=None, json=None, params=None):
         # str(e) can include the URL but never the header, so it is safe.
         raise GroupMeError(f'Could not reach GroupMe ({type(e).__name__}).', retryable=True) from e
 
+    if response.status_code in allow:
+        return response
     if response.status_code == 401:
         raise GroupMeError('GroupMe rejected the access token (401). Paste a new one.')
     if response.status_code == 429 or response.status_code >= 500:
@@ -158,6 +171,79 @@ def list_bots(token):
     bots = _payload(_request('GET', '/bots', token=token)) or []
     return [{'bot_id': str(b.get('bot_id') or ''), 'group_id': str(b.get('group_id') or ''),
              'group_name': b.get('group_name') or '', 'name': b.get('name') or ''} for b in bots]
+
+
+def recent_group_messages(token, group_id, before_id=None, limit=100):
+    """One page of a group's messages, newest first (read only)."""
+    params = {'limit': limit}
+    if before_id:
+        params['before_id'] = before_id
+    response = _request('GET', f'/groups/{group_id}/messages', token=token, params=params)
+    if response.status_code == 304:      # no messages (or none before before_id)
+        return []
+    return (_payload(response) or {}).get('messages') or []
+
+
+#: How far back the lookup goes: 5 pages x 100 messages.
+LOOKUP_PAGES = 5
+
+
+def find_bot_message(token, group_id, text, posted_at=None):
+    """
+    The id of the bot post with exactly ``text`` in ``group_id``, or ''.
+    A bot's post returns no id (POST /bots/post answers 202 with no body), so
+    it is found in the group's recent messages: a bot message with the same
+    text, sent no earlier than a few minutes before ``posted_at``.
+    """
+    want = (text or '')[:MAX_MESSAGE_CHARS].strip()
+    earliest = int(posted_at.timestamp()) - 300 if posted_at else None
+    before_id = None
+    for _ in range(LOOKUP_PAGES):
+        batch = recent_group_messages(token, group_id, before_id)
+        if not batch:
+            return ''
+        for m in batch:
+            if m.get('sender_type') == 'bot' and (m.get('text') or '').strip() == want:
+                return str(m.get('id') or '')
+        oldest = batch[-1]
+        if earliest is not None and (oldest.get('created_at') or 0) < earliest:
+            return ''
+        before_id = oldest.get('id')
+    return ''
+
+
+def can_delete_in_group(token, group_id):
+    """
+    Whether the token's owner may delete the bot's posts in ``group_id``
+    (owner or admin of the group). Returns (True/False, their name), or
+    (None, '') if GroupMe couldn't say. Read only.
+    """
+    try:
+        me = get_me(token)
+        group = _payload(_request('GET', f'/groups/{group_id}', token=token)) or {}
+    except GroupMeError:
+        return None, ''
+    if str(group.get('creator_user_id') or '') == me['id']:
+        return True, me['name']
+    for m in group.get('members') or []:
+        if str(m.get('user_id') or '') == me['id']:
+            roles = set(m.get('roles') or [])
+            return bool(roles & {'admin', 'owner'}), me['name']
+    return False, me['name']
+
+
+def delete_group_message(token, group_id, message_id):
+    """
+    Delete one message from a group. Needs ``token``'s owner to be an owner or
+    admin of the group (GroupMe answers 403 otherwise). Already gone (404)
+    counts as deleted.
+    """
+    response = _request('DELETE', f'/conversations/{group_id}/messages/{message_id}',
+                        token=token, allow=(403, 404))
+    if response.status_code == 403:
+        raise GroupMeError('GroupMe wouldn\'t let the connected account delete it (403): '
+                           'that account must be an owner or admin of the group.')
+    return True
 
 
 # ---------------------------------------------------------------------------
@@ -368,7 +454,9 @@ def deliver(message_id):
             retry_error = e
         else:
             message.status, message.error, message.sent_at = 'sent', '', timezone.now()
-            message.save(update_fields=['status', 'error', 'sent_at', 'attempts'])
+            message.group_id = message.channel.group_id or ''
+            message.save(update_fields=['status', 'error', 'sent_at', 'attempts', 'group_id'])
+            transaction.on_commit(lambda: remember_message_id(message.pk))
             return True
     # Raised only AFTER the block commits: raising inside it would roll back
     # the 'failed' status and attempt count we just recorded.
@@ -519,3 +607,98 @@ def save_event_channels(request, events):
         if event.groupme_reminder_hours != hours:
             event.groupme_reminder_hours = hours
             event.save(update_fields=['groupme_reminder_hours'])
+
+
+# ---------------------------------------------------------------------------
+# Taking posts down (v4.4.5)
+#
+# Exec feedback 11-05-26: deleting an announcement or event on Parliament
+# should delete it (and its reminder) on GroupMe too. Deleting another
+# member's message (the bot's) needs the connected GroupMe account to be an
+# owner or admin of the group; GroupMe refuses otherwise, and the log says so.
+# ---------------------------------------------------------------------------
+
+def _token():
+    from src.models import GroupMeSettings
+    return GroupMeSettings.get_instance().access_token or ''
+
+
+def remember_message_id(message_pk):
+    """After a post: find its GroupMe id and keep it (best effort, never raises)."""
+    from src.models import GroupMeMessage
+    message = GroupMeMessage.objects.filter(pk=message_pk, status='sent').first()
+    token = _token()
+    if message is None or message.groupme_message_id or not token or not message.group_id:
+        return
+    try:
+        found = find_bot_message(token, message.group_id, message.text, message.sent_at)
+    except GroupMeError as e:
+        logger.info(f'[groupme] could not look up message {message_pk}: {e}')
+        return
+    if found:
+        GroupMeMessage.objects.filter(pk=message_pk).update(groupme_message_id=found)
+
+
+def messages_to_take_down(**owner):
+    """The pks of an announcement's or event's posts (``announcement=`` / ``event=``)."""
+    from src.models import GroupMeMessage
+    return list(GroupMeMessage.objects.filter(status__in=('queued', 'failed', 'sent'), **owner)
+                .values_list('pk', flat=True))
+
+
+def take_down(message_pk):
+    """
+    Delete one post from its group because what it was about was deleted on
+    Parliament. A post that never went out is marked skipped instead. Raises
+    GroupMeError(retryable=True) for a transient failure; a permanent one is
+    recorded in the log.
+    """
+    from src.models import GroupMeMessage
+    with transaction.atomic():
+        message = GroupMeMessage.objects.select_for_update().filter(pk=message_pk).first()
+        if message is None or message.status in ('deleted', 'skipped'):
+            return False
+        if message.status in ('queued', 'failed'):
+            message.status, message.error = 'skipped', 'Deleted on Parliament before it was sent.'
+            message.save(update_fields=['status', 'error'])
+            return False
+
+    token = _token()
+    group_id = message.group_id or (message.channel.group_id if message.channel_id else '')
+    def _fail(text):
+        GroupMeMessage.objects.filter(pk=message_pk).update(error=f'Not deleted from GroupMe: {text}'[:500])
+        return False
+    if not token:
+        return _fail('no GroupMe account is connected.')
+    if not group_id:
+        return _fail('the group is unknown.')
+    try:
+        message_id = message.groupme_message_id or find_bot_message(token, group_id, message.text, message.sent_at)
+        if not message_id:
+            return _fail('it wasn\'t found in the group\'s recent messages (already deleted, or too old).')
+        delete_group_message(token, group_id, message_id)
+    except GroupMeError as e:
+        if e.retryable:
+            _fail(str(e))
+            raise
+        return _fail(str(e))
+    GroupMeMessage.objects.filter(pk=message_pk).update(
+        status='deleted', deleted_at=timezone.now(), error='', groupme_message_id=message_id, group_id=group_id)
+    return True
+
+
+def queue_take_down(message_pks):
+    """After the delete commits, take each post down (Celery; inline if the broker is down)."""
+    if not message_pks:
+        return
+    pks = list(message_pks)
+
+    def _go():
+        from src.tasks.groupme import take_down_groupme_message
+        for pk in pks:
+            try:
+                take_down_groupme_message.delay(pk)
+            except Exception as e:  # broker down
+                logger.warning(f'[groupme] could not queue take-down {pk}: {type(e).__name__}')
+
+    transaction.on_commit(_go)

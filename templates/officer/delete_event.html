@@ -37,6 +37,9 @@ Two things worth keeping:
                 <div>
                     <h3 class="text-lg font-semibold text-red-800 dark:text-red-300">Warning</h3>
                     <p class="text-red-700 dark:text-red-400 mt-1">This action cannot be undone. The event will be permanently removed from the calendar.</p>
+                    {% if groupme_posted %}
+                    <span class="block mt-1 text-amber-700 dark:text-amber-400">Its reminder was posted to GroupMe; that post is deleted from GroupMe too (the connected GroupMe account must be an admin of the group).</span>
+                    {% endif %}
                 </div>
             </div>
         </div>

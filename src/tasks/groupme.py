@@ -32,6 +32,18 @@ def send_groupme_message(self, message_id):
         logger.warning(f'[groupme] message {message_id} failed after retries: {e}')
 
 
+@shared_task(bind=True, name='tasks.take_down_groupme_message', max_retries=MAX_RETRIES)
+def take_down_groupme_message(self, message_id):
+    """v4.4.5: delete a post because its announcement or event was deleted."""
+    from src.groupme import GroupMeError, take_down
+    try:
+        take_down(message_id)
+    except GroupMeError as e:
+        if self.request.retries < MAX_RETRIES:
+            raise self.retry(exc=e, countdown=60 * (2 ** self.request.retries))
+        logger.warning(f'[groupme] take-down {message_id} failed after retries: {e}')
+
+
 def sweep_groupme():
     """
     Run from `publish_scheduled_announcements` (every 5 minutes), so a scheduled

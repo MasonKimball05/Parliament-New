@@ -139,6 +139,7 @@ class GroupMeMessage(models.Model):
         ('sent', 'Sent'),
         ('failed', 'Failed'),
         ('skipped', 'Skipped'),
+        ('deleted', 'Deleted'),
     )
 
     channel = models.ForeignKey(
@@ -167,6 +168,12 @@ class GroupMeMessage(models.Model):
         'ParliamentUser', on_delete=models.SET_NULL, null=True, blank=True,
         related_name='+',
     )
+    #: v4.4.5 — where the post landed, so it can be taken down when the
+    #: announcement or event is deleted on Parliament. A bot's post returns no
+    #: id, so it is looked up in the group's recent messages afterwards.
+    group_id = models.CharField(max_length=50, blank=True)
+    groupme_message_id = models.CharField(max_length=50, blank=True)
+    deleted_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         ordering = ['-created_at']

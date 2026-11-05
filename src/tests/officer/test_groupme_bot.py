@@ -49,6 +49,12 @@ class FakeGroupMe:
         self.next_bot = 1
         # v4.4.5: bots GroupMe lists for the token (GET /bots, "Check connection").
         self.bots = [{'bot_id': 'botBROTHERS1', 'group_id': '111', 'group_name': 'AM Brothers', 'name': 'Parliament'}]
+        # v4.4.5: each group's messages, newest first, so posts can be found and deleted.
+        self.bot_groups = {'botBROTHERS1': '111', 'botEVERYONE1': '222'}
+        self.group_messages = {}
+        self.next_message = 1
+        self.delete_status = 204
+        self.my_roles = ['admin']    # the connected account's roles in each group
 
     def __call__(self, method, url, headers=None, json=None, params=None, **kw):
         path = url.replace(groupme.API_BASE, '')
@@ -70,8 +76,39 @@ class FakeGroupMe:
         if path == '/bots/destroy':
             return fake_response(200)
         if path == '/bots/post':
+            if self.post_status < 400:
+                gid = self.bot_groups.get(json['bot_id'], '0')
+                self.group_messages.setdefault(gid, []).insert(0, {
+                    'id': f'msg{self.next_message}', 'sender_type': 'bot', 'text': json['text'],
+                    'created_at': int(timezone.now().timestamp())})
+                self.next_message += 1
             return fake_response(self.post_status)
+        seg = path.strip('/').split('/')   # api.groupme.com paths, by segment
+        if len(seg) == 3 and seg[0] == 'groups' and seg[2] == 'messages' and method == 'GET':
+            msgs = self.group_messages.get(path.split('/')[2], [])
+            before = (params or {}).get('before_id')
+            if before:
+                ids = [m['id'] for m in msgs]
+                msgs = msgs[ids.index(before) + 1:] if before in ids else []
+            if not msgs:
+                return fake_response(304)
+            return fake_response(200, {'count': len(msgs), 'messages': msgs[:(params or {}).get('limit', 20)]})
+        if len(seg) == 2 and seg[0] == 'groups' and method == 'GET':
+            return fake_response(200, {'id': path.split('/')[2], 'creator_user_id': '7',
+                                       'members': [{'user_id': '42', 'roles': self.my_roles}]})
+        if seg[0] == 'conversations' and method == 'DELETE':
+            _, _, gid, _, mid = path.split('/')
+            msgs = self.group_messages.get(gid, [])
+            if self.delete_status >= 400:
+                return fake_response(self.delete_status)
+            if not any(m['id'] == mid for m in msgs):
+                return fake_response(404)
+            self.group_messages[gid] = [m for m in msgs if m['id'] != mid]
+            return fake_response(204)
         return fake_response(404)
+
+    def deletes(self):
+        return [c for c in self.calls if c['method'] == 'DELETE']
 
     def posts(self):
         return [c for c in self.calls if c['path'] == '/bots/post']
@@ -83,7 +120,9 @@ def inline_celery():
     with mock.patch.object(groupme_tasks.dispatch_announcement_to_groupme, 'delay',
                            side_effect=lambda pk: groupme_tasks.dispatch_announcement_to_groupme(pk)), \
          mock.patch.object(groupme_tasks.send_groupme_message, 'delay',
-                           side_effect=lambda pk: groupme_tasks.send_groupme_message(pk)):
+                           side_effect=lambda pk: groupme_tasks.send_groupme_message(pk)), \
+         mock.patch.object(groupme_tasks.take_down_groupme_message, 'delay',
+                           side_effect=lambda pk: groupme_tasks.take_down_groupme_message(pk)):
         yield
 
 
@@ -517,3 +556,123 @@ class CspRetentionTests(TestCase):
         CSPViolation.objects.filter(pk=old.pk).update(created_at=timezone.now() - timedelta(days=31))
         self.assertEqual(prune_old_csp_violations(), 1)
         self.assertEqual(list(CSPViolation.objects.values_list('pk', flat=True)), [new.pk])
+
+
+class TakeDownTests(GroupMeFixture, TestCase):
+    """
+    v4.4.5 (exec feedback 11-05-26): deleting an announcement or event on
+    Parliament deletes its GroupMe posts. The fake GroupMe keeps each group's
+    messages, so a post is really found and really removed (in the fake).
+    """
+
+    def setUp(self):
+        super().setUp()
+        row = GroupMeSettings.get_instance()
+        row.access_token, row.token_owner_name = TOKEN, 'Mason K'
+        row.save()
+
+    def posted(self):
+        a = self.create(channels=[self.everyone])
+        msg = GroupMeMessage.objects.get(announcement=a)
+        self.assertEqual(msg.status, 'sent')
+        self.assertEqual(len(self.api.group_messages['222']), 1)
+        return a, msg
+
+    def delete_announcement(self, a):
+        with inline_celery(), self.captureOnCommitCallbacks(execute=True):
+            r = self.oc.post(reverse('delete_announcement', args=[a.pk]))
+        self.assertEqual(r.status_code, 302)
+
+    def test_the_post_records_where_it_landed_and_its_id(self):
+        _, msg = self.posted()
+        self.assertEqual(msg.group_id, '222')
+        self.assertEqual(msg.groupme_message_id, self.api.group_messages['222'][0]['id'])
+
+    def test_deleting_the_announcement_deletes_the_post(self):
+        a, msg = self.posted()
+        self.delete_announcement(a)
+        msg.refresh_from_db()
+        self.assertEqual((msg.status, msg.error), ('deleted', ''))
+        self.assertIsNotNone(msg.deleted_at)
+        self.assertEqual(self.api.group_messages['222'], [])
+        self.assertEqual(self.api.deletes()[0]['path'], f'/conversations/222/messages/{msg.groupme_message_id}')
+
+    def test_found_by_its_text_when_the_id_wasnt_recorded(self):
+        a, msg = self.posted()
+        GroupMeMessage.objects.filter(pk=msg.pk).update(groupme_message_id='')
+        # Someone chats after the post: the bot's post is still found.
+        self.api.group_messages['222'].insert(0, {'id': 'chat1', 'sender_type': 'user', 'text': 'ok',
+                                                  'created_at': int(timezone.now().timestamp())})
+        self.delete_announcement(a)
+        msg.refresh_from_db()
+        self.assertEqual(msg.status, 'deleted')
+        self.assertEqual([m['id'] for m in self.api.group_messages['222']], ['chat1'])
+
+    def test_not_an_admin_of_the_group_is_logged_not_hidden(self):
+        a, msg = self.posted()
+        self.api.delete_status = 403
+        self.delete_announcement(a)
+        msg.refresh_from_db()
+        self.assertEqual(msg.status, 'sent')
+        self.assertIn('owner or admin of the group', msg.error)
+        self.assertFalse(Announcement.objects.filter(pk=a.pk).exists())   # Parliament's delete still happens
+
+    def test_no_account_connected_is_logged(self):
+        a, msg = self.posted()
+        GroupMeSettings.objects.update(access_token='')
+        self.delete_announcement(a)
+        msg.refresh_from_db()
+        self.assertEqual(msg.status, 'sent')
+        self.assertIn('no GroupMe account is connected', msg.error)
+        self.assertEqual(self.api.deletes(), [])
+
+    def test_a_queued_post_is_skipped_not_sent(self):
+        a = self.create(channels=[self.everyone], publish_at=timezone.now() + timedelta(days=1))
+        GroupMeMessage.objects.create(announcement=a, channel=self.everyone, channel_name='x', text='t',
+                                      status='queued')
+        self.delete_announcement(a)
+        msg = GroupMeMessage.objects.get(channel=self.everyone)
+        self.assertEqual(msg.status, 'skipped')
+        self.assertEqual(self.api.posts(), [])
+
+    def test_deleting_an_event_deletes_its_reminder(self):
+        from src.models import Event
+        e = Event.objects.create(title='Chapter meeting', description='x', location='The house',
+                                 date_time=timezone.now() + timedelta(hours=10), created_by=self.officer,
+                                 groupme_reminder_hours=24)
+        e.groupme_channels.set([self.everyone])
+        with inline_celery(), self.captureOnCommitCallbacks(execute=True):
+            groupme_tasks.sweep_groupme()
+        msg = GroupMeMessage.objects.get(event=e)
+        self.assertEqual(msg.status, 'sent')
+        with inline_celery(), self.captureOnCommitCallbacks(execute=True):
+            e.delete()
+        msg.refresh_from_db()
+        self.assertEqual(msg.status, 'deleted')
+        self.assertEqual(self.api.group_messages['222'], [])
+
+    def test_a_test_run_can_never_reach_the_real_groupme(self):
+        import os
+        self.assertTrue(os.environ.get(groupme.OFFLINE_ENV))
+        with mock.patch('src.groupme.requests.request', groupme._REAL_REQUEST):
+            with self.assertRaisesMessage(groupme.GroupMeError, 'offline during tests'):
+                groupme.recent_group_messages(TOKEN, '222')
+
+    def check(self):
+        cache.clear()
+        with mock.patch('src.view.officer.groupme.cache.add', return_value=True):
+            from src.view.officer.groupme import check_connection_action
+            req = mock.Mock(); req.user = self.officer
+            with mock.patch('src.view.officer.groupme._log'):
+                return check_connection_action(req, self.brothers)
+
+    def test_check_connection_says_whether_posts_can_be_deleted(self):
+        self.assertIn('also deletes its post here (Mason K is an admin', self.check())
+        self.api.my_roles = []
+        self.assertIn("Mason K isn't an admin of this group", self.check())
+        self.assertEqual(self.api.posts(), [])
+
+    def test_the_delete_page_says_the_post_goes_too(self):
+        a, _ = self.posted()
+        page = self.oc.get(reverse('delete_announcement', args=[a.pk]))
+        self.assertContains(page, 'deleted from GroupMe too')
