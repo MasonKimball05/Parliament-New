@@ -89,6 +89,7 @@
             {% endif %}
 
             {# 11-05-26: a position with no nominee can be left unfilled directly; overriding an elected officer is confirmed. #}
+            {% if period.status == 'deliberation' or period.status == 'voting_closed' %}{% if s.position.id not in election.on_ballot %}
             <details class="mt-2">
                 <summary class="text-xs text-gray-500 dark:text-gray-400 cursor-pointer">Record the chapter’s decision</summary>
                 <form method="post" action="{% url 'slating_position_action' period_id=period.id %}"
@@ -107,6 +108,7 @@
                     <button type="submit" class="text-xs px-2 py-1 rounded-md border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700">Record</button>
                 </form>
             </details>
+            {% endif %}{% endif %}
         </li>
         {% endfor %}
     </ul>

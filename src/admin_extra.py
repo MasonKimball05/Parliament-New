@@ -861,8 +861,21 @@ class SlatingAttendanceAdmin(admin.ModelAdmin):
     search_fields = ('member__username', 'member__name')
 
 
+class NoRowPagesMixin:
+    """
+    11-05-26 (secret ballot): no per-row page. SlatingVote and SlatingBallot
+    rows are written together in one transaction, so their ids line up and
+    /slatingvote/<id>/ next to /slatingballot/<id>/ (which names the voter)
+    gave away how someone voted. The lists stay; a row's page is refused.
+    """
+    def has_view_permission(self, request, obj=None):
+        if obj is not None:
+            return False
+        return super().has_view_permission(request, obj)
+
+
 @admin.register(SlatingBallot, site=admin_site)
-class SlatingBallotAdmin(ReadOnlyAdmin):
+class SlatingBallotAdmin(NoRowPagesMixin, ReadOnlyAdmin):
     """Read-only: participation record (who voted, not what for — choices live
     in SlatingVote without a voter FK). Never edit; ballot integrity is
     hash-chained."""
@@ -879,7 +892,7 @@ class SlatingBallotAdmin(ReadOnlyAdmin):
 
 
 @admin.register(SlatingVote, site=admin_site)
-class SlatingVoteAdmin(ReadOnlyAdmin):
+class SlatingVoteAdmin(NoRowPagesMixin, ReadOnlyAdmin):
     """Read-only: anonymous vote content — deliberately no voter FK here.
     v3.16.2: voted_at hidden — with SlatingBallot's per-voter timestamps in
     the next section over, second-level timestamps on choices allow a

@@ -327,6 +327,16 @@ class AdminTests(_Fix):
             self.assertFalse(ma.actions)
             self.assertIsNone(ma.list_display_links)
 
+    def test_no_row_page_for_a_vote_or_a_ballot(self):
+        from django.test import RequestFactory
+        from src.admin import admin_site
+        req = RequestFactory().get('/')
+        req.user = member('sf-su', is_admin=True)
+        for model in (SlatingVote, SlatingBallot):
+            ma = admin_site._registry[model]
+            self.assertTrue(ma.has_view_permission(req))            # the list
+            self.assertFalse(ma.has_view_permission(req, model()))  # a row's page
+
 
 # ── 8. Results from the closed round ────────────────────────────────────────
 
@@ -813,3 +823,41 @@ class PublishPathTests(_Fix):
         self.assertIn('Still undecided: President, VP.', msg)
         SlatingPeriod.objects.filter(pk=self.period.pk).update(status='voting_open')
         self.assertIn('close it first', publish_refusal(self.fresh()))
+
+
+# ── Re-run findings (11-05-26) ───────────────────────────────────────────────
+
+class RerunFindingsTests(_Fix):
+
+    def test_a_ballot_sent_after_close_says_so(self):
+        from django.contrib.messages import get_messages
+        from src.slating_ballots import VOTING_CLOSED
+        SlatingPeriod.objects.filter(pk=self.period.pk).update(status='voting_closed')
+        voter = member('sf-late')
+        self.client.force_login(voter)
+        r = self.client.post(reverse('slating_vote', args=[self.period.id]), {'vote_choice': 'approve'})
+        self.assertIn(VOTING_CLOSED, [str(m) for m in get_messages(r.wsgi_request)])
+        r = self.client.get(reverse('slating_vote', args=[self.period.id]))
+        self.assertIn('Voting is not currently open.', [str(m) for m in get_messages(r.wsgi_request)])
+
+    def test_save_draft_skips_the_browsers_required_checks(self):
+        from pathlib import Path
+        from django.conf import settings
+        html = (Path(settings.BASE_DIR) / 'templates/slating/apply.html').read_text()
+        self.assertRegex(html, r'value="save_draft"\s+formnovalidate')
+
+    def test_approve_slate_confirm_is_wired(self):
+        from pathlib import Path
+        from django.conf import settings
+        html = (Path(settings.BASE_DIR) / 'templates/slating/slate_builder.html').read_text()
+        self.assertIn("querySelectorAll('.js-confirm-submit')", html)
+
+    def test_record_decision_is_hidden_while_voting_is_open(self):
+        url = reverse('slating_period_setup', args=[self.period.id])
+        self.as_manager()
+        SlatingPeriod.objects.filter(pk=self.period.pk).update(status='deliberation', current_voting_attempt=1)
+        self.assertContains(self.client.get(url), 'Record the chapter’s decision')
+        SlatingPeriod.objects.filter(pk=self.period.pk).update(status='voting_open')
+        self.assertNotContains(self.client.get(url), 'Record the chapter’s decision')
+        SlatingPeriod.objects.filter(pk=self.period.pk).update(status='results_published')
+        self.assertNotContains(self.client.get(url), 'Record the chapter’s decision')

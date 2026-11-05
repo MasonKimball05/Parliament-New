@@ -15,7 +15,7 @@ from src.models import (
 from .tallies import end_round
 from .permissions import voting_member_required, slating_chair_required, can_view_applications
 from src.view.webauthn import check_vote_reauth
-from src.slating_ballots import (SlatingBallotError, cast_individual, cast_slate, individual_ballot,
+from src.slating_ballots import (VOTING_CLOSED, SlatingBallotError, cast_individual, cast_slate, individual_ballot,
                                  sat_out_states, sits_out_slate)
 from src.slating_rounds import slate_rows
 from src.models.users import member_defer
@@ -55,7 +55,8 @@ def slating_vote(request, period_id):
     # Committee members can see the paused-voting state; everyone else needs voting_open
     if not period.can_vote():
         if not (is_committee and voting_paused):
-            messages.error(request, 'Voting is not currently open.')
+            # 11-05-26: a ballot sent from a page loaded before the close.
+            messages.error(request, VOTING_CLOSED if request.method == 'POST' else 'Voting is not currently open.')
             return redirect('slating_dashboard')
 
     # Get current slate
@@ -168,7 +169,7 @@ def individual_vote(request, period_id):
     user = request.user
 
     if not period.can_vote():
-        messages.error(request, 'Voting is not currently open.')
+        messages.error(request, VOTING_CLOSED if request.method == 'POST' else 'Voting is not currently open.')
         return redirect('slating_dashboard')
 
     # Check if member is marked present

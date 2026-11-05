@@ -244,6 +244,12 @@
 
 {% block slating_js %}
 <script nonce="{{ request.csp_nonce }}">
+// 11-05-26: the Approve Slate confirm (the class was there, the hookup wasn't).
+document.querySelectorAll('.js-confirm-submit').forEach(function(form) {
+    form.addEventListener('submit', function(e) {
+        if (!confirm(form.dataset.confirmMsg)) e.preventDefault();
+    });
+});
 function openAssignModal(positionId, positionTitle, action) {
     document.getElementById('modalPositionId').value = positionId;
     document.getElementById('modalAction').value = action;

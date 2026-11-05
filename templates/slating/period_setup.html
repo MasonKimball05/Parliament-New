@@ -339,7 +339,7 @@
     <div class="px-5 py-2.5 bg-primary-50 dark:bg-primary-900/20 border-t border-primary-100 dark:border-primary-900/40 flex flex-wrap gap-4 text-sm">
         {% if period.status == 'voting_open' or period.status == 'voting_closed' %}
         <a href="{% url 'slating_results' period_id=period.id %}" class="text-primary-700 dark:text-primary-300 hover:underline font-medium">
-            View Live Results
+            {% if period.status == 'voting_open' %}View Live Results{% else %}View Results{% endif %}
         </a>
         {% endif %}
         {% if period.status == 'voting_open' or period.status == 'deliberation' %}
