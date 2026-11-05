@@ -23,6 +23,7 @@ are in that group too and would otherwise get it twice.
 import logging
 
 import requests
+from django.core.cache import cache
 from django.db import transaction
 from django.db.models import Q
 from django.urls import reverse
@@ -215,6 +216,10 @@ def format_announcement(announcement, include_full_text=True):
 
     link = f"{get_site_url()}{reverse('announcements')}"
     head = f"📢 {announcement.title.strip()}"
+    # v4.4.5: say who posted it (a bot's posts otherwise all read "Parliament").
+    author = announcement.posted_by.get_display_name() if announcement.posted_by_id else ''
+    if author:
+        head += f"\nPosted by {author}"
     tail = f"\n\n{link}"
     body = (announcement.content or '').strip() if include_full_text else ''
     if not body:
@@ -244,6 +249,32 @@ def due_announcements_queryset():
     )
 
 
+# v4.4.5: an announcement created with "send email" goes to the email
+# confirmation page first; its GroupMe post waits until that step is done
+# (emails sent or skipped). The hold expires after HOLD_SECONDS so an
+# abandoned confirmation page doesn't keep it off GroupMe forever.
+HOLD_SECONDS = 30 * 60
+
+
+def _hold_key(announcement_id):
+    return f'groupme_hold_announcement_{announcement_id}'
+
+
+def hold_announcement(announcement_id):
+    cache.set(_hold_key(announcement_id), 1, HOLD_SECONDS)
+
+
+def is_held(announcement_id):
+    return bool(cache.get(_hold_key(announcement_id)))
+
+
+def release_announcement(announcement):
+    """The email step is done: post it to GroupMe now (if it has channels)."""
+    cache.delete(_hold_key(announcement.pk))
+    if announcement.groupme_dispatched_at is None and announcement.groupme_channels.exists():
+        schedule_dispatch(announcement)
+
+
 def dispatch_announcement(announcement_id):
     """
     Claim the announcement (once, ever) and create one queued GroupMeMessage per
@@ -253,6 +284,8 @@ def dispatch_announcement(announcement_id):
     """
     from src.models import Announcement, GroupMeMessage, GroupMeSettings
 
+    if is_held(announcement_id):
+        return []   # still on the email confirmation step (see HOLD_SECONDS)
     with transaction.atomic():
         announcement = (
             Announcement.objects.select_for_update(skip_locked=True)
@@ -410,6 +443,9 @@ def format_event_reminder(event):
         line += f" · {event.location.strip()}"
     link = f"{get_site_url()}{reverse('calendar')}"
     head = f"⏰ Reminder: {event.title.strip()}"
+    # v4.4.5: who put the event on the calendar.
+    if event.created_by_id:
+        line += f"\nPosted by {event.created_by.get_display_name()}"
     return f"{head}\n{line}\n\n{link}"[:MAX_MESSAGE_CHARS]
 
 

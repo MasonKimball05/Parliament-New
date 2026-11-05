@@ -170,6 +170,27 @@ class AnnouncementEchoTests(GroupMeFixture, TestCase):
             groupme_tasks.dispatch_announcement_to_groupme(a.pk)
         self.assertEqual(len(self.api.posts()), 1)
 
+    def test_post_says_who_posted_it(self):
+        self.create(channels=[self.everyone])
+        self.assertIn(f'Posted by {self.officer.get_display_name()}', self.api.posts()[0]['json']['text'])
+
+    def test_with_email_it_waits_for_the_email_step_then_posts(self):
+        # v4.4.5 (exec feedback): GroupMe went out before the officer finished
+        # the email confirmation step. Now it waits until emails are sent or skipped.
+        data = {'title': 'Formal', 'content': 'Tickets Friday.', 'is_active': 'on', 'visible_to': [],
+                'groupme_channel_ids': [str(self.everyone.pk)], 'send_email': 'on'}
+        with inline_celery(), self.captureOnCommitCallbacks(execute=True):
+            r = self.oc.post(reverse('create_announcement'), data)
+        a = Announcement.objects.latest('pk')
+        self.assertIn('confirm', r['Location'])
+        self.assertEqual(self.api.posts(), [])                      # held on the email step
+        with inline_celery():
+            groupme_tasks.sweep_groupme()                           # the sweep respects the hold
+        self.assertEqual(self.api.posts(), [])
+        with inline_celery(), self.captureOnCommitCallbacks(execute=True):
+            self.oc.post(reverse('skip_announcement_email', args=[a.pk]))
+        self.assertEqual(len(self.api.posts()), 1)                  # posted once the step is done
+
     def test_server_drops_a_group_the_audience_rule_forbids(self):
         # A members-only announcement with the pledge group ticked anyway
         # (e.g. a hand-made POST): only the brothers group is kept.

@@ -156,6 +156,13 @@ def _groupme_context(announcement=None, posted_ids=None, visible_to=None):
     }
 
 
+def _release_groupme(announcement_id):
+    from src.groupme import release_announcement
+    announcement = Announcement.objects.filter(pk=announcement_id).first()
+    if announcement is not None:
+        release_announcement(announcement)
+
+
 def _save_groupme_channels(request, announcement):
     """
     v3.49.0 — store the ticked channels (only ones the audience rule allows,
@@ -224,7 +231,11 @@ def create_announcement(request):
             if request.POST.get('poll_title', '').strip():
                 _save_poll_from_post(request.POST, announcement, request.user)
 
-            # v3.49.0 — GroupMe echo
+            # v3.49.0 — GroupMe echo. v4.4.5: when the email confirmation
+            # step comes next, the GroupMe post waits for it (sent or skipped).
+            if announcement.is_published() and send_email:
+                from src.groupme import hold_announcement
+                hold_announcement(announcement.pk)
             _save_groupme_channels(request, announcement)
 
             # If send_email is checked and announcement is published, redirect to confirmation
@@ -391,6 +402,8 @@ def send_announcement_emails(request, announcement_id):
 
     if request.method != 'POST':
         return redirect('manage_announcements')
+    # v4.4.5: emails confirmed, so the held GroupMe post can go out.
+    _release_groupme(announcement_id)
 
     announcement = get_object_or_404(Announcement, id=announcement_id)
     extra_ids_str = request.POST.get('extra_user_ids', '')
@@ -535,6 +548,8 @@ def skip_announcement_email(request, announcement_id):
     Skip sending emails for an announcement (user cancelled from confirmation page).
     Also cleans up any warmup data.
     """
+    # v4.4.5: the email step is done, so the held GroupMe post can go out.
+    _release_groupme(announcement_id)
     # Cancel any active warmup logs for this announcement
     for email_log in AnnouncementEmailLog.objects.filter(announcement_id=announcement_id, status='warming_up'):
         email_log.recipients.all().delete()
