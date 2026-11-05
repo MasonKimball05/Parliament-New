@@ -208,13 +208,21 @@ def applicant_ineligibility(user):
 
 # ── No candidate on the slating committee (11-05-26, the chapter's rule) ─────
 
-COMMITTEE_CANT_RUN = "Slating committee members can't run in this election."
+COMMITTEE_CANT_RUN = "Slating committee members and the slating manager can't run in this election."
 
 
 def on_slating_committee(user, period):
-    """True if ``user`` sits on ``period``'s slating committee (member, chair or its admin)."""
+    """
+    True if ``user`` sits on ``period``'s slating committee (member, chair or
+    its admin) or is the period's slating manager (11-05-26: the manager
+    counts as on the committee, so they can't run either).
+    """
+    if user is None:
+        return False
+    if period.slating_manager_id and period.slating_manager_id == user.pk:
+        return True
     committee = period.slating_committee if period.slating_committee_id else None
-    if committee is None or user is None:
+    if committee is None:
         return False
     return (committee.admin_id == user.pk or committee.members.filter(pk=user.pk).exists()
             or committee.chairs.filter(pk=user.pk).exists())
@@ -229,6 +237,10 @@ def has_live_application(user, period):
 
 def applied_cant_join_message(user):
     return f"{user.name} has applied, so they can't join the slating committee."
+
+
+def applied_cant_manage_message(user):
+    return f"{user.name} has applied, so they can't be the slating manager."
 
 
 def nominee_ineligibility(user, period):

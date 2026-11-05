@@ -427,11 +427,42 @@ class SlateTests(_Fix):
         add_nominee(self.period, self.manager, self.treas.id, pledge)
         self.assertEqual(list(SlatingNominee.objects.values_list('member', flat=True)), [pledge.pk])
 
+    def test_the_slating_manager_counts_as_on_the_committee(self):
+        """11-05-26: the manager can't apply or be a write-in either."""
+        from src.view.slating.apply import apply_refusal
+        from src.view.slating.permissions import COMMITTEE_CANT_RUN, nominee_ineligibility, on_slating_committee
+        from src.view.slating.slate_builder import SlateError, add_write_in
+        mgr = member('sf-mgr2')
+        SlatingPeriod.objects.filter(pk=self.period.pk).update(status='nominations_open', slating_manager=mgr)
+        self.assertTrue(on_slating_committee(mgr, self.fresh()))
+        self.assertEqual(apply_refusal(self.fresh(), mgr)[1], ('committee_member', COMMITTEE_CANT_RUN))
+        self.assertEqual(nominee_ineligibility(mgr, self.fresh()), COMMITTEE_CANT_RUN)
+        SlatingPeriod.objects.filter(pk=self.period.pk).update(status='deliberation')
+        with self.assertRaises(SlateError):
+            add_write_in(self.fresh(), self.manager, self.treas.id, mgr.user_id)
+
+    def test_an_applicant_cant_be_made_manager_or_offered(self):
+        from src.models import SlatingApplication
+        from src.view.slating.period_setup import PeriodSetupError, eligible_period_managers, save_period_settings
+        admin = member('sf-siteadmin', is_admin=True)
+        runner = member('sf-runner')
+        SlatingApplication.objects.create(period=self.period, applicant=runner, status='submitted')
+        self.assertNotIn(runner, list(eligible_period_managers(self.fresh())))
+        before = self.fresh().slating_manager_id
+        with self.assertRaises(PeriodSetupError) as e:
+            save_period_settings(self.fresh(), admin, {
+                'name': self.period.name, 'academic_term': self.period.academic_term,
+                'required_approval_percentage': str(self.period.required_approval_percentage),
+                'slating_manager': runner.user_id})
+        self.assertEqual(e.exception.code, 'applied')
+        self.assertEqual(self.fresh().slating_manager_id, before)
+
     def test_committee_members_cant_apply(self):
         from src.view.slating.apply import apply_refusal
         SlatingPeriod.objects.filter(pk=self.period.pk).update(status='nominations_open')
         _, refusal = apply_refusal(self.fresh(), self.committee_member)
-        self.assertEqual(refusal, ('committee_member', "Slating committee members can't run in this election."))
+        from src.view.slating.permissions import COMMITTEE_CANT_RUN
+        self.assertEqual(refusal, ('committee_member', COMMITTEE_CANT_RUN))
         self.client.force_login(self.committee_member)
         body = self.client.get(reverse('slating_api_eligibility', args=[self.period.id])).json()
         self.assertFalse(body['eligible'])

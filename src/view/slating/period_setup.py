@@ -150,12 +150,22 @@ PERIOD_DATE_FIELDS = [
 ]
 
 
-def eligible_period_managers():
-    """Who the Slating Manager and Add-a-member pickers offer."""
-    return ParliamentUser.objects.filter(
+def eligible_period_managers(period=None):
+    """
+    Who the Slating Manager and Add-a-member pickers offer. With ``period``,
+    anyone running in it (a live application) is left out: the manager and
+    the committee can't be candidates (11-05-26).
+    """
+    qs = ParliamentUser.objects.filter(
         member_status__in=['Active', 'Inactive'],
         member_type__in=['Member', 'Chair', 'Officer']
-    ).order_by('name')
+    )
+    if period is not None and period.pk:
+        from src.models import SlatingApplication
+        running = SlatingApplication.objects.filter(period=period).exclude(
+            status__in=['draft', 'withdrawn']).values('applicant_id')
+        qs = qs.exclude(pk__in=running)
+    return qs.order_by('name')
 
 
 def ensure_slating_committee(period):
@@ -294,6 +304,14 @@ def save_period_settings(period, user, data):
     isn't a number) and the schedule (a blank or missing date clears it).
     """
     required_approval_from(period, data)   # 11-05-26: refused before anything changes
+    if user.is_admin:
+        # 11-05-26: the manager counts as on the committee, so no candidate.
+        from .permissions import applied_cant_manage_message, has_live_application
+        new_manager_id = str(data.get('slating_manager') or '').strip()
+        if new_manager_id and new_manager_id != (period.slating_manager.user_id if period.slating_manager_id else None):
+            new_manager = ParliamentUser.objects.filter(user_id=new_manager_id).first()
+            if new_manager is not None and has_live_application(new_manager, period):
+                raise PeriodSetupError('applied', applied_cant_manage_message(new_manager))
     period.name = data.get('name', period.name).strip()
     period.academic_term = data.get('academic_term', period.academic_term).strip()
     period.description = data.get('description', '').strip()
@@ -604,7 +622,7 @@ def edit_period(request, period_id):
     ensure_slating_committee(period)
 
     # GET - show edit form
-    eligible_managers = eligible_period_managers()
+    eligible_managers = eligible_period_managers(period)
 
     # Committee members for slating (who can view applications/interviews)
     # Includes the explicit committee admin (stored as FK, not in members M2M)

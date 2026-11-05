@@ -225,7 +225,7 @@ def setup_data(period, user, notice=None):
                         for m in period_committee_members(period)],
         },
         'eligible_managers': [{**_member(m), 'member_type': m.get_member_type_display()}
-                              for m in eligible_period_managers()],
+                              for m in eligible_period_managers(period)],
         'can_set_manager': bool(user.is_admin),
         'can_delete': bool(user.is_admin),
         'can_transfer_admin': transfer_refusal(user, period) is None,
