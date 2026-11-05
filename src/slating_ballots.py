@@ -26,6 +26,16 @@ in) are left off their ballot; they vote on every other position. Nothing is
 recorded for a race they sit out: no ballot and no abstention, so it can't
 count as a cast ballot or an abstain (which a period may not allow at all),
 and the pass/fail math (approve ÷ approve+reject) is unaffected.
+
+11-05-26 (before the Saturday election):
+
+* A ballot is written only while its round is still open: the period row is
+  re-read under the lock and the write refused (``voting_closed``) unless the
+  period is still ``voting_open`` on the round the ballot was built for.
+  ``close_round`` and opening a round take the same lock first, so closing
+  waits for ballots already being written and none land after the count.
+* Only Active / Inactive members vote, checked when the ballot is cast (an
+  alum marked present before their status changed is refused).
 """
 import hashlib
 import secrets
@@ -89,6 +99,31 @@ def sits_out_slate(period, slate, user):
     return candidates_cannot_vote(period) and bool(own_position_ids(period, slate, user))
 
 
+VOTING_CLOSED = 'Voting closed before your ballot was recorded.'
+VOTING_STATUSES = ('Active', 'Inactive')
+NOT_ELIGIBLE = 'You are not eligible to vote.'
+
+
+def _check_member_status(user):
+    """Only Active / Inactive members vote, read fresh (11-05-26)."""
+    from src.models import ParliamentUser
+    status = ParliamentUser.objects.filter(pk=user.pk).values_list('member_status', flat=True).first()
+    if status not in VOTING_STATUSES:
+        raise SlatingBallotError('not_eligible', NOT_ELIGIBLE)
+
+
+def _lock_open_round(period, attempt):
+    """
+    Inside the ballot's transaction: lock the period row and make sure the
+    round the ballot was built for is still the open one (11-05-26).
+    """
+    locked = (SlatingPeriod.objects.select_for_update()
+              .only('pk', 'status', 'current_voting_attempt').get(pk=period.pk))
+    if locked.status != 'voting_open' or locked.current_voting_attempt != attempt:
+        raise SlatingBallotError('voting_closed', VOTING_CLOSED)
+    return locked
+
+
 def has_slate_ballot(period, user, attempt=None):
     attempt = period.current_voting_attempt if attempt is None else attempt
     return SlatingBallot.objects.filter(period=period, voter=user, voting_attempt=attempt,
@@ -111,10 +146,11 @@ def cast_slate(user, period, slate, candidates, vote_choice, rejected_raw):
 
     if sits_out_slate(period, slate, user):
         raise SlatingBallotError('candidate_cannot_vote', CANDIDATE_REFUSAL)
+    _check_member_status(user)
 
     attempt = period.current_voting_attempt
     with transaction.atomic():
-        SlatingPeriod.objects.select_for_update().only('pk').get(pk=period.pk)
+        _lock_open_round(period, attempt)
         if has_slate_ballot(period, user, attempt):
             raise SlatingBallotError('already_voted', 'You have already voted in this round.')
         SlatingBallot.objects.create(
@@ -181,10 +217,11 @@ def cast_individual(user, period, ballot, voted_position_ids, config, choice_for
             chosen[state.position.id] = choice
     if errors:
         raise SlatingBallotError('invalid_choice', errors[0], errors)
+    _check_member_status(user)
 
     attempt = period.current_voting_attempt
     with transaction.atomic():
-        SlatingPeriod.objects.select_for_update().only('pk').get(pk=period.pk)
+        _lock_open_round(period, attempt)
         already = set(SlatingBallot.objects.filter(
             period=period, voter=user, vote_type='individual', voting_attempt=attempt,
             position_id__in=[s.position.id for s in unvoted]).values_list('position_id', flat=True))

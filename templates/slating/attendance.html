@@ -1,4 +1,5 @@
 {% extends 'slating/base_slating.html' %}
+{% load static_version %}
 
 {% block breadcrumbs %}
 <li>
@@ -25,90 +26,95 @@
 {% endblock %}
 
 {% block slating_content %}
-<div class="space-y-5">
+<div class="space-y-5" id="attendance-page" data-total="{{ total_eligible }}" data-quorum="{{ period.quorum|default_if_none:'' }}">
 
-    {# Quorum / count summary #}
-    <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 px-5 py-4 flex flex-wrap items-center gap-6">
-        <div class="text-center">
-            <p class="text-3xl font-bold text-gray-900 dark:text-white">{{ present_count }}</p>
-            <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Present</p>
-        </div>
-        <div class="text-center">
-            <p class="text-3xl font-bold text-gray-900 dark:text-white">{{ total_eligible }}</p>
-            <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Eligible</p>
-        </div>
-        {% if period.quorum %}
-        <div class="text-center">
-            <p class="text-3xl font-bold {% if quorum_met %}text-green-600 dark:text-green-400{% else %}text-red-600 dark:text-red-400{% endif %}">{{ period.quorum }}</p>
-            <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Quorum</p>
-        </div>
-        <div>
-            {% if quorum_met %}
-            <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
-                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
-                Quorum Met
+    {# Sticky count + search + bulk action: stays in view while the chair works down the list #}
+    <div class="sticky top-0 z-20 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm px-4 py-3 space-y-3">
+        <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
+            <p class="text-lg font-bold text-gray-900 dark:text-white" aria-live="polite">
+                <span id="js-present-count">{{ present_count }}</span> present
+                <span class="text-sm font-normal text-gray-500 dark:text-gray-400">of {{ total_eligible }} eligible</span>
+            </p>
+            {% if period.quorum %}
+            <span id="js-quorum-met" class="{% if not quorum_met %}hidden {% endif %}inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
+                Quorum met ({{ period.quorum }})
+            </span>
+            <span id="js-quorum-not-met" class="{% if quorum_met %}hidden {% endif %}inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300">
+                Quorum {{ period.quorum }} &mdash; <span id="js-quorum-needed">{{ quorum_needed }}</span> more needed
             </span>
             {% else %}
-            <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300">
-                Quorum Not Met &mdash; {{ quorum_needed }} more needed
-            </span>
+            <span class="text-sm text-gray-500 dark:text-gray-400 italic">No quorum requirement set.</span>
             {% endif %}
         </div>
-        {% else %}
-        <p class="text-sm text-gray-500 dark:text-gray-400 italic">No quorum requirement set.</p>
+        <div class="flex flex-col sm:flex-row sm:items-center gap-2">
+            <form method="get" class="flex-1 flex gap-2" role="search">
+                <label for="js-attendance-search" class="sr-only">Search members</label>
+                <input type="search" name="q" id="js-attendance-search" value="{{ search }}" autocomplete="off"
+                    placeholder="Search by name or roll number"
+                    class="flex-1 min-w-0 px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:text-white text-sm">
+                <button type="submit" class="js-search-submit px-3 py-2 rounded-lg text-sm font-medium border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">Search</button>
+            </form>
+            <form method="post" id="js-mark-all-form" data-no-double-submit-protection
+                data-confirm="Mark all {{ members_with_status|length }} listed member{{ members_with_status|length|pluralize }} present?">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="mark_all_present">
+                <input type="hidden" name="listed" value="1">
+                <input type="hidden" name="q" value="{{ search }}">
+                <span id="js-mark-all-ids">
+                {% for entry in members_with_status %}<input type="hidden" name="member_ids" value="{{ entry.member.user_id }}">{% endfor %}
+                </span>
+                <button type="submit" id="js-mark-all-btn" {% if not members_with_status %}disabled{% endif %}
+                    class="w-full sm:w-auto px-3 py-2 rounded-lg text-sm font-medium text-white bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed">
+                    Mark all listed present
+                </button>
+            </form>
+        </div>
+        {% if search %}
+        <p class="text-xs text-gray-500 dark:text-gray-400">Showing members matching &ldquo;{{ search }}&rdquo;. <a href="{% url 'slating_attendance' period_id=period.id %}" class="text-primary-600 dark:text-primary-400 hover:underline">Show everyone</a></p>
         {% endif %}
+        <p id="js-attendance-error" class="hidden text-sm text-red-600 dark:text-red-400" role="alert"></p>
     </div>
 
     {# Member list #}
     <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
-        <div class="px-5 py-3.5 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50 flex items-center justify-between">
-            <h2 class="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide">Members</h2>
-            <div class="flex gap-2">
-                <form method="post">
-                    {% csrf_token %}
-                    <input type="hidden" name="action" value="mark_all_present">
-                    {# bulk mark all — we'll do this per-row only for now #}
-                </form>
-            </div>
+        <div class="px-5 py-3.5 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
+            <h2 class="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide">Members who can vote</h2>
         </div>
 
-        <ul class="divide-y divide-gray-100 dark:divide-gray-700">
+        <ul class="divide-y divide-gray-100 dark:divide-gray-700" id="js-attendance-list">
         {% for entry in members_with_status %}
-            <li class="flex items-center justify-between px-5 py-3">
+            <li class="js-attendance-row flex items-center justify-between px-5 py-3" data-member-id="{{ entry.member.user_id }}"
+                data-search="{{ entry.member.name|lower }} {{ entry.member.preferred_name|lower }} {{ entry.member.role_number|default_if_none:''|lower }}"
+                data-present="{% if entry.is_present %}1{% else %}0{% endif %}">
                 <div class="flex items-center gap-3">
-                    {% if entry.is_present %}
-                    <span class="w-2 h-2 rounded-full bg-green-500 flex-shrink-0"></span>
-                    {% else %}
-                    <span class="w-2 h-2 rounded-full bg-gray-300 dark:bg-gray-600 flex-shrink-0"></span>
-                    {% endif %}
+                    <span class="js-dot w-2 h-2 rounded-full flex-shrink-0 {% if entry.is_present %}bg-green-500{% else %}bg-gray-300 dark:bg-gray-600{% endif %}"></span>
                     <div>
                         <p class="text-sm font-medium text-gray-900 dark:text-white">{{ entry.member.name }}</p>
-                        <p class="text-xs text-gray-500 dark:text-gray-400">{{ entry.member.get_member_type_display }} &middot; {{ entry.member.member_status }}</p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">{% if entry.member.role_number %}#{{ entry.member.role_number }} &middot; {% endif %}{{ entry.member.get_member_type_display }} &middot; {{ entry.member.member_status }}</p>
                     </div>
                 </div>
-                <form method="post">
+                <form method="post" class="js-attendance-toggle" data-no-double-submit-protection>
                     {% csrf_token %}
                     <input type="hidden" name="member_id" value="{{ entry.member.user_id }}">
-                    {% if entry.is_present %}
-                    <input type="hidden" name="action" value="mark_absent">
-                    <button type="submit"
-                        class="text-xs px-3 py-1.5 rounded-md border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
-                        Mark Absent
+                    <input type="hidden" name="q" value="{{ search }}">
+                    <input type="hidden" name="action" value="{% if entry.is_present %}mark_absent{% else %}mark_present{% endif %}">
+                    <button type="submit" data-present-class="text-xs px-3 py-1.5 rounded-md border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                        data-absent-class="text-xs px-3 py-1.5 rounded-md border border-green-300 dark:border-green-700 text-green-700 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/30 transition-colors"
+                        class="{% if entry.is_present %}text-xs px-3 py-1.5 rounded-md border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors{% else %}text-xs px-3 py-1.5 rounded-md border border-green-300 dark:border-green-700 text-green-700 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/30 transition-colors{% endif %}">
+                        {% if entry.is_present %}Mark Absent{% else %}Mark Present{% endif %}
                     </button>
-                    {% else %}
-                    <input type="hidden" name="action" value="mark_present">
-                    <button type="submit"
-                        class="text-xs px-3 py-1.5 rounded-md border border-green-300 dark:border-green-700 text-green-700 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/30 transition-colors">
-                        Mark Present
-                    </button>
-                    {% endif %}
                 </form>
             </li>
         {% empty %}
-            <li class="px-5 py-8 text-center text-sm text-gray-500 dark:text-gray-400">No eligible members found.</li>
+            <li class="px-5 py-8 text-center text-sm text-gray-500 dark:text-gray-400">{% if search %}No members match &ldquo;{{ search }}&rdquo;.{% else %}No eligible members found.{% endif %}</li>
         {% endfor %}
+            <li id="js-no-match" class="hidden px-5 py-8 text-center text-sm text-gray-500 dark:text-gray-400">No members match your search.</li>
         </ul>
     </div>
 
 </div>
+{% endblock %}
+
+{% block slating_js %}
+<script src="{% static_v 'js/slating/attendance.js' %}"></script>
 {% endblock %}

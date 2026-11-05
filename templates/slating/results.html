@@ -18,7 +18,7 @@
         <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Election Results</h1>
         <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ period.name }}</p>
     </div>
-    {% if can_publish and not is_published %}
+    {% if can_publish and can_publish_now %}
     <form method="post" action="{% url 'slating_publish_results' period_id=period.id %}" class="js-confirm-submit flex items-center gap-4" data-confirm-msg="Are you sure you want to publish these results? All members will be notified.">
         {% csrf_token %}
         <label class="flex items-center text-sm text-gray-700 dark:text-gray-300">
@@ -40,19 +40,40 @@
 
 {% block slating_content %}
 <div class="max-w-4xl mx-auto space-y-6">
-    {% if outcomes %}
-    {# 10-29-26: who holds each position, however it was decided (src/slating_rounds.py). #}
+    {% if overview.positions %}
+    {# 11-05-26: the results lead with who holds each position and how it was decided; per-position #}
+    {# counts only for positions a position round decided (the closed rounds' stored outcomes).      #}
     <div class="bg-white dark:bg-gray-800 shadow rounded-xl overflow-hidden">
-        <div class="px-5 py-3 border-b border-gray-200 dark:border-gray-700">
+        <div class="px-5 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between gap-3 flex-wrap">
             <h2 class="text-sm font-semibold text-gray-900 dark:text-white">Officers</h2>
+            <span class="text-sm text-gray-600 dark:text-gray-300" data-headline>{{ overview.headline }}</span>
         </div>
         <ul class="divide-y divide-gray-100 dark:divide-gray-700">
-            {% for s in outcomes %}
-            <li class="px-5 py-3 flex items-center justify-between text-sm">
-                <span class="font-medium text-gray-700 dark:text-gray-300">{{ s.position.title }}</span>
-                <span class="{% if s.winner %}text-gray-900 dark:text-white font-semibold{% else %}text-gray-500 dark:text-gray-400{% endif %}">
-                    {% if s.winner %}{{ s.winner.name }}{% elif s.unfilled %}Left unfilled{% else %}Not yet decided{% endif %}
-                </span>
+            {% for p in overview.positions %}
+            <li class="px-5 py-3 text-sm">
+                <div class="flex items-center justify-between gap-3">
+                    <span class="font-medium text-gray-700 dark:text-gray-300">{{ p.title }}</span>
+                    <span class="{% if p.winner %}text-gray-900 dark:text-white font-semibold{% else %}text-gray-500 dark:text-gray-400{% endif %}">
+                        {% if p.winner %}{{ p.winner }}{% elif p.unfilled %}Left unfilled{% else %}Not yet decided{% endif %}
+                    </span>
+                </div>
+                <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+                    {% if p.how == 'slate' %}Elected with the full slate (round {{ p.round }}).
+                    {% elif p.how == 'round' %}{{ p.kind_label }} ballot, round {{ p.round }}.
+                    {% elif p.how == 'chapter' %}The chapter's decision.
+                    {% elif p.how == 'in_person' %}Recorded from the in-person vote.{% endif %}
+                </p>
+                {% if p.tallies %}
+                <ul class="mt-1 space-y-0.5 text-xs text-gray-600 dark:text-gray-300">
+                    {% for t in p.tallies %}
+                    <li>
+                        {{ t.candidate }}:
+                        {% if t.pick_one %}{{ t.approve }} vote{{ t.approve|pluralize }}{% else %}{{ t.approve }} approve, {{ t.reject }} reject{% endif %}{% if t.abstain %}, {{ t.abstain }} abstain{% endif %}{% if t.percentage is not None %} ({{ t.percentage|floatformat:0 }}%){% endif %}
+                        {% if t.passed %}<span class="text-green-700 dark:text-green-400 font-medium">· {% if t.pick_one %}Elected{% else %}Passed{% endif %}</span>{% elif t.passed == False %}<span class="text-red-700 dark:text-red-400">· {% if t.pick_one %}Not elected{% else %}Did not pass{% endif %}</span>{% endif %}
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% endif %}
             </li>
             {% endfor %}
         </ul>
@@ -76,7 +97,7 @@
                     </p>
                 </div>
             </div>
-            <span class="text-xs text-primary-600 dark:text-primary-400">{{ total_ballots }} vote{{ total_ballots|pluralize }} cast</span>
+            <span class="text-xs text-primary-600 dark:text-primary-400" data-live-count>{% if live %}{{ live.voted }} of {{ live.present }} present have voted{% else %}{{ total_ballots }} vote{{ total_ballots|pluralize }} cast{% endif %}</span>
         </div>
     </div>
     {% elif is_published %}
@@ -114,60 +135,13 @@
     </div>
     {% endif %}
 
-    <!-- Vote Summary -->
+    <!-- Vote Summary (11-05-26: the full-slate round only; positions are in Officers above) -->
+    {% if period.vote_type != 'individual' %}
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
         <div class="px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-gray-700">
             <h3 class="text-lg font-medium text-gray-900 dark:text-white">Vote Summary</h3>
         </div>
         <div class="px-4 py-5 sm:p-6">
-            {% if individual_summary %}
-            <!-- Individual position vote summary -->
-            <div class="grid grid-cols-3 gap-4 mb-6">
-                <div class="text-center">
-                    <p class="text-2xl font-bold text-gray-900 dark:text-white">{{ individual_summary.total }}</p>
-                    <p class="text-sm text-gray-500 dark:text-gray-400">Total Positions</p>
-                </div>
-                <div class="text-center">
-                    <p class="text-2xl font-bold text-green-600 dark:text-green-400">{{ individual_summary.passed }}</p>
-                    <p class="text-sm text-gray-500 dark:text-gray-400">Passed</p>
-                </div>
-                <div class="text-center">
-                    <p class="text-2xl font-bold text-red-600 dark:text-red-400">{{ individual_summary.failed }}</p>
-                    <p class="text-sm text-gray-500 dark:text-gray-400">Did Not Pass</p>
-                </div>
-            </div>
-            {% if individual_summary.all_passed %}
-            <div class="bg-green-50 dark:bg-green-900/30 rounded-lg p-4 text-center">
-                <svg class="mx-auto h-12 w-12 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                </svg>
-                <h4 class="mt-2 text-lg font-medium text-green-800 dark:text-green-200">{{ individual_summary.passed }} of {{ individual_summary.total }} Position{{ individual_summary.total|pluralize }} Passed!</h4>
-                <p class="mt-1 text-sm text-green-700 dark:text-green-300">
-                    Every position received the required {{ period.required_approval_percentage }}% approval.
-                </p>
-            </div>
-            {% elif individual_summary.failed > 0 %}
-            <div class="bg-amber-50 dark:bg-amber-900/30 rounded-lg p-4 text-center">
-                <svg class="mx-auto h-12 w-12 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
-                </svg>
-                <h4 class="mt-2 text-lg font-medium text-amber-800 dark:text-amber-200">{{ individual_summary.passed }} of {{ individual_summary.total }} Position{{ individual_summary.total|pluralize }} Passed</h4>
-                <p class="mt-1 text-sm text-amber-700 dark:text-amber-300">
-                    {{ individual_summary.failed }} position{{ individual_summary.failed|pluralize }} did not receive the required {{ period.required_approval_percentage }}% approval.
-                </p>
-            </div>
-            {% else %}
-            <div class="bg-primary-50 dark:bg-primary-900/30 rounded-lg p-4 text-center">
-                <svg class="mx-auto h-12 w-12 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                </svg>
-                <h4 class="mt-2 text-lg font-medium text-primary-800 dark:text-primary-200">{{ individual_summary.pending }} Position{{ individual_summary.pending|pluralize }} Pending</h4>
-                <p class="mt-1 text-sm text-primary-700 dark:text-primary-300">
-                    Voting is still open for some positions.
-                </p>
-            </div>
-            {% endif %}
-            {% else %}
             <!-- Full slate vote summary -->
             <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
                 <div class="text-center">
@@ -195,22 +169,28 @@
             <div class="mb-4">
                 <div class="flex justify-between text-sm mb-1">
                     <span class="text-gray-700 dark:text-gray-300">Approval Rate</span>
-                    <span class="font-medium {% if vote_tally.approval_percentage >= period.required_approval_percentage %}text-green-600 dark:text-green-400{% else %}text-red-600 dark:text-red-400{% endif %}">
+                    <span class="font-medium {% if period.status == 'voting_open' %}text-gray-900 dark:text-white{% elif vote_tally.passed %}text-green-600 dark:text-green-400{% else %}text-red-600 dark:text-red-400{% endif %}">
                         {{ vote_tally.approval_percentage|floatformat:1 }}%
                     </span>
                 </div>
                 <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-4 relative">
-                    <div class="h-4 rounded-full {% if vote_tally.approval_percentage >= period.required_approval_percentage %}bg-green-500{% else %}bg-red-500{% endif %}"
+                    <div class="h-4 rounded-full {% if period.status == 'voting_open' %}bg-primary-500{% elif vote_tally.passed %}bg-green-500{% else %}bg-red-500{% endif %}"
                          style="width: {{ vote_tally.approval_percentage|default:0 }}%"></div>
-                    <div class="absolute top-0 h-4 w-0.5 bg-gray-800 dark:bg-white" style="left: {{ period.required_approval_percentage }}%"></div>
+                    <div class="absolute top-0 h-4 w-0.5 bg-gray-800 dark:bg-white" style="left: {{ vote_tally.required }}%"></div>
                 </div>
                 <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    Required: {{ period.required_approval_percentage }}% approval
+                    Required: {{ vote_tally.required }}% approval
                 </p>
             </div>
 
-            <!-- Result -->
-            {% if vote_tally.approval_percentage >= period.required_approval_percentage %}
+            <!-- Result (11-05-26: no verdict while the round is open) -->
+            {% if period.status == 'voting_open' %}
+            <div class="bg-primary-50 dark:bg-primary-900/30 rounded-lg p-4 text-center" data-live-note>
+                <p class="text-sm text-primary-800 dark:text-primary-200">
+                    Currently {{ vote_tally.approval_percentage|floatformat:0 }}% approve — not final until you close voting.
+                </p>
+            </div>
+            {% elif vote_tally.passed %}
             <div class="bg-green-50 dark:bg-green-900/30 rounded-lg p-4 text-center">
                 <svg class="mx-auto h-12 w-12 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
@@ -227,13 +207,13 @@
                 </svg>
                 <h4 class="mt-2 text-lg font-medium text-red-800 dark:text-red-200">Slate Did Not Pass</h4>
                 <p class="mt-1 text-sm text-red-700 dark:text-red-300">
-                    The officer slate did not receive the required {{ period.required_approval_percentage }}% approval.
+                    The officer slate did not receive the required {{ vote_tally.required }}% approval.
                 </p>
             </div>
             {% endif %}
-            {% endif %}
         </div>
     </div>
+    {% endif %}
 
     <!-- Rejection Analysis (Committee Only) -->
     {% if is_committee and vote_tally.reject > 0 %}
@@ -274,99 +254,8 @@
     </div>
     {% endif %}
 
-    <!-- Elected Officers -->
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
-        <div class="px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-gray-700">
-            <h3 class="text-lg font-medium text-gray-900 dark:text-white">
-                {% if individual_summary %}
-                    {% if individual_summary.all_passed %}Elected Officers{% else %}Position Results{% endif %}
-                {% elif vote_tally.approval_percentage >= period.required_approval_percentage %}
-                    Elected Officers
-                {% else %}
-                    Proposed Slate
-                {% endif %}
-            </h3>
-        </div>
-        <ul class="divide-y divide-gray-200 dark:divide-gray-700">
-            {% for candidate in candidates %}
-            <li class="px-4 py-4 sm:px-6">
-                <div class="flex items-center justify-between">
-                    <div class="flex-1 min-w-0">
-                        <p class="text-sm font-medium text-gray-900 dark:text-white">{{ candidate.position.title }}</p>
-                        <p class="text-sm text-gray-500 dark:text-gray-400">{{ candidate.candidate_name }}</p>
-                    </div>
-                    {% if individual_summary %}
-                        {% if candidate.individual_passed %}
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">Elected</span>
-                        {% elif candidate.individual_passed == False %}
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300">Not Passed</span>
-                        {% endif %}
-                    {% elif vote_tally.approval_percentage >= period.required_approval_percentage %}
-                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
-                        Elected
-                    </span>
-                    {% endif %}
-                </div>
-            </li>
-            {% empty %}
-            <li class="px-4 py-6 text-center text-gray-500 dark:text-gray-400">
-                No candidates on slate.
-            </li>
-            {% endfor %}
-        </ul>
-    </div>
-
-    <!-- Individual Position Results -->
-    {% if individual_results %}
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
-        <div class="px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-gray-700">
-            <h3 class="text-lg font-medium text-gray-900 dark:text-white">Individual Position Results</h3>
-            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Each position voted on separately. Requires {{ period.required_approval_percentage }}% approval.</p>
-        </div>
-        <ul class="divide-y divide-gray-200 dark:divide-gray-700">
-            {% for candidate in candidates %}
-            {% with res=individual_results|get_item:candidate.id %}
-            {% if res %}
-            {% with total=res.approve|add:res.reject %}
-            <li class="px-4 py-4 sm:px-6">
-                <div class="flex items-start justify-between gap-4 flex-wrap">
-                    <div>
-                        <p class="text-sm font-medium text-gray-900 dark:text-white">{{ candidate.position.title }}</p>
-                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{{ candidate.candidate_name }}</p>
-                    </div>
-                    <div class="flex items-center gap-4 text-sm flex-wrap">
-                        <span class="text-green-600 dark:text-green-400">✓ {{ res.approve }} approve</span>
-                        <span class="text-red-600 dark:text-red-400">✗ {{ res.reject }} reject</span>
-                        {% if res.abstain %}<span class="text-gray-400">— {{ res.abstain }} abstain</span>{% endif %}
-                    </div>
-                </div>
-                {% if total > 0 %}
-                {% widthratio res.approve total 100 as approve_pct %}
-                <div class="mt-2">
-                    <div class="flex justify-between text-xs text-gray-500 dark:text-gray-400 mb-1">
-                        <span>{{ approve_pct }}% approval</span>
-                        {% if candidate.individual_passed %}
-                        <span class="text-green-600 dark:text-green-400 font-medium">Passed</span>
-                        {% elif candidate.individual_passed == False %}
-                        <span class="text-red-600 dark:text-red-400 font-medium">Did not pass</span>
-                        {% endif %}
-                    </div>
-                    <div class="w-full bg-gray-100 dark:bg-gray-700 rounded-full h-1.5">
-                        <div class="{% if candidate.individual_passed %}bg-green-500{% else %}bg-red-500{% endif %} h-1.5 rounded-full" style="width: {{ approve_pct }}%"></div>
-                    </div>
-                </div>
-                {% endif %}
-            </li>
-            {% endwith %}
-            {% endif %}
-            {% endwith %}
-            {% endfor %}
-        </ul>
-    </div>
-    {% endif %}
-
     <!-- Voting history (v4.0.0): every round, failed and voided ones included -->
-    {% if history|length > 1 or history.0.events %}
+    {% if history %}
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm px-4 py-5 sm:p-6">
         <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-3">Voting history</h3>
         <ul class="space-y-3 text-sm">
@@ -388,6 +277,16 @@
             </li>
             {% endfor %}
         </ul>
+    </div>
+    {% endif %}
+
+    {# 11-05-26: a site admin runs the officer transition even when he doesn't manage the period. #}
+    {% if is_published and request.user.is_admin and not can_publish %}
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm px-4 py-5 sm:p-6">
+        <a href="{% url 'slating_transition' period_id=period.id %}"
+            class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700">
+            Officer transition
+        </a>
     </div>
     {% endif %}
 

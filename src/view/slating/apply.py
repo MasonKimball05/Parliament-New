@@ -80,10 +80,13 @@ def apply_refusal(period, user):
         return None, ('closed', APPLY_CLOSED)
 
     # v4.0.0: only active members (not inactive, alumni or advisors).
-    from .permissions import applicant_ineligibility
+    from .permissions import COMMITTEE_CANT_RUN, applicant_ineligibility, on_slating_committee
     reason = applicant_ineligibility(user)
     if reason:
         return None, ('ineligible', reason)
+    # 11-05-26 (the chapter's rule): no candidate on the slating committee.
+    if on_slating_committee(user, period):
+        return None, ('committee_member', COMMITTEE_CANT_RUN)
 
     existing_app = SlatingApplication.objects.filter(period=period, applicant=user).first()
     if existing_app and existing_app.status not in ['draft', 'withdrawn']:
@@ -126,10 +129,17 @@ def save_application(period, user, existing_app, form_fields, positions, post, f
     # Process GPA
     gpa = post.get('reported_gpa')
     if gpa:
+        # 11-05-26: a real GPA from 0 to 5 (nan / inf / huge values were a 500
+        # on save, negative ones were stored).
+        import math
         try:
-            application.reported_gpa = float(gpa)
-        except ValueError:
-            errors.append("GPA must be a valid number")
+            value = float(gpa)
+        except (ValueError, TypeError):
+            value = None
+        if value is None or not math.isfinite(value) or not 0 <= value <= 5:
+            errors.append("GPA must be a number from 0 to 5")
+        else:
+            application.reported_gpa = round(value, 3)
 
     gpa_screenshot = files.get('gpa_screenshot')
     if gpa_screenshot:

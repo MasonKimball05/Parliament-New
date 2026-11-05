@@ -42,13 +42,47 @@ class SlateError(Exception):
 
 
 def eligible_members():
-    """Members a write-in, a replacement or a manual winner may be (the web's dropdowns)."""
+    """
+    Members a write-in, a replacement or a manual winner may be (the web's
+    dropdowns). 11-05-26: the applicants' rule (permissions.applicant_
+    ineligibility: active members, pledges included, no advisors); it listed
+    inactive members and left pledges out. The committee rule is checked on
+    save (``write_in_refusal``).
+    """
     return list(
-        ParliamentUser.objects.filter(
-            member_status__in=['Active', 'Inactive'],
-            member_type__in=['Member', 'Chair', 'Officer']
-        ).order_by('name')
+        ParliamentUser.objects.filter(member_status='Active').exclude(member_type='Advisor').order_by('name')
     )
+
+
+def write_in_refusal(period, member):
+    """
+    Why ``member`` can't go on the slate as a write-in (or a replacement, or
+    an in-person winner), or None (11-05-26): the applicants' rules and not
+    on the period's slating committee (``nominee_ineligibility``). Any user
+    id was accepted before.
+    """
+    from .permissions import nominee_ineligibility
+    return nominee_ineligibility(member, period)
+
+
+ROUND_OPEN_SWAP = 'Pause or close voting before changing the slate.'
+
+
+def swap_refusal(period, position):
+    """
+    11-05-26: the nominee of a position being voted on can't be swapped while
+    the round is open (members would vote on different people, and the votes
+    already cast went with the deleted candidate). Pausing first is fine; a
+    position not on an open position round's ballot may still be changed.
+    """
+    if period.status != 'voting_open':
+        return None
+    if period.vote_type != 'individual':
+        return ROUND_OPEN_SWAP
+    from src.slating_rounds import ballot_states
+    if any(s.position.id == position.id for s in ballot_states(period)):
+        return ROUND_OPEN_SWAP
+    return None
 
 
 def approved_primary_slate(period):
@@ -66,6 +100,35 @@ def slate_candidate_rows(slate):
 
 def _newest_draft(period):
     return Slate.objects.filter(period=period, slate_type='draft').order_by('-created_at', '-id').first()
+
+
+def builder_slate(period, user):
+    """
+    (slate, read_only) for the Slate Builder (11-05-26): the draft being
+    built; once it has been approved (no draft left), the approved slate,
+    read-only, rather than a new empty draft with a live Approve button.
+    Copy starts a new draft from it; Edit approved slate changes it.
+    """
+    if _newest_draft(period) is None:
+        approved = approved_primary_slate(period)
+        if approved is not None:
+            return approved, True
+    return draft_slate(period, user), False
+
+
+APPROVED_READ_ONLY = ('This slate is approved and on the ballot. Use Edit approved slate to change it, '
+                      'or Copy it to start a new draft.')
+
+
+def approve_confirm_message(period, slate):
+    """The Approve button's confirmation: how full the slate is (11-05-26)."""
+    positions = list(period.positions.filter(is_active=True).order_by('display_order'))
+    filled = set(slate.candidates.filter(is_runoff=False).values_list('position_id', flat=True))
+    missing = [p for p in positions if p.id not in filled]
+    detail = f'{len(positions) - len(missing)} of {len(positions)} filled'
+    if missing:
+        detail += '; ' + ', '.join(p.code or p.title for p in missing) + ' unfilled'
+    return f'Approve this slate ({detail})? It goes on the ballot.'
 
 
 def draft_slate(period, user):
@@ -149,6 +212,7 @@ def build_slate_context(period, slate):
     )
 
     return {
+        'approve_confirm': approve_confirm_message(period, slate),
         'period': period,
         'slate': slate,
         'positions': positions,
@@ -218,8 +282,12 @@ def build_slate(request, period_id):
     """
     period = get_object_or_404(SlatingPeriod, id=period_id)
 
-    # Get or create draft slate
-    slate = draft_slate(period, request.user)
+    # The draft, or (11-05-26) the approved slate read-only once approved.
+    slate, read_only = builder_slate(period, request.user)
+
+    if request.method == 'POST' and read_only:
+        messages.error(request, APPROVED_READ_ONLY)
+        return redirect('slating_build_slate', period_id=period_id)
 
     if request.method == 'POST':
         action = request.POST.get('action')
@@ -236,7 +304,8 @@ def build_slate(request, period_id):
         return redirect('slating_build_slate', period_id=period_id)
 
     # GET - show slate builder
-    return render(request, 'slating/slate_builder.html', build_slate_context(period, slate))
+    return render(request, 'slating/slate_builder.html',
+                  {**build_slate_context(period, slate), 'read_only': read_only})
 
 
 def _handle_assign_candidate(request, period, slate, is_runoff=False):
@@ -276,6 +345,10 @@ def approve_slate_for_voting(period, slate, user, data):
     Approve ``slate`` (``data``: the posted ``slate_type``, ``name``,
     ``description``). Returns (warning or None, success message).
     """
+    # 11-05-26: an empty slate can't go on the ballot.
+    if not slate.candidates.exists():
+        raise SlateError('empty_slate', 'This slate has no candidates yet. Assign at least one before approving it.')
+
     # Warn about unfilled positions but allow approval (committee may discuss in person)
     warning = None
     positions = period.positions.filter(is_active=True)
@@ -332,7 +405,11 @@ def approve_slate(request, period_id, slate_id=None):
     period = get_object_or_404(SlatingPeriod, id=period_id)
     slate = slate_to_approve(period, slate_id)
 
-    warning, message = approve_slate_for_voting(period, slate, request.user, request.POST)
+    try:
+        warning, message = approve_slate_for_voting(period, slate, request.user, request.POST)
+    except SlateError as e:
+        messages.error(request, str(e))
+        return redirect('slating_build_slate', period_id=period_id)
     if warning:
         messages.warning(request, warning)
     messages.success(request, message)
@@ -503,6 +580,10 @@ def add_write_in(period, user, position_id, member_id):
     position = get_object_or_404(SlatingPosition, id=position_id, period=period)
     member = get_object_or_404(ParliamentUser, user_id=member_id)
 
+    refusal = write_in_refusal(period, member)
+    if refusal:
+        raise SlateError('ineligible', refusal)
+
     # Only allow assigning to blank primary slots
     if slate.candidates.filter(position=position, is_runoff=False).exists():
         raise SlateError('position_filled', f'{position.title} already has a primary candidate. Remove them first.', 409)
@@ -599,6 +680,9 @@ def replace_candidate(period, slate, user, data):
     member_id = data.get('member_id')
 
     position = get_object_or_404(SlatingPosition, id=position_id, period=period)
+    refusal = swap_refusal(period, position)
+    if refusal:
+        raise SlateError('round_open', refusal, 409)
 
     # Resolve the replacement before touching the current candidate, so a bad
     # choice leaves the position as it was rather than vacant.
@@ -609,6 +693,9 @@ def replace_candidate(period, slate, user, data):
     elif candidate_type == 'write_in' and member_id:
         member = get_object_or_404(ParliamentUser, user_id=member_id)
         new_name = member.name
+        refusal = write_in_refusal(period, member)
+        if refusal:
+            raise SlateError('ineligible', refusal)
     else:
         raise SlateError('invalid_input', 'Invalid replacement — select an applicant or a member.')
 
@@ -713,9 +800,17 @@ class ManualResultsError(SlateError):
         self.errors = errors
 
 
+MANUAL_AFTER_ONLINE = ('Voting has already started online, so the results can’t be recorded by hand. '
+                       'Close the round and use the results page.')
+
+
 def manual_results_refusal(period):
     if period.status in MANUAL_RESULTS_CLOSED:
         return 'Results have already been recorded.'
+    # 11-05-26: replacing the slate's candidates cascades their online votes
+    # away, so recording by hand is only for an election that never voted online.
+    if period.current_voting_attempt or period.rounds.exists():
+        return MANUAL_AFTER_ONLINE
     return None
 
 
@@ -728,18 +823,28 @@ def record_manual_results(period, user, data):
     positions = period.positions.filter(is_active=True).order_by('display_order')
     vote_mode = data.get('vote_mode', 'none')  # none | overall | per_position
 
+    refusal = manual_results_refusal(period)
+    if refusal:
+        raise ManualResultsError([refusal])
+
     errors = []
     assignments = []  # (position, member) tuples to create
+    # 11-05-26: a winner must be one of the form's members (any user id was
+    # accepted), and meet the candidates' rules (write_in_refusal).
+    allowed = {str(m.pk): m for m in eligible_members()}
 
     for pos in positions:
         member_id = data.get(f'winner_{pos.id}')
         if not member_id:
             errors.append(f'Select a winner for {pos.title}.')
             continue
-        try:
-            member = ParliamentUser.objects.get(pk=member_id)
-        except ParliamentUser.DoesNotExist:
+        member = allowed.get(str(member_id))
+        if member is None:
             errors.append(f'Invalid member for {pos.title}.')
+            continue
+        refusal = write_in_refusal(period, member)
+        if refusal:
+            errors.append(f'{pos.title}: {refusal}')
             continue
         assignments.append((pos, member))
 
@@ -771,6 +876,7 @@ def record_manual_results(period, user, data):
             pass
 
     # Build slate candidates and record results
+    in_person_counts = {}   # 11-05-26: kept for the results page (abstains have no column)
     for pos, member in assignments:
         # Remove any existing primary candidate for this position
         SlateCandidate.objects.filter(slate=slate, position=pos, is_runoff=False).delete()
@@ -796,6 +902,8 @@ def record_manual_results(period, user, data):
             if counted > 0:
                 passed = (approve / counted * 100) >= period.required_approval_percentage
 
+        if vote_mode != 'none':
+            in_person_counts[str(pos.id)] = {'approve': approve, 'reject': reject, 'abstain': abstain}
         SlateCandidate.objects.create(
             slate=slate,
             position=pos,
@@ -826,7 +934,7 @@ def record_manual_results(period, user, data):
         user=user,
         action='voting_closed',
         details=f'Manual results recorded by {user.name}. Vote mode: {vote_mode}.',
-        metadata={'manual': True, 'vote_mode': vote_mode}
+        metadata={'manual': True, 'vote_mode': vote_mode, **({'counts': in_person_counts} if in_person_counts else {})}
     )
 
     return 'Results recorded. You can now publish them.'

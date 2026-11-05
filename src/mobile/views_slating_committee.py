@@ -52,10 +52,13 @@ from src.mobile.views_slating import _iso, _SlatingBase
 from src.mobile.views_votes import VoteRefused
 from src.models import SlatingApplication, SlatingInterview, SlatingPeriod
 from src.view.slating.applications_review import (
-    application_status_counts, can_review_application, filter_applications, review_sections, save_review,
+    application_status_counts, can_review_application, filter_applications, ranked_positions, review_sections,
+    save_review,
 )
 from src.view.slating.apply import TIERS, tiered_position_lists
-from src.view.slating.attendance import ATTENDANCE_CLOSED, ATTENDANCE_STATUSES, attendance_roster, mark_attendance
+from src.view.slating.attendance import (
+    ATTENDANCE_CLOSED, ATTENDANCE_STATUSES, attendance_roster, mark_all_present, mark_attendance,
+)
 from src.view.slating.interview_manager import (
     apps_without_interview, committee_interviewers, destroy_period_notes, period_interviews, save_completion,
     save_schedule, schedule_refusal,
@@ -155,6 +158,9 @@ class SlatingApplicationsView(_SlatingBase):
                 'imported': a.imported_at is not None,
                 'interviewed': bool(a.interviews.all()),
                 'first_choice': [titles[p] for p in a.get_first_choice_positions() if p in titles],
+                # 11-05-26: as the web list ("1st: EVP · 2nd: President", roll number).
+                'ranked_positions': ranked_positions(a, titles),
+                'role_number': a.applicant.role_number or '',
             } for a in apps],
             'positions': [{'id': p.id, 'title': p.title} for p in positions],
             'status_counts': [{'status': k, **v} for k, v in application_status_counts(period).items()],
@@ -397,8 +403,20 @@ class SlatingAttendanceView(_SlatingBase):
         period = self.period(request, period_id)
         data = _form_data(request)
         action = data.get('action')
+        if action == 'mark_all_present':
+            # 11-05-26, as the web's "Mark all listed present": ``member_ids``
+            # (the list shown, after a search) or, without it, everyone eligible.
+            body = request.data
+            if hasattr(body, 'getlist'):   # a form post
+                ids = body.getlist('member_ids') if 'member_ids' in body else None
+            else:
+                ids = body.get('member_ids') if isinstance(body, dict) else None
+            if ids is not None and not isinstance(ids, list):
+                raise BadRequest('member_ids is a list of user ids.', code='invalid_input')
+            added = mark_all_present(period, request.user, ids)
+            return Response({**self.payload(period, request.user), 'added': added})
         if action not in ('mark_present', 'mark_absent'):
-            raise BadRequest('action is mark_present or mark_absent.', code='invalid_input')
+            raise BadRequest('action is mark_present, mark_absent or mark_all_present.', code='invalid_input')
         mark_attendance(period, request.user, data.get('member_id'), action)
         return Response(self.payload(period, request.user))
 
@@ -468,6 +486,8 @@ def _summary(period, user):
         'eligible_voters': data['eligible_voters'],
         'total_unique_voters': data['total_unique_voters'],
         'participation_rate': round(data['participation_rate'], 1),
+        'present': data['present'],
+        'latest_round_voted': data['latest_round_voted'],
         'app_stats': data['app_stats'],
     }
 
@@ -484,8 +504,10 @@ class SlatingPublishResultsView(_SlatingBase):
 
     def post(self, request, period_id):
         period = _manager_period(request, period_id)
-        if period.status not in PUBLISHABLE:
-            raise VoteRefused('not_publishable', 'Cannot publish results at this time.', 409)
+        from src.view.slating.results import publish_refusal
+        refusal = publish_refusal(period)
+        if refusal:
+            raise VoteRefused('not_publishable', refusal, 409)
         data = _form_data(request)
         notes = publish_period_results(period, request.user, _flag(data, 'save_to_documents'))
         return Response({**_summary(period, request.user), 'notes': [text for _, text in notes],

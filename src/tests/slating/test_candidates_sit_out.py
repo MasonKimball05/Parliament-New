@@ -109,8 +109,9 @@ class CandidatesSitOutTests(RoundsTests):
     def test_settings_form_turns_it_on_and_off_and_locks_while_voting_is_open(self):
         url = reverse('slating_period_setup', args=[self.period.id])
         base = {'name': self.period.name, 'academic_term': self.period.academic_term,
-                'required_approval_percentage': '60', 'min_gpa_requirement': '2.5',
-                'gpa_level_2_threshold': '0.2'}
+                # 11-05-26: fixed once voting has started, so posted as it is.
+                'required_approval_percentage': str(self.period.required_approval_percentage),
+                'min_gpa_requirement': '2.5', 'gpa_level_2_threshold': '0.2'}
         self.close()                                                   # out of voting_open
         self.client.post(url, {**base, 'candidates_cannot_vote': ['off', 'on']})
         self.period.refresh_from_db()

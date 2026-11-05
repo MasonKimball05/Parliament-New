@@ -139,8 +139,36 @@ def round_results(period, attempt, slate=None, vote_type=None):
                 })
         return {'positions': positions}
     t = slate_tally(period, slate, attempt)
-    return {'slate': {k: t[k] for k in ('approve', 'reject', 'abstain', 'total', 'online', 'paper',
-                                       'percentage', 'passed', 'ballots_online', 'ballots_paper')}}
+    return {'slate': {**{k: t[k] for k in ('approve', 'reject', 'abstain', 'total', 'online', 'paper',
+                                          'percentage', 'passed', 'ballots_online', 'ballots_paper')},
+                      # 11-05-26: the approval % the round was decided at.
+                      'required': period.required_approval_percentage}}
+
+
+def current_slate_result(period, slate):
+    """
+    The current round's full-slate counts and outcome for the results page,
+    the app and the results document (11-05-26). Once the round has been
+    counted (passed / failed / closed) this is the snapshot close_round stored,
+    so its pass/fail stays what was decided then: recomputing it live flipped
+    the page and the document when Required Approval % was changed afterwards,
+    while the officers it elected stayed elected. A round still open (or
+    voided) is counted live, at the period's current percentage.
+    """
+    live = slate_tally(period, slate, period.current_voting_attempt)
+    live['required'] = period.required_approval_percentage
+    rnd = SlatingRound.objects.filter(period=period, attempt=period.current_voting_attempt).first()
+    snap = (rnd.results or {}).get('slate') if rnd is not None and rnd.status in ('passed', 'failed', 'closed') else None
+    if not snap:
+        return live
+    out = {**live, **snap}
+    if 'required' not in snap:
+        # A snapshot from before the threshold was stored: the slate's own
+        # stored outcome (close_round saved it) says whether it passed.
+        out['required'] = period.required_approval_percentage
+        if slate is not None and slate.passed is not None:
+            out['passed'] = slate.passed
+    return out
 
 
 def open_round(period):

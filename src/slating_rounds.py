@@ -145,6 +145,20 @@ def position_states(period, slate=None):
     return out
 
 
+def lock_period(period):
+    """
+    Lock the period row for the rest of the transaction (11-05-26) and bring
+    ``period``'s round fields up to date from it. Ballots are written under
+    this lock (src/slating_ballots.py); opening and closing a round take it
+    first, so a ballot can't be recorded into a round as it closes.
+    """
+    from src.models import SlatingPeriod
+    locked = SlatingPeriod.objects.select_for_update().get(pk=period.pk)
+    for f in ('status', 'current_voting_attempt', 'vote_type', 'extra_settings', 'quorum'):
+        setattr(period, f, getattr(locked, f))
+    return period
+
+
 def current_round(period):
     if not period.current_voting_attempt:
         return None
@@ -279,8 +293,10 @@ def validate_round(period, vote_type, position_ids=None, threshold=None, abstain
                 narrowed[str(pid)] = chosen
     config = {'positions': ids}
     if threshold:
-        t = int(threshold)
-        if not 50 < t <= 100:
+        # 11-05-26: a whole number (junk or a decimal was a 500).
+        raw = str(threshold).strip()
+        t = int(raw) if raw.isdigit() else None
+        if t is None or not 50 < t <= 100:
             raise RoundError('invalid_threshold', 'The threshold must be over 50%.')
         config['threshold'] = t
     if abstain is not None:
@@ -319,13 +335,20 @@ def close_round(period, user):
     slate = primary_slate(period)
     if slate is None:
         raise RoundError('no_slate', 'No slate found.')
-    attempt = period.current_voting_attempt
-    rnd = current_round(period)
-    config = ballot_config(period, rnd)
-    states = position_states(period, slate)
     decided, undecided, slate_result = [], [], None
 
     with transaction.atomic():
+        # 11-05-26: the period lock first (the one a ballot is written under,
+        # src/slating_ballots.py), so ballots already being written finish
+        # before the count and none land after it; and a second Close (two
+        # chairs, or the schedule) finds the round already closed.
+        lock_period(period)
+        if period.status != 'voting_open':
+            raise RoundError('not_open', 'Voting is not currently open.')
+        attempt = period.current_voting_attempt
+        rnd = current_round(period)
+        config = ballot_config(period, rnd)
+        states = position_states(period, slate)
         if period.vote_type == 'individual':
             for s in ballot_states(period, states, config):
                 t = position_tally(period, s, attempt, config)
@@ -397,15 +420,29 @@ def _set_winner(state, key):
 
 # ── The chair's own decisions ────────────────────────────────────────────────
 
-def decide_manually(period, user, position_id, key, reason):
+def decide_manually(period, user, position_id, key, reason, override=False):
     """Record what the chapter decided for a position (a tie, a tabled run-off), or leave it unfilled."""
     reason = (reason or '').strip()[:300]
     if not reason:
         raise RoundError('reason_required', 'Say what the chapter decided (it is kept in the activity log).')
-    state = next((s for s in position_states(period) if s.position.id == position_id), None)
-    if state is None:
-        raise RoundError('not_found', 'That position isn’t on this election.')
     with transaction.atomic():
+        lock_period(period)
+        # 11-05-26: only between rounds (deliberation) or after the last one
+        # closed, never while a vote is open or once results are published,
+        # and never for a position on a round that is paused, not closed.
+        if period.status not in DECIDE_STATUSES:
+            raise RoundError('not_allowed', 'The chapter’s decision can be recorded only between rounds or after '
+                                            'voting closes, before the results are published.')
+        state = next((s for s in position_states(period) if s.position.id == position_id), None)
+        if state is None:
+            raise RoundError('not_found', 'That position isn’t on this election.')
+        if position_in_open_round(period, state.position.id):
+            raise RoundError('in_round', f'{state.position.title} is on the round in progress. Close or void '
+                                         'that round first.')
+        # 11-05-26: replacing an officer already elected is confirmed first.
+        if state.winner is not None and key != state.winner.key and not override:
+            raise RoundError('confirm_override', f'{state.winner.name} is already elected {state.position.title}. '
+                                                 'Confirm to replace that with the chapter’s decision.')
         if key == 'unfilled':
             state.position.left_unfilled = True
             state.position.save(update_fields=['left_unfilled'])
@@ -424,6 +461,31 @@ def decide_manually(period, user, position_id, key, reason):
             period=period, user=user, action='voting_closed',
             details=f'{state.position.title}: {what} by the chapter’s decision — {reason}',
             metadata={'position': state.position.title, 'manual': True, 'choice': key, 'reason': reason})
+        # 11-05-26: settling the last undecided position finishes the vote, as
+        # close_round does, so the results can be published.
+        if (period.status == 'deliberation' and period.current_voting_attempt > 0
+                and not any(not s.decided for s in position_states(period))):
+            period.status = 'voting_closed'
+            period.save(update_fields=['status'])
+
+
+DECIDE_STATUSES = ('deliberation', 'voting_closed')
+
+
+def position_in_open_round(period, position_id):
+    """True while the round in progress (open or paused, not closed / voided) covers this position."""
+    if period.status == 'voting_open':
+        return True
+    if not period.current_voting_attempt or (period.extra_settings or {}).get('round_ended'):
+        return False
+    rnd = current_round(period)
+    if rnd is not None and rnd.status != 'open':
+        return False
+    vote_type = rnd.vote_type if rnd is not None else period.vote_type
+    if vote_type != 'individual':
+        return True   # a full-slate round is about every position on it
+    ids = (rnd.ballot or {}).get('positions') if rnd is not None else None
+    return ids is None or position_id in ids
 
 
 def set_open_nominations(period, user, position_id, on):
@@ -441,6 +503,12 @@ def add_nominee(period, user, position_id, member, accepted=False):
     position = period.positions.filter(pk=position_id, is_active=True, open_nominations=True).first()
     if position is None:
         raise RoundError('not_open', 'Open nominations for that position first.')
+    # 11-05-26: a floor nominee meets the applicants' rules, isn't a pledge,
+    # and isn't on the slating committee (the chapter's rule).
+    from src.view.slating.permissions import nominee_ineligibility
+    reason = nominee_ineligibility(member, period)
+    if reason:
+        raise RoundError('ineligible', reason)
     nominee, created = SlatingNominee.objects.get_or_create(
         position=position, member=member,
         defaults={'period': period, 'accepted': accepted, 'added_by': user})
@@ -485,6 +553,12 @@ def election_context(period):
     undecided = [s for s in states if not s.decided]
     selectable = [s for s in undecided if s.kind != KIND_VACANT]
     live_positions = period.status == 'voting_open' and period.vote_type == 'individual'
+    # 11-05-26: after a failed full-slate round the next form defaults to the
+    # full slate again (it defaulted to a position vote with President ticked).
+    last = period.rounds.exclude(status__in=('voided', 'open')).order_by('-attempt').first()
+    slate_possible = any(s.kind == KIND_APPROVE for s in undecided)
+    last_slate_failed = bool(last and last.vote_type != 'individual' and last.status == 'failed')
+    from src.models import SlatingAttendance
     return {
         'states': states,
         'has_rounds': period.rounds.exclude(status='voided').exists(),
@@ -495,7 +569,9 @@ def election_context(period):
         'default_position': selectable[0].position.id if selectable else None,
         'default_abstain': bool(selectable and selectable[0].kind == KIND_APPROVE
                                 and selectable[0].position.allow_abstain),
-        'slate_possible': any(s.kind == KIND_APPROVE for s in undecided),
+        'slate_possible': slate_possible,
+        'default_vote_type': 'slate' if (slate_possible and last_slate_failed) else 'individual',
+        'present': SlatingAttendance.objects.filter(period=period).count(),
         'on_ballot': {s.position.id for s in ballot_states(period, states, config)} if live_positions else set(),
         'threshold': round_threshold(period, config),
         'config': config,

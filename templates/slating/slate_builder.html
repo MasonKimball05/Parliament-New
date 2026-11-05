@@ -19,7 +19,15 @@
         <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ period.name }}</p>
     </div>
     <div class="flex space-x-3">
-        <form method="post" action="{% url 'slating_approve_slate' period_id=period.id %}">
+        {% if read_only %}
+        {# 11-05-26: once approved, the builder shows the approved slate; changes go through Edit approved slate. #}
+        <a href="{% url 'slating_edit_approved_slate' period_id=period.id %}"
+            class="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
+            Edit approved slate
+        </a>
+        {% else %}
+        <form method="post" action="{% url 'slating_approve_slate' period_id=period.id %}"
+            class="js-confirm-submit" data-confirm-msg="{{ approve_confirm }}">
             {% csrf_token %}
             <input type="hidden" name="slate_type" value="primary">
             <button type="submit"
@@ -30,6 +38,7 @@
                 Approve Slate
             </button>
         </form>
+        {% endif %}
     </div>
 </div>
 {% endblock %}
@@ -40,9 +49,9 @@
     <div class="lg:col-span-2 space-y-4">
         <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
             <div class="px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-gray-700">
-                <h3 class="text-lg font-medium text-gray-900 dark:text-white">{{ slate.name }}</h3>
+                <h3 class="text-lg font-medium text-gray-900 dark:text-white">{{ slate.label }}</h3>
                 <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                    {{ primary_filled_count }} of {{ positions|length }} positions filled
+                    {{ primary_filled_count }} of {{ positions|length }} positions filled{% if read_only %} · approved, read-only{% endif %}
                 </p>
             </div>
 
@@ -64,6 +73,7 @@
                             {% endif %}
                         </div>
                         <div class="flex items-center gap-3">
+                            {% if not read_only %}
                             {% if primary %}
                             <form method="post" class="inline flex items-center">
                                 {% csrf_token %}
@@ -75,6 +85,7 @@
                             <button type="button" class="js-open-assign-modal text-xs text-primary-600 dark:text-primary-400 hover:underline" data-position-id="{{ position.id }}" data-position-title="{{ position.title }}" data-mode="assign">
                                 {% if primary %}Change{% else %}Assign{% endif %}
                             </button>
+                            {% endif %}
                         </div>
                     </div>
 
@@ -90,6 +101,7 @@
                             {% endif %}
                         </div>
                         <div class="flex items-center gap-3">
+                            {% if not read_only %}
                             {% if runoff %}
                             <form method="post" class="inline flex items-center">
                                 {% csrf_token %}
@@ -101,6 +113,7 @@
                             <button type="button" class="js-open-assign-modal text-xs text-yellow-600 dark:text-yellow-400 hover:underline" data-position-id="{{ position.id }}" data-position-title="{{ position.title }}" data-mode="assign_runoff">
                                 {% if runoff %}Change{% else %}+ Add Runoff{% endif %}
                             </button>
+                            {% endif %}
                         </div>
                     </div>
                     {% endif %}
@@ -157,7 +170,7 @@
                 <li class="px-4 py-3">
                     <div class="flex items-center justify-between">
                         <div>
-                            <p class="text-sm font-medium text-gray-900 dark:text-white">{{ s.name }}</p>
+                            <p class="text-sm font-medium text-gray-900 dark:text-white">{{ s.label }}</p>
                             <p class="text-xs text-gray-500 dark:text-gray-400">{{ s.get_slate_type_display }}</p>
                         </div>
                         <div class="flex items-center space-x-3">

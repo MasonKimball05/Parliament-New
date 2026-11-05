@@ -56,7 +56,9 @@ class PermissionTests(_SlateBase):
             self.assertEqual(self.call('get', path).status_code, 403, rest)                       # a member
             self.assertEqual(self.call('get', path, user=self.committee_member).status_code, 403, rest)
             self.assertEqual(self.call('get', path, user=self.admin).status_code, 403, rest)      # locked
-            self.assertEqual(self.call('get', path, user=self.manager).status_code, 200, rest)
+            # 11-05-26: voting has started online, so manual results are refused (409), not forbidden.
+            self.assertEqual(self.call('get', path, user=self.manager).status_code,
+                             409 if rest == 'manual-results/' else 200, rest)
         for rest, body in [('slate/approve/', {}), (f'slates/{self.slate.id}/copy/', {}),
                            ('slate/write-ins/remove/', {'candidate_id': self.c_vp.id})]:
             r = self.call('post', self.p(self.period, rest), body, user=self.committee_member)
@@ -171,6 +173,8 @@ class BuildTests(_SlateBase):
 
     def test_approve_the_draft(self):
         old = Slate.objects.create(period=self.build, slate_type='primary', is_approved=True, name='Old')
+        # 11-05-26: with an approved slate and no draft the builder is read-only; a new draft is started (Copy).
+        Slate.objects.create(period=self.build, slate_type='draft', name='Draft Slate')
         self.post({'action': 'assign', 'position_id': self.b_pres.id, 'application_id': self.a_app.id})
         r = self.post({'slate_type': 'primary'}, 'slate/approve/')
         self.assertEqual(r.status_code, 200)
@@ -242,6 +246,10 @@ class EditTests(_SlateBase):
         self.voter2 = member('ss-voter2')
         self.path = self.p(self.period, 'slate/edit/')
 
+    def pause(self):
+        self.period.status = 'deliberation'
+        self.period.save()
+
     def test_get(self):
         body = self.call('get', self.path, user=self.manager).json()
         self.assertFalse(body['voting_paused'])
@@ -253,6 +261,7 @@ class EditTests(_SlateBase):
     def test_replace_with_a_write_in_keeps_the_round_history(self):
         SlatingVote.objects.create(period=self.period, slate_candidate=self.c_pres, voting_attempt=1,
                                    vote_choice='reject', vote_hash='h1')
+        self.pause()   # 11-05-26: not while the round is open
         r = self.call('post', self.path, {'position_id': self.pres.id, 'candidate_type': 'write_in',
                                           'member_id': self.voter2.user_id}, user=self.manager)
         self.assertEqual(r.status_code, 200)
@@ -264,6 +273,7 @@ class EditTests(_SlateBase):
 
     def test_replace_with_an_applicant(self):
         other = SlatingApplication.objects.create(period=self.period, applicant=self.voter2, status='interviewed')
+        self.pause()   # 11-05-26: not while the round is open
         r = self.call('post', self.path, {'position_id': self.vp.id, 'candidate_type': 'applicant',
                                           'application_id': other.id}, user=self.manager)
         self.assertEqual(r.json()['rows'][1]['current']['application_id'], other.id)
@@ -432,6 +442,8 @@ class WebPagesTests(_SlateBase):
         self.assertFalse(Slate.objects.filter(period=self.build, slate_type='primary', is_approved=True).exists())
 
     def test_edit_page_invalid_replacement_message(self):
+        self.period.status = 'deliberation'   # 11-05-26: paused (no swaps while the round is open)
+        self.period.save()
         url = reverse('slating_edit_approved_slate', args=[self.period.id])
         self.assertEqual(self.client.get(url).status_code, 200)
         r = self.client.post(url, {'position_id': self.vp.id, 'candidate_type': 'applicant'}, follow=True)

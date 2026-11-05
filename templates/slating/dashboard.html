@@ -26,20 +26,24 @@
     <div class="lg:col-span-2 space-y-5">
 
         <!-- Active Periods -->
-        {% if active_periods %}
+        {% if period_rows %}
         <div class="bg-white dark:bg-gray-800 shadow-sm rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
             <div class="px-5 py-3.5 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
                 <h3 class="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide">Active Elections</h3>
             </div>
             <ul class="divide-y divide-gray-200 dark:divide-gray-700">
-                {% for period in active_periods %}
+                {% for row in period_rows %}{% with period=row.period %}
                 <li class="px-5 py-4 hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors">
                     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                         <div class="flex-1 min-w-0">
+                            {% if row.can_manage %}
                             <a href="{% url 'slating_period_detail' period_id=period.id %}" class="text-sm font-semibold text-primary-600 dark:text-primary-400 hover:underline truncate block">
                                 {{ period.name }}
                             </a>
-                            <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{{ period.academic_term }}</p>
+                            {% else %}
+                            <p class="text-sm font-semibold text-gray-900 dark:text-white truncate">{{ period.name }}</p>
+                            {% endif %}
+                            <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{{ period.academic_term }}{% if row.locked_out and row.managed_by %} &middot; managed by {{ row.managed_by }}{% endif %}</p>
                         </div>
                         <div class="flex flex-wrap items-center gap-2">
                             <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
@@ -50,28 +54,37 @@
                                 {% else %}bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300{% endif %}">
                                 {{ period.get_status_display }}
                             </span>
-                            {% if period.status == 'nominations_open' and period.can_apply %}
+                            {% if row.can_apply %}
                             <a href="{% url 'slating_apply' period_id=period.id %}"
                                class="inline-flex items-center px-3 py-1 rounded-lg text-xs font-medium bg-primary-600 hover:bg-primary-700 text-white transition-colors">
                                 Apply Now
                             </a>
-                            {% elif period.status == 'voting_open' and period.can_vote %}
-                            {% if period.vote_type == 'individual' %}
-                            <a href="{% url 'slating_vote_individual' period_id=period.id %}"
-                               class="inline-flex items-center px-3 py-1 rounded-lg text-xs font-medium bg-primary-600 hover:bg-primary-700 text-white transition-colors">
-                                Cast Vote
-                            </a>
-                            {% else %}
-                            <a href="{% url 'slating_vote' period_id=period.id %}"
+                            {% endif %}
+                            {% if row.has_voted %}
+                            <span class="inline-flex items-center px-3 py-1 rounded-lg text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">&#10003; You voted</span>
+                            {% elif row.sits_out %}
+                            <span class="inline-flex items-center px-3 py-1 rounded-lg text-xs font-medium bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300">Nothing for you to vote on</span>
+                            {% elif row.can_vote %}
+                            <a href="{% if period.vote_type == 'individual' %}{% url 'slating_vote_individual' period_id=period.id %}{% else %}{% url 'slating_vote' period_id=period.id %}{% endif %}"
                                class="inline-flex items-center px-3 py-1 rounded-lg text-xs font-medium bg-primary-600 hover:bg-primary-700 text-white transition-colors">
                                 Cast Vote
                             </a>
                             {% endif %}
+                            {% if row.can_manage %}
+                            <a href="{% url 'slating_period_setup' period_id=period.id %}"
+                               class="inline-flex items-center px-3 py-1 rounded-lg text-xs font-medium border border-primary-600 text-primary-600 dark:text-primary-400 dark:border-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors">
+                                Manage election &rarr;
+                            </a>
+                            {% elif row.can_review %}
+                            <a href="{% url 'slating_applications' period_id=period.id %}"
+                               class="inline-flex items-center px-3 py-1 rounded-lg text-xs font-medium border border-primary-600 text-primary-600 dark:text-primary-400 dark:border-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors">
+                                Review applications &rarr;
+                            </a>
                             {% endif %}
                         </div>
                     </div>
                 </li>
-                {% endfor %}
+                {% endwith %}{% endfor %}
             </ul>
         </div>
         {% endif %}
@@ -173,7 +186,7 @@
         {% endif %}
 
         <!-- Empty State -->
-        {% if not active_periods and not my_applications and not pending_reviews and not published_results %}
+        {% if not period_rows and not my_applications and not pending_reviews and not published_results %}
         <div class="bg-white dark:bg-gray-800 shadow-sm rounded-xl border border-gray-200 dark:border-gray-700 px-6 py-12 text-center">
             <svg class="mx-auto h-10 w-10 text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
@@ -226,12 +239,18 @@
             </div>
             {% if all_periods %}
             <nav class="px-2 py-2 space-y-0.5">
-                {% for period in all_periods %}
-                <a href="{% url 'slating_period_setup' period_id=period.id %}"
+                {% for row in all_periods %}
+                {% if row.can_manage %}
+                <a href="{% url 'slating_period_setup' period_id=row.period.id %}"
                    class="flex items-center justify-between px-3 py-2 rounded-md text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
-                    <span class="truncate pr-2">{{ period.name }}</span>
-                    <span class="flex-shrink-0 text-xs text-gray-400 dark:text-gray-500">{{ period.get_status_display }}</span>
+                    <span class="truncate pr-2">{{ row.period.name }}</span>
+                    <span class="flex-shrink-0 text-xs text-gray-400 dark:text-gray-500">{{ row.period.get_status_display }}</span>
                 </a>
+                {% else %}
+                <div class="px-3 py-2 text-sm text-gray-500 dark:text-gray-400" title="Only the people running this election can open it.">
+                    <span class="text-gray-700 dark:text-gray-200">{{ row.period.name }}</span>{% if row.managed_by %} &mdash; managed by {{ row.managed_by }}{% endif %}
+                </div>
+                {% endif %}
                 {% endfor %}
             </nav>
             {% else %}

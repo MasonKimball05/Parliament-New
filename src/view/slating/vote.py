@@ -31,6 +31,12 @@ def _mark_round_ended(period):
     period.extra_settings = {**(period.extra_settings or {}), 'round_ended': True}
 
 
+def round_is_paused(period):
+    """Voting paused mid-round: deliberation with a round that wasn't closed or voided."""
+    return (period.status == 'deliberation' and period.current_voting_attempt > 0
+            and not (period.extra_settings or {}).get('round_ended'))
+
+
 @login_required
 @voting_member_required
 def slating_vote(request, period_id):
@@ -42,7 +48,9 @@ def slating_vote(request, period_id):
     user = request.user
 
     is_committee = can_view_applications(user, period)
-    voting_paused = period.status == 'deliberation' and period.current_voting_attempt > 0
+    # 11-05-26: a round that was closed or voided (round_ended) isn't paused:
+    # there's nothing to reopen or void, the chair opens the next round instead.
+    voting_paused = round_is_paused(period)
 
     # Committee members can see the paused-voting state; everyone else needs voting_open
     if not period.can_vote():
@@ -87,7 +95,8 @@ def slating_vote(request, period_id):
 
     # Check if member is marked present
     if not SlatingAttendance.objects.filter(period=period, member=user).exists():
-        messages.error(request, 'You are not marked present for this session. Contact the slating chair.')
+        from .attendance import not_present_message   # 11-05-26: names the chair
+        messages.error(request, not_present_message(period))
         return redirect('slating_dashboard')
 
     # Check if already voted this attempt
@@ -164,7 +173,8 @@ def individual_vote(request, period_id):
 
     # Check if member is marked present
     if not SlatingAttendance.objects.filter(period=period, member=user).exists():
-        messages.error(request, 'You are not marked present for this session. Contact the slating chair.')
+        from .attendance import not_present_message   # 11-05-26: names the chair
+        messages.error(request, not_present_message(period))
         return redirect('slating_dashboard')
 
     # Check if we're in individual voting mode
@@ -306,22 +316,26 @@ def reset_votes(request, period_id):
 
     period = get_object_or_404(SlatingPeriod, id=period_id)
 
-    if period.status != 'deliberation' or period.current_voting_attempt == 0:
-        messages.error(request, 'No paused vote to reset.')
-        return redirect('slating_period_setup', period_id=period_id)
-
-    attempt = period.current_voting_attempt
-
-    # v4.0.0 (Mason: keep voting history): VOID the round instead of
-    # deleting it. Its ballots and votes stay, the round is recorded as
-    # voided with its counts in the history and the results export, and
-    # re-opening starts a new round number (the old one isn't reused, so
-    # its ballots can't block anyone from voting again).
-    slate = Slate.objects.filter(period=period, is_approved=True, slate_type='primary').first()
-    ballots = SlatingBallot.objects.filter(period=period, voting_attempt=attempt).count()
-    end_round(period, 'voided', request.user, slate)
-    _mark_round_ended(period)
-    period.save(update_fields=['extra_settings'])
+    # 11-05-26: only a PAUSED round. A closed one has been counted and may have
+    # elected people; voiding it left them elected (round_ended: closed or voided).
+    from django.db import transaction
+    from src.slating_rounds import lock_period
+    with transaction.atomic():
+        lock_period(period)
+        if not round_is_paused(period):
+            messages.error(request, 'No paused vote to reset.')
+            return redirect('slating_period_setup', period_id=period_id)
+        attempt = period.current_voting_attempt
+        # v4.0.0 (Mason: keep voting history): VOID the round instead of
+        # deleting it. Its ballots and votes stay, the round is recorded as
+        # voided with its counts in the history and the results export, and
+        # re-opening starts a new round number (the old one isn't reused, so
+        # its ballots can't block anyone from voting again).
+        slate = Slate.objects.filter(period=period, is_approved=True, slate_type='primary').first()
+        ballots = SlatingBallot.objects.filter(period=period, voting_attempt=attempt).count()
+        end_round(period, 'voided', request.user, slate)
+        _mark_round_ended(period)
+        period.save(update_fields=['extra_settings'])
 
     SlatingActivity.objects.create(
         period=period,
@@ -334,3 +348,4 @@ def reset_votes(request, period_id):
     messages.success(request, f'Round {attempt} voided. Its {ballots} ballot(s) stay in the voting history '
                               'but won\'t count. Re-opening voting starts a fresh round.')
     return redirect('slating_period_setup', period_id=period_id)
+

@@ -57,7 +57,7 @@ from src.mobile.views_slating_committee import _manager_period
 from src.mobile.views_votes import VoteRefused
 from src.models import Role, SlatingPosition
 from src.view.slating.period_setup import (
-    PERIOD_DATE_FIELDS, PeriodSetupError, add_period_committee_member, apply_status_change,
+    PERIOD_DATE_FIELDS, PeriodSetupError, add_period_committee_member, apply_status_change, approval_locked,
     check_and_auto_transition_status, check_status_change, create_slating_period, delete_slating_period,
     eligible_period_managers, ensure_slating_committee, period_committee_members, remove_period_committee_member,
     save_period_settings,
@@ -109,7 +109,8 @@ CODE_PATTERN = re.compile(r'^[A-Z_]+$')
 
 
 def _setup_error(e):
-    status = {'forbidden': 403, 'not_found': 404, 'no_committee': 409, 'unchanged': 409}.get(e.code, 400)
+    status = {'forbidden': 403, 'not_found': 404, 'no_committee': 409, 'unchanged': 409,
+              'not_allowed': 409, 'locked': 409, 'applied': 409}.get(e.code, 400)
     return VoteRefused(e.code, str(e), status)
 
 
@@ -139,7 +140,7 @@ def _check_period_form(data, dates=True):
         problems.append('Election name is required.')
     if not (data.get('academic_term') or '').strip():
         problems.append('Academic term is required.')
-    _number(data, 'required_approval_percentage', int, 1, 100, 'Required approval %', problems)
+    _number(data, 'required_approval_percentage', int, 51, 100, 'Required approval %', problems)   # 11-05-26: over half
     _number(data, 'min_gpa_requirement', float, 0, 4, 'Minimum GPA', problems)
     _number(data, 'gpa_level_2_threshold', float, 0, 1, 'Level 2 threshold', problems)
     if dates:
@@ -171,8 +172,12 @@ class SlatingCreatePeriodView(_SlatingBase):
             period = create_slating_period(request.user, data)
         except PeriodSetupError as e:
             raise _setup_error(e)
+        from src.view.slating.period_setup import MANAGER_HIDES_PERIOD, manager_hides_period
+        hidden = manager_hides_period(period, request.user)
         return Response({'ok': True, 'period_id': period.id,
-                         'message': f'Slating period "{period.name}" created successfully.'}, status=201)
+                         'message': f'Slating period "{period.name}" created successfully.',
+                         # 11-05-26: a manager makes the period confidential, even from its creator.
+                         'warning': MANAGER_HIDES_PERIOD if hidden else None, 'can_manage': not hidden}, status=201)
 
 
 # ── The setup page ───────────────────────────────────────────────────────────
@@ -200,6 +205,8 @@ def setup_data(period, user, notice=None):
             # v4.4.5: candidates sit out their own race (src/slating_ballots.py).
             'candidates_cannot_vote': bool((period.extra_settings or {}).get('candidates_cannot_vote')),
             'candidates_cannot_vote_locked': period.status == 'voting_open',
+            # 11-05-26: fixed once the first round has been opened.
+            'required_approval_percentage_locked': approval_locked(period),
             **{field: _iso(getattr(period, field)) for field in PERIOD_DATE_FIELDS},
         },
         'notice': notice,
@@ -456,7 +463,7 @@ class SlatingTransferAdminView(_SlatingBase):
             'period': {'id': period.id, 'name': period.name, 'status': period.status,
                        'status_label': period.get_status_display()},
             'current_admin': _member(admin) if admin else None,
-            'eligible': [_member(m) for m in eligible_new_admins(committee)],
+            'eligible': [_member(m) for m in eligible_new_admins(committee, period)],
             'previous': {
                 'from': transfer_from.name if transfer_from else None,
                 'at': _iso(period.admin_transferred_at),

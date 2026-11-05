@@ -130,6 +130,7 @@ class RoundHistoryTests(_Voting):
                          {f'vote_{self.pres.id}': 'reject', f'vote_{self.vp.id}': 'approve',
                           'password': PW})
         self.as_manager()
+        self.set_status('deliberation')   # 11-05-26: pause first (no swaps while the round is open)
         self.client.post(reverse('slating_edit_approved_slate', args=[self.period.id]),
                          {'position_id': self.pres.id, 'candidate_type': 'write_in',
                           'member_id': self.voter2.user_id})

@@ -469,13 +469,19 @@ class ChairToolsTests(_AppBase):
                          (ctx['eligible_voters'], ctx['total_unique_voters']))
         self.assertEqual([s['id'] for s in body['slates']], [s.id for s in ctx['slates']])
         self.assertEqual(len(body['voting_history']), len(ctx['voting_history']))
-        self.assertTrue(body['can_publish'])
+        self.assertFalse(body['can_publish'])   # 11-05-26: voting is still open
+        SlatingPeriod.objects.filter(pk=self.period.pk).update(status='voting_closed')
+        self.assertTrue(self.call('get', path, user=self.manager).json()['can_publish'])
 
     @mock.patch('src.notification_service.notify_all_active_members')
     def test_publish(self, notify):
         path = f'slating/periods/{self.period.id}/results/publish/'
         self.assertEqual(self.call('post', path, {}, user=self.committee_member).status_code, 403)
         self.assertEqual(self.call('post', path, {}, user=self.voter).status_code, 403)
+        # 11-05-26: not while voting is open.
+        r = self.call('post', path, {}, user=self.manager)
+        self.assertEqual((r.status_code, r.json()['error']), (409, 'not_publishable'))
+        SlatingPeriod.objects.filter(pk=self.period.pk).update(status='voting_closed')
         r = self.call('post', path, {}, user=self.manager)
         self.assertEqual(r.status_code, 200, r.content)
         self.period.refresh_from_db()
@@ -491,7 +497,8 @@ class ChairToolsTests(_AppBase):
 
     def test_chair_overview_says_what_is_open(self):
         body = self.call('get', f'slating/periods/{self.period.id}/chair/', user=self.manager).json()
-        self.assertEqual((body['can_attendance'], body['can_paper'], body['can_publish']), (True, True, True))
+        # 11-05-26: publishing waits for voting to close.
+        self.assertEqual((body['can_attendance'], body['can_paper'], body['can_publish']), (True, True, False))
         self.assertIn('web', body)   # older builds' keys stay
 
 

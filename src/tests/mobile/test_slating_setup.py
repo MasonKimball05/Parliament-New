@@ -110,7 +110,7 @@ class SetupPermissionTests(_SetupBase):
                                                        'required_approval_percentage': '160'}, user=self.admin)
         self.assertEqual((r.status_code, r.json()['error']), (400, 'invalid_input'))
         self.assertIn('Academic term is required.', r.json()['detail'])
-        self.assertIn('Required approval % must be between 1 and 100.', r.json()['detail'])
+        self.assertIn('Required approval % must be between 51 and 100.', r.json()['detail'])   # 11-05-26
         self.assertEqual(SlatingPeriod.objects.count(), before)
 
     def test_hub_says_who_can_create(self):
@@ -142,7 +142,7 @@ class SetupPageTests(_SetupBase):
         self.assertEqual(body['next_status']['status'], 'deliberation')   # voting is open: Pause voting
         self.assertFalse(body['can_set_manager'])
         self.assertFalse(body['can_delete'])
-        self.assertFalse(body['can_transfer_admin'])   # only the committee's admin or a site admin
+        self.assertTrue(body['can_transfer_admin'])   # 11-05-26: the slating manager may transfer too
 
     def test_backfills_the_committee(self):
         bare = SlatingPeriod.objects.create(name='Old', academic_term='2020', status='setup')
@@ -159,12 +159,14 @@ class SetupPageTests(_SetupBase):
         self.assertIn('Status automatically updated to "Nominations Open"', body['notice'])
 
     def test_save_settings(self):
-        r = self.call('post', self.setup_path(), self.settings_body(slating_manager=''), user=self.manager)
+        # 11-05-26: voting is open in the fixture, so the approval % is fixed (66) and posted unchanged.
+        r = self.call('post', self.setup_path(), self.settings_body(slating_manager='', required_approval_percentage='66'),
+                      user=self.manager)
         self.assertEqual(r.status_code, 200, r.content)
         self.assertEqual(r.json()['message'], 'Period settings saved.')
         p = SlatingPeriod.objects.get(id=self.period.id)
         self.assertEqual((p.name, p.academic_term, p.description), ('Fall elections', 'Fall 2027', 'Notes'))
-        self.assertEqual(p.required_approval_percentage, 70)
+        self.assertEqual(p.required_approval_percentage, 66)
         self.assertEqual(float(p.min_gpa_requirement), 2.75)
         self.assertEqual(p.nominations_open_at, datetime(2027, 1, 11, 1, 0, tzinfo=dt_timezone.utc))
         self.assertIsNone(p.voting_open_at)
@@ -416,16 +418,23 @@ class TransferAdminTests(_SetupBase):
         self.committee.admin = self.president
         self.committee.save()
         self.path = f'slating/periods/{self.period.id}/transfer-admin/'
+        # 11-05-26: the fixture's voter has applied, so can't join the committee.
+        self.successor = member('ss-succ')
 
     def test_who_may(self):
-        for user in (self.voter, self.manager):   # even the slating manager: the page's own rule
-            r = self.call('get', self.path, user=user)
-            self.assertEqual((r.status_code, r.json()['error']), (403, 'forbidden'))
+        r = self.call('get', self.path, user=self.voter)
+        self.assertEqual((r.status_code, r.json()['error']), (403, 'forbidden'))
+        # 11-05-26: the slating manager may too; a site admin only while the period isn't locked.
+        self.assertEqual(self.call('get', self.path, user=self.manager).status_code, 200)
         body = self.call('get', self.path, user=self.president).json()
         self.assertEqual(body['current_admin']['user_id'], self.president.user_id)
         self.assertNotIn(self.president.user_id, [m['user_id'] for m in body['eligible']])
-        # A site admin may, locked period or not (as on the web).
-        self.assertEqual(self.call('get', self.path, user=self.admin).status_code, 200)
+        r = self.call('get', self.path, user=self.admin)
+        self.assertEqual((r.status_code, r.json()['error']), (403, 'forbidden'))
+        self.open_committee.admin = None
+        self.open_committee.save()
+        self.assertEqual(self.call('get', f'slating/periods/{self.unlocked.id}/transfer-admin/',
+                                   user=self.admin).status_code, 200)
         bare = SlatingPeriod.objects.create(name='Bare', academic_term='2020')
         r = self.call('get', f'slating/periods/{bare.id}/transfer-admin/', user=self.admin)
         self.assertEqual((r.status_code, r.json()['error']), (409, 'no_committee'))
@@ -442,21 +451,21 @@ class TransferAdminTests(_SetupBase):
         self.assertFalse(SlatingActivity.objects.filter(action='admin_transferred').exists())
 
     def test_transfer(self):
-        r = self.call('post', self.path, {'new_admin': self.voter.user_id, 'reason': 'Running for President'},
+        r = self.call('post', self.path, {'new_admin': self.successor.user_id, 'reason': 'Running for President'},
                       user=self.president)
         self.assertEqual(r.status_code, 200, r.content)
-        self.assertEqual(r.json()['message'], f'Admin successfully transferred to {self.voter.name}.')
+        self.assertEqual(r.json()['message'], f'Admin successfully transferred to {self.successor.name}.')
         self.assertFalse(r.json()['can_manage'])   # he handed it on
         self.committee.refresh_from_db()
-        self.assertEqual(self.committee.admin, self.voter)
+        self.assertEqual(self.committee.admin, self.successor)
         p = SlatingPeriod.objects.get(id=self.period.id)
         self.assertTrue(p.admin_transferred)
         self.assertEqual((p.admin_transferred_from, p.admin_transfer_reason), (self.president, 'Running for President'))
         log = SlatingActivity.objects.get(action='admin_transferred')
-        self.assertEqual(log.metadata['new_admin_id'], self.voter.user_id)
+        self.assertEqual(log.metadata['new_admin_id'], self.successor.user_id)
         self.assertEqual(r.json()['previous']['from'], self.president.name)
         # The new admin now manages the period.
-        self.assertEqual(self.call('get', self.setup_path(), user=self.voter).status_code, 200)
+        self.assertEqual(self.call('get', self.setup_path(), user=self.successor).status_code, 200)
 
     def test_web_view_unchanged(self):
         web = Client()
@@ -465,11 +474,11 @@ class TransferAdminTests(_SetupBase):
         web.force_login(self.president)
         url = reverse('slating_transfer_admin', args=[self.period.id])
         # The picker posts the member's user id (it posted a blank ``member.id`` before 11-04-26).
-        self.assertContains(web.get(url), f'<option value="{self.voter.user_id}">')
+        self.assertContains(web.get(url), f'<option value="{self.successor.user_id}">')
         r = web.post(url, {'new_admin': self.president.user_id, 'reason': 'x'})
         self.assertEqual([(m.level_tag, str(m)) for m in get_messages(r.wsgi_request)],
                          [('warning', 'The new admin cannot be the same as the current admin.')])
-        r = web.post(url, {'new_admin': self.voter.user_id, 'reason': 'Running'})
+        r = web.post(url, {'new_admin': self.successor.user_id, 'reason': 'Running'})
         self.assertRedirects(r, reverse('slating_period_setup', args=[self.period.id]), fetch_redirect_response=False)
         self.committee.refresh_from_db()
-        self.assertEqual(self.committee.admin, self.voter)
+        self.assertEqual(self.committee.admin, self.successor)

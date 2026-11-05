@@ -59,6 +59,11 @@
                                 {% if position.min_gpa %}
                                 <p class="text-xs text-gray-400 dark:text-gray-500">Min GPA: {{ position.min_gpa }}</p>
                                 {% endif %}
+                                {% if position.role %}
+                                <p class="text-xs text-gray-400 dark:text-gray-500">Role: {{ position.role.name }}</p>
+                                {% else %}
+                                <p class="text-xs text-amber-600 dark:text-amber-400">No officer role linked &mdash; the winner won&#x27;t be transitioned</p>
+                                {% endif %}
                             </div>
                         </div>
                         <div class="flex items-center flex-shrink-0 gap-1">
@@ -184,6 +189,18 @@
                         </div>
 
                         <div>
+                            <label for="role" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Officer role</label>
+                            <select name="role" id="role"
+                                class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:text-white sm:text-sm">
+                                <option value="">No role (winner isn&#x27;t given one at transition)</option>
+                                {% for role in roles %}
+                                <option value="{{ role.id }}">{{ role.name }}</option>
+                                {% endfor %}
+                            </select>
+                            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">The role the winner takes on when officers are transitioned.</p>
+                        </div>
+
+                        <div>
                             <label for="min_gpa" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Minimum GPA (optional)</label>
                             <input type="number" step="0.01" min="0" max="4" name="min_gpa" id="min_gpa"
                                 class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:text-white sm:text-sm"
@@ -234,6 +251,18 @@
                             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Description</label>
                             <textarea name="description" id="edit_description" rows="3"
                                 class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:text-white sm:text-sm"></textarea>
+                        </div>
+
+                        <div>
+                            <label for="edit_role" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Officer role</label>
+                            <select name="role" id="edit_role"
+                                class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:text-white sm:text-sm">
+                                <option value="">No role (winner isn&#x27;t given one at transition)</option>
+                                {% for role in roles %}
+                                <option value="{{ role.id }}">{{ role.name }}</option>
+                                {% endfor %}
+                            </select>
+                            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">The role the winner takes on when officers are transitioned.</p>
                         </div>
 
                         <div>
@@ -297,6 +326,7 @@ function openEditModal(url) {
             document.getElementById('edit_title').value = data.title || '';
             document.getElementById('edit_description').value = data.description || '';
             document.getElementById('edit_min_gpa').value = data.min_gpa || '';
+            document.getElementById('edit_role').value = data.role_id ? String(data.role_id) : '';
             document.getElementById('edit_allow_abstain').checked = data.allow_abstain !== false;
             document.getElementById('editPositionForm').action = url;
             document.getElementById('editPositionModal').classList.remove('hidden');

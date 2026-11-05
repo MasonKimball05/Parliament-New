@@ -33,6 +33,7 @@
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm px-4 py-5 sm:p-6 text-center">
             <p class="text-3xl font-bold {% if participation_rate >= 50 %}text-green-600 dark:text-green-400{% else %}text-yellow-600 dark:text-yellow-400{% endif %}">{{ participation_rate|floatformat:1 }}%</p>
             <p class="text-sm text-gray-500 dark:text-gray-400">Participation Rate</p>
+            <p class="text-xs text-gray-400 dark:text-gray-500">{{ latest_round_voted }} of {{ present }} present voted in the latest round (paper included)</p>
         </div>
     </div>
 
@@ -134,7 +135,7 @@
             <li class="px-4 py-4 sm:px-6">
                 <div class="flex items-center justify-between">
                     <div>
-                        <p class="text-sm font-medium text-gray-900 dark:text-white">{{ slate.name }}</p>
+                        <p class="text-sm font-medium text-gray-900 dark:text-white">{{ slate.label }}</p>
                         <p class="text-sm text-gray-500 dark:text-gray-400">
                             {{ slate.get_slate_type_display }}
                             {% if slate.approved_at %} &middot; Approved {{ slate.approved_at|date:"M j, Y" }}{% endif %}

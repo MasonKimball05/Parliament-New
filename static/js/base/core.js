@@ -343,7 +343,11 @@
         document.addEventListener('submit', function(event) {
             var form = event.target;
             if (!(form instanceof HTMLFormElement)) return;
-            if (form.method.toLowerCase() !== 'post') return; // GET forms never carry this field — see above
+            // v4.4.5: attributes, not form.method/form.action — a field named
+            // "action" shadows them (see the fetch below).
+            var formMethod = (form.getAttribute('method') || 'get').toLowerCase();
+            if (formMethod !== 'post') return; // GET forms never carry this field — see above
+            var submitter = event.submitter || null;
             var tokenField = form.querySelector('input[name="csrfmiddlewaretoken"]');
             // ⚠️ A MISSING FIELD IS NOT "NOTHING TO DO." The first version of
             // this guard treated "no such input at all" the same as "token
@@ -437,8 +441,19 @@
                 // 3xx it could silently follow — with the message text
                 // already read out of Django's messages framework
                 // server-side, so there's nothing left to consume twice.
+                // v4.4.5: the pressed button's name/value is added BY HAND,
+                // last. double-submit.js has already disabled it, and FormData
+                // (with or without a submitter) drops a disabled button, so
+                // "Submit Application" posted as the hidden action=save_draft.
+                // Last matches a native submit (POST.get reads the last value).
+                // Method/action are read as attributes: a field named "action"
+                // (slating apply) shadows form.action as a RadioNodeList, so
+                // file-upload forms POSTed to "[object RadioNodeList]".
                 var formData = new FormData(form);
-                fetch(form.action, {
+                if (submitter && submitter.name) formData.append(submitter.name, submitter.value || '');
+                var formAction = (submitter && submitter.getAttribute('formaction'))
+                    || form.getAttribute('action') || window.location.href;
+                fetch(formAction, {
                     method: 'POST',
                     body: formData,
                     credentials: 'same-origin',

@@ -262,7 +262,7 @@ def manage_positions(request, period_id):
 
     context = {
         'period': period,
-        'positions': active_positions,
+        'positions': active_positions.select_related('role'),   # the list shows each one's role
         'inactive_positions': inactive_positions,
         'roles': roles,
     }

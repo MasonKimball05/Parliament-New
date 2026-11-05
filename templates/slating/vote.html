@@ -1,4 +1,5 @@
 {% extends 'slating/base_slating.html' %}
+{% load static_version slating_tags %}
 
 {% block breadcrumbs %}
 <li>
@@ -99,7 +100,7 @@
 
 {% else %}
 <!-- Slate update notification (hidden until JS detects a change) -->
-<div id="slate-update-banner" class="hidden bg-amber-50 dark:bg-amber-900/30 border border-amber-300 dark:border-amber-700 rounded-lg p-3 flex items-center justify-between gap-3">
+<div id="slate-update-banner" data-status-url="{% url 'slating_api_voting_status' period_id=period.id %}" data-status="{{ period.status }}" data-slate-fingerprint="{{ candidates|ballot_fingerprint }}" class="hidden bg-amber-50 dark:bg-amber-900/30 border border-amber-300 dark:border-amber-700 rounded-lg p-3 flex items-center justify-between gap-3">
     <p class="text-sm text-amber-800 dark:text-amber-200 font-medium">The slate has been updated by the committee.</p>
     <button id="js-reload-page" type="button" class="flex-shrink-0 px-3 py-1.5 text-xs font-medium text-amber-900 dark:text-amber-100 bg-amber-100 dark:bg-amber-800 border border-amber-300 dark:border-amber-600 rounded-md hover:bg-amber-200 dark:hover:bg-amber-700 transition-colors">
         Refresh
@@ -196,7 +197,8 @@
     </div>
     {% else %}
     <!-- Vote Form -->
-    <form method="post" class="js-vote-form bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
+    <form method="post" class="js-vote-form js-ballot-form bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden"
+        data-confirm="Cast your ballot? Your vote is secret and can&#x27;t be changed once it&#x27;s in.">
         {% csrf_token %}
         <div class="px-4 py-5 sm:p-6 space-y-6">
             <div>
@@ -251,19 +253,19 @@
             </div>
 
             <div class="border-t border-gray-200 dark:border-gray-700 pt-6">
-                <label for="password" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Confirm with Password</label>
-                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Enter your account password to verify your identity and cast your vote.</p>
+                <label for="password" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Confirm it&#x27;s you</label>
+                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Enter your Parliament login password (the one you sign in to this site with){% if has_passkeys %}, or use your passkey{% endif %}.</p>
                 <input type="password" name="password" id="password" required
                     autocomplete="current-password"
-                    class="mt-2 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:text-white sm:text-sm"
-                    placeholder="Your password">
+                    class="mt-2 block w-full px-3 py-2 rounded-md border border-gray-300 dark:border-gray-600 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:text-white sm:text-sm"
+                    placeholder="Your Parliament login password">
                 {% if has_passkeys %}
-                <button type="button"
-                        class="js-vote-passkey mt-2 inline-flex items-center gap-1.5 text-sm font-medium text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300 transition-colors">
+                <button type="button" data-confirm="Cast your ballot? Your vote is secret and can&#x27;t be changed once it&#x27;s in."
+                        class="js-vote-passkey mt-3 w-full inline-flex justify-center items-center gap-1.5 px-4 py-2 border border-primary-600 dark:border-primary-400 rounded-md text-sm font-medium text-primary-600 dark:text-primary-400 bg-white dark:bg-gray-800 hover:bg-primary-50 dark:hover:bg-primary-900/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/>
                     </svg>
-                    Confirm with a passkey instead
+                    Use a passkey instead (Face ID, Touch ID or security key)
                 </button>
                 <p class="js-passkey-error hidden text-sm text-red-600 dark:text-red-400 mt-1"></p>
                 {% endif %}
@@ -271,8 +273,9 @@
         </div>
 
         <div class="bg-gray-50 dark:bg-gray-700 px-4 py-4 sm:px-6">
+            <p class="js-ballot-hint text-xs text-gray-500 dark:text-gray-400 mb-2 text-center" aria-live="polite"></p>
             <button type="submit"
-                class="w-full inline-flex justify-center items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+                class="w-full inline-flex justify-center items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed">
                 <svg class="-ml-1 mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
                 </svg>
@@ -356,34 +359,9 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Poll for slate changes every 30 seconds and prompt a refresh if the slate updates
-    {% if not voting_paused %}
-    const initialCandidateCount = {{ candidates|length }};
-    let slateUpdateBannerShown = false;
-
-    function checkSlateUpdates() {
-        fetch('{% url "slating_api_voting_status" period_id=period.id %}')
-            .then(r => r.ok ? r.json() : null)
-            .then(data => {
-                if (!data) return;
-                // Status changed (e.g. voting paused) — reload to show correct state
-                if (data.status !== '{{ period.status }}') {
-                    window.location.reload();
-                    return;
-                }
-                // Slate candidate list changed
-                if (!slateUpdateBannerShown && data.slate_candidate_count !== undefined && data.slate_candidate_count !== initialCandidateCount) {
-                    slateUpdateBannerShown = true;
-                    const banner = document.getElementById('slate-update-banner');
-                    if (banner) banner.classList.remove('hidden');
-                }
-            })
-            .catch(() => {});
-    }
-
-    setInterval(checkSlateUpdates, 30000);
-    {% endif %}
+    // The slate-changed check (a fingerprint, not a row count) is in static/js/slating/ballot.js.
 });
 </script>
 {% include 'components/vote_passkey_confirm.html' %}
+<script src="{% static_v 'js/slating/ballot.js' %}"></script>
 {% endblock %}

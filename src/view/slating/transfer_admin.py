@@ -34,18 +34,35 @@ def transfer_refusal(user, period):
     slating_committee = period.slating_committee
     if not slating_committee:
         return 'no_committee', 'Slating Committee not configured.'
-    if slating_committee.admin != user and not user.is_admin:
-        return 'forbidden', 'Only the committee admin can transfer control.'
-    return None
+    # 11-05-26: the committee's admin or the period's slating manager; a site
+    # admin only while the period isn't locked (permissions._period_is_locked:
+    # no manager and no committee admin yet). A site admin with no role used
+    # to be able to make himself admin of a locked period and read everything.
+    from .permissions import _period_is_locked
+    if slating_committee.admin_id and slating_committee.admin_id == user.pk:
+        return None
+    if period.slating_manager_id and period.slating_manager_id == user.pk:
+        return None
+    if user.is_admin and not _period_is_locked(period):
+        return None
+    return 'forbidden', 'Only the committee admin or the slating manager can transfer control.'
 
 
-def eligible_new_admins(slating_committee):
-    """Active members other than the current admin, by name."""
-    return ParliamentUser.objects.filter(
+
+def eligible_new_admins(slating_committee, period=None):
+    """Active members other than the current admin, by name (11-05-26: and,
+    given the period, no one running in it)."""
+    qs = ParliamentUser.objects.filter(
         member_status='Active'
     ).exclude(
         pk=slating_committee.admin.pk if slating_committee.admin else None
-    ).order_by('name')
+    )
+    if period is not None:
+        from src.models import SlatingApplication
+        running = SlatingApplication.objects.filter(period=period).exclude(
+            status__in=['draft', 'withdrawn']).values('applicant')
+        qs = qs.exclude(pk__in=running)
+    return qs.order_by('name')
 
 
 def transfer_committee_admin(period, user, new_admin_id, reason):
@@ -72,6 +89,11 @@ def transfer_committee_admin(period, user, new_admin_id, reason):
 
     if new_admin == slating_committee.admin:
         raise TransferError('same_admin', 'The new admin cannot be the same as the current admin.', level='warning')
+
+    # 11-05-26 (the chapter's rule): no candidate on the slating committee.
+    from .permissions import applied_cant_join_message, has_live_application
+    if has_live_application(new_admin, period):
+        raise TransferError('applied', applied_cant_join_message(new_admin))
 
     old_admin = slating_committee.admin
 
@@ -133,7 +155,7 @@ def transfer_admin(request, period_id):
         return redirect('slating_period_setup', period_id=period.id)
 
     # GET: show form
-    eligible_admins = eligible_new_admins(slating_committee)
+    eligible_admins = eligible_new_admins(slating_committee, period)
 
     context = {
         'period': period,

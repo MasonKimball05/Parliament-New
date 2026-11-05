@@ -104,8 +104,10 @@ def period_status(request, period_id):
         data['voting'] = {
             'attempt': period.current_voting_attempt,
             'vote_type': period.vote_type,
-            'total_ballots': total_ballots,
         }
+        # 11-05-26: the live ballot count is the committee's (and everyone's once published).
+        if period.status == 'results_published' or can_view_applications(request.user, period):
+            data['voting']['total_ballots'] = total_ballots
 
         # Only show vote tallies if results published or the user manages the period
         if period.status == 'results_published' or can_manage_period(request.user, period):
@@ -141,6 +143,11 @@ def check_eligibility(request, period_id):
     if reason:
         eligibility['eligible'] = False
         eligibility['reasons'].append(reason)
+    # 11-05-26: no candidate on the slating committee (as apply_refusal).
+    from .permissions import COMMITTEE_CANT_RUN, on_slating_committee
+    if on_slating_committee(user, period):
+        eligibility['eligible'] = False
+        eligibility['reasons'].append(COMMITTEE_CANT_RUN)
 
     # v4.0.0 (Mason): pledges CAN apply for slating. They must be initiated
     # before they're interviewed (schedule_interview) or serve on the slating
@@ -261,6 +268,20 @@ def slate_candidates_json(slate):
     return candidates
 
 
+def ballot_fingerprint(rows):
+    """
+    A short hash of the full-slate ballot as members see it: each row's
+    position, kind and name(s) (``slate_rows``). The vote page embeds it
+    (``{{ candidates|ballot_fingerprint }}``) and ``voting_status`` returns it,
+    so "The slate has been updated" shows when what's on the ballot changed:
+    not when a vacant position adds a row the count didn't expect, and also
+    when one nominee is swapped for another (same count). 11-05-26.
+    """
+    import hashlib
+    parts = [f'{r.position.id}:{getattr(r, "kind", "")}:{r.candidate_name}' for r in rows]
+    return hashlib.sha256('|'.join(parts).encode()).hexdigest()[:16]
+
+
 @login_required
 @require_GET
 def voting_status(request, period_id):
@@ -284,6 +305,10 @@ def voting_status(request, period_id):
     ).first()
     if slate:
         data['slate_candidate_count'] = slate.candidates.count()
+        # 11-05-26: what the vote page compares (its rows as members see them),
+        # so a vacant position's row or a same-count swap is judged correctly.
+        from src.slating_rounds import slate_rows
+        data['slate_fingerprint'] = ballot_fingerprint(slate_rows(period, slate))
 
     # Check if user has voted
     if period.status == 'voting_open':

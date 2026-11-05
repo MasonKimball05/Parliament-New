@@ -264,14 +264,13 @@ class TheCsrfSubmitSafetyNetExistsTests(SimpleTestCase):
         string of a GET request. That leaks the token into browser
         history and server/CDN access logs on every ordinary site search,
         and adds a spurious async round-trip before the results load.
-        `form.method` is the IDL attribute, so it always reads back 'get'
-        or 'post' regardless of how the HTML was written (including a form
-        with no `method` attribute at all, which defaults to GET).
+        v4.4.5: the method is read with getAttribute('method') (missing →
+        'get'), not `form.method`, which a field named "method" shadows.
         """
         stripped = re.sub(r'/\*.*?\*/', '', self.base, flags=re.DOTALL)
         listener_at = stripped.index("addEventListener('submit'")
         html_check_at = stripped.index('instanceof HTMLFormElement', listener_at)
-        method_check_at = stripped.index("form.method.toLowerCase() !== 'post'", listener_at)
+        method_check_at = stripped.index("formMethod !== 'post'", listener_at)
         token_field_at = stripped.index('form.querySelector(\'input[name="csrfmiddlewaretoken"]\')', listener_at)
         # Must run after confirming it's a real form (form.method would throw
         # on anything else) and before touching the token field at all — a
@@ -501,12 +500,32 @@ class TheFetchBasedResubmitTests(SimpleTestCase):
         listener_at = stripped.index("addEventListener('submit'")
         tail = stripped[listener_at:]
         formdata_at = tail.index('var formData = new FormData(form);')
-        fetch_at = tail.index('fetch(form.action', formdata_at)
+        fetch_at = tail.index('fetch(formAction', formdata_at)
         fetch_block_end = tail.index(');', fetch_at)
         fetch_call = tail[fetch_at:fetch_block_end]
         self.assertIn("method: 'POST'", fetch_call)
         self.assertIn('body: formData', fetch_call)
         self.assertIn("credentials: 'same-origin'", fetch_call)
+
+    def test_method_and_action_are_read_as_attributes_not_properties(self):
+        """
+        v4.4.5 — slating apply has inputs named `action`, which shadow
+        `form.action` (it read "[object RadioNodeList]"), so the resubmit
+        POSTed every file upload on that form to a dead URL.
+        """
+        stripped = re.sub(r'/\*.*?\*/', '', self.base, flags=re.DOTALL)
+        listener_at = stripped.index("addEventListener('submit'")
+        tail = stripped[listener_at:]
+        self.assertIn("form.getAttribute('method')", tail)
+        self.assertIn("form.getAttribute('action')", tail)
+        self.assertNotIn('fetch(form.action', tail)
+        self.assertNotIn('form.method.toLowerCase()', tail)
+
+    def test_the_pressed_button_is_sent(self):
+        """v4.4.5 — double-submit.js disables it first, so FormData drops it."""
+        stripped = re.sub(r'/\*.*?\*/', '', self.base, flags=re.DOTALL)
+        formdata_at = stripped.index('var formData = new FormData(form);')
+        self.assertIn('formData.append(submitter.name', stripped[formdata_at:formdata_at + 400])
 
     def test_it_does_not_set_content_type_manually(self):
         """
@@ -520,7 +539,7 @@ class TheFetchBasedResubmitTests(SimpleTestCase):
         """
         stripped = re.sub(r'/\*.*?\*/', '', self.base, flags=re.DOTALL)
         formdata_at = stripped.index('var formData = new FormData(form);')
-        fetch_at = stripped.index('fetch(form.action', formdata_at)
+        fetch_at = stripped.index('fetch(formAction', formdata_at)
         fetch_block_end = stripped.index(');', fetch_at)
         fetch_call = stripped[fetch_at:fetch_block_end]
         self.assertNotIn("'Content-Type'", fetch_call)
@@ -536,7 +555,7 @@ class TheFetchBasedResubmitTests(SimpleTestCase):
         """
         stripped = re.sub(r'/\*.*?\*/', '', self.base, flags=re.DOTALL)
         formdata_at = stripped.index('var formData = new FormData(form);')
-        fetch_at = stripped.index('fetch(form.action', formdata_at)
+        fetch_at = stripped.index('fetch(formAction', formdata_at)
         fetch_block_end = stripped.index('.then(function(response)', fetch_at)
         fetch_call = stripped[fetch_at:fetch_block_end]
         self.assertIn("'X-Parliament-Resubmit': '1'", fetch_call)

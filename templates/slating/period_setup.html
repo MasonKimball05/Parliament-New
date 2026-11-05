@@ -396,6 +396,8 @@
                             </option>
                             {% endfor %}
                         </select>
+                        {# 11-05-26 #}
+                        <p class="mt-1 text-xs text-amber-700 dark:text-amber-300">Assigning a manager makes the period confidential: site admins, you included, can't open it unless they manage it or sit on its committee.</p>
                     </div>
                     {% endif %}
                     <div>
@@ -458,7 +460,7 @@
                     <div class="max-w-xs">
                         <label for="required_approval_percentage" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Required Approval %</label>
                         <input type="number" name="required_approval_percentage" id="required_approval_percentage"
-                            value="{{ period.required_approval_percentage|default:60 }}" min="1" max="100" required
+                            value="{{ period.required_approval_percentage|default:60 }}" min="51" max="100" required{% if approval_locked %} readonly title="Fixed once voting has started"{% endif %}
                             class="block w-full rounded-lg border-gray-300 dark:border-gray-600 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:text-white text-sm">
                         <p class="mt-1 text-xs text-gray-400">Bylaws default: 60%</p>
                     </div>
@@ -659,6 +661,9 @@
                 {% endif %}
             </div>
             <div class="px-5 py-4 space-y-4">
+                {% if vote_stats.participation %}
+                <p class="text-sm text-gray-700 dark:text-gray-200" data-participation>{{ vote_stats.participation.voted }} of {{ vote_stats.participation.present }} present have voted{% if vote_stats.participation.paper %} (including {{ vote_stats.participation.paper }} on paper){% endif %}.</p>
+                {% endif %}
 
                 {% if vote_stats.vote_type == 'individual' %}
                 {# Individual position voting stats #}
@@ -947,7 +952,7 @@ function togglePausedVoteType() {
     }
 }
 
-var _writeInData = {{ write_in_js_data|safe }};
+var _writeInData = {{ write_in_js_data|default:'{}'|safe }};   {# 11-05-26: the create page has none #}
 
 function updateWriteInMembers(posId) {
     var select = document.getElementById('writeInMemberSelect');

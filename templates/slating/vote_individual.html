@@ -1,4 +1,5 @@
 {% extends 'slating/base_slating.html' %}
+{% load static_version slating_tags %}
 
 {% block breadcrumbs %}
 <li>
@@ -33,24 +34,6 @@
         </div>
     </div>
 
-    {% if decided_positions %}
-    <div class="bg-white dark:bg-gray-800 shadow rounded-xl overflow-hidden">
-        <div class="px-5 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
-            <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Not on this ballot</p>
-        </div>
-        <ul class="divide-y divide-gray-200 dark:divide-gray-700">
-            {% for state in decided_positions %}
-            <li class="px-5 py-3 flex items-center justify-between">
-                <div>
-                    <p class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ state.position.title }}</p>
-                </div>
-                {# v4.0.0: no pass/fail here — results stay private until the committee announces them #}
-                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300">Decided in an earlier round</span>
-            </li>
-            {% endfor %}
-        </ul>
-    </div>
-    {% endif %}
 
     {% if sitting_out %}
     <!-- v4.4.5: candidates sit out their own race (period setting) -->
@@ -78,7 +61,8 @@
         </a>
     </div>
     {% else %}
-    <form method="post" id="individual-vote-form" class="js-vote-form">
+    <form method="post" id="individual-vote-form" class="js-vote-form js-ballot-form"
+        data-confirm="Cast your ballot? Your vote is secret and can&#x27;t be changed once it&#x27;s in.">
         {% csrf_token %}
         <div class="space-y-3">
             {% for row in rows %}
@@ -138,26 +122,27 @@
 
         <div class="mt-4 bg-white dark:bg-gray-800 shadow rounded-xl overflow-hidden">
             <div class="px-5 py-4">
-                <label for="password" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Confirm with Password</label>
-                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Enter your account password to verify your identity and cast your votes.</p>
+                <label for="password" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Confirm it&#x27;s you</label>
+                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Enter your Parliament login password (the one you sign in to this site with){% if has_passkeys %}, or use your passkey{% endif %}.</p>
                 <input type="password" name="password" id="password" required
                     autocomplete="current-password"
-                    class="mt-2 block w-full rounded-lg border-gray-300 dark:border-gray-600 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:text-white text-sm"
-                    placeholder="Your password">
+                    class="mt-2 block w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:text-white text-sm"
+                    placeholder="Your Parliament login password">
                 {% if has_passkeys %}
-                <button type="button"
-                        class="js-vote-passkey mt-2 inline-flex items-center gap-1.5 text-sm font-medium text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300 transition-colors">
+                <button type="button" data-confirm="Cast your ballot? Your vote is secret and can&#x27;t be changed once it&#x27;s in."
+                        class="js-vote-passkey mt-3 w-full inline-flex justify-center items-center gap-1.5 px-4 py-2 border border-primary-600 dark:border-primary-400 rounded-md text-sm font-medium text-primary-600 dark:text-primary-400 bg-white dark:bg-gray-800 hover:bg-primary-50 dark:hover:bg-primary-900/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/>
                     </svg>
-                    Confirm with a passkey instead
+                    Use a passkey instead (Face ID, Touch ID or security key)
                 </button>
                 <p class="js-passkey-error hidden text-sm text-red-600 dark:text-red-400 mt-1"></p>
                 {% endif %}
             </div>
             <div class="bg-gray-50 dark:bg-gray-700/50 px-5 py-4">
+                <p class="js-ballot-hint text-xs text-gray-500 dark:text-gray-400 mb-2 text-center" aria-live="polite"></p>
                 <button type="submit"
-                    class="w-full inline-flex justify-center items-center px-4 py-2.5 border border-transparent rounded-lg text-sm font-semibold text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-colors">
+                    class="w-full inline-flex justify-center items-center px-4 py-2.5 border border-transparent rounded-lg text-sm font-semibold text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                     <svg class="-ml-1 mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
                     </svg>
@@ -168,6 +153,26 @@
     </form>
     {% endif %}
 
+
+    {% if decided_positions %}
+    {# 11-05-26: after the live ballot, collapsed — the run-off position(s) come first. #}
+    <details class="bg-white dark:bg-gray-800 shadow rounded-xl overflow-hidden">
+        <summary class="px-5 py-3 cursor-pointer text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide bg-gray-50 dark:bg-gray-700/50">
+            Not on this ballot ({{ decided_positions|length }} decided in an earlier round)
+        </summary>
+        <ul class="divide-y divide-gray-200 dark:divide-gray-700 border-t border-gray-200 dark:border-gray-700">
+            {% for state in decided_positions %}
+            <li class="px-5 py-3 flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ state.position.title }}</p>
+                </div>
+                {# v4.0.0: no pass/fail here — results stay private until the committee announces them #}
+                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300">Decided in an earlier round</span>
+            </li>
+            {% endfor %}
+        </ul>
+    </details>
+    {% endif %}
 </div>
 
 <script nonce="{{ request.csp_nonce }}">
@@ -190,4 +195,5 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 {% include 'components/vote_passkey_confirm.html' %}
+<script src="{% static_v 'js/slating/ballot.js' %}"></script>
 {% endblock %}

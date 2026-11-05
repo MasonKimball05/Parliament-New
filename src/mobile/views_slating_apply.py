@@ -35,7 +35,7 @@ from src.mobile.views_votes import VoteRefused
 from src.models import SlatingApplication, SlatingPeriod
 from src.view.slating.apply import TIERS, apply_refusal, field_sections, save_application
 
-_REFUSAL_STATUS = {'closed': 409, 'ineligible': 403, 'already_applied': 409}
+_REFUSAL_STATUS = {'closed': 409, 'ineligible': 403, 'already_applied': 409, 'committee_member': 403}
 
 
 def _num_or_none(value):

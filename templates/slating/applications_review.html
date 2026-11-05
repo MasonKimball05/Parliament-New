@@ -92,15 +92,18 @@
     <!-- Applications List -->
     <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
         {% if applications %}
-        <form method="post" action="{% url 'slating_bulk_update' period_id=period.id %}" id="bulkForm">
+        {% if can_manage %}
+        {# Bulk status change: only the period's managers (bulk_update_status is slating_chair_required). #}
+        <form method="post" action="{% url 'slating_bulk_update' period_id=period.id %}" id="bulkForm"
+            data-confirm="Change the status of every selected application?">
             {% csrf_token %}
-            <div class="px-4 py-3 bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+            <div class="px-4 py-3 bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-700 flex flex-wrap items-center justify-between gap-2">
                 <div class="flex items-center space-x-3">
-                    <input type="checkbox" id="selectAll" class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500">
+                    <input type="checkbox" id="selectAll" data-check-all="application_ids" class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500">
                     <label for="selectAll" class="text-sm text-gray-700 dark:text-gray-300">Select All</label>
                 </div>
                 <div class="flex items-center space-x-3">
-                    <select name="status" id="bulkStatus" class="text-sm rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white">
+                    <select name="status" id="bulkStatus" required class="text-sm rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white">
                         <option value="">Change status to...</option>
                         {% for status, label in status_choices %}
                         <option value="{{ status }}">{{ label }}</option>
@@ -111,20 +114,25 @@
                     </button>
                 </div>
             </div>
+        {% else %}
+        <div>
+        {% endif %}
 
             <ul class="divide-y divide-gray-200 dark:divide-gray-700">
                 {% for app in applications %}
                 <li class="hover:bg-gray-50 dark:hover:bg-gray-700/50">
                     <div class="px-4 py-4 sm:px-6 flex items-center">
-                        <input type="checkbox" name="application_ids" value="{{ app.id }}"
+                        {% if can_manage %}
+                        <input type="checkbox" name="application_ids" value="{{ app.id }}" aria-label="Select {{ app.applicant.name }}"
                             class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500 app-checkbox mr-4">
+                        {% endif %}
                         <a href="{% url 'slating_app_detail' period_id=period.id app_id=app.id %}" class="flex-1 flex items-center justify-between">
                             <div class="min-w-0 flex-1">
                                 <div class="flex items-center">
                                     <p class="text-sm font-medium text-gray-900 dark:text-white truncate">
                                         {{ app.applicant.name }}
                                     </p>
-                                    <span class="ml-2 text-xs text-gray-500 dark:text-gray-400">{{ app.applicant.user_id }}</span>
+                                    {% if app.applicant.role_number %}<span class="ml-2 text-xs text-gray-500 dark:text-gray-400">#{{ app.applicant.role_number }}</span>{% endif %}
                                     {% if app.imported_at %}<span class="ml-2 px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300">Imported</span>{% endif %}
                                 </div>
                                 <div class="mt-1 flex items-center space-x-4 text-sm text-gray-500 dark:text-gray-400">
@@ -138,6 +146,9 @@
                                     <span>Interviewed</span>
                                     {% endif %}
                                 </div>
+                                {% if app.ranked_positions %}
+                                <p class="mt-1 text-xs text-gray-600 dark:text-gray-300">{% for tier in app.ranked_positions %}{% if not forloop.first %} &middot; {% endif %}<span class="font-medium">{{ tier.tier }}:</span> {{ tier.positions|join:", " }}{% endfor %}</p>
+                                {% endif %}
                             </div>
                             <div class="ml-4 flex items-center space-x-3">
                                 <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
@@ -157,7 +168,7 @@
                 </li>
                 {% endfor %}
             </ul>
-        </form>
+        {% if can_manage %}</form>{% else %}</div>{% endif %}
         {% else %}
         <div class="px-4 py-12 text-center">
             <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -175,12 +186,4 @@
         {% endif %}
     </div>
 </div>
-{% endblock %}
-
-{% block slating_js %}
-<script nonce="{{ request.csp_nonce }}">
-document.getElementById('selectAll').addEventListener('change', function() {
-    document.querySelectorAll('.app-checkbox').forEach(cb => cb.checked = this.checked);
-});
-</script>
 {% endblock %}

@@ -866,8 +866,16 @@ class SlatingBallotAdmin(ReadOnlyAdmin):
     """Read-only: participation record (who voted, not what for — choices live
     in SlatingVote without a voter FK). Never edit; ballot integrity is
     hash-chained."""
-    list_display = ('period', 'voter', 'voting_attempt', 'vote_type', 'position', 'voted_at')
+    list_display = ('period', 'voter', 'voting_attempt', 'vote_type', 'position')
     list_filter = ('vote_type', 'voting_attempt')
+    # 11-05-26 (secret ballot): no timing and no creation order. Listed by the
+    # random hash, columns not sortable (a sort's tie-break is the pk, i.e.
+    # the order ballots were cast), no select boxes or links carrying pks.
+    exclude = ('voted_at',)
+    ordering = ('ballot_hash',)
+    sortable_by = ()
+    actions = None
+    list_display_links = None
 
 
 @admin.register(SlatingVote, site=admin_site)
@@ -882,6 +890,14 @@ class SlatingVoteAdmin(ReadOnlyAdmin):
                     'vote_choice')
     list_filter = ('vote_choice', 'voting_attempt')
     exclude = ('voted_at',)
+    # 11-05-26: the model's own ordering is -voted_at, so the list came out in
+    # the order ballots were cast and paired row for row with SlatingBallot's
+    # list. Ordered by the random hash instead, with no sortable columns (a
+    # sort's tie-break is the pk) and no select boxes or links carrying pks.
+    ordering = ('vote_hash',)
+    sortable_by = ()
+    actions = None
+    list_display_links = None
 
 
 @admin.register(SlatingActivity, site=admin_site)

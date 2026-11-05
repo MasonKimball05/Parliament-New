@@ -62,7 +62,7 @@
                             <span>{{ app.applicant.name }}</span>
                             {% if app.applicant.is_pledge %}
                             <span class="ml-2 text-xs">Pledge — interview after initiation</span>
-                            {% else %}
+                            {% elif can_manage %}
                             <a href="{% url 'slating_schedule_interview' app_id=app.id %}" class="text-yellow-800 dark:text-yellow-200 underline hover:no-underline ml-2">
                                 Schedule
                             </a>

@@ -106,11 +106,34 @@ def review_sections(application, user):
 
 
 def can_review_application(user, period):
-    """Whether the detail page shows the review panel (a site admin or a committee chair)."""
-    return bool(user.is_admin or (
-        period.slating_committee and
-        period.slating_committee.is_chair(user)
-    ))
+    """
+    Whether the detail page shows the review panel: the people ``submit_review``
+    lets save one (``can_manage_period``: the slating manager, the committee's
+    admin and chairs, a site admin while the period isn't locked). 11-05-26:
+    was a site admin or a committee chair, which left out the slating manager
+    and showed a locked-out admin a panel the server refused.
+    """
+    return can_manage_period(user, period)
+
+
+TIER_LABELS = (('first_choice', '1st'), ('second_choice', '2nd'), ('third_choice', '3rd'))
+
+
+def ranked_positions(application, titles):
+    """
+    The applicant's wanted positions by preference, for the list:
+    ``[{'tier': '1st', 'positions': ['EVP']}, ...]`` (tiers with none left out).
+    ``titles`` is ``{position id: title}`` for the period's active positions.
+    """
+    prefs = application.position_preferences or {}
+    if isinstance(prefs, list):   # legacy: all first choice
+        prefs = {'first_choice': prefs}
+    out = []
+    for tier, label in TIER_LABELS:
+        names = [titles[pid] for pid in prefs.get(tier, []) or [] if pid in titles]
+        if names:
+            out.append({'tier': label, 'positions': names})
+    return out
 
 
 def save_review(period, application, user, new_status, review_notes, verify_gpa=False, unverify_gpa=False):
@@ -171,6 +194,12 @@ def applications_list(request, period_id):
     positions = period.positions.filter(is_active=True).order_by('display_order')
 
     status_counts = application_status_counts(period)
+
+    # 11-05-26: each row shows the applicant's ranked positions.
+    titles = {p.id: p.title for p in positions}
+    applications = list(applications)
+    for app in applications:
+        app.ranked_positions = ranked_positions(app, titles)
 
     context = {
         'period': period,

@@ -168,14 +168,23 @@ class SlatingPeriod(models.Model):
         )
 
     def can_vote(self):
-        """Check if voting is currently open"""
+        """
+        Check if voting is currently open.
+
+        11-05-26: ``voting_open`` is set only by opening a round (the chair's
+        Open, or the schedule's first round), so it is what counts: a chair
+        who opens a few minutes before the scheduled ``voting_open_at`` gets
+        votes. Past ``voting_close_at`` the round the schedule closes takes no
+        more ballots (the next page load closes and counts it); a round the
+        chair opened by hand after that time is not affected.
+        """
         from django.utils import timezone
-        now = timezone.now()
-        return (
-            self.status == 'voting_open' and
-            (not self.voting_open_at or now >= self.voting_open_at) and
-            (not self.voting_close_at or now < self.voting_close_at)
-        )
+        if self.status != 'voting_open':
+            return False
+        if self.voting_close_at and timezone.now() >= self.voting_close_at:
+            from src.view.slating.period_setup import scheduled_close_applies
+            return not scheduled_close_applies(self)
+        return True
 
     def transition_officers(self, performed_by=None):
         """
@@ -743,6 +752,16 @@ class Slate(models.Model):
 
     def __str__(self):
         return f"{self.name} - {self.period.name}"
+
+    @property
+    def label(self):
+        """11-05-26: tells slates apart (they were all "Primary Slate"): candidates and when approved."""
+        from django.utils.timezone import localtime
+        n = self.candidates.count()
+        out = f'{self.name} · {n} candidate{"" if n == 1 else "s"}'
+        if self.approved_at:
+            out += f' · approved {localtime(self.approved_at).strftime("%b %-d, %-I:%M %p")}'
+        return out
 
     def calculate_results(self):
         """Calculate voting results from SlatingVote records"""

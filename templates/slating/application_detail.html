@@ -20,7 +20,7 @@
     <div>
         <h1 class="text-2xl font-bold text-gray-900 dark:text-white">{{ application.applicant.name }}</h1>
         <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            {{ application.applicant.user_id }} - {{ application.get_status_display }}
+            {% if application.applicant.role_number %}#{{ application.applicant.role_number }} - {% endif %}{{ application.get_status_display }}
             {% if application.imported_at %}<span class="ml-2 px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300" title="Imported from an outside form on {{ application.imported_at|date:'M j, Y' }}">Imported</span>{% endif %}
         </p>
     </div>
@@ -311,9 +311,11 @@
                 <h3 class="text-lg font-medium text-gray-900 dark:text-white">Actions</h3>
             </div>
             <div class="px-4 py-4 space-y-2">
+{% if can_manage and not application.applicant.is_pledge %}
                 <a href="{% url 'slating_schedule_interview' app_id=application.id %}" class="block w-full text-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
                     Schedule Interview
                 </a>
+                {% endif %}
                 <a href="{% url 'slating_applications' period_id=period.id %}" class="block w-full text-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
                     Back to Applications
                 </a>

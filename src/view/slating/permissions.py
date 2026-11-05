@@ -204,3 +204,44 @@ def applicant_ineligibility(user):
     if user.member_type == 'Advisor':
         return 'Advisors can\'t apply for slating.'
     return None
+
+
+# ── No candidate on the slating committee (11-05-26, the chapter's rule) ─────
+
+COMMITTEE_CANT_RUN = "Slating committee members can't run in this election."
+
+
+def on_slating_committee(user, period):
+    """True if ``user`` sits on ``period``'s slating committee (member, chair or its admin)."""
+    committee = period.slating_committee if period.slating_committee_id else None
+    if committee is None or user is None:
+        return False
+    return (committee.admin_id == user.pk or committee.members.filter(pk=user.pk).exists()
+            or committee.chairs.filter(pk=user.pk).exists())
+
+
+def has_live_application(user, period):
+    """An application past draft that isn't withdrawn: someone running in this election."""
+    from src.models import SlatingApplication
+    return SlatingApplication.objects.filter(period=period, applicant=user).exclude(
+        status__in=['draft', 'withdrawn']).exists()
+
+
+def applied_cant_join_message(user):
+    return f"{user.name} has applied, so they can't join the slating committee."
+
+
+def nominee_ineligibility(user, period):
+    """
+    Why ``user`` can't stand in ``period`` other than by applying (a floor
+    nominee, a write-in, a replacement or an in-person winner), or None
+    (11-05-26): the applicant rules (``applicant_ineligibility``: active
+    members, no advisors; pledges may run, as they may apply) and no one on
+    the period's slating committee.
+    """
+    reason = applicant_ineligibility(user)
+    if reason:
+        return reason
+    if on_slating_committee(user, period):
+        return COMMITTEE_CANT_RUN
+    return None

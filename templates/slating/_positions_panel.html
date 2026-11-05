@@ -88,11 +88,14 @@
             </div>
             {% endif %}
 
-            {% if s.kind != 'vacant' or s.unfilled %}
+            {# 11-05-26: a position with no nominee can be left unfilled directly; overriding an elected officer is confirmed. #}
             <details class="mt-2">
                 <summary class="text-xs text-gray-500 dark:text-gray-400 cursor-pointer">Record the chapter’s decision</summary>
-                <form method="post" action="{% url 'slating_position_action' period_id=period.id %}" class="mt-2 flex flex-wrap items-center gap-2">
+                <form method="post" action="{% url 'slating_position_action' period_id=period.id %}"
+                    class="mt-2 flex flex-wrap items-center gap-2{% if s.winner %} js-confirm-submit{% endif %}"
+                    {% if s.winner %}data-confirm-msg="{{ s.winner.name }} is already elected {{ s.position.title }}. Replace that with the chapter’s decision?"{% endif %}>
                     {% csrf_token %}
+                    {% if s.winner %}<input type="hidden" name="override" value="1">{% endif %}
                     <input type="hidden" name="action" value="decide">
                     <input type="hidden" name="position_id" value="{{ s.position.id }}">
                     <select name="choice" required class="text-xs border border-gray-300 dark:border-gray-600 rounded-md px-2 py-1 bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
@@ -104,7 +107,6 @@
                     <button type="submit" class="text-xs px-2 py-1 rounded-md border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700">Record</button>
                 </form>
             </details>
-            {% endif %}
         </li>
         {% endfor %}
     </ul>

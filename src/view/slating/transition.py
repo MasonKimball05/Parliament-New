@@ -50,13 +50,13 @@ def transition_officers(request, period_id):
     # Get all positions and potential candidates
     positions = period.positions.filter(is_active=True).select_related('role').order_by('display_order')
 
-    # Get all active members who could be assigned
-    all_members = ParliamentUser.objects.filter(
-        member_status='Active'
-    ).order_by('name')
-
     # Build the auto-filled assignments from slate
     auto_assignments = build_auto_assignments(period)
+
+    # 11-05-26: who may take a role — active, initiated members (no pledges,
+    # alumni or advisors), plus whoever the election chose (a pledge may run).
+    all_members = transition_members(auto_assignments)
+    allowed_ids = {m.pk for m in all_members}
 
     if request.method == 'POST':
         action = request.POST.get('action')
@@ -68,44 +68,74 @@ def transition_officers(request, period_id):
 
             # Build transition data to save
             transition_data = {}
+            unknown = []
             for position in positions:
                 enabled = request.POST.get(f'enable_{position.id}') == 'on'
-                member_id = request.POST.get(f'member_{position.id}')
+                member_id = (request.POST.get(f'member_{position.id}') or '').strip()
                 if enabled and member_id:
-                    transition_data[str(position.id)] = int(member_id)
+                    # 11-05-26: a member's id is their user id (ParliamentUser's
+                    # key, not always a number: int() was a 500), and must exist.
+                    if member_id not in allowed_ids:
+                        unknown.append(position.title)
+                        continue
+                    transition_data[str(position.id)] = member_id
+
+            if unknown:
+                messages.error(request, 'Choose a member for ' + ', '.join(unknown) + '.')
+                return redirect('slating_transition', period_id=period.id)
 
             if not transition_data:
                 messages.error(request, 'No positions selected for transition.')
                 return redirect('slating_transition', period_id=period.id)
 
+            # 11-05-26: confirm first — a page listing every role change (who
+            # gains it, who loses it), with the same values posted again.
+            if request.POST.get('reviewed') != '1':
+                return render(request, 'slating/transition_review.html', {
+                    'period': period,
+                    'changes': planned_role_changes(period, transition_data),
+                    'posted': [(k, v) for k in request.POST if k not in ('csrfmiddlewaretoken', 'reviewed')
+                               for v in request.POST.getlist(k)],
+                    'when': effective_date_str and f'{effective_date_str} {effective_time_str or "00:00"}',
+                })
+
             # Determine if immediate or scheduled
             if effective_date_str:
-                # Parse the datetime
+                # 11-05-26: the form's date and time are local; parse_datetime
+                # gives a naive datetime, and comparing it with now() raised a
+                # TypeError that was swallowed into "execute now" — so a
+                # transition scheduled for next week ran at once. An
+                # unreadable date is now an error, not an immediate transition.
                 try:
-                    effective_datetime = parse_datetime(f"{effective_date_str}T{effective_time_str}")
-                    if effective_datetime and effective_datetime > timezone.now():
-                        # Schedule for later
-                        period.officer_transition_at = effective_datetime
-                        period.officer_transition_data = transition_data
-                        period.save(update_fields=['officer_transition_at', 'officer_transition_data'])
+                    effective_datetime = parse_datetime(f"{effective_date_str}T{effective_time_str or '00:00'}")
+                except ValueError:
+                    effective_datetime = None
+                if effective_datetime is None:
+                    messages.error(request, 'Enter a valid date and time for the transition.')
+                    return redirect('slating_transition', period_id=period.id)
+                if timezone.is_naive(effective_datetime):
+                    effective_datetime = timezone.make_aware(effective_datetime, timezone.get_current_timezone())
+                if effective_datetime > timezone.now():
+                    # Schedule for later
+                    period.officer_transition_at = effective_datetime
+                    period.officer_transition_data = transition_data
+                    period.save(update_fields=['officer_transition_at', 'officer_transition_data'])
 
-                        SlatingActivity.objects.create(
-                            period=period,
-                            user=request.user,
-                            action='transition_scheduled',
-                            details=f'Officer transition scheduled for {localtime(effective_datetime).strftime("%B %d, %Y at %I:%M %p %Z")}',
-                            metadata={'transition_data': transition_data}
-                        )
+                    SlatingActivity.objects.create(
+                        period=period,
+                        user=request.user,
+                        action='transition_scheduled',
+                        details=f'Officer transition scheduled for {localtime(effective_datetime).strftime("%B %d, %Y at %I:%M %p %Z")}',
+                        metadata={'transition_data': transition_data}
+                    )
 
-                        messages.success(
-                            request,
-                            f'Officer transition scheduled for {localtime(effective_datetime).strftime("%B %d, %Y at %I:%M %p %Z")}.'
-                        )
-                        return redirect('slating_results', period_id=period.id)
-                except (ValueError, TypeError):
-                    pass
+                    messages.success(
+                        request,
+                        f'Officer transition scheduled for {localtime(effective_datetime).strftime("%B %d, %Y at %I:%M %p %Z")}.'
+                    )
+                    return redirect('slating_results', period_id=period.id)
 
-            # Execute immediately
+            # Execute immediately (no date, or a date already past)
             results = execute_transition(period, transition_data, request.user)
 
             if results['errors']:
@@ -179,6 +209,35 @@ def transition_officers(request, period_id):
     }
 
     return render(request, 'slating/transition_confirm.html', context)
+
+
+def transition_members(auto_assignments=None):
+    """The members the transition's pickers offer: active, initiated members, plus the election's winners."""
+    from src.constants import MemberType
+    members = {m.pk: m for m in ParliamentUser.objects.filter(
+        member_status='Active', member_type__in=MemberType.CAN_VOTE)}
+    for m in (auto_assignments or {}).values():
+        if m is not None:
+            members.setdefault(m.pk, m)
+    return sorted(members.values(), key=lambda m: (m.name or '').lower())
+
+
+def planned_role_changes(period, transition_data):
+    """[{position, role, new, removed: [names]}] — what executing ``transition_data`` would do."""
+    positions = {str(p.id): p for p in period.positions.filter(is_active=True).select_related('role')}
+    out = []
+    for pid, member_id in transition_data.items():
+        position = positions.get(pid)
+        new = ParliamentUser.objects.filter(pk=member_id).first()
+        if position is None or new is None:
+            continue
+        removed = []
+        if position.role_id:
+            removed = list(ParliamentUser.objects.filter(roles=position.role).exclude(pk=new.pk)
+                           .values_list('name', flat=True))
+        out.append({'position': position, 'role': position.role, 'new': new, 'removed': removed,
+                    'already': bool(position.role_id and new.roles.filter(pk=position.role_id).exists())})
+    return out
 
 
 def build_auto_assignments(period):

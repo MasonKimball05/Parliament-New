@@ -29,15 +29,18 @@ from rest_framework.response import Response
 from src.mobile.api import MobileAPIView
 from src.mobile.views_votes import VoteRefused, _confirm_identity
 from src.models import SlatingActivity, SlatingApplication, SlatingPeriod
+from src.slating_rounds import position_states
 from src.slating_ballots import (
     CANDIDATE_REFUSAL, SlatingBallotError, cast_individual, cast_slate, has_slate_ballot, individual_ballot,
     is_present, primary_slate, sat_out_states, sits_out_slate, slate_candidates,
 )
+from src.view.slating.attendance import not_present_message
+from src.view.slating.dashboard import period_actions
 from src.view.slating.period_setup import check_and_auto_transition_status
-from src.view.slating.permissions import can_manage_period, can_view_applications
 
 WITHDRAWABLE = ('draft', 'submitted', 'under_review')
-_STATUS = {'already_voted': 409, 'invalid_choice': 400, 'no_positions': 400, 'candidate_cannot_vote': 403}
+_STATUS = {'already_voted': 409, 'invalid_choice': 400, 'no_positions': 400, 'candidate_cannot_vote': 403,
+           'voting_closed': 409, 'not_eligible': 403}
 
 
 def _iso(dt):
@@ -55,32 +58,12 @@ def _candidate_json(c):
     }
 
 
-def _has_voted(period, user):
-    """This round: the slate ballot cast, or every position on the ballot voted on."""
-    if period.vote_type != 'individual':
-        return has_slate_ballot(period, user)
-    slate = primary_slate(period)
-    if slate is None:
-        return False
-    _, ballot, voted, _ = individual_ballot(period, slate, user)
-    return bool(ballot) and all(s.position.id in voted for s in ballot)
-
-
-def _sits_out_everything(period, user):
-    """v4.4.5: a candidate with nothing to vote on this round (their whole
-    slate, or every position on this round's ballot is their own)."""
-    slate = primary_slate(period)
-    if slate is None:
-        return False
-    if period.vote_type != 'individual':
-        return sits_out_slate(period, slate, user) and not has_slate_ballot(period, user)
-    _, ballot, _, _ = individual_ballot(period, slate, user)
-    return not ballot and bool(sat_out_states(period, slate, user))
-
-
 def _period_json(period, user):
-    open_now = period.can_vote()
-    sits_out = bool(open_now and user.can_vote and _sits_out_everything(period, user))
+    # 11-05-26: the web dashboard's own flags (src/view/slating/dashboard.py
+    # period_actions), so both offer the same buttons: no Apply for someone the
+    # apply page would refuse, no Cast Vote for someone who can't vote, the
+    # slating manager's Manage, and a locked-out admin sees who runs it.
+    actions = period_actions(period, user)
     return {
         'id': period.id,
         'name': period.name,
@@ -91,18 +74,20 @@ def _period_json(period, user):
         'vote_type': period.vote_type,
         'nominations_close_at': _iso(period.nominations_close_at),
         'voting_close_at': _iso(period.voting_close_at),
-        'can_apply': period.can_apply(),
+        'can_apply': actions['can_apply'],
         'apply_path': reverse('slating_apply', args=[period.id]),
-        'voting_open': open_now,
-        'can_vote': bool(open_now and user.can_vote) and not sits_out,
-        'has_voted': bool(open_now and _has_voted(period, user)),
+        'voting_open': actions['voting_open'],
+        'can_vote': actions['can_vote'],
+        'has_voted': actions['has_voted'],
         # v4.4.5: candidates sit out their own race (period setting).
-        'sits_out': sits_out,
-        'sits_out_message': CANDIDATE_REFUSAL if sits_out else '',
+        'sits_out': actions['sits_out'],
+        'sits_out_message': CANDIDATE_REFUSAL if actions['sits_out'] else '',
         'results_published': period.status == 'results_published',
-        'is_committee': can_view_applications(user, period),
-        'is_chair': can_manage_period(user, period),
+        'is_committee': actions['can_review'],
+        'is_chair': actions['can_manage'],
         'manage_path': reverse('slating_period_setup', args=[period.id]),
+        'locked_out': actions['locked_out'],
+        'managed_by': actions['managed_by'],
         # 11-04-26: the approved slate, natively (view_approved_slate).
         'can_view_slate': _slate_public(period, user),
     }
@@ -173,8 +158,7 @@ class SlatingVoteView(_SlatingBase):
         if not period.can_vote():
             raise VoteRefused('voting_closed', 'Voting is not currently open.', 409)
         if not is_present(period, user):
-            raise VoteRefused('not_present',
-                              'You are not marked present for this session. Contact the slating chair.', 403)
+            raise VoteRefused('not_present', not_present_message(period), 403)   # 11-05-26: names the chair
         slate = primary_slate(period)
         if slate is None:
             raise VoteRefused('no_slate', 'No slate available for voting.', 409)
@@ -258,37 +242,54 @@ class SlatingResultsView(_SlatingBase):
     web_page = 'slating_results'
 
     def get(self, request, period_id):
-        from src.view.slating.tallies import round_history, slate_tally
+        from src.view.slating.tallies import current_slate_result, round_history
         period = get_object_or_404(SlatingPeriod, id=period_id)
         if period.status != 'results_published':
             raise exceptions.PermissionDenied('Results are not yet published.', code='not_published')
         slate = primary_slate(period)
         if slate is None:
             raise exceptions.NotFound('No slate found.', code='no_slate')
-        candidates = list(slate_candidates(slate))
-        tally = slate_tally(period, slate, period.current_voting_attempt)
+        from src.view.slating.results import results_overview
+        tally = current_slate_result(period, slate)   # 11-05-26: the counted round's stored outcome
+        history = round_history(period, slate)
+        overview = results_overview(period, slate, history)
+        # 11-05-26: per candidate, in ballot order, "passed" only for the one
+        # who holds the position (a run-off's other candidate isn't elected),
+        # with counts only from a position round that decided it (a position
+        # elected with the slate has no counts of its own).
+        by_title = {p['title']: p for p in overview['positions']}
+        states = {st.position.id: st for st in position_states(period, slate)}
+        order = list(states)
         rows = []
-        if period.vote_type == 'individual':
-            decided_in = {}
-            for rnd in round_history(period, slate):
-                if rnd['status'] == 'voided':
-                    continue
-                for row in rnd.get('positions', []):
-                    decided_in[(row['position'], row['candidate'])] = row
-            for c in candidates:
-                counts = decided_in.get((c.position.title, c.candidate_name)) or {}
-                rows.append({**_candidate_json(c), 'passed': c.individual_passed,
-                             'approve': counts.get('approve', 0), 'reject': counts.get('reject', 0),
-                             'abstain': counts.get('abstain', 0)})
-        else:
-            rows = [{**_candidate_json(c), 'passed': tally['passed']} for c in candidates if not c.is_runoff]
+        for c in sorted(slate_candidates(slate), key=lambda c: (order.index(c.position_id)
+                                                                 if c.position_id in order else len(order),
+                                                                 c.is_runoff)):
+            st = states.get(c.position_id)
+            entry = by_title.get(c.position.title, {})
+            if st is not None and st.decided:
+                passed = bool(st.winner and st.winner.key == f'c{c.id}')
+            elif c.individual_passed is False:
+                passed = False
+            else:
+                passed = None
+            counts = next((t for t in entry.get('tallies', []) if t['candidate'] == c.candidate_name), {})
+            rows.append({**_candidate_json(c), 'passed': passed, 'runoff': c.is_runoff,
+                         'approve': counts.get('approve', 0), 'reject': counts.get('reject', 0),
+                         'abstain': counts.get('abstain', 0), 'has_counts': bool(counts)})
         return Response({
             'period': _period_json(period, request.user),
             'vote_type': period.vote_type,
-            'required_percentage': period.required_approval_percentage,
+            'required_percentage': tally['required'],
             'slate': {k: tally[k] for k in ('approve', 'reject', 'abstain', 'total', 'percentage', 'passed')},
             'candidates': rows,
             'published_at': _iso(period.results_publish_at),
+            # 11-05-26: what the web page leads with.
+            'headline': overview['headline'],
+            'positions': [{'id': p['position'].id, 'title': p['title'], 'kind': p['kind'], 'winner': p['winner'],
+                           'unfilled': p['unfilled'], 'decided': p['decided'], 'how': p['how'], 'round': p['round'],
+                           'tallies': p['tallies']} for p in overview['positions']],
+            'history': [{'attempt': r['attempt'], 'vote_type': r['vote_type'], 'status': r['status'],
+                         'slate': r.get('slate'), 'positions': r.get('positions', [])} for r in history],
         })
 
 
@@ -344,6 +345,7 @@ def _chair_overview(period):
         'has_rounds': ctx.get('has_rounds', False),
         'round_ended': ctx.get('round_ended', False),
         'slate_possible': ctx.get('slate_possible', False),
+        'default_vote_type': ctx.get('default_vote_type', 'slate'),   # 11-05-26: slate again after a failed slate
         'default_position': ctx.get('default_position'),
         'default_abstain': ctx.get('default_abstain', False),
         'threshold': round_threshold(period, ctx.get('config', {})) if ctx.get('states') else None,
@@ -441,7 +443,8 @@ class SlatingChairPositionView(_ChairView):
             elif action == 'remove_nominee':
                 remove_nominee(period, nid)
             elif action == 'decide':
-                decide_manually(period, request.user, pid, str(data.get('choice') or ''), data.get('reason'))
+                decide_manually(period, request.user, pid, str(data.get('choice') or ''), data.get('reason'),
+                                override=data.get('override') is True)
             else:
                 raise RoundError('invalid_input', 'Unknown action.')
         except RoundError as e:

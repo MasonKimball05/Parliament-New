@@ -43,7 +43,7 @@ from src.mobile.views_votes import VoteRefused
 from src.models import Slate, SlatingPeriod
 from src.view.slating.api import slate_candidates_json
 from src.view.slating.slate_builder import (
-    PUBLIC_STATUSES, WRITE_IN_STATUSES, ManualResultsError, SlateError, add_write_in, approve_slate_for_voting,
+    APPROVED_READ_ONLY, PUBLIC_STATUSES, WRITE_IN_STATUSES, ManualResultsError, builder_slate, SlateError, add_write_in, approve_slate_for_voting,
     assign_candidate, build_slate_context, copy_slate_to_draft, delete_write_in, draft_slate, edit_slate_context,
     editable_slate, manual_results_refusal, public_slate, record_manual_results, replace_candidate,
     save_candidate_notes, slate_candidate_rows, slate_to_approve, unassign_candidate, voting_paused, write_in_options,
@@ -94,6 +94,7 @@ def _slate_head(slate):
         'type_label': slate.get_slate_type_display(),
         'is_approved': slate.is_approved,
         'approved_at': _iso(slate.approved_at),
+        'label': slate.label,   # 11-05-26: name · candidates · when approved
     }
 
 
@@ -135,6 +136,7 @@ def _build_payload(period, slate, user):
             'tiers': {str(p.id): tier for p in positions if (tier := app.get_position_tier(p.id))},
         } for app in ctx['available_apps']],
         'existing_slates': [{**_slate_head(s)} for s in ctx['existing_slates']],
+        'approve_confirm': ctx['approve_confirm'],
     }
 
 
@@ -143,11 +145,14 @@ class SlateBuildView(_SlatingBase):
 
     def get(self, request, period_id):
         period = _manager_period(request, period_id)
-        return Response(_build_payload(period, draft_slate(period, request.user), request.user))
+        slate, read_only = builder_slate(period, request.user)
+        return Response({**_build_payload(period, slate, request.user), 'read_only': read_only})
 
     def post(self, request, period_id):
         period = _manager_period(request, period_id)
-        slate = draft_slate(period, request.user)
+        slate, read_only = builder_slate(period, request.user)
+        if read_only:   # 11-05-26: the approved slate, as the web's builder shows it
+            raise VoteRefused('approved', APPROVED_READ_ONLY, 409)
         data = _form_data(request)
         action = data.get('action')
         _ids(data, 'position_id', 'application_id', 'assignment_id')
@@ -176,7 +181,10 @@ class SlateApproveView(_SlatingBase):
         data = _form_data(request)
         _ids(data, 'slate_id')
         slate = slate_to_approve(period, data.get('slate_id') or None)
-        warning, message = approve_slate_for_voting(period, slate, request.user, data)
+        try:
+            warning, message = approve_slate_for_voting(period, slate, request.user, data)
+        except SlateError as e:
+            raise _refused(e)
         return Response({'ok': True, 'slate': _slate_head(slate), 'warning': warning, 'message': message})
 
 
