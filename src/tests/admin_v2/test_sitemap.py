@@ -64,10 +64,9 @@ class SitemapTreeTests(AdminV2TestCase):
         self.assertEqual(home['parent'], '/committees/')
         self.assertEqual(home['label'], 'Sitemap Exec')
         self.assertEqual(home['name'], 'committee_home')
-        # The broken-parent flag: the path just above has no route of its own.
-        self.assertTrue(home['missing'] and home['missing'].strip('/') == 'committee')
-        with self.assertRaises(Resolver404):
-            resolve(home['missing'])
+        # v4.4.5: the folder above (/committee/) now redirects to Committees, so
+        # it is no longer flagged, and committees still nest under Committees.
+        self.assertEqual(home['missing'], '')
         for sub in ('minutes/', 'documents/', 'attendance/'):
             self.assertEqual(node(f'/committee/SMEXEC/{sub}')['parent'], '/committee/SMEXEC/', sub)
         self.assertEqual(node('/committee/SMBYL/minutes/')['parent'], '/committee/SMBYL/')
@@ -412,7 +411,10 @@ class SitemapGapFlagTests(AdminV2TestCase):
         card = next(n for i, n in nodes.items() if n['path'] == '/directory/<user_id>/card/')
         self.assertEqual(card['m'], '')                                   # /directory/<user_id>/ has a parameter
         self.assertFalse([n for n in nodes.values() if n['m'].startswith(('/api/', '/admin/'))])
-        self.assertEqual(nodes['/committee/SMEXEC/']['m'].strip('/'), 'committee')  # a member can trim to it
+        self.assertEqual(nodes['/committee/SMEXEC/']['m'], '')            # /committee/ redirects since v4.4.5
+        self.assertEqual(nodes['/committee/SMEXEC/']['p'], '/committees/')
+        legis = [n for n in nodes.values() if n['m'] and n['m'].strip('/').split('/')[0] == 'feedback']
+        self.assertTrue(legis)                                            # a remaining folder a member can reach
 
     def test_json_views_are_not_pages(self):
         routes = {r['name']: r for r in sm.build_tree()['routes']}

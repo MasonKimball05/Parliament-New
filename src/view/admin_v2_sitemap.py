@@ -602,6 +602,12 @@ def build_tree():
             cand = '/' + '/'.join(segs[:i]) + '/'
             if cand in by_path:
                 parent = by_path[cand]
+                # A folder that only redirects (/committee/ -> Committees) is
+                # not the real parent: nest under the routed plural instead.
+                plural_c = '/' + '/'.join(segs[:i - 1] + [segs[i - 1] + 's']) + '/'
+                if routes[next(m for m in nodes if m['id'] == parent)['r']]['kind'] == KIND_REDIRECT \
+                        and plural_c in by_path and plural_c != n['path']:
+                    parent = by_path[plural_c]
                 break
             missing = missing or cand
             plural = '/' + '/'.join(segs[:i - 1] + [segs[i - 1] + 's']) + '/'

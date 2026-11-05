@@ -1467,6 +1467,25 @@ urlpatterns += [
                               permanent=False, query_string=True)),
 ]
 
+# v4.4.5: folders a member can reach by shortening an address they were on
+# (Admin v2's site map flags these as "No page at ..."). Each goes to the page
+# that folder is about instead of a 404. Temporary (302), like the ones above.
+_FOLDER_REDIRECTS = (
+    ('committee/', 'committee_index'),             # /committee/<code>/... -> Committees
+    ('legislation/', 'passed_legislation'),        # /legislation/detail/<id>/ ...
+    ('meetings/', 'agenda_list'),                  # /meetings/agendas/
+    ('chat/', 'chat_index'),                       # /chat/committee/... -> Chats
+    ('songbook/song/', 'songbook'),                # /songbook/song/<id>/
+    ('guide/article/', 'guide_index'),             # /guide/article/<slug>/
+    ('account/', 'preferences'),                   # /account/sessions/, /account/delete/
+    ('accounts/', 'preferences'),                  # /accounts/two-factor/..., passkeys
+    ('cnb/resolutions/', 'cnb_resolution_list'),   # /cnb/resolutions/<id>/...
+)
+urlpatterns += [
+    path(route, RedirectView.as_view(pattern_name=target, permanent=False))
+    for route, target in _FOLDER_REDIRECTS
+]
+
 if settings.DEBUG:
     import os as _os
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
