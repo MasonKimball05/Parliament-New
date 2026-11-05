@@ -4,7 +4,7 @@
 {% block title %}{{ committee.name }}{% endblock %}
 
 {% block content %}
-<div class="container mx-auto px-4 py-8">
+<div class="container mx-auto px-4 py-8{% if ui_refresh %} rf-cmte rf-cmte-home{% endif %}">
 
     <!-- Back Link -->
     <div class="mb-6">
@@ -104,7 +104,7 @@
         </div>
     </div>
 
-    <!-- Status & Role Badges Card -->
+    {% if ui_refresh %}{% include "committee_refresh/_home_tags.html" %}{% else %}<!-- Status & Role Badges Card -->
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 mb-6 transition-colors duration-200">
         <div class="flex flex-wrap gap-2">
             <!-- Status badges -->
@@ -134,9 +134,9 @@
                 <span class="bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-3 py-1 rounded-full text-xs font-medium">Member</span>
             {% endif %}
         </div>
-    </div>
+    </div>{% endif %}{# /rf #}
 
-    <!-- Stats Grid -->
+    {% if ui_refresh %}{% include "committee_refresh/_home_stats.html" %}{% else %}<!-- Stats Grid -->
     <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 transition-colors duration-200">
             <p class="text-2xl font-bold text-gray-900 dark:text-gray-100">{{ stats.total_people }}</p>
@@ -167,9 +167,9 @@
             <p class="text-xs text-green-600 dark:text-green-400 font-medium mt-1">{{ stats.active_votes }} active</p>
             {% endif %}
         </div>
-    </div>
+    </div>{% endif %}{# /rf #}
 
-    <!-- Member Roster -->
+    {% if ui_refresh %}{% include "committee_refresh/_home_roster.html" %}{% else %}<!-- Member Roster -->
     <div class="grid md:grid-cols-2 gap-6 mb-6">
         <!-- Chairs -->
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 transition-colors duration-200">
@@ -306,9 +306,9 @@
             <p class="text-sm text-gray-400 dark:text-gray-500 italic">No members assigned</p>
             {% endif %}
         </div>
-    </div>
+    </div>{% endif %}{# /rf #}
 
-    <!-- Actions Section -->
+    {% if ui_refresh %}{% include "committee_refresh/_home_actions.html" %}{% else %}<!-- Actions Section -->
     {% if is_chair or can_manage or permissions.can_view_docs or permissions.can_vote or is_voting_member %}
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-6 transition-colors duration-200">
         <h2 class="text-base font-semibold text-gray-900 dark:text-gray-100 mb-4">Actions</h2>
@@ -405,9 +405,9 @@
             {% endif %}
         </div>
     </div>
-    {% endif %}
+    {% endif %}{% endif %}{# /rf #}
 
-    <!-- Recent Activity — docs + votes -->
+    {% if ui_refresh %}{% include "committee_refresh/_home_recent.html" %}{% else %}<!-- Recent Activity — docs + votes -->
     <div class="grid md:grid-cols-2 gap-6 mb-6">
         <!-- Recent Documents -->
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 transition-colors duration-200 min-w-0">
@@ -467,11 +467,11 @@
             <p class="text-sm text-gray-400 dark:text-gray-500 text-center py-6 italic">No recent votes</p>
             {% endif %}
         </div>
-    </div>
+    </div>{% endif %}{# /rf #}
 
     <!-- Kai Reports (Kai committee chairs/admins only) -->
     {% if committee.is_kai_committee and kai_access.can_view_report_list %}
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-6 transition-colors duration-200">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-6 transition-colors duration-200{% if ui_refresh %} rf-cmte-panel{% endif %}">
         <div class="flex justify-between items-center mb-4">
             <div>
                 <h2 class="text-base font-semibold text-gray-900 dark:text-gray-100">Recent Kai Reports</h2>
@@ -531,7 +531,7 @@
 
     <!-- Recruitment Dashboard (recruitment committee members) -->
     {% if committee.is_recruitment_committee %}
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-6 transition-colors duration-200">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-6 transition-colors duration-200{% if ui_refresh %} rf-cmte-panel{% endif %}">
         <div class="flex justify-between items-center mb-4">
             <div>
                 <h2 class="text-base font-semibold text-gray-900 dark:text-gray-100">Recruitment Events</h2>
@@ -582,7 +582,7 @@
 
     <!-- Slating Section -->
     {% if committee.is_slating_committee %}
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 transition-colors duration-200">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 transition-colors duration-200{% if ui_refresh %} rf-cmte-panel{% endif %}">
         <div class="flex justify-between items-center mb-4">
             <div>
                 <h2 class="text-base font-semibold text-gray-900 dark:text-gray-100">Officer Elections (Slating)</h2>

@@ -1,0 +1,517 @@
+/* =========================================================================
+   Website refresh: a committee's own pages in the app's look.
+
+   /committee/<code>/            committee_home.html   (.rf-cmte-home)
+   /committee/<code>/minutes/    minutes_list.html     (.rf-cmte-minutes)
+   /committee/<code>/documents/  documents.html        (.rf-cmte-docs)
+   /committee/<code>/vote/       vote.html             (.rf-cmte-vote)
+   …/vote/<id>/result/           vote_result.html      (.rf-cmte-result)
+
+   Loaded by base.html after refresh.css, only when `ui_refresh` is on
+   (src/ui_refresh.py). Each template adds `rf-cmte` and its page class to
+   its outer <div>; Home, Minutes and Documents swap a few sections for
+   app-style markup (templates/committee_refresh/), and Vote and the result
+   page add `rf-cmte-*` hooks to the markup they already have. Every rule is
+   scoped under `.ui-refresh .rf-cmte…`, which also outranks the Tailwind
+   utilities (and their `dark:` variants) these pages are built from, so
+   nothing needs !important. Colours are refresh.css's tokens.
+   Mirrors parliament-mobile: committee/[code]/index.tsx, minutes/index.tsx,
+   documents.tsx, votes.tsx, vote-result/[id].tsx.
+   ========================================================================= */
+
+:root.ui-refresh {
+    --rf-cmte-purple-soft: #ece6fa;
+    --rf-cmte-purple-ink: #553aa8;
+    --rf-cmte-orange-soft: #fdeedd;
+    --rf-cmte-orange-ink: #8f4200;
+}
+:root.ui-refresh.dark {
+    --rf-cmte-purple-soft: #2b2452;
+    --rf-cmte-purple-ink: #c9bcf6;
+    --rf-cmte-orange-soft: #3a2412;
+    --rf-cmte-orange-ink: #f5a65b;
+}
+
+/* ---------- Shared ------------------------------------------------------- */
+
+/* The readable column, as on the app's iPad layout */
+.ui-refresh .rf-cmte {
+    box-sizing: content-box;
+    width: auto;
+    max-width: var(--rf-readable);
+    padding-top: 20px;
+    padding-bottom: 48px;
+}
+
+/* Page titles: the app's large title */
+.ui-refresh .rf-cmte :is(h1, h2).text-3xl {
+    font-size: clamp(22px, 3.4vw, 28px);
+    line-height: 1.2;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: var(--rf-text);
+    overflow-wrap: anywhere;
+}
+
+/* Pills (kit Pill) */
+.ui-refresh .rf-cmte .rf-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin: 0;
+    border: 0;
+    border-radius: 999px;
+    padding: 2px 9px;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.5;
+    background-color: var(--rf-surface-muted);
+    color: var(--rf-text-secondary);
+}
+.ui-refresh .rf-cmte .rf-chip.is-accent { background-color: var(--rf-accent-soft); color: var(--rf-accent-on-soft); }
+.ui-refresh .rf-cmte .rf-chip.is-success { background-color: var(--rf-success-soft); color: var(--rf-success); }
+.ui-refresh .rf-cmte .rf-chip.is-warning { background-color: var(--rf-warning-soft); color: var(--rf-warning); }
+.ui-refresh .rf-cmte .rf-chip.is-danger { background-color: var(--rf-danger-soft); color: var(--rf-danger); }
+.ui-refresh .rf-cmte .rf-chip.is-purple { background-color: var(--rf-cmte-purple-soft); color: var(--rf-cmte-purple-ink); }
+.ui-refresh .rf-cmte .rf-chip.is-orange { background-color: var(--rf-cmte-orange-soft); color: var(--rf-cmte-orange-ink); }
+
+/* Primary buttons built from utilities (New Minutes, Upload Document,
+   Create New Vote, Submit Vote): the app's PrimaryButton */
+.ui-refresh .rf-cmte :is(a, button).bg-primary-600,
+.ui-refresh .rf-cmte .rf-cmte-primary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 40px;
+    padding: 8px 16px;
+    border-radius: var(--rf-radius-control);
+    background-color: var(--rf-accent);
+    color: var(--rf-accent-text);
+    font-weight: 600;
+    text-decoration: none;
+}
+.ui-refresh .rf-cmte :is(a, button).bg-primary-600:hover,
+.ui-refresh .rf-cmte .rf-cmte-primary:hover { background-color: var(--rf-accent-hover); }
+.ui-refresh .rf-cmte :is(a, button).bg-primary-600:focus-visible,
+.ui-refresh .rf-cmte .rf-cmte-primary:focus-visible { outline: 2px solid var(--rf-accent); outline-offset: 2px; }
+
+/* Rows */
+.ui-refresh .rf-cmte .rf-row.is-empty { min-height: 48px; font-size: 14px; color: var(--rf-text-muted); }
+.ui-refresh .rf-cmte .rf-row-title:empty { display: none; }
+.ui-refresh .rf-cmte .rf-row-pills:not(:has(*)) { display: none; }
+.ui-refresh .rf-cmte .rf-cmte-muted { color: var(--rf-text-muted); }
+.ui-refresh .rf-cmte .rf-cmte-group .rf-section-title { align-items: center; min-height: 28px; }
+.ui-refresh .rf-cmte .rf-cmte-note { margin: -2px 4px 10px; font-size: 13px; line-height: 1.45; color: var(--rf-text-muted); }
+
+/* Small pill actions (document and minutes rows) */
+.ui-refresh .rf-cmte .rf-cmte-act {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    min-height: 32px;
+    padding: 4px 12px;
+    border: 0;
+    border-radius: 999px;
+    background-color: var(--rf-surface-muted);
+    color: var(--rf-text-secondary);
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.3;
+    text-decoration: none;
+    cursor: pointer;
+    white-space: nowrap;
+}
+.ui-refresh .rf-cmte .rf-cmte-act:hover { background-color: var(--rf-separator); color: var(--rf-text); }
+.ui-refresh .rf-cmte .rf-cmte-act:focus-visible { outline: 2px solid var(--rf-accent); outline-offset: 2px; }
+.ui-refresh .rf-cmte .rf-cmte-act.is-accent { background-color: var(--rf-accent-soft); color: var(--rf-accent-on-soft); }
+.ui-refresh .rf-cmte .rf-cmte-act.is-success { background-color: var(--rf-success-soft); color: var(--rf-success); }
+.ui-refresh .rf-cmte .rf-cmte-act.is-warning { background-color: var(--rf-warning-soft); color: var(--rf-warning); }
+.ui-refresh .rf-cmte .rf-cmte-act.is-danger { background-color: var(--rf-danger-soft); color: var(--rf-danger); }
+.ui-refresh .rf-cmte .rf-cmte-act:is(.is-accent, .is-success, .is-warning, .is-danger):hover { filter: brightness(0.95); }
+.ui-refresh.dark .rf-cmte .rf-cmte-act:is(.is-accent, .is-success, .is-warning, .is-danger):hover { filter: brightness(1.2); }
+
+/* An empty state card (EmptyState) */
+.ui-refresh .rf-cmte .rf-cmte-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 32px 24px;
+    text-align: center;
+}
+.ui-refresh .rf-cmte .rf-cmte-empty h3 { margin: 6px 0 0; font-size: 17px; font-weight: 700; color: var(--rf-text); }
+.ui-refresh .rf-cmte .rf-cmte-empty p { margin: 0; font-size: 14px; color: var(--rf-text-secondary); }
+
+/* ---------- Committee home (/committee/<code>/) -------------------------- */
+
+/* Banner: the flat chapter blue (refresh.css); its buttons are glass pills */
+.ui-refresh .rf-cmte-home .bg-gradient-to-br { margin-bottom: 12px; padding: 18px 20px; }
+.ui-refresh .rf-cmte-home .bg-gradient-to-br h1 { letter-spacing: -0.02em; font-weight: 800; }
+.ui-refresh .rf-cmte-home .bg-gradient-to-br a.rounded-lg {
+    border-radius: 999px;
+    font-weight: 600;
+    background-color: var(--rf-hero-glass);
+    box-shadow: inset 0 0 0 1px var(--rf-hero-glass-border);
+}
+.ui-refresh .rf-cmte-home .bg-gradient-to-br a.rounded-lg:hover { background-color: rgba(255, 255, 255, 0.26); }
+.ui-refresh .rf-cmte-home .bg-gradient-to-br a.rounded-lg:focus-visible { outline: 2px solid #ffffff; outline-offset: 2px; }
+.ui-refresh .rf-cmte-home .bg-gradient-to-br .text-white\/75 { color: var(--rf-hero-muted); }
+
+/* Archived notice */
+.ui-refresh .rf-cmte-home > .bg-orange-50 {
+    border: 0;
+    border-radius: 12px;
+    background-color: var(--rf-cmte-orange-soft);
+    color: var(--rf-cmte-orange-ink);
+}
+
+/* Your roles */
+.ui-refresh .rf-cmte-home .rf-cmte-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; padding: 12px 14px; }
+.ui-refresh .rf-cmte-home .rf-cmte-tags:not(:has(.rf-chip)) { display: none; }
+
+/* Numbers: plain stat cards (not links here) */
+.ui-refresh .rf-cmte .rf-cmte-stats { gap: 10px; }
+@media (min-width: 560px) { .ui-refresh .rf-cmte .rf-cmte-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.ui-refresh .rf-cmte .rf-cmte-stats .rf-stat {
+    align-items: flex-start;
+    padding: 12px 14px;
+    border: 0;
+    background-color: var(--rf-surface);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    box-shadow: 0 0 0 1px var(--rf-card-border), 0 3px 10px var(--rf-shadow);
+}
+.ui-refresh .rf-cmte .rf-cmte-stats .rf-stat:hover,
+.ui-refresh .rf-cmte .rf-cmte-stats .rf-stat:active { transform: none; background-color: var(--rf-surface); }
+.ui-refresh .rf-cmte .rf-cmte-stat-note { display: block; margin-top: 2px; font-size: 12px; font-weight: 600; color: var(--rf-text-muted); }
+.ui-refresh .rf-cmte .rf-cmte-stat-note.is-success { color: var(--rf-success); }
+
+/* Rosters and recent activity: two columns on a wide screen */
+.ui-refresh .rf-cmte :is(.rf-cmte-roster, .rf-cmte-recent) { display: grid; grid-template-columns: minmax(0, 1fr); column-gap: 20px; }
+@media (min-width: 720px) {
+    .ui-refresh .rf-cmte :is(.rf-cmte-roster, .rf-cmte-recent) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+.ui-refresh .rf-cmte .rf-cmte-group { min-width: 0; }
+.ui-refresh .rf-cmte .rf-cmte-count { font-weight: 500; letter-spacing: 0; }
+.ui-refresh .rf-cmte .rf-cmte-add {
+    display: inline-flex;
+    align-items: center;
+    min-height: 28px;
+    padding: 3px 11px;
+    border: 0;
+    border-radius: 999px;
+    background-color: var(--rf-surface);
+    box-shadow: 0 0 0 1px var(--rf-card-border);
+    color: var(--rf-accent);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+}
+.ui-refresh.dark .rf-cmte .rf-cmte-add { background-color: var(--rf-accent-soft); color: var(--rf-accent-on-soft); box-shadow: none; }
+.ui-refresh .rf-cmte .rf-cmte-add:hover { filter: brightness(0.95); }
+.ui-refresh.dark .rf-cmte .rf-cmte-add:hover { filter: brightness(1.2); }
+.ui-refresh .rf-cmte .rf-cmte-add:focus-visible { outline: 2px solid var(--rf-accent); outline-offset: 2px; }
+.ui-refresh .rf-cmte .rf-card.is-scroll { max-height: 336px; overflow-y: auto; }
+.ui-refresh .rf-cmte .rf-cmte-person { min-height: 48px; padding-top: 8px; padding-bottom: 8px; }
+.ui-refresh .rf-cmte .rf-cmte-person .rf-avatar { background-color: var(--rf-surface-muted); color: var(--rf-text-secondary); }
+.ui-refresh .rf-cmte .rf-cmte-person .rf-avatar.is-accent { background-color: var(--rf-accent-soft); color: var(--rf-accent-on-soft); }
+.ui-refresh .rf-cmte .rf-cmte-person .rf-avatar.is-success { background-color: var(--rf-success-soft); color: var(--rf-success); }
+.ui-refresh .rf-cmte .rf-cmte-person .rf-avatar.is-purple { background-color: var(--rf-cmte-purple-soft); color: var(--rf-cmte-purple-ink); }
+.ui-refresh .rf-cmte .rf-cmte-person .rf-row-title { font-weight: 500; }
+.ui-refresh .rf-cmte .rf-cmte-remove button {
+    min-height: 32px;
+    padding: 4px 10px;
+    border: 0;
+    border-radius: 8px;
+    background: none;
+    color: var(--rf-danger);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+}
+.ui-refresh .rf-cmte .rf-cmte-remove button:hover { background-color: var(--rf-danger-soft); }
+.ui-refresh .rf-cmte .rf-cmte-remove button:focus-visible { outline: 2px solid var(--rf-danger); outline-offset: 1px; }
+
+.ui-refresh .rf-cmte .rf-cmte-glyph { width: 24px; height: 24px; color: var(--rf-text-muted); }
+.ui-refresh .rf-cmte .rf-cmte-glyph.is-active { color: var(--rf-success); }
+.ui-refresh .rf-cmte .rf-cmte-active { color: var(--rf-success); font-weight: 600; }
+
+/* Kai reports, recruitment events, slating: cards in the same rhythm */
+.ui-refresh .rf-cmte-home .rf-cmte-panel { margin-top: 22px; padding: 16px; }
+.ui-refresh .rf-cmte-home .rf-cmte-panel h2 { font-size: 17px; font-weight: 700; color: var(--rf-text); }
+.ui-refresh .rf-cmte-home .rf-cmte-panel a.text-xs { border-radius: 999px; font-weight: 600; }
+.ui-refresh .rf-cmte-home .rf-cmte-panel .border-l-4 { border-left-width: 0; border-radius: 12px; }
+.ui-refresh .rf-cmte-home .rf-cmte-panel .bg-yellow-50 { background-color: var(--rf-warning-soft); }
+.ui-refresh .rf-cmte-home .rf-cmte-panel .bg-green-50 { background-color: var(--rf-success-soft); }
+.ui-refresh .rf-cmte-home .rf-cmte-panel :is(.bg-purple-50, .bg-blue-50, .bg-green-50).rounded-lg { border-radius: 12px; }
+
+/* ---------- Minutes (/committee/<code>/minutes/) -------------------------- */
+
+.ui-refresh .rf-cmte-minutes > .flex.mb-4 { font-size: 13px; }
+.ui-refresh .rf-cmte-minutes > .flex.mb-6 { margin-bottom: 16px; }
+.ui-refresh .rf-cmte-minutes > .flex.mb-6 p { font-size: 15px; color: var(--rf-text-secondary); }
+.ui-refresh .rf-cmte .rf-cmte-list .rf-row-group { align-items: center; }
+.ui-refresh .rf-cmte .rf-cmte-list .rf-row-group .rf-row-icon { margin-top: 0; align-self: flex-start; padding-top: 2px; }
+.ui-refresh .rf-cmte .rf-cmte-list .rf-row-sub + .rf-row-sub { margin-top: 1px; }
+.ui-refresh .rf-cmte .rf-cmte-icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    width: 36px;
+    height: 36px;
+    border: 0;
+    border-radius: 10px;
+    background: none;
+    color: var(--rf-text-muted);
+    cursor: pointer;
+}
+.ui-refresh .rf-cmte .rf-cmte-icon-btn svg { width: 20px; height: 20px; }
+.ui-refresh .rf-cmte .rf-cmte-icon-btn:hover { background-color: var(--rf-danger-soft); color: var(--rf-danger); }
+.ui-refresh .rf-cmte .rf-cmte-icon-btn:focus-visible { outline: 2px solid var(--rf-accent); outline-offset: 1px; }
+
+/* ---------- Documents (/committee/<code>/documents/) ---------------------- */
+
+.ui-refresh .rf-cmte-docs > h2.mb-6 { margin-bottom: 12px; }
+.ui-refresh .rf-cmte-docs > .mb-6:has(.rf-cmte-primary) { margin-bottom: 8px; }
+.ui-refresh .rf-cmte .rf-cmte-trailing { flex: none; align-self: center; }
+.ui-refresh .rf-cmte .rf-cmte-doc:hover { background-color: transparent; }
+.ui-refresh .rf-cmte .rf-cmte-doc { padding-top: 14px; padding-bottom: 14px; }
+.ui-refresh .rf-cmte .rf-cmte-doc-title { margin: 0; font-size: 16px; font-weight: 700; line-height: 1.3; overflow-wrap: anywhere; }
+.ui-refresh .rf-cmte .rf-cmte-doc-title a { font-weight: 700; }
+.ui-refresh .rf-cmte .rf-cmte-doc-desc { margin: 3px 0 2px; font-size: 14px; line-height: 1.45; color: var(--rf-text-secondary); overflow-wrap: anywhere; }
+.ui-refresh .rf-cmte .rf-cmte-doc-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 10px; }
+.ui-refresh .rf-cmte .rf-cmte-doc-actions form { display: inline-flex; margin: 0; }
+.ui-refresh .rf-cmte .rf-cmte-versions { margin-top: 8px; font-size: 13px; color: var(--rf-text-secondary); }
+.ui-refresh .rf-cmte .rf-cmte-versions summary { cursor: pointer; font-weight: 600; color: var(--rf-accent); }
+.ui-refresh .rf-cmte .rf-cmte-versions ul { margin: 6px 0 0 4px; padding: 0; list-style: none; display: grid; gap: 4px; }
+.ui-refresh .rf-cmte .rf-cmte-versions a { color: var(--rf-accent); font-weight: 600; }
+/* Replace File dialog */
+.ui-refresh .rf-cmte .rf-cmte-dialog { background-color: rgba(8, 16, 34, 0.5); white-space: normal; }
+.ui-refresh .rf-cmte .rf-cmte-dialog > div { border-radius: var(--rf-radius-card); }
+.ui-refresh .rf-cmte .rf-cmte-dialog button { border-radius: var(--rf-radius-control); font-weight: 600; min-height: 36px; }
+.ui-refresh .rf-cmte .rf-cmte-dialog .rf-cmte-dialog-submit { background-color: var(--rf-accent); color: var(--rf-accent-text); }
+.ui-refresh .rf-cmte .rf-cmte-dialog .rf-cmte-dialog-submit:hover { background-color: var(--rf-accent-hover); }
+
+/* ---------- Committee voting (/committee/<code>/vote/) -------------------- */
+
+.ui-refresh .rf-cmte-vote > h1 { margin-bottom: 16px; }
+.ui-refresh .rf-cmte .rf-cmte-notice {
+    border: 0;
+    border-radius: 12px;
+    padding: 12px 14px;
+    font-size: 14px;
+}
+.ui-refresh .rf-cmte .rf-cmte-notice :is(p, span, svg) { color: inherit; }
+.ui-refresh .rf-cmte .rf-cmte-notice.is-warning { background-color: var(--rf-warning-soft); color: var(--rf-warning); }
+.ui-refresh .rf-cmte .rf-cmte-notice.is-success { background-color: var(--rf-success-soft); color: var(--rf-success); }
+
+/* Chair actions: one compact card, title left, button right */
+.ui-refresh .rf-cmte .rf-cmte-chair {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px 16px;
+    padding: 14px 16px;
+}
+.ui-refresh .rf-cmte .rf-cmte-chair h2 { margin: 0; font-size: 17px; font-weight: 700; color: var(--rf-text); }
+
+/* Section labels ("Available Legislation", "Voting History") */
+.ui-refresh .rf-cmte .rf-cmte-h2 {
+    margin: 0 4px;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--rf-text-muted);
+}
+.ui-refresh .rf-cmte .rf-cmte-h2 svg { width: 16px; height: 16px; margin-right: 6px; color: var(--rf-text-muted); }
+.ui-refresh .rf-cmte-vote .space-y-6 > :not([hidden]) ~ :not([hidden]) { margin-top: 12px; }
+.ui-refresh .rf-cmte-vote .space-y-6.mt-10 { margin-top: 32px; }
+
+/* A vote: a plain card; its state is a pill, not a coloured edge */
+.ui-refresh .rf-cmte .rf-cmte-bill { padding: 16px; border-left-width: 0; }
+.ui-refresh .rf-cmte .rf-cmte-bill h3 { font-size: 18px; font-weight: 700; line-height: 1.3; color: var(--rf-text); overflow-wrap: anywhere; }
+.ui-refresh .rf-cmte .rf-cmte-bill > .flex:first-child { gap: 12px; }
+.ui-refresh .rf-cmte .rf-cmte-bill > .flex:first-child p { font-size: 13px; color: var(--rf-text-secondary); }
+.ui-refresh .rf-cmte .rf-cmte-bill > .flex:first-child > .text-right { flex: none; font-size: 13px; color: var(--rf-text-muted); }
+.ui-refresh .rf-cmte .rf-cmte-bill > p { font-size: 15px; line-height: 1.6; color: var(--rf-text); overflow-wrap: anywhere; }
+.ui-refresh .rf-cmte .rf-cmte-bill a[target="_blank"] {
+    display: inline-flex;
+    padding: 6px 12px;
+    border-radius: 999px;
+    background-color: var(--rf-accent-soft);
+    color: var(--rf-accent-on-soft);
+    font-size: 14px;
+    font-weight: 600;
+}
+.ui-refresh .rf-cmte .rf-cmte-bill a[target="_blank"]:hover { background-color: var(--rf-separator); }
+.ui-refresh .rf-cmte .rf-cmte-bill .text-red-600 { color: var(--rf-danger); }
+
+/* The ballot: a label over one grouped card, a row per choice with its
+   ring on the right (vote/[id].tsx), then the password and the button. */
+.ui-refresh .rf-cmte .rf-cmte-ballot p.font-medium {
+    margin: 0 4px 8px;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--rf-text-muted);
+}
+.ui-refresh .rf-cmte .rf-cmte-choices {
+    display: flex;
+    flex-direction: column;
+    flex-wrap: nowrap;
+    gap: 0;
+    border-radius: var(--rf-radius-card);
+    background-color: var(--rf-surface);
+    box-shadow: 0 0 0 1px var(--rf-card-border);
+    overflow: hidden;
+}
+.ui-refresh .rf-cmte .rf-cmte-choices > label { display: block; margin: 0; }
+.ui-refresh .rf-cmte .rf-cmte-choices > label + label { border-top: 1px solid var(--rf-separator); }
+.ui-refresh .rf-cmte .rf-cmte-choices .vote-option > div {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: 52px;
+    padding: 12px 16px;
+    border: 0;
+    border-radius: 0;
+    background-color: transparent;
+    box-shadow: none;
+    transition: background-color 0.12s;
+}
+.ui-refresh .rf-cmte .rf-cmte-choices .vote-option > div:hover { background-color: var(--rf-surface-muted); }
+.ui-refresh .rf-cmte .rf-cmte-choices .vote-option > div > span {
+    order: 1;
+    flex: 1;
+    min-width: 0;
+    font-size: 16px;
+    font-weight: 500;
+    color: var(--rf-text);
+    overflow-wrap: anywhere;
+}
+.ui-refresh .rf-cmte .rf-cmte-choices .vote-radio {
+    order: 2;
+    flex: none;
+    width: 22px;
+    height: 22px;
+    border: 2px solid var(--rf-text-muted);
+    background-color: transparent;
+}
+.ui-refresh .rf-cmte .rf-cmte-choices .vote-radio.rounded { border-radius: 6px; }
+.ui-refresh .rf-cmte .rf-cmte-choices .check-icon { color: var(--rf-accent-text); }
+.ui-refresh .rf-cmte .rf-cmte-choices .peer:checked + div { background-color: var(--rf-accent-soft); box-shadow: none; }
+.ui-refresh .rf-cmte .rf-cmte-choices .peer:checked + div > span { font-weight: 700; }
+.ui-refresh .rf-cmte .rf-cmte-choices .peer:checked + div .vote-radio { border-color: var(--rf-accent); background-color: var(--rf-accent); }
+.ui-refresh .rf-cmte .rf-cmte-choices .peer:focus-visible + div { outline: 2px solid var(--rf-accent); outline-offset: -2px; }
+
+.ui-refresh .rf-cmte .rf-cmte-confirm { gap: 10px; padding-top: 4px; }
+.ui-refresh .rf-cmte .rf-cmte-confirm input[type="password"] { min-height: 44px; font-size: 16px; }
+.ui-refresh .rf-cmte .rf-cmte-confirm .submit-vote-btn { min-height: 44px; padding-left: 18px; padding-right: 18px; }
+.ui-refresh .rf-cmte .rf-cmte-confirm .js-vote-passkey { color: var(--rf-accent); font-size: 13px; font-weight: 600; }
+.ui-refresh .rf-cmte .rf-cmte-confirm .js-passkey-error { color: var(--rf-danger); }
+
+/* Results so far / final results: bars on a muted well */
+.ui-refresh .rf-cmte .rf-cmte-tally { border-top-color: var(--rf-separator); }
+.ui-refresh .rf-cmte .rf-cmte-tally.is-final { border-radius: 12px; background-color: var(--rf-surface-muted); }
+.ui-refresh .rf-cmte .rf-cmte-tally h4 { font-size: 14px; font-weight: 700; color: var(--rf-text); }
+.ui-refresh .rf-cmte .rf-cmte-tally .w-32 { background-color: var(--rf-separator); }
+.ui-refresh .rf-cmte .rf-cmte-tally .bg-green-500 { background-color: var(--rf-success); }
+.ui-refresh .rf-cmte .rf-cmte-tally .bg-red-500 { background-color: var(--rf-danger); }
+.ui-refresh .rf-cmte .rf-cmte-tally .bg-primary-500 { background-color: var(--rf-accent); }
+.ui-refresh .rf-cmte .rf-cmte-tally .bg-gray-400 { background-color: var(--rf-text-muted); }
+.ui-refresh .rf-cmte .rf-cmte-tally .text-green-700 { color: var(--rf-success); }
+.ui-refresh .rf-cmte .rf-cmte-tally .text-red-700 { color: var(--rf-danger); }
+.ui-refresh .rf-cmte .rf-cmte-tally .w-8 { font-variant-numeric: tabular-nums; }
+.ui-refresh .rf-cmte .rf-cmte-tally p.font-semibold { border-top-color: var(--rf-separator); }
+
+/* Chair and poster actions: the app's buttons in their tones */
+.ui-refresh .rf-cmte .rf-cmte-bill-actions { border-top-color: var(--rf-separator); }
+.ui-refresh .rf-cmte .rf-cmte-bill-actions :is(button, a, span) {
+    min-height: 40px;
+    border-radius: var(--rf-radius-control);
+    font-weight: 600;
+    font-size: 14px;
+}
+.ui-refresh .rf-cmte .rf-cmte-bill-actions :is(button, a):focus-visible { outline: 2px solid var(--rf-accent); outline-offset: 2px; }
+.ui-refresh .rf-cmte .rf-cmte-bill-actions .bg-red-600 { background-color: var(--rf-danger); color: #ffffff; }
+.ui-refresh.dark .rf-cmte .rf-cmte-bill-actions .bg-red-600 { color: var(--rf-accent-text); }
+.ui-refresh .rf-cmte .rf-cmte-bill-actions .bg-green-600 { background-color: var(--rf-success); color: #ffffff; }
+.ui-refresh.dark .rf-cmte .rf-cmte-bill-actions .bg-green-600 { color: var(--rf-accent-text); }
+.ui-refresh .rf-cmte .rf-cmte-bill-actions .bg-purple-600 { background-color: var(--rf-tile-purple); color: #ffffff; }
+.ui-refresh .rf-cmte .rf-cmte-bill-actions :is(.bg-gray-600, .bg-yellow-500, .bg-orange-600) {
+    background-color: transparent;
+    box-shadow: inset 0 0 0 1.5px var(--rf-accent);
+    color: var(--rf-accent);
+}
+.ui-refresh .rf-cmte .rf-cmte-bill-actions .bg-orange-600 { box-shadow: inset 0 0 0 1.5px var(--rf-danger); color: var(--rf-danger); }
+.ui-refresh .rf-cmte .rf-cmte-bill-actions :is(.bg-gray-600, .bg-yellow-500):hover { background-color: var(--rf-accent-soft); }
+.ui-refresh .rf-cmte .rf-cmte-bill-actions .bg-orange-600:hover { background-color: var(--rf-danger-soft); }
+.ui-refresh .rf-cmte .rf-cmte-bill-actions :is(.bg-red-600, .bg-green-600, .bg-purple-600):hover { filter: brightness(0.92); }
+.ui-refresh.dark .rf-cmte .rf-cmte-bill-actions :is(.bg-red-600, .bg-green-600, .bg-purple-600):hover { filter: brightness(1.1); }
+.ui-refresh .rf-cmte .rf-cmte-bill-actions .bg-green-50 { background-color: var(--rf-success-soft); color: var(--rf-success); }
+
+.ui-refresh .rf-cmte .rf-cmte-empty.p-8 { border: 0; border-radius: var(--rf-radius-card); background-color: var(--rf-surface); box-shadow: 0 0 0 1px var(--rf-card-border); }
+.ui-refresh .rf-cmte .rf-cmte-empty.p-8 p { color: var(--rf-text-secondary); }
+
+/* ---------- A vote's results (…/vote/<id>/result/) ----------------------- */
+
+.ui-refresh .rf-cmte .rf-cmte-result-card { max-width: none; padding: 20px; }
+.ui-refresh .rf-cmte .rf-cmte-result-card > h2 { font-size: 20px; font-weight: 700; line-height: 1.3; overflow-wrap: anywhere; }
+.ui-refresh .rf-cmte .rf-cmte-result-card > p.text-sm { color: var(--rf-text-secondary); }
+.ui-refresh .rf-cmte .rf-cmte-result-card > p.text-sm strong { color: var(--rf-text); }
+.ui-refresh .rf-cmte .rf-cmte-result-card > p .text-purple-600 { color: var(--rf-cmte-purple-ink); }
+/* Outcome banners: tinted cards, no outline, ink in the tone */
+.ui-refresh .rf-cmte .rf-cmte-result-card > :is(.bg-green-100, .bg-red-100, .bg-blue-100, .bg-yellow-100, .bg-purple-100) {
+    border: 0;
+    border-radius: 12px;
+}
+.ui-refresh .rf-cmte .rf-cmte-result-card > .bg-green-100 { background-color: var(--rf-success-soft); color: var(--rf-success); }
+.ui-refresh .rf-cmte .rf-cmte-result-card > .bg-red-100 { background-color: var(--rf-danger-soft); color: var(--rf-danger); }
+.ui-refresh .rf-cmte .rf-cmte-result-card > .bg-blue-100 { background-color: var(--rf-accent-soft); color: var(--rf-accent-on-soft); }
+.ui-refresh .rf-cmte .rf-cmte-result-card > .bg-yellow-100 { background-color: var(--rf-warning-soft); color: var(--rf-warning); }
+.ui-refresh .rf-cmte .rf-cmte-result-card > .bg-purple-100 { background-color: var(--rf-cmte-purple-soft); color: var(--rf-cmte-purple-ink); }
+.ui-refresh .rf-cmte .rf-cmte-result-card > .bg-purple-100 a { color: inherit; font-weight: 600; }
+/* Runoff offer */
+.ui-refresh .rf-cmte .rf-cmte-result-card > .bg-primary-50 { border: 0; border-radius: 12px; }
+.ui-refresh .rf-cmte .rf-cmte-result-card > .bg-primary-50 :is(h4, p) { color: var(--rf-accent-on-soft); }
+/* Yes-share bar and the required mark */
+.ui-refresh .rf-cmte .rf-cmte-result-card .relative.h-6 { height: 12px; border-radius: 999px; background-color: var(--rf-surface-muted); }
+.ui-refresh .rf-cmte .rf-cmte-result-card .relative.h-6 .bg-green-500 { background-color: var(--rf-success); }
+.ui-refresh .rf-cmte .rf-cmte-result-card .relative.h-6 .bg-black { width: 3px; background-color: var(--rf-text); opacity: 0.8; }
+/* Per-option bars (plurality) */
+.ui-refresh .rf-cmte .rf-cmte-result-card .h-3.rounded-full:not(.h-full) { height: 8px; background-color: var(--rf-surface-muted); }
+.ui-refresh .rf-cmte .rf-cmte-result-card .h-full.bg-green-500 { background-color: var(--rf-success); }
+.ui-refresh .rf-cmte .rf-cmte-result-card .h-full.bg-primary-600 { background-color: var(--rf-accent); }
+.ui-refresh .rf-cmte .rf-cmte-result-card .text-green-600 { color: var(--rf-success); }
+/* Who voted how: muted cards, a tone on the heading */
+.ui-refresh .rf-cmte .rf-cmte-result-card :is(.bg-green-50, .bg-red-50, .bg-yellow-50, .bg-gray-50).rounded-lg {
+    border: 0;
+    border-radius: 12px;
+    background-color: var(--rf-surface-muted);
+}
+.ui-refresh .rf-cmte .rf-cmte-result-card .rounded-lg h4 { border-bottom-color: var(--rf-separator); }
+.ui-refresh .rf-cmte .rf-cmte-result-card .bg-green-50 h4 { color: var(--rf-success); }
+.ui-refresh .rf-cmte .rf-cmte-result-card .bg-red-50 h4 { color: var(--rf-danger); }
+.ui-refresh .rf-cmte .rf-cmte-result-card .bg-yellow-50 h4 { color: var(--rf-warning); }
+.ui-refresh .rf-cmte .rf-cmte-result-card .rounded-lg li { color: var(--rf-text); }
+.ui-refresh .rf-cmte .rf-cmte-result-card .rounded-lg li svg { color: var(--rf-text-muted); }
+.ui-refresh .rf-cmte .rf-cmte-result-card .text-purple-600.justify-center { color: var(--rf-cmte-purple-ink); }
+.ui-refresh .rf-cmte .rf-cmte-result-card a.flex.items-center[target="_blank"] { display: inline-flex; font-weight: 600; }
+.ui-refresh .rf-cmte .rf-cmte-result-card .text-green-500 { color: var(--rf-success); }
+
+/* Phones: a little less padding, rows breathe */
+@media (max-width: 640px) {
+    .ui-refresh .rf-cmte { padding-top: 12px; }
+    .ui-refresh .rf-cmte .rf-cmte-bill,
+    .ui-refresh .rf-cmte .rf-cmte-result-card { padding: 14px; }
+    .ui-refresh .rf-cmte .rf-cmte-bill > .flex:first-child { flex-wrap: wrap; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .ui-refresh .rf-cmte .rf-cmte-choices .vote-option > div { transition: none; }
+}

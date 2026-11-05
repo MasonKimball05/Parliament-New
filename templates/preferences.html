@@ -13,7 +13,7 @@
     }
 </style>
 {% include "components/page_guide.html" with page_key="preferences" guide_title="Preferences" guide_icon="⚙️" guide_body="Customize how Parliament works for you. Set your landing page, notification settings, dark mode, and more. You can also manage your security settings like passkeys and two-factor authentication here." %}
-<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8{% if ui_refresh %} rf-prefs{% endif %}">
     <!-- Header -->
     <div class="bg-gradient-to-br from-primary-600 via-primary-700 to-primary-800 rounded-xl shadow-lg p-4 sm:p-5 mb-8 text-white relative overflow-hidden">
         <div class="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-yellow-400/60 to-transparent pointer-events-none"></div>

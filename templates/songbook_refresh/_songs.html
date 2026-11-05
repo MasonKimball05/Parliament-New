@@ -1,0 +1,36 @@
+{% comment %}
+Website refresh (src/ui_refresh.py): the songs as the app's Songbook lists
+them: one grouped card, a row per song with an icon tile in its category's
+color (a note when it has a recording, lyrics when it doesn't), the title,
+the category and the start of the lyrics, a chevron. Same songs, links and
+wording as the cards it replaces in songbook.html.
+{% endcomment %}
+<div class="rf-card rf-song-list">
+    {% for song in songs %}
+    <a href="{% url 'song_detail' song.pk %}" class="rf-row rf-song-row">
+        <span class="rf-tile rf-song-tile{% if song.category %} is-{{ song.category.color }}{% endif %}" aria-hidden="true">
+            {% if song.audio_file %}
+            <svg fill="currentColor" viewBox="0 0 24 24"><path d="M12 3v10.55A4 4 0 1014 17V7h4V3h-6z"/></svg>
+            {% else %}
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h10M4 18h7"/></svg>
+            {% endif %}
+        </span>
+        <span class="rf-row-body">
+            <span class="rf-song-title">
+                <span class="rf-row-title">{{ song.title }}</span>
+                {% if song.audio_file %}
+                <span class="rf-song-audio" title="Has audio">
+                    <svg fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                        <path fill-rule="evenodd" d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.707.707L4.586 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.586l3.707-3.707a1 1 0 011.09-.217zM14.657 2.929a1 1 0 011.414 0A9.972 9.972 0 0119 10a9.972 9.972 0 01-2.929 7.071 1 1 0 01-1.414-1.414A7.971 7.971 0 0017 10c0-2.21-.894-4.208-2.343-5.657a1 1 0 010-1.414zm-2.829 2.828a1 1 0 011.415 0A5.983 5.983 0 0115 10a5.984 5.984 0 01-1.757 4.243 1 1 0 01-1.415-1.415A3.984 3.984 0 0013 10a3.983 3.983 0 00-1.172-2.828 1 1 0 010-1.415z" clip-rule="evenodd"/>
+                    </svg>
+                    <span class="sr-only">Has audio</span>
+                </span>
+                {% endif %}
+            </span>
+            <span class="rf-row-sub rf-song-sub">{% if song.category %}<span class="rf-song-cat">{{ song.category.name }}</span> · {% endif %}{{ song.lyrics|truncatewords:25 }}</span>
+            <span class="sr-only">Click to view full lyrics</span>
+        </span>
+        <span class="rf-chevron" aria-hidden="true">›</span>
+    </a>
+    {% endfor %}
+</div>

@@ -1,0 +1,11 @@
+{% comment %}Website refresh (src/ui_refresh.py): committee_home's status and role badges as the app's pills (committee/[code]/index.tsx). Same conditions and labels as the card it replaces.{% endcomment %}
+<div class="rf-card is-padded rf-cmte-tags">
+    {% if not committee.is_active %}<span class="rf-chip">Inactive</span>{% endif %}
+    {% if committee.is_archived %}<span class="rf-chip is-warning">Archived</span>{% endif %}
+    {% if committee.is_ad_hoc %}<span class="rf-chip is-warning">Ad-hoc</span>{% endif %}
+    {% if is_vp %}<span class="rf-chip is-danger">Vice President</span>{% endif %}
+    {% if is_chair %}<span class="rf-chip is-accent">Chair</span>{% endif %}
+    {% if is_advisor %}<span class="rf-chip is-success">Advisor</span>{% endif %}
+    {% if is_voting_member %}<span class="rf-chip is-purple">Voting Member</span>{% endif %}
+    {% if is_member and not is_chair and not is_advisor %}<span class="rf-chip">Member</span>{% endif %}
+</div>

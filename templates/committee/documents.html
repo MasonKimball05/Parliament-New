@@ -3,7 +3,7 @@
 {% block title %}{{ committee.name }} Documents{% endblock %}
 
 {% block content %}
-<div class="container mx-auto px-4 py-8">
+<div class="container mx-auto px-4 py-8{% if ui_refresh %} rf-cmte rf-cmte-docs{% endif %}">
     <div class="mb-6">
         <a href="{% url 'committee_home' committee.code %}" class="text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300 transition-colors">← Back to Committee</a>
     </div>
@@ -13,13 +13,13 @@
     {% if perm.can_upload_docs %}
     <div class="mb-6">
         <a href="{% url 'upload_document' committee.code %}"
-           class="bg-primary-500 dark:bg-primary-600 text-white px-4 py-2 rounded hover:bg-primary-600 dark:hover:bg-primary-700 transition-colors">
+           class="bg-primary-500 dark:bg-primary-600 text-white px-4 py-2 rounded hover:bg-primary-600 dark:hover:bg-primary-700 transition-colors{% if ui_refresh %} rf-cmte-primary{% endif %}">
             Upload Document
         </a>
     </div>
     {% endif %}
 
-    {% if unpublished_minutes %}
+    {% if ui_refresh %}{% include "committee_refresh/_documents_minutes.html" %}{% else %}{% if unpublished_minutes %}
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-6 transition-colors duration-200">
         <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-1">Unpublished Minutes</h3>
         <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">
@@ -65,9 +65,9 @@
             {% endfor %}
         </div>
     </div>
-    {% endif %}
+    {% endif %}{% endif %}{# /rf #}
 
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 transition-colors duration-200">
+    {% if ui_refresh %}{% include "committee_refresh/_documents_list.html" %}{% else %}<div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 transition-colors duration-200">
         {% if documents %}
             <div class="space-y-4">
                 {% for doc in documents %}
@@ -207,7 +207,7 @@
         {% else %}
             <p class="text-gray-500 dark:text-gray-400 italic">No documents yet.</p>
         {% endif %}
-    </div>
+    </div>{% endif %}{# /rf #}
 </div>
 
 <script nonce="{{ request.csp_nonce }}">

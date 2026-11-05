@@ -4,7 +4,7 @@
 
 {% block content %}
 {% include "components/page_guide.html" with page_key="service_hours" guide_title="Service Hours" guide_icon="🤝" guide_body="Track your community service and philanthropy hours here. Log completed service, upload verification, and see your progress toward the semester requirement. Keeping this up to date helps officers verify your good standing — don&#39;t wait until the deadline to log hours." %}
-<div class="container mx-auto px-4 py-8">
+<div class="container mx-auto px-4 py-8{% if ui_refresh %} rf-svc{% endif %}">
     <!-- Header -->
     <div class="bg-gradient-to-br from-primary-600 via-primary-700 to-primary-800 rounded-xl shadow-lg p-4 sm:p-5 mb-6 text-white relative overflow-hidden">
         <div class="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-yellow-400/60 to-transparent pointer-events-none"></div>
@@ -36,7 +36,7 @@
 
     {% if current_period and stats %}
     <!-- Progress Card -->
-    <div class="bg-white dark:bg-gray-800 shadow-sm rounded-xl overflow-hidden mb-6">
+    <div class="bg-white dark:bg-gray-800 shadow-sm rounded-xl overflow-hidden mb-6{% if ui_refresh %} rf-svc-progress{% endif %}">
         <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
             <div class="flex items-center justify-between">
                 <h2 class="text-lg font-semibold text-gray-900 dark:text-white">{{ current_period.name }}</h2>
@@ -63,7 +63,7 @@
             </div>
 
             <!-- Stats Grid -->
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4{% if ui_refresh %} rf-svc-stats{% endif %}">
                 <div class="bg-green-50 dark:bg-green-900/20 rounded-lg p-3 text-center">
                     <div class="text-2xl font-bold text-green-600 dark:text-green-400">{{ stats.approved_hours }}</div>
                     <div class="text-xs text-green-700 dark:text-green-300">Approved</div>
@@ -124,7 +124,7 @@
 
     {% if adjustments %}
     <!-- Hour Adjustments -->
-    <div class="bg-white dark:bg-gray-800 shadow-sm rounded-xl overflow-hidden mb-6">
+    <div class="bg-white dark:bg-gray-800 shadow-sm rounded-xl overflow-hidden mb-6{% if ui_refresh %} rf-svc-adjust{% endif %}">
         <div class="px-4 sm:px-6 py-4 border-b border-gray-200 dark:border-gray-700">
             <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Hour Adjustments</h2>
             <p class="text-sm text-gray-500 dark:text-gray-400">Hours manually granted or deducted by officers</p>
@@ -163,7 +163,7 @@
     </div>
     {% endif %}
 
-    <!-- My Submissions -->
+{% if ui_refresh %}{% include "service_hours_refresh/_submissions.html" %}{% else %}    <!-- My Submissions -->
     <div class="bg-white dark:bg-gray-800 shadow-sm rounded-xl overflow-hidden">
         <div class="px-4 sm:px-6 py-4 border-b border-gray-200 dark:border-gray-700">
             <h2 class="text-lg font-semibold text-gray-900 dark:text-white">My Submissions</h2>
@@ -276,6 +276,6 @@
             </div>
         </div>
         {% endif %}
-    </div>
+    </div>{% endif %}
 </div>
 {% endblock %}

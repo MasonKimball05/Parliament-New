@@ -1,0 +1,33 @@
+{% comment %}Website refresh: committee_home's Recent Documents and Recent Votes as section titles over grouped rows. Same items, fields and "View All" links.{% endcomment %}
+<div class="rf-cmte-recent">
+    <section class="rf-cmte-group">
+        <div class="rf-section-title"><h2>Recent Documents</h2><a href="{% url 'committee_documents' committee.code %}">View All</a></div>
+        <div class="rf-card">
+            {% if recent_documents %}
+            {% for doc in recent_documents %}
+            <div class="rf-row">
+                <span class="rf-row-icon"><span class="rf-tile is-purple" aria-hidden="true"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg></span></span>
+                <span class="rf-row-body"><span class="rf-row-title">{{ doc.title }}</span><span class="rf-row-sub">{{ doc.uploaded_at|date:"M d, Y" }} · {{ doc.uploaded_by.get_display_name }}</span></span>
+            </div>
+            {% endfor %}
+            {% else %}
+            <div class="rf-row is-empty">No documents yet</div>
+            {% endif %}
+        </div>
+    </section>
+    <section class="rf-cmte-group">
+        <div class="rf-section-title"><h2>Recent Votes</h2><a href="{% url 'vote' committee.code %}">View All</a></div>
+        <div class="rf-card">
+            {% if recent_votes %}
+            {% for vote in recent_votes %}
+            <div class="rf-row">
+                <span class="rf-row-icon"><svg class="rf-cmte-glyph{% if vote.is_active %} is-active{% endif %}" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></span>
+                <span class="rf-row-body"><span class="rf-row-title">{{ vote.title }}</span><span class="rf-row-sub">{{ vote.created_at|date:"M d, Y" }}{% if vote.is_active %} <span class="rf-cmte-active">· Active</span>{% else %} · Closed{% endif %}</span></span>
+            </div>
+            {% endfor %}
+            {% else %}
+            <div class="rf-row is-empty">No recent votes</div>
+            {% endif %}
+        </div>
+    </section>
+</div>

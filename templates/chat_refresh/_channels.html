@@ -1,0 +1,70 @@
+{% comment %}
+Website refresh (src/ui_refresh.py): the chat list as the app's Chat tab
+draws it (a round icon, the channel's name and description, its pills, the
+unread badge, a chevron), one grouped card. Same context, links, wording and
+permission conditions as the list it replaces in chat/index.html; an admin's
+Edit Settings / Delete Channel links sit under their channel's row.
+{% endcomment %}
+{% if channels %}
+    <div class="rf-section-title"><h2>Channels</h2><span class="rf-row-trailing">{{ channels|length }}</span></div>
+    <div class="rf-card rf-chat-list">
+        {% for item in channels %}
+            {% with channel=item.channel unread=item.unread_count %}
+                <div class="rf-chat-item">
+                    {% if channel.channel_type == 'committee' and channel.committee %}
+                        <a href="{% url 'committee_channel_chat' channel.committee.code %}" class="rf-row rf-chat-row{% if unread > 0 %} is-unread{% endif %}">
+                    {% else %}
+                        <a href="{% url 'channel_chat' channel.id %}" class="rf-row rf-chat-row{% if unread > 0 %} is-unread{% endif %}">
+                    {% endif %}
+                        <span class="rf-chat-avatar" aria-hidden="true">{{ channel.icon }}</span>
+                        <span class="rf-row-body">
+                            <span class="rf-chat-name">
+                                <span class="rf-row-title">{{ channel.name }}</span>
+                                {% if item.admin_only_access %}
+                                    <span class="rf-chip is-danger">Admin View</span>
+                                {% endif %}
+                            </span>
+                            {% if channel.description %}
+                                <span class="rf-row-sub rf-chat-desc">{{ channel.description }}</span>
+                            {% endif %}
+                            <span class="rf-row-pills">
+                                {% if item.type == 'committee' %}
+                                    <span class="rf-chip is-accent">Committee</span>
+                                {% elif item.type == 'custom' %}
+                                    <span class="rf-chip is-purple">Custom</span>
+                                {% endif %}
+
+                                {% if channel.access_type == 'open' %}
+                                    <span class="rf-chat-access">• Open to all</span>
+                                {% elif channel.access_type == 'restricted' %}
+                                    <span class="rf-chat-access">• Restricted</span>
+                                {% endif %}
+                            </span>
+                        </span>
+                        {% if unread > 0 %}
+                            <span class="rf-badge">{{ unread }}</span>
+                        {% endif %}
+                        <span class="rf-chevron" aria-hidden="true">›</span>
+                    </a>
+
+                    {% if is_admin and item.type == 'custom' %}
+                        <div class="rf-row-actions rf-chat-actions">
+                            <a href="{% url 'edit_channel' channel.id %}">
+                                ✏️ Edit Settings
+                            </a>
+                            <a href="{% url 'delete_channel' channel.id %}" class="is-danger">
+                                🗑️ Delete Channel
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+            {% endwith %}
+        {% endfor %}
+    </div>
+{% else %}
+    <div class="rf-card rf-empty rf-chat-empty">
+        <div class="rf-empty-icon" aria-hidden="true">💬</div>
+        <p class="rf-empty-title">No chats available</p>
+        <p class="rf-empty-sub">You don't have access to any chat channels yet.</p>
+    </div>
+{% endif %}

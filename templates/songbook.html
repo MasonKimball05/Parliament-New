@@ -4,9 +4,9 @@
 {% block title %}Songbook{% endblock %}
 
 {% block content %}
-<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8{% if ui_refresh %} rf-songbook{% endif %}">
     <!-- Page Header -->
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-6">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-6{% if ui_refresh %} rf-songbook-head{% endif %}">
         <div class="flex items-center justify-between flex-wrap gap-4">
             <div class="flex items-center gap-4">
                 <div class="w-12 h-12 sm:w-14 sm:h-14 bg-primary-100 dark:bg-primary-900/30 rounded-full flex items-center justify-center">
@@ -65,7 +65,7 @@
     </div>
 
     <!-- Search and Filter -->
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 mb-6">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 mb-6{% if ui_refresh %} rf-songbook-search{% endif %}">
         <form method="get" class="flex flex-col sm:flex-row gap-3">
             <div class="flex-1">
                 <input type="text" name="q" value="{{ search_query }}" placeholder="Search songs..."
@@ -86,7 +86,7 @@
 
     <!-- Category Tabs -->
     {% if categories %}
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm mb-6 overflow-hidden">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm mb-6 overflow-hidden{% if ui_refresh %} rf-songbook-cats{% endif %}">
         <div class="flex flex-wrap border-b border-gray-200 dark:border-gray-700">
             <a href="{% url 'songbook' %}{% if search_query %}?q={{ search_query }}{% endif %}"
                class="flex items-center px-4 py-3 text-sm font-medium border-b-2 transition-colors {% if not category_filter %}border-primary-500 text-primary-600 dark:text-primary-400 bg-primary-50 dark:bg-primary-900/20{% else %}border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300{% endif %}">
@@ -109,7 +109,7 @@
 
     <!-- Songs List -->
     {% if songs %}
-    <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+{% if ui_refresh %}{% include "songbook_refresh/_songs.html" %}{% else %}    <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {% for song in songs %}
         <a href="{% url 'song_detail' song.pk %}" class="block bg-white dark:bg-gray-800 rounded-xl shadow-sm hover:shadow-lg transition-shadow overflow-hidden group">
             <div class="p-5">
@@ -141,7 +141,7 @@
             </div>
         </a>
         {% endfor %}
-    </div>
+    </div>{% endif %}
 
     <!-- Pagination -->
     {% if songs.has_other_pages %}
@@ -152,7 +152,7 @@
 
     {% else %}
     <!-- Empty State -->
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-12 text-center">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-12 text-center{% if ui_refresh %} rf-songbook-empty{% endif %}">
         <svg class="w-16 h-16 text-gray-400 dark:text-gray-600 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"/>
         </svg>

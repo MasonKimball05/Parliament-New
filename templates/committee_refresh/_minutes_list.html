@@ -1,0 +1,42 @@
+{% comment %}Website refresh: committee minutes_list's list as the app's grouped rows (committee/[code]/minutes/index.tsx): a tile (published: document, else draft), title, date and time, author, status pills, the delete button and a chevron. Same links, fields, conditions and js-show-delete-modal data as the list it replaces.{% endcomment %}
+{% if minutes_list %}
+<div class="rf-card rf-cmte-list">
+    {% for m in minutes_list %}
+    <a href="{% if can_edit %}{% url 'edit_committee_minutes' committee.code m.id %}{% else %}{% url 'download_committee_minutes_pdf' committee.code m.id %}?preview=1{% endif %}" class="rf-row rf-row-group">
+        <span class="rf-row-icon"><span class="rf-tile {% if m.status == 'published' %}is-teal{% else %}is-gray{% endif %}" aria-hidden="true"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24">{% if m.status == 'published' %}<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>{% else %}<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>{% endif %}</svg></span></span>
+        <span class="rf-row-body">
+            <span class="rf-row-title">{{ m.title }}</span>
+            <span class="rf-row-sub">{{ m.date|date:"M j, Y" }} · {{ m.start_time|time:"g:i A" }}</span>
+            <span class="rf-row-sub rf-cmte-muted">By {{ m.created_by.get_display_name }} &middot; {{ m.updated_at|timesince }} ago</span>
+            <span class="rf-row-pills">
+                {% if m.status == 'draft' %}<span class="rf-chip is-warning">Draft</span>{% elif m.status == 'finalized' %}<span class="rf-chip is-accent">Finalized</span>{% elif m.status == 'published' %}<span class="rf-chip is-success">Published</span>{% endif %}
+                {% if m.edited_after_publish %}<span class="rf-chip is-orange">Edited</span>{% endif %}
+                {% if m.attendance_taken %}<span class="rf-chip">Attendance Taken</span>{% endif %}
+            </span>
+        </span>
+        {% if can_edit and m.status != 'published' or request.user.is_admin %}
+        <button type="button"
+                class="js-show-delete-modal rf-cmte-icon-btn"
+                title="Delete minutes"
+                aria-label="Delete {{ m.title }}"
+                data-minutes-id="{{ m.id }}"
+                data-minutes-title="{{ m.title|escapejs }}"
+                data-minutes-status="{{ m.status }}">
+            <svg aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+        </button>
+        {% endif %}
+        <span class="rf-chevron" aria-hidden="true">›</span>
+    </a>
+    {% endfor %}
+</div>
+{% else %}
+<div class="rf-card is-padded rf-cmte-empty">
+    <span class="rf-tile rf-tile-lg is-teal" aria-hidden="true"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg></span>
+    <h3>No minutes recorded yet</h3>
+    {% if can_create %}
+    <p>Click "New Minutes" to start recording committee meeting minutes.</p>
+    {% else %}
+    <p>No committee meeting minutes have been recorded yet.</p>
+    {% endif %}
+</div>
+{% endif %}

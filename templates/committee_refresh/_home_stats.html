@@ -1,0 +1,9 @@
+{% comment %}Website refresh: committee_home's six numbers as the app's stat tiles. Same numbers, labels and notes.{% endcomment %}
+<div class="rf-stats rf-cmte-stats">
+    <div class="rf-stat"><span class="rf-stat-text"><span class="rf-stat-count{% if not stats.total_people %} is-zero{% endif %}">{{ stats.total_people }}</span><span class="rf-stat-label">Total</span></span></div>
+    <div class="rf-stat"><span class="rf-stat-text"><span class="rf-stat-count{% if not stats.total_members %} is-zero{% endif %}">{{ stats.total_members }}</span><span class="rf-stat-label">Members</span><span class="rf-cmte-stat-note is-success">{{ stats.voting_members_count }} can vote</span></span></div>
+    <div class="rf-stat"><span class="rf-stat-text"><span class="rf-stat-count{% if not stats.total_chairs %} is-zero{% endif %}">{{ stats.total_chairs }}</span><span class="rf-stat-label">Chairs</span></span></div>
+    <div class="rf-stat"><span class="rf-stat-text"><span class="rf-stat-count{% if not stats.total_advisors %} is-zero{% endif %}">{{ stats.total_advisors }}</span><span class="rf-stat-label">Advisors</span></span></div>
+    <div class="rf-stat"><span class="rf-stat-text"><span class="rf-stat-count{% if not stats.total_documents %} is-zero{% endif %}">{{ stats.total_documents }}</span><span class="rf-stat-label">Documents</span><span class="rf-cmte-stat-note">{{ stats.published_documents }} published</span></span></div>
+    <div class="rf-stat"><span class="rf-stat-text"><span class="rf-stat-count{% if not stats.total_votes %} is-zero{% endif %}">{{ stats.total_votes }}</span><span class="rf-stat-label">Votes</span>{% if stats.active_votes %}<span class="rf-cmte-stat-note is-success">{{ stats.active_votes }} active</span>{% endif %}</span></div>
+</div>

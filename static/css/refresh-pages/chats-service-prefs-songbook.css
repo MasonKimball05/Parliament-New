@@ -1,0 +1,420 @@
+/* =========================================================================
+   Website refresh: Chats (/chats/ and a conversation), Service Hours
+   (/service-hours/ and /service-hours/submit/), Preferences (/preferences/)
+   and Songbook (/songbook/ and a song).
+
+   Loaded by base.html after refresh.css, only when `ui_refresh` is on (see
+   src/ui_refresh.py). Plain CSS, no Tailwind build. Uses refresh.css's
+   tokens (--rf-*). Every rule is scoped under a class the page's template
+   adds only with the refresh on:
+
+     .rf-chats       chat/index.html (the list is chat_refresh/_channels.html)
+     .rf-svc         service_hours/user_dashboard.html (My Submissions is
+                     service_hours_refresh/_submissions.html)
+     .rf-svc-form    service_hours/submit_hours.html
+     .rf-prefs       preferences.html: the checkboxes become the app's
+                     switches (still the same <input type="checkbox">, so the
+                     form posts exactly what it did)
+     .rf-songbook    songbook.html (songs are songbook_refresh/_songs.html)
+     .rf-song        songbook_detail.html
+
+   The conversation (chat/channel.html) is not edited at all: a few rules at
+   the end restyle it through ids only that page has (#chat-container,
+   #message-form), under :root.ui-refresh.
+   ========================================================================= */
+
+:root.ui-refresh {
+    --rf-csps-purple-soft: #e9e3f9;
+    --rf-csps-purple-ink: #5b3fb5;
+    /* Switch track when off: 3.9:1 against the card, so the control's edge
+       meets WCAG's 3:1 for non-text contrast. */
+    --rf-csps-switch-off: #7c828d;
+    --rf-csps-knob: #ffffff;
+}
+:root.ui-refresh.dark {
+    --rf-csps-purple-soft: #2b2352;
+    --rf-csps-purple-ink: #c3b3f5;
+    --rf-csps-switch-off: #6b7894;
+    --rf-csps-knob: #ffffff;
+}
+
+/* ---------- Shared on these pages ----------------------------------------- */
+
+:is(.rf-chats, .rf-svc, .rf-songbook) .rf-chip.is-purple { background: var(--rf-csps-purple-soft); color: var(--rf-csps-purple-ink); }
+
+:is(.rf-chats, .rf-svc) .rf-empty {
+    padding: 40px 20px;
+    text-align: center;
+    color: var(--rf-text-secondary);
+}
+:is(.rf-chats, .rf-svc) .rf-empty-icon { font-size: 44px; line-height: 1; margin-bottom: 12px; }
+:is(.rf-chats, .rf-svc) .rf-empty-svg { display: block; width: 44px; height: 44px; margin: 0 auto 10px; color: var(--rf-text-muted); }
+:is(.rf-chats, .rf-svc) .rf-empty-title { margin: 0; font-size: 17px; font-weight: 700; color: var(--rf-text); }
+:is(.rf-chats, .rf-svc) .rf-empty-sub { margin: 4px 0 0; font-size: 14px; color: var(--rf-text-secondary); }
+
+/* The list pages read at the app's column width. */
+.rf-chats.max-w-7xl,
+.rf-songbook.max-w-7xl { max-width: calc(var(--rf-readable) + 64px); }
+.rf-svc.container { max-width: calc(var(--rf-readable) + 32px); }
+
+/* ---------- Chats: the list ------------------------------------------------ */
+
+/* Header links (Chat reports, Muted members, View All, Create Channel) carry
+   inline colors, so these few declarations need !important to win. They
+   become the app's pills; Create Channel is the filled one. */
+.rf-chats > .flex:first-child a[style] {
+    border-color: transparent !important;
+    border-radius: 999px;
+    color: var(--rf-accent) !important;
+    background-color: var(--rf-surface) !important;
+    box-shadow: inset 0 0 0 1px var(--rf-card-border);
+    padding: 8px 16px;
+    font-size: 14px;
+    line-height: 1.3;
+}
+.rf-chats > .flex:first-child a[style]:hover { background-color: var(--rf-surface-muted) !important; }
+.rf-chats > .flex:first-child a.text-white[style] {
+    background-color: var(--rf-accent) !important;
+    color: var(--rf-accent-text) !important;
+    box-shadow: none;
+}
+.rf-chats > .flex:first-child a.text-white[style]:hover { background-color: var(--rf-accent-hover) !important; }
+.rf-chats > .flex:first-child a[style]:focus-visible { outline: 2px solid var(--rf-accent); outline-offset: 2px; }
+.rf-chats > .flex:first-child { margin-bottom: 0; }
+.rf-chats > .flex:first-child h1 { font-size: clamp(24px, 4vw, 30px); letter-spacing: -0.02em; font-weight: 800; }
+
+.rf-chat-item + .rf-chat-item { border-top: 1px solid var(--rf-separator); }
+@media (min-resolution: 2dppx) { .rf-chat-item + .rf-chat-item { border-top-width: 0.5px; } }
+.rf-chat-row { padding: 12px 14px; }
+.rf-chat-avatar {
+    width: 44px; height: 44px; border-radius: 999px; flex-shrink: 0;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: var(--rf-accent-soft);
+    font-size: 22px; line-height: 1;
+}
+.rf-chat-name { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; }
+.rf-chat-row.is-unread .rf-row-title { font-weight: 700; }
+.rf-chat-desc { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.rf-chat-row.is-unread .rf-chat-desc { color: var(--rf-text); }
+.rf-chat-access { font-size: 12px; color: var(--rf-text-muted); }
+.rf-chat-row .rf-badge { margin-left: 4px; }
+.rf-chat-actions { margin-left: 0; padding: 0 16px 12px 70px; gap: 16px; flex-wrap: wrap; }
+.rf-chat-actions a.is-danger { color: var(--rf-danger); }
+
+/* ---------- Chats: a conversation (chat/channel.html, unedited) ------------ */
+
+:root.ui-refresh #chat-container {
+    background-color: var(--rf-surface);
+    border-color: var(--rf-card-border);
+    border-radius: var(--rf-radius-card);
+}
+/* channel.html's own <style> paints these gray in dark with !important;
+   the navy surface needs the same weight (and a more specific selector). */
+:root.ui-refresh.dark #chat-container {
+    background-color: var(--rf-surface) !important;
+    border-color: var(--rf-card-border) !important;
+}
+:root.ui-refresh.dark #message-input::placeholder { color: var(--rf-text-muted) !important; }
+:root.ui-refresh div:has(> #message-form) {
+    border-radius: var(--rf-radius-card);
+    border-color: var(--rf-card-border);
+    background-color: var(--rf-surface);
+}
+:root.ui-refresh #message-form button[type="submit"] {
+    border-radius: 999px;
+    background-color: var(--rf-accent);
+    color: var(--rf-accent-text);
+}
+:root.ui-refresh #message-form button[type="submit"]:hover { background-color: var(--rf-accent-hover); }
+:root.ui-refresh #notif-pref-btn { border-radius: 999px; border-color: var(--rf-card-border); }
+:root.ui-refresh #jump-to-bottom { background-color: var(--rf-surface); border-color: var(--rf-card-border); }
+:root.ui-refresh #load-older-btn { border-color: var(--rf-card-border); color: var(--rf-text-secondary); }
+
+/* ---------- Service Hours: dashboard --------------------------------------- */
+
+/* Progress: the app's hero card (period, big number, a track). */
+.rf-svc-progress > div:first-child { border-bottom: 0; padding-bottom: 0; }
+.rf-svc-progress h2 { font-size: 15px; font-weight: 600; color: var(--rf-text-secondary); }
+.rf-svc-progress .rounded-full.h-4 { height: 10px; }
+.rf-svc-progress .bg-gray-200.rounded-full { background-color: var(--rf-surface-muted); }
+.rf-svc-progress .bg-primary-600.rounded-full { background-color: var(--rf-accent); }
+.rf-svc-progress .bg-green-600.rounded-full { background-color: var(--rf-success); }
+.rf-svc .rf-svc-progress .text-green-600 { color: var(--rf-success); }
+
+/* Approved / Pending / Required / Remaining: stat tiles on the muted fill,
+   each number in its tone and the labels in secondary ink. */
+.rf-svc .rf-svc-stats > div {
+    background-color: var(--rf-surface-muted);
+    border-radius: 12px;
+    padding: 14px 10px;
+}
+.rf-svc .rf-svc-stats > div > div:first-child { font-size: 26px; font-weight: 800; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.rf-svc .rf-svc-stats > div > div:nth-child(2) { font-size: 12px; font-weight: 600; color: var(--rf-text-secondary); text-transform: uppercase; letter-spacing: 0.04em; }
+.rf-svc .rf-svc-stats > div:nth-child(1) > div:first-child { color: var(--rf-success); }
+.rf-svc .rf-svc-stats > div:nth-child(2) > div:first-child { color: var(--rf-warning); }
+.rf-svc .rf-svc-stats > div:nth-child(3) > div:first-child { color: var(--rf-accent); }
+.rf-svc .rf-svc-stats > div:nth-child(4) > div:first-child { color: var(--rf-text-secondary); }
+.rf-svc .rf-svc-stats .text-purple-600 { color: var(--rf-csps-purple-ink); }
+
+/* The adjusted-requirement note */
+.rf-svc .rf-svc-progress .bg-purple-50 { background-color: var(--rf-csps-purple-soft); border-color: transparent; }
+.rf-svc .rf-svc-progress .bg-purple-50 :is(p, svg) { color: var(--rf-csps-purple-ink); }
+
+/* Hour Adjustments: + / - pills in the success and danger tones */
+.rf-svc .rf-svc-adjust .bg-green-100 { background-color: var(--rf-success-soft); color: var(--rf-success); border-radius: 999px; font-size: 13px; font-weight: 600; }
+.rf-svc .rf-svc-adjust .bg-red-100 { background-color: var(--rf-danger-soft); color: var(--rf-danger); border-radius: 999px; font-size: 13px; font-weight: 600; }
+
+/* No active period */
+.rf-svc > .bg-yellow-50 { background-color: var(--rf-warning-soft); border-color: transparent; border-radius: var(--rf-radius-card); }
+.rf-svc > .bg-yellow-50 :is(span, svg) { color: var(--rf-warning); }
+
+/* My Submissions (service_hours_refresh/_submissions.html) */
+.rf-svc .rf-section-title { margin-top: 24px; }
+.rf-svc-row { gap: 12px; }
+.rf-svc-row .rf-row-icon { min-width: 16px; margin-top: 5px; }
+.rf-svc-dot { display: block; width: 12px; height: 12px; border-radius: 999px; background: var(--rf-text-muted); }
+.rf-svc-dot.is-approved { background: var(--rf-success); }
+.rf-svc-dot.is-pending { background: var(--rf-warning); }
+.rf-svc-dot.is-rejected { background: var(--rf-danger); }
+.rf-svc-status.is-approved { background: var(--rf-success-soft); color: var(--rf-success); }
+.rf-svc-status.is-pending { background: var(--rf-warning-soft); color: var(--rf-warning); }
+.rf-svc-status.is-rejected { background: var(--rf-danger-soft); color: var(--rf-danger); }
+.rf-svc-meta { font-size: 12px; color: var(--rf-text-muted); }
+.rf-svc-side { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex-shrink: 0; }
+.rf-svc-hours { font-size: 15px; font-weight: 700; color: var(--rf-text); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.rf-svc-side .rf-row-actions { padding-left: 0; }
+.rf-row-link.rf-row-title { display: inline; }
+.rf-svc-empty-btn { margin-top: 18px; gap: 6px; }
+.rf-svc-empty-btn svg { width: 18px; height: 18px; }
+
+/* ---------- Service Hours: submit form ------------------------------------ */
+
+.rf-svc-form > .mb-6 h1 { font-size: clamp(24px, 4vw, 28px); font-weight: 800; letter-spacing: -0.02em; }
+.rf-svc-form > .bg-white { border-radius: var(--rf-radius-card); }
+.rf-svc-form label.block { font-size: 13px; font-weight: 600; color: var(--rf-text-secondary); }
+.rf-svc-form #submit-btn {
+    background-color: var(--rf-accent);
+    color: var(--rf-accent-text);
+    border-radius: var(--rf-radius-control);
+    font-weight: 600;
+    min-height: 2.5rem;
+}
+.rf-svc-form #submit-btn:hover { background-color: var(--rf-accent-hover); }
+.rf-svc-form #submit-btn svg { color: currentColor; }
+.rf-svc-form #submit-form > div:last-child > a {
+    border-color: var(--rf-accent);
+    color: var(--rf-accent);
+    border-radius: var(--rf-radius-control);
+    font-weight: 600;
+}
+.rf-svc-form #submit-form > div:last-child > a:hover { background-color: var(--rf-accent-soft); }
+.rf-svc-form input[type="file"] { width: 100%; font-size: 14px; color: var(--rf-text-secondary); }
+.rf-svc-form input[type="file"]::file-selector-button {
+    margin-right: 12px;
+    border: 0;
+    border-radius: 999px;
+    padding: 7px 14px;
+    background: var(--rf-accent-soft);
+    color: var(--rf-accent-on-soft);
+    font-weight: 600;
+    cursor: pointer;
+}
+.rf-svc-form .text-red-500 { color: var(--rf-danger); }
+
+/* ---------- Preferences ---------------------------------------------------- */
+
+/* Section headings: the app's icon tiles (a white glyph on a solid square) */
+.rf-prefs h2.text-xl { font-size: 17px; font-weight: 700; letter-spacing: -0.01em; }
+.rf-prefs h2 svg.w-6 {
+    width: 30px; height: 30px; padding: 6px; margin-right: 10px;
+    border-radius: 8px; flex-shrink: 0;
+    background-color: var(--rf-tile-blue);
+    color: #ffffff;
+}
+.rf-prefs h2 svg.w-6.text-yellow-500 { background-color: var(--rf-tile-gold); }
+.rf-prefs h2 svg.w-6.text-indigo-600 { background-color: var(--rf-tile-purple); }
+.rf-prefs h2 a.text-indigo-600 { color: var(--rf-accent); }
+
+/* Toggle rows (ToggleRow): label on the left, switch on the right, a
+   hairline between rows. The markup is checkbox then label; row-reverse
+   swaps them visually only (tab order is unchanged, and the label's `for`
+   still points at the same input). */
+.rf-prefs .flex.items-center:has(> input[type="checkbox"]) {
+    flex-direction: row-reverse;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+}
+.rf-prefs .flex.items-center:has(> input[type="checkbox"]) > label { margin-left: 0; flex: 1 1 auto; min-width: 0; cursor: pointer; }
+.rf-prefs .flex.items-center:has(> input[type="checkbox"]) > label > span { font-size: 15px; font-weight: 600; color: var(--rf-text); }
+.rf-prefs .flex.items-center:has(> input[type="checkbox"]) > label > p { font-size: 13px; margin-top: 1px; }
+.rf-prefs .space-y-4 > .flex.items-center:has(> input[type="checkbox"]) + .flex.items-center:has(> input[type="checkbox"]) {
+    border-top: 1px solid var(--rf-separator);
+    padding-top: 14px;
+}
+.rf-prefs .space-y-4 > .flex.items-center:has(> input[type="checkbox"]) ~ .flex.items-center { margin-top: 14px; }
+
+/* The switch itself: the same checkbox, drawn as a track with a knob. */
+.rf-prefs .flex.items-center > input[type="checkbox"] {
+    -webkit-appearance: none;
+    appearance: none;
+    flex: none;
+    width: 46px;
+    height: 28px;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 999px;
+    background-color: var(--rf-csps-switch-off);
+    background-image: radial-gradient(circle closest-side, var(--rf-csps-knob) 92%, transparent 100%);
+    background-size: 24px 24px;
+    background-repeat: no-repeat;
+    background-position: 2px 50%;
+    color: transparent;
+    cursor: pointer;
+    box-shadow: none;
+    transition: background-color 0.15s, background-position 0.15s;
+}
+.rf-prefs .flex.items-center > input[type="checkbox"]:checked,
+.rf-prefs .flex.items-center > input[type="checkbox"]:checked:hover,
+.rf-prefs .flex.items-center > input[type="checkbox"]:checked:focus {
+    background-color: var(--rf-accent);
+    background-image: radial-gradient(circle closest-side, var(--rf-csps-knob) 92%, transparent 100%);
+    background-size: 24px 24px;
+    background-position: 20px 50%;
+}
+.rf-prefs .flex.items-center > input[type="checkbox"]:focus { box-shadow: none; outline: none; }
+.rf-prefs .flex.items-center > input[type="checkbox"]:focus-visible { outline: 2px solid var(--rf-accent); outline-offset: 2px; }
+.rf-prefs .flex.items-center > input[type="checkbox"]:disabled { cursor: not-allowed; }
+@media (prefers-reduced-motion: reduce) { .rf-prefs .flex.items-center > input[type="checkbox"] { transition: none; } }
+
+/* Labels over the selects, "Notify me about" / "Install" captions */
+.rf-prefs label.block { font-size: 13px; font-weight: 600; color: var(--rf-text-secondary); }
+.rf-prefs p.uppercase { color: var(--rf-text-muted); letter-spacing: 0.04em; }
+
+/* The selects (theme, home layout, landing page) carry bg-white, which is
+   the card's own color in the refresh: the app's filled field instead. */
+.rf-prefs select.mt-1 {
+    background-color: var(--rf-surface-muted);
+    border-color: transparent;
+    border-radius: var(--rf-radius-control);
+    padding: 10px 40px 10px 12px;
+    color: var(--rf-text);
+    --tw-shadow: 0 0 #0000;
+}
+.rf-prefs select.mt-1:focus { background-color: var(--rf-surface); border-color: var(--rf-accent); }
+
+/* Menu limit warning */
+.rf-prefs #menu-limit-warning { background-color: var(--rf-warning-soft); border-color: transparent; color: var(--rf-warning); }
+
+/* Security & Privacy: grouped rows on the muted fill */
+.rf-prefs a.bg-gray-50 { background-color: var(--rf-surface-muted); border-radius: 12px; }
+.rf-prefs a.bg-gray-50:hover { background-color: var(--rf-separator); }
+.rf-prefs a.bg-red-50 { background-color: var(--rf-danger-soft); border-radius: 12px; }
+.rf-prefs a.bg-red-50 :is(span, p, svg) { color: var(--rf-danger); }
+
+/* Restart Onboarding Tour: white on yellow read poorly; the accent's soft pill */
+.rf-prefs #restart-onboarding-btn {
+    background-color: var(--rf-accent-soft);
+    color: var(--rf-accent-on-soft);
+    font-weight: 600;
+}
+.rf-prefs #restart-onboarding-btn:hover { filter: brightness(0.96); }
+
+/* ---------- Songbook: the list --------------------------------------------- */
+
+.rf-songbook-head h1 { font-size: clamp(24px, 4vw, 30px); font-weight: 800; letter-spacing: -0.02em; }
+.rf-songbook-head .bg-primary-100.rounded-full {
+    border-radius: 12px;
+    background-color: var(--rf-tile-purple);
+}
+.rf-songbook-head .bg-primary-100.rounded-full svg { color: #ffffff; }
+.rf-songbook .rf-songbook-head a.inline-flex {
+    border-radius: 999px;
+    border-color: transparent;
+    --tw-shadow: 0 0 #0000;
+    background-color: var(--rf-accent-soft);
+    color: var(--rf-accent-on-soft);
+    font-weight: 600;
+}
+.rf-songbook .rf-songbook-head a.inline-flex.bg-primary-600 { background-color: var(--rf-accent); color: var(--rf-accent-text); }
+.rf-songbook .rf-songbook-head a.inline-flex:hover { filter: brightness(0.96); }
+.rf-songbook .rf-songbook-head a.inline-flex svg { color: currentColor; }
+
+.rf-songbook .rf-songbook-search .bg-gray-200 { background-color: var(--rf-surface-muted); color: var(--rf-text); }
+.rf-songbook .rf-songbook-search button[type="submit"] { font-weight: 600; }
+
+/* Category tabs → the app's chips: no card, a wrap of pills, the chosen one
+   in the accent's soft fill (the old tab marked it with a colored border, so
+   the chosen link is the one without `border-transparent`). */
+.rf-songbook .rf-songbook-cats {
+    background-color: transparent;
+    --tw-shadow: 0 0 #0000;
+    overflow: visible;
+}
+.rf-songbook .rf-songbook-cats > .flex { border-bottom: 0; gap: 8px; }
+.rf-songbook .rf-songbook-cats a {
+    border: 0;
+    border-radius: 999px;
+    padding: 7px 12px;
+    background-color: var(--rf-surface);
+    box-shadow: inset 0 0 0 1px var(--rf-card-border);
+    color: var(--rf-text);
+    font-weight: 600;
+}
+.rf-songbook .rf-songbook-cats a.border-transparent:hover { background-color: var(--rf-surface-muted); color: var(--rf-text); }
+.rf-songbook .rf-songbook-cats a:not(.border-transparent),
+.rf-songbook .rf-songbook-cats a:not(.border-transparent):hover {
+    background-color: var(--rf-accent);
+    box-shadow: none;
+    color: var(--rf-accent-text);
+}
+.rf-songbook .rf-songbook-cats a > span {
+    background-color: var(--rf-surface-muted);
+    color: var(--rf-text-secondary);
+    font-weight: 600;
+}
+.rf-songbook .rf-songbook-cats a:not(.border-transparent) > span { background-color: var(--rf-surface); color: var(--rf-text); }
+.rf-songbook .rf-songbook-cats a:focus-visible { outline: 2px solid var(--rf-accent); outline-offset: 2px; }
+
+/* Songs (songbook_refresh/_songs.html). SongCategory.color is blue, green,
+   red, yellow, purple, pink or gray; refresh.css has most tile colors, and
+   yellow and pink map to gold and red as in the app (src/songbook). */
+.rf-songbook .rf-song-tile.is-yellow { background: var(--rf-tile-gold); }
+.rf-songbook .rf-song-tile.is-pink { background: var(--rf-tile-red); }
+.rf-song-title { display: flex; align-items: center; gap: 6px; }
+.rf-song-audio { display: inline-flex; color: var(--rf-success); flex: none; }
+.rf-song-audio svg { width: 15px; height: 15px; }
+.rf-song-sub { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.rf-song-cat { font-weight: 600; color: var(--rf-text-secondary); }
+
+/* ---------- Songbook: a song ---------------------------------------------- */
+
+.rf-song .bg-gradient-to-r {
+    background-image: none;
+    background-color: transparent;
+    border-bottom-color: var(--rf-separator);
+}
+.rf-song .bg-gradient-to-r h1 { font-size: clamp(24px, 4vw, 30px); font-weight: 800; letter-spacing: -0.02em; }
+.rf-song .bg-gradient-to-r h1 + span.rounded-full {
+    background-color: var(--rf-accent-soft);
+    color: var(--rf-accent-on-soft);
+    font-size: 12px;
+    font-weight: 600;
+    padding: 3px 10px;
+}
+.rf-song .bg-gradient-to-r .bg-yellow-100 { background-color: var(--rf-accent-soft); color: var(--rf-accent-on-soft); font-weight: 600; }
+.rf-song .bg-gradient-to-r .bg-yellow-100:hover { background-color: var(--rf-accent-soft); filter: brightness(0.96); }
+.rf-song #js-confirm-delete { background-color: var(--rf-danger-soft); color: var(--rf-danger); font-weight: 600; }
+.rf-song #js-confirm-delete:hover { filter: brightness(0.96); }
+.rf-song .bg-gray-50:has(> pre) {
+    background-color: var(--rf-surface-muted);
+    border-color: transparent;
+    border-radius: 12px;
+}
+.rf-song pre { font-size: 17px; line-height: 1.6; color: var(--rf-text); }
+.rf-song > .bg-white > div:last-child { background-color: transparent; border-top-color: var(--rf-separator); }
+.rf-song audio { width: 100%; }
+.rf-song-modal .bg-red-600 { background-color: var(--rf-danger); }
+:root.ui-refresh.dark .rf-song-modal .bg-red-600 { color: var(--rf-accent-text); }
+.rf-song .text-primary-500 { color: var(--rf-accent); }

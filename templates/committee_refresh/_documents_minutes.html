@@ -1,0 +1,28 @@
+{% comment %}Website refresh: committee documents' "Unpublished Minutes" as the app's "Minutes in progress" rows (committee/[code]/documents.tsx). Same links, fields and conditions as the card it replaces.{% endcomment %}
+{% if unpublished_minutes %}
+<section class="rf-cmte-group">
+    <div class="rf-section-title"><h2>Unpublished Minutes</h2></div>
+    <p class="rf-cmte-note">Minutes sessions that exist but haven't been published to committee documents yet — visible here to committee members, chairs, and officers only.</p>
+    <div class="rf-card">
+        {% for m in unpublished_minutes %}
+        <div class="rf-row rf-row-group">
+            <span class="rf-row-icon"><span class="rf-tile is-gray" aria-hidden="true"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg></span></span>
+            <span class="rf-row-body">
+                <a href="{% if m.can_user_edit %}{% url 'edit_committee_minutes' committee.code m.id %}{% else %}{% url 'download_committee_minutes_pdf' committee.code m.id %}?preview=1{% endif %}" class="rf-row-title rf-row-link">{{ m.title }}</a>
+                <span class="rf-row-sub">{{ m.date|date:"M d, Y" }} &middot; created by {{ m.created_by.get_display_name }}</span>
+                <span class="rf-row-pills">
+                    {% if m.status == 'draft' %}<span class="rf-chip is-warning">Draft — Not Published</span>{% elif m.status == 'finalized' %}<span class="rf-chip is-accent">Finalized — Not Published</span>{% endif %}
+                </span>
+            </span>
+            <span class="rf-cmte-trailing">
+                {% if m.can_user_edit %}
+                <a href="{% url 'edit_committee_minutes' committee.code m.id %}" class="rf-cmte-act">✏️ Edit</a>
+                {% else %}
+                <a href="{% url 'download_committee_minutes_pdf' committee.code m.id %}?preview=1" class="rf-cmte-act">Preview</a>
+                {% endif %}
+            </span>
+        </div>
+        {% endfor %}
+    </div>
+</section>
+{% endif %}

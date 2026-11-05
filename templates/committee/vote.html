@@ -4,7 +4,7 @@
 {% block title %}{{ committee.name }} - Voting{% endblock %}
 
 {% block content %}
-<div class="container mx-auto px-4 py-8">
+<div class="container mx-auto px-4 py-8{% if ui_refresh %} rf-cmte rf-cmte-vote{% endif %}">
     <div class="mb-6">
         <a href="{% url 'committee_home' committee.code %}" class="text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300">← Back to Committee</a>
     </div>
@@ -12,18 +12,18 @@
     <h1 class="text-3xl font-bold mb-6 text-gray-900 dark:text-gray-100">{{ committee.name }} — Voting</h1>
 
     {% if not is_voting_member %}
-        <div class="bg-yellow-100 dark:bg-yellow-900/20 border border-yellow-400 dark:border-yellow-500 text-yellow-700 dark:text-yellow-300 px-4 py-3 rounded mb-6 transition-colors duration-200">
+        <div class="bg-yellow-100 dark:bg-yellow-900/20 border border-yellow-400 dark:border-yellow-500 text-yellow-700 dark:text-yellow-300 px-4 py-3 rounded mb-6 transition-colors duration-200{% if ui_refresh %} rf-cmte-notice is-warning{% endif %}">
             <p>You are not a voting member of this committee.</p>
         </div>
     {% elif not can_vote %}
-        <div class="bg-yellow-100 dark:bg-yellow-900/20 border border-yellow-400 dark:border-yellow-500 text-yellow-700 dark:text-yellow-300 px-4 py-3 rounded mb-6 transition-colors duration-200">
+        <div class="bg-yellow-100 dark:bg-yellow-900/20 border border-yellow-400 dark:border-yellow-500 text-yellow-700 dark:text-yellow-300 px-4 py-3 rounded mb-6 transition-colors duration-200{% if ui_refresh %} rf-cmte-notice is-warning{% endif %}">
             <p>You must be marked present at a meeting to vote. Please check in with attendance.</p>
         </div>
     {% endif %}
 
     <!-- Chair Actions -->
     {% if is_chair %}
-        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-6 transition-colors duration-200">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-6 transition-colors duration-200{% if ui_refresh %} rf-cmte-chair{% endif %}">
             <h2 class="text-xl font-semibold mb-4 text-gray-900 dark:text-gray-100">Chair Actions</h2>
             <a href="{% url 'create_committee_vote' committee.code %}"
                class="inline-block bg-primary-600 text-white px-4 py-2 rounded hover:bg-primary-700 transition-colors">
@@ -34,16 +34,16 @@
 
     <!-- Available Legislation -->
     <div class="space-y-6">
-        <h2 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Available Legislation</h2>
+        <h2 class="text-2xl font-bold text-gray-900 dark:text-gray-100{% if ui_refresh %} rf-cmte-h2{% endif %}">Available Legislation</h2>
 
         {% for leg in legislation %}
-        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 transition-colors duration-200">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 transition-colors duration-200{% if ui_refresh %} rf-cmte-bill{% endif %}">
             <div class="flex justify-between items-start mb-4">
                 <div>
                     <h3 class="text-xl font-semibold mb-2 text-gray-900 dark:text-gray-100">{{ leg.title }}</h3>
                     <p class="text-gray-600 dark:text-gray-400 text-sm mb-2">Posted by {{ leg.posted_by.name }} on {{ leg.available_at|date:"M d, Y" }}</p>
                     {% if leg.anonymous_vote %}
-                        <span class="bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200 px-2 py-1 rounded text-xs">Anonymous Voting</span>
+                        <span class="bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200 px-2 py-1 rounded text-xs{% if ui_refresh %} rf-chip is-purple{% endif %}">Anonymous Voting</span>
                     {% endif %}
                 </div>
                 <div class="text-right">
@@ -77,7 +77,7 @@
 
             <!-- User Already Voted Notice -->
             {% if leg.id in user_voted %}
-                <div class="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg p-4 mb-4">
+                <div class="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg p-4 mb-4{% if ui_refresh %} rf-cmte-notice is-success{% endif %}">
                     <div class="flex items-center">
                         <svg class="w-5 h-5 text-green-600 dark:text-green-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
@@ -89,7 +89,7 @@
 
             <!-- Voting Form - Only show if user hasn't voted yet -->
             {% if can_vote and leg.id not in user_voted %}
-                <form method="POST" class="js-vote-form space-y-4">
+                <form method="POST" class="js-vote-form space-y-4{% if ui_refresh %} rf-cmte-ballot{% endif %}">
                     {% csrf_token %}
                     <input type="hidden" name="legislation_id" value="{{ leg.id }}">
                     <input type="hidden" name="action" value="cast_vote">
@@ -102,7 +102,7 @@
                             {% else %}
                                 <p class="font-medium text-gray-700 dark:text-gray-300 mb-2">Select an option:</p>
                             {% endif %}
-                            <div class="flex flex-wrap gap-3">
+                            <div class="flex flex-wrap gap-3{% if ui_refresh %} rf-cmte-choices{% endif %}">
                                 {% for option in leg.plurality_options %}
                                 <label class="vote-option cursor-pointer">
                                     {% if leg.plurality_votes_allowed > 1 %}
@@ -133,7 +133,7 @@
                         <!-- Standard Voting -->
                         <div class="space-y-3">
                             <p class="font-medium text-gray-700 dark:text-gray-300 mb-2">Select your vote:</p>
-                            <div class="flex flex-wrap gap-3">
+                            <div class="flex flex-wrap gap-3{% if ui_refresh %} rf-cmte-choices{% endif %}">
                                 <!-- Yes Option -->
                                 <label class="vote-option cursor-pointer">
                                     <input type="radio" name="vote_choice" value="yes" required class="sr-only peer">
@@ -193,7 +193,7 @@
                         </div>
                     {% endif %}
 
-                    <div class="flex flex-col sm:flex-row gap-4 items-start sm:items-end">
+                    <div class="flex flex-col sm:flex-row gap-4 items-start sm:items-end{% if ui_refresh %} rf-cmte-confirm{% endif %}">
                         <div class="flex-1 max-w-xs">
                             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                                 Confirm with Password
@@ -232,7 +232,7 @@
             <!-- Vote Results (shown if user voted, is chair, or is poster) -->
             {% if leg.id in vote_data %}
                 {% with leg_votes=vote_data|get_item:leg.id %}
-                <div class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                <div class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700{% if ui_refresh %} rf-cmte-tally{% endif %}">
                     <div class="flex justify-between items-center mb-3">
                         <h4 class="font-semibold text-gray-900 dark:text-gray-100">Current Results:</h4>
                         <a href="{% url 'committee_vote_result' committee.code leg.id %}"
@@ -307,7 +307,7 @@
 
             <!-- End Vote / Delete Buttons (for chair or poster) -->
             {% if can_end_vote|get_item:leg.id %}
-                <div class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 flex gap-3">
+                <div class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 flex gap-3{% if ui_refresh %} rf-cmte-bill-actions{% endif %}">
                     <form method="POST" id="end-vote-form-{{ leg.id }}">
                         {% csrf_token %}
                         <input type="hidden" name="legislation_id" value="{{ leg.id }}">
@@ -336,7 +336,7 @@
             {% endif %}
         </div>
         {% empty %}
-        <div class="bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg p-8 text-center transition-colors duration-200">
+        <div class="bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg p-8 text-center transition-colors duration-200{% if ui_refresh %} rf-cmte-empty{% endif %}">
             <p class="text-gray-600 dark:text-gray-400">No active legislation at this time.</p>
         </div>
         {% endfor %}
@@ -345,7 +345,7 @@
     <!-- Voting History Section -->
     {% if closed_legislation %}
     <div class="space-y-6 mt-10">
-        <h2 class="text-2xl font-bold text-gray-900 dark:text-gray-100 flex items-center">
+        <h2 class="text-2xl font-bold text-gray-900 dark:text-gray-100 flex items-center{% if ui_refresh %} rf-cmte-h2{% endif %}">
             <svg class="w-6 h-6 mr-2 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
             </svg>
@@ -354,18 +354,18 @@
 
         {% for leg in closed_legislation %}
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 transition-colors duration-200 border-l-4
-                    {% if leg.passed %}border-green-500{% else %}border-gray-400{% endif %}">
+                    {% if leg.passed %}border-green-500{% else %}border-gray-400{% endif %}{% if ui_refresh %} rf-cmte-bill is-closed{% endif %}">
             <div class="flex justify-between items-start mb-4">
                 <div>
                     <div class="flex items-center gap-2 mb-2">
                         <h3 class="text-xl font-semibold text-gray-900 dark:text-gray-100">{{ leg.title }}</h3>
                         {% if leg.passed %}
-                            <span class="bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 px-2 py-1 rounded text-xs font-medium">Passed</span>
+                            <span class="bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 px-2 py-1 rounded text-xs font-medium{% if ui_refresh %} rf-chip is-success{% endif %}">Passed</span>
                         {% else %}
-                            <span class="bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 px-2 py-1 rounded text-xs font-medium">Closed</span>
+                            <span class="bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 px-2 py-1 rounded text-xs font-medium{% if ui_refresh %} rf-chip{% endif %}">Closed</span>
                         {% endif %}
                         {% if leg.pushed_to_chapter %}
-                            <span class="bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-1 rounded text-xs font-medium">Pushed to Chapter</span>
+                            <span class="bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-1 rounded text-xs font-medium{% if ui_refresh %} rf-chip is-accent{% endif %}">Pushed to Chapter</span>
                         {% endif %}
                     </div>
                     <p class="text-gray-600 dark:text-gray-400 text-sm">
@@ -399,7 +399,7 @@
             <!-- Vote Results -->
             {% with leg_votes=history_vote_data|get_item:leg.id %}
             {% if leg_votes %}
-                <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
+                <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4{% if ui_refresh %} rf-cmte-tally is-final{% endif %}">
                     <div class="flex justify-between items-center mb-3">
                         <h4 class="font-semibold text-gray-900 dark:text-gray-100">Final Results:</h4>
                         <a href="{% url 'committee_vote_result' committee.code leg.id %}"
@@ -474,7 +474,7 @@
 
             <!-- Chair Actions: Recalculate and Push/Unpush -->
             {% if is_chair %}
-                <div class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 flex flex-wrap gap-2">
+                <div class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 flex flex-wrap gap-2{% if ui_refresh %} rf-cmte-bill-actions{% endif %}">
                     <!-- Recalculate Result Button -->
                     <form method="POST" id="recalc-form-{{ leg.id }}" class="inline">
                         {% csrf_token %}
@@ -561,7 +561,7 @@
                 </div>
             {% elif profile.is_admin %}
                 <!-- Admin-only delete for closed votes -->
-                <div class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                <div class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700{% if ui_refresh %} rf-cmte-bill-actions{% endif %}">
                     <form method="POST" action="{% url 'delete_committee_vote' committee.code leg.id %}">
                         {% csrf_token %}
                         <button type="submit" class="bg-red-600 hover:bg-red-700 text-white font-medium px-4 py-2 rounded-lg transition-colors inline-flex items-center gap-2">

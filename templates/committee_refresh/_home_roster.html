@@ -1,0 +1,95 @@
+{% comment %}Website refresh: committee_home's four rosters as grouped cards of rows (the app's Members screen). The same "+ Add" buttons (js-open-manage-modal, data-role-type) and Remove forms, under the same conditions.{% endcomment %}
+<div class="rf-cmte-roster">
+    <section class="rf-cmte-group">
+        <div class="rf-section-title"><h2>Chairs</h2>{% if can_manage and not committee.is_archived %}<button class="js-open-manage-modal rf-cmte-add" data-role-type="chair">+ Add</button>{% endif %}</div>
+        <div class="rf-card">
+            {% if committee.chairs.all %}
+            {% for chair in committee.chairs.all %}
+            <div class="rf-row rf-cmte-person">
+                <span class="rf-avatar is-accent" aria-hidden="true">{{ chair.name|slice:":1" }}</span>
+                <span class="rf-row-body"><span class="rf-row-title">{{ chair.name }}</span></span>
+                {% if can_manage and not committee.is_archived %}
+                <form method="post" action="{% url 'committee_remove_member' committee.code %}" class="rf-cmte-remove">
+                    {% csrf_token %}
+                    <input type="hidden" name="user_id" value="{{ chair.pk }}">
+                    <input type="hidden" name="role_type" value="chair">
+                    <button type="submit">Remove</button>
+                </form>
+                {% endif %}
+            </div>
+            {% endfor %}
+            {% else %}
+            <div class="rf-row is-empty">None assigned</div>
+            {% endif %}
+        </div>
+    </section>
+    <section class="rf-cmte-group">
+        <div class="rf-section-title"><h2>Advisors</h2>{% if can_manage and not committee.is_archived %}<button class="js-open-manage-modal rf-cmte-add" data-role-type="advisor">+ Add</button>{% endif %}</div>
+        <div class="rf-card">
+            {% if committee.advisors.all %}
+            {% for advisor in committee.advisors.all %}
+            <div class="rf-row rf-cmte-person">
+                <span class="rf-avatar is-success" aria-hidden="true">{{ advisor.name|slice:":1" }}</span>
+                <span class="rf-row-body"><span class="rf-row-title">{{ advisor.name }}</span></span>
+                {% if can_manage and not committee.is_archived %}
+                <form method="post" action="{% url 'committee_remove_member' committee.code %}" class="rf-cmte-remove">
+                    {% csrf_token %}
+                    <input type="hidden" name="user_id" value="{{ advisor.pk }}">
+                    <input type="hidden" name="role_type" value="advisor">
+                    <button type="submit">Remove</button>
+                </form>
+                {% endif %}
+            </div>
+            {% endfor %}
+            {% else %}
+            <div class="rf-row is-empty">None assigned</div>
+            {% endif %}
+        </div>
+    </section>
+    <section class="rf-cmte-group">
+        <div class="rf-section-title"><h2>Voting Members</h2>{% if can_manage and not committee.is_archived %}<button class="js-open-manage-modal rf-cmte-add" data-role-type="voter">+ Add</button>{% endif %}</div>
+        <div class="rf-card">
+            {% if committee.voting_members.all %}
+            {% for voter in committee.voting_members.all %}
+            <div class="rf-row rf-cmte-person">
+                <span class="rf-avatar is-purple" aria-hidden="true">{{ voter.name|slice:":1" }}</span>
+                <span class="rf-row-body"><span class="rf-row-title">{{ voter.name }}</span></span>
+                {% if can_manage and not committee.is_archived %}
+                <form method="post" action="{% url 'committee_remove_member' committee.code %}" class="rf-cmte-remove">
+                    {% csrf_token %}
+                    <input type="hidden" name="user_id" value="{{ voter.pk }}">
+                    <input type="hidden" name="role_type" value="voter">
+                    <button type="submit">Remove</button>
+                </form>
+                {% endif %}
+            </div>
+            {% endfor %}
+            {% else %}
+            <div class="rf-row is-empty">None assigned</div>
+            {% endif %}
+        </div>
+    </section>
+    <section class="rf-cmte-group">
+        <div class="rf-section-title"><h2>Members <span class="rf-cmte-count">({{ stats.total_members }})</span></h2>{% if can_manage and not committee.is_archived %}<button class="js-open-manage-modal rf-cmte-add" data-role-type="member">+ Add</button>{% endif %}</div>
+        <div class="rf-card is-scroll">
+            {% if committee.members.all %}
+            {% for member in committee.members.all %}
+            <div class="rf-row rf-cmte-person">
+                <span class="rf-avatar" aria-hidden="true">{{ member.name|slice:":1" }}</span>
+                <span class="rf-row-body"><span class="rf-row-title">{{ member.name }}</span></span>
+                {% if can_manage and not committee.is_archived %}
+                <form method="post" action="{% url 'committee_remove_member' committee.code %}" class="rf-cmte-remove">
+                    {% csrf_token %}
+                    <input type="hidden" name="user_id" value="{{ member.pk }}">
+                    <input type="hidden" name="role_type" value="member">
+                    <button type="submit">Remove</button>
+                </form>
+                {% endif %}
+            </div>
+            {% endfor %}
+            {% else %}
+            <div class="rf-row is-empty">No members assigned</div>
+            {% endif %}
+        </div>
+    </section>
+</div>

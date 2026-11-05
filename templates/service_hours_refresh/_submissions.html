@@ -1,0 +1,49 @@
+{% comment %}
+Website refresh (src/ui_refresh.py): My Submissions as the app's Service
+Hours screen lists them: a row per submission with a status dot, the
+organization and description, its hours, date, status and period, and the
+same View / Edit links (Edit only while submission.can_edit). Replaces the
+phone cards and the desktop table in service_hours/user_dashboard.html with
+the same context and wording.
+{% endcomment %}
+<div class="rf-section-title"><h2>My Submissions</h2>{% if submissions %}<span class="rf-row-trailing">{{ submissions|length }}</span>{% endif %}</div>
+<div class="rf-card rf-svc-subs">
+    {% if submissions %}
+        {% for submission in submissions %}
+        <div class="rf-row rf-row-group rf-svc-row">
+            <span class="rf-row-icon" aria-hidden="true"><span class="rf-svc-dot is-{{ submission.status }}"></span></span>
+            <span class="rf-row-body">
+                <a href="{% url 'user_view_service_submission' submission.id %}" class="rf-row-link rf-row-title">{{ submission.organization }}</a>
+                <span class="rf-row-sub">{{ submission.description|truncatewords:10 }}</span>
+                <span class="rf-row-pills">
+                    <span class="rf-chip rf-svc-status is-{{ submission.status }}">{{ submission.get_status_display }}</span>
+                    <span class="rf-svc-meta">{{ submission.service_date|date:"M d, Y" }} · {{ submission.period.name }}</span>
+                </span>
+            </span>
+            <span class="rf-svc-side">
+                <span class="rf-svc-hours">{{ submission.hours }} hrs</span>
+                <span class="rf-row-actions">
+                    <a href="{% url 'user_view_service_submission' submission.id %}">View</a>
+                    {% if submission.can_edit %}
+                    <a href="{% url 'edit_service_submission' submission.id %}">Edit</a>
+                    {% endif %}
+                </span>
+            </span>
+        </div>
+        {% endfor %}
+    {% else %}
+        <div class="rf-empty rf-svc-empty">
+            <svg class="rf-empty-svg" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            <h3 class="rf-empty-title">No submissions yet</h3>
+            <p class="rf-empty-sub">Get started by submitting your first service hours.</p>
+            <a href="{% url 'submit_service_hours' %}" class="rf-btn rf-svc-empty-btn">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+                </svg>
+                Submit Hours
+            </a>
+        </div>
+    {% endif %}
+</div>
