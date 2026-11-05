@@ -6,7 +6,7 @@
 
 {% block content %}
 {% include "components/page_guide.html" with page_key="announcements" guide_title="Announcements" guide_icon="📢" guide_body="Announcements are how the chapter shares news, reminders, and updates. You&#39;ll see the latest posts here, and you can vote on polls attached to announcements. Officers post announcements — check back often so you don&#39;t miss anything important." %}
-<div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+<div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8{% if ui_refresh %} rf-vap rf-announcements{% endif %}">
     <!-- Header -->
     <div class="bg-gradient-to-br from-primary-600 via-primary-700 to-primary-800 rounded-xl shadow-lg p-4 sm:p-5 mb-6 text-white relative overflow-hidden">
         <div class="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-yellow-400/60 to-transparent pointer-events-none"></div>
@@ -46,7 +46,7 @@
     </div>
 
     <!-- Search and Filter Bar -->
-    <div class="card p-4 mb-6 transition-colors duration-200">
+    <div class="card p-4 mb-6 transition-colors duration-200{% if ui_refresh %} rf-filter{% endif %}">
         <form method="get" class="flex flex-col sm:flex-row gap-3">
             <!-- Search Input -->
             <div class="flex-1">
@@ -81,7 +81,7 @@
 
                 <!-- Clear Filters -->
                 {% if search_query or days_filter != 'all' %}
-                <a href="{% url 'announcements' %}" class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition font-medium whitespace-nowrap">
+                <a href="{% url 'announcements' %}" class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition font-medium whitespace-nowrap{% if ui_refresh %} rf-clear{% endif %}">
                     Clear
                 </a>
                 {% endif %}
@@ -98,7 +98,7 @@
     </div>
 
     <!-- Announcements List -->
-    {% if announcements %}
+    {% if ui_refresh %}{% include "announcements_refresh/_list.html" %}{% else %}{% if announcements %}
         <div class="space-y-6">
             {% for announcement in announcements %}
             <div class="card overflow-hidden transition-colors duration-200">
@@ -201,10 +201,10 @@
             <h3 class="mt-2 text-lg font-medium text-gray-900 dark:text-gray-100">No announcements</h3>
             <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">There are no active announcements at this time.</p>
         </div>
-    {% endif %}
+    {% endif %}{% endif %}
 
     <!-- Back to Home -->
-    <div class="mt-8">
+    <div class="mt-8{% if ui_refresh %} rf-back{% endif %}">
         <a href="{% url 'home' %}" class="text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 font-medium">
             ← Back to Home
         </a>

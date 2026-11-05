@@ -1,0 +1,90 @@
+{% load custom_filters %}{% comment %}
+Website refresh (src/ui_refresh.py): the announcements list as the app's
+Announcements screen draws it: a card per post (title and its Event pill,
+the event date in the accent, the full text, the poll and the linked
+documents as grouped rows, then who posted it and when). The web has no
+separate announcement page, so each card carries the whole post, as the
+app's announcement screen does. Same context, links and wording as the
+list it replaces in announcements.html.
+{% endcomment %}
+{% if announcements %}
+<div class="rf-section-title"><h2>{% if search_query or days_filter != 'all' %}Results{% else %}Past year{% endif %}</h2><span class="rf-row-trailing">{{ announcements|length }}</span></div>
+<div class="rf-stack rf-ann-list">
+    {% for announcement in announcements %}
+    <article class="rf-card rf-ann-card">
+        <div class="rf-ann-head">
+            <h2 class="rf-ann-card-title">{{ announcement.title }}</h2>
+            {% if announcement.event_date %}
+            <span class="rf-chip is-accent rf-ann-event">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                Event
+            </span>
+            {% endif %}
+        </div>
+        <p class="rf-ann-byline">
+            <span class="rf-avatar" aria-hidden="true">{{ announcement.posted_by.get_display_name|slice:":1"|upper }}</span>
+            <span>Posted by <span class="rf-ann-author">{{ announcement.posted_by.get_display_name }}</span> · {{ announcement.posted_at|date:"F j, Y \a\t g:i A" }}</span>
+        </p>
+
+        {% if announcement.event_date %}
+        <p class="rf-ann-when">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+            <span><span class="rf-ann-when-label">Event Date:</span> {{ announcement.event_date|date:"l, F j, Y \a\t g:i A" }}</span>
+        </p>
+        {% endif %}
+
+        <p class="rf-ann-text">{{ announcement.content|linkify }}</p>
+
+        {% with docs=announcement.linked_documents.all %}
+        {% if announcement.poll or docs %}
+        <div class="rf-ann-rows">
+            {% if announcement.poll %}
+            {% with poll=announcement.poll %}
+            {% if announcement.id in responded_poll_ids and poll.is_accepting_responses %}
+            <a href="{% url 'take_poll' announcement.id %}" class="rf-row">
+                <span class="rf-tile is-green" aria-hidden="true"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg></span>
+                <span class="rf-row-body"><span class="rf-row-title">Poll completed — {{ poll.title }} (edit)</span></span>
+                <span class="rf-chevron" aria-hidden="true">›</span>
+            </a>
+            {% elif announcement.id in responded_poll_ids %}
+            <div class="rf-row">
+                <span class="rf-tile is-green" aria-hidden="true"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg></span>
+                <span class="rf-row-body"><span class="rf-row-title">Poll completed — {{ poll.title }}</span></span>
+            </div>
+            {% elif poll.is_accepting_responses %}
+            <a href="{% url 'take_poll' announcement.id %}" class="rf-row rf-ann-poll-open">
+                <span class="rf-tile is-blue" aria-hidden="true"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg></span>
+                <span class="rf-row-body"><span class="rf-row-title">Take Poll: {{ poll.title }}</span></span>
+                <span class="rf-chip is-accent">Open</span>
+                <span class="rf-chevron" aria-hidden="true">›</span>
+            </a>
+            {% else %}
+            <div class="rf-row">
+                <span class="rf-tile is-gray" aria-hidden="true"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg></span>
+                <span class="rf-row-body"><span class="rf-row-title">Poll closed — {{ poll.title }}</span></span>
+            </div>
+            {% endif %}
+            {% endwith %}
+            {% endif %}
+            {% if docs %}
+            {% for doc in docs %}
+            <a href="{% url 'view_chapter_document' doc.id %}" class="rf-row">
+                <span class="rf-tile is-sky" aria-hidden="true"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg></span>
+                <span class="rf-row-body"><span class="rf-row-title">{{ doc.title }}</span></span>
+                <span class="rf-chevron" aria-hidden="true">›</span>
+            </a>
+            {% endfor %}
+            {% endif %}
+        </div>
+        {% endif %}
+        {% endwith %}
+    </article>
+    {% endfor %}
+</div>
+{% else %}
+<div class="rf-card rf-empty-card">
+    <span class="rf-tile rf-tile-lg is-gray" aria-hidden="true"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"/></svg></span>
+    <h3>No announcements</h3>
+    <p>There are no active announcements at this time.</p>
+</div>
+{% endif %}

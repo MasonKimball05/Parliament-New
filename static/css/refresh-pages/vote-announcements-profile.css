@@ -1,0 +1,473 @@
+/* =========================================================================
+   Website refresh: Vote, Announcements and Profile in the app's look.
+
+   Loaded by base.html after refresh.css, and only when `ui_refresh` is on
+   (src/ui_refresh.py). The templates keep every class, id and hook they had;
+   with the refresh on they add a few `rf-*` hooks (vote.html,
+   announcements.html, profile.html) and swap three parts for app-style
+   markup (announcements_refresh/_list.html, profile_refresh/_hero.html).
+
+   Selectors start with `.ui-refresh .rf-vap` (this file's pages) on purpose: that outranks the
+   Tailwind utilities and their `dark:` variants these pages are built from
+   (e.g. `.dark\:bg-purple-900\/30:is(.dark *)`), so nothing needs !important.
+   Colours come from refresh.css's tokens, light and dark.
+   Mirrors parliament-mobile: (tabs)/votes.tsx, vote/[id].tsx,
+   announcements.tsx, announcement/[id].tsx, profile.tsx.
+   ========================================================================= */
+
+/* ---------- Shared: the readable column, pills, a purple pill ----------- */
+
+.ui-refresh .rf-vap {
+    box-sizing: content-box;
+    width: auto;
+    max-width: var(--rf-readable);
+}
+
+.ui-refresh .rf-vap .rf-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    border-radius: 999px;
+    border: 0;
+    padding: 2px 9px;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.5;
+    background-color: var(--rf-surface-muted);
+    color: var(--rf-text-secondary);
+}
+.ui-refresh .rf-vap .rf-chip.is-accent { background-color: var(--rf-accent-soft); color: var(--rf-accent); }
+.ui-refresh .rf-vap .rf-chip.is-success { background-color: var(--rf-success-soft); color: var(--rf-success); }
+.ui-refresh .rf-vap .rf-chip.is-warning { background-color: var(--rf-warning-soft); color: var(--rf-warning); }
+.ui-refresh .rf-vap .rf-chip.is-danger { background-color: var(--rf-danger-soft); color: var(--rf-danger); }
+.ui-refresh .rf-vap .rf-chip.is-purple { background-color: #ece6fa; color: #553aa8; }
+.ui-refresh.dark .rf-vap .rf-chip.is-purple { background-color: #2b2452; color: #c9bcf6; }
+
+/* Notices (absent, not open yet, scheduled, voted, turnout): the app's
+   tinted cards, no outline, ink in the tone. */
+.ui-refresh .rf-vap .rf-notice {
+    border: 0;
+    border-radius: 12px;
+    padding: 12px 14px;
+}
+.ui-refresh .rf-vap .rf-notice :is(p, a, span, summary, svg) { color: inherit; }
+.ui-refresh .rf-vap .rf-notice.is-warning { background-color: var(--rf-warning-soft); color: var(--rf-warning); }
+.ui-refresh .rf-vap .rf-notice.is-accent { background-color: var(--rf-accent-soft); color: var(--rf-accent); }
+.ui-refresh .rf-vap .rf-notice.is-success { background-color: var(--rf-success-soft); color: var(--rf-success); }
+.ui-refresh .rf-vap .rf-notice.is-purple { background-color: #ece6fa; color: #553aa8; }
+.ui-refresh.dark .rf-vap .rf-notice.is-purple { background-color: #2b2452; color: #c9bcf6; }
+.ui-refresh .rf-vap .rf-notice.is-neutral { background-color: var(--rf-surface-muted); color: var(--rf-text-secondary); }
+.ui-refresh .rf-vap .rf-notice.is-neutral summary { color: var(--rf-accent); font-weight: 600; }
+.ui-refresh .rf-vap .rf-notice .text-xs { font-size: 13px; }
+
+/* ---------- Vote (/vote/) ------------------------------------------------ */
+
+/* The one-time receipt: a success card, the token in a muted well */
+.ui-refresh .rf-vote .rf-receipt {
+    border-width: 0;
+    background-color: var(--rf-success-soft);
+    box-shadow: none;
+}
+.ui-refresh .rf-vote .rf-receipt h2 { font-size: 15px; font-weight: 700; color: var(--rf-success); }
+.ui-refresh .rf-vote .rf-receipt code { background-color: var(--rf-surface); border-color: transparent; font-variant-numeric: tabular-nums; color: var(--rf-text); }
+
+/* Officer panel: the three tabs as the app's segmented control */
+.ui-refresh .rf-vote .rf-panel { border-width: 0; }
+.ui-refresh .rf-vote .rf-tabs {
+    margin: 12px 12px 0;
+    padding: 3px;
+    gap: 2px;
+    border: 0;
+    border-radius: var(--rf-radius-control);
+    background-color: var(--rf-surface-muted);
+    overflow-x: auto;
+    scrollbar-width: none;
+}
+.ui-refresh .rf-vote .rf-tabs .leg-tab {
+    flex: 1 0 auto;
+    justify-content: center;
+    margin: 0;
+    padding: 7px 12px;
+    border: 0;
+    border-radius: 8px;
+    background-color: transparent;
+    color: var(--rf-text-secondary);
+    font-weight: 600;
+    white-space: nowrap;
+}
+.ui-refresh .rf-vote .rf-tabs .leg-tab:hover { color: var(--rf-text); }
+/* the script marks the open tab with border-primary-500 */
+.ui-refresh .rf-vote .rf-tabs .leg-tab.border-primary-500 {
+    background-color: var(--rf-surface);
+    color: var(--rf-text);
+    box-shadow: 0 1px 3px var(--rf-shadow), 0 0 0 1px var(--rf-card-border);
+}
+.ui-refresh .rf-vote .rf-tabs .leg-tab:focus-visible { outline: 2px solid var(--rf-accent); outline-offset: -2px; }
+
+/* A bill: a plain card; its state is the pill, not a coloured edge */
+.ui-refresh .rf-vote .rf-bill { border-width: 0; }
+.ui-refresh .rf-vote .rf-bill-head {
+    padding: 16px 16px 12px;
+    border-bottom-color: var(--rf-separator);
+}
+.ui-refresh .rf-vote .rf-bill-head h3 { font-size: 18px; font-weight: 700; line-height: 1.3; color: var(--rf-text); overflow-wrap: anywhere; }
+.ui-refresh .rf-vote .rf-bill-head .text-xs:not(.rf-chip) { font-size: 13px; color: var(--rf-text-secondary); }
+.ui-refresh .rf-vote .rf-bill-head .text-gray-300 { color: var(--rf-text-muted); }
+.ui-refresh .rf-vote .rf-bill .px-5.py-4:not(.rf-bill-head) { padding: 16px; }
+.ui-refresh .rf-vote .rf-status > span { background-color: currentColor; }
+/* One column, as on the phone: what it is, then how to vote */
+.ui-refresh .rf-vote .rf-bill .lg\:grid { display: block; }
+.ui-refresh .rf-vote .rf-bill .lg\:mt-0 { margin-top: 16px; }
+.ui-refresh .rf-vote .rf-bill p.leading-relaxed { font-size: 15px; line-height: 1.6; color: var(--rf-text); }
+
+.ui-refresh .rf-vote .rf-doc-link {
+    padding: 6px 12px;
+    border-radius: 999px;
+    background-color: var(--rf-accent-soft);
+    color: var(--rf-accent);
+    font-weight: 600;
+}
+.ui-refresh .rf-vote .rf-doc-link:hover { background-color: var(--rf-separator); }
+
+/* Live tally (the author's): stat tiles on a muted well */
+.ui-refresh .rf-vote .rf-tally {
+    border-width: 0;
+    border-radius: 12px;
+    background-color: var(--rf-surface-muted);
+}
+.ui-refresh .rf-vote .rf-tally .rounded-lg { border-color: transparent; border-radius: 10px; }
+.ui-refresh .rf-vote .rf-tally .text-xl { font-variant-numeric: tabular-nums; }
+
+/* The ballot: "Your vote" over a grouped card, one row per choice with a
+   radio on the right (vote/[id].tsx), then the password and the button. */
+.ui-refresh .rf-vote .rf-ballot-label {
+    margin: 4px 4px 0;
+    font-size: 13px;
+    letter-spacing: 0.04em;
+    color: var(--rf-text-muted);
+}
+.ui-refresh .rf-vote .rf-ballot-label .text-primary-600 { color: var(--rf-accent); }
+.ui-refresh .rf-vote .rf-choices {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    border-radius: var(--rf-radius-card);
+    background-color: var(--rf-surface);
+    box-shadow: 0 0 0 1px var(--rf-card-border);
+    overflow: hidden;
+}
+.ui-refresh .rf-vote .rf-choices > :not([hidden]) ~ :not([hidden]) { margin-top: 0; }
+.ui-refresh .rf-vote .rf-choices > * + * { border-top: 1px solid var(--rf-separator); }
+.ui-refresh .rf-vote .rf-choices label {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 12px;
+    min-height: 52px;
+    margin: 0;
+    padding: 12px 16px;
+    border: 0;
+    border-radius: 0;
+    background-color: transparent;
+    cursor: pointer;
+    transition: background-color 0.12s;
+}
+.ui-refresh .rf-vote .rf-choices label:hover { background-color: var(--rf-surface-muted); }
+.ui-refresh .rf-vote .rf-choices label > div { width: 28px; height: 28px; flex: none; }
+.ui-refresh .rf-vote .rf-choices label > div svg { width: 16px; height: 16px; }
+.ui-refresh .rf-vote .rf-choices label > span { flex: 1; min-width: 0; font-size: 16px; font-weight: 500; color: var(--rf-text); overflow-wrap: anywhere; }
+/* the radio: an empty ring, filled in the accent when chosen */
+.ui-refresh .rf-vote .rf-choices label::after {
+    content: '';
+    flex: none;
+    width: 22px;
+    height: 22px;
+    margin-left: auto;
+    border-radius: 999px;
+    border: 2px solid var(--rf-text-muted);
+    box-sizing: border-box;
+}
+.ui-refresh .rf-vote .rf-choices .peer:checked + label { background-color: var(--rf-accent-soft); }
+.ui-refresh .rf-vote .rf-choices .peer:checked + label > span { font-weight: 700; }
+.ui-refresh .rf-vote .rf-choices .peer:checked + label::after {
+    border-color: var(--rf-accent);
+    background-color: var(--rf-accent);
+    box-shadow: inset 0 0 0 4px var(--rf-accent-soft);
+}
+.ui-refresh .rf-vote .rf-choices .peer:focus-visible + label { outline: 2px solid var(--rf-accent); outline-offset: -2px; }
+/* several choices allowed: the label holds a real checkbox, so no ring */
+.ui-refresh .rf-vote .rf-choices.is-multi label::after { content: none; }
+.ui-refresh .rf-vote .rf-choices.is-multi input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+    border-radius: 6px;
+    color: var(--rf-accent);
+    accent-color: var(--rf-accent);
+}
+.ui-refresh .rf-vote .rf-choices.is-multi label:has(input:checked) { background-color: var(--rf-accent-soft); }
+.ui-refresh .rf-vote .rf-choices.is-multi label:has(input:checked) > span { font-weight: 700; }
+
+.ui-refresh .rf-vote .rf-confirm { gap: 8px; padding-top: 8px; }
+.ui-refresh .rf-vote .rf-confirm input[type="password"] { min-height: 44px; font-size: 16px; }
+.ui-refresh .rf-vote .rf-confirm .btn-primary { min-height: 44px; padding-left: 18px; padding-right: 18px; }
+.ui-refresh .rf-vote .rf-ballot .js-vote-passkey { color: var(--rf-accent); font-size: 13px; font-weight: 600; }
+
+.ui-refresh .rf-vote .rf-bill-actions { padding-top: 12px; border-top-color: var(--rf-separator); }
+
+.ui-refresh .rf-vote .rf-empty { border-width: 0; padding: 40px 24px; }
+.ui-refresh .rf-vote .rf-empty h3 { font-size: 17px; font-weight: 700; color: var(--rf-text); }
+.ui-refresh .rf-vote .rf-empty a { font-weight: 600; }
+
+/* ---------- Announcements (/announcements/) ------------------------------ */
+
+.ui-refresh .rf-announcements .rf-filter { border-width: 0; padding: 12px; }
+.ui-refresh .rf-announcements .rf-filter .text-gray-600 { color: var(--rf-text-secondary); }
+.ui-refresh .rf-announcements .rf-clear {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.5rem;
+    border-color: var(--rf-accent);
+    border-radius: var(--rf-radius-control);
+    color: var(--rf-accent);
+    font-weight: 600;
+}
+.ui-refresh .rf-announcements .rf-clear:hover { background-color: var(--rf-accent-soft); }
+
+.ui-refresh .rf-announcements .rf-ann-list { gap: 12px; }
+.ui-refresh .rf-announcements .rf-ann-card { padding: 16px 18px; overflow: hidden; }
+.ui-refresh .rf-announcements .rf-ann-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.ui-refresh .rf-announcements .rf-ann-card-title {
+    margin: 0;
+    min-width: 0;
+    font-size: 19px;
+    font-weight: 700;
+    line-height: 1.3;
+    letter-spacing: -0.01em;
+    color: var(--rf-text);
+    overflow-wrap: anywhere;
+}
+.ui-refresh .rf-announcements .rf-ann-event { flex: none; margin-top: 2px; }
+.ui-refresh .rf-announcements .rf-ann-event svg { width: 13px; height: 13px; }
+.ui-refresh .rf-announcements .rf-ann-byline {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 6px 0 0;
+    font-size: 13px;
+    line-height: 1.4;
+    color: var(--rf-text-muted);
+}
+.ui-refresh .rf-announcements .rf-ann-byline .rf-avatar { width: 24px; height: 24px; font-size: 11px; }
+.ui-refresh .rf-announcements .rf-ann-author { font-weight: 600; color: var(--rf-text-secondary); }
+.ui-refresh .rf-announcements .rf-ann-when {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin: 12px 0 0;
+    padding: 8px 12px;
+    border-radius: var(--rf-radius-control);
+    background-color: var(--rf-accent-soft);
+    color: var(--rf-accent);
+    font-size: 14px;
+    font-weight: 600;
+}
+.ui-refresh .rf-announcements .rf-ann-when svg { width: 18px; height: 18px; flex: none; }
+.ui-refresh .rf-announcements .rf-ann-when-label { font-weight: 700; }
+.ui-refresh .rf-announcements .rf-ann-text {
+    margin: 12px 0 0;
+    font-size: 16px;
+    line-height: 1.6;
+    color: var(--rf-text);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+.ui-refresh .rf-announcements .rf-ann-text a { color: var(--rf-accent); text-decoration: underline; }
+/* poll and documents: grouped rows across the card's foot */
+.ui-refresh .rf-announcements .rf-ann-rows {
+    margin: 14px -18px -16px;
+    border-top: 1px solid var(--rf-separator);
+}
+.ui-refresh .rf-announcements .rf-ann-rows .rf-row { padding-left: 18px; padding-right: 18px; min-height: 52px; }
+.ui-refresh .rf-announcements .rf-ann-poll-open .rf-row-title { color: var(--rf-accent); }
+
+.ui-refresh .rf-announcements .rf-empty-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 40px 24px;
+    text-align: center;
+}
+.ui-refresh .rf-announcements .rf-empty-card h3 { margin: 6px 0 0; font-size: 17px; font-weight: 700; color: var(--rf-text); }
+.ui-refresh .rf-announcements .rf-empty-card p { margin: 0; font-size: 14px; color: var(--rf-text-secondary); }
+.ui-refresh .rf-announcements .rf-back a { font-weight: 600; }
+
+/* ---------- Profile (/profile/) ------------------------------------------ */
+
+/* The top: photo, name and pills centred on a card (profile.tsx hero) */
+.ui-refresh .rf-profile .rf-profile-hero {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 24px;
+    padding: 28px 16px 20px;
+    text-align: center;
+}
+.ui-refresh .rf-profile .rf-profile-crest { position: absolute; top: 12px; right: 12px; width: 40px; height: 40px; object-fit: contain; opacity: 0.9; }
+.ui-refresh .rf-profile .rf-profile-photo { position: relative; width: 88px; height: 88px; border-radius: 999px; }
+.ui-refresh .rf-profile .rf-profile-img {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 88px;
+    height: 88px;
+    border-radius: 999px;
+    object-fit: cover;
+    box-shadow: 0 0 0 3px var(--rf-surface), 0 0 0 4px var(--rf-card-border);
+}
+.ui-refresh .rf-profile .rf-profile-initials { background-color: var(--rf-accent-soft); color: var(--rf-accent); font-size: 32px; font-weight: 700; letter-spacing: 0.02em; }
+.ui-refresh .rf-profile .rf-profile-photo-hover {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    background-color: rgba(0, 0, 0, 0);
+    color: #ffffff;
+    opacity: 0;
+    transition: opacity 0.15s, background-color 0.15s;
+}
+.ui-refresh .rf-profile .rf-profile-photo:hover .rf-profile-photo-hover { opacity: 1; background-color: rgba(0, 0, 0, 0.3); }
+.ui-refresh .rf-profile .rf-profile-photo-hover svg { width: 28px; height: 28px; }
+.ui-refresh .rf-profile .rf-profile-name { margin: 8px 0 0; font-size: 24px; font-weight: 700; line-height: 1.2; letter-spacing: -0.01em; color: var(--rf-text); overflow-wrap: anywhere; }
+.ui-refresh .rf-profile .rf-profile-pills { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin-top: 2px; }
+.ui-refresh .rf-profile .rf-profile-pills .rf-chip { font-size: 13px; padding: 3px 10px; }
+.ui-refresh .rf-profile .rf-profile-number { font-variant-numeric: tabular-nums; }
+.ui-refresh .rf-profile .rf-profile-prefs {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 8px;
+    padding: 6px 12px;
+    border-radius: 999px;
+    color: var(--rf-accent);
+    font-size: 14px;
+    font-weight: 600;
+    text-decoration: none;
+}
+.ui-refresh .rf-profile .rf-profile-prefs:hover { background-color: var(--rf-accent-soft); }
+.ui-refresh .rf-profile .rf-profile-prefs:focus-visible { outline: 2px solid var(--rf-accent); outline-offset: 2px; }
+.ui-refresh .rf-profile .rf-profile-prefs svg { width: 16px; height: 16px; }
+@media (prefers-reduced-motion: reduce) {
+    .ui-refresh .rf-profile .rf-profile-photo-hover,
+    .ui-refresh .rf-vote .rf-choices label { transition: none; }
+}
+
+/* Card headings: 17px, the glyph in an icon tile (IconTile) */
+.ui-refresh .rf-profile h2.text-xl { font-size: 17px; font-weight: 700; color: var(--rf-text); }
+.ui-refresh .rf-profile h2.text-xl > svg {
+    width: 30px;
+    height: 30px;
+    flex: none;
+    margin-right: 10px;
+    padding: 6px;
+    border-radius: 8px;
+    background-color: var(--rf-tile-blue);
+    color: #ffffff;
+}
+.ui-refresh .rf-profile div:has(> #profile-picture-form) > h2 > svg { background-color: var(--rf-tile-sky); }
+.ui-refresh .rf-profile div:has(> #profile-settings-form) > h2 > svg { background-color: var(--rf-tile-gray); }
+.ui-refresh .rf-profile div:has(#passkeys-accordion) > h2 > svg { background-color: var(--rf-tile-green); }
+.ui-refresh .rf-profile div:has(> #public-profile-form) > h2 > svg { background-color: var(--rf-tile-purple); }
+.ui-refresh .rf-profile .bg-white > p.text-sm { font-size: 14px; }
+
+/* Collapsible sections as grouped rows running edge to edge across their
+   card (the cards keep Tailwind's 24px padding, p-6). */
+.ui-refresh .rf-profile details.accordion {
+    margin: 0 -24px;
+    border-width: 1px 0;
+    border-style: solid;
+    border-color: var(--rf-separator);
+    border-radius: 0;
+}
+.ui-refresh .rf-profile details.accordion + details.accordion { border-top-width: 0; }
+.ui-refresh .rf-profile details.accordion > summary {
+    min-height: 52px;
+    padding: 12px 24px;
+    border-radius: 0;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--rf-text);
+}
+.ui-refresh .rf-profile details.accordion > summary:focus-visible { outline: 2px solid var(--rf-accent); outline-offset: -2px; }
+.ui-refresh .rf-profile details.accordion[open] > summary { background-color: transparent; }
+.ui-refresh .rf-profile details.accordion > summary .accordion-chevron { color: var(--rf-text-muted); }
+.ui-refresh .rf-profile details.accordion > div { padding: 4px 24px 20px; border-top-width: 0; }
+.ui-refresh .rf-profile details.accordion > summary > span > svg:first-child {
+    width: 28px;
+    height: 28px;
+    flex: none;
+    margin-right: 4px;
+    padding: 6px;
+    border-radius: 7px;
+    background-color: var(--rf-tile-gray);
+    color: #ffffff;
+}
+.ui-refresh .rf-profile details.accordion > summary > span { gap: 10px; }
+.ui-refresh .rf-profile .space-y-3 > details:nth-child(1) > summary > span > svg:first-child { background-color: var(--rf-tile-green); }
+.ui-refresh .rf-profile .space-y-3 > details:nth-child(2) > summary > span > svg:first-child { background-color: var(--rf-tile-blue); }
+.ui-refresh .rf-profile .space-y-3 > details:nth-child(4) > summary > span > svg:first-child { background-color: var(--rf-tile-orange); }
+/* the Security card is nothing but its four rows: they meet its edges */
+.ui-refresh .rf-profile .bg-white > .space-y-3:last-child { margin: 0 0 -24px; }
+.ui-refresh .rf-profile .bg-white > .space-y-3:last-child > details:last-child,
+.ui-refresh .rf-profile .bg-white > details.accordion:last-child { border-bottom-width: 0; }
+.ui-refresh .rf-profile .bg-white > details.accordion:last-child { margin-bottom: -24px; }
+.ui-refresh .rf-profile .space-y-3 > :not([hidden]) ~ details.accordion { margin-top: 0; }
+.ui-refresh .rf-profile form > details.accordion { margin-bottom: 0; }
+.ui-refresh .rf-profile form > details.accordion:last-of-type { margin-bottom: 16px; }
+
+/* Status words in rows (Enabled, Not set up, 2 registered, Latest, Flagged) as pills */
+.ui-refresh .rf-profile :is(summary, li) .text-xs.rounded {
+    border-radius: 999px;
+    padding: 2px 8px;
+    font-weight: 600;
+}
+/* Listed items (links, majors, chapters, roles, passkeys, logins) on a muted well */
+.ui-refresh .rf-profile li.rounded-lg { border-radius: var(--rf-radius-control); border-color: transparent; }
+.ui-refresh .rf-profile .accordion li.bg-gray-50 { background-color: var(--rf-surface-muted); }
+
+/* Phones: the cards keep their 24px padding, so the rows above still meet the edges */
+@media (max-width: 480px) {
+    .ui-refresh .rf-profile .rf-profile-hero { padding-top: 24px; }
+    .ui-refresh .rf-profile .rf-profile-crest { width: 32px; height: 32px; }
+}
+
+/* ---------- Fixes found in the screenshots ------------------------------- */
+
+/* Filled fields have no outline (form.tsx Field), selects included */
+.ui-refresh .rf-vap :is(select, textarea, input:is([type="text"], [type="email"], [type="search"], [type="number"], [type="password"], [type="tel"], [type="url"], [type="datetime-local"])) { border-color: transparent; }
+.ui-refresh .rf-vap :is(select, textarea, input):focus { border-color: var(--rf-accent); }
+
+/* Announcements' green "New" (bg-green-500/90 + white is ~2.3:1): the
+   success token, which passes AA with its ink in both modes. */
+.ui-refresh .rf-announcements a.bg-green-500\/90 { background-color: var(--rf-success); color: #ffffff; }
+.ui-refresh .rf-announcements a.bg-green-500\/90:hover { filter: brightness(1.08); }
+.ui-refresh.dark .rf-announcements a.bg-green-500\/90 { color: var(--rf-accent-text); }
+
+/* Profile: no dead space under Account Settings; a summary's aside sits by its title */
+.ui-refresh .rf-profile #profile-settings-form { margin-bottom: 0; }
+.ui-refresh .rf-profile details.accordion > summary > span.font-normal { margin-left: 6px; margin-right: auto; font-size: 13px; color: var(--rf-text-muted); }
+
+/* Dark: the accent (#6f97e6) on its soft fill (#1e3a6e) is 3.8:1, short of
+   AA for small text, so ink on that fill is lighter here (#a9c2f2, 6.2:1). */
+.ui-refresh.dark .rf-vap .rf-chip.is-accent,
+.ui-refresh.dark .rf-vap .rf-notice.is-accent,
+.ui-refresh.dark .rf-vote .rf-doc-link,
+.ui-refresh.dark .rf-announcements .rf-ann-when,
+.ui-refresh.dark .rf-profile .rf-profile-initials,
+.ui-refresh.dark .rf-announcements .rf-avatar { color: #a9c2f2; }
+.ui-refresh .rf-profile :is(summary, li) .text-xs.rounded { white-space: nowrap; }

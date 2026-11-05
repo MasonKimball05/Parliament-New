@@ -38,6 +38,7 @@
     --rf-accent-hover: #003090;
     --rf-accent-text: #ffffff;
     --rf-accent-soft: #e6edf9;
+    --rf-accent-on-soft: #003da5;  /* accent text on the soft fill: 8.6:1 */
     --rf-danger: #c0392b;
     --rf-danger-soft: #fdecea;
     --rf-success: #1b7535; /* app #1e7d3a, a shade darker for AA on the off-white page */
@@ -89,6 +90,9 @@
     --rf-accent-hover: #86a9ec;
     --rf-accent-text: #0b1220;
     --rf-accent-soft: #1e3a6e;
+    /* The dark accent (#6f97e6) on its soft fill is 3.8:1, short of AA for
+       small text; text on that fill uses this lighter ink (6.2:1). */
+    --rf-accent-on-soft: #a9c2f2;
     --rf-danger: #ff6b5e;
     --rf-danger-soft: #3a1d1a;
     --rf-success: #4cc274;
@@ -183,6 +187,11 @@
     border-color: var(--rf-card-border);
     border-radius: var(--rf-radius-card);
 }
+/* tailwind.css's `.card:is(.dark *)` (gray-800) outranks the rule above in dark */
+:where(.ui-refresh) .card:is(.dark *) {
+    background-color: var(--rf-surface);
+    border-color: var(--rf-card-border);
+}
 
 /* Page banners (`bg-gradient-to-br from-primary-600 …`, on most list pages):
    the app's flat chapter blue, with the crest's gold rule kept. */
@@ -253,7 +262,7 @@
     background-color: var(--rf-surface-muted);
     color: var(--rf-text-secondary);
 }
-:where(.ui-refresh) .badge-blue { background-color: var(--rf-accent-soft); color: var(--rf-accent); }
+:where(.ui-refresh) .badge-blue { background-color: var(--rf-accent-soft); color: var(--rf-accent-on-soft); }
 :where(.ui-refresh) .badge-green { background-color: var(--rf-success-soft); color: var(--rf-success); }
 :where(.ui-refresh) .badge-yellow { background-color: var(--rf-warning-soft); color: var(--rf-warning); }
 :where(.ui-refresh) .badge-red { background-color: var(--rf-danger-soft); color: var(--rf-danger); }
@@ -525,7 +534,7 @@ a.rf-row:focus-visible { outline: 2px solid var(--rf-accent); outline-offset: -2
 .rf-avatar {
     width: 30px; height: 30px; border-radius: 999px; flex-shrink: 0;
     display: inline-flex; align-items: center; justify-content: center;
-    background: var(--rf-accent-soft); color: var(--rf-accent);
+    background: var(--rf-accent-soft); color: var(--rf-accent-on-soft);
     font-size: 12px; font-weight: 700;
 }
 .rf-byline-name { flex: 1; min-width: 0; font-size: 14px; font-weight: 600; color: var(--rf-text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -534,13 +543,13 @@ a.rf-row:focus-visible { outline: 2px solid var(--rf-accent); outline-offset: -2
 .rf-announcement-body { font-size: 15px; color: var(--rf-text-secondary); margin-top: 4px; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 
 /* Date block (DateBlock: month strip over the day) */
-.rf-date { width: 44px; border-radius: 10px; text-align: center; background: var(--rf-accent-soft); color: var(--rf-accent); padding: 4px 0; flex-shrink: 0; }
+.rf-date { width: 44px; border-radius: 10px; text-align: center; background: var(--rf-accent-soft); color: var(--rf-accent-on-soft); padding: 4px 0; flex-shrink: 0; }
 .rf-date-month { font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
 .rf-date-day { font-size: 18px; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
 
 /* Chip (kit Pill) */
 .rf-chip { display: inline-flex; align-items: center; border-radius: 999px; padding: 2px 8px; font-size: 12px; font-weight: 600; background: var(--rf-surface-muted); color: var(--rf-text-secondary); }
-.rf-chip.is-accent { background: var(--rf-accent-soft); color: var(--rf-accent); }
+.rf-chip.is-accent { background: var(--rf-accent-soft); color: var(--rf-accent-on-soft); }
 .rf-chip.is-success { background: var(--rf-success-soft); color: var(--rf-success); }
 .rf-chip.is-warning { background: var(--rf-warning-soft); color: var(--rf-warning); }
 .rf-chip.is-danger { background: var(--rf-danger-soft); color: var(--rf-danger); }
@@ -569,7 +578,7 @@ a.rf-row:focus-visible { outline: 2px solid var(--rf-accent); outline-offset: -2
 .rf-pill:hover { background: var(--rf-surface-muted); }
 .rf-pill:focus-visible { outline: 2px solid var(--rf-accent); outline-offset: 2px; }
 .rf-pill svg { width: 16px; height: 16px; color: var(--rf-text-secondary); flex-shrink: 0; }
-.rf-pill.is-accent { background: var(--rf-accent-soft); color: var(--rf-accent); }
+.rf-pill.is-accent { background: var(--rf-accent-soft); color: var(--rf-accent-on-soft); }
 .rf-pill.is-accent svg { color: var(--rf-accent); }
 .rf-pill.is-warning { background: var(--rf-warning-soft); color: var(--rf-warning); }
 .rf-pill.is-warning svg { color: var(--rf-warning); }

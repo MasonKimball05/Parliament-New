@@ -1,0 +1,505 @@
+/* =========================================================================
+   Website refresh: Calendar (/calendar/) and Directory (/directory/).
+
+   Loaded by base.html after refresh.css, only when `ui_refresh` is on (see
+   src/ui_refresh.py). Plain CSS, no Tailwind build. Uses refresh.css's
+   tokens (--rf-*).
+
+   Calendar: the month grid and the event details are drawn by calendar.html's
+   own script (renderCalendar / showEventModal) as well as by the template, so
+   they are restyled here through the classes and ids both already carry,
+   scoped to the switch classes calendar.html adds with the refresh on:
+   .rf-cal (the month card), .rf-cal-page (the page, with the server-rendered
+   event modals), .rf-cal-modals (#dynamicModals) and .rf-cal-sub (the
+   Subscribe modal). The script is unchanged.
+
+   Directory: the member list is directory_refresh/_sections.html (rows);
+   .rf-dir is the page and .rf-profile-modal the profile card, which the
+   page's script fills in.
+   ========================================================================= */
+
+:root.ui-refresh {
+    --rf-cal-event: #dde7f8;
+    --rf-cal-service: #dcf1e3;
+    --rf-cal-recruit: #e9e3f9;
+    --rf-purple-ink: #5b3fb5;
+    --rf-indigo-soft: #e4e6fb;
+    --rf-indigo-ink: #3f46a8;
+    --rf-backdrop: rgba(8, 16, 34, 0.5);
+}
+:root.ui-refresh.dark {
+    --rf-cal-event: #1e3a6e;
+    --rf-cal-service: #163221;
+    --rf-cal-recruit: #2b2352;
+    --rf-purple-ink: #c3b3f5;
+    --rf-indigo-soft: #232a5c;
+    --rf-indigo-ink: #b4baf5;
+    --rf-backdrop: rgba(0, 0, 0, 0.6);
+}
+
+/* Shared bits: a purple pill (Recruitment, officers' roles) and date blocks
+   tinted by event kind. */
+.rf-chip.is-purple { background: var(--rf-cal-recruit); color: var(--rf-purple-ink); }
+a.rf-chip { text-decoration: none; }
+a.rf-chip:hover { filter: brightness(0.96); }
+a.rf-chip:focus-visible { outline: 2px solid var(--rf-accent); outline-offset: 2px; }
+.rf-date.is-recruit { background: var(--rf-cal-recruit); color: var(--rf-purple-ink); }
+.rf-date.is-service { background: var(--rf-success-soft); color: var(--rf-success); }
+
+/* ---------- Calendar: banner buttons --------------------------------------- */
+
+/* Export and Subscribe were green and teal; on the flat banner every action
+   is the same glass pill, as on Committees. */
+.rf-cal-page .bg-gradient-to-br .bg-green-500\/90,
+.rf-cal-page .bg-gradient-to-br .bg-teal-500\/80 {
+    background-color: var(--rf-hero-glass);
+}
+.rf-cal-page .bg-gradient-to-br .hover\:bg-green-500:hover,
+.rf-cal-page .bg-gradient-to-br .hover\:bg-teal-500:hover {
+    background-color: rgba(255, 255, 255, 0.26);
+}
+.rf-cal-page .bg-gradient-to-br :is(a, button).rounded-lg { font-weight: 600; }
+
+/* ---------- Calendar: the month card ---------------------------------------- */
+
+.rf-cal { background-color: var(--rf-surface); margin-bottom: 8px; }
+
+/* Month bar (app: title on the left, Today and the arrows on the right). The
+   markup is prev | title | next; `order` moves the title first. */
+.rf-cal > div:first-child {
+    background-color: transparent;
+    color: var(--rf-text);
+    justify-content: flex-start;
+    gap: 4px;
+    padding: 14px 12px 6px 16px;
+}
+.rf-cal > div:first-child > .relative { order: -1; flex: 1 1 auto; min-width: 0; }
+.rf-cal #js-toggle-month {
+    font-size: 20px;
+    line-height: 1.2;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    padding: 6px 8px;
+    margin-left: -8px;
+    border-radius: var(--rf-radius-control);
+    color: var(--rf-text);
+}
+.rf-cal #js-toggle-month svg { width: 18px; height: 18px; color: var(--rf-accent); }
+.rf-cal #js-toggle-month:hover { background-color: var(--rf-surface-muted); }
+.rf-cal #prevMonthBtn,
+.rf-cal #nextMonthBtn {
+    width: 38px;
+    height: 38px;
+    padding: 0;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--rf-accent);
+    background-color: var(--rf-accent-soft);
+}
+.rf-cal #prevMonthBtn svg,
+.rf-cal #nextMonthBtn svg { width: 20px; height: 20px; }
+.rf-cal #prevMonthBtn:not(:disabled):hover,
+.rf-cal #nextMonthBtn:not(:disabled):hover { background-color: var(--rf-cal-event); }
+.rf-cal :is(#prevMonthBtn, #nextMonthBtn, #js-toggle-month):focus-visible { outline: 2px solid var(--rf-accent); outline-offset: 2px; }
+
+/* The month picker opens under the title, on the left now. */
+.rf-cal #monthDropdown {
+    left: 0;
+    transform: none;
+    border-radius: var(--rf-radius-card);
+    border-color: var(--rf-card-border);
+    background-color: var(--rf-surface);
+    box-shadow: 0 12px 32px rgba(10, 20, 40, 0.18), 0 0 0 1px var(--rf-card-border);
+    max-width: calc(100vw - 48px);
+}
+.rf-cal #monthDropdown .js-nav-month { border-radius: var(--rf-radius-control); color: var(--rf-text); }
+.rf-cal #monthDropdown .js-nav-month:hover { background-color: var(--rf-surface-muted); }
+.rf-cal #monthDropdown .js-nav-month.bg-primary-100 { background-color: var(--rf-accent-soft); color: var(--rf-accent); font-weight: 700; }
+.rf-cal #monthDropdown .text-xs { color: var(--rf-text-muted); letter-spacing: 0.04em; }
+
+/* The grid: weekday letters, then borderless day cells on hairline rows. */
+.rf-cal #calendarGrid { gap: 0; column-gap: 4px; }
+.rf-cal #calendarGrid > div:nth-child(-n+7) {
+    color: var(--rf-text-muted);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    padding: 4px 0 8px;
+}
+.rf-cal #calendarGrid > div:nth-child(n+8) {
+    border: 0;
+    border-top: 1px solid var(--rf-separator);
+    border-radius: 0;
+    background-color: transparent;
+    padding: 6px 4px 8px;
+}
+.rf-cal #calendarGrid > div:nth-child(n+8):not(.bg-gray-50):hover { background-color: var(--rf-surface-muted); }
+/* Blank days before the 1st and after the last */
+.rf-cal #calendarGrid > div.bg-gray-50 { background-color: transparent; }
+
+/* Day numbers: a 28px circle, filled with the accent for today. */
+.rf-cal #calendarGrid .text-right { text-align: left; }
+.rf-cal #calendarGrid .text-right > span {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 28px;
+    height: 28px;
+    padding: 0 4px;
+    border-radius: 999px;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--rf-text);
+    font-variant-numeric: tabular-nums;
+}
+.rf-cal #calendarGrid .text-right > span.bg-primary-600 { background-color: var(--rf-accent); color: var(--rf-accent-text); font-weight: 700; }
+.rf-cal #calendarGrid > div.bg-blue-50 { background-color: transparent; }
+.rf-cal #calendarGrid > div.bg-blue-50:hover { background-color: var(--rf-surface-muted); }
+
+/* Events in a day: a tinted chip with the kind's colour as a bar on its left
+   (the app's colour key: recruitment purple, service green, the rest blue). */
+.rf-cal #calendarGrid :is(.js-static-event-open, .js-dyn-event-open) {
+    border-radius: 6px;
+    padding: 3px 6px 3px 8px;
+    color: var(--rf-text);
+    background-color: var(--rf-cal-event);
+    box-shadow: inset 3px 0 0 var(--rf-accent);
+    line-height: 1.25;
+}
+.rf-cal #calendarGrid :is(.js-static-event-open, .js-dyn-event-open) > div:first-child { color: var(--rf-text-secondary); }
+.rf-cal #calendarGrid :is(.js-static-event-open, .js-dyn-event-open).bg-green-100 { background-color: var(--rf-cal-service); box-shadow: inset 3px 0 0 var(--rf-tile-green); }
+.rf-cal #calendarGrid :is(.js-static-event-open, .js-dyn-event-open).bg-purple-100 { background-color: var(--rf-cal-recruit); box-shadow: inset 3px 0 0 var(--rf-tile-purple); }
+.rf-cal #calendarGrid :is(.js-static-event-open, .js-dyn-event-open):hover { filter: brightness(0.96); }
+:where(.ui-refresh.dark) .rf-cal #calendarGrid :is(.js-static-event-open, .js-dyn-event-open):hover { filter: brightness(1.15); }
+
+/* Legend: the same swatches as the chips and the today circle. */
+.rf-cal > div:last-child {
+    background-color: transparent;
+    border-top-color: var(--rf-separator);
+    padding: 12px 16px 14px;
+}
+.rf-cal > div:last-child .w-4.h-4 { border-radius: 4px; border: 0; }
+.rf-cal > div:last-child .w-4.h-4.bg-blue-50 { border-radius: 999px; background-color: var(--rf-accent); }
+.rf-cal > div:last-child .bg-primary-100 { background-color: var(--rf-cal-event); box-shadow: inset 3px 0 0 var(--rf-accent); }
+.rf-cal > div:last-child .bg-green-100 { background-color: var(--rf-cal-service); box-shadow: inset 3px 0 0 var(--rf-tile-green); }
+.rf-cal > div:last-child .bg-purple-100 { background-color: var(--rf-cal-recruit); box-shadow: inset 3px 0 0 var(--rf-tile-purple); }
+.rf-cal > div:last-child span { color: var(--rf-text-secondary); font-size: 13px; font-weight: 600; }
+
+@media (max-width: 639px) {
+    .rf-cal > div:first-child { padding: 12px 8px 4px 14px; }
+    .rf-cal #js-toggle-month { font-size: 18px; }
+    .rf-cal #calendarGrid { column-gap: 2px; }
+    .rf-cal #calendarGrid > div:nth-child(n+8) { padding: 4px 1px 6px; min-height: 4.25rem; }
+    .rf-cal #calendarGrid .text-right { text-align: center; }
+    .rf-cal #calendarGrid .text-right > span { min-width: 26px; height: 26px; font-size: 13px; }
+    .rf-cal #calendarGrid :is(.js-static-event-open, .js-dyn-event-open) { padding: 2px 3px 2px 5px; border-radius: 4px; box-shadow: inset 2px 0 0 var(--rf-accent); }
+    .rf-cal #calendarGrid :is(.js-static-event-open, .js-dyn-event-open).bg-green-100 { box-shadow: inset 2px 0 0 var(--rf-tile-green); }
+    .rf-cal #calendarGrid :is(.js-static-event-open, .js-dyn-event-open).bg-purple-100 { box-shadow: inset 2px 0 0 var(--rf-tile-purple); }
+}
+
+/* ---------- Calendar: Upcoming Events (calendar_refresh/_upcoming.html) ------ */
+
+.rf-cal-upcoming .rf-section-title { margin-top: 26px; }
+.rf-cal-row {
+    width: 100%;
+    text-align: left;
+    background: transparent;
+    font: inherit;
+    cursor: pointer;
+    align-items: flex-start;
+}
+.rf-cal-row:hover { background: var(--rf-surface-muted); }
+.rf-cal-row:focus-visible { outline: 2px solid var(--rf-accent); outline-offset: -2px; }
+.rf-cal-row .rf-chevron { align-self: center; }
+.rf-cal-desc {
+    display: -webkit-box;
+    margin-top: 4px;
+    font-size: 14px;
+    line-height: 1.4;
+    color: var(--rf-text-secondary);
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+/* ---------- Calendar: event details (both kinds of modal) ------------------- */
+
+.rf-cal-page .js-static-event-modal,
+.rf-cal-modals .js-dyn-modal-backdrop,
+.rf-cal-sub {
+    background-color: var(--rf-backdrop);
+    -webkit-backdrop-filter: blur(3px);
+    backdrop-filter: blur(3px);
+}
+.rf-cal-page .js-static-event-modal > div,
+.rf-cal-modals .js-dyn-modal-backdrop > div,
+#subscriptionModal.rf-cal-sub > div {
+    background-color: var(--rf-surface);
+    border-radius: 18px;
+    padding: 22px;
+    box-shadow: 0 0 0 1px var(--rf-card-border), 0 24px 48px rgba(10, 20, 40, 0.22);
+    max-height: 90vh;
+    overflow-y: auto;
+}
+:is(.rf-cal-page .js-static-event-modal, .rf-cal-modals .js-dyn-modal-backdrop) h3 {
+    font-size: 22px;
+    line-height: 1.25;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+    color: var(--rf-text);
+}
+/* The when / where / posted-by icons pick up the accent, like the app's rows */
+:is(.rf-cal-page .js-static-event-modal, .rf-cal-modals .js-dyn-modal-backdrop) .space-y-4 > .flex > svg.mr-2 { color: var(--rf-accent); }
+:is(.rf-cal-page .js-static-event-modal, .rf-cal-modals .js-dyn-modal-backdrop) .border-t { border-color: var(--rf-separator); }
+:is(.rf-cal-page .js-static-event-modal, .rf-cal-modals .js-dyn-modal-backdrop, .rf-cal-sub) :is(.js-static-event-close, .js-dyn-modal-close, #js-close-sub-modal) { border-radius: var(--rf-radius-control); }
+:is(.rf-cal-page .js-static-event-modal, .rf-cal-modals .js-dyn-modal-backdrop) .mt-6 > :is(.js-static-event-close, .js-dyn-modal-close) {
+    background-color: var(--rf-surface-muted);
+    color: var(--rf-text);
+    font-weight: 600;
+    min-height: 40px;
+}
+:is(.rf-cal-page .js-static-event-modal, .rf-cal-modals .js-dyn-modal-backdrop) .mt-6 > :is(.js-static-event-close, .js-dyn-modal-close):hover { background-color: var(--rf-separator); }
+:is(.rf-cal-page .js-static-event-modal, .rf-cal-modals .js-dyn-modal-backdrop) .flex.justify-between > :is(.js-static-event-close, .js-dyn-modal-close) {
+    color: var(--rf-text-secondary);
+    background-color: var(--rf-surface-muted);
+    border-radius: 999px;
+    padding: 5px;
+}
+/* Sign up: the app's primary button; cancel in the danger ink */
+:is(.js-static-do-signup, .js-do-signup).bg-blue-600 {
+    background-color: var(--rf-accent);
+    color: var(--rf-accent-text);
+    font-weight: 600;
+    border-radius: var(--rf-radius-control);
+}
+:is(.js-static-do-signup, .js-do-signup).bg-blue-600:hover { background-color: var(--rf-accent-hover); }
+:is(.rf-cal-page, .rf-cal-modals) :is(.js-static-cancel-signup, .js-cancel-signup) { color: var(--rf-danger); font-weight: 600; font-size: 13px; }
+:is(.rf-cal-page, .rf-cal-modals) .signup-error,
+.rf-cal-page [class*="static-signup-error-"] { color: var(--rf-danger); }
+/* Status pills and boxes (the server-rendered modal's have no dark variant) */
+:is(.rf-cal-page .js-static-event-modal, .rf-cal-modals .js-dyn-modal-backdrop) .rounded-full.bg-green-100 { background-color: var(--rf-success-soft); color: var(--rf-success); }
+:is(.rf-cal-page .js-static-event-modal, .rf-cal-modals .js-dyn-modal-backdrop) .rounded-full.bg-yellow-100 { background-color: var(--rf-warning-soft); color: var(--rf-warning); }
+:is(.rf-cal-page .js-static-event-modal, .rf-cal-modals .js-dyn-modal-backdrop) .rounded-full.bg-red-100 { background-color: var(--rf-danger-soft); color: var(--rf-danger); }
+:is(.rf-cal-page .js-static-event-modal, .rf-cal-modals .js-dyn-modal-backdrop) :is(.bg-blue-50, .bg-primary-50).border {
+    background-color: var(--rf-accent-soft);
+    border-color: transparent;
+    border-radius: var(--rf-radius-card);
+}
+:is(.rf-cal-page .js-static-event-modal, .rf-cal-modals .js-dyn-modal-backdrop) .text-blue-900 { color: var(--rf-text); }
+/* the accent on accent-soft is under 4.5:1 in dark; the box's second line takes the secondary ink */
+:is(.rf-cal-page .js-static-event-modal, .rf-cal-modals .js-dyn-modal-backdrop) :is(.bg-blue-50, .bg-primary-50) p.text-primary-700 { color: var(--rf-text-secondary); }
+:is(.rf-cal-page .js-static-event-modal, .rf-cal-modals .js-dyn-modal-backdrop) :is(.bg-gray-50, .bg-gray-700).border {
+    background-color: var(--rf-surface-muted);
+    border-color: transparent;
+    border-radius: var(--rf-radius-card);
+}
+:is(.rf-cal-page .js-static-event-modal, .rf-cal-modals .js-dyn-modal-backdrop) a.text-primary-600:hover { color: var(--rf-accent-hover); }
+:is(.rf-cal-page .js-static-event-modal, .rf-cal-modals .js-dyn-modal-backdrop) .text-primary-700 { color: var(--rf-accent); }
+:is(.rf-cal-page .js-static-event-modal, .rf-cal-modals .js-dyn-modal-backdrop) .text-gray-300 { color: var(--rf-separator); }
+
+/* Subscribe modal */
+.rf-cal-sub h3 { font-size: 22px; font-weight: 800; color: var(--rf-text); }
+.rf-cal-sub .bg-primary-50 { background-color: var(--rf-accent-soft); border-color: transparent; border-radius: var(--rf-radius-card); }
+.rf-cal-sub .text-blue-900, .rf-cal-sub .text-blue-800 { color: var(--rf-text); }
+:where(.ui-refresh.dark) .rf-cal-sub :is(.dark\:text-blue-100, .dark\:text-blue-200) { color: var(--rf-text); }
+.rf-cal-sub #subscriptionContent .bg-gray-50 { background-color: var(--rf-surface-muted); }
+.rf-cal-sub #subscriptionContent a.bg-gray-700 { background-color: var(--rf-text-secondary); color: var(--rf-surface); }
+.rf-cal-sub #subscriptionContent :is(a, button).rounded-lg { border-radius: var(--rf-radius-control); font-weight: 600; }
+
+/* ---------- Directory -------------------------------------------------------- */
+
+/* The app's readable column */
+.rf-dir { max-width: calc(var(--rf-readable) + 32px); }
+
+/* Search and sort: the app's filled field */
+.rf-dir #directorySearch,
+.rf-dir #directorySort { min-height: 44px; font-size: 15px; }
+
+/* Type filters: the app's Chips */
+:where(.ui-refresh) .rf-dir #type-filters .filter-pill {
+    background-color: var(--rf-surface);
+    color: var(--rf-text-secondary);
+    box-shadow: inset 0 0 0 1px var(--rf-card-border);
+    font-size: 13px;
+    font-weight: 600;
+    padding: 7px 12px;
+}
+:where(.ui-refresh) .rf-dir #type-filters .filter-pill:hover { background-color: var(--rf-surface-muted); color: var(--rf-text); }
+:where(.ui-refresh) .rf-dir #type-filters .filter-pill.active {
+    background-color: var(--rf-accent);
+    color: var(--rf-accent-text);
+    box-shadow: none;
+}
+.rf-dir #type-filters .filter-pill:focus-visible { outline: 2px solid var(--rf-accent); outline-offset: 2px; }
+.rf-dir #type-filters { margin-bottom: 4px; }
+
+/* Sections: title + count over one grouped card */
+.rf-dir-section .rf-section-title h2 { display: inline-flex; align-items: center; gap: 8px; }
+.rf-dir-dot { width: 8px; height: 8px; border-radius: 999px; background: var(--rf-tile-gray); }
+.rf-dir-dot.is-officer { background: var(--rf-tile-purple); }
+.rf-dir-dot.is-chair { background: var(--rf-tile-sky); }
+.rf-dir-dot.is-member { background: var(--rf-tile-green); }
+.rf-dir-dot.is-pledge { background: var(--rf-tile-gold); }
+.rf-dir-dot.is-alumni { background: #5c63c9; }
+.rf-dir-dot.is-founders { background: #003da5; }
+:where(.ui-refresh.dark) .rf-dir-dot.is-founders { background: #6f97e6; }
+
+/* Rows. The search hides rows with an inline display:none, so the hairline
+   goes on every *visible* row after a visible one, never on the first shown. */
+.rf-dir-list > .rf-row + .rf-row { border-top: 0; }
+.rf-dir-list > .member-card:not([style*="display: none"]) ~ .member-card { border-top: 1px solid var(--rf-separator); }
+.rf-dir-row { align-items: center; padding: 10px 14px; }
+.rf-dir-row:hover { background: var(--rf-surface-muted); }
+.rf-dir-row .rf-row-body { min-width: 0; }
+
+.rf-dir-avatar {
+    width: 44px;
+    height: 44px;
+    flex: none;
+    border-radius: 999px;
+    overflow: hidden;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    font-weight: 700;
+    background: var(--rf-accent-soft);
+    color: var(--rf-accent);
+    cursor: pointer;
+}
+.rf-dir-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.rf-dir-avatar:hover { filter: brightness(0.96); }
+.rf-dir-avatar:focus-visible, .rf-dir-name:focus-visible, .rf-dir-row button.rf-chevron:focus-visible,
+.rf-dir-contact a:focus-visible { outline: 2px solid var(--rf-accent); outline-offset: 2px; border-radius: 6px; }
+.rf-dir-avatar:focus-visible { border-radius: 999px; }
+.rf-dir-avatar.is-officer { background: var(--rf-cal-recruit); color: var(--rf-purple-ink); }
+.rf-dir-avatar.is-member { background: var(--rf-success-soft); color: var(--rf-success); }
+.rf-dir-avatar.is-pledge { background: var(--rf-warning-soft); color: var(--rf-warning); }
+.rf-dir-avatar.is-advisor { background: var(--rf-surface-muted); color: var(--rf-text-secondary); }
+.rf-dir-avatar.is-alumni { background: var(--rf-indigo-soft); color: var(--rf-indigo-ink); }
+.rf-dir-avatar.is-founders { background: #003da5; color: #ffffff; }
+.rf-dir-avatar.is-former { background: #646973; color: #ffffff; }
+.rf-dir-avatar.is-alumni img, .rf-dir-avatar.is-founders img { opacity: 0.85; }
+
+.rf-dir-name {
+    display: block;
+    max-width: 100%;
+    padding: 0;
+    background: none;
+    text-align: left;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    cursor: pointer;
+}
+.rf-dir-name:hover { color: var(--rf-accent); }
+.rf-dir-contact {
+    display: flex;
+    flex-wrap: wrap;
+    column-gap: 12px;
+    row-gap: 0;
+    margin-top: 2px;
+    font-size: 14px;
+    min-width: 0;
+}
+.rf-dir-contact a { color: var(--rf-accent); text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+.rf-dir-contact a.is-phone { color: var(--rf-text-secondary); font-variant-numeric: tabular-nums; }
+.rf-dir-contact a:hover { text-decoration: underline; }
+.rf-dir-row button.rf-chevron { background: none; padding: 4px 2px 4px 6px; cursor: pointer; }
+.rf-dir-row button.rf-chevron:hover { color: var(--rf-accent); }
+
+/* No-results message */
+.rf-dir #noResults { padding-top: 32px; }
+
+/* ---------- Directory: the profile card --------------------------------------- */
+
+.rf-profile-modal {
+    background-color: var(--rf-backdrop);
+    -webkit-backdrop-filter: blur(3px);
+    backdrop-filter: blur(3px);
+}
+#profileModal.rf-profile-modal > div {
+    background-color: var(--rf-bg);
+    border-radius: 20px;
+    box-shadow: 0 0 0 1px var(--rf-card-border), 0 24px 48px rgba(10, 20, 40, 0.24);
+}
+/* Header: the app's member screen, centred: big avatar, name, type, roll */
+.rf-profile-modal #profileModalContent > div:first-child {
+    position: relative;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 10px;
+    padding: 28px 20px 12px;
+    border-bottom: 0;
+}
+.rf-profile-modal #profileModalContent > div:first-child > .flex-1 { width: 100%; }
+.rf-profile-modal #profileModalTitle { font-size: 22px; font-weight: 800; letter-spacing: -0.01em; color: var(--rf-text); }
+.rf-profile-modal #pm-type-badge { margin-top: 6px; }
+.rf-profile-modal #pm-type-badge > span { font-size: 12px; font-weight: 600; padding: 3px 10px; }
+.rf-profile-modal #pm-roll { font-size: 13px; color: var(--rf-text-muted); margin-top: 4px; }
+.rf-profile-modal #pm-avatar > :is(img, div) { width: 84px; height: 84px; box-shadow: 0 0 0 3px var(--rf-surface), 0 4px 14px var(--rf-shadow); }
+.rf-profile-modal #pm-avatar > div { background-color: var(--rf-accent-soft); }
+.rf-profile-modal #pm-avatar > div > span { font-size: 32px; color: var(--rf-accent); }
+.rf-profile-modal .js-close-profile-modal.flex-shrink-0 {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    margin: 0;
+    width: 34px;
+    height: 34px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    background-color: var(--rf-surface);
+    color: var(--rf-text-secondary);
+    box-shadow: inset 0 0 0 1px var(--rf-card-border);
+}
+.rf-profile-modal .js-close-profile-modal.flex-shrink-0:hover { color: var(--rf-text); background-color: var(--rf-surface-muted); }
+.rf-profile-modal .js-close-profile-modal:focus-visible { outline: 2px solid var(--rf-accent); outline-offset: 2px; }
+
+/* Body: each section a card with a small-caps title, as the app's sections */
+.rf-profile-modal #profileModalContent > div:nth-child(2) { padding: 8px 16px 18px; }
+.rf-profile-modal #profileModalContent > div:nth-child(2) > div {
+    background-color: var(--rf-surface);
+    border-radius: var(--rf-radius-card);
+    box-shadow: 0 0 0 1px var(--rf-card-border);
+    padding: 12px 14px;
+}
+.rf-profile-modal #profileModalContent > div:nth-child(2) > div.hidden { display: none; }
+.rf-profile-modal #profileModalContent h3 { color: var(--rf-text-muted); font-size: 12px; letter-spacing: 0.05em; margin-bottom: 6px; }
+.rf-profile-modal #pm-about { font-size: 15px; line-height: 1.45; color: var(--rf-text); white-space: pre-line; }
+.rf-profile-modal #profileModalContent .w-24 { color: var(--rf-text-muted); }
+.rf-profile-modal #profileModalContent .text-gray-800 { color: var(--rf-text); }
+.rf-profile-modal #pm-contact-list a { font-weight: 600; }
+.rf-profile-modal :is(#pm-committees-list, #pm-roles-list, #pm-socials-list) > * { font-weight: 600; padding: 3px 10px; }
+.rf-profile-modal :is(#pm-committees-list, #pm-roles-list) .bg-primary-100 { background-color: var(--rf-accent-soft); color: var(--rf-accent); }
+.rf-profile-modal #profileModalLoading p,
+.rf-profile-modal #profileModalError p { color: var(--rf-text-secondary); }
+.rf-profile-modal #profileModalLoading > div { border-color: var(--rf-accent); border-top-color: transparent; }
+
+/* Export modal: the app's sheet corners */
+.rf-dir ~ #exportModal > div { border-radius: 18px; background-color: var(--rf-surface); }
+
+@media (max-width: 639px) {
+    .rf-dir-row { padding: 10px 12px; gap: 10px; }
+    .rf-dir-avatar { width: 40px; height: 40px; font-size: 16px; }
+    .rf-profile-modal { align-items: flex-end; padding: 0; }
+    #profileModal.rf-profile-modal > div { border-radius: 20px 20px 0 0; }
+}
+
+/* The banner's alumni / founders toggles keep to one line each and wrap as
+   pills in the narrower column. */
+.rf-dir .bg-gradient-to-br .gap-3.mt-1\.5 { flex-wrap: wrap; row-gap: 6px; }
+.rf-dir .bg-gradient-to-br a.rounded-full { white-space: nowrap; }
+.rf-dir .bg-gradient-to-br p.text-sm { white-space: nowrap; }
+
+/* Dark: the accent (#6f97e6) on accent-soft (#1e3a6e) is 3.8:1, under AA for
+   this small text; on these pages the accent-soft fills take a lighter ink
+   (6.2:1). */
+:where(.ui-refresh.dark) :is(.rf-cal-upcoming .rf-date:not(.is-recruit):not(.is-service), .rf-dir .rf-chip.is-accent, .rf-dir-avatar.is-chair, .rf-profile-modal #pm-avatar > div > span, .rf-profile-modal :is(#pm-committees-list, #pm-roles-list) .bg-primary-100),
+:where(.ui-refresh.dark) .rf-cal #monthDropdown .js-nav-month.bg-primary-100 { color: #a9c2f2; }

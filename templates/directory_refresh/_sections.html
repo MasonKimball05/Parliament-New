@@ -1,0 +1,72 @@
+{% comment %}
+Website refresh (src/ui_refresh.py): the directory's sections as the app's
+Directory screen draws them: a section title with its count over one grouped
+card, a row per member (_member_row.html). Same sections, same order and the
+same conditions as the card grids it replaces in directory.html; each section
+keeps `directory-section` and each row `member-card`, which the page's search
+and filter pills hide and show.
+{% endcomment %}
+{% if officers %}
+<div class="directory-section rf-dir-section">
+    <div class="rf-section-title"><h2><span class="rf-dir-dot is-officer" aria-hidden="true"></span>Officers</h2><span class="rf-row-trailing">{{ officers|length }}</span></div>
+    <div class="rf-card rf-dir-list">
+        {% for member in officers %}{% include "directory_refresh/_member_row.html" with kind="officer" %}{% endfor %}
+    </div>
+</div>
+{% endif %}
+{% if chairs %}
+<div class="directory-section rf-dir-section">
+    <div class="rf-section-title"><h2><span class="rf-dir-dot is-chair" aria-hidden="true"></span>Chairs</h2><span class="rf-row-trailing">{{ chairs|length }}</span></div>
+    <div class="rf-card rf-dir-list">
+        {% for member in chairs %}{% include "directory_refresh/_member_row.html" with kind="chair" %}{% endfor %}
+    </div>
+</div>
+{% endif %}
+{% if members %}
+<div class="directory-section rf-dir-section">
+    <div class="rf-section-title"><h2><span class="rf-dir-dot is-member" aria-hidden="true"></span>Members</h2><span class="rf-row-trailing">{{ members|length }}</span></div>
+    <div class="rf-card rf-dir-list">
+        {% for member in members %}{% include "directory_refresh/_member_row.html" with kind="member" %}{% endfor %}
+    </div>
+</div>
+{% endif %}
+{% if pledges %}
+<div class="directory-section rf-dir-section">
+    <div class="rf-section-title"><h2><span class="rf-dir-dot is-pledge" aria-hidden="true"></span>Pledges</h2><span class="rf-row-trailing">{{ pledges|length }}</span></div>
+    <div class="rf-card rf-dir-list">
+        {% for member in pledges %}{% include "directory_refresh/_member_row.html" with kind="pledge" %}{% endfor %}
+    </div>
+</div>
+{% endif %}
+{% if advisors %}
+<div class="directory-section rf-dir-section">
+    <div class="rf-section-title"><h2><span class="rf-dir-dot is-advisor" aria-hidden="true"></span>Advisors</h2><span class="rf-row-trailing">{{ advisors|length }}</span></div>
+    <div class="rf-card rf-dir-list">
+        {% for member in advisors %}{% include "directory_refresh/_member_row.html" with kind="advisor" %}{% endfor %}
+    </div>
+</div>
+{% endif %}
+{% if alumni %}
+<div class="directory-section rf-dir-section">
+    <div class="rf-section-title"><h2><span class="rf-dir-dot is-alumni" aria-hidden="true"></span>Alumni</h2><span class="rf-row-trailing">{{ alumni|length }}</span></div>
+    <div class="rf-card rf-dir-list">
+        {% for member in alumni %}{% include "directory_refresh/_member_row.html" with kind="alumni" %}{% endfor %}
+    </div>
+</div>
+{% endif %}
+{% if original_founders %}
+<div class="directory-section rf-dir-section">
+    <div class="rf-section-title"><h2><span class="rf-dir-dot is-founders" aria-hidden="true"></span>Original Founders</h2><span class="rf-row-trailing">{{ original_founders|length }}</span></div>
+    <div class="rf-card rf-dir-list">
+        {% for member in original_founders %}{% include "directory_refresh/_member_row.html" with kind="founders" %}{% endfor %}
+    </div>
+</div>
+{% endif %}
+{% if former_members %}
+<div class="directory-section rf-dir-section">
+    <div class="rf-section-title"><h2><span class="rf-dir-dot is-former" aria-hidden="true"></span>Former Members</h2><span class="rf-row-trailing">{{ former_members|length }}</span></div>
+    <div class="rf-card rf-dir-list">
+        {% for member in former_members %}{% include "directory_refresh/_member_row.html" with kind="former" %}{% endfor %}
+    </div>
+</div>
+{% endif %}

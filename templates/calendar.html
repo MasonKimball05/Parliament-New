@@ -6,7 +6,7 @@
 
 {% block content %}
 {% include "components/page_guide.html" with page_key="calendar" guide_title="Chapter Calendar" guide_icon="📅" guide_body="The chapter calendar shows all upcoming events — chapter meetings, socials, philanthropy, and more. Click an event for details. Some events require RSVPs or have attendance requirements. Keep an eye on this so you never miss something important." %}
-<div class="container mx-auto px-4 py-8">
+<div class="container mx-auto px-4 py-8{% if ui_refresh %} rf-cal-page{% endif %}">
     <!-- Header Section -->
     <div class="bg-gradient-to-br from-primary-600 via-primary-700 to-primary-800 rounded-xl shadow-lg p-4 sm:p-5 mb-6 text-white relative overflow-hidden">
         <div class="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-yellow-400/60 to-transparent pointer-events-none"></div>
@@ -58,7 +58,7 @@
     </div>
 
     <!-- Calendar Grid -->
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden mb-8 transition-colors duration-200">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden mb-8 transition-colors duration-200{% if ui_refresh %} rf-cal{% endif %}">
         <!-- Month Navigation -->
         <div class="bg-primary-600 text-white px-6 py-4 flex items-center justify-between relative">
             <button id="prevMonthBtn" class="hover:bg-primary-700 p-2 rounded transition {% if not can_go_prev %}opacity-50 cursor-not-allowed{% endif %}" {% if not can_go_prev %}disabled{% endif %}>
@@ -366,7 +366,7 @@
         {% endfor %}
     {% endfor %}
 
-    <!-- Upcoming Events List -->
+{% if ui_refresh %}{% include "calendar_refresh/_upcoming.html" %}{% else %}    <!-- Upcoming Events List -->
     {% if upcoming_events %}
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 transition-colors duration-200">
             <h3 class="text-xl font-semibold mb-4 text-gray-800 dark:text-gray-100">Upcoming Events</h3>
@@ -396,10 +396,10 @@
                 {% endfor %}
             </div>
         </div>
-    {% endif %}
+    {% endif %}{% endif %}
 </div>
 
-<div id="dynamicModals"></div>
+<div id="dynamicModals"{% if ui_refresh %} class="rf-cal-modals"{% endif %}></div>
 
 <style>
     .min-h-24 {
@@ -1138,7 +1138,7 @@
 
 {% if feature_flags.ical_export %}
 <!-- Calendar Subscription Modal -->
-<div id="subscriptionModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 dark:bg-gray-900 dark:bg-opacity-70 hidden items-center justify-center z-50 overflow-y-auto p-4">
+<div id="subscriptionModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 dark:bg-gray-900 dark:bg-opacity-70 hidden items-center justify-center z-50 overflow-y-auto p-4{% if ui_refresh %} rf-cal-sub{% endif %}">
     <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full mx-auto my-8 p-6 max-h-[90vh] overflow-y-auto">
         <div class="flex justify-between items-center mb-4">
             <h3 class="text-2xl font-bold text-gray-900 dark:text-gray-100">📅 Subscribe to Calendar</h3>

@@ -1,0 +1,46 @@
+{% load custom_filters %}{% comment %}
+Website refresh (src/ui_refresh.py): one member as a row of the app's
+Directory list (avatar, name, roll, contact, roles, chevron). `kind` is the
+section's data-type, and picks what the classic card in directory.html shows
+for that section: the same fields, data-* search attributes and
+data-profile-user buttons (the search, filter pills and profile card keep
+working unchanged).
+{% endcomment %}
+<div class="member-card rf-row rf-dir-row"
+     data-name="{{ member.name|lower }}"
+     data-email="{% if kind != 'founders' and kind != 'former' and not hide_contact %}{{ member.email|lower|default:'' }}{% endif %}"
+     data-phone="{% if kind != 'founders' and kind != 'former' and not hide_contact %}{{ member.phone_number|default:'' }}{% endif %}"
+     data-role="{% if kind == 'officer' or kind == 'chair' or kind == 'member' %}{{ member.role_number|default:member.user_id }}{% elif kind == 'pledge' or kind == 'advisor' %}{% else %}{{ member.role_number|default:'' }}{% endif %}"
+     data-type="{{ kind }}">
+    <button type="button" data-profile-user="{{ member.user_id }}" class="rf-dir-avatar is-{{ kind }}" title="{% if kind == 'former' %}View record{% else %}View profile{% endif %}">
+        {% if member.profile_picture and kind != 'former' %}
+        <img src="{{ member.profile_picture.url }}" alt="{{ member.name }}">
+        {% else %}
+        <span aria-hidden="true">{{ member.name|slice:":1"|upper }}</span><span class="sr-only">{{ member.name }}</span>
+        {% endif %}
+    </button>
+    <span class="rf-row-body">
+        <button type="button" data-profile-user="{{ member.user_id }}" class="rf-row-title rf-dir-name">{{ member.get_display_name }}</button>
+        <span class="rf-row-sub">{% if kind == 'pledge' %}Pledge{% elif kind == 'advisor' %}{% if member.role_number %}#{{ member.role_number }}{% endif %}{% elif kind == 'alumni' %}{% if member.role_number %}#{{ member.role_number }} &middot; {% endif %}Alumni{% elif kind == 'founders' %}{% if member.role_number %}#{{ member.role_number }} &middot; {% endif %}Original Founder{% elif kind == 'former' %}{% if member.role_number %}#{{ member.role_number }} &middot; {% endif %}{% if member.pledge_class %}{{ member.pledge_class }} &middot; {% endif %}Former member{% else %}{% if member.role_number %}#{{ member.role_number }}{% else %}{{ member.user_id }}{% endif %}{% endif %}</span>
+        {% if kind != 'founders' and kind != 'former' %}
+        {% if member.email and not hide_contact or member.phone_number and not hide_contact %}
+        <span class="rf-dir-contact">
+            {% if member.email and not hide_contact %}<a href="mailto:{{ member.email }}">{{ member.email }}</a>{% endif %}
+            {% if member.phone_number and not hide_contact %}<a href="tel:{{ member.phone_number|format_phone }}" class="is-phone">{{ member.phone_number|format_phone }}</a>{% endif %}
+        </span>
+        {% endif %}
+        {% endif %}
+        {% if kind == 'officer' or kind == 'chair' %}
+        {% with roles=member.roles.all %}{% if roles %}
+        <span class="rf-row-pills">
+            {% for role in roles %}
+            <a href="{% url 'role_knowledge_base' role_id=role.id %}" class="rf-chip {% if kind == 'officer' %}is-purple{% else %}is-accent{% endif %}" title="View knowledge base for {{ role.name }}">{{ role.name }}</a>
+            {% endfor %}
+        </span>
+        {% endif %}{% endwith %}
+        {% elif kind == 'advisor' %}
+        <span class="rf-row-pills"><span class="rf-chip">Advisor</span></span>
+        {% endif %}
+    </span>
+    <button type="button" data-profile-user="{{ member.user_id }}" class="rf-chevron" aria-label="{% if kind == 'former' %}View record{% else %}View profile{% endif %}: {{ member.get_display_name }}">›</button>
+</div>

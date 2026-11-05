@@ -1,0 +1,26 @@
+{% comment %}
+Website refresh (src/ui_refresh.py): Upcoming Events as the app's event list
+(a date block, the title, when and where, the description, a Recruitment or
+Service pill, a chevron). Same events and fields as the list it replaces in
+calendar.html; each row is a button carrying `js-static-event-open` and
+data-event-id, so it opens the same event details the old row did.
+{% endcomment %}
+{% if upcoming_events %}
+<div class="rf-cal-upcoming">
+    <div class="rf-section-title"><h2>Upcoming Events</h2><span class="rf-row-trailing">{{ upcoming_events|length }}</span></div>
+    <div class="rf-card">
+        {% for event in upcoming_events %}
+        <button type="button" class="rf-row rf-cal-row js-static-event-open" data-event-id="{{ event.id }}">
+            <span class="rf-date{% if event.recruitment_event %} is-recruit{% elif event.service_event %} is-service{% endif %}" aria-hidden="true"><span class="rf-date-month">{{ event.date_time|date:"M" }}</span><span class="rf-date-day">{{ event.date_time|date:"j" }}</span></span>
+            <span class="rf-row-body">
+                <span class="rf-row-title">{{ event.title }}</span>
+                <span class="rf-row-sub">{{ event.date_time|date:"M j, Y - g:i A" }}{% if event.location %} &middot; {{ event.location }}{% endif %}</span>
+                <span class="rf-cal-desc">{{ event.description|truncatewords:15 }}</span>
+                {% if event.recruitment_event %}<span class="rf-row-pills"><span class="rf-chip is-purple">Recruitment</span></span>{% elif event.service_event %}<span class="rf-row-pills"><span class="rf-chip is-success">Service Event</span></span>{% endif %}
+            </span>
+            <span class="rf-chevron" aria-hidden="true">›</span>
+        </button>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}

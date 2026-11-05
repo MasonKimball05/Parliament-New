@@ -5,7 +5,7 @@
 
 {% block content %}
 {% include "components/page_guide.html" with page_key="directory" guide_title="Member Directory" guide_icon="📇" guide_body="The directory lists all active members of the chapter. You can search by name, look up contact info, and find out who holds what role. Members who&#39;ve filled out their profiles will have photos and bios. Click a member&#39;s card to see their full profile." %}
-<div class="container mx-auto px-4 py-8 max-w-6xl">
+<div class="container mx-auto px-4 py-8 max-w-6xl{% if ui_refresh %} rf-dir{% endif %}">
     <!-- Header -->
     <div class="bg-gradient-to-br from-primary-600 via-primary-700 to-primary-800 rounded-xl shadow-lg p-4 sm:p-5 mb-6 text-white relative overflow-hidden">
 <div class="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-yellow-400/60 to-transparent pointer-events-none"></div>
@@ -110,7 +110,7 @@
         {% if original_founders %}<button data-filter="founders" class="filter-pill px-3 py-1.5 rounded-full text-xs font-medium transition-colors">Original Founders ({{ original_founders|length }})</button>{% endif %}
     </div>
 
-    <!-- Officers Section -->
+{% if ui_refresh %}{% include "directory_refresh/_sections.html" %}{% else %}    <!-- Officers Section -->
     {% if officers %}
     <div class="mb-8 directory-section">
         <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
@@ -506,7 +506,7 @@
             {% endfor %}
         </div>
     </div>
-    {% endif %}
+    {% endif %}{% endif %}
 
     <!-- No Results Message -->
     <div id="noResults" class="hidden text-center py-12">
@@ -519,7 +519,7 @@
 </div>
 
 <!-- Profile Card Modal -->
-<div id="profileModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="profileModalTitle">
+<div id="profileModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4{% if ui_refresh %} rf-profile-modal{% endif %}" role="dialog" aria-modal="true" aria-labelledby="profileModalTitle">
     <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full sm:max-w-lg overflow-hidden">
     <div class="overflow-y-auto max-h-[85vh]">
         <!-- Loading state -->
