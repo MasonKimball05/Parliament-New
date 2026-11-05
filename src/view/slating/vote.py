@@ -15,7 +15,8 @@ from src.models import (
 from .tallies import end_round
 from .permissions import voting_member_required, slating_chair_required, can_view_applications
 from src.view.webauthn import check_vote_reauth
-from src.slating_ballots import SlatingBallotError, cast_individual, cast_slate, individual_ballot
+from src.slating_ballots import (SlatingBallotError, cast_individual, cast_slate, individual_ballot,
+                                 sat_out_states, sits_out_slate)
 from src.slating_rounds import slate_rows
 from src.models.users import member_defer
 
@@ -141,6 +142,8 @@ def slating_vote(request, period_id):
         'is_committee': is_committee,
         'voting_paused': False,
         'has_passkeys': user.webauthn_credentials.exists(),
+        # v4.4.5: a candidate sitting out their own race gets a notice, not the form.
+        'sits_out': existing_ballot is None and sits_out_slate(period, slate, user),
     }
 
     return render(request, 'slating/vote.html', context)
@@ -221,7 +224,10 @@ def individual_vote(request, period_id):
             'allow_abstain': allow_abstain,
         })
 
-    all_voted = all(r['voted'] for r in rows) if rows else True
+    # v4.4.5: positions this candidate sits out are already off `ballot`; an
+    # empty ballot because of that is "nothing to vote on", not "all voted".
+    sitting_out = sorted(s.position.title for s in sat_out_states(period, slate, user))
+    all_voted = all(r['voted'] for r in rows) if rows else not sitting_out
 
     context = {
         'period': period,
@@ -231,6 +237,7 @@ def individual_vote(request, period_id):
         'all_voted': all_voted,
         'required_percentage': round_threshold(period, config),
         'has_passkeys': user.webauthn_credentials.exists(),
+        'sitting_out': sitting_out,
     }
 
     return render(request, 'slating/vote_individual.html', context)

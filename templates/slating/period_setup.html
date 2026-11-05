@@ -462,6 +462,20 @@
                             class="block w-full rounded-lg border-gray-300 dark:border-gray-600 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:text-white text-sm">
                         <p class="mt-1 text-xs text-gray-400">Bylaws default: 60%</p>
                     </div>
+
+                    {# v4.4.5: candidates sit out their own race #}
+                    <div>
+                        <div class="flex items-start gap-2">
+                            <input type="hidden" name="candidates_cannot_vote" value="off">
+                            <input type="checkbox" name="candidates_cannot_vote" id="candidates_cannot_vote" value="on"
+                                {% if candidates_cannot_vote %}checked{% endif %}{% if period.status == 'voting_open' %} disabled{% endif %}
+                                class="mt-0.5 rounded border-gray-300 dark:border-gray-600 text-primary-600 focus:ring-primary-500">
+                            <label for="candidates_cannot_vote" class="text-sm font-medium text-gray-700 dark:text-gray-300">Candidates can't vote on their own race</label>
+                        </div>
+                        <p class="mt-1 ml-6 text-xs text-gray-500 dark:text-gray-400">
+                            On a whole-slate vote, anyone on the slate doesn't vote. On a position vote (run-offs, floor nominations), a candidate doesn't vote on their own position but votes on the rest. Nothing is recorded for them, not even an abstention.{% if period.status == 'voting_open' %} <strong>Locked while voting is open.</strong>{% endif %}
+                        </p>
+                    </div>
                 </div>
             </div>
 

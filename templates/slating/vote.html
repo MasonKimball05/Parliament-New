@@ -187,6 +187,13 @@
         <p class="mt-4 text-sm text-gray-500 dark:text-gray-400">Results will be available when voting closes and results are published.</p>
         {% endif %}
     </div>
+    {% elif sits_out %}
+    <!-- v4.4.5: candidates sit out their own race (period setting) -->
+    <div class="bg-sky-50 dark:bg-sky-900/30 border border-sky-200 dark:border-sky-800 rounded-lg p-6 text-center">
+        <h3 class="text-sm font-semibold text-sky-900 dark:text-sky-100">You're on this slate, so you don't vote on it</h3>
+        <p class="mt-1 text-sm text-sky-800 dark:text-sky-200">The slating chair set this election so candidates sit out their own race. Nothing is recorded for you, not even an abstention, so the result is decided by everyone else's votes.</p>
+        <a href="{% url 'slating_dashboard' %}" class="mt-4 inline-flex items-center text-sm text-primary-600 dark:text-primary-400 hover:underline">Back to Dashboard</a>
+    </div>
     {% else %}
     <!-- Vote Form -->
     <form method="post" class="js-vote-form bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">

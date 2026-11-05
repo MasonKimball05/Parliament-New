@@ -52,6 +52,13 @@
     </div>
     {% endif %}
 
+    {% if sitting_out %}
+    <!-- v4.4.5: candidates sit out their own race (period setting) -->
+    <div class="mb-4 rounded-xl border border-sky-200 dark:border-sky-800 bg-sky-50 dark:bg-sky-900/30 px-4 py-3 text-sm text-sky-900 dark:text-sky-100">
+        You're a candidate for <strong>{{ sitting_out|join:", " }}</strong>, so {% if sitting_out|length == 1 %}that position isn't{% else %}those positions aren't{% endif %} on your ballot. The slating chair set this election so candidates sit out their own race; nothing is recorded for you there, not even an abstention.
+    </div>
+    {% endif %}
+
     {% if all_voted %}
     <div class="bg-white dark:bg-gray-800 shadow rounded-xl px-6 py-12 text-center">
         <svg class="mx-auto h-12 w-12 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -65,7 +72,7 @@
     </div>
     {% elif not rows %}
     <div class="bg-white dark:bg-gray-800 shadow rounded-xl px-6 py-12 text-center">
-        <h3 class="text-sm font-semibold text-gray-900 dark:text-white">No positions pending a vote</h3>
+        <h3 class="text-sm font-semibold text-gray-900 dark:text-white">{% if sitting_out %}Nothing for you to vote on this round{% else %}No positions pending a vote{% endif %}</h3>
         <a href="{% url 'slating_dashboard' %}" class="mt-4 inline-flex items-center text-sm text-primary-600 dark:text-primary-400 hover:underline">
             Back to Dashboard
         </a>

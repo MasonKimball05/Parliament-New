@@ -197,6 +197,9 @@ def setup_data(period, user, notice=None):
             'min_gpa_requirement': float(period.min_gpa_requirement),
             'gpa_level_2_threshold': float(period.gpa_level_2_threshold),
             'required_approval_percentage': period.required_approval_percentage,
+            # v4.4.5: candidates sit out their own race (src/slating_ballots.py).
+            'candidates_cannot_vote': bool((period.extra_settings or {}).get('candidates_cannot_vote')),
+            'candidates_cannot_vote_locked': period.status == 'voting_open',
             **{field: _iso(getattr(period, field)) for field in PERIOD_DATE_FIELDS},
         },
         'notice': notice,

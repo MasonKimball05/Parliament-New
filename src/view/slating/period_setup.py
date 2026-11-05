@@ -183,6 +183,11 @@ def create_slating_period(user, data):
         period.save(update_fields=['min_gpa_requirement', 'gpa_level_2_threshold', 'required_approval_percentage'])
     except (ValueError, TypeError):
         pass
+    # v4.4.5: the create form's "Candidates can't vote on their own race" box.
+    raw = data.getlist('candidates_cannot_vote') if hasattr(data, 'getlist') else [data.get('candidates_cannot_vote')]
+    if any(str(v).lower() in ('on', 'true', '1', 'yes') or v is True for v in raw if v is not None):
+        period.extra_settings = {**(period.extra_settings or {}), 'candidates_cannot_vote': True}
+        period.save(update_fields=['extra_settings'])
 
     # Log activity
     SlatingActivity.objects.create(
@@ -222,6 +227,20 @@ def save_period_settings(period, user, data):
         period.required_approval_percentage = int(data.get('required_approval_percentage', period.required_approval_percentage))
     except (ValueError, TypeError):
         pass
+
+    # v4.4.5: "Candidates can't vote on their own race" (src/slating_ballots.py).
+    # Only when the form sends it (an app build without the switch leaves it
+    # alone), and never while a vote is open, so the rules can't change mid-round.
+    if 'candidates_cannot_vote' in data and period.status != 'voting_open':
+        raw = data.getlist('candidates_cannot_vote') if hasattr(data, 'getlist') else [data.get('candidates_cannot_vote')]
+        on = any(str(v).lower() in ('on', 'true', '1', 'yes') or v is True for v in raw)
+        from src.slating_ballots import CANDIDATES_CANNOT_VOTE
+        settings_ = dict(period.extra_settings or {})
+        if on:
+            settings_[CANDIDATES_CANNOT_VOTE] = True
+        else:
+            settings_.pop(CANDIDATES_CANNOT_VOTE, None)
+        period.extra_settings = settings_
 
     # Update dates
     for field in PERIOD_DATE_FIELDS:
@@ -585,6 +604,7 @@ def edit_period(request, period_id):
         # v4.0.0: the "+ Default Positions" modal lists exactly what the
         # button adds (it was a hardcoded list that had drifted).
         'default_positions': default_slate_positions(),
+        'candidates_cannot_vote': bool((period.extra_settings or {}).get('candidates_cannot_vote')),
         # 10-29-26: positions, rounds and floor nominations (src/slating_rounds.py).
         'election': election,
         'nominee_members': (list(ParliamentUser.objects.filter(

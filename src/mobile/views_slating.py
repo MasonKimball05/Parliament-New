@@ -30,14 +30,14 @@ from src.mobile.api import MobileAPIView
 from src.mobile.views_votes import VoteRefused, _confirm_identity
 from src.models import SlatingActivity, SlatingApplication, SlatingPeriod
 from src.slating_ballots import (
-    SlatingBallotError, cast_individual, cast_slate, has_slate_ballot, individual_ballot, is_present,
-    primary_slate, slate_candidates,
+    CANDIDATE_REFUSAL, SlatingBallotError, cast_individual, cast_slate, has_slate_ballot, individual_ballot,
+    is_present, primary_slate, sat_out_states, sits_out_slate, slate_candidates,
 )
 from src.view.slating.period_setup import check_and_auto_transition_status
 from src.view.slating.permissions import can_manage_period, can_view_applications
 
 WITHDRAWABLE = ('draft', 'submitted', 'under_review')
-_STATUS = {'already_voted': 409, 'invalid_choice': 400, 'no_positions': 400}
+_STATUS = {'already_voted': 409, 'invalid_choice': 400, 'no_positions': 400, 'candidate_cannot_vote': 403}
 
 
 def _iso(dt):
@@ -66,8 +66,21 @@ def _has_voted(period, user):
     return bool(ballot) and all(s.position.id in voted for s in ballot)
 
 
+def _sits_out_everything(period, user):
+    """v4.4.5: a candidate with nothing to vote on this round (their whole
+    slate, or every position on this round's ballot is their own)."""
+    slate = primary_slate(period)
+    if slate is None:
+        return False
+    if period.vote_type != 'individual':
+        return sits_out_slate(period, slate, user) and not has_slate_ballot(period, user)
+    _, ballot, _, _ = individual_ballot(period, slate, user)
+    return not ballot and bool(sat_out_states(period, slate, user))
+
+
 def _period_json(period, user):
     open_now = period.can_vote()
+    sits_out = bool(open_now and user.can_vote and _sits_out_everything(period, user))
     return {
         'id': period.id,
         'name': period.name,
@@ -81,8 +94,11 @@ def _period_json(period, user):
         'can_apply': period.can_apply(),
         'apply_path': reverse('slating_apply', args=[period.id]),
         'voting_open': open_now,
-        'can_vote': bool(open_now and user.can_vote),
+        'can_vote': bool(open_now and user.can_vote) and not sits_out,
         'has_voted': bool(open_now and _has_voted(period, user)),
+        # v4.4.5: candidates sit out their own race (period setting).
+        'sits_out': sits_out,
+        'sits_out_message': CANDIDATE_REFUSAL if sits_out else '',
         'results_published': period.status == 'results_published',
         'is_committee': can_view_applications(user, period),
         'is_chair': can_manage_period(user, period),
@@ -194,6 +210,9 @@ class SlatingVoteView(_SlatingBase):
                     'voted': st.position.id in voted,
                 })
             out['positions'] = rows
+            # v4.4.5: own positions are left off a candidate's ballot when the period says so.
+            out['sitting_out'] = [{'id': st.position.id, 'position': st.position.title}
+                                  for st in sat_out_states(period, slate, request.user)]
             # Decided earlier: no result here, as on the web (results wait for the committee).
             out['decided'] = [{'id': st.position.id, 'position': st.position.title} for st in decided]
             out['required_percentage'] = round_threshold(period, config)
@@ -204,6 +223,7 @@ class SlatingVoteView(_SlatingBase):
                                  for r in slate_rows(period, slate)]
             out['allow_abstain'] = period.allow_abstain
             out['has_voted'] = has_slate_ballot(period, request.user)
+            out['sits_out'] = not out['has_voted'] and sits_out_slate(period, slate, request.user)
         return Response(out)
 
     def post(self, request, period_id):
@@ -213,6 +233,8 @@ class SlatingVoteView(_SlatingBase):
         try:
             if period.vote_type == 'individual':
                 decided, ballot, voted, config = individual_ballot(period, slate, user)
+                if not ballot and sat_out_states(period, slate, user):
+                    raise SlatingBallotError('candidate_cannot_vote', CANDIDATE_REFUSAL)
                 if all(st.position.id in voted for st in ballot):
                     raise SlatingBallotError('already_voted', 'You have already voted in this round.')
                 _confirm_identity(request, data)

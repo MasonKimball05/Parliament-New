@@ -17,11 +17,21 @@ unchanged in behaviour:
 
 Eligibility (``user.can_vote``, voting open, marked present, a slate to vote
 on) and re-authentication stay with the caller, which knows how it asks.
+
+v4.4.5, "Candidates can't vote on their own race" (a period setting, in
+``extra_settings``): when on, a member on the approved slate (a nominee or a
+write-in) can't cast a slate ballot, and in individual-position voting their
+own positions (including run-off options and floor nominations they stand
+in) are left off their ballot; they vote on every other position. Nothing is
+recorded for a race they sit out: no ballot and no abstention, so it can't
+count as a cast ballot or an abstain (which a period may not allow at all),
+and the pass/fail math (approve ÷ approve+reject) is unaffected.
 """
 import hashlib
 import secrets
 
 from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
 
 from src.models import SlatingActivity, SlatingAttendance, SlatingBallot, SlatingPeriod, SlatingVote, Slate
@@ -49,6 +59,36 @@ def is_present(period, user):
     return SlatingAttendance.objects.filter(period=period, member=user).exists()
 
 
+CANDIDATES_CANNOT_VOTE = 'candidates_cannot_vote'
+CANDIDATE_REFUSAL = "You're on this slate, so you don't vote on it. The slating chair set this election so candidates sit out their own race."
+
+
+def candidates_cannot_vote(period):
+    return bool((period.extra_settings or {}).get(CANDIDATES_CANNOT_VOTE))
+
+
+def own_position_ids(period, slate, user):
+    """Positions ``user`` stands for in this election: on the slate (nominee or
+    write-in) or as a floor nominee."""
+    from src.models import SlateCandidate, SlatingNominee
+    ids = set()
+    if slate is not None:
+        ids.update(SlateCandidate.objects.filter(slate=slate).filter(
+            Q(application__applicant=user) | Q(write_in_member=user)).values_list('position_id', flat=True))
+    ids.update(SlatingNominee.objects.filter(period=period, member=user).values_list('position_id', flat=True))
+    return ids
+
+
+def sits_out_positions(period, slate, user):
+    """The positions this member may not vote on (empty unless the setting is on)."""
+    return own_position_ids(period, slate, user) if candidates_cannot_vote(period) else set()
+
+
+def sits_out_slate(period, slate, user):
+    """Whole-slate voting: True when the setting is on and ``user`` is on the slate."""
+    return candidates_cannot_vote(period) and bool(own_position_ids(period, slate, user))
+
+
 def has_slate_ballot(period, user, attempt=None):
     attempt = period.current_voting_attempt if attempt is None else attempt
     return SlatingBallot.objects.filter(period=period, voter=user, voting_attempt=attempt,
@@ -68,6 +108,9 @@ def cast_slate(user, period, slate, candidates, vote_choice, rejected_raw):
         rejected = sorted({int(p) for p in raw if p.isdigit() and int(p) in on_slate})
         if not rejected:
             raise SlatingBallotError('no_positions', 'Please select at least one position you are objecting to.')
+
+    if sits_out_slate(period, slate, user):
+        raise SlatingBallotError('candidate_cannot_vote', CANDIDATE_REFUSAL)
 
     attempt = period.current_voting_attempt
     with transaction.atomic():
@@ -97,11 +140,27 @@ def individual_ballot(period, slate, user):
     states = position_states(period, slate)
     config = ballot_config(period)
     ballot = ballot_states(period, states, config)
+    # v4.4.5: a candidate's own positions are left off their ballot when the
+    # period says candidates sit out their own race (see the module note).
+    sit_out = sits_out_positions(period, slate, user)
+    if sit_out:
+        ballot = [s for s in ballot if s.position.id not in sit_out]
     decided = [s for s in states if s.decided]
     voted = set(SlatingBallot.objects.filter(
         period=period, voter=user, vote_type='individual', voting_attempt=period.current_voting_attempt,
         position_id__in=[s.position.id for s in ballot]).values_list('position_id', flat=True))
     return decided, ballot, voted, config
+
+
+def sat_out_states(period, slate, user):
+    """This round's ballot positions that ``user`` sits out (for the "you're a
+    candidate for ..." note); empty unless the setting is on."""
+    sit_out = sits_out_positions(period, slate, user)
+    if not sit_out:
+        return []
+    from src.slating_rounds import ballot_config, ballot_states, position_states
+    states = ballot_states(period, position_states(period, slate), ballot_config(period))
+    return [s for s in states if s.position.id in sit_out]
 
 
 def cast_individual(user, period, ballot, voted_position_ids, config, choice_for):
