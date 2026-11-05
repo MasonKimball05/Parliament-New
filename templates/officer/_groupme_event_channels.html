@@ -14,6 +14,8 @@ if everyone in it can see the event; the server re-checks on save and send.
     <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Reminder already posted {{ groupme_reminded|date:"M j, g:i A" }}.</p>
     {% elif groupme_channels %}
     <p class="text-xs text-gray-500 dark:text-gray-400 mt-1 mb-3">Post a reminder to these groups before the event. Only groups where everyone can see the event are allowed.</p>
+    {# v4.4.5 #}
+    <p class="text-xs font-medium text-amber-800 dark:text-amber-300 mb-3">Posts in the group's main chat, visible to everyone in it.</p>
     <div class="space-y-2">
         {% for c in groupme_channels %}
         <div class="flex items-start">
@@ -23,7 +25,7 @@ if everyone in it can see the event; the server re-checks on save and send.
                    {% if c.checked %}checked{% endif %} {% if not c.allowed_now %}disabled{% endif %}>
             <label for="groupme-ch-{{ c.pk }}" class="ml-2 text-sm text-gray-700 dark:text-gray-300">
                 {{ c.name }}
-                <span class="text-xs text-gray-500 dark:text-gray-400">({{ c.audience_labels|join:", " }})</span>
+                <span class="text-xs text-gray-500 dark:text-gray-400">({{ c.audience_labels|join:", " }}){% if c.group_name %} · main chat of {{ c.group_name }}{% endif %}</span>
                 <span class="groupme-blocked block text-xs text-amber-700 dark:text-amber-400 {% if c.allowed_now %}hidden{% endif %}">Not everyone in this GroupMe can see this event.</span>
             </label>
         </div>

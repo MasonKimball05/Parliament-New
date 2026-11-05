@@ -47,6 +47,8 @@ class FakeGroupMe:
         self.calls = []
         self.post_status = 202
         self.next_bot = 1
+        # v4.4.5: bots GroupMe lists for the token (GET /bots, "Check connection").
+        self.bots = [{'bot_id': 'botBROTHERS1', 'group_id': '111', 'group_name': 'AM Brothers', 'name': 'Parliament'}]
 
     def __call__(self, method, url, headers=None, json=None, params=None, **kw):
         path = url.replace(groupme.API_BASE, '')
@@ -59,6 +61,8 @@ class FakeGroupMe:
             return fake_response(200, [{'id': '111', 'name': 'AM Brothers', 'members_count': 60},
                                        {'id': '222', 'name': 'AM Everyone', 'members_count': 80},
                                        {'id': '333', 'name': 'AM Brothers 2027', 'members_count': 61}])
+        if path == '/bots' and method == 'GET':
+            return fake_response(200, self.bots)
         if path == '/bots':
             bot_id = f'bot{self.next_bot:06d}'
             self.next_bot += 1
@@ -324,11 +328,50 @@ class DashboardTests(GroupMeFixture, TestCase):
         self.assertFalse(GroupMeChannel.objects.filter(pk=self.brothers.pk).exists())
         self.assertEqual(GroupMeMessage.objects.get().channel_name, 'Brothers')
 
-    def test_test_message_is_sent_and_rate_limited(self):
-        self.oc.post(reverse('groupme_test_channel', args=[self.brothers.pk]))
-        self.oc.post(reverse('groupme_test_channel', args=[self.brothers.pk]))
-        self.assertEqual(len(self.api.posts()), 1)
-        self.assertEqual(GroupMeMessage.objects.get(kind='test').status, 'sent')
+    def connect_account(self):
+        from src.models import GroupMeSettings
+        row = GroupMeSettings.get_instance()
+        row.access_token, row.token_owner_name = TOKEN, 'Mason K'
+        row.save()
+
+    def test_check_connection_without_an_account_refuses_and_never_posts(self):
+        r = self.oc.post(reverse('groupme_test_channel', args=[self.brothers.pk]), follow=True)
+        self.assertContains(r, 'Connect a GroupMe account')
+        self.assertEqual(self.api.posts(), [])
+
+    def test_check_connection_never_posts(self):
+        self.connect_account()
+        # v4.4.5: the old "Send test" posted in the group's main chat for everyone
+        # (11-05-26). The same button/route now only asks GroupMe about the bot.
+        r = self.oc.post(reverse('groupme_test_channel', args=[self.brothers.pk]), follow=True)
+        self.assertContains(r, 'is connected')
+        self.assertContains(r, 'Nothing was posted.')
+        self.assertEqual(self.api.posts(), [])
+        self.assertFalse(GroupMeMessage.objects.filter(kind='test').exists())
+        self.assertTrue(any(c['path'] == '/bots' and c['method'] == 'GET' for c in self.api.calls))
+
+    def test_check_connection_reports_a_missing_bot_without_posting(self):
+        self.connect_account()
+        self.api.bots = []
+        r = self.oc.post(reverse('groupme_test_channel', args=[self.brothers.pk]), follow=True)
+        self.assertContains(r, "doesn&#x27;t list this bot")
+        self.assertEqual(self.api.posts(), [])
+
+    def test_check_connection_reports_a_bot_in_another_group(self):
+        self.connect_account()
+        self.api.bots = [{'bot_id': 'botBROTHERS1', 'group_id': '999', 'group_name': 'Somewhere else', 'name': 'P'}]
+        r = self.oc.post(reverse('groupme_test_channel', args=[self.brothers.pk]), follow=True)
+        self.assertContains(r, 'Somewhere else')
+        self.assertEqual(self.api.posts(), [])
+
+    def test_posting_flag_off_blocks_every_post(self):
+        from src.models_feature_flags import FeatureFlag
+        FeatureFlag.objects.update_or_create(name='groupme_posting', defaults={
+            'display_name': 'GroupMe posting', 'is_enabled': False})
+        cache.clear()
+        with self.assertRaises(groupme.GroupMeError):
+            groupme.post_as_bot('botBROTHERS1', 'hello')
+        self.assertEqual(self.api.posts(), [])
 
     def test_changes_are_in_the_activity_log(self):
         from src.models import ActivityLog

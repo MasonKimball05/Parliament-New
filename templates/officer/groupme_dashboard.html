@@ -15,6 +15,16 @@ The access token and bot ids are never rendered (bots show their last 4).
             Announcements posted here can be echoed into the chapter's GroupMes, and events can post a reminder before they start. Each group below is a
             "channel": the bot only posts an announcement to a group if everyone in that group can see it on Parliament.
         </p>
+        {# v4.4.5: where posts land, and the site-wide switch #}
+        <div class="mt-3 rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 px-4 py-3 text-sm text-amber-900 dark:text-amber-200">
+            <strong>Posts go to each group's main chat</strong>, visible to everyone in that group. A GroupMe bot can't post only in an Announcements topic.
+            "Check connection" only asks GroupMe about the bot; it never posts.
+            {% if posting_enabled %}
+            GroupMe posting is <strong>on</strong> (Admin v2 → Feature Flags → GroupMe posting turns it off everywhere).
+            {% else %}
+            GroupMe posting is <strong>off</strong> site-wide: nothing is posted to any group until it is turned on in Admin v2 → Feature Flags.
+            {% endif %}
+        </div>
     </div>
 
     {% if stuck_count %}
@@ -110,7 +120,7 @@ The access token and bot ids are never rendered (bots show their last 4).
                 <div class="flex gap-2 flex-wrap">
                     <form method="post" action="{% url 'groupme_test_channel' c.pk %}">
                         {% csrf_token %}
-                        <button type="submit" class="px-3 py-1.5 text-xs font-semibold rounded bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200">Send test</button>
+                        <button type="submit" class="px-3 py-1.5 text-xs font-semibold rounded bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200">Check connection</button>
                     </form>
                     <form method="post" action="{% url 'groupme_remove_channel' c.pk %}"
                           data-confirm="Remove &quot;{{ c.name }}&quot;? The bot will stop posting to {{ c.group_name|default:'that group' }}.">

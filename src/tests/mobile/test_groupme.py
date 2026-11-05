@@ -129,10 +129,13 @@ class GroupMeAppTests(TestCase):
         self.assertEqual(c.group_id, '222')
         self.assertTrue(any(x['path'] == '/bots/destroy' for x in self.fake.calls))
 
-        self.assertEqual(self.post(f'channels/{c.pk}/test/').status_code, 200)
-        self.assertEqual(self.post(f'channels/{c.pk}/test/').json()['detail'],
-                         'Wait 30 seconds between test messages.')
-        self.assertEqual(len(self.fake.posts()), 1)
+        # v4.4.5: "test" is now "Check connection": it asks GroupMe and never posts.
+        self.fake.bots = [{'bot_id': c.bot_id, 'group_id': c.group_id, 'group_name': 'AM Everyone', 'name': 'P'}]
+        r = self.post(f'channels/{c.pk}/test/')
+        self.assertEqual(r.status_code, 200, r.content)
+        self.assertIn('Nothing was posted.', r.json()['detail'])
+        self.assertEqual(self.post(f'channels/{c.pk}/test/').json()['detail'], 'Wait a few seconds between checks.')
+        self.assertEqual(len(self.fake.posts()), 0)
 
         self.assertEqual(self.post(f'channels/{c.pk}/remove/').status_code, 200)
         self.assertFalse(GroupMeChannel.objects.filter(pk=c.pk).exists())

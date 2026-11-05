@@ -130,9 +130,33 @@ def destroy_bot(token, bot_id):
     _request('POST', '/bots/destroy', token=token, json={'bot_id': bot_id})
 
 
+POSTING_FLAG = 'groupme_posting'
+
+
+def posting_enabled():
+    """v4.4.5: the site-wide "GroupMe posting" switch (Admin v2 → Feature Flags)."""
+    from src.feature_flag_decorators import check_feature_enabled
+    return check_feature_enabled(POSTING_FLAG)
+
+
 def post_as_bot(bot_id, text):
-    """Post `text` to the bot's group. No token: the bot_id is the credential."""
+    """Post `text` to the bot's group. No token: the bot_id is the credential.
+
+    v4.4.5: EVERY GroupMe post goes through here, and nothing posts while the
+    "GroupMe posting" feature flag is off. A bot always posts in the group's
+    main chat (it is added to the group itself), visible to everyone in it.
+    """
+    if not posting_enabled():
+        raise GroupMeError('GroupMe posting is turned off (Admin v2 → Feature Flags → GroupMe posting).')
     _request('POST', '/bots/post', json={'bot_id': bot_id, 'text': text[:MAX_MESSAGE_CHARS]})
+
+
+def list_bots(token):
+    """The bots the token's owner made: [{'bot_id', 'group_id', 'group_name', 'name'}].
+    Read only: used by "Check connection", which never posts."""
+    bots = _payload(_request('GET', '/bots', token=token)) or []
+    return [{'bot_id': str(b.get('bot_id') or ''), 'group_id': str(b.get('group_id') or ''),
+             'group_name': b.get('group_name') or '', 'name': b.get('name') or ''} for b in bots]
 
 
 # ---------------------------------------------------------------------------

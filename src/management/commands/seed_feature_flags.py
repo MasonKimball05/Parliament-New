@@ -93,6 +93,21 @@ class Command(BaseCommand):
                 'is_enabled': False,
             },
             {
+                # v4.4.5: a site-wide kill switch for GroupMe. Every post goes
+                # through src.groupme.post_as_bot, which refuses while this is
+                # off. Seeded ON (unchanged behaviour); a missing row also means on.
+                'name': 'groupme_posting',
+                'display_name': 'GroupMe posting',
+                'description': (
+                    'Lets Parliament post to GroupMe (announcements and event '
+                    'reminders sent to a GroupMe channel). Off: nothing is posted '
+                    'to any GroupMe group. Posts always appear in the group\'s main '
+                    'chat, visible to everyone in it.'
+                ),
+                'category': 'communications',
+                'is_enabled': True,
+            },
+            {
                 # ⚠️ v3.26.0 — WAS SEEDED `is_enabled: False` HERE WHILE GATING
                 # NOTHING, SO IT DID NOTHING. Now that FeatureFlagGatedEmailBackend
                 # reads this flag on every send, `False` would silently stop all

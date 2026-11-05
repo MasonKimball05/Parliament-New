@@ -32,7 +32,7 @@ from django.views.decorators.http import require_POST
 
 from src.decorators import log_function_call, officer_required
 from src.groupme import (
-    GroupMeError, create_bot, destroy_bot, get_me, list_groups, post_as_bot,
+    GroupMeError, create_bot, destroy_bot, get_me, list_bots, list_groups, posting_enabled,
     queue_send,
 )
 from src.models import ActivityLog, GroupMeChannel, GroupMeMessage, GroupMeSettings
@@ -122,6 +122,7 @@ def dashboard_data():
     stuck = GroupMeMessage.objects.filter(status='queued', created_at__lt=stuck_cutoff).aggregate(
         count=Count('pk'), oldest=Min('created_at'))
     return {
+        'posting_enabled': posting_enabled(),
         'stuck_count': stuck['count'],
         'stuck_oldest': stuck['oldest'],
         'stuck_minutes': STUCK_MINUTES,
@@ -282,23 +283,42 @@ def remove_channel_action(request, channel):
     return f'"{name}" removed.{note}'
 
 
-def send_test_action(request, channel):
-    if not cache.add(f'groupme_test_{channel.pk}', 1, TEST_COOLDOWN_SECONDS):
-        raise GroupMeActionError(f'Wait {TEST_COOLDOWN_SECONDS} seconds between test messages.')
-    text = f'✅ Test from Parliament: this group is connected as "{channel.name}".'
-    message = GroupMeMessage.objects.create(
-        channel=channel, channel_name=channel.name, kind='test', text=text,
-        sent_by=request.user, attempts=1,
-    )
+def check_connection_action(request, channel):
+    """
+    v4.4.5: "Check connection" — asks GroupMe whether this channel's bot still
+    exists and which group it is in. It NEVER posts anything (the old "Send
+    test" posted in the group's main chat for everyone to see). Needs the
+    connected GroupMe account's token; a bot entered by hand can't be checked.
+    """
+    if not cache.add(f'groupme_check_{channel.pk}', 1, 10):
+        raise GroupMeActionError('Wait a few seconds between checks.')
+    settings_row = _settings()
+    if not settings_row.access_token:
+        raise GroupMeActionError(
+            'Connect a GroupMe account (above) to check bots. Nothing was posted.')
     try:
-        post_as_bot(channel.bot_id, text)
+        bots = list_bots(settings_row.access_token)
     except GroupMeError as e:
-        message.status, message.error = 'failed', str(e)[:500]
-        message.save(update_fields=['status', 'error'])
-        raise GroupMeActionError(f'Test failed: {e}')
-    message.status, message.sent_at = 'sent', timezone.now()
-    message.save(update_fields=['status', 'sent_at'])
-    return f'Test sent to "{channel.name}". Check the group.'
+        raise GroupMeActionError(f'Couldn\'t reach GroupMe to check: {e}. Nothing was posted.')
+    bot = next((b for b in bots if b['bot_id'] == channel.bot_id), None)
+    if bot is None:
+        raise GroupMeActionError(
+            f'"{channel.name}": GroupMe doesn\'t list this bot for {settings_row.token_owner_name or "the connected account"}. '
+            'It was removed, or another account made it. Nothing was posted.')
+    if channel.group_id and bot['group_id'] and bot['group_id'] != channel.group_id:
+        raise GroupMeActionError(
+            f'"{channel.name}": the bot is in "{bot["group_name"] or bot["group_id"]}", not the group saved here. '
+            'Nothing was posted.')
+    _log(request, f'checked "{channel.name}" (no message sent)', channel)
+    where = bot['group_name'] or channel.group_name or 'its group'
+    off = '' if posting_enabled() else ' GroupMe posting is turned off site-wide, so nothing will post until it is turned on.'
+    return (f'"{channel.name}" is connected: the bot is in "{where}". Its posts appear in that group\'s main chat, '
+            f'visible to everyone in it. Nothing was posted.{off}')
+
+
+# v4.4.5: the old name, kept so every route that used it (web, app, older app
+# builds' "Send test") now runs the check. It can't post.
+send_test_action = check_connection_action
 
 
 def retryable_messages():

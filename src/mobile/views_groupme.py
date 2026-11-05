@@ -87,6 +87,9 @@ class GroupMeDashboardView(_Officers):
         d = gm.dashboard_data()
         s = d['settings_row']
         return Response({
+            # v4.4.5: the site-wide switch, and where posts land.
+            'posting_enabled': d['posting_enabled'],
+            'where_posts_go': "Posts go to each group's main chat, visible to everyone in that group.",
             'connection': {
                 'connected': s.has_token,
                 'owner_name': s.token_owner_name,

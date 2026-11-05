@@ -32,6 +32,8 @@ that as "Visible To" changes, and the server checks it again on save and send.
         {% if groupme_is_edit %}Not posted to GroupMe yet. Tick a group and save to post it{% if not announcement.is_published %} when it publishes{% endif %}.
         {% else %}Posts when the announcement publishes. Only groups where everyone can see it are allowed.{% endif %}
     </p>
+    {# v4.4.5 #}
+    <p class="text-xs font-medium text-amber-800 dark:text-amber-300 mb-3">Posts in the group's main chat, visible to everyone in it.</p>
     <div class="space-y-2">
         {% for c in groupme_channels %}
         <div class="flex items-start">
@@ -41,7 +43,7 @@ that as "Visible To" changes, and the server checks it again on save and send.
                    {% if c.checked %}checked{% endif %} {% if not c.allowed_now %}disabled{% endif %}>
             <label for="groupme-ch-{{ c.pk }}" class="ml-2 text-sm text-gray-700 dark:text-gray-300">
                 {{ c.name }}
-                <span class="text-xs text-gray-500 dark:text-gray-400">({{ c.audience_labels|join:", " }})</span>
+                <span class="text-xs text-gray-500 dark:text-gray-400">({{ c.audience_labels|join:", " }}){% if c.group_name %} · main chat of {{ c.group_name }}{% endif %}</span>
                 <span class="groupme-blocked block text-xs text-amber-700 dark:text-amber-400 {% if c.allowed_now %}hidden{% endif %}">Not everyone in this GroupMe can see this announcement.</span>
             </label>
         </div>
