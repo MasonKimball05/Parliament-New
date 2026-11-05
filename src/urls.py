@@ -198,7 +198,7 @@ from src.view.notification_admin import (
     create_schedule, update_schedule, toggle_schedule, delete_schedule,
     notification_log_detail
 )
-from src.view.officer.manage_events import manage_events, create_event, edit_event, delete_event, track_event_reminder_email_view
+from src.view.officer.manage_events import manage_events, create_event, edit_event, delete_event, track_event_reminder_email_view, checkin_address_search_json
 from src.view.officer.manage_members import add_member, edit_member, delete_member, initiate_pledges, get_all_roles, sync_officer_admins, get_admin_roles, bulk_import_members
 from src.view.officer.manage_roles import manage_roles, role_detail, add_role, delete_role, assign_role_member, unassign_role_member, get_assignable_members
 from src.view.officer.transitions import role_transitions, transfer_role, transition_checklist, toggle_checklist_item
@@ -727,6 +727,7 @@ urlpatterns = [
     # Event Management (Officer)
     path('officers/events/', manage_events, name='manage_events'),
     path('officers/events/create/', create_event, name='create_event'),
+    path('officers/events/checkin-address-search/', checkin_address_search_json, name='checkin_address_search'),
     path('officers/events/<int:event_id>/edit/', edit_event, name='edit_event'),
     path('officers/events/<int:event_id>/delete/', delete_event, name='delete_event'),
     path('officers/events/<int:event_id>/archive/', archive_event, name='archive_event'),

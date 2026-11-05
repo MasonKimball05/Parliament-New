@@ -428,3 +428,5 @@ class CacheIsolatedTestRunner(DiscoverRunner):
         # `_request`). An env var, so spawned parallel workers inherit it.
         import os
         os.environ['PARLIAMENT_GROUPME_OFFLINE'] = '1'
+        # 11-05-26: nor the address search (src/geocode.py).
+        os.environ['PARLIAMENT_NETWORK_OFFLINE'] = '1'

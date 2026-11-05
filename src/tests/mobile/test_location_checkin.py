@@ -297,3 +297,77 @@ class FormTests(_Base):
         form.save()
         self.event.refresh_from_db()
         self.assertEqual(self.event.checkin_radius_m, 100)
+
+
+# ── 11-05-26: address search and any circle size ────────────────────────────
+
+class AddressSearchTests(_Base):
+    """The check-in map's address search (src/geocode.py). OSM is never called."""
+
+    def officer_client(self):
+        c = Client()
+        c.force_login(self.officer)
+        return c
+
+    def nominatim(self, rows, status=200):
+        from unittest import mock
+        r = mock.Mock(status_code=status)
+        r.json.return_value = rows
+        return mock.patch('src.geocode.requests.get', return_value=r)
+
+    def url(self, q):
+        from django.urls import reverse
+        return reverse('checkin_address_search') + '?q=' + q
+
+    def test_finds_an_address(self):
+        rows = [{'lat': '33.2098', 'lon': '-87.5692', 'display_name': '901 Paul W Bryant Dr, Tuscaloosa, AL'}]
+        with self.nominatim(rows) as get:
+            body = self.officer_client().get(self.url('901 Paul W Bryant Dr')).json()
+        self.assertEqual(body['results'], [{'label': '901 Paul W Bryant Dr, Tuscaloosa, AL',
+                                            'lat': 33.2098, 'lng': -87.5692}])
+        _, kwargs = get.call_args
+        self.assertIn('Parliament', kwargs['headers']['User-Agent'])   # Nominatim's policy
+        self.assertEqual(kwargs['params']['q'], '901 Paul W Bryant Dr')
+
+    def test_repeat_searches_are_cached(self):
+        from src.geocode import search
+        with self.nominatim([{'lat': '1', 'lon': '2', 'display_name': 'x'}]) as get:
+            search('the house'); search('The  House')
+        self.assertEqual(get.call_count, 1)
+
+    def test_officers_only(self):
+        c = Client()
+        c.force_login(make_user('GEO-MEM'))
+        with self.nominatim([]):
+            r = c.get(self.url('somewhere'))
+        self.assertNotEqual(r.status_code, 200)
+
+    def test_too_short_and_bad_rows(self):
+        with self.nominatim([{'lat': 'nan?', 'lon': 'x'}, {'lat': '95', 'lon': '0'}]):
+            r = self.officer_client().get(self.url('ab'))
+            self.assertEqual(r.status_code, 400)
+            cache.clear()
+            self.assertEqual(self.officer_client().get(self.url('abc')).json()['results'], [])
+
+    def test_a_test_run_never_reaches_openstreetmap(self):
+        from src.geocode import GeocodeError, search
+        with self.assertRaisesMessage(GeocodeError, 'offline during tests'):
+            search('somewhere real')
+
+    def test_the_form_shows_the_search_and_slider(self):
+        from django.urls import reverse
+        html = self.officer_client().get(reverse('create_event')).content.decode()
+        self.assertIn('data-checkin-address', html)
+        self.assertIn('data-checkin-slider', html)
+
+    def test_any_circle_size_in_range(self):
+        base = {'title': 'Meeting', 'description': 'd', 'date_time': '2026-11-05T19:00',
+                'recurrence_type': 'none', 'recurrence_interval': 1, 'recurrence_unit': 'weeks',
+                'requires_attendance': 'on', 'is_active': 'on',
+                'reminder_1_hours_before': 24, 'reminder_2_hours_before': 1,
+                'checkin_latitude': '33.5', 'checkin_longitude': '-86.8'}
+        form = EventForm({**base, 'checkin_radius_m': '75'})
+        self.assertTrue(form.is_valid(), form.errors)
+        self.assertEqual(form.cleaned_data['checkin_radius_m'], 75)
+        for bad in ('10', '1500'):
+            self.assertFalse(EventForm({**base, 'checkin_radius_m': bad}).is_valid(), bad)

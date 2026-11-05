@@ -255,6 +255,27 @@ def _groupme_event_context(event=None, request=None):
     }
 
 
+@login_required
+@officer_required
+def checkin_address_search_json(request):
+    """
+    11-05-26: the check-in map's address search (src/geocode.py). GET ?q=…
+    → {'results': [{'label', 'lat', 'lng'}]} or {'error': …}. Read only.
+    """
+    from django.core.cache import cache
+    from django.http import JsonResponse
+    from src import location_checkin
+    from src.geocode import GeocodeError, search
+    if not location_checkin.enabled():
+        return JsonResponse({'error': 'Location check-in is turned off.'}, status=404)
+    if not cache.add(f'geocode_user_{request.user.pk}', 1, 2):
+        return JsonResponse({'error': 'One search every couple of seconds, please.'}, status=429)
+    try:
+        return JsonResponse({'results': search(request.GET.get('q', ''))})
+    except GeocodeError as e:
+        return JsonResponse({'error': str(e)}, status=400)
+
+
 def _checkin_context():
     """The location check-in picker (v4.1.0): shown only when the flag is on."""
     from src import location_checkin

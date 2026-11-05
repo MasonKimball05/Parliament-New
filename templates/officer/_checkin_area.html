@@ -16,9 +16,23 @@
         </p>
     </div>
     {{ form.checkin_latitude }}{{ form.checkin_longitude }}
+    {# 11-05-26: find an address, then drag the pin and size the circle. #}
+    <div class="space-y-2" data-checkin-search data-url="{% url 'checkin_address_search' %}">
+        <div class="flex gap-2">
+            <input type="search" data-checkin-address maxlength="200" autocomplete="off"
+                class="flex-1 min-w-0 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg text-sm"
+                placeholder="Search an address or place" aria-label="Search an address or place">
+            <button type="button" data-checkin-find class="px-3 py-2 text-sm rounded-lg bg-primary-600 text-white hover:bg-primary-700">Find</button>
+        </div>
+        <ul data-checkin-results class="hidden divide-y divide-gray-200 dark:divide-gray-700 border border-gray-200 dark:border-gray-700 rounded-lg text-sm overflow-hidden"></ul>
+    </div>
     <div class="flex flex-wrap items-center gap-2">
-        <label for="{{ form.checkin_radius_m.id_for_label }}" class="text-sm text-gray-700 dark:text-gray-300">Radius</label>
-        {{ form.checkin_radius_m }}
+        <label for="{{ form.checkin_radius_m.id_for_label }}" class="text-sm text-gray-700 dark:text-gray-300">Circle size</label>
+        <input type="range" data-checkin-slider min="25" max="500" step="5" value="100" class="w-40 accent-primary-600" aria-label="Check-in circle size in meters">
+        {{ form.checkin_radius_m }}<span class="text-sm text-gray-500 dark:text-gray-400">m</span>
+        <button type="button" data-checkin-off class="px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">Turn off</button>
+    </div>
+    <div class="flex flex-wrap items-center gap-2">
         {% if checkin_places %}
         <select data-checkin-place class="px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg text-sm" aria-label="Use a saved place">
             <option value="">Saved places…</option>

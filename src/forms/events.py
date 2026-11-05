@@ -48,14 +48,14 @@ class EventForm(forms.ModelForm):
 
     # Location check-in area (v4.1.0; templates/officer/_checkin_area.html).
     # The map fills the two hidden coordinates; "Off" clears all three.
-    CHECKIN_RADII = [('', 'Off'), (25, '25 m'), (50, '50 m'), (100, '100 m'), (150, '150 m'),
-                     (200, '200 m'), (300, '300 m'), (500, '500 m')]
-    checkin_radius_m = forms.TypedChoiceField(
-        choices=CHECKIN_RADII, coerce=int, empty_value=None, required=False,
-        label='Location check-in',
-        widget=forms.Select(attrs={
-            'class': 'px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg',
-            'data-checkin-radius': '',
+    # 11-05-26: any size from 25 to 1000 m (a slider beside it on the map);
+    # blank is "off". The bounds are location_checkin.MIN/MAX_RADIUS_M.
+    checkin_radius_m = forms.IntegerField(
+        required=False, label='Location check-in',
+        widget=forms.NumberInput(attrs={
+            'class': 'w-24 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg',
+            'data-checkin-radius': '', 'min': 25, 'max': 1000, 'step': 5, 'inputmode': 'numeric',
+            'placeholder': 'Off',
         }),
     )
     checkin_save_as = forms.CharField(
