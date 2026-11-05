@@ -445,22 +445,25 @@
             {% if recent_votes %}
             <div class="space-y-2">
                 {% for vote in recent_votes %}
-                <div class="flex items-start gap-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-                    <svg class="w-4 h-4 flex-shrink-0 mt-0.5 {% if vote.is_active %}text-green-500 dark:text-green-400{% else %}text-gray-400 dark:text-gray-500{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <a href="{% if vote.is_open %}{% url 'vote' committee.code %}{% else %}{% url 'committee_vote_result' committee.code vote.id %}{% endif %}"
+                   class="flex items-start gap-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
+                    <svg class="w-4 h-4 flex-shrink-0 mt-0.5 {% if vote.is_open %}text-green-500 dark:text-green-400{% else %}text-gray-400 dark:text-gray-500{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
                     </svg>
                     <div class="flex-1 min-w-0">
                         <p class="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{{ vote.title }}</p>
                         <p class="text-xs text-gray-500 dark:text-gray-400">
-                            {{ vote.created_at|date:"M d, Y" }}
-                            {% if vote.is_active %}
-                                <span class="text-green-600 dark:text-green-400 font-medium">· Active</span>
+                            {{ vote.available_at|date:"M d, Y" }}
+                            {% if vote.is_open %}
+                                <span class="text-green-600 dark:text-green-400 font-medium">· Open</span>
+                            {% elif vote.passed %}
+                                · Passed
                             {% else %}
-                                · Closed
+                                · Did not pass
                             {% endif %}
                         </p>
                     </div>
-                </div>
+                </a>
                 {% endfor %}
             </div>
             {% else %}

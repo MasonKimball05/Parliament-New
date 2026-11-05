@@ -20,10 +20,10 @@
         <div class="rf-card">
             {% if recent_votes %}
             {% for vote in recent_votes %}
-            <div class="rf-row">
-                <span class="rf-row-icon"><svg class="rf-cmte-glyph{% if vote.is_active %} is-active{% endif %}" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></span>
-                <span class="rf-row-body"><span class="rf-row-title">{{ vote.title }}</span><span class="rf-row-sub">{{ vote.created_at|date:"M d, Y" }}{% if vote.is_active %} <span class="rf-cmte-active">· Active</span>{% else %} · Closed{% endif %}</span></span>
-            </div>
+            <a class="rf-row" href="{% if vote.is_open %}{% url 'vote' committee.code %}{% else %}{% url 'committee_vote_result' committee.code vote.id %}{% endif %}">
+                <span class="rf-row-icon"><svg class="rf-cmte-glyph{% if vote.is_open %} is-active{% endif %}" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></span>
+                <span class="rf-row-body"><span class="rf-row-title">{{ vote.title }}</span><span class="rf-row-sub">{{ vote.available_at|date:"M d, Y" }}{% if vote.is_open %} <span class="rf-cmte-active">· Open</span>{% elif vote.passed %} · Passed{% else %} · Did not pass{% endif %}</span></span>
+            </a>
             {% endfor %}
             {% else %}
             <div class="rf-row is-empty">No recent votes</div>

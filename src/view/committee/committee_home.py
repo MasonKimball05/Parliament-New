@@ -6,10 +6,9 @@ from django.utils import timezone
 from django.db.models import Q
 from src.models import (
     Committee, CommitteePermissions, CommitteeDocument,
-    CommitteeVote, ParliamentUser
+    CommitteeLegislation, ParliamentUser
 )
 from src.constants import MemberType, MemberStatus
-from datetime import timedelta
 from src.feature_flag_decorators import require_page_enabled, require_feature_flag
 from src.models.users import member_defer
 
@@ -96,18 +95,17 @@ def committee_home(request, code):
         committee=committee, published_to_chapter=True
     ).count()
 
-    # Vote stats
-    thirty_days_ago = timezone.now() - timedelta(days=30)
-    active_votes = CommitteeVote.objects.filter(
-        legislation__committee=committee, is_active=True
-    ).count()
-    recent_votes = CommitteeVote.objects.filter(
-        legislation__committee=committee,
-        created_at__gte=thirty_days_ago
-    ).order_by('-created_at')[:5]
-    total_votes = CommitteeVote.objects.filter(
-        legislation__committee=committee
-    ).count()
+    # Vote stats. 11-05-26: these counted and listed BALLOTS (CommitteeVote,
+    # one row per member per choice, with no title), so Recent Votes showed
+    # blank rows. A "vote" here is the item voted on (CommitteeLegislation),
+    # open by the same rule as the Vote page (available, not closed).
+    now = timezone.now()
+    votes = CommitteeLegislation.objects.filter(committee=committee).exclude(status='removed')
+    active_votes = votes.filter(available_at__lte=now, voting_closed=False).count()
+    total_votes = votes.count()
+    recent_votes = list(votes.filter(available_at__lte=now).order_by('-available_at')[:5])
+    for v in recent_votes:
+        v.is_open = not v.voting_closed
 
     context = {
         'committee': committee,
