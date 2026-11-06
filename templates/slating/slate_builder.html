@@ -19,7 +19,10 @@
         <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ period.name }}</p>
     </div>
     <div class="flex space-x-3">
-        {% if read_only %}
+        {% if not can_approve %}
+        {# 11-06-26: committee members build and order the slate; a manager approves it. #}
+        <span class="text-sm text-gray-500 dark:text-gray-400 self-center">{% if read_only %}Approved{% else %}A slating manager or chair approves the slate.{% endif %}</span>
+        {% elif read_only %}
         {# 11-05-26: once approved, the builder shows the approved slate; changes go through Edit approved slate. #}
         <a href="{% url 'slating_edit_approved_slate' period_id=period.id %}"
             class="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">

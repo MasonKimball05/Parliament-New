@@ -874,3 +874,66 @@ class RerunFindingsTests(_Fix):
         self.assertFalse(SlatingBallot.objects.filter(period=self.period, voter=voter).exists())
         cast_slate(voter, self.fresh(), self.slate, self.cands(), 'reject', [str(self.pres.id)])
         self.assertTrue(SlatingBallot.objects.filter(period=self.period, voter=voter).exists())
+
+
+# ── 11-06-26: what the slating committee's members can do ───────────────────
+
+class CommitteeRoleTests(_Fix):
+    """
+    Members of the slating committee (not its chairs, admin or the manager)
+    see the results and the "no" voters' objections before publishing,
+    schedule interviews and take notes, and build the slate, but don't
+    approve it or touch the election's setup.
+    """
+
+    def objections(self):
+        for i, who in enumerate(['sf-o1', 'sf-o2']):
+            v = member(who)
+            SlatingAttendance.objects.get_or_create(period=self.period, member=v)
+            cast_slate(v, self.fresh(), self.slate, self.cands(), 'reject', [str(self.pres.id)])
+
+    def test_committee_sees_live_results_and_objections(self):
+        self.objections()
+        self.client.force_login(self.committee_member)
+        r = self.client.get(reverse('slating_results', args=[self.period.id]))
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.context['rejection_analysis'][0]['position'], 'President')
+        self.assertEqual(r.context['rejection_analysis'][0]['objection_count'], 2)
+        self.assertFalse(r.context['can_publish'])
+        # A member who isn't on the committee still waits for publishing.
+        self.client.force_login(member('sf-outsider'))
+        r = self.client.get(reverse('slating_results', args=[self.period.id]))
+        self.assertEqual(r.status_code, 302)
+
+    def test_app_results_carry_the_objections_for_the_committee_only(self):
+        self.objections()
+        body = self.api(self.committee_member, 'get', f'slating/periods/{self.period.id}/results/').json()
+        self.assertEqual(body['objections'][0]['objection_count'], 2)
+        self.assertFalse(body['published'])
+        r = self.api(member('sf-outsider2'), 'get', f'slating/periods/{self.period.id}/results/')
+        self.assertEqual(r.status_code, 403)
+
+    def test_committee_builds_the_slate_but_doesnt_approve_it(self):
+        Slate.objects.filter(period=self.period).update(is_approved=False)
+        SlatingPeriod.objects.filter(pk=self.period.pk).update(status='deliberation')
+        self.client.force_login(self.committee_member)
+        r = self.client.get(reverse('slating_build_slate', args=[self.period.id]))
+        self.assertEqual(r.status_code, 200)
+        self.assertFalse(r.context['can_approve'])
+        self.assertNotContains(r, reverse('slating_approve_slate', args=[self.period.id]))
+        self.assertContains(r, 'A slating manager or chair approves the slate.')
+        r = self.client.post(reverse('slating_approve_slate', args=[self.period.id]), {'slate_type': 'primary'})
+        self.assertFalse(Slate.objects.filter(period=self.period, is_approved=True).exists())
+
+    def test_no_setup_for_committee_members(self):
+        self.client.force_login(self.committee_member)
+        for name in ('slating_period_setup', 'slating_positions', 'slating_attendance'):
+            r = self.client.get(reverse(name, args=[self.period.id]))
+            self.assertEqual(r.status_code, 302, name)   # sent back to the dashboard
+
+    def test_dashboard_links_for_committee_members(self):
+        self.client.force_login(self.committee_member)
+        html = self.client.get(reverse('slating_dashboard')).content.decode()
+        self.assertIn(reverse('slating_build_slate', args=[self.period.id]), html)
+        self.assertIn(reverse('slating_interviews', args=[self.period.id]), html)
+        self.assertNotIn('Manage election', html)

@@ -311,7 +311,7 @@
                 <h3 class="text-lg font-medium text-gray-900 dark:text-white">Actions</h3>
             </div>
             <div class="px-4 py-4 space-y-2">
-{% if can_manage and not application.applicant.is_pledge %}
+{% if can_schedule and not application.applicant.is_pledge %}
                 <a href="{% url 'slating_schedule_interview' app_id=application.id %}" class="block w-full text-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
                     Schedule Interview
                 </a>

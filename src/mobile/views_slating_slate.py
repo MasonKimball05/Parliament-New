@@ -38,7 +38,8 @@ from rest_framework.response import Response
 from src.mobile.views_excuses_polls import BadRequest
 from src.mobile.views_service_hours import _form_data
 from src.mobile.views_slating import _iso, _SlatingBase
-from src.mobile.views_slating_committee import _manager_period, _num, _period_head
+from src.mobile.views_slating_committee import _committee_period, _manager_period, _num, _period_head
+from src.view.slating.permissions import can_manage_period
 from src.mobile.views_votes import VoteRefused
 from src.models import Slate, SlatingPeriod
 from src.view.slating.api import slate_candidates_json
@@ -137,6 +138,9 @@ def _build_payload(period, slate, user):
         } for app in ctx['available_apps']],
         'existing_slates': [{**_slate_head(s)} for s in ctx['existing_slates']],
         'approve_confirm': ctx['approve_confirm'],
+        # 11-06-26: the whole committee builds the slate; approving it stays
+        # with the managers (can_manage_period).
+        'can_approve': can_manage_period(user, period),
     }
 
 
@@ -144,12 +148,12 @@ class SlateBuildView(_SlatingBase):
     web_page = 'slating_build_slate'
 
     def get(self, request, period_id):
-        period = _manager_period(request, period_id)
+        period = _committee_period(request, period_id)
         slate, read_only = builder_slate(period, request.user)
         return Response({**_build_payload(period, slate, request.user), 'read_only': read_only})
 
     def post(self, request, period_id):
-        period = _manager_period(request, period_id)
+        period = _committee_period(request, period_id)
         slate, read_only = builder_slate(period, request.user)
         if read_only:   # 11-05-26: the approved slate, as the web's builder shows it
             raise VoteRefused('approved', APPROVED_READ_ONLY, 409)
@@ -215,7 +219,7 @@ class SlatePreviewView(_SlatingBase):
     web_page = 'slating_slate_preview'
 
     def get(self, request, period_id, slate_id):
-        period = _manager_period(request, period_id)
+        period = _committee_period(request, period_id)
         slate = get_object_or_404(Slate, id=slate_id, period=period)
         return Response(_slate_view(period, slate, request.user, public=False))
 
@@ -224,7 +228,7 @@ class SlateCopyView(_SlatingBase):
     web_page = 'slating_copy_slate'
 
     def post(self, request, period_id, slate_id):
-        period = _manager_period(request, period_id)
+        period = _committee_period(request, period_id)
         source = get_object_or_404(Slate, id=slate_id, period=period)
         new_slate, message = copy_slate_to_draft(period, source, request.user)
         return Response({'ok': True, 'slate': _slate_head(new_slate), 'message': message})
@@ -234,7 +238,7 @@ class SlateCandidatesView(_SlatingBase):
     web_page = 'slating_api_slate_candidates'
 
     def get(self, request, period_id, slate_id):
-        period = _manager_period(request, period_id)
+        period = _committee_period(request, period_id)
         slate = get_object_or_404(Slate, id=slate_id, period=period)
         return Response({'candidates': slate_candidates_json(slate)})
 
@@ -335,11 +339,11 @@ class SlateWriteInsView(_SlatingBase):
     web_page = 'slating_assign_write_in'
 
     def get(self, request, period_id):
-        period = _manager_period(request, period_id)
+        period = _committee_period(request, period_id)
         return Response(_write_in_payload(period, request.user))
 
     def post(self, request, period_id):
-        period = _manager_period(request, period_id)
+        period = _committee_period(request, period_id)
         data = _form_data(request)
         _ids(data, 'position_id')
         try:
@@ -353,7 +357,7 @@ class SlateWriteInRemoveView(_SlatingBase):
     web_page = 'slating_remove_write_in'
 
     def post(self, request, period_id):
-        period = _manager_period(request, period_id)
+        period = _committee_period(request, period_id)
         data = _form_data(request)
         _ids(data, 'candidate_id')
         message = delete_write_in(period, data.get('candidate_id'))

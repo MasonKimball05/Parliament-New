@@ -76,10 +76,25 @@
                                 Manage election &rarr;
                             </a>
                             {% elif row.can_review %}
+                            {# 11-06-26: committee members (no setup): applications, interviews, the slate, results. #}
                             <a href="{% url 'slating_applications' period_id=period.id %}"
                                class="inline-flex items-center px-3 py-1 rounded-lg text-xs font-medium border border-primary-600 text-primary-600 dark:text-primary-400 dark:border-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors">
-                                Review applications &rarr;
+                                Applications &rarr;
                             </a>
+                            <a href="{% url 'slating_interviews' period_id=period.id %}"
+                               class="inline-flex items-center px-3 py-1 rounded-lg text-xs font-medium border border-primary-600 text-primary-600 dark:text-primary-400 dark:border-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors">
+                                Interviews &rarr;
+                            </a>
+                            <a href="{% url 'slating_build_slate' period_id=period.id %}"
+                               class="inline-flex items-center px-3 py-1 rounded-lg text-xs font-medium border border-primary-600 text-primary-600 dark:text-primary-400 dark:border-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors">
+                                Slate &rarr;
+                            </a>
+                            {% if period.current_voting_attempt or period.status == 'voting_open' %}
+                            <a href="{% url 'slating_results' period_id=period.id %}"
+                               class="inline-flex items-center px-3 py-1 rounded-lg text-xs font-medium border border-primary-600 text-primary-600 dark:text-primary-400 dark:border-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors">
+                                Results &rarr;
+                            </a>
+                            {% endif %}
                             {% endif %}
                         </div>
                     </div>

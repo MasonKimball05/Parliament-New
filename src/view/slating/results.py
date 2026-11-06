@@ -32,7 +32,9 @@ def view_results(request, period_id):
     # Check if results are published or user is committee/admin
     from .permissions import can_manage_period
     user_can_manage = can_manage_period(request.user, period)
-    can_view = period.status == 'results_published' or user_can_manage
+    # 11-06-26: the whole slating committee sees the results (and which
+    # positions "no" voters objected to) before they're published.
+    can_view = period.status == 'results_published' or can_view_applications(request.user, period)
 
     if not can_view:
         messages.error(request, 'Results are not yet published.')
@@ -118,32 +120,7 @@ def view_results(request, period_id):
     is_committee = can_view_applications(request.user, period)
 
     # Get rejection analysis for committee members
-    rejection_analysis = None
-    if is_committee:
-        rejection_votes = slate_votes.filter(vote_choice='reject').exclude(rejected_positions=[])
-        position_counts = Counter()
-        for vote in rejection_votes:
-            for pos_id in vote.rejected_positions:
-                position_counts[pos_id] += 1
-
-        # Map position IDs to names
-        if position_counts:
-            positions = {p.id: p for p in SlatingPosition.objects.filter(id__in=position_counts.keys())}
-            # v4.0.0: the slate's candidates are already loaded; this was a
-            # query per objected-to position.
-            by_position = {}
-            for c in candidates:
-                by_position.setdefault(c.position_id, c)
-            rejection_analysis = []
-            for pos_id, count in position_counts.most_common():
-                pos = positions.get(pos_id)
-                if pos:
-                    candidate = by_position.get(pos_id)
-                    rejection_analysis.append({
-                        'position': pos.title,
-                        'candidate_name': candidate.candidate_name if candidate else 'Unknown',
-                        'objection_count': count,
-                    })
+    rejection_analysis = rejection_breakdown(period, slate, candidates) if is_committee else None
 
     context = {
         'period': period,
@@ -167,6 +144,39 @@ def view_results(request, period_id):
     }
 
     return render(request, 'slating/results.html', context)
+
+
+def rejection_breakdown(period, slate, candidates=None, attempt=None):
+    """
+    Which positions "no" voters objected to on ``slate`` in a round (the
+    current one by default), most objected-to first: [{'position',
+    'position_id', 'candidate_name', 'objection_count'}], or None when no
+    reject named a position. For the slating committee only (11-06-26: the
+    website's results and the app share this).
+    """
+    attempt = period.current_voting_attempt if attempt is None else attempt
+    rejection_votes = (SlatingVote.objects.filter(period=period, slate=slate, voting_attempt=attempt,
+                                                  vote_choice='reject')
+                       .exclude(rejected_positions=[]))
+    position_counts = Counter()
+    for vote in rejection_votes:
+        for pos_id in vote.rejected_positions:
+            position_counts[pos_id] += 1
+    if not position_counts:
+        return None
+    positions = {p.id: p for p in SlatingPosition.objects.filter(id__in=position_counts.keys())}
+    by_position = {}
+    for c in (candidates if candidates is not None else slate.candidates.all()):
+        by_position.setdefault(c.position_id, c)
+    rows = []
+    for pos_id, count in position_counts.most_common():
+        pos = positions.get(pos_id)
+        if pos:
+            candidate = by_position.get(pos_id)
+            rows.append({'position': pos.title, 'position_id': pos.id,
+                         'candidate_name': candidate.candidate_name if candidate else 'Unknown',
+                         'objection_count': count})
+    return rows
 
 
 def round_participation(period, attempt=None):

@@ -21,7 +21,7 @@ from src.models import (
     SlatingPeriod, SlatingApplication, SlatingPosition,
     Slate, SlateCandidate, SlatingActivity, ParliamentUser
 )
-from .permissions import slating_chair_required, voting_member_required
+from .permissions import slating_chair_required, slating_committee_required, voting_member_required
 from src.models.users import member_defer
 
 #: When any voting member may see the approved slate (view_approved_slate).
@@ -275,7 +275,7 @@ def save_candidate_notes(slate, assignment_id, notes):
 
 
 @login_required
-@slating_chair_required
+@slating_committee_required
 def build_slate(request, period_id):
     """
     Build the officer slate from applications.
@@ -304,8 +304,11 @@ def build_slate(request, period_id):
         return redirect('slating_build_slate', period_id=period_id)
 
     # GET - show slate builder
+    from .permissions import can_manage_period
     return render(request, 'slating/slate_builder.html',
-                  {**build_slate_context(period, slate), 'read_only': read_only})
+                  {**build_slate_context(period, slate), 'read_only': read_only,
+                   # 11-06-26: the committee builds; approving stays with the managers.
+                   'can_approve': can_manage_period(request.user, period)})
 
 
 def _handle_assign_candidate(request, period, slate, is_runoff=False):
@@ -417,7 +420,7 @@ def approve_slate(request, period_id, slate_id=None):
 
 
 @login_required
-@slating_chair_required
+@slating_committee_required
 def slate_preview(request, period_id, slate_id):
     """
     Preview a slate before approval.
@@ -498,7 +501,7 @@ def copy_slate_to_draft(period, source_slate, user):
 
 
 @login_required
-@slating_chair_required
+@slating_committee_required
 def copy_slate(request, period_id, slate_id):
     """
     Copy a slate to create a new draft.
@@ -619,7 +622,7 @@ def delete_write_in(period, candidate_id):
 
 
 @login_required
-@slating_chair_required
+@slating_committee_required
 def assign_write_in(request, period_id):
     """
     Assign any active member to a blank position on the approved slate.
@@ -641,7 +644,7 @@ def assign_write_in(request, period_id):
 
 
 @login_required
-@slating_chair_required
+@slating_committee_required
 def remove_write_in(request, period_id):
     """Remove a write-in candidate from a blank position."""
     if request.method != 'POST':

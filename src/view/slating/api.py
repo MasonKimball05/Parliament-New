@@ -232,7 +232,7 @@ def application_summary(request, period_id, app_id):
 
 
 @login_required
-@slating_chair_required
+@slating_committee_required   # 11-06-26: the committee helps build the slate
 @require_GET
 def slate_candidates(request, period_id, slate_id):
     """

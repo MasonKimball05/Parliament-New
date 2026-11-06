@@ -73,8 +73,10 @@ def schedule_refusal(user, application):
     # admin/chairs; a site admin only while the period isn't locked).
     # v4.0.0: was `user.is_admin or chair`, which let any site admin into a
     # locked period and left out the slating manager.
-    if not can_manage_period(user, application.period):
-        return 'forbidden', 'Only slating committee chairs can schedule interviews.'
+    # 11-06-26: any committee member may schedule (and take notes), not just
+    # the chairs; setup stays with the managers.
+    if not can_view_applications(user, application.period):
+        return 'forbidden', 'Only the slating committee can schedule interviews.'
     # v4.0.0 (Mason): pledges may apply, but must be initiated before they're
     # interviewed.
     if application.applicant.is_pledge:
@@ -213,6 +215,7 @@ def interview_list(request, period_id):
         'interviews': interviews,
         # v4.0.0: the "Destroy interview notes" section (managers only)
         'can_manage': can_manage_period(request.user, period),
+        'can_schedule': can_view_applications(request.user, period),   # 11-06-26: the whole committee
         'notes_remaining': SlatingInterview.objects.filter(
             application__period=period, notes_destroyed=False).count(),
         'apps_without_interview': apps_without,

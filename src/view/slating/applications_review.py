@@ -12,7 +12,7 @@ from django.db.models import Count, Q
 from src.models import (
     SlatingPeriod, SlatingApplication, SlatingPosition, SlatingActivity
 )
-from .permissions import can_manage_period, slating_committee_required, slating_chair_required
+from .permissions import can_manage_period, can_view_applications, slating_committee_required, slating_chair_required
 from src.models.users import member_defer
 from .apply import tiered_position_lists
 
@@ -253,6 +253,7 @@ def application_detail(request, period_id, app_id):
         'tiered_positions': tiered_positions,
         'interviews': interviews,
         'can_review': can_review,
+        'can_schedule': can_view_applications(request.user, period),   # 11-06-26: the whole committee
         'can_manage': can_manage_period(request.user, period),
         'status_choices': SlatingApplication.STATUS_CHOICES,
     }

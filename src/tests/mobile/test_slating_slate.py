@@ -49,21 +49,26 @@ class _SlateBase(_AppBase):
 class PermissionTests(_SlateBase):
 
     def test_only_the_periods_managers(self):
-        paths = ['slate/build/', 'slate/edit/', 'slate/write-ins/', 'manual-results/',
-                 f'slates/{self.slate.id}/', f'slates/{self.slate.id}/candidates/']
-        for rest in paths:
+        # 11-06-26: the committee builds the slate (build, write-ins, preview,
+        # the candidates); editing the approved slate, in-person results and
+        # approving stay with the managers.
+        committee_paths = ['slate/build/', 'slate/write-ins/',
+                           f'slates/{self.slate.id}/', f'slates/{self.slate.id}/candidates/']
+        manager_paths = ['slate/edit/', 'manual-results/']
+        for rest in committee_paths + manager_paths:
             path = self.p(self.period, rest)
             self.assertEqual(self.call('get', path).status_code, 403, rest)                       # a member
-            self.assertEqual(self.call('get', path, user=self.committee_member).status_code, 403, rest)
+            self.assertEqual(self.call('get', path, user=self.committee_member).status_code,
+                             200 if rest in committee_paths else 403, rest)
             self.assertEqual(self.call('get', path, user=self.admin).status_code, 403, rest)      # locked
             # 11-05-26: voting has started online, so manual results are refused (409), not forbidden.
             self.assertEqual(self.call('get', path, user=self.manager).status_code,
                              409 if rest == 'manual-results/' else 200, rest)
-        for rest, body in [('slate/approve/', {}), (f'slates/{self.slate.id}/copy/', {}),
-                           ('slate/write-ins/remove/', {'candidate_id': self.c_vp.id})]:
-            r = self.call('post', self.p(self.period, rest), body, user=self.committee_member)
-            self.assertEqual(r.status_code, 403, rest)
-        self.assertTrue(SlateCandidate.objects.filter(id=self.c_vp.id).exists())
+        r = self.call('post', self.p(self.period, 'slate/approve/'), {}, user=self.committee_member)
+        self.assertEqual(r.status_code, 403)
+        build = self.call('get', self.p(self.period, 'slate/build/'), user=self.committee_member).json()
+        self.assertFalse(build['can_approve'])
+        self.assertTrue(self.call('get', self.p(self.period, 'slate/build/'), user=self.manager).json()['can_approve'])
 
     def test_site_admin_in_an_unlocked_period(self):
         period = SlatingPeriod.objects.create(name='Open', status='deliberation')

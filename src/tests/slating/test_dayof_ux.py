@@ -165,13 +165,14 @@ class ReviewTests(_Base):
         r = self.client.get(reverse('slating_app_detail', args=[self.period.id, self.app.id]))
         self.assertTrue(r.context['can_review'])
 
-    def test_read_only_committee_member_has_no_bulk_or_schedule(self):
+    def test_committee_member_schedules_but_has_no_bulk_or_status(self):
+        # 11-06-26: any committee member schedules interviews; status changes stay with the managers.
         self.client.force_login(self.committee_member)
         r = self.client.get(reverse('slating_applications', args=[self.period.id]))
         self.assertNotContains(r, 'Change status to')
         r = self.client.get(reverse('slating_app_detail', args=[self.period.id, self.app.id]))
         self.assertFalse(r.context['can_review'])
-        self.assertNotContains(r, 'Schedule Interview')
+        self.assertContains(r, 'Schedule Interview')
 
     def test_list_shows_ranked_positions_and_roll_number(self):
         self.voter.role_number = '777'

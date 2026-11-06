@@ -346,9 +346,10 @@ class InterviewTests(_AppBase):
         r = self.call('get', f'slating/periods/{self.period.id}/interviews/?status=bogus', user=self.manager)
         self.assertEqual(r.json()['error'], 'invalid_input')
 
-    def test_schedule_is_for_managers(self):
+    def test_schedule_is_for_the_committee(self):
         path = f'slating/applications/{self.app.id}/interview/'
-        self.assertEqual(self.call('get', path, user=self.committee_member).status_code, 403)
+        # 11-06-26: any committee member may schedule, not only the managers.
+        self.assertEqual(self.call('get', path, user=self.committee_member).status_code, 200)
         self.assertEqual(self.call('get', path, user=self.admin).status_code, 403)
         r = self.call('post', path, {'scheduled_at': 'next tuesday'}, user=self.manager)
         self.assertEqual((r.status_code, r.json()['error']), (400, 'invalid_input'))

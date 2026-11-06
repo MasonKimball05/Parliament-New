@@ -85,6 +85,8 @@ def _period_json(period, user):
         'results_published': period.status == 'results_published',
         'is_committee': actions['can_review'],
         'is_chair': actions['can_manage'],
+        # 11-06-26: the committee can open results once a round has started.
+        'committee_results': bool(actions['can_review'] and period.current_voting_attempt),
         'manage_path': reverse('slating_period_setup', args=[period.id]),
         'locked_out': actions['locked_out'],
         'managed_by': actions['managed_by'],
@@ -243,13 +245,17 @@ class SlatingResultsView(_SlatingBase):
 
     def get(self, request, period_id):
         from src.view.slating.tallies import current_slate_result, round_history
+        from src.view.slating.permissions import can_view_applications
         period = get_object_or_404(SlatingPeriod, id=period_id)
-        if period.status != 'results_published':
+        # 11-06-26: the slating committee sees them before they're published
+        # (the website's rule), with which positions "no" voters objected to.
+        committee = can_view_applications(request.user, period)
+        if period.status != 'results_published' and not committee:
             raise exceptions.PermissionDenied('Results are not yet published.', code='not_published')
         slate = primary_slate(period)
         if slate is None:
             raise exceptions.NotFound('No slate found.', code='no_slate')
-        from src.view.slating.results import results_overview
+        from src.view.slating.results import rejection_breakdown, results_overview
         tally = current_slate_result(period, slate)   # 11-05-26: the counted round's stored outcome
         history = round_history(period, slate)
         overview = results_overview(period, slate, history)
@@ -290,6 +296,10 @@ class SlatingResultsView(_SlatingBase):
                            'tallies': p['tallies']} for p in overview['positions']],
             'history': [{'attempt': r['attempt'], 'vote_type': r['vote_type'], 'status': r['status'],
                          'slate': r.get('slate'), 'positions': r.get('positions', [])} for r in history],
+            'published': period.status == 'results_published',
+            'live': bool(overview.get('live')),
+            # Committee only: [{position, position_id, candidate_name, objection_count}] or None.
+            'objections': rejection_breakdown(period, slate) if committee else None,
         })
 
 
