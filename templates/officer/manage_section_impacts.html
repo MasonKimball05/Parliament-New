@@ -4,10 +4,10 @@
 {% block title %}Manage Section Impacts - {{ resolution.title }}{% endblock %}
 
 {% block admin_content %}
-<div class="container mx-auto px-4 py-8 max-w-6xl">
+<div class="container mx-auto px-4 py-8 max-w-6xl{% if ui_refresh %} rf-mp rf-ob rf-ob-impacts{% endif %}">
     <!-- Header -->
     <div class="mb-6">
-        <nav class="text-sm text-gray-600 mb-2">
+        <nav class="text-sm text-gray-600 mb-2{% if ui_refresh %} rf-ob-crumbs{% endif %}">
             <a href="{% url 'manage_resolutions' %}" class="hover:text-primary-600">Manage Resolutions</a>
             <span class="mx-2">›</span>
             <span class="text-gray-900">{{ resolution.title }}</span>
@@ -26,7 +26,7 @@
     {% endif %}
 
     <!-- Resolution Info -->
-    <div class="bg-gradient-to-r from-primary-50 to-indigo-50 border-l-4 border-primary-600 p-6 mb-6 rounded-r-lg">
+    <div class="bg-gradient-to-r from-primary-50 to-indigo-50 border-l-4 border-primary-600 p-6 mb-6 rounded-r-lg{% if ui_refresh %} rf-ob-subject{% endif %}">
         <h2 class="text-xl font-bold text-gray-900 mb-2">{{ resolution.title }}</h2>
         <p class="text-gray-700 mb-2">{{ resolution.description }}</p>
         <p class="text-sm text-gray-600">Passed: <strong>{{ resolution.date_passed|date:"F j, Y" }}</strong></p>
@@ -43,7 +43,7 @@
     </div>
 
     <!-- Section Impacts List -->
-    {% if section_impacts %}
+    {% if ui_refresh %}{% include "officer_refresh/_section_impacts.html" %}{% else %}{% if section_impacts %}
         <div class="bg-white rounded-xl shadow-sm overflow-hidden">
             <div class="overflow-x-auto"><!-- v3.15.0 mobile: horizontal scroll instead of page blowout -->
             <table class="min-w-full divide-y divide-gray-200">
@@ -110,10 +110,10 @@
                 Add First Tag
             </a>
         </div>
-    {% endif %}
+    {% endif %}{% endif %}{# /rf #}
 
     <!-- Back Button -->
-    <div class="mt-8">
+    <div class="mt-8{% if ui_refresh %} rf-ob-back{% endif %}">
         <a href="{% url 'manage_resolutions' %}" class="inline-flex items-center text-primary-600 hover:text-primary-800">
             <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>

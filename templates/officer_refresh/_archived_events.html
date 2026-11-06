@@ -1,0 +1,47 @@
+{% comment %}
+Website refresh (src/ui_refresh.py): Archived Events as the app's grouped
+rows: the total as a stat tile, then a card with a row per archived event
+(date block, title, ARCHIVED pill, time, place, author, description) and
+its Unarchive button. Same rows (id archived-event-N, which the page's
+script removes), unarchive button (js-unarchive-event and its data-*) and
+wording as view_archived_events.html.
+{% endcomment %}
+<div class="rf-op-tiles">
+    <div class="rf-op-tile">
+        <span class="rf-op-tile-num">{{ archived_events|length }}</span>
+        <span class="rf-op-tile-label">Total Archived</span>
+    </div>
+</div>
+
+{% if archived_events %}
+<div class="rf-card rf-oev-list">
+    {% for event in archived_events %}
+    <div class="rf-row rf-row-group rf-oev-row" id="archived-event-{{ event.id }}">
+        <span class="rf-date is-past" aria-hidden="true">
+            <span class="rf-date-month">{{ event.date_time|date:"M" }}</span>
+            <span class="rf-date-day">{{ event.date_time|date:"j" }}</span>
+        </span>
+        <div class="rf-row-body">
+            <div class="rf-oev-titleline">
+                <span class="rf-row-title">{{ event.title }}</span>
+                <span class="rf-chip">ARCHIVED</span>
+            </div>
+            <p class="rf-row-sub">{{ event.date_time|date:"M d, Y g:i A" }}{% if event.location %} · {{ event.location }}{% endif %} · Created by {{ event.created_by.get_display_name }}</p>
+            {% if event.description %}
+            <p class="rf-row-sub rf-oev-desc">{{ event.description }}</p>
+            {% endif %}
+        </div>
+        <button type="button"
+                class="js-unarchive-event rf-btn is-sm"
+                data-url="{% url 'unarchive_event' event.id %}"
+                data-event-id="{{ event.id }}">Unarchive</button>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="rf-card rf-empty">
+    <p class="rf-empty-title">No Archived Events</p>
+    <p class="rf-empty-sub">There are no archived events yet.</p>
+    <p class="rf-empty-sub">Run the archive command to archive events older than 1 year.</p>
+</div>
+{% endif %}

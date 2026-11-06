@@ -4,8 +4,14 @@ Console home (admin_v2_dashboard when `admin_console_ui` is on; the classic
 page is admin_v2/dashboard.html). Same view and numbers as the classic
 dashboard, laid out as widgets, plus the console's own (`home`, from
 src/admin_console.py home_widgets): service health, alarms, sign-ins over the
-last 7 days, resources. No inline script: home.js runs the health check and
-the email preview link.
+last 7 days, resources. No inline script: home.js runs the health check, the
+email preview link and the Customize dialog.
+
+Customize: each admin picks which widgets show and in what order
+(`home.layout`, from src/admin_console.py home_layout; saved by
+admin_v2_console_home_widgets). The loop below renders only those, in that
+order; the view skipped the others' queries, so a hidden widget's data is
+empty here.
 {% endcomment %}
 {% load static_version admin_v2_tags %}
 
@@ -22,6 +28,7 @@ the email preview link.
         </p>
     </div>
     <div class="ac-list-tools">
+        <button type="button" class="ac-btn" data-home-customize aria-haspopup="dialog" aria-controls="home-customize">{% console_icon "adjustments" %}Customize</button>
         <a href="{% url 'admin_v2_security' %}" class="ac-btn">{% console_icon "shield" %}Security overview</a>
         <a href="{% url 'admin_v2_maintenance' %}" class="ac-btn ac-btn-primary">Feature flags &amp; maintenance</a>
     </div>
@@ -34,7 +41,10 @@ the email preview link.
 </div>
 {% endif %}
 
-<ul class="ac-stat-strip" aria-label="Totals">
+<div class="ac-widgets">
+{% for key in home.layout %}
+{% if key == 'totals' %}
+<ul class="ac-stat-strip ac-widget-full" aria-label="Totals">
     <li><a href="{% url 'admin_v2_manage_users' %}"><span class="ac-stat-n">{{ stats.users.total }}</span><span class="ac-stat-l">Users</span><span class="ac-stat-s">{{ stats.users.active }} active</span></a></li>
     <li><a href="{% url 'admin_v2_manage_legislation' %}"><span class="ac-stat-n">{{ stats.legislation.total }}</span><span class="ac-stat-l">Legislation</span><span class="ac-stat-s">{{ stats.legislation.passed }} passed</span></a></li>
     <li><a href="{% url 'admin_v2_manage_events' %}"><span class="ac-stat-n">{{ stats.events.total }}</span><span class="ac-stat-l">Events</span><span class="ac-stat-s">{{ stats.events.upcoming }} upcoming</span></a></li>
@@ -43,8 +53,7 @@ the email preview link.
     <li><a href="{% url 'activity_logs' %}"><span class="ac-stat-n">{{ stats.communications.logs_last_24h }}</span><span class="ac-stat-l">Activity / 24h</span><span class="ac-stat-s">{{ stats.communications.total_activity_logs }} total</span></a></li>
 </ul>
 
-<div class="ac-widgets">
-    <!-- Service health -->
+{% elif key == 'health' %}
     <section class="ac-card ac-widget" aria-labelledby="w-health">
         <header class="ac-widget-head"><h2 id="w-health">Service health</h2><a href="{% url 'admin_v2_system' %}" class="ac-link-sm">System tools</a></header>
         <ul class="ac-service-list">
@@ -61,7 +70,8 @@ the email preview link.
         </ul>
     </section>
 
-    <!-- Alarms -->
+
+{% elif key == 'alarms' %}
     <section class="ac-card ac-widget" aria-labelledby="w-alarms">
         <header class="ac-widget-head"><h2 id="w-alarms">Alarms</h2><a href="{% url 'admin_v2_security_alerts' %}" class="ac-link-sm">Security alerts</a></header>
         <div class="ac-alarm-row">
@@ -72,7 +82,8 @@ the email preview link.
         <p class="ac-muted ac-small">In alarm: open critical or high alerts. Warning: other open alerts. OK: resolved in the last 7 days.</p>
     </section>
 
-    <!-- Needs attention -->
+
+{% elif key == 'attention' %}
     <section class="ac-card ac-widget" aria-labelledby="w-attention">
         <header class="ac-widget-head"><h2 id="w-attention">Needs attention</h2></header>
         {% if attention %}
@@ -86,7 +97,8 @@ the email preview link.
         {% endif %}
     </section>
 
-    <!-- Sign-ins, last 7 days -->
+
+{% elif key == 'signins' %}
     <section class="ac-card ac-widget" aria-labelledby="w-signins">
         <header class="ac-widget-head"><h2 id="w-signins">Sign-ins, last 7 days</h2><a href="{% url 'admin_v2_trends' %}" class="ac-link-sm">Trends</a></header>
         <p class="ac-small"><strong>{{ home.signins_total }}</strong> successful · <span class="{% if home.signins_failed %}ac-text-error{% else %}ac-muted{% endif %}">{{ home.signins_failed }} failed</span></p>
@@ -107,7 +119,8 @@ the email preview link.
         </table>
     </section>
 
-    <!-- Resources -->
+
+{% elif key == 'resources' %}
     <section class="ac-card ac-widget" aria-labelledby="w-resources">
         <header class="ac-widget-head"><h2 id="w-resources">Resources</h2></header>
         <ul class="ac-resource-grid">
@@ -117,7 +130,8 @@ the email preview link.
         </ul>
     </section>
 
-    <!-- Recently visited -->
+
+{% elif key == 'recent' %}
     <section class="ac-card ac-widget" aria-labelledby="w-recent">
         <header class="ac-widget-head"><h2 id="w-recent">Recently visited</h2></header>
         {% if console.recent %}
@@ -139,7 +153,8 @@ the email preview link.
         {% endif %}
     </section>
 
-    <!-- Users -->
+
+{% elif key == 'users' %}
     <section class="ac-card ac-widget" aria-labelledby="w-users">
         <header class="ac-widget-head"><h2 id="w-users">Users</h2><span class="ac-muted ac-small">{{ stats.users.total }} total, {{ stats.users.active }} active</span></header>
         <div class="ac-stat-row">
@@ -162,7 +177,8 @@ the email preview link.
         </div>
     </section>
 
-    <!-- Email & Notifications -->
+
+{% elif key == 'email' %}
     <section class="ac-card ac-widget" aria-labelledby="w-email">
         <header class="ac-widget-head"><h2 id="w-email">Email &amp; notifications</h2></header>
         <ul class="ac-link-list">
@@ -181,7 +197,8 @@ the email preview link.
         </form>
     </section>
 
-    <!-- Performance -->
+
+{% elif key == 'performance' %}
     <section class="ac-card ac-widget" aria-labelledby="w-perf">
         <header class="ac-widget-head"><h2 id="w-perf">Performance</h2>
             <span class="ac-muted ac-small">{{ performance.avg_response_time_ms|default:"0" }} ms avg{% if performance.sampled %} · sampled 1 in {{ performance.sample_rate }}{% endif %}</span></header>
@@ -199,7 +216,8 @@ the email preview link.
         <p id="health-result" class="ac-small" role="status" hidden></p>
     </section>
 
-    <!-- Recent activity -->
+
+{% elif key == 'activity' %}
     <section class="ac-card ac-widget ac-widget-wide" aria-labelledby="w-activity">
         <header class="ac-widget-head"><h2 id="w-activity">Recent activity</h2><a href="{% url 'activity_logs' %}" class="ac-link-sm">View all</a></header>
         <ul class="ac-rows ac-scroll">
@@ -212,7 +230,8 @@ the email preview link.
         </ul>
     </section>
 
-    <!-- Recent logins -->
+
+{% elif key == 'logins' %}
     <section class="ac-card ac-widget ac-widget-wide" aria-labelledby="w-logins">
         <header class="ac-widget-head"><h2 id="w-logins">Recent sign-ins</h2><a href="{% url 'admin_v2_login_history' %}" class="ac-link-sm">View all</a></header>
         <ul class="ac-rows ac-scroll">
@@ -226,7 +245,50 @@ the email preview link.
             {% endfor %}
         </ul>
     </section>
+{% endif %}
+{% empty %}
+    <section class="ac-card ac-widget ac-widget-full">
+        <p class="ac-muted">Every widget is hidden. Use <strong>Customize</strong> to choose what this page shows.</p>
+    </section>
+{% endfor %}
 </div>
+
+<dialog id="home-customize" class="ac-dialog ac-customize" aria-labelledby="home-customize-title" aria-describedby="home-customize-help">
+    <form method="post" action="{% url 'admin_v2_console_home_widgets' %}" class="ac-customize-form">
+        {% csrf_token %}
+        <header class="ac-dialog-head">
+            <h2 id="home-customize-title">Customize console home</h2>
+            <button type="button" class="ac-btn ac-btn-icon" data-home-customize-close aria-label="Close">{% console_icon "x" %}</button>
+        </header>
+        <div class="ac-dialog-body">
+            <p id="home-customize-help" class="ac-muted ac-small">Choose which widgets your home shows and in what order. Only you see this layout.</p>
+            <ol class="ac-customize-list" data-home-customize-list>
+                {% for w in home.customize %}
+                <li class="ac-customize-row" data-widget="{{ w.key }}" data-label="{{ w.label }}">
+                    <input type="hidden" name="order" value="{{ w.key }}">
+                    <label class="ac-switch">
+                        <input type="checkbox" role="switch" name="show" value="{{ w.key }}"{% if w.shown %} checked{% endif %}>
+                        <span class="ac-switch-track" aria-hidden="true"></span>
+                        <span class="ac-switch-label">{{ w.label }}</span>
+                    </label>
+                    <span class="ac-customize-move">
+                        <button type="button" class="ac-btn ac-btn-icon ac-btn-sm" data-move="up" aria-label="Move {{ w.label }} up">{% console_icon "chevron-down" "ac-icon-up" %}</button>
+                        <button type="button" class="ac-btn ac-btn-icon ac-btn-sm" data-move="down" aria-label="Move {{ w.label }} down">{% console_icon "chevron-down" %}</button>
+                    </span>
+                </li>
+                {% endfor %}
+            </ol>
+            <p class="ac-sr" role="status" aria-live="polite" data-home-customize-status></p>
+        </div>
+        <footer class="ac-dialog-foot ac-customize-foot">
+            <button type="submit" name="reset" value="1" class="ac-btn ac-btn-ghost">Reset to default</button>
+            <span class="ac-customize-foot-end">
+                <button type="button" class="ac-btn" data-home-customize-close>Cancel</button>
+                <button type="submit" class="ac-btn ac-btn-primary">Save layout</button>
+            </span>
+        </footer>
+    </form>
+</dialog>
 {% endblock %}
 
 {% block console_js %}<script src="{% static_v 'js/admin_v2/home.js' %}"></script>{% endblock %}

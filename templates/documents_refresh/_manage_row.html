@@ -1,0 +1,29 @@
+{% comment %}
+Website refresh (src/ui_refresh.py): one document on Manage Chapter
+Documents (manage_chapter_documents.html), in place of
+manage_chapter_document_item.html, as the app's officer Documents list:
+the title (opens the file), a Draft pill while unpublished, the
+description, who uploaded it and when, its folder and committee, the type
+pill, and the same Manage / Download links.
+{% endcomment %}
+<div class="rf-row rf-row-group rf-docs-row">
+    <span class="rf-tile rf-docs-tile is-{{ doc.document_type|default:'general' }}" aria-hidden="true">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+    </span>
+    <span class="rf-row-body">
+        <a href="{{ doc.document.url }}" target="_blank" class="rf-row-link rf-row-title">{{ doc.title }}</a>
+        {% if doc.description %}<span class="rf-row-sub">{{ doc.description }}</span>{% endif %}
+        <span class="rf-row-pills">
+            {% if not doc.published_to_chapter %}<span class="rf-chip is-warning">Draft</span>{% endif %}
+            {% if doc.document_type == "minutes" %}<span class="rf-chip rf-docs-type is-minutes">Minutes</span>
+            {% elif doc.document_type == "agenda" %}<span class="rf-chip rf-docs-type is-agenda">Agenda</span>
+            {% elif doc.document_type == "report" %}<span class="rf-chip rf-docs-type is-report">Report</span>
+            {% elif doc.document_type == "policy" %}<span class="rf-chip rf-docs-type is-policy">Policy</span>{% endif %}
+            <span class="rf-svc-meta">Uploaded by {{ doc.uploaded_by.name }} on {{ doc.uploaded_at|date:"M d, Y" }} · Folder: {% if doc.chapter_folder %}{{ doc.chapter_folder.name }}{% else %}Uncategorized{% endif %}{% if doc.committee %} · Committee: {{ doc.committee.name }}{% endif %}</span>
+        </span>
+    </span>
+    <span class="rf-row-actions rf-docs-actions">
+        <a href="{% url 'manage_chapter_document' doc.id %}" title="Manage document">Manage</a>
+        <a href="{{ doc.document.url }}" download>Download</a>
+    </span>
+</div>

@@ -12,7 +12,7 @@
     #docPreview ins { text-decoration: none; }
     @media print { .no-print { display: none !important; } }
 </style>
-<div class="min-h-screen bg-gray-50 dark:bg-gray-900">
+<div class="min-h-screen bg-gray-50 dark:bg-gray-900{% if ui_refresh %} rf-mp rf-mx rf-cnbm rf-cnbm-preview{% endif %}">
     <div class="bg-gradient-to-r from-primary-600 via-primary-700 to-primary-800 text-white py-8 shadow-lg no-print">
         <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
             <a href="{% url 'cnb_resolution_detail' resolution_id=resolution.pk %}" class="text-primary-200 hover:text-white text-sm">&larr; Back to the resolution</a>

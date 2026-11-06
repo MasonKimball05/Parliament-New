@@ -1,0 +1,41 @@
+{% comment %}
+Website refresh (src/ui_refresh.py): the polls a member created, as rows in
+one grouped card (title, Open/Closed and Anonymous pills, the announcement,
+counts and dates, then View Results / Edit Poll / View Announcement). Same
+polls, links and wording as the list it replaces in legislation_history.html.
+{% endcomment %}
+<div class="rf-card rf-work-list">
+    {% for poll in my_polls %}
+    {% with response_count=poll.response_total question_count=poll.question_total accepting=poll.is_accepting_responses %}
+    <div class="rf-row rf-work-row">
+        <span class="rf-tile {% if accepting %}is-green{% else %}is-gray{% endif %}" aria-hidden="true">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+        </span>
+        <div class="rf-row-body">
+            <h3 class="rf-row-title rf-work-title">{{ poll.title }}</h3>
+            <div class="rf-row-pills">
+                {% if accepting %}<span class="rf-chip is-success">Open</span>{% else %}<span class="rf-chip">Closed</span>{% endif %}
+                {% if poll.is_anonymous %}<span class="rf-chip">Anonymous</span>{% endif %}
+            </div>
+            <p class="rf-row-sub rf-work-meta">
+                <span>Announcement: <strong>{{ poll.announcement.title }}</strong></span>
+                <span>{{ question_count }} question{{ question_count|pluralize }}</span>
+                <span>{{ response_count }} response{{ response_count|pluralize }}</span>
+                {% if poll.closes_at %}<span>Closes {{ poll.closes_at|date:"M j, Y g:i A" }}</span>{% endif %}
+                <span>Created {{ poll.created_at|date:"M j, Y" }}</span>
+            </p>
+            {% if poll.description %}
+            <p class="rf-row-sub rf-work-desc is-one">{{ poll.description }}</p>
+            {% endif %}
+            <div class="rf-work-actions">
+                <span class="rf-work-links">
+                    <a href="{% url 'poll_results' poll.announcement.id %}" class="rf-work-link">View Results</a>
+                    <a href="{% url 'create_or_edit_poll' poll.announcement.id %}" class="rf-work-link">Edit Poll</a>
+                    <a href="{% url 'edit_announcement' poll.announcement.id %}" class="rf-work-link is-muted">View Announcement</a>
+                </span>
+            </div>
+        </div>
+    </div>
+    {% endwith %}
+    {% endfor %}
+</div>

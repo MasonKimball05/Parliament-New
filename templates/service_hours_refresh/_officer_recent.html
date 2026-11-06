@@ -1,0 +1,25 @@
+{% comment %}
+Website refresh (src/ui_refresh.py): Recent Submissions on the officers'
+Service Hours Dashboard (service_hours/dashboard.html), as the app lists
+them: a status dot, "member · hours", the organization, the status pill.
+Each row opens the same review page (manage_service_submission); the
+View Pending link is kept.
+{% endcomment %}
+<div class="rf-shd-col">
+    <div class="rf-section-title"><h2>Recent Submissions</h2><a href="{% url 'view_service_submissions' %}?status=pending">View Pending</a></div>
+    <div class="rf-card rf-shd-recent">
+        {% for submission in recent_submissions %}
+        <a href="{% url 'manage_service_submission' submission.id %}" class="rf-row rf-shd-recent-row">
+            <span class="rf-row-icon" aria-hidden="true"><span class="rf-svc-dot is-{{ submission.status }}"></span></span>
+            <span class="rf-row-body">
+                <span class="rf-row-title">{{ submission.submitted_by.name }} · {{ submission.hours }} hrs</span>
+                <span class="rf-row-sub">{{ submission.organization }}</span>
+            </span>
+            <span class="rf-chip rf-svc-status is-{{ submission.status }}">{{ submission.get_status_display }}</span>
+            <span class="rf-chevron" aria-hidden="true">&rsaquo;</span>
+        </a>
+        {% empty %}
+        <div class="rf-empty"><p class="rf-empty-title">No submissions yet</p></div>
+        {% endfor %}
+    </div>
+</div>

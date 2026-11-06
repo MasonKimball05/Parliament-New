@@ -1,0 +1,558 @@
+/* =========================================================================
+   Website refresh: the officers' Service Hours pages, Chapter Documents and
+   the legislation pages.
+     Service Hours (officer): Dashboard (/service-hours/dashboard/),
+     Submissions and a submission's review page, Periods (list, edit,
+     member expectations), Service Events (list, form, detail, attendance),
+     the Form Builder (header and cards only; its builder script and modals
+     are untouched); and the member's submission view and edit pages.
+     Chapter Documents: the library, Manage (all documents), one document's
+     manage form, Upload, and the document viewer.
+     Legislation: a bill's detail page, the Legislation Tracker (passed
+     legislation), Edit Legislation, Edit draft, Assign Role, Vote Results,
+     Verify a Vote Receipt and Passed Resolutions.
+
+   Loaded by base.html after refresh.css, only when `ui_refresh` is on (see
+   src/ui_refresh.py). Plain CSS, no Tailwind build; refresh.css's tokens
+   (--rf-*). Every rule is scoped under a class the page's template adds only
+   with the refresh on. All of these pages carry `.rf-sdl` (shared rules
+   below) and one page class:
+
+     .rf-shd          service_hours/dashboard.html (service_hours_refresh/
+                      _officer_progress.html, _officer_recent.html)
+     .rf-shsubs       service_hours/view_submissions.html
+                      (service_hours_refresh/_officer_submissions.html)
+     .rf-shsub        service_hours/manage_submission.html,
+                      service_hours/user_view_submission.html
+     .rf-shsub-edit   service_hours/edit_submission.html
+     .rf-shper        service_hours/manage_periods.html (service_hours_refresh/_periods.html)
+     .rf-shper-edit   service_hours/edit_period.html
+     .rf-shexp        service_hours/manage_expectations.html
+     .rf-shev         service_hours/service_events.html (service_hours_refresh/_events.html)
+     .rf-shev-form    service_hours/create_service_event.html
+     .rf-shev-detail  service_hours/service_event_detail.html
+     .rf-shev-att     service_hours/service_event_attendance.html
+     .rf-shfb         service_hours/form_builder.html
+     .rf-docs         chapter_documents.html (documents_refresh/_doc_row.html)
+     .rf-docs-manage  manage_chapter_documents.html (with .rf-docs;
+                      documents_refresh/_manage_row.html)
+     .rf-docs-form    manage_chapter_document.html, upload_chapter_document.html
+     .rf-docview      view_document.html
+     .rf-leg          src/legislation_detail.html
+     .rf-legs         passed_legislation.html
+     .rf-leg-edit     edit_legislation.html
+     .rf-leg-draft    legislation_draft_edit.html
+     .rf-leg-assign   assign_appointment.html
+     .rf-vres         vote_result.html
+     .rf-receipt      vote_receipt_verify.html
+     .rf-res          passed_resolutions.html
+
+   The single-form pages also carry `.rf-sdl-form` (a readable column).
+   ========================================================================= */
+
+:root.ui-refresh {
+    --rf-sdl-purple: #5b3fb5;
+    --rf-sdl-purple-soft: #e9e3f9;
+}
+:root.ui-refresh.dark {
+    --rf-sdl-purple: #c3b3f5;
+    --rf-sdl-purple-soft: #2b2352;
+}
+
+/* ---------- Shared (.rf-sdl) ---------------------------------------------- */
+
+/* Tinted fills and toned ink become the app's soft tones (the same tokens in
+   light and dark). Each light class is listed; the dark: twin on the same
+   element has the same specificity and comes earlier, so these win in both
+   modes. */
+.rf-sdl :is(.text-green-500, .text-green-600, .text-green-700, .text-green-800, .text-green-900, .text-emerald-600, .text-emerald-700) { color: var(--rf-success); }
+.rf-sdl :is(.text-yellow-500, .text-yellow-600, .text-yellow-700, .text-yellow-800, .text-yellow-900, .text-amber-500, .text-amber-600, .text-amber-700, .text-amber-800) { color: var(--rf-warning); }
+.rf-sdl :is(.text-red-500, .text-red-600, .text-red-700, .text-red-800, .text-red-900) { color: var(--rf-danger); }
+.rf-sdl :is(.text-blue-600, .text-blue-700, .text-blue-800, .text-primary-500, .text-primary-800, .text-primary-900, .text-indigo-600, .text-indigo-700) { color: var(--rf-accent-on-soft); }
+.rf-sdl :is(.text-purple-500, .text-purple-600, .text-purple-700, .text-purple-800, .text-purple-900) { color: var(--rf-sdl-purple); }
+.rf-sdl :is(.bg-green-50, .bg-green-100, .bg-emerald-50) { background-color: var(--rf-success-soft); }
+.rf-sdl :is(.bg-yellow-50, .bg-yellow-100, .bg-yellow-200, .bg-amber-50, .bg-amber-100) { background-color: var(--rf-warning-soft); }
+.rf-sdl :is(.bg-red-50, .bg-red-100) { background-color: var(--rf-danger-soft); }
+.rf-sdl :is(.bg-blue-50, .bg-blue-100, .bg-primary-50, .bg-primary-100, .bg-indigo-100) { background-color: var(--rf-accent-soft); }
+.rf-sdl :is(.bg-purple-50, .bg-purple-100) { background-color: var(--rf-sdl-purple-soft); }
+.rf-sdl :is(.border-green-200, .border-green-300, .border-yellow-200, .border-amber-200, .border-red-200, .border-blue-200, .border-primary-100, .border-primary-200, .border-purple-200, .border-purple-300) { border-color: transparent; }
+.rf-sdl .bg-gray-50 { background-color: var(--rf-surface-muted); }
+.rf-sdl .dark\:bg-gray-700\/50:is(.dark *),
+.rf-sdl .dark\:bg-gray-700\/40:is(.dark *),
+.rf-sdl .dark\:bg-gray-900\/50:is(.dark *),
+.rf-sdl .dark\:bg-gray-800\/50:is(.dark *) { background-color: var(--rf-surface-muted); }
+
+/* Pills (kit Pill): any small status span */
+.rf-sdl span:is(.rounded, .rounded-full, .rounded-md):is(.text-xs, .text-sm):is(.px-2, .px-2\.5, .px-3) {
+    border-radius: 999px;
+    font-weight: 600;
+    border-color: transparent;
+}
+.rf-sdl span:is(.rounded, .rounded-full).bg-gray-100,
+.rf-sdl span:is(.rounded, .rounded-full).bg-gray-200 { background-color: var(--rf-surface-muted); color: var(--rf-text-secondary); }
+.rf-sdl span.bg-green-500.text-white { background-color: var(--rf-success); }
+.rf-sdl span.bg-red-500.text-white { background-color: var(--rf-danger); }
+:where(.ui-refresh.dark) .rf-sdl span:is(.bg-green-500, .bg-red-500).text-white { color: var(--rf-accent-text); }
+
+/* Page titles: the app's large title */
+.rf-sdl :is(h1, h2):is(.text-2xl, .text-3xl, .text-4xl) { font-weight: 800; letter-spacing: -0.02em; }
+.rf-sdl-head { align-items: flex-end; }
+.rf-sdl-head h1, .rf-sdl-head h2 { font-size: clamp(24px, 4vw, 30px); line-height: 1.15; }
+.rf-sdl-head h1 + p, .rf-sdl-head h2 + p { font-size: 15px; color: var(--rf-text-secondary); }
+
+/* Buttons. Filled (green, primary, purple): the app's primary button;
+   outlined/white/gray: the secondary one (accent outline); red: danger. */
+.rf-sdl :is(a, button):is(.bg-green-500, .bg-green-600, .bg-primary-600, .bg-purple-600, .bg-yellow-600) {
+    background-color: var(--rf-accent);
+    color: var(--rf-accent-text);
+    border-color: transparent;
+    border-radius: var(--rf-radius-control);
+    font-weight: 600;
+    --tw-shadow: 0 0 #0000;
+}
+.rf-sdl :is(a, button):is(.bg-green-500, .bg-green-600, .bg-primary-600, .bg-purple-600, .bg-yellow-600):hover { background-color: var(--rf-accent-hover); }
+.rf-sdl :is(a, button):is(.bg-green-500, .bg-green-600, .bg-primary-600, .bg-purple-600, .bg-yellow-600) svg { color: currentColor; }
+.rf-sdl :is(a, button):is(.bg-red-600, .bg-red-700) {
+    background-color: var(--rf-danger);
+    color: #ffffff;
+    border-radius: var(--rf-radius-control);
+    font-weight: 600;
+}
+:where(.ui-refresh.dark) .rf-sdl :is(a, button):is(.bg-red-600, .bg-red-700) { color: var(--rf-accent-text); }
+.rf-sdl :is(a, button):is(.bg-red-600, .bg-red-700):hover { filter: brightness(0.94); }
+.rf-sdl :is(a, button).border-gray-300,
+.rf-sdl :is(a, button):is(.bg-gray-300, .bg-gray-500, .bg-gray-600) {
+    background-color: transparent;
+    border: 0;
+    box-shadow: inset 0 0 0 1.5px var(--rf-accent);
+    color: var(--rf-accent);
+    border-radius: var(--rf-radius-control);
+    font-weight: 600;
+}
+.rf-sdl :is(a, button).border-gray-300:hover,
+.rf-sdl :is(a, button):is(.bg-gray-300, .bg-gray-500, .bg-gray-600):hover { background-color: var(--rf-accent-soft); }
+.rf-sdl :is(a, button).border-gray-300 svg,
+.rf-sdl :is(a, button):is(.bg-gray-500, .bg-gray-600) svg { color: currentColor; }
+.rf-sdl :is(a, button).bg-gray-100:is(.rounded, .rounded-md, .rounded-lg) { background-color: var(--rf-surface-muted); color: var(--rf-text); border-radius: var(--rf-radius-control); font-weight: 600; }
+.rf-sdl :is(a, button).bg-gray-100:is(.rounded, .rounded-md, .rounded-lg):hover { background-color: var(--rf-separator); }
+.rf-sdl :is(a, button):is(.rounded, .rounded-md) { border-radius: var(--rf-radius-control); }
+
+/* Cards: the app's 14px radius, the hairline ring (refresh.css) and no
+   second border */
+.rf-sdl :is(.bg-white, .card):is(.rounded-lg, .rounded-md, .rounded-xl) { border-radius: var(--rf-radius-card); }
+.rf-sdl .bg-white:is(.shadow, .shadow-sm).border:not([class*="border-l-"]) { border-color: transparent; }
+.rf-sdl .bg-white.shadow { --tw-shadow: 0 0 0 1px var(--rf-card-border), 0 3px 10px var(--rf-shadow); }
+/* A card's header bar: the app's section label */
+.rf-sdl .bg-white > .border-b:first-child:is(.px-4, .px-5, .px-6) { border-bottom-color: transparent; padding-bottom: 4px; }
+.rf-sdl .bg-white > .border-b:first-child :is(h2, h3):is(.text-lg, .text-base) {
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--rf-text-muted);
+}
+.rf-sdl .bg-white > .border-b:first-child a { font-size: 14px; font-weight: 600; color: var(--rf-accent); }
+
+/* Note boxes (tinted info / warning / success panels) */
+.rf-sdl :is(.bg-primary-50, .bg-blue-50, .bg-yellow-50, .bg-amber-50, .bg-green-50, .bg-red-50):is(.rounded, .rounded-lg, .rounded-md, .rounded-xl) { border-radius: var(--rf-radius-card); }
+.rf-sdl .border-l-4:is(.bg-primary-50, .bg-yellow-50) { border-radius: var(--rf-radius-control); }
+
+/* Field labels and the label/value pairs on the detail pages */
+.rf-sdl label.block.text-sm.font-medium:not(.text-gray-500) { font-size: 13px; font-weight: 600; color: var(--rf-text-secondary); }
+.rf-sdl label.block.font-medium.text-gray-500,
+.rf-sdl .bg-white p.text-xs.uppercase {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--rf-text-muted);
+}
+.rf-sdl .text-red-500 { color: var(--rf-danger); }
+.rf-sdl input[type="checkbox"], .rf-sdl input[type="radio"] { accent-color: var(--rf-accent); }
+.rf-sdl input[type="file"] { font-size: 14px; color: var(--rf-text-secondary); }
+.rf-sdl input[type="file"]::file-selector-button {
+    margin-right: 12px;
+    border: 0;
+    border-radius: 999px;
+    padding: 7px 14px;
+    background: var(--rf-accent-soft);
+    color: var(--rf-accent-on-soft);
+    font-weight: 600;
+    cursor: pointer;
+}
+.rf-sdl code { border-radius: 6px; }
+
+/* Tables: no grey header band; small caps column labels, hairline rows */
+.rf-sdl table thead { background-color: transparent; }
+.rf-sdl table thead th { font-size: 11px; font-weight: 600; letter-spacing: 0.05em; color: var(--rf-text-muted); }
+.rf-sdl table tbody tr:hover { background-color: var(--rf-surface-muted); }
+
+/* Stat tiles (rate cards on the dashboard and event detail) */
+.rf-sdl-stats > div {
+    border-color: transparent;
+    border-radius: var(--rf-radius-stat);
+}
+.rf-sdl-stats > div :is(.text-2xl, .text-lg) { font-weight: 800; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.rf-sdl-stats > div :is(p.text-sm, p.text-xs) { font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--rf-text-secondary); }
+/* The round tinted icon becomes the app's IconTile */
+.rf-sdl-stats .p-3.rounded-full { padding: 9px; border-radius: 10px; }
+.rf-sdl-stats .p-3.rounded-full svg { color: #ffffff; width: 22px; height: 22px; }
+.rf-sdl-stats .p-3.rounded-full.bg-primary-100 { background-color: var(--rf-tile-blue); }
+.rf-sdl-stats .p-3.rounded-full.bg-yellow-100 { background-color: var(--rf-tile-gold); }
+.rf-sdl-stats .p-3.rounded-full.bg-green-100 { background-color: var(--rf-tile-green); }
+.rf-sdl-stats .p-3.rounded-full.bg-red-100 { background-color: var(--rf-tile-red); }
+
+/* Filter bars: a card of filled controls */
+.rf-sdl-filters label { font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--rf-text-muted); }
+.rf-sdl-filters select { min-height: 40px; font-weight: 600; }
+
+/* Back links */
+.rf-sdl-back a { font-size: 15px; font-weight: 600; color: var(--rf-accent); text-decoration: none; }
+.rf-sdl-back a:hover { text-decoration: underline; }
+
+/* Modals */
+.rf-sdl-modal { border: 0; border-radius: var(--rf-radius-card); box-shadow: 0 0 0 1px var(--rf-card-border), 0 18px 40px rgba(0, 0, 0, 0.25); }
+
+/* Danger zone */
+.rf-sdl-danger { border-color: transparent; border-radius: var(--rf-radius-card); background-color: var(--rf-danger-soft); }
+.rf-sdl-danger h3 { font-size: 13px; letter-spacing: 0.04em; text-transform: uppercase; }
+
+/* The key/value facts card */
+.rf-sdl-facts > div { padding: 2px 0; }
+.rf-sdl-facts > div + div { border-top: 1px solid var(--rf-separator); padding-top: 8px; }
+
+/* Empty states (kit EmptyState) and rows inside these pages */
+.rf-sdl .rf-empty { padding: 32px 20px; text-align: center; color: var(--rf-text-secondary); }
+.rf-sdl .rf-empty-svg { display: block; width: 40px; height: 40px; margin: 0 auto 10px; color: var(--rf-text-muted); }
+.rf-sdl .rf-empty-title { margin: 0; font-size: 16px; font-weight: 700; color: var(--rf-text); }
+.rf-sdl .rf-empty-sub { margin: 4px 0 0; font-size: 14px; color: var(--rf-text-secondary); }
+.rf-sdl .rf-empty-btn { margin-top: 14px; }
+.rf-sdl .rf-row-actions a, .rf-sdl .rf-row-actions button { white-space: nowrap; }
+.rf-sdl .rf-row-body > .rf-svc-meta { display: block; margin-top: 4px; }
+@media (max-width: 560px) {
+    .rf-sdl .rf-row-group { flex-wrap: wrap; }
+    .rf-sdl .rf-row-group > .rf-row-actions { flex-basis: 100%; margin-left: 0; padding-left: 44px; }
+}
+
+/* Single-form pages: a readable column */
+.rf-sdl-form.container, .rf-sdl-form.max-w-3xl, .rf-sdl-form.max-w-2xl { max-width: calc(var(--rf-readable) + 32px); }
+.rf-sdl-form.max-w-lg { max-width: 560px; }
+
+/* ---------- Service Hours: officer dashboard ------------------------------ */
+
+.rf-shd.container, .rf-shsubs.container, .rf-shev.container, .rf-shper.container, .rf-shexp.container, .rf-shfb.container { max-width: 1120px; }
+.rf-shd .rf-sdl-stats > div { padding: 16px; }
+.rf-shd-grid { align-items: start; }
+.rf-shd-col { min-width: 0; }
+.rf-shd-col > .rf-section-title { margin-top: 4px; }
+
+.rf-shd-members, .rf-shd-recent { max-height: 560px; overflow-y: auto; }
+.rf-shd-member { display: flex; align-items: center; gap: 12px; padding: 10px 12px 10px 16px; }
+.rf-shd-member + .rf-shd-member { border-top: 1px solid var(--rf-separator); }
+.rf-shd-member.is-done { background-color: var(--rf-success-soft); }
+.rf-shd-member .rf-avatar { width: 32px; height: 32px; }
+.rf-shd-member-body { flex: 1; min-width: 0; }
+.rf-shd-member-head { display: flex; align-items: baseline; gap: 8px; }
+.rf-shd-member-name { flex: 1; min-width: 0; font-size: 15px; font-weight: 500; color: var(--rf-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rf-shd-member-hours { font-size: 14px; font-weight: 600; color: var(--rf-text); font-variant-numeric: tabular-nums; }
+.rf-shd-member-meta { font-size: 12px; color: var(--rf-text-muted); }
+.rf-shd-adjusted { color: var(--rf-sdl-purple); font-weight: 600; }
+.rf-shd-pending { color: var(--rf-warning); font-weight: 600; }
+.rf-shd-bar {
+    display: block;
+    width: 100%;
+    height: 6px;
+    margin: 5px 0;
+    border: 0;
+    border-radius: 3px;
+    overflow: hidden;
+    background-color: var(--rf-surface-muted);
+    -webkit-appearance: none;
+    appearance: none;
+}
+.rf-shd-bar::-webkit-progress-bar { background-color: var(--rf-surface-muted); border-radius: 3px; }
+.rf-shd-bar::-webkit-progress-value { background-color: var(--rf-accent); border-radius: 3px; }
+.rf-shd-bar::-moz-progress-bar { background-color: var(--rf-accent); border-radius: 3px; }
+.rf-shd-member.is-done .rf-shd-bar { background-color: var(--rf-surface); }
+.rf-shd-member.is-done .rf-shd-bar::-webkit-progress-bar { background-color: var(--rf-surface); }
+.rf-shd-member.is-done .rf-shd-bar::-webkit-progress-value { background-color: var(--rf-success); }
+.rf-shd-member.is-done .rf-shd-bar::-moz-progress-bar { background-color: var(--rf-success); }
+.rf-shd-adjust {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 34px; height: 34px; flex-shrink: 0;
+    border: 0; border-radius: 999px;
+    background-color: var(--rf-sdl-purple-soft);
+    color: var(--rf-sdl-purple);
+    cursor: pointer;
+}
+.rf-shd-adjust svg { width: 18px; height: 18px; }
+.rf-shd-adjust:hover { filter: brightness(0.95); }
+.rf-shd-adjust:focus-visible { outline: 2px solid var(--rf-accent); outline-offset: 2px; }
+.rf-shd-recent-row .rf-row-icon { min-width: 16px; }
+.rf-shd-recent-row .rf-chip { flex-shrink: 0; }
+.rf-shd .rf-sdl-note { border-radius: var(--rf-radius-card); }
+.rf-shd #adjust-modal { background-color: rgba(10, 20, 40, 0.45); }
+
+/* ---------- Service Hours: submissions ------------------------------------ */
+
+.rf-shsubs-bulk { border-radius: var(--rf-radius-card); }
+.rf-shsubs-bulk select { min-height: 40px; font-weight: 600; }
+.rf-shsubs #bulk-submit { border-radius: var(--rf-radius-control); font-weight: 600; min-height: 40px; }
+.rf-shsubs #bulk-submit:disabled { background-color: var(--rf-surface-muted); color: var(--rf-text-muted); box-shadow: none; }
+.rf-shsubs-row { align-items: flex-start; }
+.rf-shsubs-check { display: flex; flex-direction: column; align-items: center; gap: 4px; width: 30px; flex-shrink: 0; padding-top: 3px; }
+.rf-shsubs-check input { width: 18px; height: 18px; cursor: pointer; }
+.rf-shsubs-batch {
+    border: 0; background: none; padding: 0;
+    font-size: 10px; line-height: 1.2; font-weight: 600; text-align: center;
+    color: var(--rf-accent); cursor: pointer;
+}
+.rf-shsubs-batch:hover { text-decoration: underline; }
+.rf-shsubs-row .rf-row-sub { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.rf-shsubs-at { margin-top: 2px; }
+.rf-sdl-pages { border-radius: var(--rf-radius-card); }
+.rf-sdl-pages a { border-radius: 999px; }
+
+/* ---------- Service Hours: a submission (review, member view, edit) ------- */
+
+.rf-shsub .lg\:col-span-2 > .bg-white, .rf-shsub > .bg-white, .rf-shsub .space-y-6 > .bg-white { border-radius: var(--rf-radius-card); }
+.rf-shsub .text-3xl { font-weight: 800; letter-spacing: -0.02em; }
+.rf-shsub ul .w-2.h-2.rounded-full { width: 10px; height: 10px; margin-top: 6px; }
+.rf-sdl ul .w-2.h-2.bg-green-500 { background-color: var(--rf-success); }
+.rf-sdl ul .w-2.h-2.bg-red-500 { background-color: var(--rf-danger); }
+.rf-sdl ul .w-2.h-2.bg-yellow-500 { background-color: var(--rf-warning); }
+.rf-sdl ul .w-2.h-2.bg-primary-500 { background-color: var(--rf-accent); }
+.rf-shsub .h-12.w-12.rounded-full { background-color: var(--rf-accent-soft); }
+.rf-shsub .h-12.w-12.rounded-full span { color: var(--rf-accent-on-soft); }
+.rf-shsub #approve-btn { background-color: var(--rf-success); }
+:where(.ui-refresh.dark) .rf-shsub #approve-btn { color: var(--rf-accent-text); }
+.rf-shsub #approve-btn:hover { filter: brightness(0.94); }
+
+/* ---------- Service Hours: periods and expectations ----------------------- */
+
+.rf-sdl-formcard { border-radius: var(--rf-radius-card); }
+.rf-shper-title { margin-top: 0; }
+.rf-shper-row { align-items: flex-start; }
+.rf-shper-row .rf-tile { margin-top: 2px; }
+.rf-shper-row.is-active { background-color: var(--rf-success-soft); }
+.rf-shper-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; margin-top: 8px; }
+.rf-shper-actions form { display: inline-flex; }
+.rf-shper-link {
+    border: 0; background: none; padding: 0;
+    font-size: 14px; font-weight: 600; color: var(--rf-accent);
+    text-decoration: none; cursor: pointer;
+}
+.rf-shper-link:hover { text-decoration: underline; }
+.rf-shper-link.is-warning { color: var(--rf-warning); }
+.rf-shper-link.is-success { color: var(--rf-success); }
+.rf-shper-link.is-danger { color: var(--rf-danger); }
+.rf-shper-link:focus-visible { outline: 2px solid var(--rf-accent); outline-offset: 2px; border-radius: 4px; }
+.rf-sdl-info { border-color: transparent; }
+.rf-sdl-info h3 { font-weight: 700; }
+.rf-shexp-default { border-radius: var(--rf-radius-card); }
+.rf-shexp-default h3 { font-size: 13px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--rf-text-muted); }
+.rf-shexp-default .rounded-full { background-color: var(--rf-surface); box-shadow: inset 0 0 0 1px var(--rf-card-border); color: var(--rf-text); }
+
+/* ---------- Service Hours: events ----------------------------------------- */
+
+.rf-shev .rf-section-title:first-of-type { margin-top: 4px; }
+.rf-shev-row { align-items: flex-start; }
+.rf-shev-list.is-past .rf-shev-row { opacity: 0.85; }
+.rf-shev-list.is-past .rf-date { background-color: var(--rf-surface-muted); color: var(--rf-text-secondary); }
+.rf-shev-detail .rf-sdl-stats > div { padding: 14px; }
+.rf-shev-detail .rf-sdl-stats > div p:first-child { font-size: 24px; }
+.rf-shev-detail .rf-sdl-facts .w-36 { font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--rf-text-muted); padding-top: 1px; }
+.rf-shev-detail > .bg-white:last-of-type .divide-y > div { padding-top: 12px; padding-bottom: 12px; }
+@media (max-width: 560px) {
+    .rf-shev-detail .rf-sdl-facts > div { flex-direction: column; gap: 2px; }
+}
+.rf-shev-att-bar { flex-wrap: wrap; }
+.rf-shev-att-bar #present-counter { font-size: 15px; }
+.rf-shev-att-bar button { font-size: 13px; font-weight: 600; }
+.rf-shev-att-list { border-color: transparent; border-radius: var(--rf-radius-card); overflow: hidden; }
+.rf-shev-att-list > div { min-height: 52px; }
+.rf-shev-att-list .member-checkbox { width: 20px; height: 20px; }
+.rf-shev-att-list input[type="number"] { border-radius: 8px; border-color: transparent; background-color: var(--rf-surface-muted); }
+.rf-shev-att #finalize-btn:disabled { opacity: 0.5; }
+
+/* ---------- Service Hours: form builder (chrome only) --------------------- */
+
+.rf-shfb .rf-sdl-head > div:first-child > div:first-child { font-size: 14px; font-weight: 600; }
+.rf-shfb .bg-green-50.shadow { box-shadow: none; }
+
+/* ---------- Chapter Documents --------------------------------------------- */
+
+.rf-docs.container { max-width: 1040px; }
+.rf-docs .rf-sdl-head img { background-color: #ffffff; box-shadow: 0 0 0 1px var(--rf-card-border); }
+.rf-docs .rf-sdl-head { align-items: center; }
+.rf-docs .rf-sdl-head h2 { margin-bottom: 2px; }
+/* "Committee Vote Results" / "Documents": section labels */
+.rf-docs h3.text-xl {
+    margin: 22px 4px 8px;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--rf-text-muted);
+}
+.rf-docs h3.text-xl svg { width: 16px; height: 16px; color: var(--rf-text-muted); }
+.rf-docs h3.text-2xl { font-size: 20px; font-weight: 800; letter-spacing: -0.01em; }
+/* Folders and committees: a header row over a grouped card */
+.rf-docs .space-y-4 > details { border-radius: var(--rf-radius-card); }
+.rf-docs details > summary,
+.rf-docs details > summary:is(.bg-purple-50, .bg-primary-50, .bg-gray-50) {
+    background-color: transparent;
+    padding-top: 14px;
+    padding-bottom: 14px;
+}
+.rf-docs details > summary:hover,
+.rf-docs details > summary:is(.bg-purple-50, .bg-primary-50, .bg-gray-50):hover { background-color: var(--rf-surface-muted); }
+.rf-docs details[open] > summary { border-bottom: 1px solid var(--rf-separator); }
+.rf-docs details > summary span.text-lg,
+.rf-docs details > summary span.sm\:text-lg { font-size: 17px; font-weight: 700; }
+.rf-docs details > summary > div:first-child > svg { color: var(--rf-accent); }
+.rf-docs details > summary span.rounded,
+.rf-docs details > summary span.rounded:is(.bg-purple-100, .bg-primary-100, .bg-gray-100) {
+    border-radius: 999px;
+    background-color: var(--rf-surface-muted);
+    color: var(--rf-text-secondary);
+    font-weight: 600;
+}
+.rf-docs details > div:has(.rf-docs-row) { padding: 0; }
+.rf-docs .rf-docs-row.rf-row { margin-top: 0; border-top: 0; }
+.rf-docs .rf-docs-row + .rf-docs-row { border-top: 1px solid var(--rf-separator); }
+.rf-docs-row { align-items: flex-start; }
+.rf-docs-row .rf-tile { margin-top: 2px; }
+.rf-docs-tile.is-minutes { background: var(--rf-tile-purple); }
+.rf-docs-tile.is-agenda { background: var(--rf-tile-sky); }
+.rf-docs-tile.is-report { background: var(--rf-tile-gold); }
+.rf-docs-tile.is-policy { background: var(--rf-tile-red); }
+.rf-docs-type.is-minutes { background: var(--rf-sdl-purple-soft); color: var(--rf-sdl-purple); }
+.rf-docs-type.is-agenda { background: var(--rf-accent-soft); color: var(--rf-accent-on-soft); }
+.rf-docs-type.is-report { background: var(--rf-warning-soft); color: var(--rf-warning); }
+.rf-docs-type.is-policy { background: var(--rf-danger-soft); color: var(--rf-danger); }
+.rf-docs-row .rf-row-sub { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+/* Committee vote results: each vote a soft inset card */
+.rf-docs .vote-item-dropdown { background-color: var(--rf-surface-muted); border-radius: var(--rf-radius-control); }
+.rf-docs .vote-item-dropdown.border-green-500 { border-left-color: var(--rf-success); }
+.rf-docs .vote-item-dropdown.border-gray-400 { border-left-color: var(--rf-text-muted); }
+.rf-docs .vote-item-dropdown > summary:hover { background-color: var(--rf-separator); }
+.rf-docs .vote-item-dropdown span.rounded { border-radius: 999px; font-weight: 600; }
+.rf-docs .bg-primary-500 { background-color: var(--rf-accent); }
+/* Manage: the drafts box */
+.rf-docs-drafts { border-color: transparent; }
+.rf-docs .rf-docs-drafts > div.bg-yellow-100:first-child { background-color: transparent; border-bottom-color: var(--rf-separator); }
+.rf-docs-drafts > div:first-child svg { color: var(--rf-warning); }
+.rf-docs-drafts > div:last-child { padding: 0; }
+.rf-docs-drafts > div:last-child > .space-y-3 { background-color: var(--rf-surface); }
+.rf-docs-manage details > summary::before { color: var(--rf-text-muted); font-size: 11px; }
+.rf-docs-manage details > summary { justify-content: flex-start; gap: 4px; }
+.rf-docs-manage details > summary > div:last-child { margin-left: auto; }
+/* Upload / manage one document */
+.rf-docs-form > .mb-6:first-child a { font-weight: 600; color: var(--rf-accent); }
+.rf-docs-form h2.text-3xl { font-size: clamp(24px, 4vw, 30px); }
+.rf-docs-form .bg-gray-50.border { border-color: transparent; border-radius: var(--rf-radius-control); }
+.rf-docs-form .border-t.mt-6 h3 { font-size: 13px; letter-spacing: 0.04em; text-transform: uppercase; }
+
+/* The document viewer: the app's navigation bar over the page colour */
+.rf-docview-bar { background-color: var(--rf-surface); border-bottom-color: var(--rf-separator); min-height: 52px; }
+.rf-docview-bar h1 { font-size: 16px; font-weight: 700; }
+.rf-docview-bar a { border-radius: 999px; color: var(--rf-accent); }
+.rf-docview-bar a:hover { background-color: var(--rf-accent-soft); }
+.rf-docview-bar span.rounded { border-radius: 999px; font-weight: 600; text-transform: uppercase; background-color: var(--rf-surface-muted); }
+.rf-docview > .flex-1 { background-color: var(--rf-bg); }
+.rf-docview .document-paper {
+    background-color: #ffffff;
+    border-radius: var(--rf-radius-card);
+    box-shadow: 0 0 0 1px var(--rf-card-border), 0 6px 18px var(--rf-shadow);
+}
+:where(.ui-refresh.dark) .rf-docview .document-paper { background-color: var(--rf-surface); }
+.rf-docview #pdf-mobile-view .sticky { background-color: var(--rf-surface-glass); box-shadow: 0 0 0 1px var(--rf-card-border); }
+.rf-docview #pdf-mobile-view .bg-white { border-radius: var(--rf-radius-card); }
+
+/* ---------- Legislation ---------------------------------------------------- */
+
+/* Status pills on the detail page carry a border too */
+.rf-leg span.rounded-full.border { border-color: transparent; }
+.rf-leg .bg-white > .border-b:first-child { border-bottom-color: var(--rf-separator); padding-bottom: 16px; }
+.rf-leg .bg-white > div.border-b:not(:first-child) { border-bottom-color: var(--rf-separator); }
+.rf-leg h2.text-sm.uppercase { font-size: 12px; color: var(--rf-text-muted); }
+/* Result tiles: the app's stat tiles */
+.rf-sdl :is(.rf-leg, .rf-legs) .grid > div.rounded-lg.text-center { border-color: transparent; border-radius: var(--rf-radius-stat); }
+.rf-sdl :is(.rf-leg, .rf-legs) .grid > div.rounded-lg.text-center .text-3xl { font-weight: 800; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.rf-leg .ring-2, .rf-legs .ring-2 { --tw-ring-color: var(--rf-sdl-purple); }
+.rf-leg .bg-green-500.h-3 { background-color: var(--rf-success); }
+.rf-leg .bg-primary-500 { background-color: var(--rf-accent); }
+.rf-leg .js-toggle-section:hover { background-color: var(--rf-surface-muted); }
+.rf-leg .js-toggle-section .rounded-full { border-radius: 999px; font-weight: 600; }
+.rf-leg [id$="-panel"] .rounded-lg { border-color: transparent; background-color: var(--rf-surface-muted); }
+.rf-leg a.bg-gray-100, .rf-legs a.bg-gray-100 { background-color: var(--rf-surface-muted); }
+
+/* Tracker: the status tabs as the app's segmented pills */
+.rf-legs-tabs.card { background-color: transparent; border-color: transparent; box-shadow: none; overflow: visible; }
+.rf-legs-tabs > div { border-bottom: 0; gap: 8px; padding: 2px 2px 6px; }
+.rf-legs-tabs a {
+    border: 0;
+    border-radius: 999px;
+    padding: 8px 14px;
+    background-color: var(--rf-surface);
+    box-shadow: inset 0 0 0 1px var(--rf-card-border);
+    color: var(--rf-text-secondary);
+    font-weight: 600;
+}
+.rf-legs-tabs a:hover { background-color: var(--rf-surface-muted); color: var(--rf-text); }
+.rf-legs-tabs a:not(.border-transparent) { background-color: var(--rf-accent); color: var(--rf-accent-text); box-shadow: none; }
+.rf-legs-tabs a:not(.border-transparent) svg { color: currentColor; }
+.rf-legs-tabs a:not(.border-transparent) span.rounded-full { background-color: rgba(255, 255, 255, 0.22); color: inherit; }
+.rf-legs-tabs a span.rounded-full { font-weight: 600; }
+/* Bill cards: the tinted gradient header goes flat */
+.rf-legs .card { border-color: transparent; }
+.rf-legs .card > .bg-gradient-to-r.from-primary-50 { background-image: none; background-color: transparent; border-bottom-color: var(--rf-separator); }
+.rf-legs .card h3 a { color: var(--rf-text); }
+.rf-legs .card h3 a:hover { color: var(--rf-accent); }
+.rf-legs .card .js-toggle-voting-details, .rf-legs .card .js-toggle-present-members { color: var(--rf-accent); font-weight: 600; }
+.rf-legs .card .bg-gray-50.rounded-lg, .rf-legs .card .bg-gray-50.dark\:bg-gray-700 { background-color: var(--rf-surface-muted); border-color: transparent; }
+.rf-legs .card code { background-color: var(--rf-surface-muted); border-color: transparent; }
+.rf-legs .bg-amber-50.border { border-color: transparent; }
+.rf-legs > .mb-4.bg-green-50 { border-color: transparent; border-radius: var(--rf-radius-card); }
+
+/* Forms: edit legislation, edit draft, assign role, verify receipt */
+.rf-leg-edit .bg-white > .bg-primary-50:first-child { background-color: transparent; border-bottom-color: var(--rf-separator); }
+.rf-leg-edit .bg-white > div.border-t { border-top-color: var(--rf-separator); }
+.rf-leg-edit .bg-white > .bg-gray-50 { background-color: var(--rf-surface-muted); }
+.rf-leg-draft > .mb-6:first-child > a, .rf-receipt > #receipt-back-btn { font-weight: 600; color: var(--rf-accent); }
+.rf-leg-draft .bg-amber-50 { border-color: transparent; border-radius: var(--rf-radius-control); }
+.rf-leg-draft > .bg-gray-50 { border-color: transparent; border-radius: var(--rf-radius-card); }
+.rf-leg-assign-head { background-color: transparent; border-bottom-color: var(--rf-separator); }
+.rf-leg-assign-head .rounded-full { border-radius: 10px; background-color: var(--rf-tile-green); }
+.rf-leg-assign-head .rounded-full svg { color: #ffffff; }
+.rf-leg-assign-head h1 { color: var(--rf-text); font-weight: 700; }
+.rf-leg-assign .bg-gray-50 { border-radius: var(--rf-radius-control); }
+.rf-receipt textarea { font-size: 13px; }
+
+/* Vote Results */
+.rf-vres > .bg-white { border-color: transparent; }
+.rf-vres > .rounded-xl:is(.bg-green-50, .bg-amber-50, .bg-red-50, .bg-primary-50) { border-color: transparent; }
+.rf-vres .bg-green-500 { background-color: var(--rf-success); }
+.rf-vres .bg-primary-600:not(a):not(button) { background-color: var(--rf-accent); }
+
+/* Passed Resolutions: the chapter-blue banner, the page colour behind */
+.rf-res.min-h-screen { background-image: none; background-color: transparent; }
+.rf-res-hero { background-image: none; background-color: var(--rf-hero); box-shadow: none; }
+.rf-res-hero h1 { font-size: clamp(26px, 4.5vw, 34px); font-weight: 800; letter-spacing: -0.02em; }
+.rf-res-hero :is(.text-green-100, .text-green-200) { color: var(--rf-hero-muted); }
+.rf-res-hero svg { color: var(--rf-gold); }
+.rf-res > div > .mb-6 a { color: var(--rf-accent); }
+.rf-res .bg-white > .space-y-6 > div { background-color: var(--rf-surface); box-shadow: 0 0 0 1px var(--rf-card-border), 0 3px 10px var(--rf-shadow); }
+.rf-res .dark\:bg-gray-700:is(.dark *) { background-color: var(--rf-surface); }
+.rf-res .bg-white h3.text-2xl { font-size: 20px; }
+.rf-res a:is(.bg-primary-50, .bg-green-50) { border-radius: var(--rf-radius-card); }
+.rf-res a:is(.bg-primary-50, .bg-green-50) p.font-semibold { color: var(--rf-text); }
+@media (max-width: 640px) {
+    .rf-res .bg-white.p-8 { padding: 18px; }
+    .rf-res .bg-white > .space-y-6 > div { padding: 16px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .rf-shd-adjust, .rf-legs-tabs a { transition: none; }
+}

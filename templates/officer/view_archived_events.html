@@ -3,9 +3,9 @@
 {% block title %}Archived Events - Admin Portal{% endblock %}
 
 {% block admin_content %}
-<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8{% if ui_refresh %} rf-mp rf-op rf-oarch{% endif %}">
     <!-- Page Header -->
-    <div class="bg-white rounded-xl shadow-sm p-6 mb-8">
+    <div class="bg-white rounded-xl shadow-sm p-6 mb-8{% if ui_refresh %} rf-op-headcard{% endif %}">
         <div class="flex items-center justify-between">
             <div>
                 <div class="flex items-center space-x-3 mb-2">
@@ -25,7 +25,7 @@
     </div>
 
     <!-- Stats -->
-    <div class="grid gap-4 md:grid-cols-3 mb-8">
+    {% if ui_refresh %}{% include "officer_refresh/_archived_events.html" %}{% else %}<div class="grid gap-4 md:grid-cols-3 mb-8">
         <div class="bg-white rounded-xl shadow-sm p-6">
             <div class="flex items-center">
                 <div class="bg-gray-100 rounded-full p-3">
@@ -103,7 +103,7 @@
         <p class="text-gray-500 mb-4">There are no archived events yet.</p>
         <p class="text-sm text-gray-600">Run the archive command to archive events older than 1 year.</p>
     </div>
-    {% endif %}
+    {% endif %}{% endif %}{# /rf #}
 </div>
 {% endblock %}
 

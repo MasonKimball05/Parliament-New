@@ -3,7 +3,7 @@
 {% block title %}Edit Legislation{% endblock %}
 
 {% block content %}
-<div class="container mx-auto px-4 py-4 sm:py-8">
+<div class="container mx-auto px-4 py-4 sm:py-8{% if ui_refresh %} rf-sdl rf-sdl-form rf-leg-edit{% endif %}">
     <div class="max-w-3xl mx-auto">
         {% include 'includes/breadcrumbs.html' with back_url='/vote/' back_label='Vote' current='Edit Legislation' %}
 

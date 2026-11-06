@@ -11,7 +11,7 @@
 {% block title %}Edit Submission - {{ submission.organization }}{% endblock %}
 
 {% block content %}
-<div class="container mx-auto px-4 py-8 max-w-3xl">
+<div class="container mx-auto px-4 py-8 max-w-3xl{% if ui_refresh %} rf-sdl rf-sdl-form rf-shsub-edit{% endif %}">
     <!-- Header -->
     <div class="mb-6">
         <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Edit Submission</h1>

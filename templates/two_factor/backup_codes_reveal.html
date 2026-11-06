@@ -3,8 +3,8 @@
 {% block title %}Your Backup Codes — Save These Now{% endblock %}
 
 {% block content %}
-<div class="container mx-auto px-4 py-8 max-w-lg">
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
+<div class="container mx-auto px-4 py-8 max-w-lg{% if ui_refresh %} rf-auth rf-2fa-codes{% endif %}">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6{% if ui_refresh %} rf-auth-card{% endif %}">
 
         <div class="text-center mb-6">
             <svg class="w-14 h-14 mx-auto text-green-500 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -22,7 +22,7 @@
         </div>
 
         <!-- Codes grid -->
-        <div class="grid grid-cols-2 gap-2 mb-5 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-700" id="codes-block">
+        <div class="grid grid-cols-2 gap-2 mb-5 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-700{% if ui_refresh %} rf-2fa-codes-grid{% endif %}" id="codes-block">
             {% for code in backup_codes %}
             <div class="font-mono text-sm text-gray-900 dark:text-gray-100 tracking-widest text-center py-1.5 bg-white dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-600">
                 {{ code }}

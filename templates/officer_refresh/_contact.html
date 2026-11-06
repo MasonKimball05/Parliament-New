@@ -1,0 +1,37 @@
+{% comment %}
+Website refresh (src/ui_refresh.py): Contact Messages as the app's contact
+screen (officer/contact.tsx): one card per message with an unread dot, the
+sender, email, topic and recipient, the time, the message, and Reply / Mark
+read. Same links, forms and fields as the list it replaces in
+officer/contact_submissions.html.
+{% endcomment %}
+{% if submissions %}
+<div class="rf-stack">
+    {% for submission in submissions %}
+    <div class="rf-card is-padded rf-ob-contact{% if not submission.is_read %} is-unread{% endif %}">
+        <div class="rf-ob-contact-head">
+            {% if not submission.is_read %}<span class="rf-ob-dot" aria-hidden="true"></span><span class="sr-only">Unread</span>{% endif %}
+            <span class="rf-ob-contact-name">{{ submission.name }}</span>
+            {% if submission.topic %}<span class="rf-chip">{{ submission.topic }}</span>{% endif %}
+        </div>
+        <p class="rf-ob-contact-meta"><a href="mailto:{{ submission.email }}">{{ submission.email }}</a>{% if submission.recipient_email %} · → {{ submission.recipient_email }}{% endif %}</p>
+        <p class="rf-ob-contact-time">{{ submission.submitted_at|date:"N j, Y \a\t g:i A" }}</p>
+        <p class="rf-ob-contact-msg">{{ submission.message }}</p>
+        <div class="rf-ob-actions-row">
+            <a href="mailto:{{ submission.email }}?subject=Re: Your message to Beta Theta Pi Alpha Mu" class="rf-btn rf-ob-btn-sm">Reply</a>
+            {% if not submission.is_read %}
+            <form method="post" action="{% url 'mark_contact_read' submission.pk %}">
+                {% csrf_token %}
+                <button type="submit" class="rf-pill">Mark read</button>
+            </form>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="rf-card rf-empty">
+    <svg class="rf-empty-svg" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+    <p class="rf-empty-title">No contact messages yet.</p>
+</div>
+{% endif %}

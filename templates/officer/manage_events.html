@@ -3,8 +3,8 @@
 {% block title %}Manage Events{% endblock %}
 
 {% block admin_content %}
-<div class="container mx-auto px-4 py-8">
-    <div class="mb-6 flex flex-col md:flex-row md:justify-between md:items-start gap-4">
+<div class="container mx-auto px-4 py-8{% if ui_refresh %} rf-mp rf-op rf-oev{% endif %}">
+    <div class="mb-6 flex flex-col md:flex-row md:justify-between md:items-start gap-4{% if ui_refresh %} rf-op-head{% endif %}">
         <div>
             <h2 class="text-2xl sm:text-3xl font-bold mb-2 text-gray-900 dark:text-white">Manage Events</h2>
             <p class="text-sm sm:text-base text-gray-600 dark:text-gray-400">
@@ -31,7 +31,7 @@
     </div>
 
     <!-- Filter Tabs -->
-    <div class="mb-6 flex flex-wrap gap-2">
+    <div class="mb-6 flex flex-wrap gap-2{% if ui_refresh %} rf-op-tabs{% endif %}">
         <a href="?filter=upcoming" class="px-4 py-2 rounded-lg font-medium transition {% if current_filter == 'upcoming' %}bg-primary-600 text-white{% else %}bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600{% endif %}">
             Upcoming
         </a>
@@ -57,7 +57,7 @@
 
     <!-- Series Header (when viewing instances of a specific series) -->
     {% if series_parent %}
-    <div class="mb-6 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg p-4">
+    <div class="mb-6 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg p-4{% if ui_refresh %} rf-op-note{% endif %}">
         <div class="flex items-center justify-between">
             <div>
                 <h3 class="text-lg font-semibold text-purple-900 dark:text-purple-100">
@@ -88,7 +88,7 @@
     {% endif %}
 
     {% if events %}
-        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden transition-colors duration-200">
+        {% if ui_refresh %}{% include "officer_refresh/_events.html" %}{% else %}<div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden transition-colors duration-200">
             <!-- Desktop Table View (hidden on mobile) -->
             <div class="hidden md:block overflow-x-auto">
                 <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
@@ -315,7 +315,7 @@
 
             <!-- Pagination -->
             {% include 'includes/pagination.html' with page_obj=page_obj %}
-        </div>
+        </div>{% endif %}{# /rf #}
     {% else %}
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-8 text-center transition-colors duration-200">
             <svg class="w-16 h-16 mx-auto text-gray-400 dark:text-gray-500 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

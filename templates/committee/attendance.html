@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="container mx-auto px-4 py-8">
+<div class="container mx-auto px-4 py-8{% if ui_refresh %} rf-ct rf-ct-att{% endif %}">
     <!-- Header -->
     <div class="bg-gradient-to-br from-primary-600 via-primary-700 to-primary-800 rounded-xl shadow-lg p-4 sm:p-5 mb-6 text-white relative overflow-hidden">
         <div class="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-yellow-400/60 to-transparent pointer-events-none"></div>
@@ -45,7 +45,7 @@
             <input type="hidden" name="action" value="mark_attendance">
 
             <!-- Member List -->
-            <div class="space-y-2">
+            <div class="space-y-2{% if ui_refresh %} rf-ct-list{% endif %}">
                 {% for data in member_data %}
                 <div class="flex items-center p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
                     <label class="flex items-center gap-3 flex-1 cursor-pointer">

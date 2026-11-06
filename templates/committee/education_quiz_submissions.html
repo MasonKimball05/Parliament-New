@@ -2,9 +2,9 @@
 {% block title %}{{ task.title }} — Submissions{% endblock %}
 
 {% block content %}
-<div class="min-h-screen bg-gray-50 dark:bg-gray-900">
+<div class="min-h-screen bg-gray-50 dark:bg-gray-900{% if ui_refresh %} rf-ct rf-ct-edu-subs{% endif %}">
 
-  <div class="bg-gradient-to-r from-primary-600 via-primary-700 to-primary-800 text-white py-8 shadow-lg">
+  <div class="bg-gradient-to-r from-primary-600 via-primary-700 to-primary-800 text-white py-8 shadow-lg{% if ui_refresh %} rf-ct-band{% endif %}">
     <div class="max-w-5xl mx-auto px-4 sm:px-6">
       <a href="{% url 'education_home' committee.code %}" class="text-primary-200 hover:text-white text-sm mb-2 inline-block">← Education</a>
       <h1 class="text-2xl font-bold">{{ task.title }} — Submissions</h1>

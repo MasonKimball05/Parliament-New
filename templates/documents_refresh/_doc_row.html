@@ -1,0 +1,31 @@
+{% comment %}
+Website refresh (src/ui_refresh.py): one document on Chapter Documents
+(chapter_documents.html), in place of chapter_documents_item.html, as the
+app's Documents list shows it: a document tile, the title (opens the
+viewer), the description, the committee and type pills, who uploaded it
+and when, and the same Manage (officers) / View / Download links.
+{% endcomment %}
+<div class="rf-row rf-row-group rf-docs-row">
+    <span class="rf-tile rf-docs-tile is-{{ doc.document_type|default:'general' }}" aria-hidden="true">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+    </span>
+    <span class="rf-row-body">
+        <a href="{% url 'view_chapter_document' doc.id %}" class="rf-row-link rf-row-title">{{ doc.title }}</a>
+        {% if doc.description %}<span class="rf-row-sub">{{ doc.description }}</span>{% endif %}
+        <span class="rf-row-pills">
+            {% if doc.committee %}<span class="rf-chip is-accent">{{ doc.committee.code }}</span>{% endif %}
+            {% if doc.document_type == "minutes" %}<span class="rf-chip rf-docs-type is-minutes">Minutes</span>
+            {% elif doc.document_type == "agenda" %}<span class="rf-chip rf-docs-type is-agenda">Agenda</span>
+            {% elif doc.document_type == "report" %}<span class="rf-chip rf-docs-type is-report">Report</span>
+            {% elif doc.document_type == "policy" %}<span class="rf-chip rf-docs-type is-policy">Policy</span>{% endif %}
+            <span class="rf-svc-meta">Uploaded by {{ doc.uploaded_by.name }} on {{ doc.uploaded_at|date:"M d, Y" }}{% if doc.meeting_date %} · Meeting: {{ doc.meeting_date|date:"M d, Y" }}{% endif %}</span>
+        </span>
+    </span>
+    <span class="rf-row-actions rf-docs-actions">
+        {% if is_officer %}
+        <a href="{% url 'manage_chapter_document' doc.id %}" title="Manage document">Manage</a>
+        {% endif %}
+        <a href="{% url 'view_chapter_document' doc.id %}">View</a>
+        <a href="{{ doc.document.url }}" download>Download</a>
+    </span>
+</div>

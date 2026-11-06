@@ -3,7 +3,7 @@
 {% block title %}Attendance — {{ event.title }}{% endblock %}
 
 {% block content %}
-<div class="container mx-auto px-4 py-8 max-w-2xl">
+<div class="container mx-auto px-4 py-8 max-w-2xl{% if ui_refresh %} rf-sdl rf-shev-att{% endif %}">
 
     <!-- Header -->
     <div class="mb-6">
@@ -39,7 +39,7 @@
     {% endif %}
 
     <!-- Quick stats bar -->
-    <div class="flex items-center gap-4 mb-4 text-sm text-gray-600 dark:text-gray-400">
+    <div class="flex items-center gap-4 mb-4 text-sm text-gray-600 dark:text-gray-400{% if ui_refresh %} rf-shev-att-bar{% endif %}">
         <span id="present-counter" class="font-semibold text-green-600 dark:text-green-400">{{ present_count }} present</span>
         <span class="text-gray-300 dark:text-gray-600">·</span>
         <span>{{ member_data|length }} total members</span>
@@ -53,7 +53,7 @@
         {% csrf_token %}
 
         <!-- Member list -->
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 divide-y divide-gray-100 dark:divide-gray-700 mb-6">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 divide-y divide-gray-100 dark:divide-gray-700 mb-6{% if ui_refresh %} rf-shev-att-list{% endif %}">
             {% for d in member_data %}
             <div class="flex items-center gap-2 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                 <label class="flex items-center gap-3 flex-1 cursor-pointer {% if is_read_only %}pointer-events-none{% endif %}">

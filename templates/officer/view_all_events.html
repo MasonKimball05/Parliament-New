@@ -3,9 +3,9 @@
 {% block title %}All Events - Officer Portal{% endblock %}
 
 {% block admin_content %}
-<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8{% if ui_refresh %} rf-mp rf-op rf-oallev{% endif %}">
     <!-- Page Header -->
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-8 transition-colors duration-200">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-8 transition-colors duration-200{% if ui_refresh %} rf-op-headcard{% endif %}">
         <div class="flex items-center justify-between">
             <div>
                 <div class="flex items-center space-x-3 mb-2">
@@ -31,7 +31,7 @@
     </div>
 
     <!-- Upcoming Events Section -->
-    <div class="mb-8">
+    {% if ui_refresh %}{% include "officer_refresh/_all_events.html" %}{% else %}<div class="mb-8">
         <div class="flex items-center justify-between mb-4">
             <h2 class="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
                 <svg class="w-6 h-6 text-green-600 dark:text-green-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -155,6 +155,6 @@
             <p class="text-gray-500 dark:text-gray-400">No past events</p>
         </div>
         {% endif %}
-    </div>
+    </div>{% endif %}{# /rf #}
 </div>
 {% endblock %}

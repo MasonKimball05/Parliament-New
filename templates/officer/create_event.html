@@ -4,7 +4,7 @@
 {% block title %}Create Event{% endblock %}
 
 {% block admin_content %}
-<div class="container mx-auto px-4 py-8 max-w-2xl">
+<div class="container mx-auto px-4 py-8 max-w-2xl{% if ui_refresh %} rf-mp rf-op rf-oev-form{% endif %}">
     <div class="mb-6">
         <h2 class="text-3xl font-bold mb-2 text-gray-900 dark:text-white">Create New Event</h2>
         <p class="text-gray-600 dark:text-gray-400">Add a new event to the chapter calendar</p>

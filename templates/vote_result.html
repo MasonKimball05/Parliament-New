@@ -5,7 +5,7 @@
 {% block title %}Vote Results{% endblock %}
 
 {% block content %}
-<div class="max-w-3xl mx-auto px-4 py-8 space-y-4">
+<div class="max-w-3xl mx-auto px-4 py-8 space-y-4{% if ui_refresh %} rf-sdl rf-vres{% endif %}">
 
     <!-- Header -->
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700/60 p-6">

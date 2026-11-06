@@ -4,7 +4,7 @@
 {% block title %}{{ action }} Resolution{% endblock %}
 
 {% block admin_content %}
-<div class="container mx-auto px-4 py-8 max-w-4xl">
+<div class="container mx-auto px-4 py-8 max-w-4xl{% if ui_refresh %} rf-mp rf-ob rf-ob-form-page{% endif %}">
     <!-- Header -->
     <div class="mb-6">
         <h1 class="text-3xl font-bold text-gray-900 dark:text-white">{{ action }} Resolution</h1>
@@ -21,7 +21,7 @@
     {% endif %}
 
     <!-- Form -->
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-8">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-8{% if ui_refresh %} rf-ob-form{% endif %}">
         <form method="post" enctype="multipart/form-data" class="space-y-6">
             {% csrf_token %}
 
@@ -94,7 +94,7 @@
                     {{ form.document.label }}
                 </label>
                 {% if resolution.document %}
-                    <div class="mb-2 p-3 bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-800 rounded">
+                    <div class="mb-2 p-3 bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-800 rounded{% if ui_refresh %} rf-ob-current{% endif %}">
                         <p class="text-sm text-blue-900 dark:text-blue-200">
                             <strong>Current document:</strong>
                             <a href="{{ resolution.document.url }}" target="_blank" class="underline">{{ resolution.document.name }}</a>
@@ -197,7 +197,7 @@
             </div>
 
             <!-- Form Actions -->
-            <div class="flex items-center justify-between pt-6 border-t border-gray-200 dark:border-gray-700">
+            <div class="flex items-center justify-between pt-6 border-t border-gray-200 dark:border-gray-700{% if ui_refresh %} rf-ob-actions{% endif %}">
                 <a href="{% url 'manage_resolutions' %}" class="text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 font-semibold">
                     Cancel
                 </a>

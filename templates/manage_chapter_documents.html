@@ -3,8 +3,8 @@
 {% block title %}Manage Chapter Documents{% endblock %}
 
 {% block content %}
-<div class="container mx-auto px-4 py-8">
-    <div class="mb-6 flex flex-col md:flex-row md:justify-between md:items-start gap-4">
+<div class="container mx-auto px-4 py-8{% if ui_refresh %} rf-sdl rf-docs rf-docs-manage{% endif %}">
+    <div class="mb-6 flex flex-col md:flex-row md:justify-between md:items-start gap-4{% if ui_refresh %} rf-sdl-head{% endif %}">
         <div>
             <h2 class="text-3xl font-bold mb-2 text-gray-900 dark:text-white">Manage Chapter Documents</h2>
             <p class="text-gray-600 dark:text-gray-400">Manage all chapter documents, including drafts</p>
@@ -41,7 +41,7 @@
     <!-- Unpublished Documents Section -->
     {% if unpublished_docs %}
         <div class="mb-6">
-            <div class="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-xl shadow-sm overflow-hidden">
+            <div class="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-xl shadow-sm overflow-hidden{% if ui_refresh %} rf-docs-drafts{% endif %}">
                 <div class="bg-yellow-100 dark:bg-yellow-900/40 px-6 py-4 flex items-center justify-between border-b border-yellow-200 dark:border-yellow-800">
                     <div class="flex items-center space-x-3">
                         <svg class="w-6 h-6 text-yellow-700 dark:text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -60,7 +60,7 @@
                 <div class="px-6 py-4">
                     <div class="space-y-3">
                         {% for doc in unpublished_docs %}
-                            {% include 'manage_chapter_document_item.html' %}
+                            {% if ui_refresh %}{% include "documents_refresh/_manage_row.html" %}{% else %}{% include 'manage_chapter_document_item.html' %}{% endif %}{# /rf #}
                         {% endfor %}
                     </div>
                 </div>
@@ -112,7 +112,7 @@
                         {% if documents %}
                             <div class="space-y-3">
                                 {% for doc in documents %}
-                                    {% include 'manage_chapter_document_item.html' %}
+                                    {% if ui_refresh %}{% include "documents_refresh/_manage_row.html" %}{% else %}{% include 'manage_chapter_document_item.html' %}{% endif %}{# /rf #}
                                 {% endfor %}
                             </div>
                         {% else %}
@@ -146,7 +146,7 @@
                 <div class="px-6 py-4">
                     <div class="space-y-3">
                         {% for doc in uncategorized_published_docs %}
-                            {% include 'manage_chapter_document_item.html' %}
+                            {% if ui_refresh %}{% include "documents_refresh/_manage_row.html" %}{% else %}{% include 'manage_chapter_document_item.html' %}{% endif %}{# /rf #}
                         {% endfor %}
                     </div>
                 </div>

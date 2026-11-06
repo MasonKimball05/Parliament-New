@@ -1,0 +1,63 @@
+{% comment %}
+Website refresh (src/ui_refresh.py): Upcoming and Recent service events
+(service_hours/service_events.html) as the app's officer Service Events
+list: a date block, the title, time and place, a Finalized / Pending (or
+Not finalized) pill, the hours and the period, and the same View / Edit
+links (Edit only while hours are not applied).
+{% endcomment %}
+<div class="rf-section-title"><h2>Upcoming</h2></div>
+{% if upcoming %}
+<div class="rf-card rf-shev-list">
+    {% for se in upcoming %}
+    <div class="rf-row rf-row-group rf-shev-row">
+        <span class="rf-date" aria-hidden="true"><span class="rf-date-month">{{ se.event.date_time|date:"M" }}</span><span class="rf-date-day">{{ se.event.date_time|date:"j" }}</span></span>
+        <span class="rf-row-body">
+            <a href="{% url 'service_event_detail' se.id %}" class="rf-row-link rf-row-title">{{ se.event.title }}</a>
+            <span class="rf-row-sub">{{ se.event.date_time|date:"M d, Y" }} at {{ se.event.date_time|time:"g:i A" }}{% if se.event.location %} · {{ se.event.location }}{% endif %}</span>
+            <span class="rf-row-pills">
+                {% if se.hours_applied %}<span class="rf-chip is-success">Finalized</span>{% else %}<span class="rf-chip is-warning">Pending</span>{% endif %}
+                <span class="rf-chip is-accent">{{ se.hours_awarded }} hr{% if se.hours_awarded != 1 %}s{% endif %}</span>
+                <span class="rf-svc-meta">{{ se.period.name }}</span>
+            </span>
+        </span>
+        <span class="rf-row-actions">
+            <a href="{% url 'service_event_detail' se.id %}">View</a>
+            {% if not se.hours_applied %}
+            <a href="{% url 'edit_service_event' se.id %}">Edit</a>
+            {% endif %}
+        </span>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="rf-card">
+    <div class="rf-empty">
+        <svg class="rf-empty-svg" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+        </svg>
+        <p class="rf-empty-title">No upcoming service events.</p>
+        <a href="{% url 'create_service_event' %}" class="rf-btn rf-empty-btn">Schedule one.</a>
+    </div>
+</div>
+{% endif %}
+
+{% if past %}
+<div class="rf-section-title"><h2>Recent (last 20)</h2></div>
+<div class="rf-card rf-shev-list is-past">
+    {% for se in past %}
+    <div class="rf-row rf-row-group rf-shev-row">
+        <span class="rf-date" aria-hidden="true"><span class="rf-date-month">{{ se.event.date_time|date:"M" }}</span><span class="rf-date-day">{{ se.event.date_time|date:"j" }}</span></span>
+        <span class="rf-row-body">
+            <a href="{% url 'service_event_detail' se.id %}" class="rf-row-link rf-row-title">{{ se.event.title }}</a>
+            <span class="rf-row-sub">{{ se.event.date_time|date:"M d, Y" }} · {{ se.period.name }} · {{ se.hours_awarded }} hr{% if se.hours_awarded != 1 %}s{% endif %}</span>
+            <span class="rf-row-pills">
+                {% if se.hours_applied %}<span class="rf-chip is-success">Finalized</span>{% else %}<span class="rf-chip is-danger">Not finalized</span>{% endif %}
+            </span>
+        </span>
+        <span class="rf-row-actions">
+            <a href="{% url 'service_event_detail' se.id %}">View</a>
+        </span>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}

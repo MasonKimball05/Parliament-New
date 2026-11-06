@@ -4,9 +4,9 @@
 {% block title %}Manage Announcements - Parliament{% endblock %}
 
 {% block admin_content %}
-<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8{% if ui_refresh %} rf-mp rf-op rf-oann{% endif %}">
     <!-- Header -->
-    <div class="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <div class="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4{% if ui_refresh %} rf-op-head{% endif %}">
         <div>
             <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">Manage Announcements</h1>
             <p class="text-gray-600 dark:text-gray-400">
@@ -33,13 +33,13 @@
 
     <!-- Announcements List -->
     {% if announcements %}
-        <div class="space-y-4">
+        {% if ui_refresh %}{% include "officer_refresh/_announcements.html" %}{% else %}<div class="space-y-4">
             {% for announcement in announcements %}
             {% with stats=announcement.get_view_stats %}
             <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden border-l-4 {% if announcement.is_active %}border-green-500{% else %}border-gray-400 dark:border-gray-600{% endif %}">
                 <div class="p-6">
                     <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
-                        <div class="flex-1">
+                        <div class="flex-1 min-w-0">
                             <div class="flex flex-wrap items-center gap-2 mb-2">
                                 <h2 class="text-xl font-semibold text-gray-900 dark:text-white">{{ announcement.title }}</h2>
                                 {% load tz %}
@@ -67,7 +67,7 @@
                                 {% endif %}
                             </div>
                             <div class="announcement-content-wrapper mb-3">
-                                <p class="text-gray-700 dark:text-gray-300 whitespace-pre-wrap line-clamp-4 announcement-content">{{ announcement.content|linkify }}</p>
+                                <p class="text-gray-700 dark:text-gray-300 whitespace-pre-wrap break-words line-clamp-4 announcement-content">{{ announcement.content|linkify }}</p>
                                 <button type="button" class="text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300 text-sm font-medium mt-1 expand-btn hidden">
                                     Show more ↓
                                 </button>
@@ -157,7 +157,7 @@
         <!-- Pagination -->
         <div class="mt-6">
             {% include 'includes/pagination.html' with page_obj=page_obj %}
-        </div>
+        </div>{% endif %}{# /rf #}
     {% else %}
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-12 text-center">
             <svg class="mx-auto h-12 w-12 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">

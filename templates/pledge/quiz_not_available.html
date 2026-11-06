@@ -2,7 +2,7 @@
 {% block title %}Quiz Unavailable — Parliament{% endblock %}
 
 {% block content %}
-<div class="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center px-4">
+<div class="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center px-4{% if ui_refresh %} rf-ct rf-ct-quiz-na{% endif %}">
   <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-10 max-w-md w-full text-center">
     <span class="text-5xl">🔒</span>
     <h1 class="text-xl font-bold text-gray-900 dark:text-white mt-4">Quiz Not Available</h1>

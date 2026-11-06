@@ -26,6 +26,12 @@ Where things live:
   ``{% admin_console_frame %}`` tag.
 * the home page widgets: `home_widgets()` (service health, alarms, sign-ins
   for the last 7 days, resources), added to the dashboard's own context.
+* the home's layout ("Customize"): `HOME_WIDGETS` names every widget;
+  ``prefs['admin_console']['home_widgets']`` is the admin's ordered list of
+  visible keys and ``home_widgets_seen`` every key that existed when they
+  saved, so a widget added later shows up (at the end) instead of counting as
+  hidden. `home_layout(user)` reads it; the dashboard view skips the queries
+  of widgets that aren't in it.
 """
 import logging
 from datetime import timedelta
@@ -88,13 +94,20 @@ def panel_response(response):
 # Favorites (per admin, in UserPreferences.prefs) and recently visited (session)
 # --------------------------------------------------------------------------
 
+def _section(prefs):
+    """This module's section of a prefs dict, as a fresh dict ({} if it's
+    missing or isn't a dict)."""
+    section = (prefs or {}).get(PREFS_SECTION) if isinstance(prefs, dict) else None
+    return dict(section) if isinstance(section, dict) else {}
+
+
 def favorite_names(user):
     from src.context_processors import get_user_prefs
     if not getattr(user, 'is_authenticated', False):
         return []
-    prefs = get_user_prefs(user).prefs or {}
     valid = set(console_page_names())
-    return [n for n in prefs.get(PREFS_SECTION, {}).get('favorites', []) if n in valid]
+    favs = _section(get_user_prefs(user).prefs).get('favorites')
+    return [n for n in favs if n in valid] if isinstance(favs, list) else []
 
 
 def toggle_favorite(user, name):
@@ -106,9 +119,10 @@ def toggle_favorite(user, name):
         raise ValueError(name)
     preferences, _ = UserPreferences.objects.get_or_create(user=user)
     prefs = dict(preferences.prefs or {})
-    section = dict(prefs.get(PREFS_SECTION, {}))
-    favs = [n for n in section.get('favorites', []) if n != name]
-    pinned = name not in section.get('favorites', [])
+    section = _section(prefs)
+    current = section.get('favorites') if isinstance(section.get('favorites'), list) else []
+    favs = [n for n in current if n != name]
+    pinned = name not in current
     if pinned:
         favs.append(name)
     section['favorites'] = favs[-FAVORITES_MAX:]
@@ -117,6 +131,97 @@ def toggle_favorite(user, name):
     preferences.save(update_fields=['prefs', 'updated_at'])
     cache.delete(f'user_prefs_{user.pk}')
     return pinned
+
+
+# --------------------------------------------------------------------------
+# Home layout (per admin, in UserPreferences.prefs): which widgets, what order
+# --------------------------------------------------------------------------
+
+#: Every console home widget, in default order: (key, label). The keys are
+#: stored in the admin's preferences, so rename one only with a migration of
+#: those; a new one shows up for everyone (see `home_layout`).
+HOME_WIDGETS = (
+    ('totals', 'Totals'),
+    ('health', 'Service health'),
+    ('alarms', 'Alarms'),
+    ('attention', 'Needs attention'),
+    ('signins', 'Sign-ins, last 7 days'),
+    ('resources', 'Resources'),
+    ('recent', 'Recently visited'),
+    ('users', 'Users'),
+    ('email', 'Email & notifications'),
+    ('performance', 'Performance'),
+    ('activity', 'Recent activity'),
+    ('logins', 'Recent sign-ins'),
+)
+HOME_WIDGET_KEYS = tuple(k for k, _l in HOME_WIDGETS)
+HOME_KEY = 'home_widgets'
+HOME_SEEN_KEY = 'home_widgets_seen'
+
+
+def _clean_keys(keys):
+    """Known widget keys from `keys`, first occurrence only, order kept."""
+    out = []
+    if isinstance(keys, (list, tuple)):
+        for k in keys:
+            if isinstance(k, str) and k in HOME_WIDGET_KEYS and k not in out:
+                out.append(k)
+    return out
+
+
+def home_layout(user):
+    """The widget keys `user`'s console home shows, in order.
+
+    Default (nothing saved, or after Reset): every widget, default order. A
+    saved layout keeps its order and drops unknown keys; a widget missing from
+    ``home_widgets_seen`` (added after the admin last saved) is appended.
+    Read through the user-prefs cache, so it costs no query."""
+    from src.context_processors import get_user_prefs
+    if not getattr(user, 'is_authenticated', False):
+        return list(HOME_WIDGET_KEYS)
+    section = _section(get_user_prefs(user).prefs)
+    if HOME_KEY not in section:
+        return list(HOME_WIDGET_KEYS)
+    visible = _clean_keys(section.get(HOME_KEY))
+    seen = set(_clean_keys(section.get(HOME_SEEN_KEY)))
+    return visible + [k for k in HOME_WIDGET_KEYS if k not in seen and k not in visible]
+
+
+def home_layout_items(layout):
+    """[{'key', 'label', 'shown'}] for the Customize dialog: the shown widgets
+    in their order, then the hidden ones in default order."""
+    labels = dict(HOME_WIDGETS)
+    hidden = [k for k in HOME_WIDGET_KEYS if k not in layout]
+    return ([{'key': k, 'label': labels[k], 'shown': True} for k in layout]
+            + [{'key': k, 'label': labels[k], 'shown': False} for k in hidden])
+
+
+def save_home_layout(user, order, shown):
+    """Store `user`'s home layout: the keys of `order` that are also in
+    `shown`, in `order`'s order (unknown keys ignored; a shown key missing
+    from `order` goes at the end). `order=None` resets to the default.
+    Returns the layout now in effect."""
+    from src.models import UserPreferences
+
+    preferences, _ = UserPreferences.objects.get_or_create(user=user)
+    prefs = dict(preferences.prefs or {})
+    section = _section(prefs)
+    if order is None:
+        section.pop(HOME_KEY, None)
+        section.pop(HOME_SEEN_KEY, None)
+        layout = list(HOME_WIDGET_KEYS)
+    else:
+        order = list(order)
+        shown = set(_clean_keys(list(shown)))
+        ordered = _clean_keys(list(order)) + [k for k in HOME_WIDGET_KEYS if k not in order]
+        layout = [k for k in ordered if k in shown]
+        section[HOME_KEY] = layout
+        section[HOME_SEEN_KEY] = list(HOME_WIDGET_KEYS)
+    prefs[PREFS_SECTION] = section
+    preferences.prefs = prefs
+    preferences.save(update_fields=['prefs', 'updated_at'])
+    cache.delete(f'user_prefs_{user.pk}')
+    return layout
 
 
 def record_visit(request, name):
@@ -300,31 +405,46 @@ def service_health(celery_summary, performance):
     return services
 
 
-def home_widgets(stats, celery_summary, performance, alarms):
+def home_widgets(stats, celery_summary, performance, alarms, layout=HOME_WIDGET_KEYS):
     """The console home's own widgets (the rest comes from the dashboard's context).
 
     `alarms` is {'alarm', 'warning', 'ok'} from the dashboard's LoginAlert
     aggregate (open critical/high, other open, resolved in 7 days). It also
-    primes the top bar's bell, so the frame doesn't count the table again."""
+    primes the top bar's bell, so the frame doesn't count the table again.
+
+    Only the widgets in `layout` (see `home_layout`) are computed; the others'
+    entries are empty. `celery_summary`/`performance` may be None when the
+    view skipped them for the same reason. ``layout`` itself rides along for
+    the template's loop."""
     from src.models.mobile import MobileDevice
 
-    now = timezone.now()
-    installs = _safe(lambda: MobileDevice.objects.filter(
-        revoked_at__isnull=True, refresh_expires_at__gt=now).count(), 0)
-    resources = [
-        {'label': 'Active members', 'n': stats['users']['active'], 'url': reverse('admin_v2_manage_users') + '?status=Active', 'icon': 'users'},
-        {'label': 'Pledges', 'n': stats['users']['pledges'], 'url': reverse('admin_v2_manage_users') + '?type=Pledge', 'icon': 'user-group'},
-        {'label': 'App installs', 'n': installs, 'url': reverse('admin_v2_mobile'), 'icon': 'phone'},
-        {'label': 'Scheduled jobs', 'n': celery_summary.get('task_count', 0), 'url': reverse('admin_v2_celery_health'), 'icon': 'clock'},
-    ]
     cache.set(ALARM_CACHE_KEY, {'alarm': alarms['alarm'], 'warning': alarms['warning'],
                                 'total': alarms['alarm'] + alarms['warning']}, ALARM_CACHE_SECONDS)
-    signins = _safe(signins_last_7_days, [])
-    return {
-        'services': service_health(celery_summary, performance),
+    out = {
+        'layout': list(layout),
+        'customize': home_layout_items(list(layout)),
+        'services': [],
         'alarms': alarms,
-        'signins': signins,
-        'signins_total': sum(d['success'] for d in signins),
-        'signins_failed': sum(d['failed'] for d in signins),
-        'resources': resources,
+        'signins': [],
+        'signins_total': 0,
+        'signins_failed': 0,
+        'resources': [],
     }
+    if 'resources' in layout:
+        now = timezone.now()
+        installs = _safe(lambda: MobileDevice.objects.filter(
+            revoked_at__isnull=True, refresh_expires_at__gt=now).count(), 0)
+        out['resources'] = [
+            {'label': 'Active members', 'n': stats['users']['active'], 'url': reverse('admin_v2_manage_users') + '?status=Active', 'icon': 'users'},
+            {'label': 'Pledges', 'n': stats['users']['pledges'], 'url': reverse('admin_v2_manage_users') + '?type=Pledge', 'icon': 'user-group'},
+            {'label': 'App installs', 'n': installs, 'url': reverse('admin_v2_mobile'), 'icon': 'phone'},
+            {'label': 'Scheduled jobs', 'n': (celery_summary or {}).get('task_count', 0), 'url': reverse('admin_v2_celery_health'), 'icon': 'clock'},
+        ]
+    if 'health' in layout:
+        out['services'] = service_health(celery_summary or {}, performance)
+    if 'signins' in layout:
+        signins = _safe(signins_last_7_days, [])
+        out['signins'] = signins
+        out['signins_total'] = sum(d['success'] for d in signins)
+        out['signins_failed'] = sum(d['failed'] for d in signins)
+    return out

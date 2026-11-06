@@ -4,11 +4,11 @@
 {% block title %}Review Excuse Requests{% endblock %}
 
 {% block admin_content %}
-<div class="container mx-auto px-4 py-8 max-w-6xl">
+<div class="container mx-auto px-4 py-8 max-w-6xl{% if ui_refresh %} rf-mp rf-op rf-oexc{% endif %}">
     {% include 'includes/breadcrumbs.html' with back_url='/officers/attendance/' back_label='Attendance' current='Review Excuses' %}
 
     <!-- Header -->
-    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6{% if ui_refresh %} rf-op-head{% endif %}">
         <div>
             <h2 class="text-3xl font-bold text-gray-900 dark:text-white">Review Excuses</h2>
             <p class="text-gray-600 dark:text-gray-400 mt-1">Approve or deny member excuse requests</p>
@@ -21,7 +21,7 @@
     </div>
 
     <!-- Global Statistics -->
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8{% if ui_refresh %} rf-op-stats{% endif %}">
         <div class="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-xl p-4">
             <div class="text-3xl font-bold text-yellow-600 dark:text-yellow-400">{{ stats.pending }}</div>
             <div class="text-sm text-yellow-700 dark:text-yellow-300">Pending Review</div>
@@ -42,7 +42,7 @@
 
     {% if events_with_excuses %}
     <!-- Filter Bar -->
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4 mb-6">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4 mb-6{% if ui_refresh %} rf-op-filterbar{% endif %}">
         <div class="flex flex-wrap items-center gap-3">
             <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Filter:</span>
             <div class="flex flex-wrap gap-2">
@@ -67,7 +67,7 @@
     </div>
 
     <!-- Events with Excuses -->
-    <div class="space-y-6">
+    {% if ui_refresh %}{% include "officer_refresh/_excuses.html" %}{% else %}<div class="space-y-6">
         {% for event_data in events_with_excuses %}
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
             <!-- Event Header -->
@@ -195,7 +195,7 @@
             {% endif %}
         </div>
         {% endfor %}
-    </div>
+    </div>{% endif %}{# /rf #}
     {% else %}
     <!-- Empty State -->
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-12 text-center">
@@ -214,7 +214,7 @@
 </div>
 
 <!-- Quick Action Modal -->
-<div id="actionModal" class="hidden fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center z-50 p-4"
+<div id="actionModal" class="hidden fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center z-50 p-4{% if ui_refresh %} rf-op-modal{% endif %}"
      role="dialog" aria-modal="true" aria-labelledby="actionModalTitle">
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-md w-full overflow-hidden">
         <form method="post" id="actionForm">

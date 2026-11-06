@@ -1,0 +1,48 @@
+{% comment %}
+Website refresh (src/ui_refresh.py): Role Transitions' table as the app's
+transitions list (officer/transitions/index.tsx): the role with its admin /
+1/chapter / code pills, the current holders as pills (each one opening its
+transition checklist when there is one) or Vacant, and the Knowledge Base
+and Transfer buttons. Same links, conditions and js-open-transfer-modal data
+as the table it replaces in officer/role_transitions.html.
+{% endcomment %}
+<div class="rf-card rf-ob-list">
+    {% for data in roles_data %}
+    <div class="rf-row rf-ob-transition">
+        <span class="rf-row-icon"><span class="rf-tile {% if data.holders %}is-blue{% else %}is-gold{% endif %}" aria-hidden="true"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg></span></span>
+        <span class="rf-row-body">
+            <span class="rf-row-title">{{ data.role.name }}</span>
+            <span class="rf-row-pills">
+                <span class="rf-chip rf-ob-code">{{ data.role.code }}</span>
+                {% if data.role.grants_admin %}<span class="rf-chip rf-ob-chip-purple">admin</span>{% endif %}
+                {% if data.role.one_per_chapter %}<span class="rf-chip is-warning">1/chapter</span>{% endif %}
+            </span>
+            <span class="rf-row-pills rf-ob-holders">
+                {% if data.holders %}
+                {% for holder in data.holders %}
+                {% if holder.checklist_history_id %}
+                <a href="{% url 'transition_checklist' role_history_id=holder.checklist_history_id %}" title="Open transition checklist" class="rf-chip is-accent rf-ob-holder">
+                    {{ holder.name }}
+                    <svg aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
+                </a>
+                {% else %}
+                <span class="rf-chip is-accent">{{ holder.name }}</span>
+                {% endif %}
+                {% endfor %}
+                {% else %}
+                <span class="rf-chip is-warning">Vacant</span>
+                {% endif %}
+            </span>
+        </span>
+        <span class="rf-ob-row-btns">
+            <a href="{% url 'role_knowledge_base' role_id=data.role.id %}" title="Knowledge base" class="rf-pill">Knowledge Base</a>
+            <button type="button" class="js-open-transfer-modal rf-btn rf-ob-btn-sm" data-role-id="{{ data.role.id }}">Transfer</button>
+        </span>
+    </div>
+    {% empty %}
+    <div class="rf-empty">
+        <p class="rf-empty-title">No roles found</p>
+        <p class="rf-empty-sub"><a href="{% url 'manage_roles' %}" class="rf-empty-link">Create roles first.</a></p>
+    </div>
+    {% endfor %}
+</div>

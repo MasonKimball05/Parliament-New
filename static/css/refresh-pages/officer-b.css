@@ -1,0 +1,503 @@
+/* =========================================================================
+   Website refresh: officer tools, batch B.
+     Chapter Minutes (/officers/minutes/ and the minutes editor, which the
+     committee minutes editor shares), Passed Resolutions (list, form,
+     delete) and their Section Impacts (list, form, delete), Roles, a role's
+     Knowledge Base and its history, Role Transitions and a transition
+     checklist, All Documents, Upload Report, All Activity, Chapter Stats,
+     Contact Messages, GroupMe, Mobile App and Edit Landing Page.
+
+   Loaded by base.html after refresh.css, only when `ui_refresh` is on (see
+   src/ui_refresh.py). Plain CSS, no Tailwind build; refresh.css's tokens
+   (--rf-*). Every rule is scoped under a class the page's template adds only
+   with the refresh on. All of these pages carry `.rf-mp` (member-tools.css's
+   shared tints), `.rf-ob` (the shared rules below) and one page class:
+
+     .rf-ob-minutes       officer/chapter_minutes_list.html
+                          (officer_refresh/_minutes_list.html)
+     .rf-ob-editor        officer/chapter_minutes_editor.html (chrome only;
+                          the editor's own JS markup keeps refresh.css remaps)
+     .rf-ob-res-page      officer/manage_resolutions.html
+                          (officer_refresh/_resolutions.html)
+     .rf-ob-form-page     resolution_form, section_impact_form, upload_report
+     .rf-ob-confirm       confirm_delete_resolution, confirm_delete_section_impact
+     .rf-ob-impacts       manage_section_impacts (officer_refresh/_section_impacts.html)
+     .rf-ob-roles         manage_roles (officer_refresh/_roles.html)
+     .rf-ob-kb            role_knowledge_base, role_knowledge_base_history
+     .rf-ob-transitions   role_transitions (officer_refresh/_transitions.html)
+     .rf-ob-checklist     transition_checklist
+     .rf-ob-reports       view_all_reports  } officer/partials/document_list.html
+     .rf-ob-activity      view_all_activity } and legislation_list.html switch
+                                              to officer_refresh/_document_list
+                                              and _legislation_list
+     .rf-ob-stats-page    chapter_stats      } .rf-ob-wide: a full-width
+     .rf-ob-mobile        mobile_app         } banner over the page
+     .rf-ob-contact-page  contact_submissions (officer_refresh/_contact.html)
+     .rf-ob-groupme       groupme_dashboard
+     .rf-ob-landing       edit_landing_page (chrome only; Quill untouched)
+
+   The modals that sit outside the page container carry `.rf-ob-modal`.
+
+   Also the Officers sub-nav every officer page shares (admin_base.html,
+   `.rf-osub`), for batch A's pages (.rf-op) and these alike.
+   ========================================================================= */
+
+:root.ui-refresh {
+    --rf-ob-purple: #5b3fb5;
+    --rf-ob-purple-soft: #ece6fa;
+    --rf-ob-indigo: #3f46b8;
+    --rf-ob-indigo-soft: #e6e8fa;
+    --rf-ob-orange: #9a4a08;
+    --rf-ob-orange-soft: #fdecdc;
+}
+:root.ui-refresh.dark {
+    --rf-ob-purple: #c3b3f5;
+    --rf-ob-purple-soft: #2b2352;
+    --rf-ob-indigo: #b3b8f6;
+    --rf-ob-indigo-soft: #262a5c;
+    --rf-ob-orange: #f5a565;
+    --rf-ob-orange-soft: #3a2414;
+}
+
+/* ---------- Shared (.rf-ob) ----------------------------------------------- */
+
+/* Page titles: the app's large title, at both sizes these pages use */
+.rf-ob :is(h1, h2).text-2xl { font-size: clamp(22px, 3.6vw, 28px); font-weight: 800; letter-spacing: -0.02em; }
+.rf-ob :is(h1, h2).text-3xl { line-height: 1.15; }
+
+/* Title + action rows wrap instead of pushing the page wider */
+.rf-ob .rf-ob-head { flex-wrap: wrap; gap: 12px 16px; }
+.rf-ob .rf-ob-head > div:first-child:not(.rf-ob-head-tile) { min-width: 0; flex: 1 1 260px; }
+.rf-ob .rf-ob-head p { color: var(--rf-text-secondary); }
+
+/* Buttons: utility-built ones become the app's PrimaryButton (green "create"
+   and chapter-blue alike), danger and outlined secondary. Listed with the
+   element so they outrank Tailwind's hover and dark: twins. */
+.rf-ob :is(a, button):is(.bg-green-600, .bg-primary-600) {
+    background-color: var(--rf-accent);
+    color: var(--rf-accent-text);
+    border-radius: var(--rf-radius-control);
+    font-weight: 600;
+    --tw-shadow: 0 0 #0000;
+}
+.rf-ob :is(a, button):is(.bg-green-600, .bg-primary-600):hover { background-color: var(--rf-accent-hover); }
+.rf-ob :is(a, button).bg-red-600 {
+    background-color: var(--rf-danger);
+    color: #ffffff;
+    border-radius: var(--rf-radius-control);
+    font-weight: 600;
+    --tw-shadow: 0 0 #0000;
+}
+.rf-ob :is(a, button).bg-red-600:hover { filter: brightness(0.94); }
+:root.ui-refresh.dark .rf-ob :is(a, button).bg-red-600 { color: var(--rf-accent-text); }
+.rf-ob :is(a, button):is(.bg-gray-600, .bg-gray-200),
+.rf-ob .rf-ob-btn2,
+.rf-ob .rf-ob-actions > a {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    border: 0;
+    border-radius: var(--rf-radius-control);
+    background-color: transparent;
+    box-shadow: inset 0 0 0 1.5px var(--rf-accent);
+    color: var(--rf-accent);
+    font-weight: 600;
+    text-decoration: none;
+}
+.rf-ob .rf-ob-actions > a { padding: 9px 18px; }
+.rf-ob :is(a, button):is(.bg-gray-600, .bg-gray-200):hover,
+.rf-ob .rf-ob-btn2:hover,
+.rf-ob .rf-ob-actions > a:hover { background-color: var(--rf-accent-soft); color: var(--rf-accent); }
+.rf-ob .rf-ob-btn-sm { min-height: 34px; padding: 6px 14px; border-radius: var(--rf-radius-control); font-size: 13px; }
+.rf-ob button.rf-pill { border: 0; cursor: pointer; }
+
+/* Notes (tips, warnings, the "showing the newest" notices): the app's
+   tinted callout, no left rule */
+.rf-mp .rf-ob-note {
+    border: 0;
+    border-radius: var(--rf-radius-card);
+    background-color: var(--rf-accent-soft);
+    background-image: none;
+    color: var(--rf-accent-on-soft);
+    padding: 14px 16px;
+}
+/* The plain (accent) note: the soft fill is almost the page's own
+   off-white, so it is a card with the accent ink */
+.rf-mp .rf-ob-note:not(.is-warning):not(.is-danger) {
+    background-color: var(--rf-surface);
+    box-shadow: 0 0 0 1px var(--rf-card-border), 0 3px 10px var(--rf-shadow);
+}
+.rf-mp .rf-ob-note [class*="text-"],
+.rf-mp .rf-ob-note :is(strong, a) { color: inherit; }
+.rf-mp .rf-ob-note.is-warning { background-color: var(--rf-warning-soft); color: var(--rf-warning); }
+.rf-mp .rf-ob-note.is-danger { background-color: var(--rf-danger-soft); color: var(--rf-danger); }
+.rf-ob-note svg { flex-shrink: 0; }
+
+/* The thing a page is about (the resolution being tagged or deleted): a
+   card with an accent edge */
+.rf-mp .rf-ob-subject {
+    border: 0;
+    border-radius: var(--rf-radius-card);
+    background-color: var(--rf-surface);
+    background-image: none;
+    box-shadow: inset 4px 0 0 var(--rf-accent), 0 0 0 1px var(--rf-card-border), 0 3px 10px var(--rf-shadow);
+    padding: 18px 20px;
+}
+.rf-ob-subject :is(h2, h3) { font-size: 18px; font-weight: 700; color: var(--rf-text); }
+
+/* Plain cards built with rounded-lg + a border: the app's card */
+.rf-mp .rf-ob-card {
+    border: 0;
+    border-radius: var(--rf-radius-card);
+    box-shadow: 0 0 0 1px var(--rf-card-border), 0 3px 10px var(--rf-shadow);
+}
+
+/* Breadcrumbs and back links */
+.rf-ob .rf-ob-crumbs { font-size: 13px; color: var(--rf-text-muted); flex-wrap: wrap; row-gap: 2px; }
+.rf-ob .rf-ob-crumbs a { color: var(--rf-accent); text-decoration: none; font-weight: 600; }
+.rf-ob .rf-ob-crumbs a:hover { text-decoration: underline; }
+.rf-ob .rf-ob-crumbs > :last-child { color: var(--rf-text-secondary); overflow-wrap: anywhere; }
+.rf-ob .rf-ob-back a { display: inline-flex; align-items: center; gap: 4px; color: var(--rf-accent); font-weight: 600; font-size: 15px; text-decoration: none; }
+.rf-ob .rf-ob-back a:hover { text-decoration: underline; }
+
+/* Forms: a padded card, the app's field labels, wrapping actions */
+.rf-mp .rf-ob-form { padding: 20px; }
+@media (min-width: 640px) { .rf-mp .rf-ob-form { padding: 28px; } }
+.rf-ob-form label:is(.block, .text-sm) { font-size: 13px; font-weight: 600; color: var(--rf-text-secondary); }
+.rf-ob-form :is(input, select, textarea):not([type="checkbox"]):not([type="radio"]):not([type="file"]) { width: 100%; min-height: 42px; padding: 9px 12px; border-width: 1px; border-style: solid; }
+.rf-ob-form input[type="file"] { max-width: 100%; font-size: 14px; color: var(--rf-text-secondary); }
+.rf-ob-form input[type="checkbox"] { accent-color: var(--rf-accent); width: 18px; height: 18px; }
+.rf-ob .rf-ob-actions { flex-wrap: wrap; gap: 10px; border-color: var(--rf-separator); }
+.rf-ob .rf-ob-actions.space-x-3 > :not([hidden]) ~ :not([hidden]) { margin-left: 0; }
+.rf-mp .rf-ob-current { border: 0; border-radius: var(--rf-radius-control); background-color: var(--rf-accent-soft); }
+.rf-ob-current p { color: var(--rf-accent-on-soft); overflow-wrap: anywhere; }
+.rf-ob code.bg-gray-100 { background-color: var(--rf-surface-muted); color: var(--rf-text); }
+
+/* Delete confirmations */
+.rf-ob-confirm h1.text-red-700 { color: var(--rf-danger); }
+.rf-ob-confirm .rf-ob-note :is(h3) { font-size: 16px; }
+.rf-ob-confirm-card form > div { flex-wrap: wrap; gap: 10px; }
+.rf-mp .rf-ob-facts { background-color: var(--rf-surface-muted); border-radius: var(--rf-radius-control); }
+.rf-ob-facts p { overflow-wrap: anywhere; }
+.rf-ob :is(.text-red-900, .text-red-800) { color: var(--rf-danger); }
+.rf-ob :is(.text-amber-900, .text-yellow-900) { color: var(--rf-warning); }
+.rf-ob :is(.text-primary-900, .text-blue-900) { color: var(--rf-accent-on-soft); }
+.rf-ob :is(.bg-indigo-100, .bg-indigo-50) { background-color: var(--rf-ob-indigo-soft); }
+.rf-ob :is(.text-indigo-800, .text-indigo-700) { color: var(--rf-ob-indigo); }
+
+/* Grouped lists (the includes) */
+.rf-ob .rf-ob-list .rf-row-icon { align-self: flex-start; padding-top: 2px; }
+.rf-ob .rf-ob-list .rf-row-sub + .rf-row-sub { margin-top: 1px; }
+.rf-ob .rf-ob-muted { color: var(--rf-text-muted); font-size: 12px; }
+.rf-ob .rf-ob-desc { color: var(--rf-text-secondary); margin-top: 4px; }
+.rf-ob .rf-chip.rf-ob-chip-purple { background: var(--rf-ob-purple-soft); color: var(--rf-ob-purple); }
+.rf-ob .rf-chip.rf-ob-chip-indigo { background: var(--rf-ob-indigo-soft); color: var(--rf-ob-indigo); }
+.rf-ob .rf-chip.rf-ob-chip-orange { background: var(--rf-ob-orange-soft); color: var(--rf-ob-orange); }
+.rf-ob .rf-chip.rf-ob-code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: 0.02em; }
+.rf-ob-icon-btns { display: inline-flex; gap: 2px; flex-shrink: 0; }
+.rf-ob-icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    width: 36px;
+    height: 36px;
+    border: 0;
+    border-radius: 10px;
+    background: none;
+    color: var(--rf-text-muted);
+    cursor: pointer;
+}
+.rf-ob-icon-btn svg { width: 20px; height: 20px; }
+.rf-ob-icon-btn:hover { background-color: var(--rf-surface-muted); color: var(--rf-text); }
+.rf-ob-icon-btn.is-accent { color: var(--rf-accent); }
+.rf-ob-icon-btn.is-accent:hover { background-color: var(--rf-accent-soft); color: var(--rf-accent); }
+.rf-ob-icon-btn.is-danger:hover { background-color: var(--rf-danger-soft); color: var(--rf-danger); }
+.rf-ob-icon-btn:focus-visible { outline: 2px solid var(--rf-accent); outline-offset: 1px; }
+.rf-ob-row-btns { display: inline-flex; align-items: center; gap: 8px; flex-shrink: 0; flex-wrap: wrap; justify-content: flex-end; }
+.rf-ob .rf-ob-row-btns .rf-pill { padding: 6px 12px; font-size: 13px; }
+.rf-ob-row-cta { flex-shrink: 0; }
+.rf-ob .rf-ob-row-cta { padding: 6px 12px; font-size: 13px; }
+/* Phone: the buttons go under the text, lined up with it */
+@media (max-width: 640px) {
+    .rf-ob :is(.rf-ob-transition, .rf-ob-leg, .rf-ob-doc) { flex-wrap: wrap; }
+    .rf-ob :is(.rf-ob-transition, .rf-ob-leg, .rf-ob-doc) > :is(.rf-ob-row-btns, .rf-ob-row-cta) { margin-left: 54px; justify-content: flex-start; }
+    .rf-ob .rf-ob-role { align-items: flex-start; flex-wrap: wrap; }
+    .rf-ob .rf-ob-role .rf-ob-icon-btns { margin-left: 46px; }
+}
+
+/* Modals: the app's sheet corners and hairline */
+.ui-refresh .rf-ob-modal { border-radius: 20px; box-shadow: 0 0 0 1px var(--rf-card-border), 0 24px 60px rgba(0, 0, 0, 0.3); }
+.ui-refresh .rf-ob-modal :is(input, select, textarea):not([type="checkbox"]):not([type="radio"]) {
+    background-color: var(--rf-surface-muted);
+    border-color: transparent;
+    border-radius: var(--rf-radius-control);
+    color: var(--rf-text);
+}
+.ui-refresh .rf-ob-modal :is(a, button):is(.bg-primary-600, .bg-green-600) { background-color: var(--rf-accent); color: var(--rf-accent-text); }
+.ui-refresh .rf-ob-modal :is(a, button):is(.bg-primary-600, .bg-green-600):hover { background-color: var(--rf-accent-hover); }
+.ui-refresh .rf-ob-modal button.bg-red-600 { background-color: var(--rf-danger); }
+:root.ui-refresh.dark .rf-ob-modal button.bg-red-600 { color: var(--rf-accent-text); }
+
+/* Tables left as tables (stats, GroupMe log, Mobile App): the app's list
+   header and hairlines */
+.rf-ob table thead { background-color: transparent; }
+.rf-ob table th { font-size: 11px; font-weight: 600; letter-spacing: 0.05em; color: var(--rf-text-muted); }
+.rf-ob table :is(td, th) { border-color: var(--rf-separator); }
+.rf-ob table tbody tr:hover { background-color: var(--rf-surface-muted); }
+
+/* Reading widths: lists and forms sit in the app's column, wide tables keep
+   the room they had */
+.rf-ob:is(.rf-ob-minutes, .rf-ob-res-page, .rf-ob-impacts, .rf-ob-contact-page) { max-width: calc(var(--rf-readable) + 32px); }
+.rf-ob:is(.rf-ob-roles, .rf-ob-transitions) { max-width: 1040px; }
+
+/* ---------- Chapter Minutes ------------------------------------------------ */
+
+.rf-ob-minutes .rf-ob-head { margin-bottom: 16px; }
+.rf-ob-minutes .rf-ob-head > .flex { gap: 8px; }
+.rf-ob-minutes .rf-ob-list .rf-row-group { align-items: center; }
+
+/* The editor's chrome: header actions wrap on a phone, the cards and the
+   attendance tallies take the app's look; the sections and attendance rows
+   the editor's JS builds keep refresh.css's remaps. */
+.rf-ob-editor .rf-ob-crumbs svg { color: var(--rf-text-muted); }
+.rf-ob-editor .rf-ob-editor-actions { flex-wrap: wrap; flex-shrink: 1; max-width: 100%; }
+.rf-ob-editor .rf-ob-editor-actions > .w-px { display: none; }
+.rf-ob-editor .rf-ob-editor-actions > button { min-height: 38px; }
+.rf-ob-editor #endTimeInput { min-height: 32px; padding: 2px 8px; }
+.rf-ob-editor #attendanceSection > div:first-child { padding-top: 14px; padding-bottom: 14px; }
+.rf-ob-editor #attendanceTable thead { background-color: transparent; }
+.rf-ob-editor #attendanceStats > div { border-radius: var(--rf-radius-stat); padding: 10px 8px; }
+.rf-ob-editor #attendanceStats > div > div:first-child { font-size: 20px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.rf-ob-editor #attendanceStats > div > div + div { font-size: 11px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; }
+.rf-ob-editor #attendanceStats > .bg-gray-50 { background-color: var(--rf-surface-muted); }
+.rf-ob-editor #attendanceStats > .bg-primary-50 { background-color: var(--rf-accent-soft); }
+.rf-ob-editor #js-att-all-present { background-color: var(--rf-success-soft); color: var(--rf-success); font-weight: 600; }
+.rf-ob-editor #js-att-clear-all { font-weight: 600; }
+.rf-ob-editor h3.text-lg { font-size: 17px; }
+.rf-ob-editor .bg-orange-50 { border: 0; border-radius: var(--rf-radius-card); background-color: var(--rf-ob-orange-soft); }
+.rf-ob-editor .bg-orange-50 :is(h4, p) { color: var(--rf-ob-orange); }
+.rf-ob-editor #motionFormContainer,
+.rf-ob-editor #sectionFormContainer { border-width: 0; box-shadow: 0 0 0 2px var(--rf-accent), 0 6px 20px var(--rf-shadow); }
+.rf-ob-editor #motionFormContainer > div:first-child,
+.rf-ob-editor #sectionFormContainer > div:first-child { background-color: var(--rf-accent-soft); border-color: var(--rf-separator); }
+.rf-ob-editor :is(#motionFormContainer, #sectionFormContainer) h3 { color: var(--rf-accent-on-soft); }
+.rf-ob-editor textarea { line-height: 1.55; }
+
+/* ---------- Passed Resolutions and Section Impacts ------------------------- */
+
+.rf-ob-res-page .rf-ob-head { flex-wrap: wrap; }
+.rf-ob-res-page .rf-ob-note { margin-bottom: 16px; }
+.rf-ob-resolutions { gap: 12px; }
+.rf-ob-res { padding: 16px 16px 14px 20px; box-shadow: inset 4px 0 0 var(--rf-ob-res-edge, var(--rf-tile-gray)), 0 0 0 1px var(--rf-card-border), 0 3px 10px var(--rf-shadow); }
+.rf-ob-res.is-green { --rf-ob-res-edge: var(--rf-tile-green); }
+.rf-ob-res.is-blue { --rf-ob-res-edge: var(--rf-tile-sky); }
+.rf-ob-res.is-purple { --rf-ob-res-edge: var(--rf-tile-purple); }
+.rf-ob-res.is-pink { --rf-ob-res-edge: #d6408a; }
+.rf-ob-res.is-indigo { --rf-ob-res-edge: #4f56d6; }
+.rf-ob-res.is-red { --rf-ob-res-edge: var(--rf-tile-red); }
+.rf-ob-res.is-yellow { --rf-ob-res-edge: var(--rf-tile-gold); }
+.rf-ob-res-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.rf-ob-res-title { margin: 0; font-size: 17px; font-weight: 700; line-height: 1.3; color: var(--rf-text); overflow-wrap: anywhere; }
+.rf-ob-res-meta { margin: 4px 0 0; font-size: 13px; color: var(--rf-text-secondary); }
+.rf-ob-res-desc { margin: 8px 0 0; font-size: 14px; line-height: 1.5; color: var(--rf-text); overflow-wrap: anywhere; }
+.rf-ob-label { margin: 12px 0 0; font-size: 11px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: var(--rf-text-muted); }
+.rf-ob-res .rf-row-pills { margin-top: 6px; }
+.rf-ob-warn { display: inline-block; margin: 12px 0 0; padding: 6px 10px; border-radius: 999px; background: var(--rf-warning-soft); color: var(--rf-warning); font-size: 13px; font-weight: 600; }
+.rf-ob-actions-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--rf-separator); }
+.rf-ob .rf-ob-actions-row .rf-pill { padding: 7px 12px; font-size: 13px; }
+.rf-ob .rf-pill.rf-ob-pill-danger { color: var(--rf-danger); }
+.rf-ob .rf-pill.rf-ob-pill-danger svg { color: var(--rf-danger); }
+.rf-ob .rf-pill.rf-ob-pill-danger:hover { background: var(--rf-danger-soft); }
+
+.rf-ob-impacts .rf-ob-subject { margin-bottom: 16px; }
+.rf-ob-impacts .rf-ob-subject h2 { margin-bottom: 4px; }
+.rf-ob-impacts .rf-ob-subject p { color: var(--rf-text-secondary); }
+.rf-ob-impact { align-items: center; }
+.rf-ob-impact-tag { margin-top: 0; }
+.rf-ob-impact .rf-row-sub { margin-top: 4px; }
+.rf-ob .rf-ob-link { color: var(--rf-accent); }
+.rf-ob .rf-ob-anchor { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; color: var(--rf-success); }
+.rf-ob .rf-row-actions a.rf-ob-danger-link { color: var(--rf-danger); }
+.rf-ob-form-page .rf-ob-note ul { margin-top: 4px; }
+
+/* ---------- Roles, knowledge base, transitions ----------------------------- */
+
+.rf-ob-roles .rf-ob-head { margin-bottom: 16px; }
+.rf-ob-role .rf-row-sub.is-clip { max-width: 100%; }
+
+.rf-ob-kb .rf-ob-card { padding: 20px; }
+.rf-ob-kb .prose { color: var(--rf-text); font-size: 15px; line-height: 1.6; }
+.rf-ob-kb .prose :is(p, li) { color: inherit; }
+.rf-ob-kb .rf-ob-card > p.text-xs { font-size: 12px; color: var(--rf-text-muted); }
+.rf-ob-kb .rf-ob-card > p.text-xs .rf-chip { margin-right: 6px; }
+.rf-ob-kb .rf-ob-card h2.text-sm { font-size: 13px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--rf-text-muted); }
+.rf-ob-kb .rf-ob-kb-text { font-size: 14px; line-height: 1.55; padding: 12px; min-height: 200px; }
+
+.rf-ob-transitions .rf-ob-stats > div {
+    border: 0;
+    border-radius: var(--rf-radius-stat);
+    box-shadow: 0 0 0 1px var(--rf-card-border), 0 3px 10px var(--rf-shadow);
+    padding: 14px 8px;
+}
+.rf-ob-transitions .rf-ob-stats p.text-2xl { font-size: 26px; font-weight: 800; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.rf-ob-transitions .rf-ob-stats p.text-xs { font-size: 11px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: var(--rf-text-secondary); }
+.rf-ob-transitions .rf-ob-stats .text-amber-500 { color: var(--rf-warning); }
+.rf-ob-transition { align-items: flex-start; }
+.rf-ob-transition .rf-row-pills + .rf-row-pills { margin-top: 8px; }
+.rf-ob .rf-ob-holder { gap: 4px; text-decoration: none; }
+.rf-ob .rf-ob-holder svg { width: 13px; height: 13px; }
+.rf-ob .rf-ob-holder:hover { filter: brightness(0.96); text-decoration: underline; }
+.rf-ob-transition .rf-ob-row-btns { align-self: center; }
+
+.rf-ob-checklist .rf-ob-progress { padding: 16px; }
+.rf-ob-checklist .rf-ob-progress .bg-gray-200 { background-color: var(--rf-surface-muted); height: 8px; }
+.rf-ob-checklist #progress-bar { background-color: var(--rf-tile-green); height: 8px; }
+.rf-ob-checklist .rf-ob-checks > label { padding: 14px 16px; }
+.rf-ob-checklist .rf-ob-checks > label:hover { background-color: var(--rf-surface-muted); }
+.rf-ob-checklist .rf-ob-checks input[type="checkbox"] { accent-color: var(--rf-tile-green); }
+.rf-ob-checklist .rf-ob-checks p.text-sm { font-size: 15px; color: var(--rf-text); }
+
+/* ---------- All Documents, All Activity, Upload ---------------------------- */
+
+.rf-mp .rf-ob-headcard { background: none; box-shadow: none; padding: 0; margin-bottom: 18px; }
+.rf-ob-headcard > .flex { flex-wrap: wrap; gap: 14px; }
+.rf-ob-headcard > .flex > div:last-child { flex-wrap: wrap; gap: 8px; }
+.rf-ob-headcard > .flex > div:last-child > * { margin-left: 0; }
+.rf-ob-headcard svg.w-8 { width: 28px; height: 28px; }
+
+/* Segmented tabs (view_all_reports' .tab-button; the JS swaps the
+   bg-primary-100 class on the selected one) */
+.rf-mp .rf-ob-tabs { padding: 4px; border: 0; background-color: var(--rf-surface-muted); box-shadow: none; overflow-x: auto; scrollbar-width: none; }
+.rf-ob-tabs::-webkit-scrollbar { display: none; }
+.rf-ob-tabs [role="tablist"] { gap: 4px; }
+.rf-ob-tabs [role="tablist"] > :not([hidden]) ~ :not([hidden]) { margin-left: 0; }
+.rf-ob .rf-ob-tabs .tab-button { flex: 1 0 auto; border-radius: 9px; font-size: 14px; font-weight: 600; white-space: nowrap; color: var(--rf-text-secondary); padding: 7px 12px; }
+.rf-ob .rf-ob-tabs .tab-button:hover { background-color: var(--rf-surface); }
+.rf-ob .rf-ob-tabs .tab-button.bg-primary-100 { background-color: var(--rf-surface); color: var(--rf-text); box-shadow: 0 1px 3px var(--rf-shadow), 0 0 0 1px var(--rf-card-border); }
+
+/* All Activity: the main tabs (underline, JS swaps border-*-500) and the
+   status sub-tabs (JS swaps bg-blue-100) */
+.rf-ob-activity .rf-ob-head-tile { background-color: var(--rf-tile-blue); color: #ffffff; border-radius: 8px; width: 36px; height: 36px; }
+.rf-ob-activity .rf-ob-head-tile svg { color: #ffffff; }
+.rf-ob-activity .rf-ob-head { flex-wrap: nowrap; }
+.rf-ob-activity .rf-ob-head > div.flex-1 { flex: 1 1 auto; }
+.rf-ob-activity .rf-ob-tabs > div { border: 0; background: none; gap: 4px; }
+.rf-ob .rf-ob-tabs .activity-tab-button { border-width: 0; margin-bottom: 0; border-radius: 9px; font-weight: 600; color: var(--rf-text-secondary); background-color: transparent; flex: 1 0 auto; }
+.rf-ob .rf-ob-tabs .activity-tab-button:not(.border-transparent) { background-color: var(--rf-surface); color: var(--rf-text); box-shadow: 0 1px 3px var(--rf-shadow), 0 0 0 1px var(--rf-card-border); }
+.rf-ob .rf-ob-tabs .activity-tab-button > span { background-color: var(--rf-surface-muted); color: var(--rf-text-secondary); font-weight: 600; }
+.rf-ob .rf-ob-tabs .activity-tab-button:not(.border-transparent) > span { background-color: var(--rf-accent-soft); color: var(--rf-accent-on-soft); }
+.rf-ob :is(.chapter-subtab, .committee-subtab) { border-radius: 999px; padding: 6px 12px; font-size: 13px; font-weight: 600; background-color: var(--rf-surface); box-shadow: inset 0 0 0 1px var(--rf-card-border); color: var(--rf-text-secondary); }
+.rf-ob :is(.chapter-subtab, .committee-subtab).bg-blue-100 { background-color: var(--rf-accent); color: var(--rf-accent-text); box-shadow: none; }
+
+.rf-ob-form-page h2.text-3xl { color: var(--rf-text); }
+
+/* ---------- Chapter Stats and Mobile App (full-width banner pages) --------- */
+
+.rf-mp.rf-ob-wide { background-color: transparent; min-height: 0; }
+.rf-ob-wide > .bg-gradient-to-r { padding-top: 28px; padding-bottom: 28px; }
+.rf-ob-wide > .bg-gradient-to-r :is(a.text-primary-200) { color: var(--rf-hero-muted); font-weight: 600; }
+.rf-ob-wide > .bg-gradient-to-r :is(a.text-primary-200):hover { color: #ffffff; }
+.rf-ob-range { border-color: var(--rf-hero-glass-border); border-radius: 999px; background: var(--rf-hero-glass); }
+.rf-ob-range a { font-weight: 600; }
+.rf-ob-range a.bg-white { background-color: #ffffff; color: var(--rf-accent); border-radius: 999px; }
+.rf-ob-hero-tabs a { border-radius: 999px; font-weight: 600; background-color: var(--rf-hero-glass); box-shadow: inset 0 0 0 1px var(--rf-hero-glass-border); }
+.rf-ob-hero-tabs a.bg-white { background-color: #ffffff; color: #003da5; box-shadow: none; }
+
+/* Summary tiles: the app's stat tiles, the colored rule kept as a slim edge */
+.rf-mp .rf-ob-tiles > * {
+    border-left-width: 0;
+    border-radius: var(--rf-radius-stat);
+    box-shadow: inset 4px 0 0 var(--rf-ob-tile-edge, var(--rf-card-border)), 0 0 0 1px var(--rf-card-border), 0 3px 10px var(--rf-shadow);
+}
+.rf-ob-tiles > .border-green-500 { --rf-ob-tile-edge: var(--rf-tile-green); }
+.rf-ob-tiles > .border-amber-500 { --rf-ob-tile-edge: var(--rf-tile-gold); }
+.rf-ob-tiles > .border-red-500 { --rf-ob-tile-edge: var(--rf-tile-red); }
+.rf-ob-tiles > .border-primary-400 { --rf-ob-tile-edge: var(--rf-tile-sky); }
+.rf-ob-tiles > .ring-2 { box-shadow: inset 4px 0 0 var(--rf-ob-tile-edge, var(--rf-card-border)), 0 0 0 2px var(--rf-accent); }
+.rf-ob-tiles p.text-3xl { font-size: 28px; font-weight: 800; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.rf-ob-tiles p.text-xs.uppercase { font-size: 11px; letter-spacing: 0.05em; color: var(--rf-text-secondary); }
+.rf-ob-wide h2.text-lg { font-size: 17px; }
+.rf-ob-wide .border-l-4:not(.rf-ob-tiles > *) { border-left-width: 0; box-shadow: inset 4px 0 0 var(--rf-tile-gray), 0 0 0 1px var(--rf-card-border), 0 3px 10px var(--rf-shadow); }
+.rf-ob-wide .border-l-4.border-green-500:not(.rf-ob-tiles > *) { box-shadow: inset 4px 0 0 var(--rf-tile-green), 0 0 0 1px var(--rf-card-border), 0 3px 10px var(--rf-shadow); }
+.rf-ob-wide :is(.text-amber-600, .text-amber-500) { color: var(--rf-warning); }
+.rf-ob-wide .text-blue-500 { color: var(--rf-accent); }
+
+/* ---------- Contact Messages ------------------------------------------------ */
+
+.rf-ob-contact-page .rf-ob-head { flex-wrap: wrap; gap: 10px; }
+.rf-ob-contact-page .rf-ob-head > div:first-child > a { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 999px; color: var(--rf-accent); }
+.rf-ob-contact-page .rf-ob-head > div:first-child > a:hover { background-color: var(--rf-accent-soft); }
+.rf-ob-contact-page .rf-ob-head form button { font-weight: 600; }
+.rf-ob-contact.is-unread { box-shadow: inset 4px 0 0 var(--rf-accent), 0 0 0 1px var(--rf-card-border), 0 3px 10px var(--rf-shadow); }
+.rf-ob-contact-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.rf-ob-dot { width: 9px; height: 9px; border-radius: 999px; background: var(--rf-accent); flex: none; }
+.rf-ob-contact-name { font-size: 16px; font-weight: 700; color: var(--rf-text); }
+.rf-ob-contact-meta { margin: 2px 0 0; font-size: 14px; color: var(--rf-text-secondary); overflow-wrap: anywhere; }
+.rf-ob-contact-meta a { color: var(--rf-accent); font-weight: 600; text-decoration: none; }
+.rf-ob-contact-meta a:hover { text-decoration: underline; }
+.rf-ob-contact-time { margin: 2px 0 0; font-size: 12px; color: var(--rf-text-muted); }
+.rf-ob-contact-msg { margin: 12px 0 0; padding: 12px; border-radius: var(--rf-radius-control); background: var(--rf-surface-muted); font-size: 14px; line-height: 1.55; color: var(--rf-text); white-space: pre-wrap; overflow-wrap: anywhere; }
+.rf-ob-contact .rf-ob-actions-row { border-top: 0; padding-top: 0; margin-top: 12px; }
+
+/* ---------- GroupMe ---------------------------------------------------------- */
+
+.rf-ob-groupme > section { border-radius: var(--rf-radius-card); padding: 20px; }
+.rf-ob-groupme > section h2.text-lg { font-size: 13px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--rf-text-muted); }
+.rf-ob-groupme > section > div.border { border-color: var(--rf-card-border); border-radius: var(--rf-radius-card); background-color: var(--rf-bg); }
+.rf-ob-groupme > section > div.border-dashed { border-color: var(--rf-separator); background-color: transparent; }
+.rf-ob-groupme .rounded-full:is(.bg-green-100, .bg-gray-100, .bg-gray-200) { font-weight: 600; }
+.rf-ob-groupme summary { font-weight: 600; color: var(--rf-accent); }
+.rf-ob-groupme :is(button, a).rounded:is(.bg-gray-100, .bg-red-50) { border-radius: 999px; padding: 6px 12px; }
+.rf-ob-groupme button.rounded.bg-red-50 { color: var(--rf-danger); background-color: var(--rf-danger-soft); }
+.rf-ob-groupme label.text-xs, .rf-ob-groupme legend.text-xs { font-size: 12px; font-weight: 600; color: var(--rf-text-secondary); }
+.rf-ob-groupme .overflow-x-auto { margin: 0 -4px; }
+
+/* ---------- Edit Landing Page (chrome only) ---------------------------------- */
+
+.rf-ob-landing > div > .flex.items-center.gap-3 > a:first-child { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 999px; color: var(--rf-accent); }
+.rf-ob-landing > div > .flex.items-center.gap-3 > a:first-child:hover { background-color: var(--rf-accent-soft); }
+.rf-ob-landing > div > .flex.items-center.gap-3 { flex-wrap: wrap; }
+.rf-ob-landing > div > p.ml-8 { margin-left: 44px; }
+.rf-ob-landing :is(.rounded-lg.shadow-sm.border) {
+    border: 0;
+    border-radius: var(--rf-radius-card);
+    box-shadow: 0 0 0 1px var(--rf-card-border), 0 3px 10px var(--rf-shadow);
+}
+.rf-ob-landing h2.text-lg { font-size: 13px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--rf-text-muted); }
+.rf-ob-landing label.uppercase { font-size: 11px; font-weight: 600; color: var(--rf-text-muted); }
+.rf-ob-landing .ql-toolbar.ql-snow { border-color: var(--rf-separator); background-color: var(--rf-surface-muted); border-radius: var(--rf-radius-control) var(--rf-radius-control) 0 0; }
+.rf-ob-landing .ql-container.ql-snow { border-color: var(--rf-separator); background-color: var(--rf-surface); color: var(--rf-text); border-radius: 0 0 var(--rf-radius-control) var(--rf-radius-control); }
+:root.ui-refresh.dark .rf-ob-landing .ql-toolbar.ql-snow { background-color: var(--rf-surface-muted); }
+:root.ui-refresh.dark .rf-ob-landing .ql-container.ql-snow { background-color: var(--rf-bg); }
+.rf-ob-landing #save-btn { min-height: 42px; }
+
+/* ---------- Officers sub-nav (admin_base.html, every officer page) --------- */
+
+/* The app's segmented bar: the page's off-white (navy in dark) under a
+   hairline, links as pills, the current page a royal-blue pill. The active
+   link is the one carrying the plain bg-gray-700 class (the template's
+   resolver check); hover:bg-gray-700 is a different class. */
+.rf-osub.bg-gray-800 {
+    background-color: var(--rf-surface);
+    border-color: var(--rf-card-border);
+    color: var(--rf-text-secondary);
+    box-shadow: 0 1px 0 var(--rf-card-border);
+}
+.rf-osub > div > .flex { height: 48px; gap: 4px; }
+.rf-osub > div > .flex > span:first-child { color: var(--rf-text-muted); border-color: var(--rf-separator); }
+.rf-osub a {
+    height: 32px;
+    padding: 0 12px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--rf-text-secondary);
+}
+.rf-osub a:hover { background-color: var(--rf-surface-muted); color: var(--rf-text); }
+.rf-osub a.bg-gray-700 { background-color: var(--rf-accent); color: var(--rf-accent-text); }
+.rf-osub a.bg-gray-700:hover { background-color: var(--rf-accent-hover); color: var(--rf-accent-text); }
+.rf-osub a.text-red-400 { color: var(--rf-danger); border-left-width: 0; margin-left: 8px; }
+.rf-osub a.text-red-400:hover { background-color: var(--rf-danger-soft); color: var(--rf-danger); }
+.rf-osub a:focus-visible { outline: 2px solid var(--rf-accent); outline-offset: -2px; }

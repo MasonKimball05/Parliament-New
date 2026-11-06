@@ -3,9 +3,9 @@
 {% block title %}Manage Roles{% endblock %}
 
 {% block admin_content %}
-<div class="container mx-auto px-4 py-8 max-w-6xl">
+<div class="container mx-auto px-4 py-8 max-w-6xl{% if ui_refresh %} rf-mp rf-ob rf-ob-roles{% endif %}">
     <!-- Header -->
-    <div class="mb-6 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+    <div class="mb-6 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4{% if ui_refresh %} rf-ob-head{% endif %}">
         <div>
             <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Manage Roles</h1>
             <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ total_roles }} role{{ total_roles|pluralize }}</p>
@@ -19,7 +19,7 @@
     </div>
 
     <!-- Roles List -->
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+    {% if ui_refresh %}{% include "officer_refresh/_roles.html" %}{% else %}<div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
         <div class="overflow-x-auto">
             <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                 <thead class="bg-gray-50 dark:bg-gray-700">
@@ -108,10 +108,10 @@
                 </tbody>
             </table>
         </div>
-    </div>
+    </div>{% endif %}{# /rf #}
 
     <!-- Back Link -->
-    <div class="mt-6">
+    <div class="mt-6{% if ui_refresh %} rf-ob-back{% endif %}">
         <a href="{% url 'officer_home' %}" class="text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 font-medium">
             &larr; Back to Officer Portal
         </a>

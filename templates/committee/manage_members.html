@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="container mx-auto px-4 py-8">
+<div class="container mx-auto px-4 py-8{% if ui_refresh %} rf-ct rf-ct-members{% endif %}">
     <div class="mb-6">
         <a href="{% url 'committee_home' committee.code %}" class="text-primary-600 dark:text-primary-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors">← Back to Committee</a>
     </div>
@@ -10,7 +10,7 @@
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-6 transition-colors duration-200">
         <h3 class="text-xl font-semibold mb-4 text-gray-900 dark:text-gray-100">Current Members</h3>
         {% if committee.members.all %}
-            <ul class="space-y-3">
+            <ul class="space-y-3{% if ui_refresh %} rf-ct-list{% endif %}">
                 {% for m in committee.members.all %}
                     <li class="flex justify-between items-center p-3 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-700/50">
                         <span class="text-gray-900 dark:text-gray-100">{{ m.name }}</span>

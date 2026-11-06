@@ -1,0 +1,73 @@
+{% comment %}
+Website refresh (src/ui_refresh.py): the member's drafts as rows in one
+grouped card (title, Published / Ready / In progress pill, description,
+when it was updated and planned, its attachment, why it isn't ready yet, and
+Edit / Publish / Delete). Same drafts, links, forms, confirmation messages
+(`js-confirm-submit`, wired by the page's script) and wording as the cards
+it replaces in legislation_history.html.
+{% endcomment %}
+<div class="rf-card rf-work-list">
+    {% for item in my_drafts %}
+    <div class="rf-row rf-work-row">
+        <span class="rf-tile {% if item.draft.is_published %}is-green{% elif item.ready_to_publish %}is-blue{% else %}is-gray{% endif %}" aria-hidden="true">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+        </span>
+        <div class="rf-row-body">
+            <h3 class="rf-row-title rf-work-title">{{ item.draft.title }}</h3>
+            <div class="rf-row-pills">
+                {% if item.draft.is_published %}
+                <span class="rf-chip is-success">Published</span>
+                {% elif item.ready_to_publish %}
+                <span class="rf-chip is-accent">Ready</span>
+                {% else %}
+                <span class="rf-chip">In progress</span>
+                {% endif %}
+            </div>
+            {% if item.draft.description %}
+            <p class="rf-row-sub rf-work-desc">{{ item.draft.description|truncatechars:160 }}</p>
+            {% endif %}
+            <p class="rf-row-sub rf-work-meta">
+                <span>Updated {{ item.draft.updated_at|timesince }} ago</span>
+                {% if item.draft.planned_available_at %}<span>Planned for {{ item.draft.planned_available_at|date:"M d, Y · g:i A" }}</span>{% endif %}
+                {% if item.draft.document %}<a href="{% url 'legislation_draft_document' item.draft.id %}" target="_blank" rel="noopener" class="rf-work-link">{{ item.draft.document_display_name|default:"Document attached" }}</a>{% endif %}
+            </p>
+            {% if item.draft.is_published and item.draft.published_legislation %}
+            <p class="rf-row-sub rf-work-yes">
+                Published {{ item.draft.published_at|date:"M d, Y" }} —
+                <a href="{% url 'legislation_detail' item.draft.published_legislation.id %}" class="rf-work-link">view the bill</a>
+            </p>
+            {% elif not item.ready_to_publish %}
+            <p class="rf-row-sub rf-work-warn">{{ item.not_ready_reason }}</p>
+            {% endif %}
+
+            {% if not item.draft.is_published %}
+            <div class="rf-work-actions">
+                <span class="rf-work-buttons">
+                    <a href="{% url 'edit_legislation_draft' item.draft.id %}" class="rf-btn rf-work-btn is-secondary">Edit</a>
+                    {% if can_publish_drafts %}
+                    <form method="post" action="{% url 'publish_legislation_draft' item.draft.id %}"
+                          class="js-confirm-submit rf-work-form"
+                          data-confirm-msg="Publish &quot;{{ item.draft.title }}&quot; to the chapter? Voting stays closed until you open it.">
+                        {% csrf_token %}
+                        <button type="submit"
+                                {% if not item.ready_to_publish %}disabled title="{{ item.not_ready_reason }}"{% endif %}
+                                class="rf-btn rf-work-btn">
+                            Publish
+                        </button>
+                    </form>
+                    {% elif item.ready_to_publish %}
+                    <span class="rf-row-sub">Ready — ask an officer to present it</span>
+                    {% endif %}
+                    <form method="post" action="{% url 'delete_legislation_draft' item.draft.id %}"
+                          class="js-confirm-submit rf-work-form"
+                          data-confirm-msg="Delete the draft &quot;{{ item.draft.title }}&quot;? This cannot be undone.">
+                        {% csrf_token %}
+                        <button type="submit" class="rf-btn rf-work-btn is-danger">Delete</button>
+                    </form>
+                </span>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</div>

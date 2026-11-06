@@ -4,7 +4,7 @@
 {% block title %}{% if is_edit %}Edit Poll{% else %}Create Poll{% endif %} — {{ announcement.title }}{% endblock %}
 
 {% block admin_content %}
-<div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+<div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8{% if ui_refresh %} rf-mp rf-op rf-opoll-form{% endif %}">
     {% include 'includes/breadcrumbs.html' with back_url='/officers/announcements/' back_label='Manage Announcements' current='Poll Editor' %}
 
     <div class="mb-6 flex items-start justify-between gap-4">

@@ -3,7 +3,7 @@
 {% block title %}Upload Document - {{ committee.name }}{% endblock %}
 
 {% block content %}
-<div class="container mx-auto px-4 py-8">
+<div class="container mx-auto px-4 py-8{% if ui_refresh %} rf-ct rf-ct-upload{% endif %}">
     <div class="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
             <h2 class="text-3xl font-bold mb-2 text-gray-900 dark:text-gray-100">Upload Document</h2>

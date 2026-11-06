@@ -4,7 +4,7 @@
 {% block title %}Chapter Stats — Parliament{% endblock %}
 
 {% block content %}
-<div class="min-h-screen bg-gray-50 dark:bg-gray-900">
+<div class="min-h-screen bg-gray-50 dark:bg-gray-900{% if ui_refresh %} rf-mp rf-ob rf-ob-wide rf-ob-stats-page{% endif %}">
 
   <!-- Header -->
   <div class="bg-gradient-to-r from-primary-600 via-primary-700 to-primary-800 text-white py-8 shadow-lg">
@@ -16,7 +16,7 @@
         </div>
         <div class="flex items-center gap-3 flex-wrap">
           <!-- Date-range picker -->
-          <div class="inline-flex rounded-lg overflow-hidden border border-white/30 text-sm">
+          <div class="inline-flex rounded-lg overflow-hidden border border-white/30 text-sm{% if ui_refresh %} rf-ob-range{% endif %}">
             {% for opt in day_options %}
             <a href="?days={{ opt }}"
                class="px-3 py-1.5 {% if days == opt %}bg-white text-primary-700 font-semibold{% else %}text-white hover:bg-white/20{% endif %} transition-colors">
@@ -33,7 +33,7 @@
   <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-10">
 
     <!-- ── Summary cards ────────────────────────────────────────────── -->
-    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4{% if ui_refresh %} rf-ob-tiles{% endif %}">
 
       <!-- Attendance rate -->
       <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-5 border-l-4

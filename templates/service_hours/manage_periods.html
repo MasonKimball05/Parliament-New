@@ -3,9 +3,9 @@
 {% block title %}Manage Service Periods{% endblock %}
 
 {% block content %}
-<div class="container mx-auto px-4 py-8">
+<div class="container mx-auto px-4 py-8{% if ui_refresh %} rf-sdl rf-shper{% endif %}">
     <!-- Header -->
-    <div class="flex items-center justify-between mb-6">
+    <div class="flex items-center justify-between mb-6{% if ui_refresh %} rf-sdl-head{% endif %}">
         <div>
             <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Manage Service Periods</h1>
             <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Create and manage service hour periods</p>
@@ -29,7 +29,7 @@
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <!-- Create Period Form -->
         <div class="lg:col-span-1">
-            <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden sticky top-4">
+            <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden sticky top-4{% if ui_refresh %} rf-sdl-formcard{% endif %}">
                 <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
                     <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Create New Period</h2>
                 </div>
@@ -105,7 +105,7 @@
 
         <!-- Periods List -->
         <div class="lg:col-span-2">
-            <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
+            {% if ui_refresh %}{% include "service_hours_refresh/_periods.html" %}{% else %}<div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
                 <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
                     <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Service Periods</h2>
                 </div>
@@ -170,12 +170,12 @@
                     </div>
                     {% endfor %}
                 </div>
-            </div>
+            </div>{% endif %}{# /rf #}
         </div>
     </div>
 
     <!-- Back Link -->
-    <div class="mt-6">
+    <div class="mt-6{% if ui_refresh %} rf-sdl-back{% endif %}">
         <a href="{% url 'service_dashboard' %}" class="text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 font-medium">
             &larr; Back to Dashboard
         </a>

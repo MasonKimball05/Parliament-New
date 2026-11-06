@@ -3,13 +3,13 @@
 {% block title %}Upload Report{% endblock %}
 
 {% block admin_content %}
-<div class="container mx-auto px-4 py-8 max-w-3xl">
+<div class="container mx-auto px-4 py-8 max-w-3xl{% if ui_refresh %} rf-mp rf-ob rf-ob-form-page{% endif %}">
     <div class="mb-6">
         <h2 class="text-3xl font-bold mb-2">Upload Committee Document</h2>
         <p class="text-gray-600">Upload reports, minutes, agendas, and other committee documentation</p>
     </div>
 
-    <div class="bg-white rounded-xl shadow-sm p-6">
+    <div class="bg-white rounded-xl shadow-sm p-6{% if ui_refresh %} rf-ob-form{% endif %}">
         <form method="post" enctype="multipart/form-data" class="space-y-6">
             {% csrf_token %}
 
@@ -103,8 +103,8 @@
                 {% endif %}
             </div>
 
-            <div class="flex justify-end space-x-3 pt-4 border-t border-gray-200">
-                <a href="{% url 'officer_home' %}" class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2 px-6 rounded-lg transition">
+            <div class="flex justify-end space-x-3 pt-4 border-t border-gray-200{% if ui_refresh %} rf-ob-actions{% endif %}">
+                <a href="{% url 'officer_home' %}" class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2 px-6 rounded-lg transition{% if ui_refresh %} rf-ob-btn2{% endif %}">
                     Cancel
                 </a>
                 <button type="submit" class="bg-primary-600 hover:bg-primary-700 text-white font-medium py-2 px-6 rounded-lg transition flex items-center space-x-2">
@@ -118,7 +118,7 @@
     </div>
 
     <!-- Information Panel -->
-    <div class="mt-6 bg-primary-50 border border-primary-200 rounded-lg p-6">
+    <div class="mt-6 bg-primary-50 border border-primary-200 rounded-lg p-6{% if ui_refresh %} rf-ob-note{% endif %}">
         <div class="flex items-start">
             <svg class="w-6 h-6 text-primary-600 mt-0.5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>

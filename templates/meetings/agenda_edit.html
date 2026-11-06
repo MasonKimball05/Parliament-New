@@ -6,7 +6,7 @@
 09-25-26 — officer agenda editor (src/view/officer/meeting_agenda.py). Plain
 POST forms, no JS: reorder with ↑/↓, edit in a <details> drawer.
 {% endcomment %}
-<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6{% if ui_refresh %} rf-mp rf-mx rf-agenda rf-agenda-edit{% endif %}">
     <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
         <div>
             <a href="{% url 'agenda_list' %}" class="text-sm text-primary-600 dark:text-primary-400 hover:underline">← All agendas</a>

@@ -4,7 +4,7 @@
 {% block title %}Server Error - Parliament{% endblock %}
 
 {% block content %}
-<div class="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 px-4 transition-colors duration-200">
+<div class="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 px-4 transition-colors duration-200{% if ui_refresh %} rf-mp rf-mx rf-notice rf-error{% endif %}">
     <div class="max-w-md w-full text-center">
         <!-- Beta Seal -->
         <div class="mb-8 flex justify-center">

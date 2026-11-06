@@ -4,9 +4,9 @@
 {% block title %}Manage Passed Resolutions{% endblock %}
 
 {% block admin_content %}
-<div class="container mx-auto px-4 py-8">
+<div class="container mx-auto px-4 py-8{% if ui_refresh %} rf-mp rf-ob rf-ob-res-page{% endif %}">
     <!-- Header -->
-    <div class="flex items-center justify-between mb-6">
+    <div class="flex items-center justify-between mb-6{% if ui_refresh %} rf-ob-head{% endif %}">
         <div>
             <h1 class="text-3xl font-bold text-gray-900 dark:text-white">Manage Passed Resolutions</h1>
             <p class="text-gray-600 dark:text-gray-400 mt-1">Add, edit, and manage resolutions displayed on the Constitution & Bylaws page</p>
@@ -29,7 +29,7 @@
     {% endif %}
 
     <!-- Quick Links -->
-    <div class="bg-primary-50 dark:bg-primary-900/20 border-l-4 border-primary-500 p-4 mb-6 rounded-r-lg">
+    <div class="bg-primary-50 dark:bg-primary-900/20 border-l-4 border-primary-500 p-4 mb-6 rounded-r-lg{% if ui_refresh %} rf-ob-note{% endif %}">
         <div class="flex items-center">
             <svg class="w-5 h-5 text-primary-600 dark:text-primary-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
@@ -41,7 +41,7 @@
     </div>
 
     <!-- Resolutions List -->
-    {% if resolutions %}
+    {% if ui_refresh %}{% include "officer_refresh/_resolutions.html" %}{% else %}{% if resolutions %}
         <div class="space-y-4">
             {% for resolution in resolutions %}
                 <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border-l-4 {% if resolution.border_color == 'green' %}border-green-600{% elif resolution.border_color == 'blue' %}border-blue-600{% elif resolution.border_color == 'purple' %}border-purple-600{% elif resolution.border_color == 'pink' %}border-pink-600{% elif resolution.border_color == 'indigo' %}border-indigo-600{% elif resolution.border_color == 'red' %}border-red-600{% elif resolution.border_color == 'yellow' %}border-yellow-600{% else %}border-gray-600{% endif %} p-6">
@@ -120,10 +120,10 @@
                 Create First Resolution
             </a>
         </div>
-    {% endif %}
+    {% endif %}{% endif %}{# /rf #}
 
     <!-- Back Button -->
-    <div class="mt-8">
+    <div class="mt-8{% if ui_refresh %} rf-ob-back{% endif %}">
         <a href="{% url 'officer_home' %}" class="inline-flex items-center text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300">
             <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>

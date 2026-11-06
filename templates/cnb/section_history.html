@@ -7,7 +7,7 @@
 09-25-26 — every version of one C&B section (src/view/cnb_history.py).
 Diffs are built server-side and fully escaped.
 {% endcomment %}
-<div class="min-h-screen bg-gradient-to-br from-primary-50 to-primary-100 dark:from-gray-900 dark:to-gray-800">
+<div class="min-h-screen bg-gradient-to-br from-primary-50 to-primary-100 dark:from-gray-900 dark:to-gray-800{% if ui_refresh %} rf-mp rf-mx rf-cnbm{% endif %}">
     <div class="bg-gradient-to-r from-primary-600 via-primary-700 to-primary-800 text-white py-8 shadow-lg">
         <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
             <a href="{% url 'constitution_bylaws' %}#{{ anchor }}" class="text-primary-200 hover:text-white text-sm">← Constitution &amp; Bylaws</a>

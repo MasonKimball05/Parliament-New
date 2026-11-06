@@ -1142,6 +1142,8 @@ urlpatterns = [
     # The console look's Favorites star (src/view/admin_v2_console.py)
     path('admin-v2/console/favorite/', admin_v2_console_views.admin_v2_console_favorite,
          name='admin_v2_console_favorite'),
+    path('admin-v2/console/home-widgets/', admin_v2_console_views.admin_v2_console_home_widgets,
+         name='admin_v2_console_home_widgets'),
     path('admin-v2/feature-flag/<int:flag_id>/toggle/', toggle_feature_flag, name='toggle_feature_flag'),
     path('admin-v2/page/<int:toggle_id>/toggle/', toggle_page, name='toggle_page'),
     path('admin-v2/setting/<int:setting_id>/update/', update_site_setting, name='update_site_setting'),

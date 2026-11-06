@@ -3,7 +3,7 @@
 {% block title %}Announcement Stats - {{ announcement.title }}{% endblock %}
 
 {% block admin_content %}
-<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8{% if ui_refresh %} rf-mp rf-op rf-oann-views{% endif %}">
     <!-- Header -->
     <div class="mb-6">
         <div class="flex items-center text-sm text-gray-600 dark:text-gray-400 mb-4">
@@ -19,7 +19,7 @@
     </div>
 
     <!-- Stats Cards -->
-    <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
+    <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8{% if ui_refresh %} rf-op-stats{% endif %}">
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
             <div class="text-3xl font-bold text-gray-900 dark:text-white">{{ stats.total_views }}</div>
             <div class="text-sm text-gray-600 dark:text-gray-400">Total Views</div>

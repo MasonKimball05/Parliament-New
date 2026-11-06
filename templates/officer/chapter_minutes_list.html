@@ -3,16 +3,16 @@
 {% block title %}Chapter Minutes - Parliament{% endblock %}
 
 {% block admin_content %}
-<div class="container mx-auto px-4 py-8">
+<div class="container mx-auto px-4 py-8{% if ui_refresh %} rf-mp rf-ob rf-ob-minutes{% endif %}">
     <!-- Header -->
-    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6{% if ui_refresh %} rf-ob-head{% endif %}">
         <div>
             <h2 class="text-3xl font-bold text-gray-900 dark:text-white">Chapter Minutes</h2>
             <p class="text-gray-600 dark:text-gray-400 mt-1">Record and manage chapter meeting minutes</p>
         </div>
         <div class="flex flex-wrap items-center gap-2">
         {% if feature_flags.meeting_agendas %}
-        <a href="{% url 'agenda_list' %}" class="border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 font-medium py-2.5 px-5 rounded-lg transition">Agendas</a>
+        <a href="{% url 'agenda_list' %}" class="border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 font-medium py-2.5 px-5 rounded-lg transition{% if ui_refresh %} rf-ob-btn2{% endif %}">Agendas</a>
         {% endif %}
         <button type="button" id="js-open-create-modal"
                 class="bg-primary-600 hover:bg-primary-700 text-white font-medium py-2.5 px-6 rounded-lg transition flex items-center gap-2">
@@ -25,7 +25,7 @@
     </div>
 
     <!-- Minutes List -->
-    {% if minutes_list %}
+    {% if ui_refresh %}{% include "officer_refresh/_minutes_list.html" %}{% else %}{% if minutes_list %}
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
         <div class="divide-y divide-gray-200 dark:divide-gray-700">
             {% for m in minutes_list %}
@@ -101,14 +101,14 @@
         <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-2">No minutes recorded yet</h3>
         <p class="text-gray-500 dark:text-gray-400">Click "New Minutes" to start recording chapter meeting minutes.</p>
     </div>
-    {% endif %}
+    {% endif %}{% endif %}{# /rf #}
 </div>
 
 <!-- Create Modal -->
 <div id="createModal" class="hidden fixed inset-0 z-50 overflow-y-auto">
     <div class="flex items-center justify-center min-h-screen px-4">
         <div class="js-close-create-modal fixed inset-0 bg-black/50 transition-opacity"></div>
-        <div class="relative bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-lg w-full p-6">
+        <div class="relative bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-lg w-full p-6{% if ui_refresh %} rf-ob-modal{% endif %}">
             <div class="flex justify-between items-center mb-6">
                 <h3 class="text-xl font-bold text-gray-900 dark:text-white">New Chapter Minutes</h3>
                 <button type="button" class="js-close-create-modal text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
@@ -167,7 +167,7 @@
 <div id="deleteModal" class="hidden fixed inset-0 z-50 overflow-y-auto">
     <div class="flex items-center justify-center min-h-screen px-4">
         <div class="js-close-delete-modal fixed inset-0 bg-black/50 transition-opacity"></div>
-        <div class="relative bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-md w-full p-6">
+        <div class="relative bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-md w-full p-6{% if ui_refresh %} rf-ob-modal{% endif %}">
             <div class="flex items-center gap-3 mb-4">
                 <div class="flex-shrink-0 w-10 h-10 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center">
                     <svg class="w-5 h-5 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -1,0 +1,75 @@
+{% load static %}
+{% comment %}
+Website refresh (src/ui_refresh.py): the top of Officer Home as the app's
+Officer tools screen. The banner keeps the title, the welcome line and the
+crest; "New Announcement" / "New Event" and the three featured pages become
+grouped rows with icon tiles. Same links and wording as the cards they
+replace in officer_home.html.
+{% endcomment %}
+<div class="rf-op-hero">
+    <div class="rf-op-hero-text">
+        <h1>Officer Portal</h1>
+        <p>Welcome, {{ user.get_display_name }} — chapter operations &amp; administration</p>
+        <div class="rf-hero-rule"></div>
+    </div>
+    <div class="rf-op-crest">
+        <img src="{% static 'images/am-coat-of-arms.png' %}" alt="Alpha Mu Coat of Arms">
+        <span>
+            <span class="rf-arms-greek">Ἀρετὴ Μονάζει</span>
+            <span class="rf-arms-eng">Virtue Stands Alone</span>
+        </span>
+    </div>
+</div>
+
+<div class="rf-ohome-groups">
+    <div>
+        <div class="rf-section-title"><h2>Create</h2></div>
+        <div class="rf-card">
+            <a href="{% url 'create_announcement' %}" class="rf-row">
+                <span class="rf-tile is-orange" aria-hidden="true"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z"/></svg></span>
+                <span class="rf-row-body">
+                    <span class="rf-row-title">New Announcement</span>
+                    <span class="rf-row-sub">Post to the member home page</span>
+                </span>
+                <span class="rf-chevron" aria-hidden="true">›</span>
+            </a>
+            <a href="{% url 'create_event' %}" class="rf-row">
+                <span class="rf-tile is-blue" aria-hidden="true"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg></span>
+                <span class="rf-row-body">
+                    <span class="rf-row-title">New Event</span>
+                    <span class="rf-row-sub">Add to the chapter calendar</span>
+                </span>
+                <span class="rf-chevron" aria-hidden="true">›</span>
+            </a>
+        </div>
+    </div>
+    <div>
+        <div class="rf-section-title"><h2>Records</h2></div>
+        <div class="rf-card">
+            <a href="{% url 'manage_announcements' %}" class="rf-row">
+                <span class="rf-tile is-orange" aria-hidden="true"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg></span>
+                <span class="rf-row-body">
+                    <span class="rf-row-title">Announcements</span>
+                    <span class="rf-row-sub">Manage chapter announcements</span>
+                </span>
+                <span class="rf-chevron" aria-hidden="true">›</span>
+            </a>
+            <a href="{% url 'chapter_minutes_list' %}" class="rf-row">
+                <span class="rf-tile is-gold" aria-hidden="true"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg></span>
+                <span class="rf-row-body">
+                    <span class="rf-row-title">Chapter Minutes</span>
+                    <span class="rf-row-sub">Record and manage meeting minutes</span>
+                </span>
+                <span class="rf-chevron" aria-hidden="true">›</span>
+            </a>
+            <a href="{% url 'committee_minutes_list' 'EXEC' %}" class="rf-row">
+                <span class="rf-tile is-red" aria-hidden="true"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg></span>
+                <span class="rf-row-body">
+                    <span class="rf-row-title">Exec Board Minutes</span>
+                    <span class="rf-row-sub">Executive board meeting records</span>
+                </span>
+                <span class="rf-chevron" aria-hidden="true">›</span>
+            </a>
+        </div>
+    </div>
+</div>

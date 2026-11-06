@@ -3,9 +3,9 @@
 {% block title %}Member Expectations - {{ period.name }}{% endblock %}
 
 {% block content %}
-<div class="container mx-auto px-4 py-8">
+<div class="container mx-auto px-4 py-8{% if ui_refresh %} rf-sdl rf-shexp{% endif %}">
     <!-- Header -->
-    <div class="flex items-center justify-between mb-6">
+    <div class="flex items-center justify-between mb-6{% if ui_refresh %} rf-sdl-head{% endif %}">
         <div>
             <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Member Expectations</h1>
             <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
@@ -21,7 +21,7 @@
     </div>
 
     <!-- Info Banner -->
-    <div class="bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-800 rounded-lg p-4 mb-6">
+    <div class="bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-800 rounded-lg p-4 mb-6{% if ui_refresh %} rf-sdl-info{% endif %}">
         <div class="flex items-start">
             <svg class="h-5 w-5 text-primary-600 dark:text-primary-400 mr-2 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
@@ -39,7 +39,7 @@
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <!-- Add Custom Expectation -->
         <div class="lg:col-span-1">
-            <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden sticky top-4">
+            <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden sticky top-4{% if ui_refresh %} rf-sdl-formcard{% endif %}">
                 <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
                     <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Add Custom Expectation</h2>
                 </div>
@@ -166,7 +166,7 @@
 
             <!-- Members Using Default -->
             {% if available_members %}
-            <div class="mt-6 bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4">
+            <div class="mt-6 bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4{% if ui_refresh %} rf-shexp-default{% endif %}">
                 <h3 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Members Using Default ({{ period.default_hours_required }} hours)
                 </h3>
@@ -183,7 +183,7 @@
     </div>
 
     <!-- Back Link -->
-    <div class="mt-6">
+    <div class="mt-6{% if ui_refresh %} rf-sdl-back{% endif %}">
         <a href="{% url 'manage_service_periods' %}" class="text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 font-medium">
             &larr; Back to Periods
         </a>

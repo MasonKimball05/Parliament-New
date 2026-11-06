@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Member Permissions - {{ committee.name }}{% endblock %}
 {% block content %}
-<div class="container mx-auto px-4 py-8 max-w-4xl">
+<div class="container mx-auto px-4 py-8 max-w-4xl{% if ui_refresh %} rf-ct rf-ct-perms{% endif %}">
     <div class="mb-6">
         <a href="{% url 'committee_home' committee.code %}" class="text-primary-600 dark:text-primary-400 hover:underline">← Back to Committee</a>
     </div>

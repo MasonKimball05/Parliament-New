@@ -1,0 +1,29 @@
+{% comment %}
+Website refresh (src/ui_refresh.py): Manage Section Impacts' table as the
+app's grouped rows (officer/resolutions/[id].tsx): the tag as it will look,
+its order, type and link, and Edit / Delete. Same links and fields as the
+table it replaces in officer/manage_section_impacts.html.
+{% endcomment %}
+{% if section_impacts %}
+<div class="rf-card rf-ob-list">
+    {% for impact in section_impacts %}
+    <div class="rf-row rf-ob-impact">
+        <span class="rf-row-body">
+            <span class="rf-row-pills rf-ob-impact-tag"><span class="rf-chip {% if impact.section_type == 'constitution' %}is-accent{% elif impact.section_type == 'bylaws' %}rf-ob-chip-indigo{% else %}rf-ob-chip-purple{% endif %}">{{ impact.section_name }}</span></span>
+            <span class="rf-row-sub">#{{ impact.display_order }} · {{ impact.get_section_type_display }} · {% if impact.external_url %}<span class="rf-ob-link">{{ impact.external_url|truncatechars:30 }}</span>{% elif impact.section_anchor %}<span class="rf-ob-anchor">{{ impact.section_anchor }}</span>{% else %}<span class="rf-ob-muted">No link</span>{% endif %}</span>
+        </span>
+        <span class="rf-row-actions">
+            <a href="{% url 'edit_section_impact' impact.id %}">Edit</a>
+            <a href="{% url 'delete_section_impact' impact.id %}" class="rf-ob-danger-link">Delete</a>
+        </span>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="rf-card rf-empty">
+    <svg class="rf-empty-svg" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/></svg>
+    <p class="rf-empty-title">No Section Impacts Yet</p>
+    <p class="rf-empty-sub">Add tags to show which parts of the Constitution/Bylaws this resolution impacts.</p>
+    <a href="{% url 'add_section_impact' resolution.id %}" class="rf-btn rf-empty-btn">Add First Tag</a>
+</div>
+{% endif %}

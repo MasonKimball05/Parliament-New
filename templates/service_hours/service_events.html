@@ -3,10 +3,10 @@
 {% block title %}Service Events{% endblock %}
 
 {% block content %}
-<div class="container mx-auto px-4 py-8">
+<div class="container mx-auto px-4 py-8{% if ui_refresh %} rf-sdl rf-shev{% endif %}">
 
     <!-- Header -->
-    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6{% if ui_refresh %} rf-sdl-head{% endif %}">
         <div>
             <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Service Events</h1>
             <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Planned events that automatically award service hours on finalization</p>
@@ -24,7 +24,7 @@
         </div>
     </div>
 
-    <!-- Upcoming -->
+    {% if ui_refresh %}{% include "service_hours_refresh/_events.html" %}{% else %}<!-- Upcoming -->
     <div class="mb-8">
         <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-3">Upcoming</h2>
         {% if upcoming %}
@@ -91,7 +91,7 @@
             {% endfor %}
         </div>
     </div>
-    {% endif %}
+    {% endif %}{% endif %}{# /rf #}
 
 </div>
 {% endblock %}

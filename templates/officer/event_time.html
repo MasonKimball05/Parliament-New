@@ -3,9 +3,9 @@
 {% block title %}Time at {{ event.title }} — Parliament{% endblock %}
 
 {% block content %}
-<div class="min-h-screen bg-gray-50 dark:bg-gray-900">
+<div class="min-h-screen bg-gray-50 dark:bg-gray-900{% if ui_refresh %} rf-mp rf-op rf-oevtime{% endif %}">
 
-  <div class="bg-gradient-to-r from-primary-600 via-primary-700 to-primary-800 text-white py-8 shadow-lg">
+  <div class="bg-gradient-to-r from-primary-600 via-primary-700 to-primary-800 text-white py-8 shadow-lg{% if ui_refresh %} rf-op-banner{% endif %}">
     <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
       <p class="text-primary-200 text-sm mb-1">{% if event.is_study_hours %}Study hours{% else %}Timed check-in{% endif %}</p>
       <h1 class="text-3xl font-bold mb-1">{{ event.title }}</h1>

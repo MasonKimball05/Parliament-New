@@ -1,0 +1,553 @@
+/* =========================================================================
+   Website refresh: signing in and account security, plus My Work.
+     Sign in (/login/, with passkey sign-in), password reset (/password-reset/,
+     its done, confirm and complete pages), Change Password and the forced
+     password change, two-factor (setup, verify, disable, backup codes
+     reveal and regenerate, recovery request / confirm / invalid link),
+     Active Sessions (/account/sessions/), Delete Account and its done page,
+     and My Work (/legislation/history/).
+
+   Loaded by base.html after refresh.css, only when `ui_refresh` is on (see
+   src/ui_refresh.py). The flag applies signed out too (the feature_flags
+   context processor reads it for every request), so the sign-in pages follow
+   it like every other page. Plain CSS, no Tailwind build; refresh.css's
+   tokens (--rf-*). Every rule is scoped under a class the page's template
+   adds only with the refresh on; no markup the pages' scripts or forms rely
+   on moves (ids, names, autocomplete, the passkey and session-revoke hooks).
+
+   The sign-in and security pages carry `.rf-auth` (shared rules: the app's
+   sign-in screen — off-white page, a 20px card, filled 48px fields, a
+   full-width chapter-blue button, outlined secondary buttons, soft-toned
+   notes) and one page class:
+
+     .rf-login         registration/login.html
+     .rf-reset         registration/password_reset*.html (not the emails)
+     .rf-pwchange      change_password.html
+     .rf-pwforced      forced_password_change.html
+     .rf-2fa-setup     two_factor/setup.html
+     .rf-2fa-verify    two_factor/verify.html
+     .rf-2fa-disable   two_factor/disable.html
+     .rf-2fa-codes     two_factor/backup_codes_reveal.html
+     .rf-2fa-regen     two_factor/regenerate_backup_codes.html
+     .rf-2fa-recovery  two_factor/recovery_request.html, recovery_confirm.html,
+                       recovery_confirm_invalid.html
+     .rf-sessions      account/sessions.html
+     .rf-delete-acct   account/delete_account.html
+     .rf-delete-done   account/delete_account_done.html
+
+   My Work carries `.rf-mp .rf-work` (the member pages' shared rules in
+   member-tools.css, and its own below): legislation_history.html, its lists
+   in my_work_refresh/_bills.html, _polls.html and _drafts.html.
+   ========================================================================= */
+
+/* ---------- Shared (.rf-auth) --------------------------------------------- */
+
+/* The card (the app's sign-in Screen: one surface, a hairline and a lift) */
+.rf-auth .rf-auth-card {
+    background-color: var(--rf-surface);
+    border: 0;
+    border-radius: 20px;
+    box-shadow: 0 0 0 1px var(--rf-card-border), 0 8px 24px var(--rf-shadow);
+}
+@media (max-width: 480px) {
+    .rf-auth .rf-auth-card { padding: 20px; border-radius: 18px; }
+}
+
+/* Titles: the app's large title */
+.rf-auth h1:not(.text-white),
+.rf-auth .rf-auth-title {
+    color: var(--rf-text);
+    font-size: clamp(22px, 4.5vw, 28px);
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+}
+.rf-auth .rf-auth-card h2 { color: var(--rf-text); }
+
+/* The CSRF field comes first in a form; the first visible row needs no gap above it */
+.rf-auth form > input[type="hidden"]:first-child + * { margin-top: 0; }
+
+/* Labels */
+.rf-auth label:not([for="remember_device"]) {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--rf-text-secondary);
+}
+
+/* Fields (form.tsx Field: filled, borderless, 12px, 48px tall; 16px type so
+   phones don't zoom in) */
+.rf-auth input:is([type="text"], [type="email"], [type="password"]) {
+    min-height: 48px;
+    border-radius: 12px;
+    border-color: transparent;
+    background-color: var(--rf-surface-muted);
+    color: var(--rf-text);
+}
+.rf-auth input:is([type="text"], [type="email"], [type="password"]):not(.text-2xl) { font-size: 16px; }
+.rf-auth input:is([type="text"], [type="email"], [type="password"]):focus {
+    background-color: var(--rf-surface);
+    border-color: var(--rf-accent);
+    outline: 2px solid transparent;
+    --tw-ring-color: var(--rf-accent);
+}
+.rf-auth input::placeholder { color: var(--rf-text-muted); }
+/* The 6-digit code fields */
+.rf-auth input.text-2xl { min-height: 60px; letter-spacing: 0.3em; font-weight: 600; }
+.rf-auth input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--rf-accent); }
+
+/* Primary buttons (PrimaryButton: full chapter blue, 12px, 48px, 700) */
+.rf-auth :is(a, button).bg-primary-600,
+.rf-auth .rf-auth-primary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 48px;
+    border: 0;
+    border-radius: 12px;
+    background-color: var(--rf-accent);
+    color: var(--rf-accent-text);
+    font-size: 15px;
+    font-weight: 700;
+    box-shadow: none;
+}
+.rf-auth :is(a, button).bg-primary-600.block,
+.rf-auth :is(a, button).bg-primary-600.w-full { display: flex; width: 100%; }
+.rf-auth :is(a, button).bg-primary-600:hover,
+.rf-auth .rf-auth-primary:hover { background-color: var(--rf-accent-hover); }
+.rf-auth :is(a, button).bg-primary-600:focus-visible,
+.rf-auth .rf-auth-primary:focus-visible { outline: 2px solid var(--rf-accent); outline-offset: 2px; }
+
+/* Destructive buttons: the app's danger fill (dark ink on the lighter red in
+   dark, as refresh.css's .btn-danger does) */
+.rf-auth :is(a, button).bg-red-600:not(.rf-auth-danger-soft) {
+    min-height: 44px;
+    border-radius: 12px;
+    background-color: var(--rf-danger);
+    color: #ffffff;
+    font-weight: 700;
+}
+.rf-auth :is(a, button).bg-red-600:not(.rf-auth-danger-soft):hover { filter: brightness(0.94); }
+:where(.ui-refresh.dark) .rf-auth :is(a, button).bg-red-600:not(.rf-auth-danger-soft) { color: var(--rf-accent-text); }
+/* …and the quieter danger (Log Out on a session row, Log Out All Other) */
+.rf-auth .rf-auth-danger-soft {
+    background-color: var(--rf-danger-soft);
+    color: var(--rf-danger);
+    border-radius: 10px;
+    font-weight: 600;
+    min-height: 36px;
+}
+.rf-auth .rf-auth-danger-soft:hover { background-color: var(--rf-danger-soft); filter: brightness(0.96); }
+:where(.ui-refresh.dark) .rf-auth .rf-auth-danger-soft { color: var(--rf-danger); }
+
+/* Secondary buttons (variant="secondary": outlined in the accent) — the
+   passkey buttons, Cancel, Copy and Print */
+.rf-auth .rf-auth-secondary,
+.rf-auth #passkey-2fa-btn,
+.rf-auth button.js-vote-passkey.bg-gray-100,
+.rf-auth a.bg-gray-300,
+.rf-auth :is(#copy-btn, #js-print-btn) {
+    min-height: 48px;
+    border: 0;
+    border-radius: 12px;
+    background-color: transparent;
+    color: var(--rf-accent);
+    box-shadow: inset 0 0 0 1.5px var(--rf-accent);
+    font-size: 15px;
+    font-weight: 700;
+}
+.rf-auth .rf-auth-secondary:hover,
+.rf-auth #passkey-2fa-btn:hover,
+.rf-auth button.js-vote-passkey.bg-gray-100:hover,
+.rf-auth a.bg-gray-300:hover,
+.rf-auth :is(#copy-btn, #js-print-btn):hover { background-color: var(--rf-accent-soft); }
+.rf-auth :is(.rf-auth-secondary, #passkey-2fa-btn) svg { color: currentColor; }
+.rf-auth a.bg-gray-300 { display: inline-flex; align-items: center; justify-content: center; }
+
+/* Notes: soft tone fills (the same tokens light and dark), no stripe */
+.rf-auth :is(div, p, ul):is(.bg-yellow-50, .bg-amber-50, .bg-red-50, .bg-green-50, .bg-primary-50),
+.rf-auth .rf-auth-alert,
+.rf-auth ul.errorlist.nonfield {
+    border-width: 0;
+    border-radius: 12px;
+}
+.rf-auth :is(div, p, ul):is(.bg-yellow-50, .bg-amber-50),
+.rf-auth .rf-auth-alert.is-warning { background-color: var(--rf-warning-soft); color: var(--rf-warning); }
+.rf-auth :is(div, p, ul).bg-red-50,
+.rf-auth .rf-auth-alert.is-danger,
+.rf-auth ul.errorlist.nonfield { background-color: var(--rf-danger-soft); color: var(--rf-danger); }
+.rf-auth :is(div, p, ul).bg-green-50 { background-color: var(--rf-success-soft); color: var(--rf-success); }
+.rf-auth div.bg-primary-50 { background-color: var(--rf-accent-soft); color: var(--rf-accent-on-soft); }
+.rf-auth :is(div, p, ul):is(.bg-yellow-50, .bg-amber-50, .bg-red-50, .bg-green-50, .bg-primary-50) [class*="text-"] { color: inherit; }
+.rf-auth ul.errorlist.nonfield { list-style: none; margin: 0; padding: 12px 14px; font-size: 14px; font-weight: 600; }
+.rf-auth .rf-auth-card ul.errorlist { margin: 0; padding-left: 0; list-style: none; }
+
+/* Toned ink */
+.rf-auth :is(.text-red-500, .text-red-600, .text-red-700, .text-red-800) { color: var(--rf-danger); }
+.rf-auth :is(.text-green-500, .text-green-600, .text-green-700) { color: var(--rf-success); }
+.rf-auth :is(.text-yellow-600, .text-yellow-700, .text-amber-500, .text-amber-700, .text-amber-800) { color: var(--rf-warning); }
+
+/* Tips: a muted inset on the card */
+.rf-auth .rf-auth-card .bg-gray-50 {
+    background-color: var(--rf-surface-muted);
+    border-radius: 12px;
+    color: var(--rf-text-secondary);
+}
+
+/* Header glyphs: a soft-toned disc, like the app's state icons */
+.rf-auth .text-center > svg:is(.w-16, .w-14) {
+    width: 64px;
+    height: 64px;
+    padding: 15px;
+    border-radius: 999px;
+    background-color: var(--rf-accent-soft);
+    color: var(--rf-accent);
+}
+.rf-auth .text-center > svg:is(.w-16, .w-14).text-green-500 { background-color: var(--rf-success-soft); color: var(--rf-success); }
+.rf-auth .text-center > svg:is(.w-16, .w-14).text-red-500 { background-color: var(--rf-danger-soft); color: var(--rf-danger); }
+.rf-auth .text-center > svg:is(.w-16, .w-14):is(.text-yellow-600, .text-amber-500) { background-color: var(--rf-warning-soft); color: var(--rf-warning); }
+
+/* Text links */
+.rf-auth .rf-auth-card a:is(.text-primary-600, .rf-auth-link) { font-weight: 600; color: var(--rf-accent); }
+
+/* ---------- Sign in -------------------------------------------------------- */
+
+/* The crest, large and plain on the page (the app's sign-in screen) */
+.rf-login .rf-auth-crest {
+    width: 112px;
+    height: 112px;
+    margin-bottom: 12px;
+    background-color: transparent;
+    box-shadow: none;
+}
+.rf-login .rf-auth-crest img { width: 112px; height: 112px; border-radius: 0; }
+.rf-login .rf-auth-title { font-size: clamp(26px, 6vw, 32px); }
+.rf-login .rf-auth-title::after {
+    content: "";
+    display: block;
+    width: 44px;
+    height: 3px;
+    margin: 12px auto 0;
+    border-radius: 2px;
+    background: var(--rf-gold);
+}
+.rf-login .rf-auth-title + p { font-size: 15px; color: var(--rf-text-secondary); }
+.rf-login .rf-auth-card form label { margin-bottom: 6px; }
+.rf-login .rf-auth-primary svg { width: 18px; height: 18px; }
+.rf-login .rf-auth-or { margin-top: 20px; margin-bottom: 20px; }
+.rf-login .rf-auth-or .border-t { border-color: var(--rf-separator); }
+.rf-login .rf-auth-or span { font-weight: 600; letter-spacing: 0.06em; color: var(--rf-text-muted); }
+.rf-login #passkey-error { color: var(--rf-danger); font-weight: 600; }
+.rf-login .rf-auth-legal { gap: 20px; font-size: 13px; }
+.rf-login .rf-auth-legal a { color: var(--rf-text-muted); }
+.rf-login .rf-auth-legal a:hover { color: var(--rf-accent); }
+/* The theme switch: a round button on the page */
+.rf-login .rf-auth-theme button {
+    border: 0;
+    border-radius: 999px;
+    background-color: var(--rf-surface);
+    box-shadow: 0 0 0 1px var(--rf-card-border), 0 3px 10px var(--rf-shadow);
+}
+
+/* ---------- Password reset, change password -------------------------------- */
+
+.rf-reset.max-w-md { padding-top: clamp(24px, 6vh, 64px); }
+.rf-reset .rf-auth-card > p { font-size: 15px; line-height: 1.5; }
+.rf-reset .text-xs.text-gray-500 { font-size: 12px; color: var(--rf-text-muted); }
+
+/* Change Password: on the page color, not a gray slab; Django's bare fields
+   fill the card's width */
+.rf-auth.rf-pwchange { min-height: calc(100vh - 220px); padding: 32px 16px; background-color: transparent; }
+.rf-pwchange .rf-auth-card input[type="password"] { width: 100%; padding: 0 14px; border: 1px solid transparent; }
+.rf-pwchange .rf-auth-card label { margin-bottom: 6px; }
+.rf-pwchange .rf-auth-card .text-xs ul { margin: 4px 0 0; padding-left: 18px; list-style: disc; }
+.rf-pwchange .rf-auth-card .text-xs { color: var(--rf-text-muted); line-height: 1.45; }
+
+.rf-auth.rf-pwforced { min-height: calc(100vh - 220px); }
+.rf-pwforced .rf-auth-title { margin-top: 0; }
+.rf-pwforced .rf-auth-card { padding: 28px 24px; }
+.rf-pwforced .rf-auth-card label { margin-bottom: 2px; }
+.rf-pwforced .rf-auth-reqs { padding: 14px 16px; border-radius: 12px; background-color: var(--rf-surface-muted); }
+.rf-pwforced .rf-auth-reqs span {
+    padding: 0;
+    background-color: transparent;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--rf-text-muted);
+}
+.rf-pwforced .rf-auth-reqs .justify-center { justify-content: flex-start; }
+.rf-pwforced .rf-auth-reqs ul { color: var(--rf-text-secondary); }
+
+/* ---------- Two-factor ------------------------------------------------------ */
+
+.rf-auth.rf-2fa-setup { max-width: 640px; }
+.rf-2fa-setup h2 { font-size: 17px; font-weight: 700; }
+.rf-2fa-setup .rf-auth-card .border-b { border-color: var(--rf-separator); }
+/* The QR keeps a white frame in dark mode so phones can read it */
+.rf-2fa-setup .rf-2fa-qr {
+    width: max-content;
+    max-width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+    padding: 16px;
+    border: 0;
+    border-radius: 16px;
+    background-color: #ffffff;
+    box-shadow: 0 0 0 1px var(--rf-card-border);
+}
+/* The manual key: as rendered (base32 in groups of four), larger and spaced */
+.rf-2fa-setup .rf-2fa-key {
+    padding: 14px 16px;
+    border-radius: 12px;
+    background-color: var(--rf-surface-muted);
+    color: var(--rf-text);
+    font-size: 16px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-align: center;
+}
+
+.rf-2fa-verify .rf-auth-card .border-t { border-color: var(--rf-separator); }
+.rf-2fa-verify #js-switch-backup-btn { font-weight: 600; color: var(--rf-accent); }
+.rf-2fa-verify #passkey-2fa-error { color: var(--rf-danger); font-weight: 600; }
+
+.rf-2fa-disable .rf-auth-card .flex.gap-3 > * { min-height: 48px; }
+
+.rf-2fa-codes .rf-2fa-codes-grid {
+    gap: 8px;
+    padding: 12px;
+    border: 0;
+    border-radius: 14px;
+    background-color: var(--rf-surface-muted);
+}
+.rf-2fa-codes .rf-2fa-codes-grid > div {
+    border: 0;
+    border-radius: 10px;
+    background-color: var(--rf-surface);
+    box-shadow: 0 0 0 1px var(--rf-card-border);
+    padding-top: 8px;
+    padding-bottom: 8px;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--rf-text);
+}
+.rf-2fa-codes :is(#copy-btn, #js-print-btn) { min-height: 44px; font-size: 14px; }
+
+.rf-2fa-regen .rf-auth-card > p strong { color: var(--rf-text); }
+
+/* ---------- Active Sessions ------------------------------------------------- */
+
+.rf-sessions.container { max-width: calc(var(--rf-readable) + 32px); }
+/* The banner: the app's flat chapter blue */
+.rf-sessions .rf-sess-hero {
+    background-image: none;
+    background-color: var(--rf-hero);
+    border-radius: 20px;
+    box-shadow: none;
+}
+.rf-sessions .rf-sess-hero h1 { font-size: clamp(22px, 4vw, 26px); font-weight: 800; letter-spacing: -0.02em; }
+.rf-sessions .rf-sess-hero .text-blue-100 { color: var(--rf-hero-muted); }
+.rf-sessions .rf-sess-hero > div > a {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 999px;
+    background-color: var(--rf-hero-glass);
+    box-shadow: inset 0 0 0 1px var(--rf-hero-glass-border);
+}
+.rf-sessions .rf-sess-hero > div > a svg { width: 20px; height: 20px; }
+.rf-sessions .rf-auth-alert { padding: 14px 16px; }
+.rf-sessions .rf-sess-count { margin-bottom: 10px; }
+.rf-sessions .rf-sess-count > p { font-size: 13px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--rf-text-muted); }
+
+/* Sessions and devices: rows in one grouped card */
+.rf-sessions .rf-sess-list {
+    background-color: var(--rf-surface);
+    border-radius: var(--rf-radius-card);
+    box-shadow: 0 0 0 1px var(--rf-card-border), 0 3px 10px var(--rf-shadow);
+    overflow: hidden;
+}
+.rf-sessions .rf-sess-list > :not([hidden]) ~ :not([hidden]) {
+    margin-top: 0;
+    border-top: 1px solid var(--rf-separator);
+}
+.rf-sessions .rf-sess-list > div {
+    border-left-width: 0;
+    border-radius: 0;
+    box-shadow: none;
+    background-color: transparent;
+}
+.rf-sessions .rf-sess-list > .rf-sess-row { padding: 14px 16px; }
+.rf-sessions .rf-sess-list > p { margin: 0; padding: 16px; }
+.rf-sessions .rf-sess-row h3 { font-size: 15px; font-weight: 600; color: var(--rf-text); }
+.rf-sessions .rf-sess-row .rounded-full.w-12 { width: 40px; height: 40px; border-radius: 10px; }
+.rf-sessions .rf-sess-row .rounded-full.w-12 svg { width: 22px; height: 22px; }
+.rf-sessions .rf-sess-row span.bg-green-100 { background-color: var(--rf-success-soft); color: var(--rf-success); }
+.rf-sessions .rf-sess-row .bg-primary-100 { background-color: var(--rf-accent-soft); }
+.rf-sessions .rf-sess-row .bg-purple-100 { background-color: var(--rf-accent-soft); }
+.rf-sessions .rf-sess-row .text-purple-600 { color: var(--rf-accent); }
+.rf-sessions .rf-sess-row .bg-gray-100 { background-color: var(--rf-surface-muted); }
+.rf-sessions .rf-sess-devices h2 { font-size: 13px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--rf-text-muted); }
+@media (max-width: 480px) {
+    .rf-sessions .rf-sess-row > .flex.items-start { flex-wrap: wrap; gap: 10px; }
+    .rf-sessions .rf-sess-row .js-revoke-session { margin-left: 56px; }
+    .rf-sessions .rf-sess-row .space-x-2 { flex-wrap: wrap; row-gap: 4px; }
+}
+
+/* ---------- Delete Account -------------------------------------------------- */
+
+.rf-delete-acct.container { max-width: calc(var(--rf-readable) + 32px); }
+.rf-delete-acct .rf-delete-head { flex-wrap: wrap; gap: 8px 16px; }
+.rf-delete-acct .rf-delete-head a { font-weight: 600; color: var(--rf-accent); }
+.rf-delete-acct .rf-delete-terms h2 { font-size: 15px; font-weight: 700; }
+.rf-delete-acct .rf-delete-terms { line-height: 1.55; }
+.rf-delete-acct .rf-auth-alert.is-danger { padding: 14px 16px; }
+.rf-delete-acct .rf-delete-form input { width: 100%; }
+.rf-delete-acct .rf-delete-form button { min-height: 44px; padding-left: 18px; padding-right: 18px; }
+.rf-delete-acct .rf-delete-form .js-passkey-error { color: var(--rf-danger); font-weight: 600; }
+
+.rf-delete-done.max-w-md { padding-top: clamp(24px, 6vh, 64px); }
+.rf-delete-done .rf-auth-card { font-size: 15px; line-height: 1.55; }
+
+/* ---------- My Work (.rf-mp .rf-work) ----------------------------------------- */
+
+.rf-work.max-w-6xl { max-width: 1040px; }
+.rf-work h1 { font-size: clamp(24px, 4vw, 30px); font-weight: 800; letter-spacing: -0.02em; color: var(--rf-text); }
+
+/* The four counts: the app's stat tiles */
+.rf-mp .rf-work-stats > div {
+    border-width: 0;
+    border-radius: var(--rf-radius-stat);
+    padding: 16px;
+    text-align: left;
+}
+.rf-work-stats > div > .text-3xl { font-size: 28px; font-weight: 800; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.rf-work-stats > div > .text-xs { font-size: 12px; font-weight: 600; letter-spacing: 0.04em; color: var(--rf-text-secondary); }
+
+/* Legislation / Polls / Drafts: a segmented control (the page's script
+   moves bg-gray-100 to the selected button) */
+.rf-mp .rf-work-tabs {
+    padding: 3px;
+    border-radius: 12px;
+    background-color: var(--rf-surface-muted);
+    box-shadow: none;
+}
+.rf-work-tabs > button {
+    border-radius: 10px;
+    font-weight: 600;
+    color: var(--rf-text-secondary);
+    background-color: transparent;
+}
+.rf-work-tabs > button:hover { color: var(--rf-text); background-color: transparent; }
+.rf-work-tabs > button.bg-gray-100 {
+    background-color: var(--rf-surface);
+    color: var(--rf-text);
+    box-shadow: 0 1px 3px var(--rf-shadow), 0 0 0 1px var(--rf-card-border);
+}
+@media (max-width: 480px) {
+    .rf-work-tabs > button { padding-left: 4px; padding-right: 4px; font-size: 13px; white-space: nowrap; }
+    .rf-work-tabs > button > span { margin-left: 3px; }
+}
+
+/* Status filters: pills, the current one filled */
+.rf-mp .rf-work-filters {
+    gap: 8px;
+    padding: 0;
+    background-color: transparent;
+    box-shadow: none;
+}
+.rf-work-filters > a {
+    border-radius: 999px;
+    padding: 7px 12px;
+    font-weight: 600;
+    background-color: var(--rf-surface);
+    box-shadow: inset 0 0 0 1px var(--rf-card-border);
+    color: var(--rf-text-secondary);
+}
+.rf-work-filters > a:hover { background-color: var(--rf-surface-muted); }
+.rf-mp .rf-work-filters > a:not(.text-gray-500) { background-color: var(--rf-accent); color: var(--rf-accent-text); box-shadow: none; }
+
+/* Rows (my_work_refresh/_bills.html, _polls.html, _drafts.html) */
+.rf-work-row { align-items: flex-start; padding: 14px 16px; }
+.rf-work-row > .rf-tile { margin-top: 2px; }
+.rf-work-title { margin: 0; }
+.rf-work-row .rf-row-pills { margin-top: 6px; }
+.rf-work-row .rf-row-sub { margin: 6px 0 0; }
+/* The meta line: items spaced apart and wrapping whole (no stray separators at a line start) */
+.rf-work-meta { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 14px; }
+.rf-work-italic { font-style: italic; }
+.rf-work-desc { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.rf-work-desc.is-one { -webkit-line-clamp: 1; }
+.rf-work-note {
+    margin: 8px 0 0;
+    padding: 8px 10px;
+    border-radius: 10px;
+    background-color: var(--rf-warning-soft);
+    color: var(--rf-warning);
+    font-size: 13px;
+}
+.rf-work-purple { background-color: var(--rf-mp-purple-soft); color: var(--rf-mp-purple); }
+.rf-work-yes { color: var(--rf-success); }
+.rf-work-no { color: var(--rf-danger); }
+.rf-work-warn { color: var(--rf-warning); }
+.rf-work-winner { color: var(--rf-mp-purple); }
+
+/* The result */
+.rf-work-result { margin-top: 10px; }
+.rf-work-tally {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 4px 12px;
+    margin: 0 0 6px;
+    font-size: 13px;
+    color: var(--rf-text-secondary);
+}
+.rf-work-tally strong { font-weight: 700; }
+.rf-work-verdict { margin-left: auto; }
+.rf-work-bar {
+    display: block;
+    width: 100%;
+    height: 8px;
+    border: 0;
+    border-radius: 999px;
+    overflow: hidden;
+    -webkit-appearance: none;
+    appearance: none;
+    background-color: var(--rf-surface-muted);
+    color: var(--rf-tile-red);
+}
+.rf-work-bar::-webkit-progress-bar { background-color: var(--rf-surface-muted); border-radius: 999px; }
+.rf-work-bar::-webkit-progress-value { background-color: var(--rf-tile-red); border-radius: 999px; }
+.rf-work-bar::-moz-progress-bar { background-color: var(--rf-tile-red); border-radius: 999px; }
+.rf-work-bar.is-passed { color: var(--rf-tile-green); }
+.rf-work-bar.is-passed::-webkit-progress-value { background-color: var(--rf-tile-green); }
+.rf-work-bar.is-passed::-moz-progress-bar { background-color: var(--rf-tile-green); }
+
+/* Links and buttons along the bottom of a row */
+.rf-work-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px 12px;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid var(--rf-separator);
+}
+.rf-work-links { display: inline-flex; flex-wrap: wrap; gap: 4px 16px; }
+.rf-work-link { font-size: 13px; font-weight: 600; color: var(--rf-accent); text-decoration: none; }
+.rf-work-link:hover { text-decoration: underline; }
+.rf-work-link.is-muted { color: var(--rf-text-secondary); }
+.rf-work-buttons { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-left: auto; }
+.rf-work-form { display: inline-flex; margin: 0; }
+.rf-mp .rf-work-btn { min-height: 34px; padding: 6px 14px; border-radius: 10px; font-size: 13px; }
+.rf-mp .rf-work-btn.is-danger { background: transparent; color: var(--rf-danger); box-shadow: inset 0 0 0 1.5px var(--rf-danger); }
+.rf-mp .rf-work-btn.is-danger:hover { background: var(--rf-danger-soft); }
+.rf-mp .rf-work-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+/* "Start a new bill" */
+.rf-mp .rf-work-new { border-radius: var(--rf-radius-card); }

@@ -1,0 +1,49 @@
+{% comment %}
+Website refresh (src/ui_refresh.py): the submissions table on Service Hours
+Submissions (service_hours/view_submissions.html) as the app's officer
+submissions list: a row per submission with its checkbox, the member, the
+organization and description, the status pill, date and period, the hours
+and the Review / View link. Inside the page's bulk form, so the checkboxes
+(name="submission_ids", class submission-checkbox, data-batch-id) and the
+multi-date "select all N" buttons (select-batch-btn) work with the page's
+script exactly as before.
+{% endcomment %}
+<div class="rf-card rf-shsubs-list">
+    {% for submission in submissions %}
+    <div class="rf-row rf-row-group rf-shsubs-row">
+        <span class="rf-shsubs-check">
+            {% if submission.status == 'pending' %}
+            <input type="checkbox" name="submission_ids" value="{{ submission.id }}"
+                   class="submission-checkbox" aria-label="Select {{ submission.submitted_by.name }}, {{ submission.organization }}"
+                   {% if submission.batch_id %}data-batch-id="{{ submission.batch_id }}"{% endif %}>
+            {% if submission.batch_pending_count > 1 %}
+            <button type="button" class="select-batch-btn rf-shsubs-batch"
+                    data-batch-id="{{ submission.batch_id }}"
+                    title="Select all {{ submission.batch_pending_count }} pending dates from this multi-date submission">
+                select all {{ submission.batch_pending_count }}
+            </button>
+            {% endif %}
+            {% endif %}
+        </span>
+        <span class="rf-row-body">
+            <a href="{% url 'manage_service_submission' submission.id %}" class="rf-row-link rf-row-title">{{ submission.submitted_by.name }}</a>
+            <span class="rf-row-sub">{{ submission.organization }} · {{ submission.description|truncatewords:10 }}</span>
+            <span class="rf-row-pills">
+                <span class="rf-chip rf-svc-status is-{{ submission.status }}">{{ submission.get_status_display }}</span>
+                <span class="rf-svc-meta">{{ submission.service_date|date:"M d, Y" }}{% if submission.batch_total_count > 1 %} · <span title="Part of one multi-date submission covering {{ submission.batch_total_count }} dates">multi-date ({{ submission.batch_total_count }})</span>{% endif %} · {{ submission.period.name }}</span>
+            </span>
+            <span class="rf-svc-meta rf-shsubs-at">Submitted {{ submission.submitted_at|date:"M d, Y g:i A" }}</span>
+        </span>
+        <span class="rf-svc-side">
+            <span class="rf-svc-hours">{{ submission.hours }} hrs</span>
+            <span class="rf-row-actions">
+                <a href="{% url 'manage_service_submission' submission.id %}">{% if submission.status == 'pending' %}Review{% else %}View{% endif %}</a>
+            </span>
+        </span>
+    </div>
+    {% empty %}
+    <div class="rf-empty">
+        <p class="rf-empty-title">No submissions found matching your filters.</p>
+    </div>
+    {% endfor %}
+</div>

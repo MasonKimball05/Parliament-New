@@ -1,0 +1,153 @@
+{% comment %}
+Website refresh (src/ui_refresh.py): the lower half of Officer Home in the
+app's look: Recent Reports, Upcoming Events and Recent Activity as section
+titles over grouped rows (three columns on a wide screen), Contact Messages
+with the unread dot, and the Quick Links as pills. Same items, links,
+permission checks and wording as officer_home.html.
+{% endcomment %}
+<div class="rf-grid3 rf-ohome-lists">
+    <div>
+        <div class="rf-section-title">
+            <h2>Recent Reports</h2>
+            <a href="{% url 'view_all_reports' %}">View All</a>
+        </div>
+        <div class="rf-card">
+            {% for report in recent_reports %}
+            <a href="{{ report.document.url }}" target="_blank" class="rf-row">
+                <span class="rf-row-body">
+                    <span class="rf-row-title">{{ report.title }}</span>
+                    <span class="rf-row-sub">{{ report.uploaded_at|date:"M j" }} · {{ report.uploaded_by.get_display_name }}</span>
+                </span>
+                <span class="rf-chip is-accent">{{ report.committee.code }}</span>
+            </a>
+            {% empty %}
+            <div class="rf-row is-empty">No recent reports</div>
+            {% endfor %}
+            <a href="{% url 'upload_report' %}" class="rf-row rf-op-addrow">
+                <span class="rf-row-title">+ Upload New Document</span>
+            </a>
+        </div>
+    </div>
+
+    <div>
+        <div class="rf-section-title">
+            <h2>Upcoming Events</h2>
+            <a href="{% url 'view_all_events' %}">View All</a>
+        </div>
+        <div class="rf-card">
+            {% for event in upcoming_events %}
+            <div class="rf-row">
+                <span class="rf-date" aria-hidden="true">
+                    <span class="rf-date-month">{{ event.date_time|date:"M" }}</span>
+                    <span class="rf-date-day">{{ event.date_time|date:"j" }}</span>
+                </span>
+                <span class="rf-row-body">
+                    <span class="rf-row-title">{{ event.title }}</span>
+                    <span class="rf-row-sub">{{ event.date_time|date:"M j" }} at {{ event.date_time|date:"g:i A" }}{% if event.location %} · {{ event.location }}{% endif %}</span>
+                </span>
+            </div>
+            {% empty %}
+            <div class="rf-row is-empty">No upcoming events</div>
+            {% endfor %}
+            <a href="{% url 'calendar' %}" class="rf-row rf-op-addrow">
+                <span class="rf-row-title">View Full Calendar</span>
+            </a>
+        </div>
+    </div>
+
+    <div>
+        <div class="rf-section-title">
+            <h2>Recent Activity</h2>
+            <a href="{% url 'view_all_activity' %}">View All</a>
+        </div>
+        <div class="rf-card">
+            {% for leg in recent_legislation %}
+            <div class="rf-row">
+                <span class="rf-row-body">
+                    <span class="rf-row-title">{{ leg.title }}</span>
+                    <span class="rf-row-sub">Legislation · {{ leg.posted_by.get_display_name }} · {{ leg.created_at|date:"M j" }}</span>
+                </span>
+                <span class="rf-chip rf-op-chip-purple">Chapter</span>
+            </div>
+            {% endfor %}
+            {% for cleg in recent_committee_legislation %}
+            <div class="rf-row">
+                <span class="rf-row-body">
+                    <span class="rf-row-title">{{ cleg.title }}</span>
+                    <span class="rf-row-sub">Legislation · {{ cleg.posted_by.get_display_name }} · {{ cleg.created_at|date:"M j" }}</span>
+                </span>
+                <span class="rf-chip is-warning">{{ cleg.committee.code }}</span>
+            </div>
+            {% endfor %}
+            {% for doc in recent_committee_docs|slice:":3" %}
+            <a href="{{ doc.document.url }}" target="_blank" class="rf-row">
+                <span class="rf-row-body">
+                    <span class="rf-row-title">{{ doc.title }}</span>
+                    <span class="rf-row-sub">{{ doc.get_document_type_display }} · {{ doc.uploaded_by.get_display_name }} · {{ doc.uploaded_at|date:"M j" }}</span>
+                </span>
+                <span class="rf-chip is-accent">{{ doc.committee.code }}</span>
+            </a>
+            {% endfor %}
+            {% if not recent_legislation and not recent_committee_legislation and not recent_committee_docs %}
+            <div class="rf-row is-empty">No recent activity</div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<div>
+    <div class="rf-section-title">
+        <h2>Contact Messages{% if unread_contact_count %} <span class="rf-badge is-sm">{{ unread_contact_count }}</span>{% endif %}</h2>
+        <a href="{% url 'contact_submissions' %}">View All</a>
+    </div>
+    <div class="rf-card">
+        {% for submission in contact_submissions %}
+        <div class="rf-row rf-op-contact{% if not submission.is_read %} is-unread{% endif %}">
+            <span class="rf-op-dot" aria-hidden="true"></span>
+            <span class="rf-row-body">
+                <span class="rf-row-title">{{ submission.name }} <span class="rf-op-muted">{{ submission.email }}</span>{% if submission.topic %} <span class="rf-chip">{{ submission.topic }}</span>{% endif %}</span>
+                <span class="rf-row-sub is-clip">{{ submission.message }}</span>
+            </span>
+            <span class="rf-row-trailing">{{ submission.submitted_at|date:"M j, g:i A" }}</span>
+        </div>
+        {% empty %}
+        <div class="rf-row is-empty">No contact messages yet.</div>
+        {% endfor %}
+    </div>
+</div>
+
+<div>
+    <div class="rf-section-title"><h2>Quick Links</h2></div>
+    <div class="rf-pills">
+        <a href="{% url 'manage_announcements' %}" class="rf-pill">Announcements</a>
+        {% if user.can_manage_groupme %}
+        <a href="{% url 'groupme_dashboard' %}" class="rf-pill">GroupMe Bot</a>
+        {% endif %}
+        <a href="{% url 'manage_events' %}" class="rf-pill">Manage Events</a>
+        <a href="{% url 'event_attendance_list' %}" class="rf-pill">Attendance</a>
+        <a href="{% url 'chapter_minutes_list' %}" class="rf-pill">Chapter Minutes</a>
+        <a href="{% url 'committee_minutes_list' 'EXEC' %}" class="rf-pill">Exec Minutes</a>
+        <a href="{% url 'user_list' %}" class="rf-pill">Member List</a>
+        <a href="{% url 'upload_report' %}" class="rf-pill">Upload Report</a>
+        <a href="{% url 'chapter_stats' %}" class="rf-pill">Chapter Stats</a>
+        <a href="{% url 'officer_mobile_app' %}" class="rf-pill">Mobile App</a>
+        <a href="{% url 'slating_dashboard' %}" class="rf-pill is-pro">Slating</a>
+        <a href="{% url 'contact_submissions' %}" class="rf-pill">
+            Contact Messages
+            {% if unread_contact_count %}<span class="rf-badge is-sm">{{ unread_contact_count }}</span>{% endif %}
+        </a>
+        {% if user.is_admin or user.is_officer %}
+        <a href="{% url 'manage_roles' %}" class="rf-pill">Manage Roles</a>
+        <a href="{% url 'role_transitions' %}" class="rf-pill">Role Transitions</a>
+        <a href="{% url 'manage_committees' %}" class="rf-pill">Manage Committees</a>
+        <a href="{% url 'edit_landing_page' %}" class="rf-pill">Landing Page</a>
+        {% endif %}
+        {% if user.has_cnb_permission %}
+        <a href="{% url 'cnb_dashboard' %}" class="rf-pill">C&amp;B Manager</a>
+        {% endif %}
+        {% if user.is_admin %}
+        <a href="{% url 'manage_resolutions' %}" class="rf-pill">Resolutions (Legacy)</a>
+        <a href="{% url 'admin_v2_dashboard' %}" class="rf-pill is-accent">Admin v2</a>
+        {% endif %}
+    </div>
+</div>

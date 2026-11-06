@@ -3,7 +3,7 @@
 {% block title %}Muted members{% endblock %}
 
 {% block content %}
-<div class="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+<div class="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8{% if ui_refresh %} rf-mp rf-mx rf-chat-muted{% endif %}">
     <div class="mb-6">
         <a href="{% url 'chat_index' %}" class="text-sm text-primary-600 dark:text-primary-400 hover:underline">&larr; Chats</a>
         <h1 class="text-3xl font-bold text-gray-900 dark:text-white mt-2 mb-2">Muted members</h1>

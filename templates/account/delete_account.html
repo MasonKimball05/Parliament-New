@@ -3,13 +3,13 @@
 {% block title %}Delete Account - Parliament{% endblock %}
 
 {% block content %}
-<div class="container mx-auto px-4 py-8 max-w-2xl">
-    <div class="flex items-center justify-between mb-6">
+<div class="container mx-auto px-4 py-8 max-w-2xl{% if ui_refresh %} rf-auth rf-delete-acct{% endif %}">
+    <div class="flex items-center justify-between mb-6{% if ui_refresh %} rf-delete-head{% endif %}">
         <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Delete your account</h1>
         <a href="{% url 'preferences' %}" class="text-sm text-primary-600 dark:text-primary-400 hover:underline">Back to Preferences</a>
     </div>
 
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 space-y-4 text-sm text-gray-700 dark:text-gray-300">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 space-y-4 text-sm text-gray-700 dark:text-gray-300{% if ui_refresh %} rf-auth-card rf-delete-terms{% endif %}">
         <div>
             <h2 class="font-semibold text-gray-900 dark:text-white mb-1">What happens right away</h2>
             <p>Your account is closed. You're signed out of the website and the app on every device, and you can't sign in again. Your password, passkeys, authenticator and backup codes, app sign-ins, API tokens and calendar feed stop working.</p>
@@ -31,11 +31,11 @@
     </div>
 
     {% if is_admin_account %}
-    <div class="mt-6 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-xl p-4 text-sm text-red-800 dark:text-red-200">
+    <div class="mt-6 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-xl p-4 text-sm text-red-800 dark:text-red-200{% if ui_refresh %} rf-auth-alert is-danger{% endif %}">
         Site administrators can't delete their own account. Ask another admin to remove your admin access first.
     </div>
     {% else %}
-    <form method="post" class="js-vote-form mt-6 bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 space-y-4"
+    <form method="post" class="js-vote-form mt-6 bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 space-y-4{% if ui_refresh %} rf-auth-card rf-delete-form{% endif %}"
           data-confirm="Delete your account? You'll be signed out everywhere right away.">
         {% csrf_token %}
         {% if error %}

@@ -6,8 +6,8 @@
 
 {% block content %}
 {% include "components/page_guide.html" with page_key="chapter_documents" guide_title="Chapter Documents" guide_icon="📄" guide_body="This is the chapter&#39;s document library. You&#39;ll find the bylaws, standing rules, risk management policy, and other official chapter documents here. Documents are uploaded by officers. Download and read them to stay informed about chapter operations and expectations." %}
-<div class="container mx-auto px-4 py-8">
-    <div class="mb-6 flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
+<div class="container mx-auto px-4 py-8{% if ui_refresh %} rf-sdl rf-docs{% endif %}">
+    <div class="mb-6 flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4{% if ui_refresh %} rf-sdl-head{% endif %}">
         <div class="flex items-center gap-4">
             <img src="{% static 'images/am-coat-of-arms.png' %}" alt="Alpha Mu Coat of Arms" class="w-12 h-12 sm:w-14 sm:h-14 rounded-full object-contain bg-white p-1 shadow-md">
             <div>
@@ -252,7 +252,7 @@
                         {% if documents %}
                             <div class="space-y-3 sm:space-y-4">
                                 {% for doc in documents %}
-                                    {% include 'chapter_documents_item.html' %}
+                                    {% if ui_refresh %}{% include "documents_refresh/_doc_row.html" %}{% else %}{% include 'chapter_documents_item.html' %}{% endif %}{# /rf #}
                                 {% endfor %}
                             </div>
                         {% else %}
@@ -289,7 +289,7 @@
                 <div class="px-4 sm:px-6 py-4">
                     <div class="space-y-3 sm:space-y-4">
                         {% for doc in group.documents %}
-                            {% include 'chapter_documents_item.html' %}
+                            {% if ui_refresh %}{% include "documents_refresh/_doc_row.html" %}{% else %}{% include 'chapter_documents_item.html' %}{% endif %}{# /rf #}
                         {% endfor %}
                     </div>
                 </div>

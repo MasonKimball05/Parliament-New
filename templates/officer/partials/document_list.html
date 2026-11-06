@@ -1,4 +1,4 @@
-{% if documents %}
+{% if ui_refresh %}{% include "officer_refresh/_document_list.html" %}{% else %}{% if documents %}
 <div class="space-y-4">
     {% for doc in documents %}
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 hover:shadow-md transition-shadow">
@@ -87,4 +87,4 @@
         Upload a Document
     </a>
 </div>
-{% endif %}
+{% endif %}{% endif %}{# /rf #}

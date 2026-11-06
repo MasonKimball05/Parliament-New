@@ -4,7 +4,7 @@
 {% block title %}Mark Attendance - {{ event.title }}{% endblock %}
 
 {% block admin_content %}
-<div class="container mx-auto px-4 py-8">
+<div class="container mx-auto px-4 py-8{% if ui_refresh %} rf-mp rf-op rf-oatt-mark{% endif %}">
     <!-- Header -->
     <div class="mb-6">
         <div class="flex items-center text-sm text-gray-600 dark:text-gray-400 mb-4">
@@ -79,7 +79,7 @@
 
     <!-- Stats -->
     {% if stats %}
-    <div class="grid grid-cols-2 md:grid-cols-6 gap-4 mb-6">
+    <div class="grid grid-cols-2 md:grid-cols-6 gap-4 mb-6{% if ui_refresh %} rf-op-stats{% endif %}">
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
             <div class="text-3xl font-bold text-gray-900 dark:text-white">{{ stats.total_members }}</div>
             <div class="text-sm text-gray-600 dark:text-gray-400">Total Members</div>

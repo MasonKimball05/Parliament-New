@@ -4,7 +4,7 @@
 {% block title %}Poll Results — {{ announcement.title }}{% endblock %}
 
 {% block admin_content %}
-<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8{% if ui_refresh %} rf-mp rf-op rf-opoll-results{% endif %}">
     {% include 'includes/breadcrumbs.html' with back_url='/officers/announcements/' back_label='Manage Announcements' current='Poll Results' %}
 
     <!-- Header -->

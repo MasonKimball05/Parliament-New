@@ -3,10 +3,10 @@
 {% block title %}Role Transitions{% endblock %}
 
 {% block admin_content %}
-<div class="container mx-auto px-4 py-8 max-w-6xl">
+<div class="container mx-auto px-4 py-8 max-w-6xl{% if ui_refresh %} rf-mp rf-ob rf-ob-transitions{% endif %}">
 
     <!-- Header -->
-    <div class="mb-6 flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
+    <div class="mb-6 flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4{% if ui_refresh %} rf-ob-head{% endif %}">
         <div>
             <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Role Transitions</h1>
             <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
@@ -24,7 +24,7 @@
     </div>
 
     <!-- Stats bar -->
-    <div class="grid grid-cols-3 gap-4 mb-6">
+    <div class="grid grid-cols-3 gap-4 mb-6{% if ui_refresh %} rf-ob-stats{% endif %}">
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 text-center">
             <p class="text-2xl font-bold text-gray-900 dark:text-white">{{ total_roles }}</p>
             <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Total Roles</p>
@@ -51,7 +51,7 @@
     {% endif %}
 
     <!-- Role table -->
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+    {% if ui_refresh %}{% include "officer_refresh/_transitions.html" %}{% else %}<div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
         <div class="overflow-x-auto">
             <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                 <thead class="bg-gray-50 dark:bg-gray-700">
@@ -133,9 +133,9 @@
                 </tbody>
             </table>
         </div>
-    </div>
+    </div>{% endif %}{# /rf #}
 
-    <div class="mt-6">
+    <div class="mt-6{% if ui_refresh %} rf-ob-back{% endif %}">
         <a href="{% url 'officer_home' %}" class="text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 font-medium">
             &larr; Back to Officer Portal
         </a>

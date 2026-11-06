@@ -1,0 +1,38 @@
+{% comment %}
+Website refresh (src/ui_refresh.py): officer/partials/legislation_list.html
+as the app's activity list (officer/activity.tsx): one grouped card, a row
+per bill with a tile, status / voting closed / committee-or-Chapter / vote
+mode pills, the description, author and dates, and the View / Details
+buttons. Same links, fields and conditions as the partial it replaces (All
+Activity's legislation tabs).
+{% endcomment %}
+{% if legislation %}
+<div class="rf-card rf-ob-list">
+    {% for leg in legislation %}
+    <div class="rf-row rf-ob-leg">
+        <span class="rf-row-icon"><span class="rf-tile {% if leg.status == 'passed' %}is-green{% elif leg.status == 'removed' %}is-red{% elif type == 'committee' %}is-orange{% else %}is-purple{% endif %}" aria-hidden="true"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"/></svg></span></span>
+        <span class="rf-row-body">
+            <span class="rf-row-title">{{ leg.title }}</span>
+            <span class="rf-row-pills">
+                {% if leg.status == 'draft' %}<span class="rf-chip is-warning">Draft</span>{% elif leg.status == 'passed' %}<span class="rf-chip is-success">Passed</span>{% elif leg.status == 'removed' %}<span class="rf-chip is-danger">Removed</span>{% endif %}
+                {% if leg.voting_closed %}<span class="rf-chip">Voting Closed</span>{% endif %}
+                {% if type == "committee" %}<span class="rf-chip rf-ob-chip-orange">{{ leg.committee.code }}</span>{% else %}<span class="rf-chip rf-ob-chip-purple">Chapter</span>{% endif %}
+                <span class="rf-chip">{{ leg.vote_mode|title }}{% if leg.vote_mode == 'percentage' %} · {{ leg.required_percentage }}% required{% elif leg.vote_mode == 'peacewise' %} · {{ leg.required_number }} votes required{% endif %}</span>
+            </span>
+            <span class="rf-row-sub rf-ob-desc">{{ leg.description|truncatewords:30 }}</span>
+            <span class="rf-row-sub rf-ob-muted">{{ leg.posted_by.get_display_name }} · Created {{ leg.created_at|date:"M d, Y g:i A" }}{% if leg.available_at %} · Available {{ leg.available_at|date:"M d, Y g:i A" }}{% endif %}</span>
+        </span>
+        <span class="rf-ob-row-btns">
+            {% if leg.document %}<a href="{{ leg.document.url }}" target="_blank" class="rf-pill is-accent">View</a>{% endif %}
+            {% if type == "chapter" %}<a href="{% url 'legislation_detail' leg.id %}" class="rf-pill">Details</a>{% endif %}
+        </span>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="rf-card rf-empty">
+    <svg class="rf-empty-svg" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+    <p class="rf-empty-title">No Legislation Found</p>
+    <p class="rf-empty-sub">There is no legislation in this category.</p>
+</div>
+{% endif %}

@@ -3,12 +3,12 @@
 {% block title %}Recruitment Dashboard — {{ committee.name }}{% endblock %}
 
 {% block content %}
-<div class="container mx-auto px-4 py-8 max-w-5xl">
+<div class="container mx-auto px-4 py-8 max-w-5xl{% if ui_refresh %} rf-ct rf-ct-rec{% endif %}">
 
     <!-- Header -->
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div>
-            <a href="{% url 'committee_home' committee.code %}" class="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 flex items-center gap-1 mb-2">
+            <a href="{% url 'committee_home' committee.code %}" class="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 flex items-center gap-1 mb-2{% if ui_refresh %} rf-ct-back{% endif %}">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
                 {{ committee.name }}
             </a>
@@ -48,7 +48,7 @@
 
     <!-- Tabs -->
     <div class="border-b border-gray-200 dark:border-gray-700 mb-6">
-        <nav class="flex gap-6" aria-label="Tabs">
+        <nav class="flex gap-6{% if ui_refresh %} rf-ct-tabs{% endif %}" aria-label="Tabs">
             <button data-tab="events"
                     class="tab-btn pb-3 text-sm font-medium border-b-2 transition-colors"
                     :class="active === 'events' ? 'border-purple-600 text-purple-600 dark:text-purple-400 dark:border-purple-400' : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'">

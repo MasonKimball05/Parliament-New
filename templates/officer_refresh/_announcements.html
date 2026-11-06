@@ -1,0 +1,80 @@
+{% load custom_filters tz %}
+{% comment %}
+Website refresh (src/ui_refresh.py): Manage Announcements as the app's
+officer Announcements screen: a card per announcement with its status
+pills, the text (with the page script's Show more hook), when it publishes
+or happens, who posted it, the view rate, and the actions as app buttons.
+Same links, toggle button (js-toggle-announcement and its data-*), poll
+links and wording as manage_announcements.html.
+{% endcomment %}
+<div class="rf-stack rf-oann-list">
+    {% now "U" as current_timestamp %}
+    {% for announcement in announcements %}
+    {% with stats=announcement.get_view_stats %}
+    <div class="rf-card rf-oann-card">
+        <div class="rf-oann-main">
+            <div class="rf-oann-body">
+                <div class="rf-oann-head">
+                    <span class="rf-op-dot{% if announcement.is_active %} is-success{% endif %}" aria-hidden="true"></span>
+                    <h2 class="rf-oann-title">{{ announcement.title }}</h2>
+                </div>
+                <div class="rf-row-pills">
+                    {% if announcement.publish_at and announcement.publish_at|date:"U" > current_timestamp %}
+                    <span class="rf-chip rf-op-chip-purple">Scheduled</span>
+                    {% endif %}
+                    {% if announcement.is_active %}
+                    <span class="rf-chip is-success">Active</span>
+                    {% else %}
+                    <span class="rf-chip">Inactive</span>
+                    {% endif %}
+                    {% if announcement.event_date %}
+                    <span class="rf-chip is-accent">Event</span>
+                    {% endif %}
+                </div>
+                <div class="announcement-content-wrapper rf-oann-text">
+                    <p class="whitespace-pre-wrap break-words line-clamp-4 announcement-content">{{ announcement.content|linkify }}</p>
+                    <button type="button" class="expand-btn hidden rf-op-link">Show more ↓</button>
+                </div>
+                {% if announcement.publish_at %}
+                <p class="rf-oann-when is-purple"><strong>Publishes:</strong> {{ announcement.publish_at|date:"l, F j, Y \a\t g:i A" }}</p>
+                {% endif %}
+                {% if announcement.event_date %}
+                <p class="rf-oann-when"><strong>Event:</strong> {{ announcement.event_date|date:"l, F j, Y \a\t g:i A" }}</p>
+                {% endif %}
+                <p class="rf-op-meta">Posted by {{ announcement.posted_by.get_display_name }} · {{ announcement.posted_at|date:"M d, Y \a\t g:i A" }}</p>
+            </div>
+
+            <div class="rf-oann-stats">
+                <span class="rf-oann-rate">{{ stats.view_rate|floatformat:0 }}%</span>
+                <span class="rf-oann-rate-label">View Rate</span>
+                <span class="rf-oann-split">
+                    <span><strong>{{ stats.site_views }}</strong> Site</span>
+                    <span><strong>{{ stats.email_views }}</strong> Email</span>
+                </span>
+                <a href="{% url 'announcement_stats' announcement.id %}" class="rf-op-link">View Details →</a>
+            </div>
+        </div>
+
+        <div class="rf-op-actions">
+            <a href="{% url 'edit_announcement' announcement.id %}" class="rf-btn">Edit</a>
+            <button type="button"
+                    class="js-toggle-announcement rf-btn is-secondary"
+                    data-id="{{ announcement.id }}"
+                    data-url="{% url 'toggle_announcement_status' announcement.id %}"
+                    data-active="{{ announcement.is_active|yesno:'true,false' }}">{% if announcement.is_active %}Deactivate{% else %}Activate{% endif %}</button>
+            <a href="{% url 'announcement_stats' announcement.id %}" class="rf-btn is-secondary">View Stats</a>
+            {% if announcement.poll %}
+            <a href="{% url 'poll_results' announcement.id %}" class="rf-btn is-secondary">Poll Results</a>
+            {% else %}
+            <a href="{% url 'create_or_edit_poll' announcement.id %}" class="rf-btn is-secondary">+ Add Poll</a>
+            {% endif %}
+            <a href="{% url 'delete_announcement' announcement.id %}" class="rf-btn is-danger">Delete</a>
+        </div>
+    </div>
+    {% endwith %}
+    {% endfor %}
+</div>
+
+<div class="rf-mp-pages rf-op-pages">
+    {% include 'includes/pagination.html' with page_obj=page_obj %}
+</div>

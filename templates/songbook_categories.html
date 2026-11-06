@@ -4,7 +4,7 @@
 {% block title %}Manage Song Categories{% endblock %}
 
 {% block content %}
-<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8{% if ui_refresh %} rf-mp rf-mx rf-song-admin{% endif %}">
     <!-- Breadcrumb -->
     {% include 'includes/breadcrumbs.html' with back_url='/songbook/' back_label='Songbook' current='Manage Categories' %}
 

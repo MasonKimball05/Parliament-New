@@ -44,7 +44,7 @@ from rest_framework.response import Response
 from src import chat_safety, location_time
 from src.feature_flag_decorators import check_feature_enabled
 from src.forms.announcements import AnnouncementForm
-from src.forms.events import EventForm
+from src.forms.events import EventForm, default_reminder_hours
 from src.house_utils import can_set_house
 from src.mobile.api import MobileAPIView
 from src.mobile.views_directory import photo_path
@@ -381,6 +381,8 @@ def _event_options():
         'audiences': [{'value': v, 'label': label} for v, label in Event.MEMBER_TYPES],
         'committees': [{'code': c.code, 'name': c.name}
                        for c in Committee.objects.filter(is_active=True, code__gt='').order_by('name')],
+        # 11-06-26: the site setting a new event's reminder starts at.
+        'reminder_default_hours': default_reminder_hours(),
     }
 
 

@@ -1,0 +1,81 @@
+{% comment %}
+Website refresh (src/ui_refresh.py): Review Excuses as the app's officer
+Excuses screen: each event is a section title (date, place, committee and
+the pending/approved/denied counts) over its requests, and each request is a
+card with the member, when they asked, the reason, the attached document,
+and Deny / Approve (or the decision and who made it). Same requests (id
+excuse-N), quick-action buttons (js-quick-action and its data-*), links and
+wording as review_excuses.html; the page's modal and script are unchanged.
+{% endcomment %}
+<div class="rf-oexc-events">
+    {% for event_data in events_with_excuses %}
+    <section class="rf-oexc-event{% if event_data.is_past %} is-past{% endif %}">
+        <div class="rf-oexc-event-head">
+            <div class="rf-row-body">
+                <div class="rf-oev-titleline">
+                    <h3 class="rf-oexc-event-title">{{ event_data.event.title }}</h3>
+                    {% if event_data.event.committee %}
+                    <span class="rf-chip rf-op-chip-purple">{{ event_data.event.committee.name }}</span>
+                    {% endif %}
+                    {% if event_data.is_past %}
+                    <span class="rf-chip">Past</span>
+                    {% endif %}
+                </div>
+                <p class="rf-row-sub">{{ event_data.event.date_time|date:"l, M j, Y" }} at {{ event_data.event.date_time|date:"g:i A" }}{% if event_data.event.location %} · {{ event_data.event.location }}{% endif %}</p>
+            </div>
+            <div class="rf-row-pills">
+                {% if event_data.pending_count > 0 %}
+                <span class="rf-chip is-warning">{{ event_data.pending_count }} pending</span>
+                {% endif %}
+                <span class="rf-chip is-success">{{ event_data.approved_count }} approved</span>
+                <span class="rf-chip is-danger">{{ event_data.denied_count }} denied</span>
+            </div>
+        </div>
+
+        {% if event_data.excuses %}
+        <div class="rf-stack">
+            {% for excuse in event_data.excuses %}
+            <div class="rf-card is-padded rf-oexc-card" id="excuse-{{ excuse.id }}">
+                <div class="rf-oexc-who">
+                    <span class="rf-avatar" aria-hidden="true">{{ excuse.user.name|slice:":1"|upper }}</span>
+                    <span class="rf-row-body">
+                        <span class="rf-row-title">{{ excuse.user.get_display_name }}</span>
+                        <span class="rf-row-sub">{{ excuse.submitted_at|date:"M j, g:i A" }}</span>
+                    </span>
+                    {% if excuse.status == 'approved' %}
+                    <span class="rf-chip is-success">Approved</span>
+                    {% elif excuse.status == 'denied' %}
+                    <span class="rf-chip is-danger">Denied</span>
+                    {% endif %}
+                </div>
+                <p class="rf-oexc-reason">{{ excuse.reason }}</p>
+                {% if excuse.supporting_document %}
+                <a href="{% url 'excuse_document' excuse.id %}" target="_blank" class="rf-op-link rf-oexc-doc">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/></svg>
+                    View Document
+                </a>
+                {% endif %}
+                {% if excuse.review_notes %}
+                <p class="rf-oexc-notes">"{{ excuse.review_notes }}"</p>
+                {% endif %}
+                {% if excuse.status == 'pending' %}
+                <div class="rf-op-actions rf-oexc-actions">
+                    <button type="button" class="js-quick-action rf-btn is-secondary"
+                            data-excuse-id="{{ excuse.id }}" data-action="deny" data-user-name="{{ excuse.user.get_display_name|escapejs }}">Deny</button>
+                    <button type="button" class="js-quick-action rf-btn"
+                            data-excuse-id="{{ excuse.id }}" data-action="approve" data-user-name="{{ excuse.user.get_display_name|escapejs }}">Approve</button>
+                </div>
+                {% else %}
+                <p class="rf-op-meta">by {{ excuse.reviewed_by.get_display_name }}</p>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="rf-card rf-empty">
+            <p class="rf-empty-sub">No excuse requests match the current filter.</p>
+        </div>
+        {% endif %}
+    </section>
+    {% endfor %}
+</div>

@@ -1,0 +1,72 @@
+{% comment %}
+Website refresh (src/ui_refresh.py): All Events (officer) as two app
+sections, Upcoming and Past, each a card of rows: date block, title, time,
+place, author, the description, a Hidden pill for hidden events, and the
+Edit / Delete buttons. Same events, links and wording as
+view_all_events.html.
+{% endcomment %}
+<div class="rf-section-title">
+    <h2>Upcoming Events ({{ upcoming_events|length }})</h2>
+</div>
+{% if upcoming_events %}
+<div class="rf-card rf-oev-list">
+    {% for event in upcoming_events %}
+    <div class="rf-row rf-row-group rf-oev-row{% if not event.is_active %} is-muted{% endif %}">
+        <span class="rf-date" aria-hidden="true">
+            <span class="rf-date-month">{{ event.date_time|date:"M" }}</span>
+            <span class="rf-date-day">{{ event.date_time|date:"j" }}</span>
+        </span>
+        <div class="rf-row-body">
+            <span class="rf-row-title">{{ event.title }}</span>
+            <p class="rf-row-sub">{{ event.date_time|date:"M d, Y g:i A" }}{% if event.location %} · {{ event.location }}{% endif %} · Created by {{ event.created_by.get_display_name }}</p>
+            {% if event.description %}
+            <p class="rf-row-sub rf-oev-desc">{{ event.description|truncatewords:20 }}</p>
+            {% endif %}
+            <div class="rf-op-actions is-compact">
+                <a href="{% url 'edit_event' event.id %}" class="rf-btn is-sm">Edit</a>
+                <a href="{% url 'delete_event' event.id %}" class="rf-btn is-sm is-danger-soft">Delete</a>
+            </div>
+        </div>
+        {% if not event.is_active %}
+        <span class="rf-chip">Hidden</span>
+        {% endif %}
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="rf-card rf-empty">
+    <p class="rf-empty-title">No Upcoming Events</p>
+    <p class="rf-empty-sub">There are no scheduled events in the future.</p>
+    <a href="{% url 'create_event' %}" class="rf-btn rf-empty-btn">Create an Event</a>
+</div>
+{% endif %}
+
+<div class="rf-section-title">
+    <h2>Past Events ({{ past_events|length }})</h2>
+</div>
+{% if past_events %}
+<div class="rf-card rf-oev-list">
+    {% for event in past_events %}
+    <div class="rf-row rf-row-group rf-oev-row">
+        <span class="rf-date is-past" aria-hidden="true">
+            <span class="rf-date-month">{{ event.date_time|date:"M" }}</span>
+            <span class="rf-date-day">{{ event.date_time|date:"j" }}</span>
+        </span>
+        <div class="rf-row-body">
+            <span class="rf-row-title">{{ event.title }}</span>
+            <p class="rf-row-sub">{{ event.date_time|date:"M d, Y g:i A" }}{% if event.location %} · {{ event.location }}{% endif %}</p>
+            {% if event.description %}
+            <p class="rf-row-sub rf-oev-desc">{{ event.description|truncatewords:15 }}</p>
+            {% endif %}
+            <div class="rf-op-actions is-compact">
+                <a href="{% url 'delete_event' event.id %}" class="rf-btn is-sm is-danger-soft">Delete</a>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="rf-card rf-empty">
+    <p class="rf-empty-sub">No past events</p>
+</div>
+{% endif %}

@@ -688,6 +688,24 @@ def admin_v2_dashboard(request):
     """
     from src.models import CommitteeDocument, Vote, CommitteeVote
     from django.db import connection
+    from src.admin_console import console_enabled, home_layout, home_widgets
+
+    # The console home (src/admin_console.py) shows only the widgets this admin
+    # chose ("Customize"); `need(*widgets)` is False when none of them is
+    # shown, so their queries are skipped. The classic dashboard needs all.
+    console = console_enabled(request)
+    layout = home_layout(request.user) if console else None
+
+    def need(*widgets):
+        return layout is None or any(w in layout for w in widgets)
+
+    # What only the classic page displays (votes, documents, announcements,
+    # quarantine / IP blocks / honeypot / security emails, API tokens and
+    # requests, table count, the flag and toggle cards, push stats, page
+    # visits, slow requests): computed only when the classic page renders. No
+    # console widget reads any of it (home.html, home_widgets). The console
+    # gets empty values under the same names, so its context keeps its shape.
+    classic = layout is None
 
     # Gather comprehensive site statistics
     # User counts are collapsed into a single aggregate query (11 conditional COUNTs → 1 SQL query).
@@ -725,14 +743,17 @@ def admin_v2_dashboard(request):
     _month_start = _now.replace(day=1, hour=0, minute=0, second=0)
     _next_month = (_month_start + timezone.timedelta(days=32)).replace(day=1)
 
+    # On the console home only the Totals strip reads these four (legislation,
+    # events, committees, activity) and the login counts below.
+    _totals = need('totals')
     _legislation_agg = Legislation.objects.aggregate(
         total=Count('pk'),
         draft=Count('pk', filter=Q(status='draft')),
         passed=Count('pk', filter=Q(status='passed')),
         removed=Count('pk', filter=Q(status='removed')),
         voting_closed=Count('pk', filter=Q(voting_closed=True)),
-    )
-    _vote_total = Vote.objects.count()
+    ) if _totals else {}
+    _vote_total = Vote.objects.count() if classic else 0
 
     _event_agg = Event.objects.aggregate(
         total=Count('pk'),
@@ -741,7 +762,7 @@ def admin_v2_dashboard(request):
         archived=Count('pk', filter=Q(archived=True)),
         this_month=Count('pk', filter=Q(date_time__gte=_month_start,
                                         date_time__lt=_next_month)),
-    )
+    ) if _totals else {}
 
     # `with_members` was `annotate(Count('members')).filter(member_count__gt=0)
     # .count()`. As a conditional count that is "has at least one row in the M2M",
@@ -752,24 +773,24 @@ def admin_v2_dashboard(request):
         active=Count('pk', filter=Q(is_active=True), distinct=True),
         inactive=Count('pk', filter=Q(is_active=False), distinct=True),
         with_members=Count('pk', filter=Q(members__isnull=False), distinct=True),
-    )
+    ) if _totals else {}
     _document_agg = CommitteeDocument.objects.aggregate(
         total_documents=Count('pk'),
         published_docs=Count('pk', filter=Q(published_to_chapter=True)),
-    )
-    _committee_vote_total = CommitteeVote.objects.count()
+    ) if classic else {}
+    _committee_vote_total = CommitteeVote.objects.count() if classic else 0
 
     _announcement_agg = Announcement.objects.aggregate(
         total=Count('pk'),
         active=Count('pk', filter=Q(is_active=True)),
         inactive=Count('pk', filter=Q(is_active=False)),
-    )
+    ) if classic else {}
 
     _activity_agg = ActivityLog.objects.aggregate(
         total_activity_logs=Count('pk'),
         logs_last_24h=Count('pk', filter=Q(timestamp__gte=_24h)),
         logs_last_7d=Count('pk', filter=Q(timestamp__gte=_7d)),
-    )
+    ) if _totals else {}
 
     # `failed_logins_24h` keeps its `hasattr` guard: LoginHistory has no
     # `successful` field, so the original always produced 0 and no query. Left
@@ -778,7 +799,7 @@ def admin_v2_dashboard(request):
         total_logins=Count('pk'),
         logins_24h=Count('pk', filter=Q(timestamp__gte=_24h)),
         logins_7d=Count('pk', filter=Q(timestamp__gte=_7d)),
-    )
+    ) if _totals else {}
     _login_agg['failed_logins_24h'] = (
         LoginHistory.objects.filter(timestamp__gte=_24h, successful=False).count()
         if hasattr(LoginHistory, 'successful') else 0
@@ -807,11 +828,11 @@ def admin_v2_dashboard(request):
         released_at__isnull=True
     ).filter(
         Q(expires_at__isnull=True) | Q(expires_at__gt=_now)
-    ).count())
+    ).count()) if classic else 0
     _blocked_ip_total = _safe_count(
-        lambda: IPBlacklist.objects.filter(is_active=True).count())
+        lambda: IPBlacklist.objects.filter(is_active=True).count()) if classic else 0
     _honeypot_total = _safe_count(
-        lambda: HoneypotAccess.objects.filter(accessed_at__gte=_24h).count())
+        lambda: HoneypotAccess.objects.filter(accessed_at__gte=_24h).count()) if classic else 0
     _security_notification_agg = _safe_agg(
         lambda: SecurityNotificationLog.objects.aggregate(
             security_notifications_24h=Count('pk', filter=Q(sent_at__gte=_24h)),
@@ -819,18 +840,18 @@ def admin_v2_dashboard(request):
                 'pk', filter=Q(severity__in=['high', 'critical'], sent_at__gte=_24h)),
         ),
         {'security_notifications_24h': 0, 'critical_notifications': 0},
-    )
+    ) if classic else {'security_notifications_24h': 0, 'critical_notifications': 0}
 
     _api_token_agg = APIToken.objects.aggregate(
         total=Count('pk'),
         active=Count('pk', filter=Q(status=APIToken.STATUS_ACTIVE)),
         pending=Count('pk', filter=Q(status=APIToken.STATUS_PENDING)),
         revoked=Count('pk', filter=Q(status=APIToken.STATUS_REVOKED)),
-    )
+    ) if classic else {}
     _api_log_agg = APIAccessLog.objects.aggregate(
         requests_24h=Count('pk', filter=Q(timestamp__gte=_24h)),
         requests_7d=Count('pk', filter=Q(timestamp__gte=_7d)),
-    )
+    ) if classic else {}
 
     stats = {
         'users': _user_agg,
@@ -859,7 +880,7 @@ def admin_v2_dashboard(request):
             **_security_notification_agg,
         },
         'database': {
-            'tables': len(connection.introspection.table_names()),
+            'tables': len(connection.introspection.table_names()) if classic else 0,
         },
         'api': {
             **_api_token_agg,
@@ -873,7 +894,7 @@ def admin_v2_dashboard(request):
     # Get feature flags grouped by category — one query instead of two per category.
     # v3.17.3: materialised once and reused for the push-notification card
     # further down, which was re-querying the same table for a subset.
-    _all_flags = list(FeatureFlag.objects.order_by('category', 'name'))
+    _all_flags = list(FeatureFlag.objects.order_by('category', 'name')) if classic else []
     feature_flags = {}
     for flag in _all_flags:
         label = flag.get_category_display()
@@ -913,7 +934,7 @@ def admin_v2_dashboard(request):
             total_devices=Count('pk'),
         ),
         {'total_subscribers': 0, 'total_devices': 0},
-    )
+    ) if classic else {'total_subscribers': 0, 'total_devices': 0}
 
     # Recent activity logs (last 30)
     #
@@ -924,7 +945,7 @@ def admin_v2_dashboard(request):
     recent_logs = redact_kai_logs(
         ActivityLog.objects.select_related('user').defer(*member_defer('user')).order_by('-timestamp')[:30],
         request.user,
-    )
+    ) if need('activity') else []
 
     # Recent logins (last 20)
     recent_logins = LoginHistory.objects.select_related('user').defer(*member_defer('user')).order_by('-timestamp')[:20]
@@ -943,8 +964,8 @@ def admin_v2_dashboard(request):
     }
 
     # Performance metrics
-    performance_summary = get_performance_summary()
-    slow_requests = get_slow_requests(threshold_ms=1000, limit=5)
+    performance_summary = get_performance_summary() if need('performance', 'health') else {}
+    slow_requests = get_slow_requests(threshold_ms=1000, limit=5) if classic else []
 
     from src.models import SystemLockdown
     lockdown = SystemLockdown.get_instance()
@@ -955,7 +976,7 @@ def admin_v2_dashboard(request):
     ).aggregate(
         total=Count('user_id'),
         completed=Count('user_id', filter=Q(onboarding_complete=True)),
-    )
+    ) if need('users') else {'total': 0, 'completed': 0}
     onboarding_stats = {
         'total': _onboarding_agg['total'] or 0,
         'completed': _onboarding_agg['completed'] or 0,
@@ -969,25 +990,31 @@ def admin_v2_dashboard(request):
     # Page visit summary for dashboard card (PageVisit is cumulative — no timestamps)
     from django.db.models import Sum as _Sum
     # v3.17.3: the sum and the distinct-path count are one pass, not two.
-    _pv_agg = _safe_agg(
-        lambda: PageVisit.objects.aggregate(
-            total_hits=_Sum('count'),
-            unique_paths=Count('path', distinct=True),
-        ),
-        {'total_hits': 0, 'unique_paths': 0},
-    )
-    page_visit_summary = {
-        'total_hits': _pv_agg['total_hits'] or 0,
-        'unique_paths': _pv_agg['unique_paths'] or 0,
-        'top_paths': list(
-            PageVisit.objects.values('path')
-            .annotate(total=_Sum('count'))
-            .order_by('-total')[:5]
-        ),
-    }
+    if classic:
+        _pv_agg = _safe_agg(
+            lambda: PageVisit.objects.aggregate(
+                total_hits=_Sum('count'),
+                unique_paths=Count('path', distinct=True),
+            ),
+            {'total_hits': 0, 'unique_paths': 0},
+        )
+        page_visit_summary = {
+            'total_hits': _pv_agg['total_hits'] or 0,
+            'unique_paths': _pv_agg['unique_paths'] or 0,
+            'top_paths': list(
+                PageVisit.objects.values('path')
+                .annotate(total=_Sum('count'))
+                .order_by('-total')[:5]
+            ),
+        }
+    else:
+        page_visit_summary = {'total_hits': 0, 'unique_paths': 0, 'top_paths': []}
 
     # Celery health summary for dashboard card (v4.4.3: `celery_summary`, shared with the app)
-    celery_summary = dashboard_celery_summary()
+    # (A worker ping with a 1-second timeout: worth skipping when neither
+    # Service health nor Resources is on the console home.)
+    celery_summary = (dashboard_celery_summary() if need('health', 'resources')
+                      else {'workers_up': False, 'task_count': 0, 'stale_count': 0, 'disabled_count': 0})
 
     context = {
         'stats': stats,
@@ -1007,14 +1034,13 @@ def admin_v2_dashboard(request):
         'page_visit_summary': page_visit_summary,
         'celery_summary': celery_summary,
         'onboarding_stats': onboarding_stats,
-        'attention': attention_items(),
+        'attention': attention_items() if need('attention') else [],
     }
 
     # The console look (src/admin_console.py) shows the same numbers as widgets
     # on its home page, plus service health, alarms and sign-ins for the week.
-    from src.admin_console import console_enabled, home_widgets
-    if console_enabled(request):
-        context['home'] = home_widgets(stats, celery_summary, performance_summary, alarms)
+    if console:
+        context['home'] = home_widgets(stats, celery_summary, performance_summary, alarms, layout)
         return render(request, 'admin_v2/console/home.html', context)
     return render(request, 'admin_v2/dashboard.html', context)
 

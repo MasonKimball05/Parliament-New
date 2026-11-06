@@ -1,0 +1,39 @@
+{% comment %}
+Website refresh (src/ui_refresh.py): Member Progress on the officers'
+Service Hours Dashboard (service_hours/dashboard.html) as the app's
+officer Service Hours screen shows it: a row per member with an initial,
+approved/expected hours, a progress bar, the percent and any adjusted or
+pending hours. The row is tinted when the member is done. Keeps the
+Manage Expectations link and each row's Adjust hours button
+(js-open-adjust-modal with data-member-id / data-member-name), which the
+page's script opens the adjustment modal from.
+{% endcomment %}
+<div class="rf-shd-col">
+    <div class="rf-section-title"><h2>Member Progress</h2><a href="{% url 'manage_member_expectations' current_period.id %}">Manage Expectations</a></div>
+    <div class="rf-card rf-shd-members">
+        {% for item in member_progress %}
+        <div class="rf-shd-member{% if item.completed %} is-done{% endif %}">
+            <span class="rf-avatar" aria-hidden="true">{{ item.member.name|slice:":1" }}</span>
+            <div class="rf-shd-member-body">
+                <div class="rf-shd-member-head">
+                    <span class="rf-shd-member-name">{{ item.member.name }}</span>
+                    <span class="rf-shd-member-hours">{{ item.approved_hours }}/{{ item.expected_hours }}</span>
+                </div>
+                <progress class="rf-shd-bar" max="100" value="{{ item.progress_percent }}" aria-label="{{ item.member.name }}: {{ item.progress_percent }}% of expected hours">{{ item.progress_percent }}%</progress>
+                <div class="rf-shd-member-meta">
+                    {{ item.member.member_type }} · {{ item.progress_percent }}%{% if item.adjusted_hours and item.adjusted_hours != 0 %} · <span class="rf-shd-adjusted">{% if item.adjusted_hours > 0 %}+{% endif %}{{ item.adjusted_hours }} adjusted</span>{% endif %}{% if item.pending_hours > 0 %} · <span class="rf-shd-pending">+{{ item.pending_hours }} pending</span>{% endif %}
+                </div>
+            </div>
+            <button type="button" class="js-open-adjust-modal rf-shd-adjust"
+                    data-member-id="{{ item.member.user_id }}" data-member-name="{{ item.member.name }}"
+                    title="Adjust hours" aria-label="Adjust hours for {{ item.member.name }}">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+                </svg>
+            </button>
+        </div>
+        {% empty %}
+        <div class="rf-empty"><p class="rf-empty-title">No members found</p></div>
+        {% endfor %}
+    </div>
+</div>

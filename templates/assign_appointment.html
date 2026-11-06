@@ -3,10 +3,10 @@
 {% block title %}Assign Role — {{ legislation.title }}{% endblock %}
 
 {% block content %}
-<div class="container mx-auto px-4 py-8 max-w-lg">
+<div class="container mx-auto px-4 py-8 max-w-lg{% if ui_refresh %} rf-sdl rf-sdl-form rf-leg-assign{% endif %}">
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
         <!-- Header -->
-        <div class="bg-green-50 dark:bg-green-900/20 border-b border-green-200 dark:border-green-800 px-6 py-5">
+        <div class="bg-green-50 dark:bg-green-900/20 border-b border-green-200 dark:border-green-800 px-6 py-5{% if ui_refresh %} rf-leg-assign-head{% endif %}">
             <div class="flex items-center gap-3">
                 <div class="flex-shrink-0 w-10 h-10 bg-green-100 dark:bg-green-900/40 rounded-full flex items-center justify-center">
                     <svg class="w-6 h-6 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">

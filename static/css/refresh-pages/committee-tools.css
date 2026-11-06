@@ -1,0 +1,448 @@
+/* =========================================================================
+   Website refresh: a committee's own chair and officer tools, and the
+   pledge quiz pages, in the app's look.
+
+   Loaded by base.html after refresh.css, only when `ui_refresh` is on (see
+   src/ui_refresh.py). Plain CSS, no Tailwind build; refresh.css's tokens
+   (--rf-*). Each template adds `rf-ct` and one page class to its outer
+   <div> (and `rf-ct-band` to the full-width blue band the education and
+   quiz pages open with), plus a few `rf-ct-*` hooks on the markup it
+   already has. Nothing is swapped out: every link, form, field and script
+   hook is the page's own. Every rule is scoped under `.ui-refresh .rf-ct…`,
+   which also outranks the Tailwind utilities (and their `dark:` variants)
+   these pages are built from, so nothing needs !important.
+
+     .rf-ct-att            committee/attendance.html
+     .rf-ct-atthist        committee/attendance_history.html
+     .rf-ct-chvote         committee/create_chapter_vote.html
+     .rf-ct-newcmte        committee/create_committee.html
+     .rf-ct-newvote        committee/create_vote.html
+     .rf-ct-detail         committee/detail.html (archived view; kept in step)
+     .rf-ct-chatset        committee/edit_chat_settings.html
+     .rf-ct-chatperm       committee/manage_chat_permissions.html
+     .rf-ct-cmtes          committee/manage_committees.html
+     .rf-ct-members        committee/manage_members.html
+     .rf-ct-perms          committee/member_permissions.html
+     .rf-ct-eduperm        committee/manage_education_permissions.html
+     .rf-ct-kaiperm        committee/manage_kai_permissions.html
+     .rf-ct-recperm        committee/manage_recruitment_permissions.html
+     .rf-ct-push           committee/push_to_chapter.html
+     .rf-ct-upload         committee/upload_document.html
+     .rf-ct-edu            committee/education_dashboard.html
+     .rf-ct-edu-att        committee/education_meeting_attendance.html
+     .rf-ct-edu-meeting    committee/education_meeting_form.html
+     .rf-ct-edu-pledge     committee/education_pledge_detail.html
+     .rf-ct-edu-analysis   committee/education_quiz_analysis.html
+     .rf-ct-edu-questions  committee/education_quiz_questions.html
+     .rf-ct-edu-subs       committee/education_quiz_submissions.html
+     .rf-ct-edu-study      committee/education_study_hours.html
+     .rf-ct-edu-task       committee/education_task_form.html
+     .rf-ct-rec            committee/recruitment_dashboard.html
+     .rf-ct-rec-cand       committee/recruitment_candidate_form.html
+     .rf-ct-rec-cands      committee/recruitment_candidate_list.html (legacy; the
+                           URL now opens the dashboard's Candidates tab)
+     .rf-ct-rec-event      committee/recruitment_event_detail.html
+     .rf-ct-rec-eventform  committee/recruitment_event_form.html
+     .rf-ct-quiz           pledge/take_quiz.html
+     .rf-ct-quiz-analysis  pledge/quiz_analysis.html
+     .rf-ct-quiz-na        pledge/quiz_not_available.html
+
+   Mirrors parliament-mobile src/app/committee/[code]/ (attendance,
+   attendance-history, members, permissions, *-permissions, chat-*,
+   document-upload, new-vote, chapter-vote, education/*, recruitment/*).
+   ========================================================================= */
+
+:root.ui-refresh {
+    --rf-ct-purple: #553aa8;
+    --rf-ct-purple-soft: #ece6fa;
+    --rf-ct-orange: #8f4200;
+    --rf-ct-orange-soft: #fdeedd;
+}
+:root.ui-refresh.dark {
+    --rf-ct-purple: #c9bcf6;
+    --rf-ct-purple-soft: #2b2452;
+    --rf-ct-orange: #f5a65b;
+    --rf-ct-orange-soft: #3a2412;
+}
+
+/* ---------- Column and titles -------------------------------------------- */
+
+/* Pages without a width of their own get the app's iPad column, a little
+   wider for the web; the rest keep theirs (all at most 6xl). */
+.ui-refresh .rf-ct.container:not([class*="max-w-"]) { max-width: 1080px; }
+.ui-refresh .rf-ct { padding-bottom: 48px; }
+.ui-refresh .rf-ct.min-h-screen { padding-bottom: 0; }
+
+/* Large titles (outside the blue bands) */
+.ui-refresh .rf-ct :is(h1, h2):is(.text-2xl, .text-3xl):not(.rf-ct-band *):not(.text-white *) {
+    font-size: clamp(24px, 3.6vw, 30px);
+    line-height: 1.2;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: var(--rf-text);
+    overflow-wrap: anywhere;
+}
+/* Card titles */
+.ui-refresh .rf-ct :is(h2, h3):is(.text-xl, .text-lg, .text-base):not(.rf-ct-band *) {
+    font-weight: 700;
+    letter-spacing: -0.01em;
+}
+/* Small-caps headings the pages already have (Contact Info, Pipeline…):
+   the app's SectionTitle ink */
+.ui-refresh .rf-ct :is(h2, h3, th, label, p).uppercase.tracking-wider {
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    color: var(--rf-text-muted);
+}
+
+/* "← Back to …" text links: the app's back button (accent, 600) */
+.ui-refresh .rf-ct .rf-ct-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--rf-accent);
+    text-decoration: none;
+}
+.ui-refresh .rf-ct .rf-ct-back:hover { text-decoration: underline; }
+
+/* ---------- Blue bands ---------------------------------------------------- */
+
+/* The education and quiz pages open with a full-width gradient band: the
+   app's hero, flat chapter blue (navy in dark) fading into the page, with
+   the content riding up over the fade. */
+.ui-refresh .rf-ct .rf-ct-band {
+    background-image: linear-gradient(180deg, var(--rf-hero) 0%, var(--rf-hero) 62%, var(--rf-hero-fade) 88%, var(--rf-bg) 100%);
+    background-color: var(--rf-hero);
+    --tw-shadow: 0 0 #0000;
+    box-shadow: none;
+    padding-top: 26px;
+    padding-bottom: 64px;
+}
+.ui-refresh .rf-ct .rf-ct-band + * { position: relative; margin-top: -44px; padding-top: 0; }
+.ui-refresh .rf-ct .rf-ct-band h1 {
+    font-size: clamp(24px, 4vw, 32px);
+    line-height: 1.15;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: var(--rf-hero-text);
+    overflow-wrap: anywhere;
+}
+.ui-refresh .rf-ct .rf-ct-band :is(.text-primary-100, .text-primary-200, .text-white\/70, .text-white\/75, .text-white\/80) { color: var(--rf-hero-muted); }
+.ui-refresh .rf-ct .rf-ct-band a:is(.text-primary-200, .text-primary-100) { font-weight: 600; }
+.ui-refresh .rf-ct .rf-ct-band a:is(.text-primary-200, .text-primary-100):hover { color: var(--rf-hero-text); }
+/* Glass buttons on the band (bg-white/10, /20 …) */
+.ui-refresh .rf-ct .rf-ct-band :is(a, button):is([class*="bg-white/"]) {
+    background-color: var(--rf-hero-glass);
+    box-shadow: inset 0 0 0 1px var(--rf-hero-glass-border);
+    border-radius: var(--rf-radius-control);
+    color: var(--rf-hero-text);
+    font-weight: 600;
+}
+.ui-refresh .rf-ct .rf-ct-band :is(a, button):is([class*="bg-white/"]):hover { background-color: rgba(255, 255, 255, 0.26); }
+/* A solid white button on the band: white pill, accent ink */
+.ui-refresh .rf-ct .rf-ct-band :is(a, button).bg-white { background-color: #ffffff; color: var(--rf-accent); border-radius: var(--rf-radius-control); font-weight: 700; }
+:root.ui-refresh.dark .rf-ct .rf-ct-band :is(a, button).bg-white { color: #0f2a5c; }
+
+/* The rounded banners (bg-gradient-to-br, flattened by refresh.css) keep
+   their gold rule; their glass buttons match the bands'. */
+.ui-refresh .rf-ct .bg-gradient-to-br.from-primary-600 :is(a, button):is([class*="bg-white/"]) {
+    background-color: var(--rf-hero-glass);
+    box-shadow: inset 0 0 0 1px var(--rf-hero-glass-border);
+    border-radius: var(--rf-radius-control);
+    font-weight: 600;
+}
+.ui-refresh .rf-ct .bg-gradient-to-br.from-primary-600 :is(a, button):is([class*="bg-white/"]):hover { background-color: rgba(255, 255, 255, 0.26); }
+.ui-refresh .rf-ct .bg-gradient-to-br.from-primary-600 > div[class*="bg-white/"] {
+    background-color: var(--rf-hero-glass);
+    border-color: var(--rf-hero-glass-border);
+    border-radius: 12px;
+}
+
+/* The banner's own primary action (Mark Today's Attendance): a white
+   button with accent ink, as on the app's hero */
+.ui-refresh .rf-ct .bg-gradient-to-br.from-primary-600 a[class*="bg-green-500"] {
+    background-color: #ffffff;
+    color: var(--rf-hero);
+    border-radius: var(--rf-radius-control);
+    font-weight: 700;
+}
+.ui-refresh .rf-ct .bg-gradient-to-br.from-primary-600 a[class*="bg-green-500"]:hover { background-color: rgba(255, 255, 255, 0.88); }
+
+/* ---------- Cards ---------------------------------------------------------- */
+
+/* refresh.css draws the card edge as a ring in the shadow; a second, real
+   border on the same card is dropped. */
+.ui-refresh .rf-ct :is(.rounded-xl, .rounded-lg).border:is(.shadow-sm, .shadow, .shadow-md, .shadow-lg):not(.border-2):not([class*="border-l-"]) { border-color: transparent; }
+.ui-refresh .rf-ct :is(div, form, section).bg-white.rounded-lg:is(.shadow, .shadow-sm, .shadow-md) { border-radius: var(--rf-radius-card); }
+.ui-refresh .rf-ct .shadow-lg:not(.rf-ct-band):not(.fixed *) { --tw-shadow: 0 0 0 1px var(--rf-card-border), 0 4px 14px var(--rf-shadow); }
+.ui-refresh .rf-ct .bg-gradient-to-br.from-primary-600.shadow-lg { --tw-shadow: 0 0 #0000; }
+
+/* Card header strips (`px-6 py-4 border-b …`) */
+.ui-refresh .rf-ct .rounded-xl > .border-b:first-child { border-color: var(--rf-separator); }
+
+/* Inner grey panels on a card (bg-gray-50 / dark:bg-gray-700…): the app's
+   muted fill, not the page colour */
+.ui-refresh .rf-ct :is(.bg-white, .rounded-xl) :is(.bg-gray-50, .bg-gray-100):not(button):not(a):not(thead):not(tr):not(.rf-ct-list > *) { background-color: var(--rf-surface-muted); }
+.ui-refresh .rf-ct :is(.bg-white, .rounded-xl) :is(.bg-gray-50, .bg-gray-100):not(button):not(a):not(thead):not(tr):not(.rf-ct-list > *).border { border-color: transparent; }
+
+/* Notes and callouts (tinted boxes, some with a coloured left edge): the
+   app's soft tones, no edge. */
+.ui-refresh .rf-ct :is(.bg-yellow-50, .bg-amber-50, .bg-blue-50, .bg-primary-50, .bg-green-50, .bg-red-50, .bg-purple-50):is(.rounded, .rounded-lg, .rounded-xl, .rounded-r-lg, .rounded-md) {
+    border-color: transparent;
+    border-left-width: 0;
+    border-radius: 12px;
+}
+
+/* ---------- Tables (grouped list look) -------------------------------------- */
+
+.ui-refresh .rf-ct table thead,
+.ui-refresh .rf-ct table thead tr { background-color: transparent; }
+.ui-refresh .rf-ct table th {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--rf-text-muted);
+    border-bottom: 1px solid var(--rf-separator);
+}
+.ui-refresh .rf-ct table tbody { background-color: transparent; }
+.ui-refresh .rf-ct table td { color: var(--rf-text); }
+.ui-refresh .rf-ct table td :is(.text-gray-500, .text-gray-400) { color: var(--rf-text-muted); }
+.ui-refresh .rf-ct table tbody tr:hover { background-color: var(--rf-surface-muted); }
+.ui-refresh .rf-ct .overflow-x-auto { -webkit-overflow-scrolling: touch; }
+/* A sticky first column keeps the card's own fill as the rows slide under */
+.ui-refresh .rf-ct table th.sticky.left-0 { background-color: var(--rf-surface); }
+/* Phones: tighter cells, so more of a wide table shows before it scrolls
+   (inside its card; the page never scrolls sideways) */
+@media (max-width: 639px) {
+    .ui-refresh .rf-ct table :is(th, td):is(.px-6, .px-5, .px-4) { padding-left: 12px; padding-right: 12px; }
+}
+
+/* ---------- Pills and tinted ink -------------------------------------------- */
+
+/* Tinted fills and toned ink: the app's soft tones (the same tokens in light
+   and dark). Each light class is listed; this scope outranks its dark: twin. */
+.ui-refresh .rf-ct :is(.text-green-500, .text-green-600, .text-green-700, .text-green-800, .text-emerald-600, .text-emerald-700) { color: var(--rf-success); }
+.ui-refresh .rf-ct :is(.text-yellow-500, .text-yellow-600, .text-yellow-700, .text-yellow-800, .text-amber-500, .text-amber-600, .text-amber-700, .text-amber-800) { color: var(--rf-warning); }
+.ui-refresh .rf-ct :is(.text-red-500, .text-red-600, .text-red-700, .text-red-800) { color: var(--rf-danger); }
+.ui-refresh .rf-ct :is(.text-blue-600, .text-blue-700, .text-blue-800, .text-primary-800, .text-indigo-600, .text-indigo-700) { color: var(--rf-accent-on-soft); }
+.ui-refresh .rf-ct :is(.text-purple-600, .text-purple-700, .text-purple-800) { color: var(--rf-ct-purple); }
+.ui-refresh .rf-ct :is(.text-orange-600, .text-orange-700, .text-orange-800) { color: var(--rf-ct-orange); }
+.ui-refresh .rf-ct :is(.bg-green-50, .bg-green-100, .bg-emerald-100) { background-color: var(--rf-success-soft); }
+.ui-refresh .rf-ct :is(.bg-yellow-50, .bg-yellow-100, .bg-amber-50, .bg-amber-100) { background-color: var(--rf-warning-soft); }
+.ui-refresh .rf-ct :is(.bg-red-50, .bg-red-100) { background-color: var(--rf-danger-soft); }
+.ui-refresh .rf-ct :is(.bg-blue-50, .bg-blue-100, .bg-primary-50, .bg-primary-100, .bg-indigo-100) { background-color: var(--rf-accent-soft); }
+.ui-refresh .rf-ct :is(.bg-purple-50, .bg-purple-100) { background-color: var(--rf-ct-purple-soft); }
+.ui-refresh .rf-ct :is(.bg-orange-50, .bg-orange-100) { background-color: var(--rf-ct-orange-soft); }
+.ui-refresh .rf-ct :is(.border-green-200, .border-yellow-200, .border-amber-200, .border-red-200, .border-blue-200, .border-primary-200, .border-purple-200, .border-orange-200) { border-color: transparent; }
+/* Ink on those fills stays readable in dark (the dark: text variants are
+   pale on the pale-in-light fills) */
+.ui-refresh .rf-ct :is(.bg-green-100, .bg-green-50) :is([class*="text-green-"]) { color: var(--rf-success); }
+.ui-refresh .rf-ct :is(.bg-red-100, .bg-red-50) :is([class*="text-red-"]) { color: var(--rf-danger); }
+.ui-refresh .rf-ct :is(.bg-yellow-50, .bg-yellow-100, .bg-amber-50, .bg-amber-100) :is([class*="text-yellow-"], [class*="text-amber-"]) { color: var(--rf-warning); }
+.ui-refresh .rf-ct :is(.bg-primary-50, .bg-blue-50) :is([class*="text-primary-"], [class*="text-blue-"]) { color: var(--rf-accent-on-soft); }
+
+/* Pills (kit Pill: 999px, 12px/600) */
+.ui-refresh .rf-ct span.rounded-full:is(.text-xs, .text-sm):not(:empty):is([class*="bg-"]),
+.ui-refresh .rf-ct span.rounded:is(.text-xs):is([class*="bg-"]):not(:empty) {
+    border-radius: 999px;
+    font-weight: 600;
+}
+.ui-refresh .rf-ct span:is(.rounded-full, .rounded):is(.bg-gray-100, .bg-gray-200):not(:empty) { background-color: var(--rf-surface-muted); color: var(--rf-text-secondary); }
+
+/* ---------- Buttons ------------------------------------------------------------ */
+
+/* Solid utility buttons: the app's PrimaryButton (accent), its destructive
+   variant (danger) and the secondary (outlined accent). */
+.ui-refresh .rf-ct :is(a, button, input[type="submit"]):is(.bg-primary-500, .bg-primary-600, .bg-primary-700, .bg-blue-500, .bg-blue-600, .bg-green-500, .bg-green-600, .bg-emerald-600, .bg-purple-500, .bg-purple-600, .bg-indigo-600):not(.rf-ct-band *) {
+    background-color: var(--rf-accent);
+    background-image: none;
+    color: var(--rf-accent-text);
+    border-color: transparent;
+    border-radius: var(--rf-radius-control);
+    font-weight: 600;
+}
+.ui-refresh .rf-ct :is(a, button, input[type="submit"]):is(.bg-primary-500, .bg-primary-600, .bg-primary-700, .bg-blue-500, .bg-blue-600, .bg-green-500, .bg-green-600, .bg-emerald-600, .bg-purple-500, .bg-purple-600, .bg-indigo-600):not(.rf-ct-band *):hover { background-color: var(--rf-accent-hover); }
+.ui-refresh .rf-ct :is(a, button):is(.bg-red-500, .bg-red-600, .bg-red-700) {
+    background-color: var(--rf-danger);
+    color: #ffffff;
+    border-radius: var(--rf-radius-control);
+    font-weight: 600;
+}
+:root.ui-refresh.dark .rf-ct :is(a, button):is(.bg-red-500, .bg-red-600, .bg-red-700) { color: var(--rf-accent-text); }
+.ui-refresh .rf-ct :is(a, button):is(.bg-red-500, .bg-red-600, .bg-red-700):hover { filter: brightness(0.94); }
+.ui-refresh .rf-ct :is(a, button):is(.bg-gray-200, .bg-gray-300, .bg-gray-500, .bg-gray-600):not(.rf-ct-band *) {
+    background-color: transparent;
+    color: var(--rf-accent);
+    box-shadow: inset 0 0 0 1.5px var(--rf-accent);
+    border-color: transparent;
+    border-radius: var(--rf-radius-control);
+    font-weight: 600;
+}
+.ui-refresh .rf-ct :is(a, button):is(.bg-gray-200, .bg-gray-300, .bg-gray-500, .bg-gray-600):not(.rf-ct-band *):hover { background-color: var(--rf-accent-soft); }
+/* Outlined (Cancel) buttons */
+.ui-refresh .rf-ct :is(a, button).border:is(.border-gray-300, .border-gray-200):not([class*="bg-"]),
+.ui-refresh .rf-ct :is(a, button).border:is(.border-gray-300, .border-gray-200).bg-white {
+    border-color: transparent;
+    box-shadow: inset 0 0 0 1.5px var(--rf-separator);
+    border-radius: var(--rf-radius-control);
+    color: var(--rf-text-secondary);
+    font-weight: 600;
+}
+.ui-refresh .rf-ct :is(a, button).border:is(.border-gray-300, .border-gray-200):hover { background-color: var(--rf-surface-muted); }
+/* Small tinted buttons (Take attendance, Edit, Adjust…) */
+.ui-refresh .rf-ct :is(a, button):is(.bg-primary-50, .bg-primary-100, .bg-blue-50, .bg-blue-100) { color: var(--rf-accent-on-soft); font-weight: 600; border-radius: 8px; }
+.ui-refresh .rf-ct :is(a, button):is(.bg-red-50, .bg-red-100) { color: var(--rf-danger); font-weight: 600; border-radius: 8px; }
+.ui-refresh .rf-ct :is(a, button):is(.bg-green-50, .bg-green-100) { color: var(--rf-success); font-weight: 600; border-radius: 8px; }
+.ui-refresh .rf-ct :is(a, button, input[type="submit"]):is(.rounded, .rounded-md):is([class*="px-"]):is([class*="bg-"], .border) { border-radius: var(--rf-radius-control); }
+.ui-refresh .rf-ct :is(a, button):focus-visible { outline: 2px solid var(--rf-accent); outline-offset: 2px; }
+
+/* ---------- Fields (form.tsx Field: filled, borderless, 10px) --------------- */
+
+.ui-refresh .rf-ct :is(input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="color"]):not([type="hidden"]):not([type="range"]):not([type="submit"]):not([type="button"]), select, textarea) {
+    background-color: var(--rf-surface-muted);
+    border-color: transparent;
+    border-radius: var(--rf-radius-control);
+    color: var(--rf-text);
+}
+.ui-refresh .rf-ct :is(input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="color"]):not([type="hidden"]):not([type="range"]):not([type="submit"]):not([type="button"]), select, textarea):focus {
+    background-color: var(--rf-surface);
+    border-color: var(--rf-accent);
+    outline: 2px solid transparent;
+    --tw-ring-color: var(--rf-accent);
+    box-shadow: 0 0 0 1px var(--rf-accent);
+}
+.ui-refresh .rf-ct :is(input, textarea)::placeholder { color: var(--rf-text-muted); }
+.ui-refresh .rf-ct select[multiple] { padding-top: 6px; padding-bottom: 6px; }
+.ui-refresh .rf-ct select[multiple] option { padding: 4px 8px; border-radius: 6px; }
+.ui-refresh .rf-ct input[type="file"] {
+    background-color: var(--rf-surface-muted);
+    border-color: transparent;
+    border-radius: var(--rf-radius-control);
+    color: var(--rf-text-secondary);
+    max-width: 100%;
+}
+.ui-refresh .rf-ct input[type="file"]::file-selector-button {
+    margin-right: 12px;
+    border: 0;
+    border-radius: 8px;
+    padding: 6px 12px;
+    background: var(--rf-accent-soft);
+    color: var(--rf-accent-on-soft);
+    font-weight: 600;
+    cursor: pointer;
+}
+.ui-refresh .rf-ct :is(input[type="checkbox"], input[type="radio"]) { accent-color: var(--rf-accent); }
+.ui-refresh .rf-ct label:is(.block, .font-medium):is(.text-sm) { font-weight: 600; color: var(--rf-text-secondary); }
+/* Choice cards (a label holding a checkbox and its explanation) */
+.ui-refresh .rf-ct label.border:is(.rounded-lg, .rounded-xl):has(input[type="checkbox"], input[type="radio"]) {
+    border-color: transparent;
+    background-color: var(--rf-surface-muted);
+    border-radius: 12px;
+}
+.ui-refresh .rf-ct label.border:is(.rounded-lg, .rounded-xl):has(input:checked) { box-shadow: inset 0 0 0 1.5px var(--rf-accent); background-color: var(--rf-accent-soft); }
+
+/* ---------- Modals -------------------------------------------------------------- */
+
+.ui-refresh .rf-ct .fixed.inset-0 > div:is(.bg-white, [class*="bg-white"]):is(.rounded-lg, .rounded-xl, .rounded-2xl),
+.ui-refresh .rf-ct .fixed.inset-0 .relative.bg-white:is(.rounded-lg, .rounded-xl) {
+    border-radius: 18px;
+    box-shadow: 0 0 0 1px var(--rf-card-border), 0 18px 48px rgba(0, 0, 0, 0.28);
+}
+
+/* ---------- Grouped rows (`rf-ct-list`): a list of tinted boxes becomes one
+   grouped list, hairlines between rows ------------------------------------ */
+
+.ui-refresh .rf-ct .rf-ct-list > :not([hidden]) ~ :not([hidden]) { margin-top: 0; }
+.ui-refresh .rf-ct .rf-ct-list > * {
+    border: 0;
+    border-radius: 0;
+    background-color: transparent;
+}
+.ui-refresh .rf-ct .rf-ct-list > * + * { border-top: 1px solid var(--rf-separator); }
+.ui-refresh .rf-ct .rf-ct-list > *:hover { background-color: var(--rf-surface-muted); }
+.ui-refresh .rf-ct .rf-ct-list {
+    margin-left: -24px;
+    margin-right: -24px;
+}
+.ui-refresh .rf-ct .rf-ct-list > * { padding-left: 24px; padding-right: 24px; }
+@media (min-resolution: 2dppx) { .ui-refresh .rf-ct .rf-ct-list > * + * { border-top-width: 0.5px; } }
+
+/* ---------- Shared, continued ------------------------------------------------ */
+
+/* Accent notes sitting on the page itself: their soft fill is almost the
+   page's own off-white, so they become cards with the accent ink. */
+.ui-refresh .rf-ct :is(.bg-primary-50, .bg-blue-50):not(:is(.bg-white, .rounded-xl, .fixed) *):not(a):not(button) {
+    background-color: var(--rf-surface);
+    box-shadow: 0 0 0 1px var(--rf-card-border), 0 3px 10px var(--rf-shadow);
+}
+
+/* Solid label pills (white text on a saturated fill: event types and the
+   like): the app's soft pill in the same hue */
+.ui-refresh .rf-ct span.text-white.rounded-full:is(.bg-blue-500, .bg-blue-600, .bg-primary-500, .bg-primary-600) { background-color: var(--rf-accent-soft); color: var(--rf-accent-on-soft); }
+.ui-refresh .rf-ct span.text-white.rounded-full:is(.bg-orange-500, .bg-orange-600, .bg-amber-500) { background-color: var(--rf-ct-orange-soft); color: var(--rf-ct-orange); }
+.ui-refresh .rf-ct span.text-white.rounded-full:is(.bg-pink-500, .bg-purple-500, .bg-purple-600) { background-color: var(--rf-ct-purple-soft); color: var(--rf-ct-purple); }
+.ui-refresh .rf-ct span.text-white.rounded-full:is(.bg-red-500, .bg-red-600) { background-color: var(--rf-danger-soft); color: var(--rf-danger); }
+.ui-refresh .rf-ct span.text-white.rounded-full:is(.bg-green-500, .bg-green-600) { background-color: var(--rf-success-soft); color: var(--rf-success); }
+.ui-refresh .rf-ct span.text-white.rounded-full:is(.bg-gray-400, .bg-gray-500, .bg-gray-600) { background-color: var(--rf-surface-muted); color: var(--rf-text-secondary); }
+.ui-refresh .rf-ct span.text-white.rounded-full { font-size: 12px; font-weight: 600; }
+
+/* Outlined accent-hued buttons (+ Add Candidate…): the secondary button */
+.ui-refresh .rf-ct :is(a, button).border:is(.border-purple-300, .border-primary-300, .border-blue-300, .border-primary-600, .border-purple-600):not(.tab-btn) {
+    border-color: transparent;
+    box-shadow: inset 0 0 0 1.5px var(--rf-accent);
+    color: var(--rf-accent);
+    border-radius: var(--rf-radius-control);
+    font-weight: 600;
+}
+.ui-refresh .rf-ct :is(a, button).border:is(.border-purple-300, .border-primary-300, .border-blue-300, .border-primary-600, .border-purple-600):not(.tab-btn):hover { background-color: var(--rf-accent-soft); }
+
+/* Whole-card links: a pressed row's tint, not a coloured edge */
+.ui-refresh .rf-ct a.block.bg-white:hover,
+.ui-refresh .rf-ct a.flex.bg-white:hover { background-color: var(--rf-surface-muted); border-color: transparent; }
+
+/* A bare form on the page: one card */
+.ui-refresh .rf-ct .rf-ct-formcard {
+    padding: 20px;
+    border-radius: var(--rf-radius-card);
+    background-color: var(--rf-surface);
+    box-shadow: 0 0 0 1px var(--rf-card-border), 0 3px 10px var(--rf-shadow);
+}
+@media (min-width: 640px) { .ui-refresh .rf-ct .rf-ct-formcard { padding: 24px; } }
+
+/* Underlined tabs: the app's segmented control */
+.ui-refresh .rf-ct .rf-ct-tabs {
+    display: inline-flex;
+    gap: 2px;
+    padding: 3px;
+    border-radius: 12px;
+    background-color: var(--rf-surface-muted);
+    max-width: 100%;
+    overflow-x: auto;
+}
+.ui-refresh .rf-ct div:has(> .rf-ct-tabs) { border-bottom-width: 0; }
+.ui-refresh .rf-ct .rf-ct-tabs .tab-btn {
+    padding: 7px 14px;
+    border: 0;
+    border-radius: 9px;
+    font-weight: 600;
+    white-space: nowrap;
+    color: var(--rf-text-secondary);
+}
+.ui-refresh .rf-ct .rf-ct-tabs .tab-btn.border-purple-600 {
+    background-color: var(--rf-surface);
+    color: var(--rf-text);
+    box-shadow: 0 1px 3px rgba(15, 35, 80, 0.14);
+}
+:root.ui-refresh.dark .rf-ct .rf-ct-tabs .tab-btn.border-purple-600 { background-color: var(--rf-separator); }
+.ui-refresh .rf-ct .rf-ct-tabs .tab-btn span.rounded-full { background-color: var(--rf-accent-soft); color: var(--rf-accent-on-soft); font-weight: 600; }
+
+/* ---------- Committee attendance ------------------------------------------------ */
+
+.ui-refresh .rf-ct-att .rf-ct-list input[type="checkbox"] { width: 22px; height: 22px; }
+.ui-refresh .rf-ct-att .rf-ct-list > div { padding-top: 12px; padding-bottom: 12px; }
+.ui-refresh .rf-ct-members .rf-ct-list > li { padding-top: 14px; padding-bottom: 14px; }
+.ui-refresh .rf-ct-members .rf-ct-list button { font-weight: 600; }

@@ -4,9 +4,9 @@
 {% block title %}Confirm Email Send - Parliament{% endblock %}
 
 {% block admin_content %}
-<div class="container mx-auto px-4 py-8 max-w-4xl">
+<div class="container mx-auto px-4 py-8 max-w-4xl{% if ui_refresh %} rf-mp rf-op rf-oemail{% endif %}">
     <!-- Header -->
-    <div class="bg-gradient-to-r from-yellow-500 to-orange-500 dark:from-yellow-600 dark:to-orange-600 rounded-lg shadow-lg p-6 mb-8">
+    <div class="bg-gradient-to-r from-yellow-500 to-orange-500 dark:from-yellow-600 dark:to-orange-600 rounded-lg shadow-lg p-6 mb-8{% if ui_refresh %} rf-op-banner{% endif %}">
         <div class="flex items-center space-x-3">
             <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
@@ -45,7 +45,7 @@
     </div>
 
     <!-- Recipients Summary -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6{% if ui_refresh %} rf-op-stats{% endif %}">
         <div class="bg-green-50 dark:bg-green-900/30 rounded-lg p-4 border border-green-200 dark:border-green-800 text-center">
             <div class="text-3xl font-bold text-green-700 dark:text-green-300">{{ recipients_count }}</div>
             <div class="text-sm text-green-600 dark:text-green-400">Will Receive Email</div>

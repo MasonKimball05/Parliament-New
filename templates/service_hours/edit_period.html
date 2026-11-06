@@ -3,9 +3,9 @@
 {% block title %}Edit Period - {{ period.name }}{% endblock %}
 
 {% block content %}
-<div class="container mx-auto px-4 py-8 max-w-2xl">
+<div class="container mx-auto px-4 py-8 max-w-2xl{% if ui_refresh %} rf-sdl rf-sdl-form rf-shper-edit{% endif %}">
     <!-- Header -->
-    <div class="flex items-center justify-between mb-6">
+    <div class="flex items-center justify-between mb-6{% if ui_refresh %} rf-sdl-head{% endif %}">
         <div>
             <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Edit Service Period</h1>
             <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ period.name }}</p>
@@ -114,7 +114,7 @@
     </div>
 
     <!-- Back Link -->
-    <div class="mt-6">
+    <div class="mt-6{% if ui_refresh %} rf-sdl-back{% endif %}">
         <a href="{% url 'manage_service_periods' %}" class="text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 font-medium">
             &larr; Back to Periods
         </a>

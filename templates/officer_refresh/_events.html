@@ -1,0 +1,63 @@
+{% comment %}
+Website refresh (src/ui_refresh.py): the Manage Events list as the app's
+officer Events screen: one card of rows, each with a date block, the title
+and its Instance/Series link, time, place and author, the status pill, and
+the row's actions (Attendance, Sign-Ups, Edit, Archive, Delete) as small app
+buttons. One row per event at every width (id event-card-N, which the
+page's archive script removes); same links, archive button (js-archive-event
+and its data-*), permission checks and wording as manage_events.html.
+{% endcomment %}
+<div class="rf-card rf-oev-list">
+    {% for event in events %}
+    <div class="rf-row rf-row-group rf-oev-row" id="event-card-{{ event.id }}">
+        <span class="rf-date" aria-hidden="true">
+            <span class="rf-date-month">{{ event.date_time|date:"M" }}</span>
+            <span class="rf-date-day">{{ event.date_time|date:"j" }}</span>
+        </span>
+        <div class="rf-row-body">
+            <div class="rf-oev-titleline">
+                <span class="rf-row-title">{{ event.title }}</span>
+                {% if event.parent_event %}
+                <a href="?series={{ event.parent_event.id }}" class="rf-chip rf-op-chip-purple" title="Part of recurring series: {{ event.parent_event.title }} - click to view all instances">Instance</a>
+                {% elif event.is_recurring %}
+                <a href="?series={{ event.id }}" class="rf-chip is-success" title="Recurring event series - click to view all instances">Series{% if event.instance_count %} ({{ event.instance_count }}){% endif %}</a>
+                {% endif %}
+            </div>
+            <p class="rf-row-sub">{{ event.date_time|date:"M j, Y" }} at {{ event.date_time|date:"g:i A" }} · {{ event.location|default:"No location" }} · Created by {{ event.created_by.get_display_name }}</p>
+            {% if event.description %}
+            <p class="rf-row-sub rf-oev-desc">{{ event.description|truncatewords:10 }}</p>
+            {% endif %}
+            <div class="rf-op-actions is-compact">
+                {% if event.requires_attendance %}
+                <a href="{% url 'mark_event_attendance' event.id %}" class="rf-btn is-sm is-success" title="Manage Attendance">Attendance</a>
+                {% endif %}
+                {% if event.requires_signup %}
+                <a href="{% url 'event_signup_list' event.id %}" class="rf-btn is-sm is-secondary" title="View Sign-Ups">Sign-Ups ({{ event.signup_count }}{% if event.max_signups %}/{{ event.max_signups }}{% endif %})</a>
+                {% endif %}
+                <a href="{% url 'edit_event' event.id %}" class="rf-btn is-sm" title="Edit">Edit</a>
+                {% if user.is_admin %}
+                <button type="button"
+                        class="js-archive-event rf-btn is-sm is-secondary"
+                        title="Archive"
+                        data-url="{% url 'archive_event' event.id %}"
+                        data-event-id="{{ event.id }}">Archive</button>
+                {% endif %}
+                <a href="{% url 'delete_event' event.id %}" class="rf-btn is-sm is-danger-soft" title="Delete">Delete</a>
+            </div>
+        </div>
+        {% if event.date_time > current_time %}
+            {% if event.is_active %}
+            <span class="rf-chip is-success">Upcoming</span>
+            {% else %}
+            <span class="rf-chip">Hidden</span>
+            {% endif %}
+        {% else %}
+            <span class="rf-chip is-accent">Past</span>
+        {% endif %}
+    </div>
+    {% endfor %}
+</div>
+
+<div class="rf-mp-pages rf-op-pages">
+    {% include 'includes/pagination.html' with page_obj=page_obj %}
+</div>

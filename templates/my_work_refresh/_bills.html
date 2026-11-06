@@ -1,0 +1,158 @@
+{% comment %}
+Website refresh (src/ui_refresh.py): My Work's bills as the app's My Work
+screen lists them: one grouped card, a row per bill with a status tile, the
+title, pills (status, appointment, runoff, co-author, assigned), the meta
+line, the result and the row's links and buttons. Same bills, links, forms
+and wording as the list it replaces in legislation_history.html; the vote
+bar is a <progress> (no inline style).
+{% endcomment %}
+<div class="rf-card rf-work-list">
+    {% for item in legislation_history %}
+    <div class="rf-row rf-work-row">
+        {% if item.legislation.status == 'passed' or item.passed %}
+        <span class="rf-tile is-green" aria-hidden="true"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></span>
+        {% elif item.legislation.status == 'tabled' %}
+        <span class="rf-tile is-gray" aria-hidden="true"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M10 9v6m4-6v6"/></svg></span>
+        {% elif item.legislation.status == 'failed' or item.voting_closed %}
+        <span class="rf-tile is-red" aria-hidden="true"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg></span>
+        {% elif item.is_active %}
+        <span class="rf-tile is-blue" aria-hidden="true"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg></span>
+        {% else %}
+        <span class="rf-tile is-gold" aria-hidden="true"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></span>
+        {% endif %}
+        <div class="rf-row-body">
+            <h3 class="rf-row-title rf-work-title">{{ item.legislation.title }}</h3>
+            <div class="rf-row-pills">
+                {% if item.legislation.status == 'passed' or item.passed %}
+                <span class="rf-chip is-success">Passed</span>
+                {% elif item.legislation.status == 'tabled' %}
+                <span class="rf-chip">Tabled</span>
+                {% elif item.legislation.status == 'failed' or item.voting_closed %}
+                <span class="rf-chip is-danger">Failed</span>
+                {% elif item.legislation.status == 'pending' %}
+                <span class="rf-chip is-warning">Pending</span>
+                {% else %}
+                <span class="rf-chip is-accent">Active</span>
+                {% endif %}
+                {% if item.legislation.legislation_type == 'appointment' %}
+                <span class="rf-chip is-warning">Chair Appt.</span>
+                {% endif %}
+                {% if item.legislation.plurality_is_runoff %}
+                <span class="rf-chip rf-work-purple">Runoff</span>
+                {% endif %}
+                {% with coauthors=item.legislation.co_authors.all %}
+                {% for ca in coauthors %}{% if ca == request.user %}
+                <span class="rf-chip rf-work-purple">Co-author</span>
+                {% endif %}{% endfor %}
+                {% endwith %}
+                {% if item.legislation.legislation_type == 'appointment' and item.passed and item.legislation.appointment_assigned %}
+                <span class="rf-chip is-success">Assigned</span>
+                {% endif %}
+            </div>
+
+            <p class="rf-row-sub rf-work-meta">
+                {% if item.legislation.available_at %}<span>Submitted {{ item.legislation.available_at|date:"M j, Y" }}</span>{% endif %}
+                {% if item.legislation.voting_ended_at %}<span>Voted {{ item.legislation.voting_ended_at|date:"M j, Y" }}</span>{% endif %}
+                <span>{{ item.vote_mode|title }} vote</span>
+                {% if item.legislation.anonymous_vote %}<span class="rf-work-italic">Anonymous ballot</span>{% endif %}
+                {% with coauthors=item.legislation.co_authors.all %}
+                {% if coauthors %}<span>Co-authors: {% for ca in coauthors %}{{ ca.name }}{% if not forloop.last %}, {% endif %}{% endfor %}</span>{% endif %}
+                {% endwith %}
+            </p>
+
+            {% if item.legislation.legislation_type == 'appointment' %}
+            <p class="rf-row-sub rf-work-meta">
+                {% if item.legislation.appointment_role %}<span><strong>Role:</strong> {{ item.legislation.appointment_role.name }}</span>{% endif %}
+                {% if item.legislation.appointment_member %}<span><strong>Nominee:</strong> {{ item.legislation.appointment_member.name }}</span>{% endif %}
+            </p>
+            {% endif %}
+
+            {% if item.legislation.plurality_is_runoff and item.legislation.plurality_parent %}
+            <p class="rf-row-sub">
+                Runoff from:
+                <a href="{% url 'legislation_detail' item.legislation.plurality_parent.id %}" class="rf-work-link">{{ item.legislation.plurality_parent.title }}</a>
+            </p>
+            {% endif %}
+
+            {% if item.legislation.description and item.legislation.legislation_type != 'appointment' %}
+            <p class="rf-row-sub rf-work-desc">{{ item.legislation.description }}</p>
+            {% endif %}
+
+            {% if item.legislation.admin_note %}
+            <p class="rf-work-note"><strong>Officer note:</strong> {{ item.legislation.admin_note|truncatechars:120 }}</p>
+            {% endif %}
+
+            {% if item.voting_closed %}
+            <div class="rf-work-result">
+                {% if item.vote_mode == 'plurality' %}
+                <p class="rf-work-tally">
+                    {% if item.winner %}
+                    <strong class="rf-work-winner">Winner: {{ item.winner }}</strong>
+                    {% elif item.legislation.plurality_runoff_enabled %}
+                    <strong>Tie — runoff may be required</strong>
+                    {% endif %}
+                    <span>{{ item.total_votes }} vote{{ item.total_votes|pluralize }} cast</span>
+                    {% if item.legislation.plurality_votes_allowed > 1 %}<span>{{ item.legislation.plurality_votes_allowed }} selections per voter</span>{% endif %}
+                </p>
+                {% if item.vote_breakdown %}
+                <div class="rf-row-pills">
+                    {% for option, count in item.vote_breakdown.items %}
+                    <span class="rf-chip{% if item.winner == option %} rf-work-purple{% endif %}">{{ option }}: {{ count }}</span>
+                    {% endfor %}
+                </div>
+                {% endif %}
+                {% for runoff in item.legislation.runoff_votes.all %}
+                <p class="rf-row-sub">Runoff vote: <a href="{% url 'legislation_detail' runoff.id %}" class="rf-work-link">{{ runoff.title }}</a></p>
+                {% endfor %}
+
+                {% elif item.vote_mode == 'piecewise' %}
+                <p class="rf-work-tally">
+                    <strong class="{% if item.passed %}rf-work-yes{% else %}rf-work-no{% endif %}">{% if item.passed %}Passed{% else %}Failed{% endif %}</strong>
+                    <span><strong class="rf-work-yes">{{ item.yes }}</strong> yes</span>
+                    <span><strong class="rf-work-no">{{ item.no }}</strong> no</span>
+                    <span><strong>{{ item.abstain }}</strong> abstain</span>
+                    {% if item.required_yes %}<span>{{ item.required_yes }} required</span>{% endif %}
+                </p>
+
+                {% else %}
+                <p class="rf-work-tally">
+                    <span><strong class="rf-work-yes">{{ item.yes }}</strong> yes ({{ item.yes_pct_display }})</span>
+                    <span><strong class="rf-work-no">{{ item.no }}</strong> no</span>
+                    <span><strong>{{ item.abstain }}</strong> abstain</span>
+                    <strong class="rf-work-verdict {% if item.passed %}rf-work-yes{% else %}rf-work-no{% endif %}">{% if item.passed %}Passed{% else %}Failed{% endif %}</strong>
+                </p>
+                <progress class="rf-work-bar{% if item.passed %} is-passed{% endif %}" max="100" value="{{ item.yes_pct_num }}" aria-label="{{ item.yes_pct_display }} yes">{{ item.yes_pct_display }}</progress>
+                {% if item.required_pct %}
+                <p class="rf-row-sub">{{ item.required_pct }}% threshold</p>
+                {% endif %}
+                {% endif %}
+            </div>
+            {% endif %}
+
+            <div class="rf-work-actions">
+                <span class="rf-work-links">
+                    <a href="{{ item.detail_url }}" class="rf-work-link">View Details</a>
+                    {% if item.document_viewer_url %}<a href="{{ item.document_viewer_url }}" class="rf-work-link">Document</a>{% endif %}
+                    {% if item.document_url %}<a href="{{ item.document_url }}" download class="rf-work-link is-muted">Download</a>{% endif %}
+                </span>
+                <span class="rf-work-buttons">
+                    {% if item.voting_closed and not item.passed %}
+                    <form method="POST" action="{% url 'reopen_legislation' item.legislation.id %}" class="rf-work-form">
+                        {% csrf_token %}
+                        <button type="submit" class="rf-btn rf-work-btn">Reopen</button>
+                    </form>
+                    {% endif %}
+                    {% if not item.passed %}
+                    <a href="{% url 'edit_legislation' item.legislation.id %}" class="rf-btn rf-work-btn is-secondary">Edit</a>
+                    {% else %}
+                    <form method="POST" action="{% url 'submit_new_version' item.legislation.id %}" class="rf-work-form">
+                        {% csrf_token %}
+                        <button type="submit" class="rf-btn rf-work-btn">Submit New Version</button>
+                    </form>
+                    {% endif %}
+                </span>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>

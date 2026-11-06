@@ -3,7 +3,7 @@
 {% block title %}Access Restricted - Parliament{% endblock %}
 
 {% block content %}
-<div class="min-h-[60vh] flex items-center justify-center px-4">
+<div class="min-h-[60vh] flex items-center justify-center px-4{% if ui_refresh %} rf-mp rf-mx rf-notice{% endif %}">
     <div class="max-w-md w-full text-center">
         <!-- Icon -->
         <div class="mx-auto w-24 h-24 bg-yellow-100 dark:bg-yellow-900/30 rounded-full flex items-center justify-center mb-6">

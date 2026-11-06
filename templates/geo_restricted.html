@@ -3,7 +3,7 @@
 {% block title %}Access Restricted{% endblock %}
 
 {% block content %}
-<div class="max-w-lg mx-auto px-4 py-16 text-center">
+<div class="max-w-lg mx-auto px-4 py-16 text-center{% if ui_refresh %} rf-mp rf-mx rf-notice{% endif %}">
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-8">
         <div class="w-16 h-16 bg-yellow-100 dark:bg-yellow-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
             <svg class="w-8 h-8 text-yellow-600 dark:text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">

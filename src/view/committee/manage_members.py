@@ -28,7 +28,8 @@ def committee_manage_members(request, code):
     if request.method == "POST":
         action = request.POST.get("action")
         user_id = request.POST.get("user_id")
-        target = ParliamentUser.objects.get(user_id=user_id)
+        # 11-06-26: an unknown id is a 404, not a 500.
+        target = get_object_or_404(ParliamentUser, user_id=user_id)
 
         # Pledges can't be added; an unknown action does nothing
         # (src/committee_management, shared with the app).
@@ -38,7 +39,9 @@ def committee_manage_members(request, code):
             except CommitteeActionError as exc:
                 messages.error(request, exc.message)
 
-        return redirect("committee_manage_members", code=code)
+        # 11-06-26: the URL is named 'manage_members'; 'committee_manage_members'
+        # raised NoReverseMatch (a 500) after every add or remove, once saved.
+        return redirect("manage_members", code=code)
 
     return render(request, "committee/manage_members.html", {
         "committee": committee,

@@ -1,0 +1,452 @@
+/* =========================================================================
+   Website refresh: officer tools, batch A.
+     Officer Home (/officers/), Announcements (manage, create, edit, delete,
+     confirm email, stats, poll editor, poll results, poll QR), Events
+     (manage, create, edit, delete, all, archived, event time), Attendance
+     (event list, mark attendance, QR check-in, dashboard, a member's
+     detail) and Review Excuses.
+
+   Loaded by base.html after refresh.css, only when `ui_refresh` is on (see
+   src/ui_refresh.py). Plain CSS, no Tailwind build; refresh.css's tokens
+   (--rf-*). Every rule is scoped under a class the page's template adds only
+   with the refresh on. All of these pages carry `.rf-mp` (the shared rules
+   in member-tools.css: soft tints, page titles, empty states, pagination
+   pills), `.rf-op` (shared officer rules below) and one page class:
+
+     .rf-ohome          officer_home.html (officer_refresh/_home_top.html,
+                        officer_refresh/_home_lists.html)
+     .rf-oann           officer/manage_announcements.html (officer_refresh/_announcements.html)
+     .rf-oann-form      officer/create_announcement.html, edit_announcement.html
+     .rf-oann-views     officer/announcement_stats.html
+     .rf-oemail         officer/confirm_announcement_email.html
+     .rf-opoll-form     officer/announcement_poll_edit.html
+     .rf-opoll-results  officer/announcement_poll_results.html
+     .rf-oqr            officer/manage_poll_qr.html, manage_qr_checkin.html
+     .rf-oev            officer/manage_events.html (officer_refresh/_events.html)
+     .rf-oev-form       officer/create_event.html, edit_event.html (and
+                        _checkin_area.html, _series_scope.html inside them)
+     .rf-oconfirm       officer/delete_announcement.html, delete_event.html
+     .rf-oallev         officer/view_all_events.html (officer_refresh/_all_events.html)
+     .rf-oarch          officer/view_archived_events.html (officer_refresh/_archived_events.html)
+     .rf-oevtime        officer/event_time.html
+     .rf-oatt-list      officer/event_attendance_list.html
+     .rf-oatt-mark      officer/mark_event_attendance.html
+     .rf-oatt-dash      officer/attendance_dashboard.html
+     .rf-oatt-member    officer/member_attendance_detail.html
+     .rf-oexc           officer/review_excuses.html (officer_refresh/_excuses.html)
+   ========================================================================= */
+
+/* ---------- Shared (.rf-op) ----------------------------------------------- */
+
+/* Titles: the app's large title; section headings inside a page become the
+   small-caps section label. */
+.rf-op :is(h1, h2):is(.text-2xl, .text-3xl) { font-size: clamp(24px, 4vw, 30px); font-weight: 800; letter-spacing: -0.02em; }
+.rf-op h3.text-2xl {
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--rf-text-muted);
+}
+.rf-op h3.text-2xl > svg { width: 16px; height: 16px; }
+.rf-op h3.text-2xl > span { font-size: 13px; text-transform: none; letter-spacing: 0; }
+
+/* Cards: rounded-lg cards get the card radius; no colored side bars. */
+.rf-op :is(div, form, section).rounded-lg:is(.shadow, .shadow-sm, .shadow-md) { border-radius: var(--rf-radius-card); }
+.rf-op :is(.rounded-xl, .rounded-lg).border-l-4 { border-left-width: 0; }
+.rf-op .rounded-xl.border:not(.border-red-200, .border-yellow-200, .border-amber-200, .border-green-200, .border-purple-200, .border-indigo-200) { border-color: transparent; }
+.rf-op .rounded-xl.border.shadow-sm { border-width: 0; }
+
+/* Soft tints the shared .rf-mp layer doesn't cover */
+.rf-op :is(.bg-orange-50, .bg-orange-100) { background-color: var(--rf-warning-soft); }
+.rf-op :is(.text-orange-600, .text-orange-700, .text-orange-800) { color: var(--rf-warning); }
+.rf-op :is(.bg-indigo-50, .bg-indigo-100) { background-color: var(--rf-accent-soft); }
+.rf-op :is(.text-indigo-600, .text-indigo-700, .text-indigo-800, .text-indigo-900) { color: var(--rf-accent-on-soft); }
+.rf-op :is(.text-purple-900, .text-purple-500) { color: var(--rf-mp-purple); }
+.rf-op :is(.border-purple-200, .border-indigo-200, .border-orange-200, .border-red-200, .border-yellow-300, .border-purple-100, .border-green-100) { border-color: transparent; }
+:where(.ui-refresh.dark) .rf-op :is(.dark\:bg-purple-900\/20, .dark\:bg-purple-900\/30, .dark\:bg-purple-900\/50) { background-color: var(--rf-mp-purple-soft); }
+:where(.ui-refresh.dark) .rf-op :is(.dark\:bg-orange-900\/10, .dark\:bg-orange-900\/30, .dark\:bg-yellow-900\/20, .dark\:bg-yellow-900\/30, .dark\:bg-yellow-900\/40, .dark\:bg-amber-900\/20) { background-color: var(--rf-warning-soft); }
+:where(.ui-refresh.dark) .rf-op :is(.dark\:bg-green-900\/20, .dark\:bg-green-900\/30, .dark\:bg-green-900\/50) { background-color: var(--rf-success-soft); }
+:where(.ui-refresh.dark) .rf-op :is(.dark\:bg-red-900\/20, .dark\:bg-red-900\/30, .dark\:bg-red-900\/50) { background-color: var(--rf-danger-soft); }
+:where(.ui-refresh.dark) .rf-op :is(.dark\:bg-primary-900\/10, .dark\:bg-primary-900\/30, .dark\:bg-blue-900\/50, .dark\:bg-indigo-900\/20) { background-color: var(--rf-accent-soft); }
+:where(.ui-refresh.dark) .rf-op :is(.dark\:text-purple-100, .dark\:text-purple-200, .dark\:text-purple-300, .dark\:text-purple-400) { color: var(--rf-mp-purple); }
+:where(.ui-refresh.dark) .rf-op :is(.dark\:text-green-200, .dark\:text-green-300, .dark\:text-green-400) { color: var(--rf-success); }
+:where(.ui-refresh.dark) .rf-op :is(.dark\:text-red-200, .dark\:text-red-300, .dark\:text-red-400) { color: var(--rf-danger); }
+:where(.ui-refresh.dark) .rf-op :is(.dark\:text-yellow-200, .dark\:text-yellow-300, .dark\:text-yellow-400, .dark\:text-orange-400) { color: var(--rf-warning); }
+:where(.ui-refresh.dark) .rf-op :is(.dark\:text-blue-200, .dark\:text-blue-300, .dark\:text-blue-400, .dark\:text-indigo-100, .dark\:text-indigo-300) { color: var(--rf-accent-on-soft); }
+
+/* Fields (form.tsx Field: filled, borderless, 10px) */
+.rf-op :is(input:is([type="text"], [type="email"], [type="search"], [type="number"], [type="url"], [type="date"], [type="datetime-local"], [type="time"]), select, textarea) {
+    background-color: var(--rf-surface-muted);
+    border-color: transparent;
+    border-radius: var(--rf-radius-control);
+    color: var(--rf-text);
+}
+.rf-op :is(input:is([type="text"], [type="email"], [type="search"], [type="number"], [type="url"], [type="date"], [type="datetime-local"], [type="time"]), select, textarea):focus {
+    background-color: var(--rf-surface);
+    border-color: var(--rf-accent);
+    --tw-ring-color: var(--rf-accent);
+}
+.rf-op :is(input, textarea)::placeholder { color: var(--rf-text-muted); }
+/* Every field gets the app's inner spacing, whatever padding it had */
+.rf-op input:is([type="text"], [type="email"], [type="search"], [type="number"], [type="url"], [type="date"], [type="datetime-local"], [type="time"]) { padding: 8px 12px; min-height: 40px; }
+.rf-op select { padding: 8px 32px 8px 12px; min-height: 40px; }
+.rf-op textarea { padding: 10px 12px; }
+.rf-op input:is([type="checkbox"], [type="radio"], [type="range"]) { accent-color: var(--rf-accent); }
+.rf-op input:is([type="checkbox"], [type="radio"]):checked { background-color: var(--rf-accent); border-color: var(--rf-accent); }
+.rf-op label.block.text-sm.font-medium { font-weight: 600; color: var(--rf-text-secondary); }
+
+/* Solid utility buttons (PrimaryButton): accent for the main action, the
+   app's success / danger / warning fills, outlined for gray ones. The light
+   class and its dark: twin are both on the element; this rule is one class
+   more specific than either, so it holds in both modes. */
+.rf-op :is(a, button):is(.bg-primary-600, .bg-primary-500, .bg-blue-600, .bg-indigo-600, .bg-green-600, .bg-green-500, .bg-red-600, .bg-red-500, .bg-yellow-600, .bg-yellow-500, .bg-amber-500, .bg-purple-600, .bg-gray-600, .bg-gray-500) {
+    border-radius: var(--rf-radius-control);
+    font-weight: 600;
+    background-image: none;
+    --tw-shadow: 0 0 #0000;
+    transition: filter 0.12s, background-color 0.12s;
+}
+.rf-op :is(a, button):is(.bg-primary-600, .bg-primary-500, .bg-blue-600, .bg-indigo-600) { background-color: var(--rf-accent); color: var(--rf-accent-text); }
+.rf-op :is(a, button):is(.bg-green-600, .bg-green-500) { background-color: var(--rf-success); color: #ffffff; }
+.rf-op :is(a, button):is(.bg-red-600, .bg-red-500) { background-color: var(--rf-danger); color: #ffffff; }
+.rf-op :is(a, button):is(.bg-yellow-600, .bg-yellow-500, .bg-amber-500) { background-color: var(--rf-warning); color: #ffffff; }
+.rf-op :is(a, button).bg-purple-600 { background-color: var(--rf-tile-purple); color: #ffffff; }
+.rf-op :is(a, button):is(.bg-gray-600, .bg-gray-500) { background-color: transparent; color: var(--rf-accent); box-shadow: inset 0 0 0 1.5px var(--rf-accent); }
+:where(.ui-refresh.dark) .rf-op :is(a, button):is(.bg-green-600, .bg-green-500, .bg-red-600, .bg-red-500, .bg-yellow-600, .bg-yellow-500, .bg-amber-500) { color: var(--rf-accent-text); }
+.rf-op :is(a, button):is(.bg-primary-600, .bg-primary-500, .bg-blue-600, .bg-indigo-600, .bg-green-600, .bg-green-500, .bg-red-600, .bg-red-500, .bg-yellow-600, .bg-yellow-500, .bg-amber-500, .bg-purple-600):hover { filter: brightness(0.92); }
+:where(.ui-refresh.dark) .rf-op :is(a, button):is(.bg-primary-600, .bg-primary-500, .bg-blue-600, .bg-indigo-600, .bg-green-600, .bg-green-500, .bg-red-600, .bg-red-500, .bg-yellow-600, .bg-yellow-500, .bg-amber-500, .bg-purple-600):hover { filter: brightness(1.1); }
+.rf-op :is(a, button):is(.bg-gray-600, .bg-gray-500):hover { background-color: var(--rf-accent-soft); }
+.rf-op :is(a, button):is(.bg-green-600, .bg-green-500, .bg-red-600, .bg-red-500, .bg-yellow-600, .bg-yellow-500, .bg-purple-600, .bg-gray-600, .bg-gray-500) :is(.text-white, svg) { color: inherit; }
+/* Outlined / gray utility buttons (Cancel, Back) */
+.rf-op :is(a, button).border.rounded-md:not([class*="bg-"]),
+.rf-op :is(a, button).border.rounded-lg:not([class*="bg-"]):not(.w-full) { border-radius: var(--rf-radius-control); font-weight: 600; }
+.rf-op :is(a, button):is(.bg-gray-200, .bg-gray-100):not(.w-full) { border-radius: var(--rf-radius-control); font-weight: 600; background-color: var(--rf-surface-muted); color: var(--rf-text); }
+:where(.ui-refresh.dark) .rf-op :is(a, button):is(.dark\:bg-gray-600, .dark\:bg-gray-700):not(.w-full) { background-color: var(--rf-surface-muted); }
+.rf-op :is(a, button):is(.bg-gray-200, .bg-gray-100):not(.w-full):hover { background-color: var(--rf-separator); }
+
+/* App buttons used by the includes (kit PrimaryButton sizes and variants) */
+.rf-op button.rf-btn { border: 0; cursor: pointer; font-family: inherit; }
+.rf-op .rf-btn { border-radius: var(--rf-radius-control); font-weight: 600; }
+.rf-op .rf-btn:disabled { opacity: 0.55; cursor: default; }
+.rf-op .rf-btn.is-sm { min-height: 32px; padding: 5px 12px; font-size: 13px; }
+.rf-op .rf-btn.is-success { background: var(--rf-success); color: #ffffff; }
+.rf-op .rf-btn.is-danger { background: var(--rf-danger); color: #ffffff; }
+:where(.ui-refresh.dark) .rf-op .rf-btn:is(.is-success, .is-danger) { color: var(--rf-accent-text); }
+.rf-op .rf-btn.is-success:hover { background: var(--rf-success); filter: brightness(0.92); }
+.rf-op .rf-btn.is-danger:hover { background: var(--rf-danger); filter: brightness(0.92); }
+.rf-op .rf-btn.is-danger-soft { background: var(--rf-danger-soft); color: var(--rf-danger); }
+.rf-op .rf-btn.is-danger-soft:hover { background: var(--rf-danger-soft); filter: brightness(0.96); }
+:where(.ui-refresh.dark) .rf-op .rf-btn.is-danger-soft:hover { filter: brightness(1.2); }
+
+.rf-op-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.rf-op-actions.is-compact { gap: 6px; margin-top: 10px; }
+.rf-op-link {
+    background: none; border: 0; padding: 0; cursor: pointer;
+    font: inherit; font-size: 14px; font-weight: 600;
+    color: var(--rf-accent);
+    text-decoration: none;
+}
+.rf-op-link:hover { text-decoration: underline; }
+.rf-op-meta { margin: 6px 0 0; font-size: 13px; color: var(--rf-text-muted); }
+.rf-op-muted { font-size: 13px; font-weight: 400; color: var(--rf-text-muted); }
+.rf-op .rf-chip.rf-op-chip-purple { background: var(--rf-mp-purple-soft); color: var(--rf-mp-purple); }
+.rf-op a.rf-chip { text-decoration: none; }
+.rf-op a.rf-chip:hover { filter: brightness(0.96); }
+.rf-op .rf-section-title h2 .rf-badge { margin-left: 2px; }
+
+/* Status dot (StatusDot) */
+.rf-op-dot { width: 9px; height: 9px; border-radius: 999px; flex: none; background: var(--rf-text-muted); opacity: 0.6; }
+.rf-op-dot.is-success { background: var(--rf-success); opacity: 1; }
+
+/* Header row: title on the left, actions on the right (wraps on a phone) */
+.rf-op-head > a, .rf-op-head > div > a { border-radius: var(--rf-radius-control); }
+
+/* Filter tabs (?filter=…, ?status=…): a pill per choice, the active one filled */
+.rf-op-tabs { gap: 6px; }
+.rf-op-tabs > a,
+.rf-op-filterbar a {
+    border-radius: 999px;
+    padding: 7px 14px;
+    font-size: 14px;
+    font-weight: 600;
+    background-color: var(--rf-surface);
+    color: var(--rf-text-secondary);
+    box-shadow: inset 0 0 0 1px var(--rf-card-border);
+}
+.rf-op-tabs > a:hover,
+.rf-op-filterbar a:hover { background-color: var(--rf-surface-muted); }
+.rf-op-tabs > a:is(.bg-primary-600, .bg-purple-600),
+.rf-op-filterbar a:is(.bg-primary-600, .bg-yellow-500, .bg-green-600, .bg-red-600) {
+    background-color: var(--rf-accent);
+    color: var(--rf-accent-text);
+    box-shadow: none;
+    filter: none;
+}
+.rf-op-tabs > a svg { width: 14px; height: 14px; }
+.rf-op .rf-op-filterbar { background: transparent; box-shadow: none; border-width: 0; padding: 0; }
+.rf-op-filterbar .text-sm.font-medium:not(a) { font-size: 13px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--rf-text-muted); }
+
+/* A note card (series header and the like) */
+.rf-op .rf-op-note { border-radius: var(--rf-radius-card); border-width: 0; }
+
+/* Stat tiles (kit StatTile): big tabular number, small caps label */
+.rf-op .rf-op-stats > div {
+    border-width: 0;
+    border-radius: var(--rf-radius-stat);
+    box-shadow: 0 0 0 1px var(--rf-card-border), 0 3px 10px var(--rf-shadow);
+}
+.rf-op .rf-op-stats > div:is(.bg-yellow-50, .bg-green-50, .bg-red-50, .bg-purple-50, .bg-orange-50) { box-shadow: none; }
+.rf-op .rf-op-stats > div:is(.bg-gray-50, .bg-gray-100) { background-color: var(--rf-surface); }
+.rf-op-stats :is(.text-3xl, .text-2xl) { font-weight: 800; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.rf-op-stats :is(.text-sm, .text-xs.uppercase, p.text-xs.font-medium) { font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; }
+.rf-op-stats .text-gray-600:is(.text-3xl, .text-2xl) { color: var(--rf-text); }
+
+/* Big stat tile used by the archived page */
+.rf-op-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; margin-bottom: 18px; }
+.rf-op-tile {
+    display: flex; flex-direction: column; gap: 2px;
+    padding: 16px;
+    border-radius: var(--rf-radius-stat);
+    background: var(--rf-surface);
+    box-shadow: 0 0 0 1px var(--rf-card-border), 0 3px 10px var(--rf-shadow);
+}
+.rf-op-tile-num { font-size: 28px; font-weight: 800; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; color: var(--rf-text); line-height: 1.1; }
+.rf-op-tile-label { font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--rf-text-secondary); }
+
+/* Banners (gradient headers): the app's flat chapter blue */
+.rf-op .rf-op-banner {
+    background-image: none;
+    background-color: var(--rf-hero);
+    color: var(--rf-hero-text);
+    border-radius: 20px;
+    --tw-shadow: 0 0 #0000;
+}
+.rf-op .rf-op-banner :is(.text-white, .text-yellow-100, .text-orange-100, .text-primary-100, .text-primary-200, p):not(h1, h2) { color: var(--rf-hero-muted); }
+.rf-op .rf-op-banner :is(h1, h2) { color: var(--rf-hero-text); }
+
+/* Tables: a quiet header, hairline rows */
+.rf-op table thead { background-color: transparent; }
+.rf-op table th { font-size: 12px; font-weight: 600; letter-spacing: 0.04em; color: var(--rf-text-muted); }
+.rf-op table tbody { background-color: transparent; }
+
+/* Colored header strips over a list (confirm email): the soft tone */
+.rf-op div.bg-green-600:not(.rounded-full):not(.h-full) { background-color: var(--rf-success-soft); }
+.rf-op div.bg-green-600:not(.rounded-full):not(.h-full) :is(h2, h3, p, span) { color: var(--rf-success); }
+.rf-op div.bg-gray-500:not(.rounded-full) { background-color: var(--rf-surface-muted); }
+.rf-op div.bg-gray-500:not(.rounded-full) :is(h2, h3, p, span) { color: var(--rf-text-secondary); }
+
+/* Tinted form panels (publish time, visibility): grouped sections */
+.rf-op form :is(.bg-primary-50, .bg-purple-50).rounded-lg.p-4 { background-color: transparent; box-shadow: inset 0 0 0 1px var(--rf-card-border); border-color: transparent; }
+
+/* Modal (review excuses, confirm email): a card on a dimmed page */
+.rf-op-modal > div { border-radius: 18px; }
+.rf-op-modal #modalHeader { background-color: transparent; border-color: var(--rf-separator); }
+.rf-op-modal #confirmBtn { border-radius: var(--rf-radius-control); font-weight: 600; }
+
+/* Pagination under an include */
+.rf-op-pages { margin-top: 16px; }
+
+/* ---------- Officer Home --------------------------------------------------- */
+
+.rf-ohome.space-y-4 > .rf-op-hero + * { margin-top: 0; }
+.rf-op-hero {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    padding: 22px 22px 24px;
+    border-radius: 20px;
+    background: var(--rf-hero);
+    color: var(--rf-hero-text);
+}
+.rf-op-hero h1 { margin: 0; font-size: clamp(24px, 4vw, 30px); line-height: 1.15; font-weight: 800; letter-spacing: -0.02em; }
+.rf-op-hero p { margin: 4px 0 0; color: var(--rf-hero-muted); font-size: 15px; font-weight: 500; }
+.rf-op-hero-text { min-width: 0; flex: 1 1 260px; }
+.rf-op-crest {
+    display: flex; align-items: center; gap: 10px;
+    padding: 6px 14px 6px 6px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+}
+.rf-op-crest img { width: 40px; height: 40px; border-radius: 999px; background: #ffffff; padding: 2px; object-fit: contain; flex: none; }
+.rf-op-crest .rf-arms-greek, .rf-op-crest .rf-arms-eng { display: block; }
+@media (max-width: 420px) { .rf-op-crest .rf-arms-eng { display: none; } }
+
+.rf-ohome-groups { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0 20px; }
+@media (min-width: 900px) { .rf-ohome-groups { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.rf-ohome-groups .rf-section-title,
+.rf-ohome-lists .rf-section-title { margin-top: 12px; }
+.rf-ohome .rf-row .rf-chip { flex: none; }
+.rf-ohome .rf-op-addrow { min-height: 46px; }
+.rf-ohome .rf-op-addrow .rf-row-title { font-size: 14px; color: var(--rf-accent); }
+.rf-ohome .rf-row.is-empty { justify-content: center; font-size: 14px; }
+.rf-op-contact { align-items: flex-start; }
+.rf-op-contact .rf-op-dot { margin-top: 6px; }
+.rf-op-contact.is-unread .rf-op-dot { background: var(--rf-accent); opacity: 1; }
+.rf-op-contact .rf-chip { vertical-align: 1px; }
+.rf-op-contact .rf-row-trailing { font-size: 12px; white-space: nowrap; }
+@media (max-width: 560px) {
+    .rf-op-contact { flex-wrap: wrap; }
+    .rf-op-contact .rf-row-trailing { max-width: none; width: 100%; text-align: left; padding-left: 21px; margin-top: -4px; }
+}
+.rf-ohome .rf-pills { margin-bottom: 4px; }
+
+/* Slating card: a plain card instead of the purple/green wash */
+.rf-ohome :is(.from-purple-50, .from-green-50).bg-gradient-to-br {
+    background-image: none;
+    background-color: var(--rf-surface);
+    border-color: transparent;
+    border-radius: var(--rf-radius-card);
+    box-shadow: 0 0 0 1px var(--rf-card-border), 0 3px 10px var(--rf-shadow);
+}
+.rf-ohome :is(.from-purple-50, .from-green-50) .bg-white.rounded-lg { background-color: var(--rf-surface-muted); border-color: transparent; }
+.rf-ohome :is(.from-purple-50, .from-green-50) :is(span, a).rounded-full { border-color: transparent; }
+.rf-ohome :is(a, button).bg-white.border { background-color: transparent; border-radius: var(--rf-radius-control); }
+.rf-ohome .bg-purple-600.rounded-xl, .rf-ohome .bg-green-600.rounded-xl { border-radius: 10px; }
+.rf-ohome .bg-purple-600:not(a):not(button) { background-color: var(--rf-tile-purple); }
+.rf-ohome .bg-green-600:not(a):not(button) { background-color: var(--rf-tile-green); }
+.rf-ohome .bg-purple-50.rounded-lg { background-color: var(--rf-tile-purple); color: #ffffff; }
+.rf-ohome .bg-purple-50.rounded-lg svg { color: #ffffff; }
+
+/* ---------- Manage Announcements ------------------------------------------ */
+
+.rf-oann-card { padding: 16px; }
+.rf-oann-main { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; }
+.rf-oann-body { flex: 1 1 340px; min-width: 0; }
+.rf-oann-head { display: flex; align-items: center; gap: 8px; }
+.rf-oann-title { margin: 0; font-size: 17px; font-weight: 700; line-height: 1.3; color: var(--rf-text); overflow-wrap: anywhere; }
+.rf-oann-text { margin-top: 10px; }
+.rf-oann-text p { margin: 0; font-size: 15px; line-height: 1.5; color: var(--rf-text-secondary); overflow-wrap: anywhere; }
+.rf-oann-text a { color: var(--rf-accent); }
+.rf-oann-text .rf-op-link { margin-top: 4px; font-size: 13px; }
+.rf-oann-text .rf-op-link.hidden { display: none; }
+.rf-oann-when { margin: 8px 0 0; font-size: 13px; color: var(--rf-accent-on-soft); }
+.rf-oann-when.is-purple { color: var(--rf-mp-purple); }
+.rf-oann-when strong { font-weight: 600; }
+.rf-oann-stats {
+    flex: 0 0 auto;
+    min-width: 150px;
+    display: flex; flex-direction: column; align-items: center; gap: 2px;
+    padding: 12px 16px;
+    border-radius: var(--rf-radius-control);
+    background: var(--rf-surface-muted);
+    text-align: center;
+}
+.rf-oann-rate { font-size: 24px; font-weight: 800; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; color: var(--rf-text); line-height: 1.1; }
+.rf-oann-rate-label { font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--rf-text-muted); }
+.rf-oann-split { display: flex; gap: 14px; margin: 6px 0; font-size: 12px; color: var(--rf-text-secondary); }
+.rf-oann-split strong { color: var(--rf-text); font-weight: 700; }
+.rf-oann-stats .rf-op-link { font-size: 13px; }
+.rf-oann-card > .rf-op-actions { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--rf-separator); }
+@media (max-width: 560px) {
+    .rf-oann-stats { flex: 1 1 100%; flex-direction: row; flex-wrap: wrap; justify-content: space-between; text-align: left; }
+    .rf-oann-split { margin: 0; }
+}
+.rf-oann .rf-op-head > a { border-radius: var(--rf-radius-control); }
+
+/* Forms (announcement, poll, event): the app's grouped form card */
+.rf-oann-form > .bg-white,
+.rf-oev-form > .bg-white,
+.rf-opoll-form form > .bg-white { border-radius: var(--rf-radius-card); }
+.rf-op :is(#docs-toggle-btn, #poll-toggle-btn, #inactive-toggle-btn, #inactive-accordion-btn) { background-color: var(--rf-surface-muted); font-weight: 600; }
+.rf-op :is(#docs-panel, #poll-panel, #inactive-panel) { background-color: var(--rf-surface); }
+.rf-op .border.rounded-lg.overflow-hidden:has(> #docs-toggle-btn, > #poll-toggle-btn, > #inactive-toggle-btn, > #inactive-accordion-btn) { border-color: var(--rf-card-border); border-radius: var(--rf-radius-card); }
+
+/* The check-in area and series scope inside the event form */
+.rf-oev-form [data-checkin-area] { border-color: var(--rf-separator); }
+.rf-oev-form [data-checkin-map] { border-color: transparent; border-radius: var(--rf-radius-card); box-shadow: 0 0 0 1px var(--rf-card-border); overflow: hidden; }
+.rf-oev-form [data-checkin-results] { border-color: var(--rf-card-border); border-radius: var(--rf-radius-control); background: var(--rf-surface); }
+.rf-oev-form :is([data-checkin-find], [data-checkin-off], [data-checkin-here]) { border-radius: var(--rf-radius-control); font-weight: 600; }
+.rf-oev-form :is([data-checkin-off], [data-checkin-here]) { border-color: transparent; color: var(--rf-accent); box-shadow: inset 0 0 0 1.5px var(--rf-accent); }
+.rf-oev-form :is([data-checkin-off], [data-checkin-here]):hover { background-color: var(--rf-accent-soft); }
+.rf-op fieldset.rounded-lg { border-color: transparent; border-radius: var(--rf-radius-card); }
+.rf-op fieldset.rounded-lg legend { color: var(--rf-accent-on-soft); }
+.rf-oev-form .border-primary-200 { border-color: var(--rf-separator); }
+
+/* ---------- Events lists --------------------------------------------------- */
+
+.rf-oev-row { align-items: flex-start; padding-top: 14px; padding-bottom: 14px; }
+.rf-oev-row > .rf-chip { flex: none; margin-top: 2px; }
+.rf-oev-row > .rf-btn { flex: none; }
+.rf-oev-row.is-muted .rf-row-title { color: var(--rf-text-secondary); }
+.rf-oev-row:hover { background: transparent; }
+.rf-oev-titleline { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
+.rf-oev-desc { color: var(--rf-text-muted); }
+.rf-op .rf-date.is-past { background: var(--rf-surface-muted); color: var(--rf-text-secondary); }
+.rf-oallev .rf-section-title:first-child,
+.rf-oexc-events > .rf-oexc-event:first-child .rf-oexc-event-head { margin-top: 4px; }
+.rf-op .rf-empty .rf-btn { margin-top: 14px; }
+
+/* Header card on All / Archived Events: the page title, no card */
+.rf-op .rf-op-headcard { background-color: transparent; box-shadow: none; padding: 0; }
+.rf-op .rf-op-headcard > .flex { flex-wrap: wrap; gap: 12px; }
+.rf-op .rf-op-headcard > .flex > .flex { gap: 8px; }
+.rf-op .rf-op-headcard > .flex > .flex > * { margin: 0; }
+.rf-op .rf-op-headcard svg.w-8 { display: none; }
+.rf-op .rf-op-headcard .space-x-3 > * { margin: 0; }
+
+/* ---------- Review Excuses ------------------------------------------------ */
+
+.rf-oexc-event + .rf-oexc-event { margin-top: 6px; }
+.rf-oexc-event-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 8px 16px; margin: 22px 4px 10px; }
+.rf-oexc-event-title { margin: 0; font-size: 17px; font-weight: 700; color: var(--rf-text); }
+.rf-oexc-event.is-past .rf-oexc-event-title { color: var(--rf-text-secondary); }
+.rf-oexc-event-head .rf-row-pills { margin-top: 0; }
+.rf-oexc-who { display: flex; align-items: center; gap: 10px; }
+.rf-oexc-who .rf-avatar { width: 36px; height: 36px; font-size: 14px; }
+.rf-oexc-reason { margin: 10px 0 0; font-size: 15px; line-height: 1.5; color: var(--rf-text); white-space: pre-wrap; overflow-wrap: anywhere; }
+.rf-oexc-doc { display: inline-flex; align-items: center; gap: 6px; margin-top: 8px; font-size: 13px; }
+.rf-oexc-doc svg { width: 16px; height: 16px; }
+.rf-oexc-notes { margin: 10px 0 0; padding: 10px 12px; border-radius: var(--rf-radius-control); background: var(--rf-surface-muted); font-size: 14px; font-style: italic; color: var(--rf-text-secondary); }
+.rf-oexc-actions { margin-top: 14px; }
+.rf-oexc-actions .rf-btn { flex: 1 1 0; }
+@media (min-width: 640px) { .rf-oexc-actions { justify-content: flex-end; } .rf-oexc-actions .rf-btn { flex: 0 0 auto; min-width: 120px; } }
+
+/* ---------- Attendance ----------------------------------------------------- */
+
+/* Rate bars: the app's tile greens, golds and reds */
+.rf-op :is(.bg-green-500, .from-green-400) { background-color: var(--rf-tile-green); background-image: none; }
+.rf-op :is(.bg-yellow-500, .from-yellow-400) { background-color: var(--rf-tile-gold); background-image: none; }
+.rf-op :is(.bg-red-500, .from-red-400) { background-color: var(--rf-tile-red); background-image: none; }
+.rf-op :is(button, a):is(.bg-green-500, .bg-yellow-500, .bg-red-500) { background-image: none; }
+.rf-op .bg-red-50\/30 { background-color: var(--rf-danger-soft); }
+:where(.ui-refresh.dark) .rf-op .dark\:bg-red-900\/10 { background-color: var(--rf-danger-soft); }
+
+/* Quick links on the dashboard: pills */
+.rf-op-quick > a {
+    border-radius: 999px;
+    border-color: transparent;
+    background-color: var(--rf-surface);
+    box-shadow: inset 0 0 0 1px var(--rf-card-border);
+    color: var(--rf-text);
+    font-weight: 600;
+}
+.rf-op-quick > a:hover { background-color: var(--rf-surface-muted); }
+.rf-op-quick > a > svg { color: var(--rf-text-secondary); }
+.rf-op-quick > a > span { border-radius: 999px; }
+
+.rf-oatt-dash #at-risk-section { border-width: 0; border-radius: var(--rf-radius-card); }
+.rf-oatt-dash #at-risk-section :is(.border-red-200, .divide-red-200 > *) { border-color: rgba(192, 57, 43, 0.18); }
+.rf-oatt-dash .bg-red-200 { background-color: var(--rf-surface); }
+
+/* Event time page: its own full-width banner sits under the nav */
+.rf-oevtime.min-h-screen { background-color: var(--rf-bg); }
+.rf-oevtime .rf-op-banner { border-radius: 0; }
+
+/* Phones: header actions take the full width, nothing pushes sideways */
+@media (max-width: 640px) {
+    .rf-op .rf-op-head > a,
+    .rf-op .rf-op-head > div:last-child:not(:first-child) { width: 100%; }
+    .rf-oarch .rf-oev-row { flex-wrap: wrap; }
+    .rf-oarch .rf-oev-row > .rf-row-body { flex: 1 1 calc(100% - 120px); }
+    .rf-oarch .rf-oev-row > .rf-btn { margin-left: 56px; }
+    .rf-oev-row > .rf-chip { font-size: 11px; padding: 2px 6px; }
+}
+@media (max-width: 560px) {
+    .rf-ohome > .bg-white.flex.items-center { flex-wrap: wrap; }
+    .rf-ohome > .bg-white.flex.items-center > .shrink-0 { width: 100%; padding-left: 48px; }
+}

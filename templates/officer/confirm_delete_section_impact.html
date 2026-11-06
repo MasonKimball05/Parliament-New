@@ -4,10 +4,10 @@
 {% block title %}Delete Section Impact{% endblock %}
 
 {% block admin_content %}
-<div class="container mx-auto px-4 py-8 max-w-2xl">
+<div class="container mx-auto px-4 py-8 max-w-2xl{% if ui_refresh %} rf-mp rf-ob rf-ob-confirm{% endif %}">
     <!-- Header -->
     <div class="mb-6">
-        <nav class="text-sm text-gray-600 mb-2">
+        <nav class="text-sm text-gray-600 mb-2{% if ui_refresh %} rf-ob-crumbs{% endif %}">
             <a href="{% url 'manage_resolutions' %}" class="hover:text-primary-600">Manage Resolutions</a>
             <span class="mx-2">›</span>
             <a href="{% url 'manage_section_impacts' resolution.id %}" class="hover:text-primary-600">{{ resolution.title }}</a>
@@ -19,7 +19,7 @@
     </div>
 
     <!-- Warning Box -->
-    <div class="bg-yellow-50 border-l-4 border-yellow-500 p-4 mb-6 rounded-r-lg">
+    <div class="bg-yellow-50 border-l-4 border-yellow-500 p-4 mb-6 rounded-r-lg{% if ui_refresh %} rf-ob-note is-warning{% endif %}">
         <div class="flex">
             <svg class="w-5 h-5 text-yellow-600 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
@@ -33,7 +33,7 @@
     <!-- Section Impact Details -->
     <div class="bg-white rounded-xl shadow-sm p-6 mb-6">
         <h3 class="text-lg font-semibold text-gray-900 mb-4">Section Impact to Delete:</h3>
-        <div class="bg-gray-50 p-4 rounded-lg">
+        <div class="bg-gray-50 p-4 rounded-lg{% if ui_refresh %} rf-ob-facts{% endif %}">
             <div class="mb-2">
                 <span class="text-sm font-semibold text-gray-600">Display Name:</span>
                 <p class="text-gray-900">{{ section_impact.section_name }}</p>
@@ -66,7 +66,7 @@
     </div>
 
     <!-- Confirmation Form -->
-    <div class="bg-white rounded-xl shadow-sm p-6">
+    <div class="bg-white rounded-xl shadow-sm p-6{% if ui_refresh %} rf-ob-confirm-card{% endif %}">
         <form method="post">
             {% csrf_token %}
             <div class="flex items-center justify-between">

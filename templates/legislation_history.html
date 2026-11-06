@@ -4,14 +4,14 @@
 {% block title %}My Work{% endblock %}
 
 {% block content %}
-<div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+<div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8{% if ui_refresh %} rf-mp rf-work{% endif %}">
 
     <!-- Header -->
     <div class="mb-6">
         <h1 class="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100 mb-1">My Work</h1>
         <p class="text-sm text-gray-500 dark:text-gray-400 mb-5">Your legislation submissions and polls</p>
 
-        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3{% if ui_refresh %} rf-work-stats{% endif %}">
             <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 text-center border-l-4 border-gray-400">
                 <div class="text-3xl font-bold text-gray-900 dark:text-gray-100">{{ status_counts.all }}</div>
                 <div class="text-xs text-gray-500 dark:text-gray-400 mt-1 font-medium uppercase tracking-wide">Bills Total</div>
@@ -32,7 +32,7 @@
     </div>
 
     <!-- Tab Bar -->
-    <div class="flex gap-1 mb-5 bg-white dark:bg-gray-800 rounded-lg shadow-sm p-1">
+    <div class="flex gap-1 mb-5 bg-white dark:bg-gray-800 rounded-lg shadow-sm p-1{% if ui_refresh %} rf-work-tabs{% endif %}">
         <button id="tab-btn-legislation"
                 class="flex-1 px-4 py-2 rounded-md text-sm font-medium transition-colors bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-100">
             Legislation
@@ -59,7 +59,7 @@
     <div id="section-legislation">
 
         <!-- Filter Buttons -->
-        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm mb-5 p-1 flex flex-wrap gap-1">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm mb-5 p-1 flex flex-wrap gap-1{% if ui_refresh %} rf-work-filters{% endif %}">
             <a href="?status=all"
                class="px-3 py-1.5 rounded-md text-sm font-medium transition-colors {% if status_filter == 'all' %}bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-100{% else %}text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50{% endif %}">
                 All <span class="ml-1 text-xs opacity-60">{{ status_counts.all }}</span>
@@ -99,7 +99,7 @@
 
         <!-- Legislation List -->
         {% if legislation_history %}
-        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden divide-y divide-gray-200 dark:divide-gray-700">
+        {% if ui_refresh %}{% include "my_work_refresh/_bills.html" %}{% else %}<div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden divide-y divide-gray-200 dark:divide-gray-700">
             {% for item in legislation_history %}
             <div class="flex gap-0">
 
@@ -375,7 +375,7 @@
                 </div>
             </div>
             {% endfor %}
-        </div>
+        </div>{% endif %}{# /rf #}
         {# v3.17.3: this page rendered every bill the user ever authored. #}
         {% include 'includes/pagination.html' with page_obj=page_obj %}
         {% endif %}
@@ -394,7 +394,7 @@
             <p class="text-sm text-gray-400 dark:text-gray-500 mt-1">Polls are created from the announcement form.</p>
         </div>
         {% else %}
-        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden divide-y divide-gray-200 dark:divide-gray-700">
+        {% if ui_refresh %}{% include "my_work_refresh/_polls.html" %}{% else %}<div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden divide-y divide-gray-200 dark:divide-gray-700">
             {% for poll in my_polls %}
             {% comment %}
             v3.17.3: response_total / question_total are annotations from the
@@ -473,7 +473,7 @@
             </div>
             {% endwith %}
             {% endfor %}
-        </div>
+        </div>{% endif %}{# /rf #}
         {% endif %}
 
     </div>{# end section-polls #}
@@ -482,7 +482,7 @@
     <div id="section-drafts" class="hidden">
 
         <!-- New draft -->
-        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm mb-5 overflow-hidden">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm mb-5 overflow-hidden{% if ui_refresh %} rf-work-new{% endif %}">
             <button id="draft-new-toggle"
                     class="w-full flex items-center justify-between px-6 py-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                 <span class="flex items-center gap-2">
@@ -546,7 +546,7 @@
             <p class="text-gray-400 dark:text-gray-500 text-xs mt-1">Start one above to work on a bill before you present it.</p>
         </div>
         {% else %}
-        <div class="space-y-3">
+        {% if ui_refresh %}{% include "my_work_refresh/_drafts.html" %}{% else %}<div class="space-y-3">
             {% for item in my_drafts %}
             <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden border-l-4 {% if item.draft.is_published %}border-green-500{% elif item.ready_to_publish %}border-primary-500{% else %}border-gray-300 dark:border-gray-600{% endif %}">
                 <div class="px-6 py-4">
@@ -643,7 +643,7 @@
                 </div>
             </div>
             {% endfor %}
-        </div>
+        </div>{% endif %}{# /rf #}
         {% endif %}
 
     </div>{# end section-drafts #}

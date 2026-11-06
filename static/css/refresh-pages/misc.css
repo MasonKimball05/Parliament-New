@@ -1,0 +1,600 @@
+/* =========================================================================
+   Website refresh: the remaining member and officer pages.
+     Chat management (a channel's chrome, create / edit / delete channel,
+     muted members, reports), bug reports and feedback (report, detail,
+     success, tracker, mine), meeting agendas (list, detail, editor), the
+     C&B manager (dashboard, manage document, edit section, resolution
+     detail / form / document preview / list, section history), songbook
+     categories and song form, roadmap and changelog, the house map, the
+     role knowledge base, Kai closure / drop requests, commendations and the
+     form builder's chrome, flagged quotes, an event's sign-up list,
+     announcement polls, QR check-in result, log out, the error and notice
+     pages (403, 404, 500, feature / page disabled, geo and pledge
+     restricted) and the guide's topic pages (category hubs, handoff,
+     guide/members/*, guide/officers/*).
+
+   Loaded by base.html after refresh.css and member-tools.css, only when
+   `ui_refresh` is on (see src/ui_refresh.py). Plain CSS, no Tailwind
+   build; refresh.css's tokens (--rf-*). Every rule is scoped under a class
+   the page's template adds only with the refresh on, on the page's root
+   element:
+
+     .rf-mp            member-tools.css's shared layer (soft tints, titles,
+                       empty states); on every page here except the two
+                       chrome-only ones
+     .rf-mx            the shared rules below (fields, buttons, pills, info
+                       boxes, cards, tables, more soft tints)
+     .rf-mx-lite       chrome-only pages (kai/form_builder.html):
+                       nothing shared, only their own page class
+     .rf-chat-form     chat/create_channel.html, chat/edit_channel.html
+     .rf-confirm       chat/delete_channel.html
+     .rf-chat-muted    chat/muted_members.html
+     .rf-chat-reports  chat/reports.html
+     .rf-support-form  bug_report.html, feedback_request.html
+     .rf-support-detail bug_report_detail.html, feedback_request_detail.html
+     .rf-done          bug_report_success.html, feedback_request_success.html
+     .rf-tracker       bug_tracker.html, feedback_tracker.html
+     .rf-mine          my_bug_reports.html, my_feedback_requests.html
+     .rf-agendas       meetings/agenda_list.html
+     .rf-agenda        meetings/agenda_detail.html, agenda_edit.html (+ .rf-agenda-edit)
+     .rf-cnbm          cnb/* manager pages (+ .rf-cnbm-preview on the
+                       resolution document preview)
+     .rf-song-admin    songbook_categories.html, songbook_form.html
+     .rf-roadmap       roadmap.html
+     .rf-changelog     changelog.html, changelog_detail.html
+     .rf-house         house_map.html
+     .rf-rolekb        role_knowledge_base_index.html
+     .rf-kai-request   kai/request_closure.html, kai/request_drop.html
+     .rf-kai-commend   kai/submit_commendation.html
+     .rf-kai-builder   kai/form_builder.html (chrome only)
+     .rf-quotes-flagged quote_book/flagged.html
+     .rf-signups       calendar/event_signup_list.html
+     .rf-ann-poll      announcement_poll.html
+     .rf-notice        one-message pages: announcement_poll_confirmation,
+                       event_qr_checkin_result, logout_confirm,
+                       geo_restricted, errors/pledge_restricted, and (with
+                       .rf-error) 403, 404, 500, feature_disabled,
+                       page_disabled
+     .rf-guide-hub     guide/category_hub.html
+     .rf-guide-topic   guide/handoff.html, guide/members/*, guide/officers/*
+                       (one shared layout, restyled once)
+   ========================================================================= */
+
+:root.ui-refresh {
+    --rf-mx-teal: #0b6f71;
+    --rf-mx-teal-soft: #e0f3f3;
+}
+:root.ui-refresh.dark {
+    --rf-mx-teal: #5cc8ca;
+    --rf-mx-teal-soft: #12323a;
+}
+
+/* ---------- Shared (.rf-mx) ----------------------------------------------- */
+
+/* Page titles: the app's large title; card headings at the app's 17px/700 */
+.rf-mx :is(h1, h2):is(.text-2xl, .text-3xl) { font-size: clamp(24px, 4vw, 30px); font-weight: 800; letter-spacing: -0.02em; }
+.rf-mx .rounded-xl :is(h2, h3):is(.text-xl, .text-lg) { font-size: 17px; font-weight: 700; letter-spacing: -0.01em; }
+
+/* Soft tints member-tools.css's layer leaves out: every palette family the
+   pages use, light class listed (its dark: twin has the same specificity
+   and comes earlier, so these hold in both modes). */
+.rf-mx :is(.bg-emerald-50, .bg-emerald-100, .bg-green-200) { background-color: var(--rf-success-soft); }
+.rf-mx :is(.bg-orange-50, .bg-orange-100, .bg-yellow-200, .bg-amber-200) { background-color: var(--rf-warning-soft); }
+.rf-mx :is(.bg-rose-50, .bg-rose-100, .bg-red-200, .bg-pink-50, .bg-pink-100) { background-color: var(--rf-danger-soft); }
+.rf-mx :is(.bg-indigo-50, .bg-indigo-100, .bg-sky-50, .bg-sky-100, .bg-cyan-50, .bg-cyan-100, .bg-blue-200, .bg-primary-50) { background-color: var(--rf-accent-soft); }
+.rf-mx :is(.bg-violet-50, .bg-violet-100, .bg-purple-200, .bg-fuchsia-50, .bg-fuchsia-100) { background-color: var(--rf-mp-purple-soft); }
+.rf-mx :is(.bg-teal-50, .bg-teal-100) { background-color: var(--rf-mx-teal-soft); }
+.rf-mx :is(.bg-slate-50, .bg-slate-100) { background-color: var(--rf-surface-muted); }
+.rf-mx :is(.text-emerald-500, .text-emerald-600, .text-emerald-700, .text-emerald-800, .text-emerald-900, .text-green-900) { color: var(--rf-success); }
+.rf-mx :is(.text-orange-500, .text-orange-600, .text-orange-700, .text-orange-800, .text-orange-900, .text-yellow-500, .text-yellow-900, .text-amber-900) { color: var(--rf-warning); }
+.rf-mx :is(.text-rose-500, .text-rose-600, .text-rose-700, .text-rose-800, .text-rose-900, .text-red-900, .text-pink-600, .text-pink-700) { color: var(--rf-danger); }
+.rf-mx :is(.text-indigo-500, .text-indigo-600, .text-indigo-700, .text-indigo-800, .text-indigo-900, .text-sky-600, .text-sky-700, .text-cyan-600, .text-cyan-700, .text-cyan-800, .text-blue-500, .text-blue-900, .text-primary-900) { color: var(--rf-accent-on-soft); }
+.rf-mx :is(.text-violet-500, .text-violet-600, .text-violet-700, .text-violet-800, .text-violet-900, .text-purple-500, .text-purple-900) { color: var(--rf-mp-purple); }
+.rf-mx :is(.text-teal-600, .text-teal-700, .text-teal-800, .text-teal-900) { color: var(--rf-mx-teal); }
+.rf-mx :is(.text-slate-600, .text-slate-700, .text-slate-800) { color: var(--rf-text-secondary); }
+.rf-mx :is(.border-emerald-200, .border-orange-200, .border-rose-200, .border-indigo-200, .border-violet-200, .border-purple-200, .border-teal-200, .border-cyan-200, .border-sky-200, .border-slate-200, .border-pink-200, .border-green-300, .border-yellow-300, .border-amber-300, .border-red-300, .border-blue-300, .border-indigo-100, .border-orange-100, .border-primary-100) { border-color: transparent; }
+/* Pills drawn as solid -900 fills in dark (`dark:bg-red-900`) and the
+   neutral gray pills */
+:where(.ui-refresh.dark) .rf-mx :is(.dark\:bg-gray-600, .dark\:bg-gray-700).rounded-full { background-color: var(--rf-surface-muted); }
+
+/* Info and warning boxes (a tint, a hairline and a radius): the app's soft
+   notice, no border, the control radius. Side bars become the notice. */
+.rf-mx :is(div, p, section).rounded-lg:is(.border, .border-l-4):is([class*="bg-blue-50"], [class*="bg-primary-50"], [class*="bg-indigo-50"], [class*="bg-yellow-50"], [class*="bg-amber-50"], [class*="bg-orange-50"], [class*="bg-red-50"], [class*="bg-green-50"], [class*="bg-emerald-50"], [class*="bg-purple-50"], [class*="bg-violet-50"], [class*="bg-teal-50"], [class*="bg-cyan-50"]) {
+    border-width: 0;
+    border-radius: var(--rf-radius-control);
+}
+.rf-mx .border-l-4:is([class*="bg-blue-50"], [class*="bg-primary-50"], [class*="bg-yellow-50"], [class*="bg-amber-50"], [class*="bg-red-50"], [class*="bg-green-50"], [class*="bg-indigo-50"]) {
+    border-left-width: 0;
+    border-radius: var(--rf-radius-control);
+}
+
+/* Cards: the app's card radius, no colored side bars or hard edges */
+.rf-mx :is(div, form, section, details, ol, ul).rounded-lg:is(.shadow, .shadow-sm, .shadow-md, .shadow-lg) { border-radius: var(--rf-radius-card); }
+.rf-mx :is(div, section, a).rounded-xl.border:not([class*="bg-"][class*="-50"]) { border-color: transparent; }
+.rf-mx :is(.rounded-xl, .rounded-lg):is(.shadow, .shadow-sm, .shadow-md).border-l-4 { border-left-width: 0; }
+.rf-mx .shadow-lg:not(nav *) { --tw-shadow: 0 0 0 1px var(--rf-card-border), 0 6px 18px var(--rf-shadow); }
+.rf-mx a.rounded-xl:is(.hover\:shadow-lg, .hover\:shadow-md):hover { --tw-shadow: 0 0 0 1px var(--rf-card-border), 0 6px 18px var(--rf-shadow); background-color: var(--rf-surface); }
+
+/* A card's header strip (px-6 py-4 border-b + heading): the heading reads as
+   the app's section label inside the card */
+.rf-mx .rounded-xl > .border-b:first-child:is(.px-6, .px-5, .px-4) { border-color: var(--rf-separator); }
+
+/* Fields (form.tsx Field: filled, borderless, 10px), typed or not */
+.rf-mx :is(input:not([type]), input:is([type="text"], [type="email"], [type="search"], [type="number"], [type="url"], [type="date"], [type="datetime-local"], [type="time"], [type="tel"], [type="password"]), select, textarea) {
+    background-color: var(--rf-surface-muted);
+    border-color: transparent;
+    border-radius: var(--rf-radius-control);
+    color: var(--rf-text);
+    --tw-shadow: 0 0 #0000;
+}
+.rf-mx :is(input:not([type]), input:is([type="text"], [type="email"], [type="search"], [type="number"], [type="url"], [type="date"], [type="datetime-local"], [type="time"], [type="tel"], [type="password"]), select, textarea):focus {
+    background-color: var(--rf-surface);
+    border-color: var(--rf-accent);
+    --tw-ring-color: var(--rf-accent);
+}
+.rf-mx :is(input, textarea)::placeholder { color: var(--rf-text-muted); }
+.rf-mx input:is([type="checkbox"], [type="radio"], [type="range"]) { accent-color: var(--rf-accent); }
+.rf-mx input:is([type="checkbox"], [type="radio"]):checked { background-color: var(--rf-accent); border-color: var(--rf-accent); }
+.rf-mx input[type="color"] { border-radius: var(--rf-radius-control); border-color: var(--rf-separator); }
+.rf-mx label:is(.block, .flex).text-sm.font-medium,
+.rf-mx label.block.text-sm { font-weight: 600; color: var(--rf-text-secondary); }
+.rf-mx input[type="file"] { color: var(--rf-text-secondary); font-size: 14px; }
+.rf-mx input[type="file"]::file-selector-button {
+    margin-right: 12px; padding: 7px 14px; border: 0; border-radius: 999px;
+    background-color: var(--rf-accent-soft); color: var(--rf-accent-on-soft);
+    font-weight: 600; cursor: pointer;
+}
+/* Drop zones (dashed labels): the muted fill with an accent dashed edge */
+.rf-mx label.border-dashed { border-color: var(--rf-separator); background-color: var(--rf-surface-muted); border-radius: var(--rf-radius-card); }
+.rf-mx label.border-dashed:hover { border-color: var(--rf-accent); background-color: var(--rf-accent-soft); }
+
+/* Solid utility buttons (PrimaryButton): accent, success, danger, warning;
+   one class more specific than the light/dark pair, so it holds in both */
+.rf-mx :is(a, button):is(.bg-primary-600, .bg-primary-500, .bg-primary-700, .bg-blue-600, .bg-indigo-600, .bg-violet-600, .bg-green-600, .bg-emerald-600, .bg-red-600, .bg-red-500, .bg-yellow-600, .bg-amber-500, .bg-amber-600, .bg-orange-500, .bg-orange-600, .bg-purple-600, .bg-teal-600, .bg-gray-600, .bg-gray-800) {
+    border-radius: var(--rf-radius-control);
+    font-weight: 600;
+    background-image: none;
+    --tw-shadow: 0 0 #0000;
+    transition: filter 0.12s, background-color 0.12s;
+}
+.rf-mx :is(a, button):is(.bg-primary-600, .bg-primary-500, .bg-primary-700, .bg-blue-600, .bg-indigo-600, .bg-violet-600) { background-color: var(--rf-accent); color: var(--rf-accent-text); }
+.rf-mx :is(a, button):is(.bg-green-600, .bg-emerald-600) { background-color: var(--rf-success); color: #ffffff; }
+.rf-mx :is(a, button):is(.bg-red-600, .bg-red-500) { background-color: var(--rf-danger); color: #ffffff; }
+.rf-mx :is(a, button):is(.bg-yellow-600, .bg-amber-500, .bg-amber-600, .bg-orange-500, .bg-orange-600) { background-color: var(--rf-warning); color: #ffffff; }
+.rf-mx :is(a, button).bg-purple-600 { background-color: var(--rf-tile-purple); color: #ffffff; }
+.rf-mx :is(a, button).bg-teal-600 { background-color: var(--rf-tile-teal); color: #ffffff; }
+.rf-mx :is(a, button):is(.bg-gray-600, .bg-gray-800) { background-color: transparent; color: var(--rf-accent); box-shadow: inset 0 0 0 1.5px var(--rf-accent); }
+:where(.ui-refresh.dark) .rf-mx :is(a, button):is(.bg-green-600, .bg-emerald-600, .bg-red-600, .bg-red-500, .bg-yellow-600, .bg-amber-500, .bg-amber-600, .bg-orange-500, .bg-orange-600, .bg-purple-600, .bg-teal-600) { color: var(--rf-accent-text); }
+.rf-mx :is(a, button):is(.bg-primary-600, .bg-primary-500, .bg-primary-700, .bg-blue-600, .bg-indigo-600, .bg-violet-600, .bg-green-600, .bg-emerald-600, .bg-red-600, .bg-red-500, .bg-yellow-600, .bg-amber-500, .bg-amber-600, .bg-orange-500, .bg-orange-600, .bg-purple-600, .bg-teal-600):hover { filter: brightness(0.92); }
+:where(.ui-refresh.dark) .rf-mx :is(a, button):is(.bg-primary-600, .bg-primary-500, .bg-primary-700, .bg-blue-600, .bg-indigo-600, .bg-violet-600, .bg-green-600, .bg-emerald-600, .bg-red-600, .bg-red-500, .bg-yellow-600, .bg-amber-500, .bg-amber-600, .bg-orange-500, .bg-orange-600, .bg-purple-600, .bg-teal-600):hover { filter: brightness(1.1); }
+.rf-mx :is(a, button):is(.bg-primary-600, .bg-green-600, .bg-red-600, .bg-red-500, .bg-orange-500, .bg-indigo-600) :is(.text-white, svg) { color: inherit; }
+/* Outlined and gray buttons (Cancel, Back, Clear): the app's secondary */
+.rf-mx :is(a, button).border:is(.rounded-md, .rounded-lg):is(.border-gray-300, .border-gray-200):not(.w-full) {
+    border-radius: var(--rf-radius-control);
+    border-color: var(--rf-separator);
+    background-color: transparent;
+    color: var(--rf-text);
+    font-weight: 600;
+    --tw-shadow: 0 0 #0000;
+}
+.rf-mx :is(a, button).border:is(.rounded-md, .rounded-lg):is(.border-gray-300, .border-gray-200):not(.w-full):hover { background-color: var(--rf-surface-muted); }
+.rf-mx :is(a, button):is(.bg-gray-200, .bg-gray-100):is(.rounded-md, .rounded-lg) { border-radius: var(--rf-radius-control); font-weight: 600; background-color: var(--rf-surface-muted); color: var(--rf-text); }
+:where(.ui-refresh.dark) .rf-mx :is(a, button):is(.dark\:bg-gray-600, .dark\:bg-gray-700):is(.rounded-md, .rounded-lg) { background-color: var(--rf-surface-muted); color: var(--rf-text); }
+.rf-mx :is(a, button):is(.bg-gray-200, .bg-gray-100):is(.rounded-md, .rounded-lg):hover { background-color: var(--rf-separator); }
+/* Secondary links drawn as soft buttons (bg-white/20 on banners keep theirs) */
+.rf-mx :is(a, button):focus-visible { outline: 2px solid var(--rf-accent); outline-offset: 2px; }
+
+/* Pills (kit Pill: 999px, 12px/600) */
+.rf-mx span.rounded-full:is(.text-xs, .px-2, .px-2\.5, .px-3):not(:empty):not(.w-1\.5):not(.w-2):not(.w-6):not(.w-8) { font-weight: 600; }
+.rf-mx span.rounded-full.text-xs:is(.px-2\.5, .px-2) { padding-top: 2px; padding-bottom: 2px; }
+
+/* Tables: header as small caps on the card, rows on hairlines */
+.rf-mx table thead:is(.bg-gray-50, .bg-gray-100) { background-color: transparent; }
+:where(.ui-refresh.dark) .rf-mx table thead:is(.dark\:bg-gray-700, .dark\:bg-gray-900\/50, .dark\:bg-gray-800) { background-color: transparent; }
+.rf-mx table th { font-size: 12px; font-weight: 600; letter-spacing: 0.04em; color: var(--rf-text-muted); }
+.rf-mx table tbody.bg-white { background-color: transparent; }
+.rf-mx table tbody tr:hover { background-color: var(--rf-surface-muted); }
+
+/* details/summary drawers */
+.rf-mx details > summary { border-radius: var(--rf-radius-control); }
+.rf-mx details > summary:focus-visible { outline: 2px solid var(--rf-accent); outline-offset: 2px; }
+
+/* Breadcrumbs and back links: the app's accent link at 600 */
+.rf-mx > a.text-sm.text-primary-600:first-child,
+.rf-mx > .mb-6:first-child > a.text-primary-600,
+.rf-mx > .mb-6:first-child > a.text-sm.text-primary-600 { font-weight: 600; }
+
+/* ---------- Chat management pages ----------------------------------------- */
+
+.rf-chat-form.max-w-4xl, .rf-chat-form.max-w-3xl { max-width: calc(var(--rf-readable) + 64px); }
+.rf-chat-form form > .bg-white,
+.rf-chat-form form .rounded-xl { border-radius: var(--rf-radius-card); }
+.rf-chat-form .grid > label.border,
+.rf-chat-form label.border.rounded-lg { border-color: transparent; background-color: var(--rf-surface-muted); border-radius: var(--rf-radius-control); }
+.rf-chat-form label.border.rounded-lg:has(input:checked) { box-shadow: inset 0 0 0 2px var(--rf-accent); background-color: var(--rf-accent-soft); }
+/* The member pick-lists: a filled well, as the app's field */
+.rf-chat-form :is(div.border.rounded-md.overflow-y-auto, #user-perm-list) { border-color: transparent; border-radius: var(--rf-radius-control); background-color: var(--rf-surface-muted); }
+
+.rf-confirm > .rounded-xl.border-l-4 { border-left-width: 0; }
+.rf-confirm > .rounded-xl > .border-t { border-color: var(--rf-separator); }
+
+.rf-chat-muted > .rounded-xl > div { min-height: 60px; padding: 12px 16px; }
+.rf-chat-muted > .rounded-xl > div .font-medium { font-weight: 600; }
+.rf-chat-muted > .rounded-xl > div button {
+    border: 0; border-radius: 999px; padding: 6px 14px;
+    background-color: var(--rf-accent-soft); color: var(--rf-accent-on-soft); font-weight: 600;
+}
+.rf-chat-muted > .rounded-xl > div button:hover { filter: brightness(0.96); background-color: var(--rf-accent-soft); }
+.rf-chat-muted > .rounded-xl > p { padding: 28px 16px; text-align: center; color: var(--rf-text-secondary); }
+
+.rf-chat-reports > .flex.flex-wrap > a {
+    border: 0;
+    padding: 7px 14px;
+    background-color: var(--rf-surface);
+    box-shadow: inset 0 0 0 1px var(--rf-card-border);
+    color: var(--rf-text-secondary);
+    font-weight: 600;
+}
+.rf-chat-reports > .flex.flex-wrap > a.bg-primary-600 { background-color: var(--rf-accent); color: var(--rf-accent-text); box-shadow: none; }
+.rf-chat-reports .space-y-4 > .rounded-xl { border-left-width: 0; }
+.rf-chat-reports .space-y-4 > .rounded-xl.border-red-500 { box-shadow: 0 0 0 1px var(--rf-card-border), 0 3px 10px var(--rf-shadow), inset 3px 0 0 var(--rf-danger); }
+.rf-chat-reports .space-y-4 > .rounded-xl > .flex:first-child > span:first-child { font-size: 16px; font-weight: 700; }
+.rf-chat-reports .space-y-4 > .rounded-xl > .rounded-lg { border-radius: var(--rf-radius-control); background-color: var(--rf-surface-muted); }
+.rf-chat-reports .space-y-4 > .rounded-xl form button[value="dismiss"] { border-color: var(--rf-separator); border-radius: var(--rf-radius-control); font-weight: 600; color: var(--rf-text); }
+.rf-chat-reports .space-y-4 > p { padding: 28px 16px; text-align: center; border-radius: var(--rf-radius-card); background-color: var(--rf-surface); box-shadow: 0 0 0 1px var(--rf-card-border); }
+
+/* ---------- Bug reports and feedback ---------------------------------------- */
+
+/* Header: title, subtitle, actions; the actions are pills on a phone */
+.rf-support-form.max-w-4xl, .rf-support-detail.max-w-4xl { max-width: calc(var(--rf-readable) + 64px); }
+.rf-support-form form > .rounded-xl > h2,
+.rf-support-form form > .rounded-xl > button > span { font-size: 17px; font-weight: 700; }
+.rf-support-form form > .rounded-xl > h2 svg,
+.rf-support-form form > .rounded-xl > button svg:first-child { color: var(--rf-accent); }
+.rf-support-form form > .flex.justify-end > :is(a, button) { min-height: 44px; }
+@media (max-width: 640px) {
+    .rf-support-form form > .flex.justify-end { flex-direction: column-reverse; gap: 10px; }
+    .rf-support-form form > .flex.justify-end > * { margin: 0; width: 100%; justify-content: center; text-align: center; }
+    .rf-support-form form > .flex.justify-end > * + * { margin-left: 0; }
+}
+
+/* Tracker: four stat tiles, a filter card, the reports as cards */
+.rf-tracker > .grid:first-of-type > div,
+.rf-tracker > .grid.mb-8 > div { border-radius: var(--rf-radius-stat); --tw-shadow: 0 0 0 1px var(--rf-card-border), 0 3px 10px var(--rf-shadow); }
+.rf-tracker > .grid.mb-8 > div .p-2.rounded-lg { width: 40px; height: 40px; padding: 9px; border-radius: 10px; background-color: var(--rf-tile-gray); }
+.rf-tracker > .grid.mb-8 > div .p-2.rounded-lg svg { width: 22px; height: 22px; color: #ffffff; }
+.rf-tracker > .grid.mb-8 > div .p-2.rounded-lg:is(.bg-red-100) { background-color: var(--rf-tile-red); }
+.rf-tracker > .grid.mb-8 > div .p-2.rounded-lg:is(.bg-blue-100, .bg-primary-100, .bg-indigo-100) { background-color: var(--rf-tile-blue); }
+.rf-tracker > .grid.mb-8 > div .p-2.rounded-lg:is(.bg-green-100, .bg-emerald-100) { background-color: var(--rf-tile-green); }
+.rf-tracker > .grid.mb-8 > div .p-2.rounded-lg:is(.bg-yellow-100, .bg-amber-100, .bg-orange-100) { background-color: var(--rf-tile-gold); }
+.rf-tracker > .grid.mb-8 > div .p-2.rounded-lg:is(.bg-purple-100, .bg-violet-100) { background-color: var(--rf-tile-purple); }
+.rf-tracker > .grid.mb-8 > div p.text-sm { font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--rf-text-secondary); }
+.rf-tracker > .grid.mb-8 > div p.text-2xl { font-weight: 800; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.rf-tracker > .grid.mb-8 > div .text-gray-900 { color: var(--rf-text); }
+.rf-tracker .space-y-4 > a { transition: background-color 0.12s, box-shadow 0.12s; }
+.rf-tracker .space-y-4 > a:hover { background-color: var(--rf-surface); }
+.rf-tracker .space-y-4 > a h3 { font-size: 16px; font-weight: 600; }
+.rf-tracker .space-y-4 > a:focus-visible { outline: 2px solid var(--rf-accent); outline-offset: 2px; }
+.rf-tracker .space-y-4 > a .bg-cyan-100 { background-color: var(--rf-mx-teal-soft); color: var(--rf-mx-teal); }
+.rf-tracker .space-y-4 > a span.bg-red-600 { background-color: var(--rf-danger); color: #ffffff; }
+:where(.ui-refresh.dark) .rf-tracker .space-y-4 > a span.bg-red-600 { color: var(--rf-accent-text); }
+.rf-tracker form .flex.items-end { flex-wrap: wrap; }
+@media (max-width: 640px) {
+    .rf-tracker > .flex:first-child > .flex { flex-wrap: wrap; }
+    .rf-tracker .space-y-4 > a .flex-col.items-end { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 4px 12px; }
+    .rf-tracker .space-y-4 > a .flex-col.items-end > .mt-1 { margin-top: 0; }
+}
+
+/* My reports: the table on a card; under 640px each row is a card of its own
+   (the app's SupportCard list), the column names hidden */
+.rf-mine table td { vertical-align: middle; }
+.rf-mine table :is(th, td).px-6 { padding-left: 16px; padding-right: 16px; }
+@media (max-width: 640px) {
+    .rf-mine > .rounded-xl.overflow-hidden { background: transparent; box-shadow: none; overflow: visible; }
+    .rf-mine table, .rf-mine table tbody, .rf-mine table tr, .rf-mine table td { display: block; width: 100%; }
+    .rf-mine table thead { display: none; }
+    .rf-mine table tbody { border: 0; }
+    .rf-mine table tbody > tr {
+        display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
+        margin-bottom: 12px; padding: 14px 16px;
+        border-radius: var(--rf-radius-card);
+        background-color: var(--rf-surface);
+        box-shadow: 0 0 0 1px var(--rf-card-border), 0 3px 10px var(--rf-shadow);
+    }
+    .rf-mine table tbody > tr + tr { border-top-width: 0; }
+    .rf-mine table tbody > tr > td.px-6 { width: auto; padding: 0; white-space: normal; }
+    .rf-mine table tbody > tr > td:nth-child(2) { order: 9; flex: 1 1 100%; }
+    .rf-mine table tbody > tr > td:nth-child(2) .max-w-xs { max-width: none; white-space: normal; }
+    .rf-mine table tbody > tr > td:last-child { order: 10; flex: 1 1 100%; font-size: 12px; }
+    .rf-mine table tbody > tr > td:last-child > div { display: inline; margin-left: 4px; }
+    .rf-mine .overflow-x-auto { overflow: visible; }
+}
+
+/* Detail: the description card leads, the side facts as a grouped card */
+.rf-support-detail > a.inline-flex { font-weight: 600; color: var(--rf-accent); }
+.rf-support-detail dl dt { font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--rf-text-muted); }
+.rf-support-detail dl dd { color: var(--rf-text); }
+.rf-support-detail .whitespace-pre-wrap { overflow-wrap: anywhere; }
+.rf-support-detail img { border-radius: var(--rf-radius-control); }
+
+/* Success: one centered card with the app's success tile */
+.rf-done > .rounded-xl { border-radius: 20px; }
+.rf-done > .rounded-xl .w-16.h-16.rounded-full,
+.rf-done > .rounded-xl .w-20.h-20.rounded-full { background-color: var(--rf-tile-green); }
+.rf-done > .rounded-xl .w-16.h-16.rounded-full svg,
+.rf-done > .rounded-xl .w-20.h-20.rounded-full svg { color: #ffffff; }
+.rf-done > .rounded-xl .flex > a { min-height: 44px; }
+
+/* ---------- Meeting agendas -------------------------------------------------- */
+
+.rf-agendas.max-w-4xl, .rf-agenda.max-w-4xl, .rf-agenda.max-w-3xl { max-width: calc(var(--rf-readable) + 64px); }
+/* "+ New agenda": a drawer card whose summary is the accent row */
+.rf-agendas > details > summary { padding: 14px 16px; font-weight: 700; list-style: none; }
+.rf-agendas > details > summary::-webkit-details-marker { display: none; }
+.rf-agendas > details[open] > summary { border-bottom: 1px solid var(--rf-separator); border-radius: 0; margin-bottom: 16px; }
+.rf-agendas > details > form { padding-left: 16px; padding-right: 16px; padding-bottom: 16px; }
+/* Upcoming / Past: a section label over a grouped card of rows */
+.rf-agendas > .rounded-xl > .border-b:first-child { padding: 12px 16px 8px; border-bottom-width: 0; }
+.rf-agendas > .rounded-xl > .border-b:first-child h2 { font-size: 13px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--rf-text-muted); }
+.rf-agendas > .rounded-xl > .divide-y { border-top: 1px solid var(--rf-separator); }
+.rf-agendas > .rounded-xl > .divide-y > a { display: block; padding: 12px 16px; min-height: 56px; }
+.rf-agendas > .rounded-xl > .divide-y > a > p.font-medium { font-size: 15px; font-weight: 600; }
+.rf-agendas > .rounded-xl > .divide-y > a:focus-visible { outline: 2px solid var(--rf-accent); outline-offset: -2px; }
+.rf-agendas > .rounded-xl > .divide-y > p { padding: 16px; }
+
+/* An agenda: numbered rows, the length as a pill */
+.rf-agenda > a:first-child, .rf-agenda > .flex:first-child a.text-sm { font-weight: 600; }
+.rf-agenda > ol.rounded-xl > li { padding: 14px 16px; }
+.rf-agenda > ol.rounded-xl > li > .flex > p.font-medium,
+.rf-agenda > ol.rounded-xl > li > .flex > div > p.font-medium { font-size: 15px; font-weight: 600; }
+.rf-agenda > ol.rounded-xl > li > .flex > span.text-xs {
+    padding: 2px 8px; border-radius: 999px;
+    background-color: var(--rf-surface-muted); color: var(--rf-text-secondary); font-weight: 600;
+}
+.rf-agenda-edit > ol.rounded-xl > li details > summary { display: inline-block; padding: 2px 0; font-weight: 600; font-size: 13px; }
+.rf-agenda-edit > ol.rounded-xl > li > .flex form button { width: 32px; height: 32px; border-radius: 999px; padding: 0; }
+.rf-agenda-edit > ol.rounded-xl > li > .flex form button:hover { background-color: var(--rf-surface-muted); color: var(--rf-accent); }
+.rf-agenda-edit > .flex:first-child > .flex form button,
+.rf-agenda-edit > .flex:first-child > .flex > a { min-height: 38px; }
+.rf-agenda-edit > .rounded-xl.p-6 > h2 { font-size: 17px; font-weight: 700; }
+
+/* ---------- C&B manager (.rf-cnbm) ------------------------------------------ */
+
+/* The same treatment as the reader (member-tools.css .rf-cnb): no page
+   gradient, the flat chapter-blue banner, pill actions */
+.rf-cnbm.min-h-screen { background-image: none; background-color: transparent; }
+.rf-cnbm > .bg-gradient-to-r.from-primary-600 { background-image: none; background-color: var(--rf-hero); --tw-shadow: 0 0 #0000; padding-top: 28px; padding-bottom: 28px; }
+.rf-cnbm > .bg-gradient-to-r h1 { font-size: clamp(24px, 4vw, 30px); font-weight: 800; letter-spacing: -0.02em; }
+.rf-cnbm > .bg-gradient-to-r :is(.text-primary-100, .text-primary-200) { color: var(--rf-hero-muted); }
+.rf-cnbm > .bg-gradient-to-r a.rounded-lg { border-radius: 999px; font-weight: 600; }
+.rf-cnbm > .bg-gradient-to-r a.bg-white { background-color: #ffffff; color: var(--rf-hero); }
+.rf-cnbm > .bg-gradient-to-r a.bg-white:hover { background-color: rgba(255, 255, 255, 0.9); }
+.rf-cnbm > .bg-gradient-to-r :is(a, button):is(.bg-white\/20, .bg-white\/10) { background-color: var(--rf-hero-glass); border-color: var(--rf-hero-glass-border); }
+.rf-cnbm > .bg-gradient-to-r > .absolute.bottom-0 { height: 3px; background-image: none; background-color: var(--rf-gold); opacity: 1; }
+/* Summary numbers: stat tiles */
+.rf-cnbm .grid > .rounded-xl.p-5.text-center { border-radius: var(--rf-radius-stat); }
+.rf-cnbm .grid > .rounded-xl.p-5.text-center > p.text-3xl { font-weight: 800; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.rf-cnbm .grid > .rounded-xl.p-5.text-center > p.text-xs { font-weight: 600; color: var(--rf-text-secondary); }
+.rf-cnbm .text-amber-500 { color: var(--rf-warning); }
+/* Card heads: the section label inside the card */
+.rf-cnbm .rounded-xl > .border-b:first-child:is(.px-6, .px-5) h2.text-base { font-size: 13px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--rf-text-muted); }
+.rf-cnbm .rounded-xl > .border-b:first-child.bg-orange-50 h2 { color: var(--rf-warning); }
+.rf-cnbm .divide-y > a:focus-visible { outline: 2px solid var(--rf-accent); outline-offset: -2px; }
+/* Tabs and sticky bars */
+.rf-cnbm .sticky.bg-white { background-color: var(--rf-surface-glass); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); }
+.rf-cnbm :is(.prose, .font-serif) { color: var(--rf-text); }
+/* Resolution document preview: the paper keeps its white page */
+.rf-cnbm-preview.min-h-screen { background-color: transparent; }
+
+/* ---------- Songbook admin ------------------------------------------------------- */
+
+.rf-song-admin.max-w-4xl, .rf-song-admin.max-w-3xl { max-width: calc(var(--rf-readable) + 64px); }
+.rf-song-admin > .rounded-xl > .bg-gradient-to-r { background-image: none; background-color: transparent; border-color: var(--rf-separator); }
+.rf-song-admin > .rounded-xl > .bg-gradient-to-r :is(h1, h2) { color: var(--rf-text); }
+.rf-song-admin > .rounded-xl > .bg-gradient-to-r :is(p) { color: var(--rf-text-secondary); }
+.rf-song-admin .divide-y > div { padding-left: 16px; padding-right: 16px; }
+.rf-song-admin > .rounded-xl:first-of-type :is(.w-12.h-12, .w-10.h-10).rounded-full { border-radius: 12px; background-color: var(--rf-tile-purple); }
+.rf-song-admin > .rounded-xl:first-of-type :is(.w-12.h-12, .w-10.h-10).rounded-full.bg-primary-100 { background-color: var(--rf-tile-blue); }
+.rf-song-admin > .rounded-xl:first-of-type :is(.w-12.h-12, .w-10.h-10).rounded-full svg { color: #ffffff; }
+.rf-song-admin .w-4.h-4.rounded-full, .rf-song-admin .w-3.h-3.rounded-full { box-shadow: 0 0 0 2px var(--rf-surface); }
+
+/* ---------- Roadmap and changelog --------------------------------------------------- */
+
+.rf-roadmap > .mb-8 span.rounded-full.uppercase { letter-spacing: 0.06em; }
+.rf-roadmap .grid > .rounded-xl { border-color: transparent; --tw-shadow: 0 0 0 1px var(--rf-card-border), 0 3px 10px var(--rf-shadow); }
+.rf-roadmap .grid > .rounded-xl > .h-1 { height: 3px; }
+.rf-roadmap .grid > .rounded-xl .w-11.h-11.rounded-xl { border-radius: 10px; }
+.rf-roadmap .grid > .rounded-xl h2.text-base { font-size: 17px; font-weight: 700; letter-spacing: -0.01em; }
+.rf-roadmap .grid > .rounded-xl h3.uppercase { font-size: 13px; font-weight: 600; letter-spacing: 0.04em; color: var(--rf-text-muted); }
+.rf-roadmap .grid > .rounded-xl .w-4.h-4.rounded.border { border-color: var(--rf-separator); border-radius: 5px; }
+
+.rf-changelog > .bg-primary-50.border-l-4 { border-left-width: 0; border-radius: var(--rf-radius-control); }
+.rf-changelog .changelog-group { border-color: transparent; border-radius: var(--rf-radius-control); background-color: var(--rf-surface-muted); }
+.rf-changelog .changelog-group-toggle { background-color: transparent; font-weight: 600; color: var(--rf-text); }
+.rf-changelog .changelog-group-toggle:hover { background-color: var(--rf-separator); }
+.rf-changelog .changelog-group-panel { background-color: transparent; }
+.rf-changelog .changelog-badge { border-radius: 999px; font-weight: 600; }
+.rf-changelog .changelog-badge:hover { filter: brightness(0.96); }
+.rf-changelog #external-filter-btn { border-radius: 999px; border-color: transparent; font-weight: 600; }
+.rf-changelog .changelog-content { color: var(--rf-text-secondary); font-size: 16px; line-height: 1.7; }
+.rf-changelog .changelog-content :is(h1, h2, h3, h4) { color: var(--rf-text); letter-spacing: -0.01em; }
+.rf-changelog .changelog-content :is(h1, h2) { border-color: var(--rf-separator); }
+.rf-changelog .changelog-content h1 { font-weight: 800; }
+.rf-changelog .changelog-content a { color: var(--rf-accent); }
+.rf-changelog .changelog-content :is(code, pre) { background-color: var(--rf-surface-muted); color: var(--rf-text); border-radius: 6px; }
+.rf-changelog .changelog-content strong { color: var(--rf-text); }
+
+/* ---------- House map, role knowledge base ------------------------------------------- */
+
+.rf-house.container { max-width: 1180px; }
+.rf-house > .mb-8:first-child h1 { font-weight: 800; letter-spacing: -0.02em; }
+
+.rf-rolekb.container { max-width: calc(var(--rf-readable) + 32px); }
+.rf-rolekb form input[name="q"] { border-radius: 999px; min-height: 42px; font-size: 15px; }
+.rf-rolekb > .rounded-xl > a { min-height: 60px; padding: 12px 16px; }
+.rf-rolekb > .rounded-xl > a > .min-w-0 > p.font-medium { font-size: 15px; font-weight: 600; }
+.rf-rolekb > .rounded-xl > a:focus-visible { outline: 2px solid var(--rf-accent); outline-offset: -2px; }
+
+/* ---------- Kai: closure / drop requests, commendation, form builder ----------------- */
+
+.rf-kai-request > .mb-6 > a { font-weight: 600; }
+.rf-kai-request > .max-w-2xl > .rounded-lg { border-radius: var(--rf-radius-card); }
+.rf-kai-request > .max-w-2xl > .rounded-lg > .border-b:first-child h1.text-xl { font-size: 22px; font-weight: 800; letter-spacing: -0.01em; }
+.rf-kai-request dl dt { font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--rf-text-muted); }
+.rf-kai-request dl dd { font-weight: 600; }
+.rf-kai-request .bg-gray-50.rounded-lg { border-radius: var(--rf-radius-control); background-color: var(--rf-surface-muted); }
+.rf-kai-request textarea { padding: 10px 12px; }
+
+.rf-kai-commend.min-h-screen { background-image: none; background-color: transparent; padding-top: 32px; }
+.rf-kai-commend > .max-w-4xl { max-width: calc(var(--rf-readable) + 32px); }
+.rf-kai-commend h1.text-3xl { font-size: clamp(22px, 4vw, 28px); }
+.rf-kai-commend .p-8 { padding: 24px; }
+@media (max-width: 640px) { .rf-kai-commend .p-8 { padding: 16px; } }
+
+.rf-kai-builder > .flex:first-child h1 { font-weight: 800; letter-spacing: -0.02em; color: var(--rf-text); }
+.rf-kai-builder > .flex:first-child :is(a, button).rounded-lg,
+.rf-kai-builder > .flex:first-child :is(a, button).rounded-md { border-radius: var(--rf-radius-control); font-weight: 600; }
+.rf-kai-builder :is(nav, [role="tablist"]) a { font-weight: 600; }
+.rf-kai-builder > .bg-white.rounded-lg,
+.rf-kai-builder > div > .bg-white.rounded-lg.shadow { border-radius: var(--rf-radius-card); --tw-shadow: 0 0 0 1px var(--rf-card-border), 0 3px 10px var(--rf-shadow); }
+
+/* ---------- Flagged quotes, sign-up list, poll ---------------------------------------- */
+
+.rf-quotes-flagged > .rounded-xl { border-radius: var(--rf-radius-card); }
+.rf-quotes-flagged blockquote, .rf-quotes-flagged .italic { color: var(--rf-text); }
+
+.rf-signups.container { max-width: calc(var(--rf-readable) + 32px); }
+.rf-signups > a:first-child, .rf-signups > .mb-4:first-child a { font-weight: 600; }
+.rf-signups table tbody tr td:first-child { font-weight: 600; color: var(--rf-text-muted); font-variant-numeric: tabular-nums; }
+
+.rf-ann-poll > .mb-6:first-child h1 { font-weight: 800; letter-spacing: -0.02em; }
+.rf-ann-poll form > .rounded-xl { border-radius: var(--rf-radius-card); }
+.rf-ann-poll form label:has(> input:is([type="radio"], [type="checkbox"])) {
+    border-color: transparent;
+    border-radius: var(--rf-radius-control);
+    background-color: var(--rf-surface-muted);
+}
+.rf-ann-poll form label:has(> input:is([type="radio"], [type="checkbox"]):checked) { background-color: var(--rf-accent-soft); box-shadow: inset 0 0 0 2px var(--rf-accent); }
+.rf-ann-poll form button[type="submit"] { min-height: 44px; }
+
+/* ---------- One-message pages (.rf-notice, .rf-error) ------------------------------- */
+
+/* The app's empty/notice state: a tile, a 22px title, the reason, the
+   actions as full-width app buttons */
+.rf-notice.min-h-screen, .rf-notice.bg-gray-50 { background-color: transparent; }
+.rf-notice.min-h-screen { min-height: 70vh; }
+.rf-notice h1.text-2xl, .rf-notice h2.text-3xl { font-size: clamp(22px, 4vw, 26px); font-weight: 800; letter-spacing: -0.02em; color: var(--rf-text); }
+.rf-notice p.text-gray-600 { font-size: 16px; color: var(--rf-text-secondary); }
+.rf-notice :is(a, button).px-6.py-3 { min-height: 48px; border-radius: 12px; font-weight: 700; }
+.rf-notice :is(a, button).px-6.py-3.bg-primary-600 { background-color: var(--rf-accent); color: var(--rf-accent-text); }
+.rf-notice :is(a, button).px-6.py-3:is(.bg-gray-200) { background-color: transparent; color: var(--rf-accent); box-shadow: inset 0 0 0 1.5px var(--rf-accent); }
+:where(.ui-refresh.dark) .rf-notice :is(a, button).px-6.py-3:is(.bg-gray-200) { background-color: transparent; color: var(--rf-accent); }
+.rf-notice :is(a, button).px-6.py-3:is(.bg-gray-200):hover { background-color: var(--rf-accent-soft); }
+:where(.ui-refresh.dark) .rf-notice :is(a, button).px-6.py-3:is(.bg-gray-200):hover { background-color: var(--rf-accent-soft); }
+.rf-notice > .rounded-xl.p-8, .rf-notice > div > .rounded-xl.p-8 { border-radius: 20px; }
+/* Round status icons become the app's solid tiles with a white glyph */
+.rf-notice :is(.w-16.h-16, .w-20.h-20, .w-24.h-24).rounded-full { width: 64px; height: 64px; border-radius: 18px; }
+.rf-notice :is(.w-16.h-16, .w-20.h-20, .w-24.h-24).rounded-full svg { width: 32px; height: 32px; color: #ffffff; }
+.rf-notice :is(.w-16.h-16, .w-20.h-20, .w-24.h-24).rounded-full:is(.bg-green-100) { background-color: var(--rf-tile-green); }
+.rf-notice :is(.w-16.h-16, .w-20.h-20, .w-24.h-24).rounded-full:is(.bg-yellow-100, .bg-amber-100) { background-color: var(--rf-tile-gold); }
+.rf-notice :is(.w-16.h-16, .w-20.h-20, .w-24.h-24).rounded-full:is(.bg-red-100) { background-color: var(--rf-tile-red); }
+.rf-notice :is(.w-16.h-16, .w-20.h-20, .w-24.h-24).rounded-full:is(.bg-blue-100, .bg-primary-100, .bg-gray-100) { background-color: var(--rf-tile-blue); }
+.rf-notice :is(.w-16.h-16, .w-20.h-20, .w-24.h-24).rounded-full:is(.bg-purple-100) { background-color: var(--rf-tile-purple); }
+.rf-notice .inline-flex.rounded-full.border { border-color: transparent; }
+/* Error pages: the crest without its drop shadow, the code in the accent at
+   the app's display weight, the note as a soft notice */
+.rf-error img.rounded-full.shadow-lg { width: 96px; height: 96px; padding: 10px; --tw-shadow: 0 0 0 1px var(--rf-card-border); background-color: var(--rf-surface); }
+.rf-error h1.text-9xl { font-size: clamp(72px, 18vw, 112px); font-weight: 800; letter-spacing: -0.04em; line-height: 1; color: var(--rf-accent); }
+.rf-error h1.text-9xl.text-red-600 { color: var(--rf-danger); }
+.rf-error .mt-8.p-4.rounded-lg { border-width: 0; border-radius: var(--rf-radius-control); text-align: left; }
+
+/* ---------- Guide: category hubs and topic pages ------------------------------------ */
+
+/* Shared header: breadcrumb, an icon tile (solid, white glyph), the title */
+:is(.rf-guide-topic, .rf-guide-hub).max-w-4xl, :is(.rf-guide-topic, .rf-guide-hub).max-w-5xl { max-width: 1040px; }
+:is(.rf-guide-topic, .rf-guide-hub) > nav:first-child a { font-weight: 600; color: var(--rf-accent); }
+:is(.rf-guide-topic, .rf-guide-hub) > nav:first-child li:last-child span { color: var(--rf-text-secondary); }
+:is(.rf-guide-topic, .rf-guide-hub) > .mb-8 .w-12.h-12 { width: 44px; height: 44px; border-radius: 12px; background-color: var(--rf-tile-blue); }
+:is(.rf-guide-topic, .rf-guide-hub) > .mb-8 .w-12.h-12 svg { color: #ffffff; }
+:is(.rf-guide-topic, .rf-guide-hub) > .mb-8 .w-12.h-12:is(.bg-green-100, .bg-emerald-100) { background-color: var(--rf-tile-green); }
+:is(.rf-guide-topic, .rf-guide-hub) > .mb-8 .w-12.h-12:is(.bg-purple-100, .bg-violet-100, .bg-indigo-100) { background-color: var(--rf-tile-purple); }
+:is(.rf-guide-topic, .rf-guide-hub) > .mb-8 .w-12.h-12:is(.bg-amber-100, .bg-yellow-100) { background-color: var(--rf-tile-gold); }
+:is(.rf-guide-topic, .rf-guide-hub) > .mb-8 .w-12.h-12:is(.bg-orange-100) { background-color: var(--rf-tile-orange); }
+:is(.rf-guide-topic, .rf-guide-hub) > .mb-8 .w-12.h-12:is(.bg-red-100, .bg-rose-100, .bg-pink-100) { background-color: var(--rf-tile-red); }
+:is(.rf-guide-topic, .rf-guide-hub) > .mb-8 .w-12.h-12:is(.bg-teal-100, .bg-cyan-100) { background-color: var(--rf-tile-teal); }
+:is(.rf-guide-topic, .rf-guide-hub) > .mb-8 .w-12.h-12:is(.bg-gray-100, .bg-slate-100) { background-color: var(--rf-tile-gray); }
+:is(.rf-guide-topic, .rf-guide-hub) > .mb-8 .w-12.h-12:is(.bg-sky-100) { background-color: var(--rf-tile-sky); }
+:is(.rf-guide-topic, .rf-guide-hub) > .mb-8 h1 + p { font-size: 15px; }
+
+/* Topic sections: a card each, the numbered heading on a hairline, body at a
+   reading size; step numbers as small accent discs */
+.rf-guide-topic .space-y-8 > .rounded-xl > .border-b:first-child { padding-top: 14px; padding-bottom: 14px; }
+.rf-guide-topic .space-y-8 > .rounded-xl > .border-b:first-child h2 { font-size: 18px; font-weight: 700; letter-spacing: -0.01em; }
+.rf-guide-topic .space-y-8 > .rounded-xl > .border-b:first-child h2 > span.rounded-full:first-child {
+    width: 28px; height: 28px; border-radius: 8px;
+    background-color: var(--rf-tile-blue); color: #ffffff; font-size: 13px;
+}
+.rf-guide-topic .space-y-8 > .rounded-xl > :not(.border-b) { font-size: 15px; line-height: 1.6; }
+.rf-guide-topic .space-y-8 > .rounded-xl :is(p, li).text-gray-600 { color: var(--rf-text-secondary); }
+.rf-guide-topic .space-y-8 span.rounded-full:is(.w-6, .w-5).h-6,
+.rf-guide-topic .space-y-8 span.rounded-full.w-6 {
+    background-color: var(--rf-accent-soft); color: var(--rf-accent-on-soft);
+}
+.rf-guide-topic .space-y-8 h4.font-medium { font-weight: 600; color: var(--rf-text); }
+/* Quick actions: a card of pill buttons under a small-caps label */
+.rf-guide-topic .space-y-8 > .rounded-lg.border:first-child {
+    border-width: 0; border-radius: var(--rf-radius-card);
+    background-color: var(--rf-surface);
+    box-shadow: 0 0 0 1px var(--rf-card-border), 0 3px 10px var(--rf-shadow);
+}
+.rf-guide-topic .space-y-8 > .rounded-lg.border:first-child h3 { font-size: 13px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--rf-text-muted); }
+.rf-guide-topic .space-y-8 > .rounded-lg.border:first-child a.rounded-md { border-radius: 999px; padding-left: 14px; padding-right: 14px; font-weight: 600; }
+/* Tips and callouts inside sections: soft notices, no side bars */
+.rf-guide-topic .space-y-8 .border-l-4 { border-left-width: 0; border-radius: var(--rf-radius-control); }
+.rf-guide-topic .space-y-8 .rounded-lg.border { border-width: 0; }
+.rf-guide-topic .space-y-8 :is(code, kbd) { border-radius: 6px; background-color: var(--rf-surface-muted); color: var(--rf-text); }
+.rf-guide-topic .space-y-8 table { font-size: 14px; }
+.rf-guide-topic .space-y-8 a:not([class*="bg-"]) { color: var(--rf-accent); }
+/* Related links at the foot */
+.rf-guide-topic > .mt-8 a, .rf-guide-topic > .mt-10 a { font-weight: 600; }
+
+/* Category hub: the topics as one grouped card of rows (the Guide index's
+   look): a solid icon tile, the title, the summary, the points small */
+.rf-guide-hub > .mb-8 h1 + p, .rf-guide-hub > .mb-8 p { font-size: 15px; }
+.rf-guide-hub > .space-y-6 {
+    background: var(--rf-surface);
+    border-radius: var(--rf-radius-card);
+    box-shadow: 0 0 0 1px var(--rf-card-border), 0 3px 10px var(--rf-shadow);
+    overflow: hidden;
+}
+.rf-guide-hub > .space-y-6 > a {
+    margin: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    --tw-shadow: 0 0 #0000;
+    box-shadow: none;
+}
+.rf-guide-hub > .space-y-6 > a + a { border-top: 1px solid var(--rf-separator); }
+.rf-guide-hub > .space-y-6 > a:hover { background-color: var(--rf-surface-muted); }
+.rf-guide-hub > .space-y-6 > a:focus-visible { outline: 2px solid var(--rf-accent); outline-offset: -2px; }
+.rf-guide-hub > .space-y-6 > a > .flex { padding: 14px 16px; align-items: flex-start; }
+.rf-guide-hub > .space-y-6 > a > .flex > .w-14 { width: 36px; height: 36px; border-radius: 9px; transform: none; background-color: var(--rf-tile-blue); }
+.rf-guide-hub > .space-y-6 > a > .flex > .w-14 svg { width: 20px; height: 20px; color: #ffffff; }
+.rf-guide-hub > .space-y-6 > a > .flex > .w-14:is(.bg-amber-100, .bg-yellow-100) { background-color: var(--rf-tile-gold); }
+.rf-guide-hub > .space-y-6 > a > .flex > .w-14:is(.bg-emerald-100, .bg-green-100) { background-color: var(--rf-tile-green); }
+.rf-guide-hub > .space-y-6 > a > .flex > .w-14:is(.bg-violet-100, .bg-purple-100) { background-color: var(--rf-tile-purple); }
+.rf-guide-hub > .space-y-6 > a > .flex > .w-14:is(.bg-cyan-100, .bg-teal-100) { background-color: var(--rf-tile-teal); }
+.rf-guide-hub > .space-y-6 > a > .flex > .w-14:is(.bg-rose-100, .bg-red-100, .bg-pink-100) { background-color: var(--rf-tile-red); }
+.rf-guide-hub > .space-y-6 > a > .flex > .w-14:is(.bg-orange-100) { background-color: var(--rf-tile-orange); }
+.rf-guide-hub > .space-y-6 > a > .flex > .w-14:is(.bg-gray-100, .bg-slate-100) { background-color: var(--rf-tile-gray); }
+.rf-guide-hub > .space-y-6 > a > .flex > .flex-grow { margin-left: 12px; }
+.rf-guide-hub > .space-y-6 > a h3 { margin-bottom: 2px; font-size: 16px; font-weight: 600; color: var(--rf-text); }
+.rf-guide-hub > .space-y-6 > a h3 + p { margin-bottom: 6px; font-size: 14px; line-height: 1.4; }
+.rf-guide-hub > .space-y-6 > a ul { font-size: 13px; }
+.rf-guide-hub > .space-y-6 > a ul > li > span:first-child { background-color: var(--rf-text-muted); }
+@media (max-width: 640px) { .rf-guide-hub > .space-y-6 > a ul { display: none; } }
+
+@media (prefers-reduced-motion: reduce) {
+    .rf-mx :is(a, button) { transition: none; }
+}

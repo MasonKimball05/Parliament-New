@@ -3,7 +3,7 @@
 
 {% block content %}
 {% comment %}09-25-26 — read-only agenda. Members reach this only when published.{% endcomment %}
-<div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+<div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8{% if ui_refresh %} rf-mp rf-mx rf-agenda{% endif %}">
     <a href="{% url 'agenda_list' %}" class="text-sm text-primary-600 dark:text-primary-400 hover:underline">← All agendas</a>
     <h1 class="text-3xl font-bold text-gray-900 dark:text-white mt-2">{{ agenda.title }}</h1>
     <p class="text-gray-600 dark:text-gray-400">{{ agenda.date|date:"l, F j, Y" }} · {{ agenda.start_time|time:"g:i A" }}{% if agenda.event %} · {{ agenda.event.location }}{% endif %}</p>

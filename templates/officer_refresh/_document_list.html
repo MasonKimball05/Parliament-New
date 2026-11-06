@@ -1,0 +1,39 @@
+{% comment %}
+Website refresh (src/ui_refresh.py): officer/partials/document_list.html as
+the app's documents list (officer/reports.tsx): one grouped card, a row per
+document with a file tile, the title (opens the file), committee / type /
+published pills, the meeting date, description and uploader, and a Download
+button. Same links, fields and empty state as the partial it replaces (All
+Documents and All Activity's Committee Documents tab).
+{% endcomment %}
+{% if documents %}
+<div class="rf-card rf-ob-list">
+    {% for doc in documents %}
+    <div class="rf-row rf-ob-doc">
+        <span class="rf-row-icon"><span class="rf-tile {% if doc.published_to_chapter %}is-teal{% else %}is-gray{% endif %}" aria-hidden="true"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg></span></span>
+        <span class="rf-row-body">
+            <a href="{{ doc.document.url }}" target="_blank" class="rf-row-title rf-row-link">{{ doc.title }}</a>
+            <span class="rf-row-pills">
+                <span class="rf-chip is-accent">{{ doc.committee.code }}</span>
+                <span class="rf-chip rf-ob-chip-purple">{{ doc.get_document_type_display }}</span>
+                {% if not doc.published_to_chapter %}<span class="rf-chip is-warning">Not Published</span>{% else %}<span class="rf-chip is-success">Published</span>{% endif %}
+                {% if doc.meeting_date %}<span class="rf-chip">{{ doc.meeting_date|date:"M d, Y" }}</span>{% endif %}
+            </span>
+            {% if doc.description %}<span class="rf-row-sub rf-ob-desc">{{ doc.description|truncatewords:30 }}</span>{% endif %}
+            <span class="rf-row-sub rf-ob-muted">{{ doc.uploaded_by.get_display_name }} · {{ doc.uploaded_at|date:"M d, Y g:i A" }}</span>
+        </span>
+        <a href="{{ doc.document.url }}" target="_blank" class="rf-pill is-accent rf-ob-row-cta">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+            Download
+        </a>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="rf-card rf-empty">
+    <svg class="rf-empty-svg" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+    <p class="rf-empty-title">No Documents Found</p>
+    <p class="rf-empty-sub">There are no {{ title|lower }} to display.</p>
+    <a href="{% url 'upload_report' %}" class="rf-btn rf-empty-btn">Upload a Document</a>
+</div>
+{% endif %}

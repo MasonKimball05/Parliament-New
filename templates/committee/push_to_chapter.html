@@ -3,7 +3,7 @@
 {% block title %}Push to Chapter - {{ committee.name }}{% endblock %}
 
 {% block content %}
-<div class="container mx-auto px-4 py-8">
+<div class="container mx-auto px-4 py-8{% if ui_refresh %} rf-ct rf-ct-push{% endif %}">
     <div class="mb-6">
         <a href="{% url 'committee_home' committee.code %}" class="text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300 transition-colors">← Back to Committee</a>
     </div>

@@ -887,6 +887,11 @@ class AdminV2DashboardBreadthTests(TestCase):
         self.addCleanup(cache.clear)
         self.admin = make_user('73', member_type='Officer', is_admin=True)
 
+    def _classic(self):
+        FeatureFlag.objects.create(name='admin_console_ui', display_name='Admin console look',
+                                   description='test', category='admin', is_enabled=False)
+        cache.clear()
+
     def _dashboard(self):
         from unittest.mock import patch
 
@@ -912,6 +917,18 @@ class AdminV2DashboardBreadthTests(TestCase):
 
         response, queries = self._dashboard()
         self.assertEqual(response.status_code, 200)
+        self._assert_breadth(queries)
+        # The classic look computes more (the console skips what only the
+        # classic page shows), so check it too.
+        self._classic()
+        response, queries = self._dashboard()
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('push_flags', response.context)
+        self._assert_breadth(queries)
+
+    def _assert_breadth(self, queries):
+        import re
+        from collections import Counter
 
         per_table = Counter()
         for query in queries:
@@ -945,6 +962,10 @@ class AdminV2DashboardBreadthTests(TestCase):
 
         self.assertEqual(
             FeatureFlag.objects.filter(name__startswith='push_').count(), 0)
+        # The push card and the grouped list are the classic dashboard's; the
+        # console home (`admin_console_ui`, on when there is no row) doesn't
+        # show them, so its view no longer fetches them.
+        self._classic()
 
         client = Client()
         client.force_login(self.admin)

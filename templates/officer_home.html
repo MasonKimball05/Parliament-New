@@ -4,10 +4,10 @@
 {% block title %}Officer Portal - Parliament{% endblock %}
 
 {% block admin_content %}
-<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-4">
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-4{% if ui_refresh %} rf-mp rf-op rf-ohome{% endif %}">
 
     <!-- ── WELCOME HEADER ───────────────────────────────────────── -->
-    <div class="bg-gradient-to-br from-red-600 via-red-700 to-red-800 rounded-xl shadow-lg p-4 sm:p-5 text-white flex items-center justify-between gap-3 relative overflow-hidden">
+    {% if ui_refresh %}{% include "officer_refresh/_home_top.html" %}{% else %}<div class="bg-gradient-to-br from-red-600 via-red-700 to-red-800 rounded-xl shadow-lg p-4 sm:p-5 text-white flex items-center justify-between gap-3 relative overflow-hidden">
         <!-- Gold accent bar at bottom -->
         <div class="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-yellow-400/60 to-transparent pointer-events-none"></div>
         <div class="relative">
@@ -82,7 +82,7 @@
             </div>
         </a>
 
-    </div>
+    </div>{% endif %}{# /rf #}
 
     <!-- ── SLATING CARD ──────────────────────────────────────────── -->
     {% if active_slating_period %}
@@ -230,7 +230,7 @@
     {% endif %}{# end active_slating_period #}
 
     <!-- ── 3-COLUMN INFO GRID ────────────────────────────────────── -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+    {% if ui_refresh %}{% include "officer_refresh/_home_lists.html" %}{% else %}<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
 
         <!-- RECENT REPORTS -->
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
@@ -405,7 +405,7 @@
             {% endif %}
 
         </div>
-    </div>
+    </div>{% endif %}{# /rf #}
 
 </div>
 {% endblock %}

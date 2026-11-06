@@ -3,7 +3,7 @@
 {% block title %}Edit Section - Parliament{% endblock %}
 
 {% block content %}
-<div class="min-h-screen bg-gradient-to-br from-primary-50 to-primary-100 dark:from-gray-900 dark:to-gray-800 transition-colors duration-200">
+<div class="min-h-screen bg-gradient-to-br from-primary-50 to-primary-100 dark:from-gray-900 dark:to-gray-800 transition-colors duration-200{% if ui_refresh %} rf-mp rf-mx rf-cnbm{% endif %}">
 
     <div class="bg-gradient-to-r from-primary-600 via-primary-700 to-primary-800 text-white py-8 shadow-lg relative overflow-hidden">
         <div class="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-gold-400 via-gold-500 to-gold-400 opacity-80"></div>

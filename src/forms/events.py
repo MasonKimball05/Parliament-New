@@ -4,6 +4,16 @@ from src import location_checkin
 from src.models import CheckinPlace, Committee, Event
 
 
+def default_reminder_hours():
+    """The "Default Reminder Lead Time (hours)" site setting, kept to 1–168 (24 if unset or odd)."""
+    from src.models_feature_flags import SiteSetting
+    try:
+        hours = int(SiteSetting.get_setting('event_reminder_default_hours', 24))
+    except (TypeError, ValueError):
+        return 24
+    return hours if 1 <= hours <= 168 else 24
+
+
 class EventForm(forms.ModelForm):
     committee = forms.ModelChoiceField(
         queryset=Committee.objects.filter(is_active=True).order_by('name'),
@@ -236,6 +246,10 @@ class EventForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        # 11-06-26: a new event's first reminder defaults to the site setting
+        # "Default Reminder Lead Time (hours)" (it was defined but never read).
+        if not (self.instance and self.instance.pk) and 'reminder_1_hours_before' in self.fields:
+            self.initial.setdefault('reminder_1_hours_before', default_reminder_hours())
         # Convert JSON field to list for form display
         if self.instance and self.instance.pk and self.instance.recurrence_days:
             self.initial['recurrence_days'] = [str(d) for d in self.instance.recurrence_days]

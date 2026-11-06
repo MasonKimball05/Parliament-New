@@ -3,10 +3,10 @@
 {% block title %}Knowledge Base — {{ role.name }}{% endblock %}
 
 {% block content %}
-<div class="container mx-auto px-4 py-8 max-w-3xl">
+<div class="container mx-auto px-4 py-8 max-w-3xl{% if ui_refresh %} rf-mp rf-ob rf-ob-kb{% endif %}">
 
     <!-- Header -->
-    <div class="mb-6 flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
+    <div class="mb-6 flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4{% if ui_refresh %} rf-ob-head{% endif %}">
         <div>
             <h1 class="text-2xl font-bold text-gray-900 dark:text-white">{{ role.name }} — Knowledge Base</h1>
             <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
@@ -15,7 +15,7 @@
         </div>
         {% if can_edit %}
         <a href="{% url 'role_transitions' %}"
-           class="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition shadow-sm">
+           class="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition shadow-sm{% if ui_refresh %} rf-ob-btn2{% endif %}">
             &larr; Role Transitions
         </a>
         {% endif %}
@@ -33,7 +33,7 @@
     {% endif %}
 
     <!-- Current page -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-4">
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-4{% if ui_refresh %} rf-ob-card{% endif %}">
         {% if current_revision %}
         <div class="flex flex-wrap items-center justify-between gap-2 mb-4 pb-4 border-b border-gray-100 dark:border-gray-700">
             <p class="text-xs text-gray-400 dark:text-gray-500">
@@ -62,7 +62,7 @@
 
     {% if can_edit %}
     <!-- Edit form -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6{% if ui_refresh %} rf-ob-card{% endif %}">
         <h2 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
             {% if current_revision %}Update this page{% else %}Write the first entry{% endif %}
         </h2>
@@ -70,7 +70,7 @@
             {% csrf_token %}
             <textarea name="content" rows="12"
                       placeholder="Key contacts, recurring deadlines, where files live, how the annual X process actually works, mistakes to avoid..."
-                      class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent font-mono">{% if current_revision %}{{ current_revision.content }}{% endif %}</textarea>
+                      class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent font-mono{% if ui_refresh %} rf-ob-kb-text{% endif %}">{% if current_revision %}{{ current_revision.content }}{% endif %}</textarea>
             <p class="mt-1 text-xs text-gray-400 dark:text-gray-500">
                 Saving creates a new version — nothing already written here is ever overwritten or lost.
             </p>

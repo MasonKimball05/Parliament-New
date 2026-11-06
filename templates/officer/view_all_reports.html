@@ -3,9 +3,9 @@
 {% block title %}All Documents - Officer Portal{% endblock %}
 
 {% block admin_content %}
-<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8{% if ui_refresh %} rf-mp rf-ob rf-ob-reports{% endif %}">
     <!-- Page Header -->
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-8 transition-colors duration-200">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-8 transition-colors duration-200{% if ui_refresh %} rf-ob-headcard{% endif %}">
         <div class="flex items-center justify-between">
             <div>
                 <div class="flex items-center space-x-3 mb-2">
@@ -23,7 +23,7 @@
                     </svg>
                     <span>Upload Document</span>
                 </a>
-                <a href="{% url 'officer_home' %}" class="bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 text-gray-800 dark:text-gray-200 px-4 py-2 rounded-lg transition">
+                <a href="{% url 'officer_home' %}" class="bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 text-gray-800 dark:text-gray-200 px-4 py-2 rounded-lg transition{% if ui_refresh %} rf-ob-btn2{% endif %}">
                     Back to Officer Home
                 </a>
             </div>
@@ -31,7 +31,7 @@
     </div>
 
     <!-- Tab Navigation -->
-    <div class="mb-6 bg-white dark:bg-gray-800 rounded-xl shadow-sm p-2 transition-colors duration-200">
+    <div class="mb-6 bg-white dark:bg-gray-800 rounded-xl shadow-sm p-2 transition-colors duration-200{% if ui_refresh %} rf-ob-tabs{% endif %}">
         <div class="flex space-x-1" role="tablist">
             <button id="tab-all" data-tab="all" class="tab-button flex-1 px-4 py-2 rounded-lg font-medium transition bg-primary-100 dark:bg-primary-900 text-primary-700 dark:text-primary-300">
                 All Documents ({{ total_documents }})
@@ -60,7 +60,7 @@
        exceed what is rendered. Say so rather than letting the numbers disagree
        with the rows silently.
     {% endcomment %}
-    <div class="mb-6 rounded-xl border-l-4 border-amber-400 bg-amber-50 dark:bg-amber-900/20 p-4">
+    <div class="mb-6 rounded-xl border-l-4 border-amber-400 bg-amber-50 dark:bg-amber-900/20 p-4{% if ui_refresh %} rf-ob-note is-warning{% endif %}">
         <p class="text-sm text-amber-800 dark:text-amber-200">
             Showing the {{ document_fetch_limit }} most recent of {{ total_documents }} documents.
             The tab counts above are totals; older documents remain available from each committee's page.

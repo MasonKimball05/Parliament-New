@@ -3,10 +3,10 @@
 {% block title %}{{ event.title }} — Service Event{% endblock %}
 
 {% block content %}
-<div class="container mx-auto px-4 py-8 max-w-3xl">
+<div class="container mx-auto px-4 py-8 max-w-3xl{% if ui_refresh %} rf-sdl rf-shev-detail{% endif %}">
 
     <!-- Header -->
-    <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6">
+    <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6{% if ui_refresh %} rf-sdl-head{% endif %}">
         <div>
             <a href="{% url 'service_events_list' %}" class="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 flex items-center gap-1 mb-2">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
@@ -42,7 +42,7 @@
     {% endif %}
 
     <!-- Status / info row -->
-    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6{% if ui_refresh %} rf-sdl-stats{% endif %}">
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 text-center">
             <p class="text-2xl font-bold text-green-600 dark:text-green-400">{{ se.hours_awarded }}</p>
             <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">hrs per attendee</p>
@@ -67,7 +67,7 @@
     </div>
 
     <!-- Period + reminder info -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-5 mb-6 space-y-2 text-sm">
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-5 mb-6 space-y-2 text-sm{% if ui_refresh %} rf-sdl-facts{% endif %}">
         <div class="flex gap-2">
             <span class="text-gray-500 dark:text-gray-400 w-36 flex-shrink-0">Service Period</span>
             <span class="text-gray-900 dark:text-white font-medium">{{ se.period.name }}</span>
@@ -170,7 +170,7 @@
 
     <!-- Danger zone -->
     {% if not se.hours_applied %}
-    <div class="mt-8 border border-red-200 dark:border-red-800 rounded-lg p-5">
+    <div class="mt-8 border border-red-200 dark:border-red-800 rounded-lg p-5{% if ui_refresh %} rf-sdl-danger{% endif %}">
         <h3 class="text-sm font-semibold text-red-700 dark:text-red-400 mb-2">Danger Zone</h3>
         <p class="text-sm text-gray-600 dark:text-gray-400 mb-3">Deleting this service event also removes it from the chapter calendar. This cannot be undone.</p>
         <form method="post" action="{% url 'delete_service_event' se.id %}"

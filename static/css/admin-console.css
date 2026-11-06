@@ -485,6 +485,30 @@ body:has(.ac-shell) { background-color: #e6ecf5; }
 .ac-widget-h3 { margin: 12px 0 4px; font-size: 11.5px; font-weight: 650; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ac-muted); }
 .ac-widget-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
 .ac-widget p { margin: 6px 0 0; }
+/* Customize (home.html's <dialog id="home-customize">, home.js): the chosen
+   widgets render in the grid; Totals spans the full row. */
+.ac-widgets > .ac-widget-full { grid-column: 1 / -1; margin: 0; }
+.ac-customize { width: min(480px, calc(100vw - 32px)); }
+.ac-customize-form { display: flex; flex-direction: column; max-height: calc(100vh - 50px); max-height: calc(100dvh - 50px); }
+.ac-customize-list { list-style: none; margin: 0; padding: 0; border: 1px solid var(--ac-border); border-radius: var(--ac-radius-sm); background: var(--ac-input); }
+.ac-customize-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 6px 8px 6px 10px; }
+.ac-customize-row + .ac-customize-row { border-top: 1px solid var(--ac-row-sep); }
+.ac-customize-row.is-moved { background: var(--ac-accent-soft); }
+.ac-customize-move { display: inline-flex; gap: 4px; flex: none; }
+.ac-customize-move .ac-btn { min-width: 32px; min-height: 32px; justify-content: center; }
+.ac-icon-up { transform: rotate(180deg); }
+.ac-customize-foot { justify-content: space-between; flex-wrap: wrap; }
+.ac-customize-foot-end { display: inline-flex; gap: 8px; }
+/* A checkbox drawn as a switch (role="switch"); the real input stays focusable. */
+.ac-switch { position: relative; display: inline-flex; align-items: center; gap: 10px; min-height: 32px; cursor: pointer; font-size: 13.5px; color: var(--ac-text); min-width: 0; }
+.ac-switch input { position: absolute; opacity: 0; width: 36px; height: 20px; margin: 0; cursor: pointer; }
+.ac-switch-track { position: relative; flex: none; width: 36px; height: 20px; border-radius: 999px; background: var(--ac-separator); border: 1px solid var(--ac-border); transition: background 0.12s; }
+.ac-switch-track::after { content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: #ffffff; box-shadow: 0 1px 2px var(--ac-shadow-lg); transition: transform 0.12s; }
+.ac-switch input:checked + .ac-switch-track { background: var(--ac-accent); border-color: var(--ac-accent); }
+.ac-switch input:checked + .ac-switch-track::after { transform: translateX(16px); }
+.ac-switch input:focus-visible + .ac-switch-track { outline: 2px solid var(--ac-focus); outline-offset: 2px; }
+.ac-switch input:not(:checked) ~ .ac-switch-label { color: var(--ac-muted); }
+@media (prefers-reduced-motion: reduce) { .ac-switch-track, .ac-switch-track::after { transition: none; } }
 
 .ac-service-list { list-style: none; margin: 0; padding: 0; }
 .ac-service-list li { display: flex; align-items: center; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--ac-row-sep); }

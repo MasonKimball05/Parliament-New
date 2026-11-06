@@ -224,9 +224,9 @@
         border-top-color: #4b5563;
     }
 </style>
-<div class="flex flex-col h-[calc(100vh-64px)]">
+<div class="flex flex-col h-[calc(100vh-64px)]{% if ui_refresh %} rf-sdl rf-docview{% endif %}">
     <!-- Minimal Header Bar -->
-    <div class="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-2 flex items-center justify-between flex-shrink-0">
+    <div class="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-2 flex items-center justify-between flex-shrink-0{% if ui_refresh %} rf-docview-bar{% endif %}">
         <div class="flex items-center space-x-3">
             <a href="{{ back_url|default:'javascript:history.back()' }}" class="p-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors" title="Go back">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

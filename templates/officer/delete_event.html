@@ -20,7 +20,7 @@ Two things worth keeping:
     mistake while writing this one.)
 {% endcomment %}
 {% url 'manage_events' as manage_events_url %}
-<div class="container mx-auto px-4 py-8 max-w-2xl">
+<div class="container mx-auto px-4 py-8 max-w-2xl{% if ui_refresh %} rf-mp rf-op rf-oconfirm{% endif %}">
     {% include 'includes/breadcrumbs.html' with back_url=manage_events_url back_label='Manage Events' current='Delete Event' %}
 
     <div class="mb-6">

@@ -1,0 +1,54 @@
+{% comment %}
+Website refresh (src/ui_refresh.py): the Service Periods list on Manage
+Service Periods (service_hours/manage_periods.html) as the app's Periods
+screen: a row per period with its dates, default hours and Active /
+Auto-Approve pills, and the same Expectations and Edit links and the
+Activate/Deactivate (toggle-form) and Delete (delete-form, data-period-name,
+confirmed by the page's script) forms.
+{% endcomment %}
+<div class="rf-section-title rf-shper-title"><h2>Service Periods</h2></div>
+<div class="rf-card rf-shper-list">
+    {% for period in periods %}
+    <div class="rf-row rf-row-group rf-shper-row{% if period.is_active %} is-active{% endif %}">
+        <span class="rf-tile {% if period.is_active %}is-green{% else %}is-gray{% endif %}" aria-hidden="true">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+        </span>
+        <span class="rf-row-body">
+            <span class="rf-row-title">{{ period.name }}</span>
+            <span class="rf-row-sub">{{ period.start_date|date:"M d, Y" }} - {{ period.end_date|date:"M d, Y" }} · Default: <strong>{{ period.default_hours_required }}</strong> hours required</span>
+            {% if period.is_active or not period.requires_approval %}
+            <span class="rf-row-pills">
+                {% if period.is_active %}<span class="rf-chip is-success">Active</span>{% endif %}
+                {% if not period.requires_approval %}<span class="rf-chip is-accent">Auto-Approve</span>{% endif %}
+            </span>
+            {% endif %}
+            <span class="rf-shper-actions">
+                <a href="{% url 'manage_member_expectations' period.id %}" class="rf-shper-link">Expectations</a>
+                <a href="{% url 'edit_service_period' period.id %}" class="rf-shper-link">Edit</a>
+                <form method="post" class="inline toggle-form">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="toggle_active">
+                    <input type="hidden" name="period_id" value="{{ period.id }}">
+                    <button type="submit" class="rf-shper-link {% if period.is_active %}is-warning{% else %}is-success{% endif %}">
+                        {% if period.is_active %}Deactivate{% else %}Activate{% endif %}
+                    </button>
+                </form>
+                <form method="post" class="inline delete-form" data-period-name="{{ period.name }}">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="delete">
+                    <input type="hidden" name="period_id" value="{{ period.id }}">
+                    <button type="submit" class="rf-shper-link is-danger">Delete</button>
+                </form>
+            </span>
+        </span>
+    </div>
+    {% empty %}
+    <div class="rf-empty">
+        <svg class="rf-empty-svg" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+        </svg>
+        <p class="rf-empty-title">No service periods created yet.</p>
+        <p class="rf-empty-sub">Create your first period using the form on the left.</p>
+    </div>
+    {% endfor %}
+</div>

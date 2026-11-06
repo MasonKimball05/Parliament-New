@@ -1,0 +1,53 @@
+{% comment %}
+Website refresh (src/ui_refresh.py): Manage Passed Resolutions' cards as the
+app draws them (officer/resolutions/index.tsx): a card with the resolution's
+border color down its left edge, the title with a Hidden pill, date passed
+and order, the description, its section impacts as pills (or a warning when
+there are none), and the three actions as pills. Same links, fields and
+conditions as the list it replaces in officer/manage_resolutions.html.
+{% endcomment %}
+{% if resolutions %}
+<div class="rf-stack rf-ob-resolutions">
+    {% for resolution in resolutions %}
+    <div class="rf-card rf-ob-res is-{{ resolution.border_color|default:'gray' }}">
+        <div class="rf-ob-res-head">
+            <h3 class="rf-ob-res-title">{{ resolution.title }}</h3>
+            {% if not resolution.is_active %}<span class="rf-chip is-warning">Hidden</span>{% endif %}
+        </div>
+        <p class="rf-ob-res-meta">Passed {{ resolution.date_passed|date:"F j, Y" }} · Order {{ resolution.display_order }} · {{ resolution.get_border_color_display }} border</p>
+        <p class="rf-ob-res-desc">{{ resolution.description }}</p>
+        {% if resolution.section_impacts.all %}
+        <p class="rf-ob-label">Section Impacts ({{ resolution.section_impacts.all|length }})</p>
+        <div class="rf-row-pills">
+            {% for impact in resolution.section_impacts.all %}
+            <span class="rf-chip {% if impact.section_type == 'constitution' %}is-accent{% elif impact.section_type == 'bylaws' %}rf-ob-chip-indigo{% else %}rf-ob-chip-purple{% endif %}">{{ impact.section_name }}</span>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="rf-ob-warn">No section impacts added yet</p>
+        {% endif %}
+        <div class="rf-ob-actions-row">
+            <a href="{% url 'manage_section_impacts' resolution.id %}" class="rf-pill is-accent">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/></svg>
+                Manage Tags
+            </a>
+            <a href="{% url 'edit_resolution' resolution.id %}" class="rf-pill">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                Edit
+            </a>
+            <a href="{% url 'delete_resolution' resolution.id %}" class="rf-pill rf-ob-pill-danger">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                Delete
+            </a>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="rf-card rf-empty">
+    <svg class="rf-empty-svg" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+    <p class="rf-empty-title">No Resolutions Yet</p>
+    <p class="rf-empty-sub">Get started by creating your first passed resolution.</p>
+    <a href="{% url 'create_resolution' %}" class="rf-btn rf-empty-btn">Create First Resolution</a>
+</div>
+{% endif %}
