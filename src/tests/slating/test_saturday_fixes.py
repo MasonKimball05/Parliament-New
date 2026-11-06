@@ -861,3 +861,16 @@ class RerunFindingsTests(_Fix):
         self.assertNotContains(self.client.get(url), 'Record the chapter’s decision')
         SlatingPeriod.objects.filter(pk=self.period.pk).update(status='results_published')
         self.assertNotContains(self.client.get(url), 'Record the chapter’s decision')
+
+    def test_a_reject_must_name_the_positions(self):
+        """11-06-26: voting no on the whole slate needs at least one position objected to."""
+        from src.slating_ballots import SlatingBallotError
+        voter = member('sf-rj')
+        SlatingAttendance.objects.get_or_create(period=self.period, member=voter)
+        for junk in ([], ['abc'], ['999999']):           # none, junk, a position not on this slate
+            with self.assertRaises(SlatingBallotError) as e:
+                cast_slate(voter, self.fresh(), self.slate, self.cands(), 'reject', junk)
+            self.assertEqual(e.exception.code, 'no_positions')
+        self.assertFalse(SlatingBallot.objects.filter(period=self.period, voter=voter).exists())
+        cast_slate(voter, self.fresh(), self.slate, self.cands(), 'reject', [str(self.pres.id)])
+        self.assertTrue(SlatingBallot.objects.filter(period=self.period, voter=voter).exists())
