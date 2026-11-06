@@ -1,0 +1,68 @@
+{% extends "admin_v2/base.html" %}
+{% comment %}
+URL explorer in the console look (admin_v2_url_explorer when
+`admin_console_ui` is on; the classic page is admin_v2/url_explorer.html).
+Same Alpine component (`urlExplorer` in static/js/alpine-components.js) with
+the same hooks: x-model="q", toggleSection / isOpen per section, rowMatches on
+each row's data-* attributes, noMatches.
+{% endcomment %}
+{% load admin_v2_tags %}
+
+{% block title %}URL Explorer - Admin v2{% endblock %}
+
+{% block admin_content %}
+<div class="ac-op" x-data="urlExplorer">
+    <section class="ac-card">
+        {% include "admin_v2/console/_list_header.html" with title="URL explorer" count=total subtitle="Every registered URL pattern, grouped by prefix and generated live from Django's URL resolver." %}
+        <div class="ac-filterbar">
+            <label class="ac-field ac-field-grow"><span class="ac-sr">Filter routes</span>{% console_icon "filter" %}
+                <input type="text" x-model="q" placeholder="Filter routes…" class="ac-input"></label>
+            <p class="ac-op-legend" aria-label="Auth levels">
+                <span class="ac-pill is-error">admin-v2</span>
+                <span class="ac-pill is-warn">officer/staff</span>
+                <span class="ac-pill is-accent">login</span>
+                <span class="ac-pill is-ok">public</span>
+            </p>
+        </div>
+    </section>
+
+    {% for section, entries in sections.items %}
+    <section class="ac-card ac-op-section" x-show="!q || {{ entries|length }} > 0">
+        <button type="button" class="ac-op-section-head" @click="toggleSection('{{ section|escapejs }}')"
+                :aria-expanded="isOpen('{{ section|escapejs }}') ? 'true' : 'false'" aria-expanded="false">
+            <span class="ac-op-section-title">{{ section }}</span>
+            <span class="ac-pill is-muted">{{ entries|length }}</span>
+            <span class="ac-op-chevron" :class="isOpen('{{ section|escapejs }}') ? 'is-open' : ''">{% console_icon "chevron-down" "ac-icon-sm" %}</span>
+        </button>
+        <div x-show="isOpen('{{ section|escapejs }}')" x-transition>
+            <div class="ac-table-wrap">
+                <table class="ac-table">
+                    <thead>
+                        <tr><th>Pattern</th><th>Name</th><th>Auth</th><th>Docstring</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for entry in entries %}
+                        <tr data-pattern="{{ entry.pattern }}" data-name="{{ entry.name }}" data-auth="{{ entry.auth }}" data-doc="{{ entry.doc }}"
+                            x-show="rowMatches($el)">
+                            <td class="ac-op-mono ac-break">{{ entry.pattern }}</td>
+                            <td class="ac-muted ac-small ac-break">{{ entry.name }}</td>
+                            <td>
+                                {% if entry.auth == 'admin-v2' %}<span class="ac-pill is-error">admin-v2</span>
+                                {% elif entry.auth == 'officer' or entry.auth == 'staff' %}<span class="ac-pill is-warn">{{ entry.auth }}</span>
+                                {% elif entry.auth == 'login' %}<span class="ac-pill is-accent">login</span>
+                                {% elif entry.auth == 'public' or entry.auth == 'public (csrf_exempt)' %}<span class="ac-pill is-ok">{{ entry.auth }}</span>
+                                {% else %}<span class="ac-pill is-muted">{{ entry.auth }}</span>{% endif %}
+                            </td>
+                            <td class="ac-muted ac-small">{{ entry.doc }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+    {% endfor %}
+
+    <p x-show="noMatches()" class="ac-card ac-empty">No routes match "<span x-text="q"></span>".</p>
+</div>
+{% endblock %}

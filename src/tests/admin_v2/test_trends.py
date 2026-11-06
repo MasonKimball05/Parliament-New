@@ -32,6 +32,12 @@ class TrendsTests(AdminV2TestCase):
         self.assertEqual(len(series['app']['values']), WEEKS)
 
     def test_page(self):
+        r = self.client.get(reverse('admin_v2_trends'))  # console look: SVG bars, no Chart.js
+        self.assertContains(r, 'data-trend="signins"')
+        self.assertContains(r, 'class="ac-chart ac-op-chart"')
+        self.assertNotContains(r, 'chart.min.js')
+        self.set_console(False)
         r = self.client.get(reverse('admin_v2_trends'))
         self.assertContains(r, 'data-trend="signins"')
         self.assertContains(r, 'id="trend-data"')
+        self.set_console(True)

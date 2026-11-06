@@ -1,0 +1,17 @@
+{% extends "admin_v2/console/panel.html" %}
+{% comment %}
+One event reminder dispatch as a slide-out panel (?panel=1 on
+admin_v2_event_reminder_log_detail; same view and gate as the full page).
+Body: _event_reminder_log_body.html, shared with the full page.
+{% endcomment %}
+{% block panel_title %}{{ log.event.title }}{% endblock %}
+{% block panel_subtitle %}Reminder {{ log.reminder_slot }} · sent {{ log.sent_at|date:"M j, g:i A" }}{% endblock %}
+
+{% block panel_tabs %}
+<div class="ac-tabs" role="tablist" aria-label="Reminder details">
+    <button type="button" role="tab" id="er-tab-summary" aria-controls="er-summary" aria-selected="true" data-ac-tab="summary">Summary</button>
+    <button type="button" role="tab" id="er-tab-recipients" aria-controls="er-recipients" aria-selected="false" tabindex="-1" data-ac-tab="recipients">Recipients</button>
+</div>
+{% endblock %}
+
+{% block panel_body %}{% include "admin_v2/console/_event_reminder_log_body.html" with tabs=True %}{% endblock %}

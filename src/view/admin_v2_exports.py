@@ -25,6 +25,7 @@ from django.http import HttpResponse
 from django.shortcuts import render
 from django.utils import timezone
 
+from src.admin_console import console_enabled
 from src.models import ActivityLog, ParliamentUser, ServicePeriod
 from src.models.service import ServiceHoursAdjustment, ServiceHoursSubmission
 from src.models.users import Role
@@ -62,7 +63,7 @@ def _members(status):
 @require_admin_v2_auth
 def admin_v2_exports(request):
     periods = ServicePeriod.objects.order_by('-start_date')[:8]
-    return render(request, 'admin_v2/exports.html', {'statuses': STATUSES, 'periods': periods})
+    return render(request, 'admin_v2/console/exports.html' if console_enabled(request) else 'admin_v2/exports.html', {'statuses': STATUSES, 'periods': periods})
 
 
 @require_admin_v2_auth

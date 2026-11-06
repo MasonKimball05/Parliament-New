@@ -1,0 +1,62 @@
+{% extends "admin_v2/base.html" %}
+{% comment %}
+Login history in the console look (admin_v2_login_history when
+`admin_console_ui` is on; the classic page is admin_v2/manage_login_history.html).
+Same filters (user, suspicious) and page; the member's name opens them in the
+slide-out panel.
+{% endcomment %}
+{% load admin_v2_tags %}
+
+{% block title %}Login history - Admin{% endblock %}
+
+{% block admin_content %}
+<section class="ac-card">
+    {% include "admin_v2/console/_list_header.html" with title="Login history" count=logins.paginator.count subtitle="Every sign-in, newest first" %}
+
+    <form method="get" class="ac-filterbar" role="search" aria-label="Filter login history">
+        <label class="ac-field ac-field-grow">
+            <span class="ac-sr">Search user</span>
+            {% console_icon "filter" %}
+            <input type="search" name="user" value="{{ user_search }}" placeholder="Name or username" class="ac-input">
+        </label>
+        <label class="ac-field"><span class="ac-field-label">Suspicious</span>
+            <select name="suspicious" class="ac-select" data-autosubmit>
+                <option value="">All</option>
+                <option value="yes"{% if suspicious_filter == 'yes' %} selected{% endif %}>Yes</option>
+            </select>
+        </label>
+        <button type="submit" class="ac-btn">Apply</button>
+        {% if user_search or suspicious_filter %}<a href="{% url 'admin_v2_login_history' %}" class="ac-btn ac-btn-ghost">Clear</a>{% endif %}
+    </form>
+
+    <div class="ac-table-wrap">
+        <table class="ac-table ac-sec-subs" id="ac-list">
+            <thead>
+                <tr>
+                    <th>User</th>
+                    <th>Time</th>
+                    <th>IP address</th>
+                    <th>Location</th>
+                    <th>Device</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for login in logins %}
+                <tr data-ac-row{% if login.is_suspicious %} class="ac-sec-row-alarm"{% endif %}>
+                    <td><a href="{% url 'admin_v2_member' login.user.user_id %}" class="ac-row-link" data-ac-panel>{{ login.user.get_display_name }}</a></td>
+                    <td class="ac-nowrap"><span title="{{ login.timestamp|date:'M d, Y g:i A' }}">{{ login.timestamp|date:"M d, Y g:i A" }}</span></td>
+                    <td><code class="ac-sec-code">{{ login.ip_address }}</code></td>
+                    <td>{% if login.city %}{{ login.city }}, {{ login.region }}{% else %}<span class="ac-muted">Unknown</span>{% endif %}</td>
+                    <td>{{ login.device_type|title|default:"—" }}</td>
+                    <td>{% if login.is_suspicious %}<span class="ac-pill is-error">Suspicious</span>{% else %}<span class="ac-pill is-ok">Normal</span>{% endif %}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="6" class="ac-empty">No login history found.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% include "admin_v2/console/_pagination.html" with page=logins %}
+</section>
+{% endblock %}

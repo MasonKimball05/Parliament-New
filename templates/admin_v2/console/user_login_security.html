@@ -1,0 +1,337 @@
+{% extends "admin_v2/base.html" %}
+{% comment %}
+Login security in the console look (admin_v2_user_login_security when
+`admin_console_ui` is on; the classic page is admin_v2/user_login_security.html).
+Same forms, field names, ids and js-* hooks; the classic page's two inline
+scripts are static/js/admin_v2/login_security.js here.
+{% endcomment %}
+{% load static_version admin_v2_tags %}
+
+{% block title %}Login Security - {{ target_user.name }} - Admin v2{% endblock %}
+{% block console_crumb %}{{ target_user.name }} · Login security{% endblock %}
+
+{% block admin_content %}
+<div class="ac-id-stack">
+    <section class="ac-card ac-id-head" aria-labelledby="ls-title">
+        <span class="ac-avatar-lg" aria-hidden="true">{% console_icon "lock" %}</span>
+        <div class="ac-id-head-text">
+            <h1 id="ls-title">Login security</h1>
+            <p>{{ target_user.name }} (ID: {{ target_user.user_id }})</p>
+        </div>
+        <div class="ac-list-tools">
+            <a href="{% url 'admin_v2_member' target_user.user_id %}" class="ac-btn">Member page</a>
+            <a href="{% url 'admin_v2_edit_user_profile' target_user.user_id %}" class="ac-btn">Edit profile</a>
+        </div>
+    </section>
+
+    {% if temp_password_data %}
+    <section class="ac-id-callout is-warn" role="alert" aria-labelledby="ls-temp">
+        <h2 id="ls-temp">Password reset: important</h2>
+        <p>
+            The password for <strong>{{ temp_password_data.user }}</strong> has been reset.
+            {% if temp_password_data.email %}
+                Since email was not sent, you must manually provide this password to the user.
+            {% else %}
+                This user has no email on file, so you must manually provide this password to them.
+            {% endif %}
+        </p>
+        <div class="ac-id-secret-row">
+            <div class="ac-id-secret"><span class="ac-sr">New password: </span><span id="temp-password">{{ temp_password_data.password }}</span></div>
+            <button type="button" id="js-copy-password-btn" class="ac-btn">Copy</button>
+        </div>
+        <p class="ac-small"><strong>Security note:</strong> This password will only be shown once. It is also saved in the security alert resolution notes below for your records.
+            Make sure to securely communicate this password to the user.</p>
+    </section>
+    {% endif %}
+
+    <div class="ac-id-grid">
+        <section class="ac-card" aria-labelledby="ls-user">
+            <header class="ac-id-card-head"><h2 id="ls-user">User information</h2></header>
+            <div class="ac-id-card-body">
+                <dl class="ac-kv">
+                    <div><dt>Username</dt><dd class="ac-id-mono">{{ target_user.username }}</dd></div>
+                    <div><dt>Email</dt><dd class="ac-break">{% if target_user.email %}{{ target_user.email }}{% else %}<span class="ac-muted">Not set</span>{% endif %}</dd></div>
+                    <div><dt>User ID</dt><dd>{{ target_user.user_id }}</dd></div>
+                    <div><dt>Full name</dt><dd>{{ target_user.name }}</dd></div>
+                    <div><dt>Member status</dt><dd>{{ target_user.member_status }}</dd></div>
+                    <div><dt>Member type</dt><dd>{{ target_user.member_type }}</dd></div>
+                    <div><dt>Admin status</dt><dd>{% if target_user.is_admin %}<span class="ac-pill is-error">Admin</span>{% else %}Regular user{% endif %}</dd></div>
+                    <div><dt>Last login</dt><dd>{% if target_user.last_login %}{{ target_user.last_login|date:"M d, Y h:i A" }}{% else %}<span class="ac-muted">Never</span>{% endif %}</dd></div>
+                    <div><dt>Password</dt><dd><span class="ac-pill is-muted">Hashed (cannot be decrypted)</span></dd></div>
+                </dl>
+                <p class="ac-id-note"><strong>Note:</strong> Passwords are securely hashed using one-way encryption and cannot be decrypted. Use "Force password reset" below to generate a new temporary password.</p>
+            </div>
+        </section>
+
+        <section class="ac-card ac-id-callout {% if watch_flag and watch_flag.is_active %}is-error{% elif watch_flag %}is-paused{% endif %}" aria-labelledby="ls-watch">
+            <h2 id="ls-watch">Watch flag
+                {% if watch_flag and watch_flag.is_active %}<span class="ac-pill is-error">Active</span>
+                {% elif watch_flag %}<span class="ac-pill is-warn">Paused</span>
+                {% else %}<span class="ac-pill is-muted">Not set</span>{% endif %}
+            </h2>
+            <p class="ac-muted">When active, any successful login or repeated failed login attempts trigger an immediate alert email.</p>
+            {% if watch_flag %}
+            <dl class="ac-kv">
+                <div><dt>Reason</dt><dd class="ac-break">{{ watch_flag.reason }}</dd></div>
+                {% if watch_flag.notes %}<div><dt>Notes</dt><dd class="ac-break">{{ watch_flag.notes }}</dd></div>{% endif %}
+                <div><dt>Set by</dt><dd>{{ watch_flag.created_by.name|default:"Unknown" }}</dd></div>
+                <div><dt>Set on</dt><dd>{{ watch_flag.created_at|date:"M d, Y h:i A" }}</dd></div>
+            </dl>
+            <div class="ac-id-form-foot">
+                {% if watch_flag.is_active %}
+                <form method="post" action="{% url 'admin_v2_toggle_watch_flag' target_user.user_id %}">
+                    {% csrf_token %}<input type="hidden" name="action" value="deactivate">
+                    <button type="submit" class="ac-btn">Pause alerts</button>
+                </form>
+                {% else %}
+                <form method="post" action="{% url 'admin_v2_toggle_watch_flag' target_user.user_id %}">
+                    {% csrf_token %}<input type="hidden" name="action" value="activate">
+                    <button type="submit" class="ac-btn">Resume alerts</button>
+                </form>
+                {% endif %}
+                <button type="button" id="watch-flag-edit-btn" class="ac-btn" aria-controls="watch-flag-edit-form">Edit</button>
+                <form method="post" action="{% url 'admin_v2_toggle_watch_flag' target_user.user_id %}"
+                      class="js-confirm-submit" data-confirm-msg="Remove the watch flag from {{ target_user.name }}?">
+                    {% csrf_token %}<input type="hidden" name="action" value="remove">
+                    <button type="submit" class="ac-btn ac-btn-danger-text">Remove flag</button>
+                </form>
+            </div>
+            <form id="watch-flag-edit-form" method="post" action="{% url 'admin_v2_toggle_watch_flag' target_user.user_id %}" class="hidden ac-id-form-col">
+                {% csrf_token %}<input type="hidden" name="action" value="add">
+                <label class="ac-id-label">Reason <span class="ac-text-error" aria-hidden="true">*</span>
+                    <input type="text" name="reason" required value="{{ watch_flag.reason }}" class="ac-input"></label>
+                <label class="ac-id-label">Notes
+                    <textarea name="notes" rows="2" class="ac-input ac-id-textarea">{{ watch_flag.notes }}</textarea></label>
+                <button type="submit" class="ac-btn ac-id-save">Save changes</button>
+            </form>
+            {% else %}
+            <div class="ac-id-form-foot">
+                <button type="button" id="watch-flag-add-btn" class="ac-btn ac-btn-danger-text" aria-controls="watch-flag-add-form">+ Watch user</button>
+            </div>
+            <form id="watch-flag-add-form" method="post" action="{% url 'admin_v2_toggle_watch_flag' target_user.user_id %}" class="hidden ac-id-form-col">
+                {% csrf_token %}<input type="hidden" name="action" value="add">
+                <label class="ac-id-label">Reason <span class="ac-text-error" aria-hidden="true">*</span>
+                    <input type="text" name="reason" required placeholder="Why is this user being watched?" class="ac-input"></label>
+                <label class="ac-id-label">Notes <span class="ac-muted">(optional)</span>
+                    <textarea name="notes" rows="2" placeholder="Additional context..." class="ac-input ac-id-textarea"></textarea></label>
+                <button type="submit" class="ac-btn ac-btn-danger-text">Place watch flag</button>
+            </form>
+            {% endif %}
+        </section>
+    </div>
+
+    <ul class="ac-id-stats" aria-label="Sign-in numbers">
+        <li class="ac-stat"><span class="ac-stat-n">{{ stats.total_logins }}</span><span class="ac-stat-l">Total logins</span></li>
+        <li class="ac-stat{% if stats.failed_logins %} is-warn{% endif %}"><span class="ac-stat-n">{{ stats.failed_logins }}</span><span class="ac-stat-l">Failed logins</span></li>
+        <li class="ac-stat{% if stats.suspicious_logins %} is-error{% endif %}"><span class="ac-stat-n">{{ stats.suspicious_logins }}</span><span class="ac-stat-l">Suspicious</span></li>
+        <li class="ac-stat{% if stats.active_alerts %} is-error{% endif %}"><span class="ac-stat-n">{{ stats.active_alerts }}</span><span class="ac-stat-l">Active alerts</span></li>
+        <li class="ac-stat"><span class="ac-stat-n">{{ stats.unique_ips }}</span><span class="ac-stat-l">Unique IPs</span></li>
+        <li class="ac-stat"><span class="ac-stat-n">{{ stats.unique_locations }}</span><span class="ac-stat-l">Locations</span></li>
+    </ul>
+
+    <section class="ac-card" aria-labelledby="ls-actions">
+        <header class="ac-id-card-head"><h2 id="ls-actions">Security actions</h2></header>
+        <div class="ac-id-card-body">
+            <div class="ac-id-boxes">
+                {% comment %}
+                Release lockout first: routine and reversible. Shown whether or not
+                the member looks locked out (the account lockout is cache-only; see
+                the classic template's note).
+                {% endcomment %}
+                <div class="ac-id-box">
+                    <h3>Release login lockout</h3>
+                    <p>Clears every login rate-limit and lockout on this account — both the
+                        per-account lockout and the middleware's username bucket, including
+                        the failed-attempt counters. They can sign in immediately.</p>
+                    <p class="ac-muted">Does not touch IP-based lockouts — those are cleared from
+                        <a href="{% url 'admin_v2_lockouts' %}" class="ac-id-link">Lockout management</a>,
+                        since an IP may be shared by several members.</p>
+                    <form method="post" action="{% url 'admin_v2_release_user_lockout' target_user.user_id %}"
+                          class="js-confirm-submit" data-confirm-msg="Release all login lockouts for this user?">
+                        {% csrf_token %}
+                        <button type="submit" class="ac-btn">Release lockout</button>
+                    </form>
+                </div>
+
+                <div class="ac-id-box">
+                    <h3>Force password reset</h3>
+                    <p>Generate a new temporary password for this user</p>
+                    <form method="post" action="{% url 'admin_v2_force_password_reset' target_user.user_id %}" class="js-confirm-submit" data-confirm-msg="This will reset the user password. Continue?">
+                        {% csrf_token %}
+                        <label class="ac-id-label">Reason
+                            <input type="text" name="reason" placeholder="Security concern flagged by admin" class="ac-input"></label>
+                        <fieldset class="ac-id-radios">
+                            <legend class="ac-id-label">Password type</legend>
+                            <label class="ac-check"><input type="radio" name="password_type" value="random" id="js-pw-random" checked> Generate random password (16 characters)</label>
+                            <label class="ac-check"><input type="radio" name="password_type" value="custom" id="js-pw-custom"> Set custom password</label>
+                        </fieldset>
+                        <label id="custom_password_field" class="ac-id-label hidden">Custom password
+                            <input type="text" name="custom_password" placeholder="Enter custom password" class="ac-input">
+                            <span class="ac-id-hint">Minimum 9 characters with uppercase, lowercase, number, and special character</span></label>
+                        <label class="ac-check"><input type="checkbox" name="send_email" value="true" checked> Send email notification with new password</label>
+                        <button type="submit" class="ac-btn ac-btn-danger-text">Reset password</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    {% if alerts %}
+    <section class="ac-card" aria-labelledby="ls-alerts">
+        <header class="ac-id-card-head"><h2 id="ls-alerts">Security alerts</h2></header>
+        <div class="ac-id-card-body">
+            <ul class="ac-rows">
+                {% for alert in alerts %}
+                <li class="ac-rows-stack">
+                    <span><strong>{{ alert.title }}</strong>
+                        <span class="ac-pill {% if alert.severity == 'critical' or alert.severity == 'high' %}is-error{% elif alert.severity == 'medium' %}is-warn{% else %}is-muted{% endif %}">{{ alert.get_severity_display }}</span>
+                        <span class="ac-pill {% if alert.status == 'new' %}is-error{% elif alert.status == 'investigating' %}is-warn{% else %}is-ok{% endif %}">{{ alert.get_status_display }}</span></span>
+                    <span class="ac-break">{{ alert.description }}</span>
+                    <span class="ac-muted">{{ alert.created_at|date:"M d, Y h:i A" }}</span>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+    </section>
+    {% endif %}
+
+    <section class="ac-card" aria-label="IP addresses">
+        {% include "admin_v2/console/_list_header.html" with title="IP addresses & locations" heading="h2" refresh=False %}
+        <div class="ac-table-wrap">
+            <table class="ac-table">
+                <thead><tr><th>IP address</th><th>Location</th><th>Last used</th><th>Risk</th><th>Status</th><th>Actions</th></tr></thead>
+                <tbody>
+                    {% for ip_data in ip_info %}
+                    <tr>
+                        <td class="ac-id-mono">{{ ip_data.ip }}</td>
+                        <td>{{ ip_data.location|default:"Unknown" }}</td>
+                        <td class="ac-nowrap">{{ ip_data.last_used|date:"M d, h:i A" }}</td>
+                        <td><span class="ac-pill {% if ip_data.risk_level == 'critical' or ip_data.risk_level == 'high' %}is-error{% elif ip_data.risk_level == 'medium' %}is-warn{% else %}is-ok{% endif %}">{{ ip_data.risk_level|upper }}</span></td>
+                        <td>
+                            {% if ip_data.is_whitelisted %}<span class="ac-pill is-ok">Whitelisted</span>
+                            {% elif ip_data.is_blacklisted %}<span class="ac-pill is-error">Blacklisted</span>
+                            {% else %}<span class="ac-muted">-</span>{% endif %}
+                        </td>
+                        <td>
+                            <div class="ac-id-row-actions">
+                                {% if not ip_data.is_whitelisted %}
+                                <form method="post" action="{% url 'admin_v2_add_ip_whitelist' %}">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="ip_address" value="{{ ip_data.ip }}">
+                                    <input type="hidden" name="description" value="User {{ target_user.name }} - Added from login security">
+                                    <button type="submit" class="ac-btn ac-btn-sm" title="Add to whitelist">Whitelist</button>
+                                </form>
+                                {% else %}
+                                <form method="post" action="{% url 'admin_v2_remove_ip_whitelist' %}">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="ip_address" value="{{ ip_data.ip }}">
+                                    <button type="submit" class="ac-btn ac-btn-sm" title="Remove from whitelist">Remove WL</button>
+                                </form>
+                                {% endif %}
+                                {% if not ip_data.is_blacklisted %}
+                                <form method="post" action="{% url 'admin_v2_add_ip_blacklist' %}" class="js-confirm-submit" data-confirm-msg="Blacklist this IP address?">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="ip_address" value="{{ ip_data.ip }}">
+                                    <input type="hidden" name="reason" value="Suspicious activity for user {{ target_user.name }}">
+                                    <button type="submit" class="ac-btn ac-btn-sm ac-btn-danger-text" title="Add to blacklist">Blacklist</button>
+                                </form>
+                                {% else %}
+                                <form method="post" action="{% url 'admin_v2_remove_ip_blacklist' %}">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="ip_address" value="{{ ip_data.ip }}">
+                                    <button type="submit" class="ac-btn ac-btn-sm" title="Remove from blacklist">Remove BL</button>
+                                </form>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="6" class="ac-empty">No IP addresses found</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <section class="ac-card" aria-label="Activity history">
+        {% include "admin_v2/console/_list_header.html" with title="Activity history" heading="h2" count=activity_total subtitle="Total recorded actions in brackets; the list shows up to 100." %}
+        <form method="get" class="ac-filterbar" aria-label="Filter activity">
+            <label class="ac-field"><span class="ac-field-label">Category</span>
+                <select name="activity_category" class="ac-select" data-autosubmit>
+                    <option value="">All categories</option>
+                    {% for code, label in activity_categories %}
+                    <option value="{{ code }}" {% if selected_activity_category == code %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <label class="ac-field"><span class="ac-field-label">When</span>
+                <select name="activity_date" class="ac-select" data-autosubmit>
+                    <option value="1" {% if selected_activity_date == '1' %}selected{% endif %}>Last 24h</option>
+                    <option value="7" {% if selected_activity_date == '7' %}selected{% endif %}>Last 7 days</option>
+                    <option value="30" {% if selected_activity_date == '30' %}selected{% endif %}>Last 30 days</option>
+                    <option value="90" {% if selected_activity_date == '90' %}selected{% endif %}>Last 90 days</option>
+                    <option value="all" {% if selected_activity_date == 'all' %}selected{% endif %}>All time</option>
+                </select>
+            </label>
+            <button type="submit" class="ac-btn">Filter</button>
+        </form>
+        <div class="ac-table-wrap">
+            <table class="ac-table">
+                <thead><tr><th>Time</th><th>Category</th><th>Action</th><th>Description</th><th>IP address</th><th>Details</th></tr></thead>
+                <tbody>
+                    {% for entry in user_activity %}
+                    <tr>
+                        <td class="ac-nowrap">{{ entry.timestamp|date:"M d, Y" }}<span class="ac-sub">{{ entry.timestamp|date:"h:i A" }}</span></td>
+                        <td><span class="ac-pill {% if entry.action_category == 'auth' or entry.action_category == 'user' or entry.action_category == 'announcement' %}is-accent{% elif entry.action_category == 'settings' or entry.action_category == 'vote' or entry.action_category == 'legislation' %}is-warn{% elif entry.action_category == 'document' %}is-ok{% else %}is-muted{% endif %}">{{ entry.get_action_category_display }}</span></td>
+                        <td class="ac-nowrap">{{ entry.get_action_type_display }}</td>
+                        <td class="ac-break">{{ entry.description }}{% if entry.object_repr %}<span class="ac-sub">Object: {{ entry.object_repr }}</span>{% endif %}</td>
+                        <td class="ac-id-mono">{{ entry.ip_address|default:"—" }}</td>
+                        <td>
+                            {% if entry.metadata %}
+                            <button type="button" class="js-toggle-meta ac-btn ac-btn-sm ac-btn-ghost" data-meta="{{ entry.metadata|default:'' }}">Show</button>
+                            <pre class="hidden ac-id-pre"></pre>
+                            {% else %}<span class="ac-muted">—</span>{% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="6" class="ac-empty">No activity recorded for this user{% if selected_activity_category or selected_activity_date != 'all' %} with the current filters{% endif %}.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% if user_activity|length == 100 %}
+        <div class="ac-pager"><span>Showing 100 most recent entries. Use filters or the <a href="{% url 'activity_logs' %}?user={{ target_user.user_id }}" class="ac-id-link">Activity logs page</a> for more.</span></div>
+        {% endif %}
+    </section>
+
+    <section class="ac-card" aria-label="Login history">
+        {% include "admin_v2/console/_list_header.html" with title="Recent login history" subtitle="Last 50" heading="h2" refresh=False %}
+        <div class="ac-table-wrap">
+            <table class="ac-table">
+                <thead><tr><th>Time</th><th>Status</th><th>IP address</th><th>Location</th><th>Device</th><th>Risk</th></tr></thead>
+                <tbody>
+                    {% for login in login_history %}
+                    <tr{% if login.is_suspicious %} class="is-flagged"{% endif %}>
+                        <td class="ac-nowrap">{{ login.timestamp|date:"M d, Y h:i A" }}</td>
+                        <td>
+                            {% if login.status == 'success' %}<span class="ac-pill is-ok">Success</span>
+                            {% elif login.status == 'failed' %}<span class="ac-pill is-error">Failed</span>
+                            {% elif login.status == 'blocked' %}<span class="ac-pill is-muted">Blocked</span>{% endif %}
+                        </td>
+                        <td class="ac-id-mono">{{ login.ip_address }}</td>
+                        <td>{{ login.location_display }}</td>
+                        <td>{{ login.browser|default:"Unknown" }}<span class="ac-sub">{{ login.os|default:"-" }}</span></td>
+                        <td><span class="ac-pill {% if login.risk_level == 'critical' or login.risk_level == 'high' %}is-error{% elif login.risk_level == 'medium' %}is-warn{% else %}is-ok{% endif %}">{{ login.get_risk_level_display }}</span>
+                            {% if login.is_suspicious %}<span class="ac-pill is-error" title="Flagged as suspicious">Suspicious</span>{% endif %}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="6" class="ac-empty">No login history found</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+</div>
+{% endblock %}
+
+{% block console_js %}<script src="{% static_v 'js/admin_v2/login_security.js' %}"></script>{% endblock %}

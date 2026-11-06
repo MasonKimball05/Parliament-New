@@ -134,6 +134,7 @@ def admin_v2_login(request):
     """
     Login page for Admin v2 - requires user password + secret key
     """
+    from src.admin_console import console_enabled
     # Check if user is authenticated
     if not request.user.is_authenticated:
         messages.warning(request, 'Please login first to access Admin v2')
@@ -166,7 +167,7 @@ def admin_v2_login(request):
             request.POST.get('user_password', ''), request.POST.get('secret_key', ''))
         if code != 'ok':
             messages.error(request, message)
-            return render(request, 'admin_v2/login.html')
+            return render(request, 'admin_v2/console/login.html' if console_enabled(request) else 'admin_v2/login.html')
 
         # Both passwords correct - grant access
         request.session['admin_v2_authenticated'] = True
@@ -179,7 +180,7 @@ def admin_v2_login(request):
         messages.success(request, 'Admin v2 access granted')
         return redirect('admin_v2_dashboard')
 
-    return render(request, 'admin_v2/login.html', {
+    return render(request, 'admin_v2/console/login.html' if console_enabled(request) else 'admin_v2/login.html', {
         'has_passkeys': (
             request.user.is_authenticated
             and WebAuthnCredential.objects.filter(user=request.user).exists()
@@ -1196,6 +1197,15 @@ def push_subscriptions_list(request):
     List all push subscriptions grouped by user, with individual delete.
     """
     subscriptions = PushSubscription.objects.select_related('user').defer(*member_defer('user')).order_by('user__name', '-created_at')
+    from src.admin_console import console_enabled
+    if console_enabled(request):
+        # Console look: same rows, plus Actions ▾ "Delete selected" (src/view/admin_v2_messaging.py).
+        from src.view.admin_v2_messaging import delete_selected_action
+        subscriptions = list(subscriptions)
+        return render(request, 'admin_v2/console/push_subscriptions.html', {
+            'subscriptions': subscriptions,
+            'bulk_actions': delete_selected_action('admin_v2_delete_push_subscriptions_bulk', 'push subscriptions'),
+        })
     return render(request, 'admin_v2/push_subscriptions.html', {'subscriptions': subscriptions})
 
 
@@ -1329,7 +1339,8 @@ def admin_v2_url_explorer(request):
         total = sum(len(v) for v in sorted_sections.values())
         cache.set(_CACHE_KEY, (sorted_sections, total), _CACHE_TTL)
 
-    return render(request, 'admin_v2/url_explorer.html', {
+    from src.admin_console import console_enabled
+    return render(request, 'admin_v2/console/url_explorer.html' if console_enabled(request) else 'admin_v2/url_explorer.html', {
         'sections': sorted_sections,
         'total': total,
     })
@@ -1396,6 +1407,11 @@ def manage_legislation(request):
         'status_choices': ['draft', 'passed', 'removed'],
     }
 
+    from src.admin_console import console_enabled
+    if console_enabled(request):
+        from src.view.admin_v2_messaging import delete_selected_action
+        context['bulk_actions'] = delete_selected_action('admin_v2_delete_legislation_bulk', 'legislation')
+        return render(request, 'admin_v2/console/manage_legislation.html', context)
     return render(request, 'admin_v2/manage_legislation.html', context)
 
 
@@ -1464,6 +1480,11 @@ def manage_events(request):
         'search_query': search_query,
     }
 
+    from src.admin_console import console_enabled
+    if console_enabled(request):
+        from src.view.admin_v2_messaging import delete_selected_action
+        context['bulk_actions'] = delete_selected_action('admin_v2_delete_events_bulk', 'events')
+        return render(request, 'admin_v2/console/manage_events.html', context)
     return render(request, 'admin_v2/manage_events.html', context)
 
 
@@ -1507,6 +1528,16 @@ def manage_committees(request):
         'committees': committees,
     }
 
+    from src.admin_console import console_enabled
+    if console_enabled(request):
+        from django.urls import reverse
+        bulk = reverse('admin_v2_committees_bulk')
+        context['bulk_actions'] = [
+            {'label': 'Activate', 'url': bulk, 'fields': {'active': '1'}},
+            {'label': 'Deactivate', 'url': bulk, 'fields': {'active': '0'},
+             'confirm': 'Deactivate the selected committees?', 'danger': True},
+        ]
+        return render(request, 'admin_v2/console/manage_committees.html', context)
     return render(request, 'admin_v2/manage_committees.html', context)
 
 
@@ -1533,6 +1564,30 @@ def toggle_committee_active(request, committee_id):
         except Committee.DoesNotExist:
             messages.error(request, 'Committee not found')
 
+    return redirect('admin_v2_manage_committees')
+
+
+@require_admin_v2_auth
+@require_POST
+def bulk_committees_active(request):
+    """The console Committees list's Actions menu: activate or deactivate the
+    ticked committees (one ``ids`` per ticked row, ``active`` 1 or 0)."""
+    active = request.POST.get('active') == '1'
+    ids = [i for i in request.POST.getlist('ids') if i.isdigit()]
+    committees = list(Committee.objects.filter(id__in=ids).exclude(is_active=active))
+    for committee in committees:
+        committee.is_active = active
+        committee.save(update_fields=['is_active'])
+    status = 'activated' if active else 'deactivated'
+    if committees:
+        ActivityLog.log_activity(
+            action_type='committee_status_changed',
+            user=request.user,
+            description=f'{request.user.get_display_name()} {status} committees: '
+                        + ', '.join(c.name for c in committees),
+            request=request
+        )
+    messages.success(request, f'{len(committees)} committee(s) {status}.')
     return redirect('admin_v2_manage_committees')
 
 
@@ -1746,7 +1801,9 @@ def manage_login_history(request):
         'user_search': user_search,
     }
 
-    return render(request, 'admin_v2/manage_login_history.html', context)
+    from src.admin_console import console_enabled
+    return render(request, 'admin_v2/console/login_history.html' if console_enabled(request)
+                  else 'admin_v2/manage_login_history.html', context)
 
 
 @require_admin_v2_auth
@@ -1777,6 +1834,11 @@ def manage_announcements(request):
         'active_filter': active_filter,
     }
 
+    from src.admin_console import console_enabled
+    if console_enabled(request):
+        from src.view.admin_v2_messaging import delete_selected_action
+        context['bulk_actions'] = delete_selected_action('admin_v2_delete_announcements_bulk', 'announcements')
+        return render(request, 'admin_v2/console/manage_announcements.html', context)
     return render(request, 'admin_v2/manage_announcements.html', context)
 
 
@@ -1995,8 +2057,10 @@ def edit_user_profile(request, user_id):
         ('Minor', 'minor', list(target.minors or [])),
         ('Concentration', 'concentration', list(target.concentrations or [])),
     ]
+    from src.admin_console import console_enabled
     from src.pledge_classes import all_classes
-    return render(request, 'admin_v2/edit_user_profile.html', {
+    console = console_enabled(request)
+    return render(request, 'admin_v2/console/edit_user_profile.html' if console else 'admin_v2/edit_user_profile.html', {
         'target': target,
         'all_members': all_members,
         'role_histories': role_histories,
@@ -2127,7 +2191,9 @@ def user_login_security(request, user_id):
         'selected_activity_date': activity_date_range,
     }
 
-    return render(request, 'admin_v2/user_login_security.html', context)
+    from src.admin_console import console_enabled
+    console = console_enabled(request)
+    return render(request, 'admin_v2/console/user_login_security.html' if console else 'admin_v2/user_login_security.html', context)
 
 
 @require_admin_v2_auth
@@ -2606,7 +2672,16 @@ def manage_ip_whitelist(request):
         'whitelist_entries': whitelist_entries,
     }
 
-    return render(request, 'admin_v2/ip_whitelist.html', context)
+    from src.admin_console import console_enabled
+    if not console_enabled(request):
+        return render(request, 'admin_v2/ip_whitelist.html', context)
+    from django.urls import reverse
+    # Console: Actions ▾ removes the ticked entries (same helper as Remove).
+    context['bulk_actions'] = [{
+        'label': 'Remove selected', 'url': reverse('admin_v2_remove_ip_whitelist_bulk'),
+        'confirm': 'Remove the selected addresses from the allow list?', 'danger': True,
+    }]
+    return render(request, 'admin_v2/console/ip_whitelist.html', context)
 
 
 @require_admin_v2_auth
@@ -2620,7 +2695,46 @@ def manage_ip_blacklist(request):
         'blacklist_entries': blacklist_entries,
     }
 
-    return render(request, 'admin_v2/ip_blacklist.html', context)
+    from src.admin_console import console_enabled
+    if not console_enabled(request):
+        return render(request, 'admin_v2/ip_blacklist.html', context)
+    from django.urls import reverse
+    # Console: Actions ▾ unblocks the ticked entries (same helper as Unblock).
+    context['bulk_actions'] = [{
+        'label': 'Unblock selected', 'url': reverse('admin_v2_remove_ip_blacklist_bulk'),
+        'confirm': 'Unblock the selected addresses?', 'danger': True,
+    }]
+    return render(request, 'admin_v2/console/ip_blacklist.html', context)
+
+
+def _ip_bulk_remove(request, model, remove, list_name):
+    """The console's Actions ▾ on the allow / block lists: each ticked entry
+    (``ids``, re-read here, active only) goes through the same helper as its
+    row's Remove button, which validates the address and logs it."""
+    ids = [i for i in request.POST.getlist('ids') if str(i).isdigit()]
+    removed = 0
+    for ip in model.objects.filter(pk__in=ids, is_active=True).values_list('ip_address', flat=True).distinct():
+        code, _text = remove(request, request.user, ip)
+        removed += code == 'ok'
+    if removed:
+        messages.success(request, f'Removed {removed} address{"es" if removed != 1 else ""}.')
+    else:
+        messages.error(request, 'Nothing was removed: tick at least one entry.')
+    return redirect(list_name)
+
+
+@require_admin_v2_auth
+@require_POST
+def remove_ip_whitelist_bulk(request):
+    """Remove the ticked allow-list entries (console Actions ▾)."""
+    return _ip_bulk_remove(request, IPWhitelist, remove_ip_whitelist_entry, 'admin_v2_ip_whitelist')
+
+
+@require_admin_v2_auth
+@require_POST
+def remove_ip_blacklist_bulk(request):
+    """Unblock the ticked block-list entries (console Actions ▾)."""
+    return _ip_bulk_remove(request, IPBlacklist, remove_ip_blacklist_entry, 'admin_v2_ip_blacklist')
 
 
 @require_admin_v2_auth
@@ -2671,7 +2785,55 @@ def manage_security_alerts(request):
         'severity_filter': severity_filter,
     }
 
-    return render(request, 'admin_v2/security_alerts.html', context)
+    from src.admin_console import console_enabled
+    if not console_enabled(request):
+        return render(request, 'admin_v2/security_alerts.html', context)
+    from django.urls import reverse
+    # Console: each alert opens in the slide-out panel (security_alert_detail);
+    # Actions ▾ dismisses the ticked ones (dismiss_alerts_bulk).
+    context['bulk_actions'] = [{
+        'label': 'Dismiss selected', 'url': reverse('admin_v2_dismiss_alerts_bulk'),
+        'confirm': 'Dismiss the selected alerts? They are marked resolved.',
+    }]
+    return render(request, 'admin_v2/console/security_alerts.html', context)
+
+
+@require_admin_v2_auth
+def security_alert_detail(request, alert_id):
+    """One security alert: the full page, or with ?panel=1 the console's
+    slide-out panel fragment (same gate as the list, same data)."""
+    from src.admin_console import panel_response, wants_panel
+    alert = get_object_or_404(
+        LoginAlert.objects.select_related('user', 'reviewed_by', 'login_history')
+        .defer(*member_defer('user', 'reviewed_by')),
+        pk=alert_id,
+    )
+    data = {'alert': alert, 'login': alert.login_history}
+    if wants_panel(request):
+        return panel_response(render(request, 'admin_v2/console/security_alert_panel.html', data))
+    return render(request, 'admin_v2/security_alert.html', data)
+
+
+@require_admin_v2_auth
+@require_POST
+def dismiss_alerts_bulk(request):
+    """Dismiss the ticked alerts (console Actions ▾): each id re-read, only
+    open ones (new / investigating) change, one activity row for the batch."""
+    ids = [i for i in request.POST.getlist('ids') if str(i).isdigit()]
+    alerts = list(LoginAlert.objects.filter(pk__in=ids, status__in=('new', 'investigating')))
+    for alert in alerts:
+        dismiss_login_alert(request.user, alert, 'Dismissed by admin')
+    if alerts:
+        ActivityLog.log_activity(
+            action_type='security',
+            user=request.user,
+            description=f'{request.user.get_display_name()} dismissed {len(alerts)} security alert(s)',
+            request=request,
+        )
+        messages.success(request, f'Dismissed {len(alerts)} alert{"s" if len(alerts) != 1 else ""}.')
+    else:
+        messages.info(request, 'No open alerts were selected.')
+    return redirect(_safe_referer(request, 'admin_v2_security_alerts'))
 
 
 def dismiss_login_alert(actor, alert, notes='Dismissed by admin'):
@@ -3129,7 +3291,9 @@ def test_email_targeting(request):
         'visibility_options': ['Member', 'Advisor', 'Pledge'],
     }
 
-    return render(request, 'admin_v2/test_email_targeting.html', context)
+    from src.admin_console import console_enabled
+    return render(request, 'admin_v2/console/test_email_targeting.html' if console_enabled(request)
+                  else 'admin_v2/test_email_targeting.html', context)
 
 
 EMAIL_LOGS_LIMIT = 50
@@ -3178,6 +3342,11 @@ def email_logs(request):
         'logs': logs,
         'pending_announcements': pending_announcements,
     }
+    from src.admin_console import console_enabled
+    if console_enabled(request):
+        from django.urls import reverse
+        context['header_links'] = [{'label': 'Test targeting', 'url': reverse('admin_v2_test_email_targeting')}]
+        return render(request, 'admin_v2/console/email_logs.html', context)
     return render(request, 'admin_v2/email_logs.html', context)
 
 
@@ -3202,7 +3371,13 @@ def email_log_detail(request, log_id):
         'recipients_by_status': recipients_by_status,
         'status_counts': status_counts,
     }
-    return render(request, 'admin_v2/email_log_detail.html', context)
+    # Console: ?panel=1 is the slide-out fragment (same gate); the full page
+    # follows the look.
+    from src.admin_console import console_enabled, panel_response, wants_panel
+    if wants_panel(request):
+        return panel_response(render(request, 'admin_v2/console/email_log_panel.html', context))
+    return render(request, 'admin_v2/console/email_log_detail.html' if console_enabled(request)
+                  else 'admin_v2/email_log_detail.html', context)
 
 
 @require_admin_v2_auth
@@ -3380,7 +3555,9 @@ def security_dashboard(request):
     """Main security dashboard showing all security tools and alerts."""
     if not request.user.is_admin:
         return HttpResponseForbidden("Admin access required")
-    return render(request, 'admin_v2/security_dashboard.html', security_overview())
+    from src.admin_console import console_enabled
+    return render(request, 'admin_v2/console/security_dashboard.html' if console_enabled(request)
+                  else 'admin_v2/security_dashboard.html', security_overview())
 
 
 def release_quarantine(request, actor, quarantine, notes=''):
@@ -3512,7 +3689,9 @@ def quarantine_management(request):
         is_quarantined=False
     ).order_by('member_status', 'name')
 
-    return render(request, 'admin_v2/quarantine_management.html', {
+    from src.admin_console import console_enabled
+    return render(request, 'admin_v2/console/quarantine.html' if console_enabled(request)
+                  else 'admin_v2/quarantine_management.html', {
         'active_quarantines': active_quarantines,
         'released_quarantines': released_quarantines,
         'selectable_users': selectable_users,
@@ -3591,7 +3770,9 @@ def lockdown_control(request):
     from src.utils.security_utils import get_client_ip
     current_ip = get_client_ip(request) or 'unknown'
 
-    return render(request, 'admin_v2/lockdown_control.html', {
+    from src.admin_console import console_enabled
+    return render(request, 'admin_v2/console/lockdown_control.html' if console_enabled(request)
+                  else 'admin_v2/lockdown_control.html', {
         'lockdown': lockdown,
         'current_ip': current_ip,
     })
@@ -3708,8 +3889,29 @@ def honeypot_logs(request):
     if not request.user.is_admin:
         return HttpResponseForbidden("Admin access required")
 
-    return render(request, 'admin_v2/honeypot_logs.html', honeypot_log_data(
+    from src.admin_console import console_enabled
+    return render(request, 'admin_v2/console/honeypot_logs.html' if console_enabled(request)
+                  else 'admin_v2/honeypot_logs.html', honeypot_log_data(
         request.GET.get('endpoint', ''), request.GET.get('ip', ''), request.GET.get('page')))
+
+
+@require_admin_v2_auth
+def honeypot_log_detail(request, log_id):
+    """One honeypot hit: the full page, or with ?panel=1 the console's
+    slide-out panel fragment (admin only, like the log itself)."""
+    if not request.user.is_admin:
+        return HttpResponseForbidden("Admin access required")
+    from src.admin_console import panel_response, wants_panel
+    log = get_object_or_404(HoneypotAccess, pk=log_id)
+    data = {
+        'log': log,
+        'geo': (log.additional_data or {}).get('geo') if isinstance(log.additional_data, dict) else None,
+        'blocked': bool(log.ip_address) and IPBlacklist.objects.filter(
+            ip_address=log.ip_address, is_active=True).exists(),
+    }
+    if wants_panel(request):
+        return panel_response(render(request, 'admin_v2/console/honeypot_log_panel.html', data))
+    return render(request, 'admin_v2/honeypot_log.html', data)
 
 
 @require_admin_v2_auth
@@ -3917,6 +4119,18 @@ def manage_lockouts(request):
             except LoginLockout.DoesNotExist:
                 messages.error(request, 'Lockout record not found.')
 
+        elif action == 'clear_selected':
+            # The console's Actions ▾: the ticked rows (`ids`), each re-read and
+            # cleared exactly as its own Clear button does (`clear_lockout_row`).
+            ids = [i for i in request.POST.getlist('ids') if str(i).isdigit()]
+            chosen = list(LoginLockout.objects.filter(pk__in=ids, is_cleared=False))
+            for lockout in chosen:
+                clear_lockout_row(request.user, lockout)
+            if chosen:
+                messages.success(request, f'Cleared {len(chosen)} lockout(s).')
+            else:
+                messages.error(request, 'No lockouts were selected.')
+
         elif action == 'clear_all_active':
             to_clear = list(LoginLockout.objects.filter(
                 is_cleared=False,
@@ -3955,12 +4169,23 @@ def manage_lockouts(request):
         is_cleared=True
     ).order_by('-cleared_at')[:20]
 
-    return render(request, 'admin_v2/lockouts.html', {
+    context = {
         'active_lockouts': active_lockouts,
         'expired_lockouts': expired_lockouts,
         'recent_cleared': recent_cleared,
         'active_count': active_lockouts.count(),
-    })
+    }
+    from src.admin_console import console_enabled
+    if not console_enabled(request):
+        return render(request, 'admin_v2/lockouts.html', context)
+    # Console: Actions ▾ clears the ticked active lockouts (`clear_selected`).
+    from django.urls import reverse
+    context['bulk_actions'] = [{
+        'label': 'Clear selected', 'url': reverse('admin_v2_lockouts'),
+        'fields': {'action': 'clear_selected'},
+        'confirm': 'Clear the selected lockouts?',
+    }]
+    return render(request, 'admin_v2/console/lockouts.html', context)
 
 
 SECURITY_NOTIFICATIONS_PAGE_SIZE = 50
@@ -4007,7 +4232,9 @@ def security_notifications_log(request):
     # Get distinct event types for filter dropdown
     event_types = security_notification_event_types()
 
-    return render(request, 'admin_v2/security_notifications.html', {
+    from src.admin_console import console_enabled
+    return render(request, 'admin_v2/console/security_notifications.html' if console_enabled(request)
+                  else 'admin_v2/security_notifications.html', {
         'notifications': page_obj,
         'severity_filter': severity_filter,
         'event_filter': event_filter,
@@ -4123,7 +4350,9 @@ def audit_log(request):
         .order_by('name')
     )
 
-    return render(request, 'admin_v2/audit_log.html', {
+    from src.admin_console import console_enabled
+    return render(request, 'admin_v2/console/audit_log.html' if console_enabled(request)
+                  else 'admin_v2/audit_log.html', {
         'page_obj': page_obj,
         'action_choices': AdminActionLog.ACTION_CHOICES,
         'actors': actors,
@@ -4178,7 +4407,9 @@ def csp_violations(request):
 
     total_undismissed = CSPViolation.objects.filter(dismissed=False).count()
 
-    return render(request, 'admin_v2/csp_violations.html', {
+    from src.admin_console import console_enabled
+    return render(request, 'admin_v2/console/csp_violations.html' if console_enabled(request)
+                  else 'admin_v2/csp_violations.html', {
         'groups': groups,
         'show_dismissed': show_dismissed,
         'total_undismissed': total_undismissed,
@@ -4340,7 +4571,8 @@ def page_visits_dashboard(request):
     filtering both views by member name/username (v3.15.6) and by member
     status — Active/Inactive/Alumni/Removed (v3.15.7). Data: ``page_visits_data``.
     """
-    return render(request, 'admin_v2/page_visits.html', page_visits_data(
+    from src.admin_console import console_enabled
+    return render(request, 'admin_v2/console/page_visits.html' if console_enabled(request) else 'admin_v2/page_visits.html', page_visits_data(
         sort=request.GET.get('sort', 'total'), drill_path=request.GET.get('path', ''),
         user_filter=request.GET.get('user', ''), status_filter=request.GET.get('status', ''),
     ))
@@ -4362,11 +4594,13 @@ def event_reminder_logs(request):
     # v4.4.4: `event_reminder_logs_data`, shared with the app
     logs, pending_events = event_reminder_logs_data(now)
 
-    return render(request, 'admin_v2/event_reminder_logs.html', {
-        'logs': logs,
-        'pending_events': pending_events,
-        'now': now,
-    })
+    from src.admin_console import console_enabled
+    return render(request, 'admin_v2/console/event_reminder_logs.html' if console_enabled(request)
+                  else 'admin_v2/event_reminder_logs.html', {
+                      'logs': logs,
+                      'pending_events': pending_events,
+                      'now': now,
+                  })
 
 
 @require_admin_v2_auth
@@ -4385,8 +4619,13 @@ def event_reminder_log_detail(request, log_id):
     """
     log = get_object_or_404(EventReminderLog, id=log_id)
     # v4.4.4: `event_reminder_log_detail_data`, shared with the app
-    return render(request, 'admin_v2/event_reminder_log_detail.html',
-                  {'log': log, **event_reminder_log_detail_data(log)})
+    context = {'log': log, **event_reminder_log_detail_data(log)}
+    # Console: ?panel=1 is the slide-out fragment (same gate).
+    from src.admin_console import console_enabled, panel_response, wants_panel
+    if wants_panel(request):
+        return panel_response(render(request, 'admin_v2/console/event_reminder_log_panel.html', context))
+    return render(request, 'admin_v2/console/event_reminder_log_detail.html' if console_enabled(request)
+                  else 'admin_v2/event_reminder_log_detail.html', context)
 
 
 def event_reminder_logs_data(now):
@@ -4503,4 +4742,5 @@ def celery_health(request):
     Celery task health dashboard — shows worker status and the state of every
     registered PeriodicTask (schedule, last run, run count, enabled/disabled).
     """
-    return render(request, 'admin_v2/celery_health.html', celery_overview())
+    from src.admin_console import console_enabled
+    return render(request, 'admin_v2/console/celery_health.html' if console_enabled(request) else 'admin_v2/celery_health.html', celery_overview())

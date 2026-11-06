@@ -1,0 +1,74 @@
+{% extends "admin_v2/base.html" %}
+{% comment %}
+Events in the console look (admin_v2_manage_events when `admin_console_ui`
+is on; classic: admin_v2/manage_events.html). Same filters (`search`,
+`archived`, `active`), 25-row pages and per-row Delete POST form
+(data-confirm), plus Actions ▾ "Delete selected" for the ticked rows
+(src/view/admin_v2_messaging.py).
+{% endcomment %}
+{% load admin_v2_tags %}
+
+{% block title %}Events - Admin{% endblock %}
+
+{% block admin_content %}
+<section class="ac-card">
+    {% include "admin_v2/console/_list_header.html" with title="Events" count=events.paginator.count actions=bulk_actions %}
+
+    <form method="get" class="ac-filterbar" role="search" aria-label="Filter events">
+        <label class="ac-field ac-field-grow">
+            <span class="ac-sr">Search</span>
+            {% console_icon "filter" %}
+            <input type="search" name="search" value="{{ search_query }}" placeholder="Filter by title or description" class="ac-input">
+        </label>
+        <label class="ac-field"><span class="ac-field-label">Archived</span>
+            <select name="archived" class="ac-select" data-autosubmit>
+                <option value="">All</option>
+                <option value="yes"{% if archived_filter == 'yes' %} selected{% endif %}>Yes</option>
+                <option value="no"{% if archived_filter == 'no' %} selected{% endif %}>No</option>
+            </select>
+        </label>
+        <label class="ac-field"><span class="ac-field-label">Active</span>
+            <select name="active" class="ac-select" data-autosubmit>
+                <option value="">All</option>
+                <option value="yes"{% if active_filter == 'yes' %} selected{% endif %}>Yes</option>
+                <option value="no"{% if active_filter == 'no' %} selected{% endif %}>No</option>
+            </select>
+        </label>
+        <button type="submit" class="ac-btn">Apply</button>
+        {% if search_query or archived_filter or active_filter %}<a href="{% url 'admin_v2_manage_events' %}" class="ac-btn ac-btn-ghost">Clear</a>{% endif %}
+    </form>
+
+    <div class="ac-table-wrap">
+        <table class="ac-table" id="ac-list" data-ac-select>
+            <thead>
+                <tr>
+                    <th class="ac-col-check"><input type="checkbox" data-ac-select-all aria-label="Select every event on this page"></th>
+                    <th>Title</th>
+                    <th>Date and time</th>
+                    <th>Status</th>
+                    <th><span class="ac-sr">Actions</span></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for event in events %}
+                <tr data-ac-row>
+                    <td class="ac-col-check"><input type="checkbox" value="{{ event.id }}" data-ac-row-select aria-label="Select {{ event.title }}"></td>
+                    <td class="ac-msg-strong ac-break">{{ event.title }}</td>
+                    <td class="ac-nowrap">{{ event.date_time|date:"M d, Y g:i A" }}</td>
+                    <td>{% if event.archived %}<span class="ac-pill is-muted">Archived</span>{% elif event.is_active %}<span class="ac-pill is-ok">Active</span>{% else %}<span class="ac-pill is-error">Inactive</span>{% endif %}</td>
+                    <td class="ac-msg-actions">
+                        <form method="post" action="{% url 'admin_v2_delete_event' event.id %}" data-confirm="Delete this event?">
+                            {% csrf_token %}
+                            <button type="submit" class="ac-btn ac-btn-sm ac-btn-danger-text">Delete</button>
+                        </form>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="5" class="ac-empty">No events found.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% include "admin_v2/console/_pagination.html" with page=events %}
+</section>
+{% endblock %}

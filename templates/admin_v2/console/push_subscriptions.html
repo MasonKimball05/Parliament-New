@@ -1,0 +1,65 @@
+{% extends "admin_v2/base.html" %}
+{% comment %}
+Web push subscriptions in the console look (admin_v2_push_subscriptions when
+`admin_console_ui` is on; classic: admin_v2/push_subscriptions.html). Same
+rows and the same POST forms: each row's Delete
+(admin_v2_delete_push_subscription) and "Clear all"
+(admin_v2_clear_push_subscriptions), both behind data-confirm; plus Actions ▾
+"Delete selected" for the ticked rows (src/view/admin_v2_messaging.py).
+{% endcomment %}
+{% load admin_v2_tags %}
+
+{% block title %}Web push - Admin{% endblock %}
+
+{% block admin_content %}
+<section class="ac-card">
+    {% include "admin_v2/console/_list_header.html" with title="Web push subscriptions" count=subscriptions|length subtitle="Browsers registered for push, across all members." actions=bulk_actions %}
+
+    <div class="ac-table-wrap">
+        <table class="ac-table ac-msg-list" id="ac-list" data-ac-select>
+            <thead>
+                <tr>
+                    <th class="ac-col-check"><input type="checkbox" data-ac-select-all aria-label="Select every subscription"></th>
+                    <th>Member</th>
+                    <th>Browser</th>
+                    <th>Subscribed</th>
+                    <th>Last used</th>
+                    <th class="ac-hide-phone">Endpoint</th>
+                    <th><span class="ac-sr">Actions</span></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for sub in subscriptions %}
+                <tr data-ac-row>
+                    <td class="ac-col-check"><input type="checkbox" value="{{ sub.id }}" data-ac-row-select aria-label="Select {{ sub.user.get_display_name }}'s subscription"></td>
+                    <td><span class="ac-msg-strong">{{ sub.user.get_display_name }}</span><span class="ac-sub">{{ sub.user.get_member_type_display|default:sub.user.member_type }}</span></td>
+                    <td><span class="ac-msg-mono" title="{{ sub.user_agent }}">{{ sub.user_agent|truncatechars:60 }}</span></td>
+                    <td class="ac-nowrap">{{ sub.created_at|date:"M j, Y" }}</td>
+                    <td class="ac-nowrap">{% if sub.last_used_at %}{{ sub.last_used_at|date:"M j, Y" }}{% else %}<span class="ac-muted">Never</span>{% endif %}</td>
+                    <td class="ac-hide-phone"><span class="ac-msg-mono ac-muted" title="{{ sub.endpoint }}">{{ sub.endpoint|truncatechars:55 }}</span></td>
+                    <td class="ac-msg-actions">
+                        <form method="post" action="{% url 'admin_v2_delete_push_subscription' sub.id %}"
+                              data-confirm="Delete this subscription for {{ sub.user.get_display_name }}?">
+                            {% csrf_token %}
+                            <button type="submit" class="ac-btn ac-btn-sm ac-btn-danger-text">Delete</button>
+                        </form>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="7" class="ac-empty">No push subscriptions yet. Members appear here after turning on push notifications in a browser.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% if subscriptions %}
+    <div class="ac-msg-foot">
+        <span class="ac-muted ac-small">Clearing every subscription makes each browser subscribe again.</span>
+        <form method="post" action="{% url 'admin_v2_clear_push_subscriptions' %}"
+              data-confirm="Delete ALL push subscriptions? Every device will need to re-subscribe.">
+            {% csrf_token %}
+            <button type="submit" class="ac-btn ac-btn-sm ac-btn-danger-text">Clear all ({{ subscriptions|length }})</button>
+        </form>
+    </div>
+    {% endif %}
+</section>
+{% endblock %}

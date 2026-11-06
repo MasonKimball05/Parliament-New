@@ -50,6 +50,7 @@ from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
+from src.admin_console import console_enabled
 from src.admin_v2_jobs import task_status
 from src.models import ActivityLog, ParliamentUser
 from src.view.admin_v2 import require_admin_v2_auth
@@ -358,7 +359,7 @@ def admin_v2_system(request):
             confirm = {'kind': 'job', 'task': row['task']}
     errors, errors_problem = read_errors()
     slow, perf, slow_ms = slow_pages()
-    return render(request, 'admin_v2/system_tools.html', {
+    return render(request, 'admin_v2/console/system_tools.html' if console_enabled(request) else 'admin_v2/system_tools.html', {
         'scopes': [(k, label, help_) for k, (label, help_, _fn) in SCOPES.items()],
         'not_offered': NOT_OFFERED,
         'job_rows': rows,

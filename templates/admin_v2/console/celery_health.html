@@ -1,0 +1,77 @@
+{% extends "admin_v2/base.html" %}
+{% comment %}
+Scheduled jobs in the console look (celery_health when `admin_console_ui` is
+on; the classic page is admin_v2/celery_health.html). Same view and data
+(celery_overview): worker status, then every periodic task as a resource list.
+Running a job now stays on System tools (its confirm flow), linked here.
+{% endcomment %}
+{% load admin_v2_tags %}
+
+{% block title %}Scheduled jobs - Admin{% endblock %}
+
+{% block admin_content %}
+<div class="ac-op">
+    {% if workers_up %}
+    <section class="ac-card ac-widget ac-op-status is-ok" aria-labelledby="cj-workers">
+        <header class="ac-widget-head"><h2 id="cj-workers"><span class="ac-status is-ok" aria-hidden="true"></span>Workers online</h2><span class="ac-pill is-ok">Healthy</span></header>
+        <ul class="ac-op-workers">
+            {% for w in worker_details %}<li class="ac-op-mono">{{ w.name }}</li>{% endfor %}
+        </ul>
+    </section>
+    {% else %}
+    <section class="ac-card ac-widget ac-op-status is-alarm" aria-labelledby="cj-workers" role="alert">
+        <header class="ac-widget-head"><h2 id="cj-workers"><span class="ac-status is-alarm" aria-hidden="true"></span>No workers responding</h2><span class="ac-pill is-error">Down</span></header>
+        <p class="ac-small">Celery Beat tasks will not run. Check that the Celery worker and Beat processes are running on the server.</p>
+    </section>
+    {% endif %}
+
+    <section class="ac-card">
+        {% url 'admin_v2_system' as system_url %}
+        {% include "admin_v2/console/_list_header.html" with title="Scheduled jobs" count=task_rows|length subtitle="Worker status and periodic task schedule overview" primary_label="Run a job now" primary_url=system_url|add:"#jobs" %}
+        <div class="ac-table-wrap">
+            <table class="ac-table" id="ac-list">
+                <thead>
+                    <tr>
+                        <th>Task</th>
+                        <th>Schedule</th>
+                        <th>Last run</th>
+                        <th>Run count</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in task_rows %}
+                    <tr>
+                        <td>
+                            <div class="ac-cell-name"><div>
+                                <strong>{{ row.task.name }}</strong>
+                                <span class="ac-sub ac-op-mono ac-break">{{ row.task.task }}</span>
+                            </div></div>
+                        </td>
+                        <td>{{ row.schedule_str }}</td>
+                        <td class="ac-nowrap">{% if row.task.last_run_at %}{{ row.task.last_run_at|date:"M j, Y g:i A" }}{% else %}<span class="ac-muted">Never</span>{% endif %}</td>
+                        <td>{{ row.task.total_run_count }}</td>
+                        <td>
+                            {% if not row.task.enabled %}
+                            <span class="ac-pill is-muted">Disabled</span>
+                            {% elif row.stale %}
+                            <span class="ac-pill is-warn">{% if row.status == 'never' %}Never ran{% else %}Overdue{% endif %}</span>
+                            {% if row.next_due %}<span class="ac-sub">was due {{ row.next_due|timesince }} ago</span>{% endif %}
+                            {% elif not row.task.last_run_at %}
+                            <span class="ac-pill is-accent">Pending</span>
+                            {% else %}
+                            <span class="ac-pill is-ok">OK</span>
+                            {% if row.next_due %}<span class="ac-sub">next {{ row.next_due|date:"M j, g:i A" }}</span>{% endif %}
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="5" class="ac-empty">No periodic tasks registered. Run <code class="ac-op-code">python manage.py setup_celery_schedules</code> to register them.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <p class="ac-pager">Last checked: {{ now|date:"M j, Y g:i:s A" }} · Stale = last run more than 2× the scheduled interval ago · Worker ping timeout: 1s</p>
+    </section>
+</div>
+{% endblock %}

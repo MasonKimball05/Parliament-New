@@ -1,0 +1,111 @@
+{% extends "admin_v2/base.html" %}
+{% comment %}
+Emergency lockdown in the console look (admin_v2_lockdown when
+`admin_console_ui` is on; the classic page is admin_v2/lockdown_control.html;
+admins only, as before). Same POST forms to the page (action = activate /
+deactivate / update_whitelist / update_message) and the same fields.
+{% endcomment %}
+{% load admin_v2_tags %}
+
+{% block title %}Lockdown - Admin{% endblock %}
+
+{% block admin_content %}
+<div class="ac-home-head">
+    <div>
+        <h1 class="ac-h1">Emergency lockdown</h1>
+        <p class="ac-muted ac-small">Block all access except from allowed addresses</p>
+    </div>
+</div>
+
+<section class="ac-card ac-sec-status {% if lockdown.is_active %}is-alarm{% else %}is-ok{% endif %}" aria-labelledby="ld-status">
+    <span class="ac-sec-status-icon" aria-hidden="true">{% if lockdown.is_active %}{% console_icon "lock" %}{% else %}{% console_icon "check-circle" %}{% endif %}</span>
+    <div class="ac-sec-status-text">
+        <h2 id="ld-status">{% if lockdown.is_active %}Lockdown active{% else %}System normal{% endif %}</h2>
+        <p>{% if lockdown.is_active %}All non-allowed access is blocked{% else %}All users can reach the site{% endif %}</p>
+    </div>
+    <div class="ac-sec-status-meta">
+        {% if lockdown.is_active %}
+        <p>Activated {{ lockdown.activated_at|date:"M d, Y H:i" }}</p>
+        <p>By {{ lockdown.activated_by.name }}</p>
+        {% elif lockdown.deactivated_at %}
+        <p>Last deactivated {{ lockdown.deactivated_at|date:"M d, Y H:i" }}</p>
+        {% endif %}
+    </div>
+</section>
+
+{% if lockdown.is_active %}
+<section class="ac-card ac-widget" aria-labelledby="ld-deactivate">
+    <header class="ac-widget-head"><h2 id="ld-deactivate">Deactivate lockdown</h2></header>
+    <p><strong>Current reason:</strong> {{ lockdown.reason }}</p>
+    <form method="post" class="ac-widget-actions">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="deactivate">
+        <button type="submit" class="ac-btn ac-btn-primary">Deactivate lockdown</button>
+    </form>
+</section>
+
+<div class="ac-sec-grid2">
+    <section class="ac-card ac-widget" aria-labelledby="ld-allow">
+        <header class="ac-widget-head"><h2 id="ld-allow">Allowed addresses</h2></header>
+        <form method="post" class="ac-sec-form">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="update_whitelist">
+            <label class="ac-field"><span class="ac-field-label">Allowed IPs</span>
+                <textarea name="whitelisted_ips" rows="4" class="ac-input ac-sec-textarea" placeholder="Enter IPs separated by commas">{{ lockdown.whitelisted_ips|join:', ' }}</textarea></label>
+            <p class="ac-muted ac-small">Your current IP: <code class="ac-sec-code">{{ current_ip }}</code></p>
+            <button type="submit" class="ac-btn">Update whitelist</button>
+        </form>
+    </section>
+    <section class="ac-card ac-widget" aria-labelledby="ld-message">
+        <header class="ac-widget-head"><h2 id="ld-message">Lockdown message</h2></header>
+        <form method="post" class="ac-sec-form">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="update_message">
+            <label class="ac-field"><span class="ac-field-label">Message shown to visitors</span>
+                <textarea name="message" rows="4" class="ac-input ac-sec-textarea">{{ lockdown.message }}</textarea></label>
+            <button type="submit" class="ac-btn">Update message</button>
+        </form>
+    </section>
+</div>
+{% else %}
+<section class="ac-card ac-widget" aria-labelledby="ld-activate">
+    <header class="ac-widget-head"><h2 id="ld-activate">Activate emergency lockdown</h2></header>
+    <div class="ac-banner is-alarm ac-sec-banner" role="note">
+        {% console_icon "alert" %}
+        <div>
+            <strong>This is an emergency action.</strong>
+            <ul class="ac-sec-list">
+                <li>All login attempts from non-whitelisted IPs will be blocked</li>
+                <li>Currently logged-in users will be blocked on their next request</li>
+                <li>A security alert email will be sent to all administrators</li>
+                <li>Make sure to whitelist your IP before activating</li>
+            </ul>
+        </div>
+    </div>
+    <form method="post" class="ac-sec-form js-confirm-submit" data-confirm="Are you SURE you want to activate emergency lockdown? This will block all non-whitelisted users immediately.">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="activate">
+        <label class="ac-field"><span class="ac-field-label">Reason for lockdown *</span>
+            <textarea name="reason" rows="3" required class="ac-input ac-sec-textarea" placeholder="Explain why lockdown is being activated..."></textarea></label>
+        <label class="ac-field"><span class="ac-field-label">Allowed IPs</span>
+            <textarea name="whitelisted_ips" rows="3" class="ac-input ac-sec-textarea" placeholder="Enter IPs separated by commas (e.g., 192.168.1.1, 10.0.0.1)">{{ current_ip }}</textarea></label>
+        <p class="ac-muted ac-small">Your current IP (<code class="ac-sec-code">{{ current_ip }}</code>) has been pre-filled. Add additional IPs as needed.</p>
+        <div><button type="submit" class="ac-btn ac-sec-btn-danger">Activate emergency lockdown</button></div>
+    </form>
+</section>
+{% endif %}
+
+<section class="ac-card ac-widget" aria-labelledby="ld-about">
+    <header class="ac-widget-head"><h2 id="ld-about">About emergency lockdown</h2></header>
+    <p class="ac-small">A last-resort measure that blocks all access to the site except from explicitly allowed addresses.</p>
+    <h3 class="ac-widget-h3">When to use</h3>
+    <ul class="ac-sec-list ac-small">
+        <li>Active security breach detected</li>
+        <li>Mass credential compromise suspected</li>
+        <li>System under active attack</li>
+        <li>Emergency maintenance required</li>
+    </ul>
+    <h3 class="ac-widget-h3">What happens</h3>
+    <p class="ac-small">Everyone trying to reach any page sees a maintenance message. Only allowed IPs can sign in.</p>
+</section>
+{% endblock %}

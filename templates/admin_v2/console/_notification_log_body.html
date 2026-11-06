@@ -1,0 +1,32 @@
+{% comment %}
+One notification log (`log`), shared by the slide-out panel
+(notification_log_panel.html, `tabs=True`) and the console full page
+(notification_log_detail.html). Ids are prefixed "nl-".
+{% endcomment %}
+{% load admin_v2_tags %}
+<section {% if tabs %}role="tabpanel" id="nl-delivery" aria-labelledby="nl-tab-delivery" tabindex="0"{% else %}class="ac-msg-section" aria-labelledby="nl-h-delivery"{% endif %}>
+    {% if not tabs %}<h2 class="ac-blade-h3" id="nl-h-delivery">Delivery</h2>{% endif %}
+    <div class="ac-msg-stats">
+        <div class="ac-stat"><span class="ac-stat-n">{{ log.recipient_count }}</span><span class="ac-stat-l">Recipients</span></div>
+        <div class="ac-stat"><span class="ac-stat-n ac-text-ok">{{ log.successful_count }}</span><span class="ac-stat-l">Successful</span></div>
+        <div class="ac-stat"><span class="ac-stat-n{% if log.failed_count %} ac-text-error{% endif %}">{{ log.failed_count }}</span><span class="ac-stat-l">Failed</span></div>
+    </div>
+    <dl class="ac-kv">
+        <div><dt>Status</dt><dd>{% include "admin_v2/console/_notification_status_pill.html" %}</dd></div>
+        <div><dt>Type</dt><dd>{{ log.notification_type }}</dd></div>
+        <div><dt>Created</dt><dd>{{ log.created_at|date:"F d, Y H:i:s" }}</dd></div>
+        <div><dt>Email</dt><dd>{% if log.sent_via_email %}Sent{% else %}<span class="ac-muted">Not sent</span>{% endif %}</dd></div>
+        <div><dt>In-app</dt><dd>{% if log.sent_via_in_app %}Sent{% else %}<span class="ac-muted">Not sent</span>{% endif %}</dd></div>
+        {% if log.sent_at %}<div><dt>Sent at</dt><dd>{{ log.sent_at|date:"F d, Y H:i:s" }}</dd></div>{% endif %}
+        {% if log.scheduled_for %}<div><dt>Scheduled for</dt><dd>{{ log.scheduled_for|date:"F d, Y H:i:s" }}</dd></div>{% endif %}
+    </dl>
+    {% if log.error_message %}
+    <h3 class="ac-blade-h3">Error</h3>
+    <pre class="ac-msg-console is-error">{{ log.error_message }}</pre>
+    {% endif %}
+</section>
+
+<section {% if tabs %}role="tabpanel" id="nl-message" aria-labelledby="nl-tab-message" tabindex="0" hidden{% else %}class="ac-msg-section" aria-labelledby="nl-h-message"{% endif %}>
+    {% if not tabs %}<h2 class="ac-blade-h3" id="nl-h-message">Message</h2>{% endif %}
+    <div class="ac-msg-prose ac-break">{{ log.message|linebreaks }}</div>
+</section>

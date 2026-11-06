@@ -1,0 +1,34 @@
+{% extends "admin_v2/console/panel.html" %}
+{% comment %}
+An API token as a console slide-out panel (admin_api_token_logs ?panel=1;
+same view and gate as the full logs page). The row buttons open the list
+page's modals (api_tokens.js, delegated).
+{% endcomment %}
+{% load admin_v2_tags %}
+
+{% block panel_avatar %}<span class="ac-avatar-lg" aria-hidden="true">{% console_icon "key" %}</span>{% endblock %}
+{% block panel_title %}{{ token.name }}{% endblock %}
+{% block panel_subtitle %}{{ token.user.get_display_name }} · {{ token.get_status_display }}{% endblock %}
+{% block panel_actions %}{% include "admin_v2/console/_api_token_buttons.html" %}{% endblock %}
+
+{% block panel_body %}
+<dl class="ac-kv">
+    <div><dt>Status</dt><dd>{% include "admin_v2/console/_api_token_status.html" %}</dd></div>
+    <div><dt>User</dt><dd>{{ token.user.get_display_name }} <span class="ac-muted">{{ token.user.username }}</span></dd></div>
+    <div><dt>Scopes</dt><dd><div class="ac-id-chips" data-token-scopes-for="{{ token.id }}">{% for scope in token.scopes %}<span class="ac-id-chip is-accent">{{ scope }}</span>{% endfor %}</div></dd></div>
+    {% if token.request_note %}<div><dt>Request note</dt><dd class="ac-break">{{ token.request_note }}</dd></div>{% endif %}
+    <div><dt>Created</dt><dd>{{ token.created_at|date:"M d, Y" }}</dd></div>
+    <div><dt>Last used</dt><dd>{% if token.last_used_at %}{{ token.last_used_at|date:"M d, Y H:i" }}{% else %}Never{% endif %}</dd></div>
+    <div><dt>Expires</dt><dd>{{ token.expires_at|date:"M d, Y"|default:"Never" }}</dd></div>
+    {% if token.revoke_reason %}<div><dt>Revoked because</dt><dd class="ac-break">{{ token.revoke_reason }}</dd></div>{% endif %}
+    {% if token.rejection_reason %}<div><dt>Rejected because</dt><dd class="ac-break">{{ token.rejection_reason }}</dd></div>{% endif %}
+</dl>
+<h3 class="ac-blade-h3">Recent requests <a href="{% url 'admin_api_token_logs' token.id %}" class="ac-link-sm">All</a></h3>
+<ul class="ac-rows">
+    {% for log in logs %}
+    <li>{% include "admin_v2/console/_api_log_cells.html" %}<span class="ac-id-mono ac-break">{{ log.endpoint }}</span><span class="ac-muted">{{ log.response_status }} · {{ log.timestamp|date:"M j, H:i" }}</span></li>
+    {% empty %}
+    <li class="ac-muted">No access logs recorded for this token yet.</li>
+    {% endfor %}
+</ul>
+{% endblock %}

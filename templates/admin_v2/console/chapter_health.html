@@ -1,0 +1,150 @@
+{% extends "admin_v2/base.html" %}
+{% comment %}
+Chapter health in the console look (admin_v2_health when `admin_console_ui` is
+on; the classic page is admin_v2/chapter_health.html). Same view and data.
+Bars are SVG (a 0-100 viewBox stretched to the width, so a rect's width is
+the percentage; the weekly columns come from attendance_bars in
+src/view/admin_v2_health.py): no inline style, no script.
+{% endcomment %}
+{% load admin_v2_tags %}
+
+{% block title %}Chapter health - Admin{% endblock %}
+
+{% block admin_content %}
+<div class="ac-op-head">
+    <div>
+        <h1 class="ac-h1">Chapter health</h1>
+        <p class="ac-muted ac-small">Who is slipping: sign-ins, attendance, the app, pledge tasks and service hours. Active members, Advisors left out. Updated {{ health.computed_at|timesince }} ago (numbers are kept for {{ cache_seconds }} seconds).</p>
+    </div>
+    <div class="ac-list-tools">
+        <a href="{{ request.get_full_path }}" class="ac-btn ac-btn-icon" aria-label="Refresh" title="Refresh">{% console_icon "refresh" %}</a>
+        <a href="{% url 'admin_v2_trends' %}" class="ac-btn">{% console_icon "chart" %}Trends</a>
+    </div>
+</div>
+
+{% with a=health.attendance s=health.service %}
+<div class="ac-op">
+    <ul class="ac-op-stats is-5" aria-label="Summary">
+        <li class="ac-card"><a href="#inactive"><span class="ac-stat-n">{{ health.inactive.n }}</span><span class="ac-stat-l">Not seen in {{ days }} days</span></a></li>
+        <li class="ac-card"><a href="#attendance"><span class="ac-stat-n">{% if a.overall is not None %}{{ a.overall }}%{% else %}—{% endif %}</span><span class="ac-stat-l">Attendance this semester</span></a></li>
+        <li class="ac-card"><a href="#app"><span class="ac-stat-n">{{ health.app.n }}</span><span class="ac-stat-l">Without the app (of {{ health.app.total }})</span></a></li>
+        <li class="ac-card"><a href="#pledges"><span class="ac-stat-n">{{ health.pledges.n }}</span><span class="ac-stat-l">Pledges behind (of {{ health.pledges.pledges }})</span></a></li>
+        <li class="ac-card"><a href="#service"><span class="ac-stat-n">{% if s.period %}{{ s.n }}{% else %}—{% endif %}</span><span class="ac-stat-l">Below service hours</span></a></li>
+    </ul>
+
+    <div class="ac-op-grid">
+        <section id="inactive" class="ac-card ac-widget" aria-labelledby="ch-inactive">
+            <header class="ac-widget-head">
+                <h2 id="ch-inactive">Not seen in {{ days }} days</h2>
+                <nav aria-label="Inactive for" class="ac-op-seg is-sm">
+                    {% for d in day_options %}
+                    <a href="?days={{ d }}#inactive"{% if d == days %} aria-current="true"{% endif %}>{{ d }} days</a>
+                    {% endfor %}
+                </nav>
+            </header>
+            <p class="ac-muted ac-small">Last seen on the website or the app, or last password sign-in, whichever is newest.</p>
+            <ul class="ac-rows">
+                {% for m in health.inactive.members %}
+                <li class="ac-rows-split"><a href="{% url 'admin_v2_member' m.user_id %}" class="ac-row-link ac-op-truncate">{{ m.name }}</a><span class="ac-muted ac-small ac-nowrap">{{ m.days }} days · {{ m.last|date:"M j, Y" }}</span></li>
+                {% empty %}
+                <li class="ac-muted">Everyone has been on in the last {{ days }} days.</li>
+                {% endfor %}
+            </ul>
+            {% if health.inactive.n > health.inactive.members|length %}<p class="ac-muted ac-small">Showing the {{ health.inactive.members|length }} longest away of {{ health.inactive.n }}.</p>{% endif %}
+
+            <h3 class="ac-widget-h3">Never signed in ({{ health.inactive.never_count }})</h3>
+            <ul class="ac-rows">
+                {% for m in health.inactive.never %}
+                <li class="ac-rows-split"><a href="{% url 'admin_v2_member' m.user_id %}" class="ac-row-link ac-op-truncate">{{ m.name }}</a><span class="ac-muted ac-small ac-nowrap">{{ m.member_type }}</span></li>
+                {% empty %}
+                <li class="ac-muted">Everyone has signed in at least once.</li>
+                {% endfor %}
+            </ul>
+        </section>
+
+        <section id="attendance" class="ac-card ac-widget" aria-labelledby="ch-attendance">
+            <header class="ac-widget-head"><h2 id="ch-attendance">Attendance this semester</h2></header>
+            <p class="ac-muted ac-small">Since {{ a.start|date:"M j" }}: {{ a.meetings }} finalized meeting(s) that required attendance. Present or late counts as attended.</p>
+            {% if a.meetings %}
+            <svg class="ac-op-columns" viewBox="0 0 1000 100" preserveAspectRatio="none" role="img" aria-label="Weekly attendance rate since {{ a.start|date:'M j' }}">
+                {% for w in attendance_bars %}{% if w.h %}<rect x="{{ w.x }}" y="{{ w.y }}" width="{{ w.w }}" height="{{ w.h }}" class="ac-op-col"><title>Week of {{ w.week|date:'M j' }}: {{ w.rate }}%</title></rect>{% endif %}{% endfor %}
+            </svg>
+            <p class="ac-op-axis ac-muted ac-small"><span>{{ a.weeks.0.week|date:"M j" }}</span><span>This week</span></p>
+            <details class="ac-op-details">
+                <summary>Show the numbers</summary>
+                <ul>{% for w in a.weeks %}<li>Week of {{ w.week|date:"M j" }}: {% if w.rate is not None %}{{ w.rate }}% ({{ w.events }} meeting{{ w.events|pluralize }}){% else %}no meeting{% endif %}</li>{% endfor %}</ul>
+            </details>
+
+            <h3 class="ac-widget-h3">Lowest attendance</h3>
+            <ul class="ac-rows">
+                {% for m in a.lowest %}
+                <li class="ac-rows-stack ac-op-meter-row">
+                    <div class="ac-op-meter-head"><a href="{% url 'admin_v2_member' m.user_id %}" class="ac-row-link ac-op-truncate">{{ m.name }}</a><span class="ac-muted ac-small ac-nowrap">{{ m.rate }}% · {{ m.attended }} of {{ m.total }}</span></div>
+                    <svg class="ac-meter" viewBox="0 0 100 6" preserveAspectRatio="none" aria-hidden="true"><rect width="100" height="6" rx="3" class="ac-meter-track"/><rect width="{{ m.rate }}" height="6" rx="3" class="ac-meter-fill{% if m.rate < 50 %} is-alarm{% elif m.rate < 75 %} is-warn{% endif %}"/></svg>
+                </li>
+                {% empty %}
+                <li class="ac-muted">No attendance recorded for members yet.</li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <p class="ac-muted">No finalized meetings this semester yet.</p>
+            {% endif %}
+        </section>
+
+        <section id="app" class="ac-card ac-widget" aria-labelledby="ch-app">
+            <header class="ac-widget-head"><h2 id="ch-app">Without the app ({{ health.app.n }})</h2><a href="{% url 'admin_v2_mobile' %}" class="ac-link-sm">App installs</a></header>
+            <p class="ac-muted ac-small">No signed-in install (signed out, expired or never installed). See Mobile app for installs.</p>
+            {% if health.app.total %}
+            <svg class="ac-meter" viewBox="0 0 100 6" preserveAspectRatio="none" role="img" aria-label="{{ health.app.with_app_percent }}% have the app"><rect width="100" height="6" rx="3" class="ac-meter-track"/><rect width="{{ health.app.with_app_percent }}" height="6" rx="3" class="ac-meter-fill"/></svg>
+            <p class="ac-muted ac-small">{{ health.app.with_app_percent }}% have the app.</p>
+            {% endif %}
+            <ul class="ac-rows">
+                {% for m in health.app.members %}
+                <li class="ac-rows-split"><a href="{% url 'admin_v2_member' m.user_id %}" class="ac-row-link ac-op-truncate">{{ m.name }}</a><span class="ac-muted ac-small ac-nowrap">{{ m.member_type }}</span></li>
+                {% empty %}
+                <li class="ac-muted">Everyone has the app.</li>
+                {% endfor %}
+            </ul>
+            {% if health.app.n > health.app.members|length %}<p class="ac-muted ac-small">Showing {{ health.app.members|length }} of {{ health.app.n }}.</p>{% endif %}
+        </section>
+
+        <section id="pledges" class="ac-card ac-widget" aria-labelledby="ch-pledges">
+            <header class="ac-widget-head"><h2 id="ch-pledges">Pledges falling behind</h2></header>
+            <p class="ac-muted ac-small">Tasks past their due date, not completed or waived (only tasks the pledge's phase has unlocked). The bar is required tasks done.</p>
+            <ul class="ac-rows">
+                {% for m in health.pledges.members %}
+                <li class="ac-rows-stack ac-op-meter-row">
+                    <div class="ac-op-meter-head"><a href="{% url 'admin_v2_member' m.user_id %}" class="ac-row-link ac-op-truncate">{{ m.name }}</a><span class="ac-text-error ac-small ac-nowrap">{{ m.overdue }} overdue</span></div>
+                    <p class="ac-muted ac-small ac-op-truncate">{{ m.titles|join:", " }}{% if m.overdue > m.titles|length %}, …{% endif %}</p>
+                    <svg class="ac-meter" viewBox="0 0 100 6" preserveAspectRatio="none" role="img" aria-label="{{ m.completed }} of {{ m.required }} required tasks done"><rect width="100" height="6" rx="3" class="ac-meter-track"/><rect width="{{ m.percent }}" height="6" rx="3" class="ac-meter-fill"/></svg>
+                </li>
+                {% empty %}
+                <li class="ac-muted">{% if health.pledges.pledges %}No pledge has an overdue task.{% else %}No active pledges.{% endif %}</li>
+                {% endfor %}
+            </ul>
+        </section>
+    </div>
+
+    <section id="service" class="ac-card ac-widget" aria-labelledby="ch-service">
+        <header class="ac-widget-head"><h2 id="ch-service">Service hours</h2></header>
+        {% if s.period %}
+        <p class="ac-muted ac-small">{{ s.period.name }} (ends {{ s.period.end_date|date:"M j, Y" }}, {{ s.elapsed }}% of the period gone): {{ s.n }} member(s) below their requirement. Approved hours and adjustments; pending submissions don't count yet.</p>
+        <ul class="ac-rows ac-op-two-col">
+            {% for m in s.members %}
+            <li class="ac-rows-stack ac-op-meter-row">
+                <div class="ac-op-meter-head"><a href="{% url 'admin_v2_member' m.user_id %}" class="ac-row-link ac-op-truncate">{{ m.name }}</a><span class="ac-muted ac-small ac-nowrap">{{ m.hours|floatformat:"-1" }} of {{ m.expected|floatformat:"-1" }} h</span></div>
+                <svg class="ac-meter" viewBox="0 0 100 6" preserveAspectRatio="none" aria-hidden="true"><rect width="100" height="6" rx="3" class="ac-meter-track"/><rect width="{{ m.percent }}" height="6" rx="3" class="ac-meter-fill{% if m.percent < s.elapsed %} is-warn{% endif %}"/></svg>
+            </li>
+            {% empty %}
+            <li class="ac-muted">Everyone has met the requirement.</li>
+            {% endfor %}
+        </ul>
+        {% if s.n > s.members|length %}<p class="ac-muted ac-small">Showing the {{ s.members|length }} furthest behind of {{ s.n }}.</p>{% endif %}
+        <p class="ac-muted ac-small">Amber: further behind than the share of the period that has passed.</p>
+        {% else %}
+        <p class="ac-muted">No active service period, so there is no requirement to measure against.</p>
+        {% endif %}
+    </section>
+</div>
+{% endwith %}
+{% endblock %}

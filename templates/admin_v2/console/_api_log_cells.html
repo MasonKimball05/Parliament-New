@@ -1,0 +1,1 @@
+{% comment %}Method and status pills for one API access log row.{% endcomment %}<span class="ac-pill {% if log.method == 'DELETE' %}is-error{% elif log.method == 'POST' or log.method == 'PUT' or log.method == 'PATCH' %}is-warn{% else %}is-accent{% endif %}">{{ log.method }}</span>

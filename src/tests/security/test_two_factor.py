@@ -812,7 +812,8 @@ class TwoFactorAdminDashboardTestCase(TestCase):
 
         response = self.client.get(reverse('admin_v2_two_factor'))
         self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, 'admin_v2/two_factor_dashboard.html')
+        # The admin console look (`admin_console_ui`) is on unless its flag row says off.
+        self.assertTemplateUsed(response, 'admin_v2/console/two_factor_dashboard.html')
 
     def test_dashboard_shows_members(self):
         """Test that dashboard shows member list"""

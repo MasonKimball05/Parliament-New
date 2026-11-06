@@ -1,0 +1,1 @@
+{% comment %}An EventReminderLog's status as a console pill (`log`).{% endcomment %}<span class="ac-pill {% if log.status == 'dispatched' %}is-ok{% elif log.status == 'error' %}is-error{% else %}is-muted{% endif %}">{{ log.get_status_display }}</span>

@@ -1,0 +1,60 @@
+{% extends "admin_v2/base.html" %}
+{% comment %}
+IP allow list in the console look (admin_v2_ip_whitelist when
+`admin_console_ui` is on; the classic page is admin_v2/ip_whitelist.html).
+Same add form and per-row Remove (admin_v2_add/remove_ip_whitelist); Actions ▾
+removes the ticked entries (admin_v2_remove_ip_whitelist_bulk).
+{% endcomment %}
+{% load admin_v2_tags %}
+
+{% block title %}IP allow list - Admin{% endblock %}
+
+{% block admin_content %}
+<section class="ac-card">
+    {% include "admin_v2/console/_list_header.html" with title="IP allow list" count=whitelist_entries|length subtitle="Trusted addresses that bypass security checks" actions=bulk_actions %}
+
+    <form method="post" action="{% url 'admin_v2_add_ip_whitelist' %}" class="ac-filterbar ac-sec-addbar" aria-label="Add an address to the allow list">
+        {% csrf_token %}
+        <label class="ac-field"><span class="ac-field-label">IP address / CIDR range</span>
+            <input type="text" name="ip_address" placeholder="192.168.1.100 or 10.0.0.0/24" required class="ac-input"></label>
+        <label class="ac-field ac-sec-grow"><span class="ac-field-label">Description</span>
+            <input type="text" name="description" placeholder="Office network" required class="ac-input"></label>
+        <button type="submit" class="ac-btn ac-btn-primary">Add to allow list</button>
+    </form>
+
+    <div class="ac-table-wrap">
+        <table class="ac-table ac-sec-subs" id="ac-list" data-ac-select>
+            <thead>
+                <tr>
+                    <th class="ac-col-check"><input type="checkbox" data-ac-select-all aria-label="Select every entry"></th>
+                    <th>IP address</th>
+                    <th>Description</th>
+                    <th>Added by</th>
+                    <th>Added</th>
+                    <th><span class="ac-sr">Actions</span></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for entry in whitelist_entries %}
+                <tr data-ac-row>
+                    <td class="ac-col-check"><input type="checkbox" value="{{ entry.pk }}" data-ac-row-select aria-label="Select {{ entry.ip_address }}"></td>
+                    <td><code class="ac-sec-code">{{ entry.ip_address }}</code></td>
+                    <td>{{ entry.description }}</td>
+                    <td>{% if entry.added_by %}{{ entry.added_by.get_display_name }}{% else %}<span class="ac-muted">System</span>{% endif %}</td>
+                    <td class="ac-nowrap">{{ entry.added_at|date:"M d, Y h:i A" }}</td>
+                    <td class="ac-sec-actions">
+                        <form method="post" action="{% url 'admin_v2_remove_ip_whitelist' %}" class="js-confirm-submit" data-confirm="Remove {{ entry.ip_address }} from whitelist?">
+                            {% csrf_token %}
+                            <input type="hidden" name="ip_address" value="{{ entry.ip_address }}">
+                            <button type="submit" class="ac-btn ac-btn-sm ac-btn-danger-text">Remove</button>
+                        </form>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="6" class="ac-empty">No allowed addresses. Add one above.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endblock %}

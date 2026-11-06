@@ -1,0 +1,69 @@
+{% extends "admin_v2/base.html" %}
+{% comment %}
+Event reminder logs in the console look (admin_v2_event_reminder_logs when
+`admin_console_ui` is on; classic: admin_v2/event_reminder_logs.html). Same
+rows: upcoming events with a reminder still to fire, then the newest 100
+dispatches, each opening in the slide-out panel
+(console/event_reminder_log_panel.html).
+{% endcomment %}
+{% load admin_v2_tags %}
+
+{% block title %}Event reminders - Admin{% endblock %}
+
+{% block admin_content %}
+<section class="ac-card">
+    {% include "admin_v2/console/_list_header.html" with title="Event reminders" count=logs|length subtitle="Push (and optional, view-tracked email) reminders sent for upcoming events, newest first." %}
+
+    {% if pending_events %}
+    <div class="ac-msg-callout" role="region" aria-labelledby="er-pending-title">
+        <h2 id="er-pending-title" class="ac-msg-callout-title">{% console_icon "clock" "ac-icon-sm" %}Still to fire <span class="ac-count">({{ pending_events|length }})</span></h2>
+        <ul class="ac-rows">
+            {% for event in pending_events %}
+            <li class="ac-rows-split ac-msg-wrap">
+                <div>
+                    <p class="ac-msg-strong">{{ event.title }}</p>
+                    <p class="ac-muted ac-small">{{ event.date_time|date:"M j, Y g:i A" }}{% if event.location %} · {{ event.location }}{% endif %}</p>
+                </div>
+                <div class="ac-msg-pills">
+                    {% if event.reminder_1_enabled %}{% if event.reminder_1_sent_at %}<span class="ac-pill is-ok">Reminder 1: sent {{ event.reminder_1_sent_at|date:"M j g:i A" }}</span>{% else %}<span class="ac-pill is-accent">Reminder 1: {{ event.reminder_1_hours_before }}h before{% if event.reminder_1_email_enabled %} + email{% endif %}</span>{% endif %}{% endif %}
+                    {% if event.reminder_2_enabled %}{% if event.reminder_2_sent_at %}<span class="ac-pill is-ok">Reminder 2: sent {{ event.reminder_2_sent_at|date:"M j g:i A" }}</span>{% else %}<span class="ac-pill is-accent">Reminder 2: {{ event.reminder_2_hours_before }}h before{% if event.reminder_2_email_enabled %} + email{% endif %}</span>{% endif %}{% endif %}
+                </div>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+
+    <div class="ac-table-wrap">
+        <table class="ac-table ac-msg-list" id="ac-list">
+            <thead>
+                <tr>
+                    <th>Event</th>
+                    <th>Status</th>
+                    <th>Eligible</th>
+                    <th>Push sent</th>
+                    <th>Emails</th>
+                    <th>Sent</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for log in logs %}
+                <tr data-ac-row>
+                    <td>
+                        <a href="{% url 'admin_v2_event_reminder_log_detail' log.id %}" class="ac-row-link" data-ac-panel>{{ log.event.title }}</a>
+                        <span class="ac-sub">Reminder {{ log.reminder_slot }} · event {{ log.event.date_time|date:"M j, g:i A" }}</span>
+                    </td>
+                    <td>{% include "admin_v2/console/_reminder_status_pill.html" %}</td>
+                    <td>{{ log.users_eligible }}<span class="ac-muted"> · {{ log.users_subscribed }} subscribed</span>{% if log.users_opted_out > 0 %}<span class="ac-sub">{{ log.users_opted_out }} opted out</span>{% endif %}</td>
+                    <td class="ac-text-ok">{{ log.notifications_dispatched }}</td>
+                    <td>{% if log.users_with_email > 0 %}{{ log.emails_dispatched }} sent{% if log.emails_dispatched > 0 %}<span class="ac-sub">{{ log.emails_viewed }} / {{ log.emails_dispatched }} viewed</span>{% endif %}{% if log.users_email_opted_out > 0 %}<span class="ac-sub">{{ log.users_email_opted_out }} opted out</span>{% endif %}{% else %}<span class="ac-muted">—</span>{% endif %}</td>
+                    <td class="ac-nowrap">{{ log.sent_at|date:"M j, g:i A" }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="6" class="ac-empty">No reminder logs yet. They appear after the Celery task sends event push reminders.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endblock %}

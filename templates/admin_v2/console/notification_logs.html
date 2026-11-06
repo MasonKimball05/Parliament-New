@@ -1,0 +1,83 @@
+{% extends "admin_v2/base.html" %}
+{% comment %}
+Notification logs in the console look (admin_v2_notification_logs when
+`admin_console_ui` is on; classic: admin_v2/notifications/logs.html). Same
+filters (status, type, from, to; field names unchanged), totals and 50-row
+pages; each row opens in the slide-out panel (notification_log_panel.html).
+{% endcomment %}
+{% load admin_v2_tags %}
+
+{% block title %}Notification logs - Admin{% endblock %}
+{% block console_crumb %}Logs{% endblock %}
+
+{% block admin_content %}
+<section class="ac-card">
+    {% include "admin_v2/console/_list_header.html" with title="Notification logs" count=total_count subtitle="Delivery history of scheduled notifications." %}
+
+    <div class="ac-msg-pad ac-msg-pad-top0">
+        <div class="ac-msg-stats">
+            <div class="ac-stat"><span class="ac-stat-n">{{ stats.total }}</span><span class="ac-stat-l">All logs</span></div>
+            <div class="ac-stat"><span class="ac-stat-n ac-text-ok">{{ stats.sent }}</span><span class="ac-stat-l">Sent</span></div>
+            <div class="ac-stat"><span class="ac-stat-n{% if stats.failed %} ac-text-error{% endif %}">{{ stats.failed }}</span><span class="ac-stat-l">Failed</span></div>
+            <div class="ac-stat"><span class="ac-stat-n{% if stats.pending %} ac-text-warn{% endif %}">{{ stats.pending }}</span><span class="ac-stat-l">Pending</span></div>
+        </div>
+    </div>
+
+    <form method="get" class="ac-filterbar" role="search" aria-label="Filter notification logs">
+        <label class="ac-field"><span class="ac-field-label">Status</span>
+            <select name="status" class="ac-select" data-autosubmit>
+                <option value="">All</option>
+                {% for value, label in status_choices %}<option value="{{ value }}"{% if filters.status == value %} selected{% endif %}>{{ label }}</option>{% endfor %}
+            </select>
+        </label>
+        <label class="ac-field"><span class="ac-field-label">Type</span>
+            <select name="type" class="ac-select" data-autosubmit>
+                <option value="">All</option>
+                {% for value, label in type_choices %}<option value="{{ value }}"{% if filters.type == value %} selected{% endif %}>{{ label }}</option>{% endfor %}
+            </select>
+        </label>
+        <label class="ac-field"><span class="ac-field-label">From</span>
+            <input type="date" name="from" value="{{ filters.from|default:'' }}" class="ac-input">
+        </label>
+        <label class="ac-field"><span class="ac-field-label">To</span>
+            <input type="date" name="to" value="{{ filters.to|default:'' }}" class="ac-input">
+        </label>
+        <button type="submit" class="ac-btn">Apply</button>
+        {% if filters.status or filters.type or filters.from or filters.to %}<a href="{% url 'admin_v2_notification_logs' %}" class="ac-btn ac-btn-ghost">Clear</a>{% endif %}
+    </form>
+
+    <div class="ac-table-wrap">
+        <table class="ac-table ac-msg-list" id="ac-list">
+            <thead>
+                <tr><th>Notification</th><th>Type</th><th>Recipients</th><th>Status</th><th>Sent</th></tr>
+            </thead>
+            <tbody>
+                {% for log in logs %}
+                <tr data-ac-row>
+                    <td>
+                        <a href="{% url 'admin_v2_notification_log_detail' log.id %}" class="ac-row-link" data-ac-panel>{{ log.title }}</a>
+                        <span class="ac-sub ac-break">{{ log.message|truncatechars:60 }}</span>
+                    </td>
+                    <td><span class="ac-pill is-accent">{{ log.notification_type }}</span></td>
+                    <td>{{ log.recipient_count }}{% if log.failed_count > 0 %} <span class="ac-text-error">({{ log.failed_count }} failed)</span>{% endif %}</td>
+                    <td>{% include "admin_v2/console/_notification_status_pill.html" %}</td>
+                    <td class="ac-nowrap">{% if log.sent_at %}{{ log.sent_at|date:"M d, Y H:i" }}{% else %}{{ log.created_at|date:"M d, Y H:i" }}{% endif %}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="5" class="ac-empty">No notifications have been sent yet, or none match these filters.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <div class="ac-pager">
+        <span>{% if total_count %}Page {{ current_page }} of {{ total_pages }} · {{ total_count }} total{% else %}No results{% endif %}</span>
+        {% if total_pages > 1 %}
+        <nav class="ac-pager-links" aria-label="Pages">
+            {% if current_page > 1 %}<a href="{% querystring page=current_page|add:'-1' %}" class="ac-btn" rel="prev">Previous</a>{% else %}<span class="ac-btn is-disabled" aria-disabled="true">Previous</span>{% endif %}
+            <span class="ac-pager-current" aria-current="page">Page {{ current_page }} of {{ total_pages }}</span>
+            {% if current_page < total_pages %}<a href="{% querystring page=current_page|add:'1' %}" class="ac-btn" rel="next">Next</a>{% else %}<span class="ac-btn is-disabled" aria-disabled="true">Next</span>{% endif %}
+        </nav>
+        {% endif %}
+    </div>
+</section>
+{% endblock %}

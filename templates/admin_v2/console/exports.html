@@ -1,0 +1,71 @@
+{% extends "admin_v2/base.html" %}
+{% comment %}
+Exports in the console look (admin_v2_exports when `admin_console_ui` is on;
+the classic page is admin_v2/exports.html). The same GET forms (field names
+status / days / period) and the same download links.
+{% endcomment %}
+{% load admin_v2_tags %}
+
+{% block title %}Exports - Admin{% endblock %}
+
+{% block admin_content %}
+<div class="ac-op-head">
+    <div>
+        <h1 class="ac-h1">Exports</h1>
+        <p class="ac-muted ac-small">Spreadsheets for the chapter's records. Each download is logged.</p>
+    </div>
+</div>
+
+<div class="ac-op">
+    <div class="ac-op-grid is-3">
+        <form method="get" action="{% url 'admin_v2_export_members' %}" class="ac-card ac-widget ac-op-export">
+            <header class="ac-widget-head"><h2>{% console_icon "users" %}Member roster</h2></header>
+            <p class="ac-muted ac-small">Contact details, type and status, pledge class, roles, committees, admin, 2FA, app, last seen.</p>
+            <label class="ac-field"><span class="ac-field-label">Status</span>
+                <select name="status" class="ac-select" aria-label="Status">
+                    {% for s in statuses %}<option value="{{ s }}">{{ s }}</option>{% endfor %}<option value="">Everyone (not Removed)</option>
+                </select>
+            </label>
+            <button type="submit" class="ac-btn">{% console_icon "download" %}Download CSV</button>
+        </form>
+
+        <form method="get" action="{% url 'admin_v2_export_attendance' %}" class="ac-card ac-widget ac-op-export">
+            <header class="ac-widget-head"><h2>{% console_icon "calendar" %}Attendance by member</h2></header>
+            <p class="ac-muted ac-small">Required events in the period: present, late, absent, excused and rate.</p>
+            <label class="ac-field"><span class="ac-field-label">Period</span>
+                <select name="days" class="ac-select" aria-label="Period">
+                    <option value="30">Last 30 days</option><option value="90" selected>Last 90 days</option><option value="180">Last 6 months</option><option value="365">Last year</option>
+                </select>
+            </label>
+            <button type="submit" class="ac-btn">{% console_icon "download" %}Download CSV</button>
+        </form>
+
+        <form method="get" action="{% url 'admin_v2_export_service' %}" class="ac-card ac-widget ac-op-export">
+            <header class="ac-widget-head"><h2>{% console_icon "clock" %}Service hours by member</h2></header>
+            <p class="ac-muted ac-small">Expected, approved, pending and remaining hours for a period.</p>
+            <label class="ac-field"><span class="ac-field-label">Service period</span>
+                <select name="period" class="ac-select" aria-label="Service period">
+                    {% for p in periods %}<option value="{{ p.pk }}">{{ p.name }}</option>{% empty %}<option value="">No periods yet</option>{% endfor %}
+                </select>
+            </label>
+            <button type="submit" class="ac-btn">{% console_icon "download" %}Download CSV</button>
+        </form>
+    </div>
+
+    <section class="ac-card" aria-labelledby="ex-other">
+        <div class="ac-list-head"><div class="ac-list-title"><h2 id="ex-other">Other exports</h2></div></div>
+        <div class="ac-table-wrap">
+            <table class="ac-table">
+                <thead><tr><th>Export</th><th>What it holds</th></tr></thead>
+                <tbody>
+                    <tr><td><a href="{% url 'export_directory' %}" class="ac-row-link">Member directory</a></td><td class="ac-muted">What members see in the directory</td></tr>
+                    <tr><td><a href="{% url 'export_user_list' %}" class="ac-row-link">Officer user list</a></td><td class="ac-muted">The officers' member list</td></tr>
+                    <tr><td><a href="{% url 'export_activity_logs' %}" class="ac-row-link">Activity logs</a></td><td class="ac-muted">Everything in the activity log</td></tr>
+                    <tr><td><a href="{% url 'export_service_csv' %}" class="ac-row-link">Service hour submissions</a></td><td class="ac-muted">Every submission, one row each</td></tr>
+                    <tr><td><a href="{% url 'export_calendar_ical' %}" class="ac-row-link">Calendar (.ics)</a></td><td class="ac-muted">For Google or Apple Calendar</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+</div>
+{% endblock %}

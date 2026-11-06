@@ -105,13 +105,13 @@ def search_content(term):
 def admin_v2_member(request, user_id):
     """The member page; with ?panel=1, the same data as the console's slide-out
     panel fragment (admin_v2/member_panel.html; same gate, same rows)."""
-    from src.admin_console import panel_response, wants_panel
+    from src.admin_console import console_enabled, panel_response, wants_panel
 
     member = get_object_or_404(ParliamentUser, user_id=user_id)
     data = member_page_data(member, request.user)
     if wants_panel(request):
         return panel_response(render(request, 'admin_v2/member_panel.html', data))
-    return render(request, 'admin_v2/member.html', data)
+    return render(request, 'admin_v2/console/member.html' if console_enabled(request) else 'admin_v2/member.html', data)
 
 
 def member_page_data(member, viewer):

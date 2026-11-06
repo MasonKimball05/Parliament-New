@@ -1,0 +1,74 @@
+{% extends "admin_v2/base.html" %}
+{% comment %}
+Permissions in the console look (admin_v2_permissions when `admin_console_ui`
+is on; the classic page is admin_v2/permissions.html). Read-only; each holder's
+name opens their member panel.
+{% endcomment %}
+{% load static_version admin_v2_tags %}
+
+{% block title %}Permissions - Admin{% endblock %}
+
+{% block admin_content %}
+<div class="ac-id-stack">
+    <section class="ac-card" aria-label="Permissions">
+        {% include "admin_v2/console/_list_header.html" with title="Permissions" subtitle="Who holds what, grouped by permission. Read-only: change roles and access on each member's page." %}
+        <form method="get" class="ac-filterbar" role="search" aria-label="Filter permissions">
+            <label class="ac-field ac-field-grow">
+                <span class="ac-sr">Search</span>
+                {% console_icon "filter" %}
+                <input type="search" name="q" value="{{ q }}" placeholder="Member, role, committee or token" class="ac-input">
+            </label>
+            <label class="ac-check"><input type="checkbox" name="flagged" value="1" data-autosubmit {% if flagged %}checked{% endif %}> Flagged only</label>
+            <button type="submit" class="ac-btn">Filter</button>
+            {% if q or flagged %}<a href="{% url 'admin_v2_permissions' %}" class="ac-btn ac-btn-ghost">Clear</a>{% endif %}
+        </form>
+    </section>
+
+    <ul class="ac-id-stats" aria-label="Flags">
+        {% for f in flag_counts %}
+        <li class="ac-stat{% if f.n %} is-warn{% endif %}"><span class="ac-stat-n">{{ f.n }}</span><span class="ac-stat-l">{{ f.label }}</span></li>
+        {% endfor %}
+    </ul>
+
+    {% if unknown_allowlist %}
+    <div class="ac-id-callout is-warn" role="status">
+        ADMIN_V2_USER_IDS lists {{ unknown_allowlist|length }} id{{ unknown_allowlist|length|pluralize }} that match no member: {{ unknown_allowlist|join:", " }}.
+    </div>
+    {% endif %}
+
+    <div class="ac-id-grid">
+        {% for s in sections %}
+        <section class="ac-card ac-id-perm-card" id="perm-{{ s.key }}" aria-labelledby="perm-{{ s.key }}-title">
+            <header class="ac-id-card-head">
+                <h2 id="perm-{{ s.key }}-title">{{ s.title }} <span class="ac-count">({{ s.n }})</span></h2>
+                <p>{{ s.about }}</p>
+            </header>
+            <div class="ac-id-card-body">
+                {% for g in s.groups %}
+                <div class="ac-id-perm-group">
+                    {% if g.label %}
+                    <p class="ac-id-perm-label">{{ g.label }}{% for fl in g.flag_labels %} <span class="ac-pill is-warn">{{ fl }}</span>{% endfor %}</p>
+                    {% endif %}
+                    <ul class="ac-rows">
+                        {% for e in g.entries %}
+                        <li data-ac-row>
+                            <a href="{% url 'admin_v2_member' e.member.user_id %}" class="ac-row-link" data-ac-panel>{{ e.member.get_display_name }}</a>
+                            <span class="ac-muted">{{ e.member.member_type }}, {{ e.member.member_status }}{% if e.detail %} · {{ e.detail }}{% endif %}{% if e.last_sign_in %} · last signed in {{ e.last_sign_in|date:"M j, Y" }}{% endif %}</span>
+                            {% for fl in e.flag_labels %}<span class="ac-pill is-warn">{{ fl }}</span>{% endfor %}
+                        </li>
+                        {% empty %}
+                        {% if not g.flags %}<li class="ac-muted">Nobody.</li>{% endif %}
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% empty %}
+                <p class="ac-muted">{% if q or flagged %}Nothing matches.{% else %}Nobody.{% endif %}</p>
+                {% endfor %}
+            </div>
+        </section>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}
+
+{% block console_js %}<script src="{% static_v 'js/admin_v2/members.js' %}"></script>{% endblock %}

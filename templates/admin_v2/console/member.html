@@ -1,0 +1,179 @@
+{% extends "admin_v2/base.html" %}
+{% comment %}
+The member page in the console look (admin_v2_member when `admin_console_ui`
+is on; the classic page is admin_v2/member.html, the slide-out panel is
+admin_v2/member_panel.html). Same rows as both (member_page_data).
+{% endcomment %}
+{% load static_version admin_v2_tags %}
+
+{% block title %}{{ member.get_display_name }} - Admin{% endblock %}
+{% block console_crumb %}{{ member.get_display_name }}{% endblock %}
+
+{% block admin_content %}
+<div class="ac-id-stack">
+    <section class="ac-card ac-id-head" aria-labelledby="member-title">
+        {% if member.profile_picture %}<img class="ac-avatar-lg" src="{{ member.profile_picture.url }}" alt="">{% else %}<span class="ac-avatar-lg" aria-hidden="true">{{ member.name|make_list|first|upper }}</span>{% endif %}
+        <div class="ac-id-head-text">
+            <h1 id="member-title">{{ member.get_display_name }}</h1>
+            <p>#{{ member.user_id }} · {{ member.username }}{% if member.email %} · {{ member.email }}{% endif %}</p>
+            <div class="ac-id-pills">
+                <span class="ac-pill is-muted">{{ member.member_type }}</span>
+                <span class="ac-pill {% if member.member_status == 'Active' %}is-ok{% elif member.member_status == 'Removed' %}is-error{% elif member.member_status == 'Inactive' %}is-warn{% else %}is-accent{% endif %}">{{ member.member_status }}</span>
+                {% if member.is_admin %}<span class="ac-pill is-error">Admin</span>{% endif %}
+                {% if member.is_quarantined %}<span class="ac-pill is-warn">Quarantined</span>{% endif %}
+                {% if watch %}<span class="ac-pill is-warn">Watched</span>{% endif %}
+                {% if lockouts %}<span class="ac-pill is-error">Locked out</span>{% endif %}
+            </div>
+        </div>
+        <div class="ac-list-tools">
+            <a href="{% url 'admin_v2_edit_user_profile' member.user_id %}" class="ac-btn ac-btn-primary">Edit profile</a>
+            <a href="{% url 'admin_v2_user_login_security' member.user_id %}" class="ac-btn">Login security</a>
+            {% if lockouts %}
+            <form method="post" action="{% url 'admin_v2_release_user_lockout' member.user_id %}">{% csrf_token %}
+                <input type="hidden" name="return_to" value="member">
+                <button type="submit" class="ac-btn">Release lockout</button>
+            </form>
+            {% endif %}
+            <form method="post" action="{% url 'admin_v2_member_sign_out' member.user_id %}"
+                  data-confirm="Sign {{ member.get_display_name }} out of every browser and their app?">{% csrf_token %}
+                <button type="submit" class="ac-btn">Sign out everywhere</button>
+            </form>
+            {# The reset has options (reason, random or custom, email or not) and shows the new password there. #}
+            <a href="{% url 'admin_v2_user_login_security' member.user_id %}" class="ac-btn ac-btn-danger-text">Reset password…</a>
+        </div>
+    </section>
+
+    <div class="ac-id-grid">
+        <section class="ac-card" aria-labelledby="member-profile">
+            <header class="ac-id-card-head"><h2 id="member-profile">Profile</h2></header>
+            <div class="ac-id-card-body">
+                <dl class="ac-kv">
+                    <div><dt>Phone</dt><dd>{{ member.phone_number|default:"—" }}</dd></div>
+                    <div><dt>Pledge class</dt><dd>{{ member.pledge_class|default:"—" }}</dd></div>
+                    <div><dt>Last seen</dt><dd>{{ member.last_seen_at|date:"M j, Y g:i A"|default:"Never" }}</dd></div>
+                    <div><dt>Roles</dt><dd>{% for r in roles %}{{ r.name }}{% if not forloop.last %}, {% endif %}{% empty %}—{% endfor %}</dd></div>
+                    <div><dt>Committees</dt><dd>{% for c in committees %}{{ c.name }}{% if c in chaired %} (chair){% endif %}{% if not forloop.last %}, {% endif %}{% empty %}—{% endfor %}</dd></div>
+                </dl>
+            </div>
+        </section>
+
+        <section class="ac-card" aria-labelledby="member-signin">
+            <header class="ac-id-card-head"><h2 id="member-signin">Sign-in security</h2></header>
+            <div class="ac-id-card-body">
+                <dl class="ac-kv">
+                    <div><dt>2FA app</dt><dd>{% if has_totp %}<span class="ac-pill is-ok">On</span>{% else %}<span class="ac-pill is-warn">Off</span>{% endif %}</dd></div>
+                    <div><dt>Passkeys</dt><dd>{% for p in passkeys %}{{ p.name }} (last used {{ p.last_used_at|date:"M j"|default:"never" }}){% if not forloop.last %}, {% endif %}{% empty %}None{% endfor %}</dd></div>
+                    <div><dt>Failed (30d)</dt><dd{% if failed_30d %} class="ac-text-error"{% endif %}>{{ failed_30d }}</dd></div>
+                    {% if watch %}<div><dt>Watch flag</dt><dd class="ac-break">{{ watch.reason }}</dd></div>{% endif %}
+                    <div><dt>Default password</dt><dd><button type="button" class="ac-btn ac-btn-sm js-check-password" data-check-url="{% url 'check_default_password' member.user_id %}">Check</button></dd></div>
+                </dl>
+            </div>
+        </section>
+
+        <section class="ac-card ac-id-span-2" aria-labelledby="member-chapter">
+            <header class="ac-id-card-head"><h2 id="member-chapter">Chapter</h2></header>
+            <div class="ac-id-card-body">
+                <ul class="ac-id-stats">
+                    {% with a=chapter.attendance %}
+                    <li class="ac-stat{% if a.rate is not None and a.rate < 75 %} is-warn{% endif %}">
+                        <span class="ac-stat-n">{% if a.rate is None %}—{% else %}{{ a.rate }}%{% endif %}</span>
+                        <span class="ac-stat-l">Attendance, last 90 days</span>
+                        <span class="ac-stat-s">{{ a.present }} present · {{ a.late }} late · {{ a.absent }} absent · {{ a.excused }} excused</span>
+                    </li>
+                    {% endwith %}
+                    <li class="ac-stat">
+                        <span class="ac-stat-n">{{ chapter.excuses_pending }}</span>
+                        <span class="ac-stat-l">Excuses waiting for review</span>
+                    </li>
+                    <li class="ac-stat">
+                        {% if chapter.service %}
+                        <span class="ac-stat-n">{{ chapter.service.approved_hours|floatformat:"-1" }} <small>of {{ chapter.service.expected_hours|floatformat:"-1" }}</small></span>
+                        <span class="ac-stat-l">Service hours{% if chapter.service_period %} · {{ chapter.service_period.name }}{% endif %}</span>
+                        <svg class="ac-meter" viewBox="0 0 100 6" preserveAspectRatio="none" role="img" aria-label="{{ chapter.service.progress_percent }}% of expected hours">
+                            <rect width="100" height="6" rx="3" class="ac-meter-track"/>
+                            <rect width="{{ chapter.service.progress_percent }}" height="6" rx="3" class="ac-meter-fill"/>
+                        </svg>
+                        {% if chapter.service.pending_hours %}<span class="ac-stat-s">{{ chapter.service.pending_hours|floatformat:"-1" }} pending</span>{% endif %}
+                        {% else %}
+                        <span class="ac-stat-n">—</span>
+                        <span class="ac-stat-l">Service hours</span>
+                        <span class="ac-stat-s">No service period set up.</span>
+                        {% endif %}
+                    </li>
+                </ul>
+            </div>
+        </section>
+
+        <section class="ac-card" aria-labelledby="member-devices">
+            <header class="ac-id-card-head"><h2 id="member-devices">App devices <span class="ac-count">({{ active_devices }} signed in)</span></h2></header>
+            <div class="ac-id-card-body">
+                <ul class="ac-rows">
+                    {% for d in devices %}
+                    <li class="ac-rows-split">
+                        <div>
+                            <p class="{% if d.revoked_at %}ac-struck{% endif %}">{{ d.get_platform_display }} · {{ d.device_name|default:"Unnamed device" }}</p>
+                            <p class="ac-muted ac-small">
+                                v{{ d.app_version|default:"?" }} · {{ d.get_verified_via_display }} · since {{ d.created_at|date:"M j, Y" }}
+                                {% if d.revoked_at %}· signed out {{ d.revoked_at|date:"M j" }} ({{ d.revoked_reason }}){% else %}· last seen {{ d.last_seen_at|timesince|default:"never" }}{% if d.last_seen_at %} ago{% endif %}{% if d.push_token %} · push on{% endif %}{% endif %}
+                            </p>
+                        </div>
+                        {% if not d.revoked_at %}
+                        <form method="post" action="{% url 'admin_v2_member_revoke_device' member.user_id d.public_id %}" class="ac-id-rows-form"
+                              data-confirm="Sign this app install out?">{% csrf_token %}
+                            <button type="submit" class="ac-btn ac-btn-sm ac-btn-danger-text">Sign out</button>
+                        </form>
+                        {% endif %}
+                    </li>
+                    {% empty %}
+                    <li class="ac-muted">Never signed in to the app.</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </section>
+
+        <section class="ac-card" aria-labelledby="member-sessions">
+            <header class="ac-id-card-head"><h2 id="member-sessions">Web sessions</h2></header>
+            <div class="ac-id-card-body">
+                <ul class="ac-rows">
+                    {% for s in sessions %}
+                    <li class="ac-rows-stack">
+                        <span>{{ s.browser|default:"Browser" }} on {{ s.operating_system|default:"unknown" }}{% if s.device_type %} ({{ s.device_type }}){% endif %}</span>
+                        <span class="ac-muted ac-small">{{ s.location|default:"Unknown location" }} · active {{ s.last_activity|timesince }} ago · started {{ s.created_at|date:"M j" }}</span>
+                    </li>
+                    {% empty %}
+                    <li class="ac-muted">No open web sessions.</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </section>
+
+        <section class="ac-card" aria-labelledby="member-logins">
+            <header class="ac-id-card-head"><h2 id="member-logins">Recent sign-ins</h2><a href="{% url 'admin_v2_user_login_security' member.user_id %}" class="ac-link-sm">All</a></header>
+            <div class="ac-id-card-body">
+                <ul class="ac-rows">
+                    {% for l in logins %}
+                    <li><span class="ac-dot {% if l.status == 'success' %}is-ok{% else %}is-error{% endif %}" aria-hidden="true"></span><span>{{ l.timestamp|date:"M j, g:i A" }}</span><span class="ac-muted">{{ l.get_status_display }} · {{ l.location_display|default:"Unknown" }}{% if l.is_suspicious %} · suspicious{% endif %}</span></li>
+                    {% empty %}
+                    <li class="ac-muted">No sign-ins recorded.</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </section>
+
+        <section class="ac-card" aria-labelledby="member-activity">
+            <header class="ac-id-card-head"><h2 id="member-activity">Recent activity</h2></header>
+            <div class="ac-id-card-body">
+                <ul class="ac-rows">
+                    {% for a in activity %}
+                    <li class="ac-rows-stack"><span class="ac-break">{{ a.description }}</span><span class="ac-muted">{{ a.timestamp|date:"M j, g:i A" }} · {{ a.get_action_type_display }}</span></li>
+                    {% empty %}
+                    <li class="ac-muted">No activity yet.</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </section>
+    </div>
+</div>
+{% endblock %}
+
+{% block console_js %}<script src="{% static_v 'js/admin_v2/members.js' %}"></script>{% endblock %}

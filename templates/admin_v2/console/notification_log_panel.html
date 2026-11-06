@@ -1,0 +1,17 @@
+{% extends "admin_v2/console/panel.html" %}
+{% comment %}
+One notification log as a slide-out panel (?panel=1 on
+admin_v2_notification_log_detail; same view and gate as the full page).
+Body: _notification_log_body.html, shared with the full page.
+{% endcomment %}
+{% block panel_title %}{{ log.title }}{% endblock %}
+{% block panel_subtitle %}{{ log.notification_type }} · {{ log.created_at|date:"M j, g:i A" }}{% endblock %}
+
+{% block panel_tabs %}
+<div class="ac-tabs" role="tablist" aria-label="Notification details">
+    <button type="button" role="tab" id="nl-tab-delivery" aria-controls="nl-delivery" aria-selected="true" data-ac-tab="delivery">Delivery</button>
+    <button type="button" role="tab" id="nl-tab-message" aria-controls="nl-message" aria-selected="false" tabindex="-1" data-ac-tab="message">Message</button>
+</div>
+{% endblock %}
+
+{% block panel_body %}{% include "admin_v2/console/_notification_log_body.html" with tabs=True %}{% endblock %}

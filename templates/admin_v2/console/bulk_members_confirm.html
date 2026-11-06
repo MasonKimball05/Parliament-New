@@ -1,0 +1,47 @@
+{% extends "admin_v2/base.html" %}
+{% comment %}
+Bulk edit's preview step in the console look (admin_v2_bulk_members POST
+step=preview when `admin_console_ui` is on; the classic page is
+admin_v2/bulk_members_confirm.html). Same Apply form.
+{% endcomment %}
+{% load admin_v2_tags %}
+
+{% block title %}Confirm bulk change - Admin{% endblock %}
+{% block console_crumb %}Confirm{% endblock %}
+
+{% block admin_content %}
+<section class="ac-card" aria-label="Confirm bulk change">
+    <div class="ac-list-head">
+        <div class="ac-list-title">
+            <h1>Confirm: {{ action_label }}{% if action != 'clear_roles' %} · {{ value_label }}{% endif %}</h1>
+            <p>{{ will_change }} member(s) will change. Skipped rows say why. Nothing is saved until you apply.</p>
+        </div>
+        <div class="ac-list-tools">
+            <a href="{% url 'admin_v2_bulk_members' %}?{% for k, v in filters.items %}{{ k }}={{ v|urlencode }}&amp;{% endfor %}" class="ac-btn">Back</a>
+            {% if will_change %}
+            <form method="post" data-confirm="Apply this change to {{ will_change }} member(s)?">
+                {% csrf_token %}
+                <input type="hidden" name="step" value="apply">
+                <input type="hidden" name="bulk_action" value="{{ action }}">
+                <input type="hidden" name="value" value="{{ value }}">
+                {% for row in rows %}<input type="hidden" name="ids" value="{{ row.member.user_id }}">{% endfor %}
+                <button type="submit" class="ac-btn ac-btn-primary">Apply to {{ will_change }} member(s)</button>
+            </form>
+            {% endif %}
+        </div>
+    </div>
+    <div class="ac-table-wrap">
+        <table class="ac-table">
+            <thead><tr><th>Member</th><th>Change</th></tr></thead>
+            <tbody>
+                {% for row in rows %}
+                <tr>
+                    <td{% if row.skip %} class="ac-muted"{% endif %}>{{ row.member.get_display_name }}</td>
+                    <td>{% if row.skip %}<span class="ac-pill is-muted">Skipped: {{ row.skip }}</span>{% else %}<span class="ac-pill is-accent">{{ row.change }}</span>{% endif %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endblock %}

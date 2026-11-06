@@ -1,0 +1,21 @@
+{% extends "admin_v2/base.html" %}
+{% comment %}
+One notification log, full page, console look (admin_v2_notification_log_detail
+when `admin_console_ui` is on; classic: admin_v2/notifications/log_detail.html).
+Same sections as the panel.
+{% endcomment %}
+{% block title %}Notification - Admin{% endblock %}
+{% block console_crumb %}{{ log.title }}{% endblock %}
+
+{% block admin_content %}
+<section class="ac-card ac-msg-detail">
+    <div class="ac-list-head">
+        <div class="ac-list-title">
+            <h1>{{ log.title }}</h1>
+            <p>{{ log.notification_type }} · {{ log.created_at|date:"F d, Y H:i" }}</p>
+        </div>
+        <div class="ac-list-tools"><a href="{% url 'admin_v2_notification_logs' %}" class="ac-btn">All notification logs</a></div>
+    </div>
+    <div class="ac-msg-detail-body">{% include "admin_v2/console/_notification_log_body.html" %}</div>
+</section>
+{% endblock %}

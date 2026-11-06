@@ -1,0 +1,71 @@
+{% comment %}
+One announcement email send (`log`, `recipients_by_status`), shared by the
+slide-out panel (email_log_panel.html, `tabs=True`: three tab panels) and the
+console full page (email_log_detail.html, `tabs` unset: the same sections one
+after another under headings). Ids are prefixed "el-" (the panel shares the
+list page's document).
+{% endcomment %}
+{% load admin_v2_tags %}
+{% widthratio log.emails_sent log.users_matching_visibility 100 as sent_pct %}
+{% widthratio log.emails_failed log.users_matching_visibility 100 as failed_pct %}
+<section {% if tabs %}role="tabpanel" id="el-delivery" aria-labelledby="el-tab-delivery" tabindex="0"{% else %}class="ac-msg-section" aria-labelledby="el-h-delivery"{% endif %}>
+    {% if not tabs %}<h2 class="ac-blade-h3" id="el-h-delivery">Delivery</h2>{% endif %}
+    <svg class="ac-msg-meter" viewBox="0 0 100 8" preserveAspectRatio="none" role="img"
+         aria-label="{{ log.emails_sent }} sent and {{ log.emails_failed }} failed of {{ log.users_matching_visibility }} matching">
+        <rect class="ac-msg-meter-track" x="0" y="0" width="100" height="8"/>
+        <rect class="ac-msg-meter-ok" x="0" y="0" width="{{ sent_pct }}" height="8"/>
+        <rect class="ac-msg-meter-fail" x="{{ sent_pct }}" y="0" width="{{ failed_pct }}" height="8"/>
+    </svg>
+    <p class="ac-msg-legend">
+        <span class="ac-msg-key is-ok">Sent {{ log.emails_sent }}</span>
+        <span class="ac-msg-key is-fail">Failed {{ log.emails_failed }}</span>
+        <span class="ac-msg-key">Matching {{ log.users_matching_visibility }}</span>
+    </p>
+    <div class="ac-msg-stats">
+        <div class="ac-stat"><span class="ac-stat-n">{{ log.total_active_users }}</span><span class="ac-stat-l">Active users</span></div>
+        <div class="ac-stat"><span class="ac-stat-n">{{ log.users_matching_visibility }}</span><span class="ac-stat-l">Matching visibility</span></div>
+        <div class="ac-stat"><span class="ac-stat-n">{{ log.users_with_valid_email }}</span><span class="ac-stat-l">Valid email</span></div>
+    </div>
+    <dl class="ac-kv">
+        <div><dt>Status</dt><dd>{% include "admin_v2/console/_email_status_pill.html" %}</dd></div>
+        <div><dt>Announcement</dt><dd class="ac-break">{{ log.announcement.title }}</dd></div>
+        <div><dt>Initiated by</dt><dd>{{ log.initiated_by.name|default:"System" }}</dd></div>
+        <div><dt>Started</dt><dd>{{ log.created_at|date:"M d, Y g:i:s A" }}</dd></div>
+        <div><dt>Completed</dt><dd>{{ log.completed_at|date:"M d, Y g:i:s A"|default:"In progress" }}</dd></div>
+        <div><dt>Visibility</dt><dd>{% if log.visible_to_raw %}{{ log.visible_to_raw|join:", " }}{% else %}All members{% endif %}</dd></div>
+        <div><dt>Expanded types</dt><dd>{% if log.expanded_member_types %}{{ log.expanded_member_types|join:", " }}{% else %}All{% endif %}</dd></div>
+    </dl>
+    {% if log.error_message %}
+    <div class="ac-banner is-alarm ac-msg-banner" role="alert">{% console_icon "alert" %}<span class="ac-break">{{ log.error_message }}</span></div>
+    {% endif %}
+</section>
+
+<section {% if tabs %}role="tabpanel" id="el-recipients" aria-labelledby="el-tab-recipients" tabindex="0" hidden{% else %}class="ac-msg-section" aria-labelledby="el-h-recipients"{% endif %}>
+    {% if not tabs %}<h2 class="ac-blade-h3" id="el-h-recipients">Recipients</h2>{% endif %}
+    {% for status, recipients in recipients_by_status.items %}
+    <h3 class="ac-blade-h3">{{ status }} <span class="ac-pill {% if 'Sent' in status %}is-ok{% elif 'Failed' in status %}is-error{% else %}is-muted{% endif %}">{{ recipients|length }}</span></h3>
+    <ul class="ac-rows ac-scroll">
+        {% for recipient in recipients %}
+        <li class="ac-rows-split">
+            <div>
+                <p>{{ recipient.user_name }} <span class="ac-muted ac-small">· {{ recipient.user_member_type }}{% if recipient.user_member_status %} · {{ recipient.user_member_status }}{% endif %}</span></p>
+                <p class="ac-muted ac-small ac-break">{{ recipient.user_email|default:"(no email)" }}</p>
+                {% if recipient.error_message %}<p class="ac-text-error ac-small ac-break">{{ recipient.error_message|truncatewords:20 }}</p>{% endif %}
+            </div>
+            <span class="ac-dot {% if recipient.status == 'sent' %}is-ok{% elif recipient.status == 'failed' %}is-error{% endif %}" aria-hidden="true"></span>
+        </li>
+        {% endfor %}
+    </ul>
+    {% empty %}
+    <p class="ac-muted">No recipient details available.</p>
+    {% endfor %}
+</section>
+
+<section {% if tabs %}role="tabpanel" id="el-console" aria-labelledby="el-tab-console" tabindex="0" hidden{% else %}class="ac-msg-section" aria-labelledby="el-h-console"{% endif %}>
+    {% if not tabs %}<h2 class="ac-blade-h3" id="el-h-console">Console output</h2>{% endif %}
+    {% if log.console_log %}
+    <pre class="ac-msg-console">{{ log.console_log }}</pre>
+    {% else %}
+    <p class="ac-muted">No console output was recorded for this send.</p>
+    {% endif %}
+</section>

@@ -1,0 +1,154 @@
+{% extends "admin_v2/base.html" %}
+{% comment %}
+Honeypot logs in the console look (admin_v2_honeypot_logs when
+`admin_console_ui` is on; the classic page is admin_v2/honeypot_logs.html;
+admins only, as before). Each hit opens in the slide-out panel
+(honeypot_log_detail, ?panel=1), replacing the classic page's expanding detail
+row. The same forms and hooks: per-row Block (admin_v2_add_ip_blacklist) and
+delete (.js-delete-log), #js-blacklist-all-btn, #js-clear-all-btn,
+#js-clear-ip-btn and their hidden forms; security_honeypot.js runs them.
+{% endcomment %}
+{% load static_version admin_v2_tags custom_filters %}
+
+{% block title %}Honeypot - Admin{% endblock %}
+
+{% block admin_content %}
+<div class="ac-sec-split">
+    <ul class="ac-sec-stats ac-sec-stats-2" aria-label="Honeypot totals">
+        <li><a href="{% url 'admin_v2_honeypot_logs' %}" class="is-alarm"><span class="ac-stat-n">{{ total_24h }}</span><span class="ac-stat-l">Last 24 hours</span></a></li>
+        <li><a href="{% url 'admin_v2_honeypot_logs' %}"><span class="ac-stat-n">{{ total_all }}</span><span class="ac-stat-l">All time</span></a></li>
+    </ul>
+    <section class="ac-card ac-widget" aria-labelledby="hp-top-endpoints">
+        <header class="ac-widget-head"><h2 id="hp-top-endpoints">Most targeted endpoints</h2></header>
+        <ul class="ac-sec-chips">
+            {% for ep in top_endpoints|slice:":5" %}
+            <li><a href="?endpoint={{ ep.endpoint|urlencode }}"><code>{{ ep.endpoint }}</code> <span class="ac-muted">{{ ep.count }}</span></a></li>
+            {% empty %}<li class="ac-muted ac-small">None yet</li>
+            {% endfor %}
+        </ul>
+    </section>
+</div>
+
+{% if top_ips %}
+<section class="ac-card ac-widget" aria-labelledby="hp-top-ips">
+    <header class="ac-widget-head"><h2 id="hp-top-ips">Top attacking IPs</h2></header>
+    <ul class="ac-sec-chips">
+        {% for ip in top_ips %}
+        <li>
+            <a href="?ip={{ ip.ip_address }}"><code>{{ ip.ip_address }}</code> <span class="ac-muted">{{ ip.count }}</span></a>
+            {% if ip.ip_address in blacklisted_ips %}
+            <span class="ac-pill is-error">blocked</span>
+            {% else %}
+            <form method="post" action="{% url 'admin_v2_add_ip_blacklist' %}" class="js-confirm-submit" data-confirm="Block {{ ip.ip_address }}?">
+                {% csrf_token %}
+                <input type="hidden" name="ip_address" value="{{ ip.ip_address }}">
+                <input type="hidden" name="reason" value="Honeypot trigger — top attacking IP">
+                <button type="submit" class="ac-btn ac-btn-sm ac-btn-danger-text">Block</button>
+            </form>
+            {% endif %}
+        </li>
+        {% endfor %}
+    </ul>
+</section>
+{% endif %}
+
+<section class="ac-card">
+    <div class="ac-list-head">
+        <div class="ac-list-title">
+            <h1>Honeypot hits <span class="ac-count">({{ total_filtered }})</span></h1>
+            <p>Requests to trap URLs no member would visit</p>
+        </div>
+        <div class="ac-list-tools">
+            <a href="{{ request.get_full_path }}" class="ac-btn ac-btn-icon" aria-label="Refresh" title="Refresh">{% console_icon "refresh" %}</a>
+            <button type="button" id="js-blacklist-all-btn" class="ac-btn">Blacklist all IPs</button>
+            <button type="button" id="js-clear-all-btn" class="ac-btn ac-btn-danger-text">Clear all logs</button>
+        </div>
+    </div>
+
+    <form method="get" class="ac-filterbar" role="search" aria-label="Filter honeypot hits">
+        <label class="ac-field ac-field-grow"><span class="ac-sr">Endpoint</span>{% console_icon "filter" %}
+            <input type="search" name="endpoint" value="{{ endpoint_filter }}" placeholder="Endpoint, e.g. wp-admin" class="ac-input"></label>
+        <label class="ac-field"><span class="ac-field-label">IP address</span>
+            <input type="text" name="ip" value="{{ ip_filter }}" placeholder="e.g. 1.2.3.4" class="ac-input"></label>
+        <button type="submit" class="ac-btn">Apply</button>
+        {% if ip_filter or endpoint_filter %}<a href="{% url 'admin_v2_honeypot_logs' %}" class="ac-btn ac-btn-ghost">Clear</a>{% endif %}
+    </form>
+    {% if ip_filter %}
+    <div class="ac-sec-filternote">
+        <span>Hits from <code class="ac-sec-code">{{ ip_filter }}</code></span>
+        {% if ip_filter in blacklisted_ips %}
+        <span class="ac-pill is-error">This IP is blocked</span>
+        {% else %}
+        <form method="post" action="{% url 'admin_v2_add_ip_blacklist' %}" class="js-confirm-submit" data-confirm="Block {{ ip_filter }}?">
+            {% csrf_token %}
+            <input type="hidden" name="ip_address" value="{{ ip_filter }}">
+            <input type="hidden" name="reason" value="Honeypot trigger">
+            <button type="submit" class="ac-btn ac-btn-sm">Block this IP</button>
+        </form>
+        {% endif %}
+        <button type="button" id="js-clear-ip-btn" data-ip="{{ ip_filter }}" class="ac-btn ac-btn-sm ac-btn-danger-text">Delete all logs for this IP ({{ total_filtered }})</button>
+    </div>
+    {% endif %}
+
+    <div class="ac-table-wrap">
+        <table class="ac-table ac-sec-subs" id="honeypot-table">
+            <thead>
+                <tr>
+                    <th>Time</th>
+                    <th>Endpoint</th>
+                    <th>IP / location</th>
+                    <th>Method</th>
+                    <th>Action</th>
+                    <th class="ac-hide-phone ac-sec-hide-panel">User agent</th>
+                    <th><span class="ac-sr">Actions</span></th>
+                </tr>
+            </thead>
+            <tbody id="honeypot-tbody">
+                {% for log in logs %}
+                <tr class="js-honeypot-row" data-ac-row data-log-id="{{ log.id }}" id="row-{{ log.id }}">
+                    <td class="ac-nowrap"><a href="{% url 'admin_v2_honeypot_log' log.id %}" class="ac-row-link" data-ac-panel>{{ log.accessed_at|date:"M d, H:i:s" }}</a></td>
+                    <td><code class="ac-sec-code">{{ log.endpoint }}</code></td>
+                    <td>
+                        {% if log.ip_address %}<a href="?ip={{ log.ip_address }}"><code class="ac-sec-code">{{ log.ip_address }}</code></a>{% else %}<span class="ac-muted">unknown</span>{% endif %}
+                        {% if log.ip_address in blacklisted_ips %}<span class="ac-pill is-error">blocked</span>{% endif %}
+                        {% with geo=log.additional_data.geo %}
+                        {% if geo and not geo.geo_error %}<span class="ac-sub">{% if geo.country_code %}{{ geo.country_code|country_flag }} {% endif %}{{ geo.city }}{% if geo.city and geo.country %}, {% endif %}{{ geo.country }}</span>
+                        {% elif not geo %}<span class="ac-sub">geo pending…</span>{% endif %}
+                        {% endwith %}
+                    </td>
+                    <td><span class="ac-pill {% if log.request_method == 'POST' %}is-error{% else %}is-accent{% endif %}">{{ log.request_method }}</span></td>
+                    <td><span class="ac-pill {% if log.action_taken == 'blocked' %}is-error{% elif log.action_taken == 'alerted' %}is-warn{% else %}is-muted{% endif %}">{{ log.action_taken }}</span></td>
+                    <td class="ac-hide-phone ac-sec-hide-panel"><span class="ac-muted ac-small" title="{{ log.user_agent }}">{{ log.user_agent|truncatechars:45 }}</span></td>
+                    <td class="ac-sec-actions"><div class="ac-sec-btns">
+                        {% if log.ip_address and log.ip_address not in blacklisted_ips %}
+                        <form method="post" action="{% url 'admin_v2_add_ip_blacklist' %}" class="js-confirm-submit" data-confirm="Block {{ log.ip_address }}?">
+                            {% csrf_token %}
+                            <input type="hidden" name="ip_address" value="{{ log.ip_address }}">
+                            <input type="hidden" name="reason" value="Honeypot trigger: {{ log.endpoint }}">
+                            <button type="submit" class="ac-btn ac-btn-sm ac-btn-icon" title="Block IP" aria-label="Block {{ log.ip_address }}">{% console_icon "ban" %}</button>
+                        </form>
+                        {% endif %}
+                        <button type="button" class="ac-btn ac-btn-sm ac-btn-icon ac-btn-danger-text js-delete-log" data-log-id="{{ log.id }}" data-url="{% url 'admin_v2_delete_honeypot_log' log.id %}" title="Delete log" aria-label="Delete this log entry">{% console_icon "x" %}</button>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="7" class="ac-empty">No honeypot hits{% if endpoint_filter or ip_filter %} match this filter{% endif %}.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% include "admin_v2/console/_pagination.html" with page=logs %}
+</section>
+
+<p class="ac-muted ac-small ac-sec-note">Honeypot endpoints are fake URLs (WordPress admin, phpMyAdmin and the like) that members never visit. Any hit is suspicious: it bans the address automatically and raises a security alert.</p>
+
+<form id="clear-all-form" method="post" action="{% url 'admin_v2_clear_honeypot_logs' %}" class="hidden">{% csrf_token %}</form>
+<form id="blacklist-all-form" method="post" action="{% url 'admin_v2_blacklist_all_honeypot_ips' %}" class="hidden">{% csrf_token %}</form>
+<form id="clear-ip-form" method="post" action="{% url 'admin_v2_clear_honeypot_logs' %}" class="hidden">
+    {% csrf_token %}
+    <input type="hidden" name="ip_address" id="clear-ip-value">
+</form>
+{% endblock %}
+
+{% block console_js %}<script src="{% static_v 'js/admin_v2/security_honeypot.js' %}"></script>{% endblock %}

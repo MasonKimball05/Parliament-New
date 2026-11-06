@@ -42,6 +42,7 @@ from django.db.models.functions import TruncWeek
 from django.shortcuts import render
 from django.utils import timezone
 
+from src.admin_console import console_enabled
 from src.app_review import exclude_review_accounts
 from src.models import Attendance, Event, ParliamentUser, ServicePeriod
 from src.models.education import PledgeTask, PledgeTaskCompletion
@@ -257,7 +258,27 @@ def cached_chapter_health(days):
 @require_admin_v2_auth
 def admin_v2_health(request):
     days = clean_days(request.GET.get('days'))
-    return render(request, 'admin_v2/chapter_health.html', {
+    context = {
         'health': cached_chapter_health(days), 'days': days, 'day_options': DAY_OPTIONS,
         'cache_seconds': CACHE_SECONDS,
-    })
+    }
+    if console_enabled(request):
+        context['attendance_bars'] = attendance_bars(context['health']['attendance'].get('weeks') or [])
+        return render(request, 'admin_v2/console/chapter_health.html', context)
+    return render(request, 'admin_v2/chapter_health.html', context)
+
+
+def attendance_bars(weeks):
+    """The console look's weekly attendance chart (admin_v2/console/chapter_health.html):
+    one SVG column per week in a 1000 x 100 viewBox (height = the rate), so the
+    template needs no inline style. Weeks without a meeting get no column."""
+    if not weeks:
+        return []
+    step = 1000 / len(weeks)
+    gap = step * 0.14
+    bars = []
+    for i, w in enumerate(weeks):
+        h = None if w['rate'] is None else max(min(w['rate'], 100), 1)
+        bars.append({'week': w['week'], 'rate': w['rate'], 'x': round(i * step + gap, 1),
+                     'w': round(step - 2 * gap, 1), 'h': h, 'y': None if h is None else 100 - h})
+    return bars

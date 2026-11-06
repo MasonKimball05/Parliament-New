@@ -103,7 +103,9 @@ def account_deletions_data():
 
 @require_admin_v2_auth
 def admin_v2_account_deletions(request):
-    return render(request, 'admin_v2/account_deletions.html', account_deletions_data())
+    from src.admin_console import console_enabled
+    return render(request, 'admin_v2/console/account_deletions.html' if console_enabled(request)
+                  else 'admin_v2/account_deletions.html', account_deletions_data())
 
 
 @require_admin_v2_auth

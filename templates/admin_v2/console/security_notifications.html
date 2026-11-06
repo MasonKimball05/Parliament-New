@@ -1,0 +1,70 @@
+{% extends "admin_v2/base.html" %}
+{% comment %}
+Security emails in the console look (admin_v2_security_notifications when
+`admin_console_ui` is on; the classic page is
+admin_v2/security_notifications.html; admins only, as before). Same filters
+(severity, event_type) and page of SecurityNotificationLog rows.
+{% endcomment %}
+{% load admin_v2_tags %}
+
+{% block title %}Security emails - Admin{% endblock %}
+
+{% block admin_content %}
+<section class="ac-card">
+    {% include "admin_v2/console/_list_header.html" with title="Security emails" count=notifications.paginator.count subtitle="Every security notification sent, newest first" %}
+
+    <form method="get" class="ac-filterbar" aria-label="Filter security emails">
+        <label class="ac-field"><span class="ac-field-label">Severity</span>
+            <select name="severity" class="ac-select" data-autosubmit>
+                <option value="">All</option>
+                <option value="critical"{% if severity_filter == 'critical' %} selected{% endif %}>Critical</option>
+                <option value="high"{% if severity_filter == 'high' %} selected{% endif %}>High</option>
+                <option value="medium"{% if severity_filter == 'medium' %} selected{% endif %}>Medium</option>
+                <option value="low"{% if severity_filter == 'low' %} selected{% endif %}>Low</option>
+            </select>
+        </label>
+        <label class="ac-field"><span class="ac-field-label">Event type</span>
+            <select name="event_type" class="ac-select" data-autosubmit>
+                <option value="">All</option>
+                {% for et in event_types %}
+                <option value="{{ et }}"{% if event_filter == et %} selected{% endif %}>{{ et }}</option>
+                {% endfor %}
+            </select>
+        </label>
+        <button type="submit" class="ac-btn">Apply</button>
+        {% if severity_filter or event_filter %}<a href="{% url 'admin_v2_security_notifications' %}" class="ac-btn ac-btn-ghost">Clear</a>{% endif %}
+    </form>
+
+    <div class="ac-table-wrap">
+        <table class="ac-table ac-sec-subs">
+            <thead>
+                <tr>
+                    <th>Event</th>
+                    <th>Severity</th>
+                    <th>Details</th>
+                    <th>Email</th>
+                    <th>Sent</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for n in notifications %}
+                <tr>
+                    <td><strong>{{ n.event_type }}</strong>{% if n.ip_address or n.user %}<span class="ac-sub">{% if n.ip_address %}{{ n.ip_address }}{% endif %}{% if n.ip_address and n.user %} · {% endif %}{% if n.user %}{{ n.user.name }}{% endif %}</span>{% endif %}</td>
+                    <td>{% include "admin_v2/console/_security_severity.html" with severity=n.severity label=n.severity %}</td>
+                    <td class="ac-sec-wrap">{{ n.details }}</td>
+                    <td>
+                        {% if n.email_sent %}<span class="ac-pill is-ok">Sent</span>{% else %}<span class="ac-pill is-muted">Not sent</span>{% endif %}
+                        {% if n.email_sent_to %}<span class="ac-sub ac-break">{{ n.email_sent_to }}</span>{% endif %}
+                        {% if n.email_error %}<span class="ac-sub ac-text-error">{{ n.email_error }}</span>{% endif %}
+                    </td>
+                    <td class="ac-nowrap">{{ n.sent_at|date:"M d, Y H:i:s" }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="5" class="ac-empty">No security notifications recorded.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% include "admin_v2/console/_pagination.html" with page=notifications %}
+</section>
+{% endblock %}

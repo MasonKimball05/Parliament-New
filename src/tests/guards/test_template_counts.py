@@ -73,11 +73,18 @@ ALLOWED = {
     # APIRequestLog.response_summary is a JSONField whose documented structure is
     # {"count": N, "sample": [...]} — src/models/api.py:132-133. Dict key.
     ('admin_v2/api_token_logs.html', 'log.response_summary.count'),
+    ('admin_v2/console/api_token_logs.html', 'log.response_summary.count'),  # its console twin
     # Rows from .values(...).annotate(count=Count(...)) — dict keys, not managers.
     ('admin_v2/csp_violations.html', 'g.count'),
     ('admin_v2/honeypot_logs.html', 'ep.count'),
     ('admin_v2/honeypot_logs.html', 'ip.count'),
+    # Their console twins: the same annotated rows.
+    ('admin_v2/console/csp_violations.html', 'g.count'),
+    ('admin_v2/console/honeypot_logs.html', 'ep.count'),
+    ('admin_v2/console/honeypot_logs.html', 'ip.count'),
     ('admin_v2/page_visits.html', 'row.count'),
+    # Its console twin: the same rows (PageVisit.count, an IntegerField).
+    ('admin_v2/console/page_visits.html', 'row.count'),
     ('committee/vote_result.html', 'bar.count'),
     # Both prefetched by their views (v3.17.3), so these read the prefetch cache
     # and cost nothing — see the measured note in the module docstring.

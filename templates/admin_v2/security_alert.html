@@ -1,0 +1,41 @@
+{% extends "admin_v2/base.html" %}
+{% comment %}
+One security alert, full page (admin_v2_security_alert; the console list opens
+the same view as a slide-out panel with ?panel=1). New with the console; with
+the console look off it shows the same details in a plain card.
+{% endcomment %}
+{% load static_version admin_v2_tags %}
+
+{% block title %}{{ alert.title }} - Security alerts - Admin{% endblock %}
+{% block console_crumb %}{{ alert.title }}{% endblock %}
+
+{% block admin_content %}
+{% if admin_console_ui %}
+<section class="ac-card ac-sec-detail">
+    <div class="ac-list-head">
+        <div class="ac-list-title">
+            <h1>{{ alert.title }}</h1>
+            <p>{{ alert.get_alert_type_display }} · {{ alert.created_at|timesince }} ago</p>
+        </div>
+        <div class="ac-list-tools">
+            <a href="{% url 'admin_v2_user_login_security' alert.user.user_id %}" class="ac-btn">Investigate</a>
+            {% if alert.status == 'new' %}<button type="button" class="ac-btn js-dismiss-alert" data-alert-id="{{ alert.id }}" data-url="{% url 'admin_v2_dismiss_alert' alert.id %}">Dismiss</button>{% endif %}
+        </div>
+    </div>
+    <div class="ac-sec-detail-body">{% include "admin_v2/console/_security_alert_body.html" %}</div>
+</section>
+{% else %}
+<div class="container mx-auto px-4 py-8">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
+        <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-1">{{ alert.title }}</h1>
+        <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">{{ alert.get_alert_type_display }} · {{ alert.get_severity_display }} · {{ alert.get_status_display }} · {{ alert.created_at|date:"M d, Y h:i A" }}</p>
+        <p class="text-gray-700 dark:text-gray-300 mb-4">{{ alert.description|linebreaksbr }}</p>
+        <p class="text-sm text-gray-700 dark:text-gray-300">Member: <a href="{% url 'admin_v2_user_login_security' alert.user.user_id %}" class="text-primary-600 dark:text-primary-400 hover:underline">{{ alert.user.get_display_name }}</a></p>
+        {% if alert.resolution_notes %}<p class="text-sm text-gray-700 dark:text-gray-300 mt-2">Resolution: {{ alert.resolution_notes }}</p>{% endif %}
+        <a href="{% url 'admin_v2_security_alerts' %}" class="inline-block mt-4 text-primary-600 dark:text-primary-400 hover:underline">← Security alerts</a>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block console_js %}<script src="{% static_v 'js/admin_v2/security_alerts.js' %}"></script>{% endblock %}

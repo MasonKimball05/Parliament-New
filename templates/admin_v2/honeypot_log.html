@@ -1,0 +1,36 @@
+{% extends "admin_v2/base.html" %}
+{% comment %}
+One honeypot hit, full page (admin_v2_honeypot_log; admins only). The console
+Honeypot list opens the same view as a slide-out panel with ?panel=1. New with
+the console; with the console look off it shows the details in a plain card.
+{% endcomment %}
+{% load static_version admin_v2_tags %}
+
+{% block title %}Honeypot hit - Admin{% endblock %}
+{% block console_crumb %}{{ log.endpoint }}{% endblock %}
+
+{% block admin_content %}
+{% if admin_console_ui %}
+<section class="ac-card ac-sec-detail">
+    <div class="ac-list-head">
+        <div class="ac-list-title">
+            <h1>{{ log.endpoint }}</h1>
+            <p>{{ log.request_method }} · {{ log.accessed_at|date:"M d, Y H:i:s" }}</p>
+        </div>
+        <div class="ac-list-tools">{% include "admin_v2/console/_honeypot_log_actions.html" %}</div>
+    </div>
+    <div class="ac-sec-detail-body">{% include "admin_v2/console/_honeypot_log_body.html" %}</div>
+</section>
+{% else %}
+<div class="container mx-auto px-4 py-8">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
+        <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-1 break-all">{{ log.endpoint }}</h1>
+        <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">{{ log.request_method }} · {{ log.accessed_at|date:"M d, Y H:i:s" }} · {{ log.ip_address|default:"unknown IP" }} · {{ log.get_action_taken_display }}</p>
+        <p class="text-sm text-gray-700 dark:text-gray-300 break-all">{{ log.user_agent|default:"No user agent" }}</p>
+        <a href="{% url 'admin_v2_honeypot_logs' %}" class="inline-block mt-4 text-primary-600 dark:text-primary-400 hover:underline">← Honeypot logs</a>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block console_js %}<script src="{% static_v 'js/admin_v2/security_honeypot.js' %}"></script>{% endblock %}

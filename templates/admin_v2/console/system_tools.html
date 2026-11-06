@@ -1,0 +1,134 @@
+{% extends "admin_v2/base.html" %}
+{% comment %}
+System tools in the console look (admin_v2_system when `admin_console_ui` is
+on; the classic page is admin_v2/system_tools.html). Same view and the same
+flow: the "Clear…" / "Run now…" links open the confirm card at the top
+(?confirm=…), and only its POST (confirm=yes) acts. No script.
+{% endcomment %}
+{% load admin_v2_tags %}
+
+{% block title %}System tools - Admin{% endblock %}
+
+{% block admin_content %}
+<div class="ac-op-head">
+    <div>
+        <h1 class="ac-h1">System tools</h1>
+        <p class="ac-muted ac-small">Clear part of the cache, run a scheduled job now, and see recent server errors and slow pages. Every action is recorded in Admin activity.</p>
+    </div>
+    <div class="ac-list-tools">
+        <a href="{{ request.get_full_path }}" class="ac-btn ac-btn-icon" aria-label="Refresh" title="Refresh">{% console_icon "refresh" %}</a>
+        <a href="{% url 'admin_v2_celery_health' %}" class="ac-btn">{% console_icon "clock" %}Scheduled jobs</a>
+        <a href="{% url 'view_logs' %}" class="ac-btn">{% console_icon "terminal" %}System logs</a>
+    </div>
+</div>
+
+<div class="ac-op">
+{% if confirm %}
+<section class="ac-card ac-op-confirm" aria-labelledby="confirm-title">
+    {% if confirm.kind == 'cache' %}
+    <h2 id="confirm-title">Clear "{{ confirm.label }}"?</h2>
+    <p>{{ confirm.help }} Nobody is signed out and no lockout is reset.</p>
+    <form method="post" action="{% url 'admin_v2_system_clear_cache' %}" class="ac-op-actions">
+        {% csrf_token %}
+        <input type="hidden" name="scope" value="{{ confirm.scope }}">
+        <input type="hidden" name="confirm" value="yes">
+        <button type="submit" class="ac-btn ac-btn-primary">Clear it</button>
+        <a href="{% url 'admin_v2_system' %}#cache" class="ac-btn">Cancel</a>
+    </form>
+    {% else %}
+    <h2 id="confirm-title">Run "{{ confirm.task.name }}" now?</h2>
+    <p>Queues <code class="ac-op-code">{{ confirm.task.task }}</code> once, in addition to its schedule. Anything it sends (emails, pushes) goes out the same as on a scheduled run.</p>
+    <form method="post" action="{% url 'admin_v2_system_run_job' %}" class="ac-op-actions">
+        {% csrf_token %}
+        <input type="hidden" name="task" value="{{ confirm.task.pk }}">
+        <input type="hidden" name="confirm" value="yes">
+        <button type="submit" class="ac-btn ac-btn-primary">Run it now</button>
+        <a href="{% url 'admin_v2_system' %}#jobs" class="ac-btn">Cancel</a>
+    </form>
+    {% endif %}
+</section>
+{% endif %}
+
+<div class="ac-op-grid">
+    <section id="cache" class="ac-card ac-widget" aria-labelledby="st-cache">
+        <header class="ac-widget-head"><h2 id="st-cache">Clear cache</h2></header>
+        <ul class="ac-rows">
+            {% for key, label, help in scopes %}
+            <li class="ac-rows-split">
+                <div><p><strong>{{ label }}</strong></p><p class="ac-muted ac-small">{{ help }}</p></div>
+                <a href="?confirm=cache&amp;scope={{ key }}" class="ac-btn ac-btn-sm">Clear…</a>
+            </li>
+            {% endfor %}
+        </ul>
+        <details class="ac-op-details">
+            <summary>Not offered here, and why</summary>
+            <ul>
+                {% for label, why in not_offered %}<li><strong>{{ label }}:</strong> {{ why }}</li>{% endfor %}
+            </ul>
+        </details>
+    </section>
+
+    <section id="jobs" class="ac-card ac-widget" aria-labelledby="st-jobs">
+        <header class="ac-widget-head"><h2 id="st-jobs">Run a scheduled job now</h2><a href="{% url 'admin_v2_celery_health' %}" class="ac-link-sm">Scheduled jobs</a></header>
+        <p class="ac-muted ac-small">Queued for the Celery worker. Health and schedules are on <a href="{% url 'admin_v2_celery_health' %}" class="ac-link-sm">Scheduled jobs</a>.</p>
+        <ul class="ac-rows">
+            {% for row in job_rows %}
+            <li class="ac-rows-split">
+                <div>
+                    <p><strong>{{ row.task.name }}</strong>{% if row.status == 'overdue' %} <span class="ac-pill is-warn">overdue</span>{% endif %}</p>
+                    <p class="ac-muted ac-small ac-op-mono ac-break">{{ row.task.task }}</p>
+                    <p class="ac-muted ac-small">{% if row.task.last_run_at %}Last run {{ row.task.last_run_at|timesince }} ago{% else %}Never run{% endif %}</p>
+                    {% if row.refusal %}<p class="ac-muted ac-small ac-op-note">{{ row.refusal }}</p>{% endif %}
+                </div>
+                {% if not row.refusal %}<a href="?confirm=job&amp;task={{ row.task.pk }}" class="ac-btn ac-btn-sm">Run now…</a>{% endif %}
+            </li>
+            {% empty %}
+            <li class="ac-muted">No scheduled jobs registered. Run <code class="ac-op-code">python manage.py setup_celery_schedules</code> on the server.</li>
+            {% endfor %}
+        </ul>
+    </section>
+</div>
+
+<section id="errors" class="ac-card ac-widget" aria-labelledby="st-errors">
+    <header class="ac-widget-head"><h2 id="st-errors">Recent server errors</h2><a href="{% url 'view_logs' %}" class="ac-link-sm">System logs</a></header>
+    <p class="ac-muted ac-small">ERROR and CRITICAL lines from the end of {{ log_name|default:"the server log" }}, newest first. Passwords, tokens, cookies and token-like strings are hidden. The full log is on <a href="{% url 'view_logs' %}" class="ac-link-sm">System logs</a>.</p>
+    {% if errors_problem %}
+    <p>{{ errors_problem }}</p>
+    {% else %}
+    <ul class="ac-rows">
+        {% for e in errors %}
+        <li class="ac-rows-stack">
+            <p class="ac-break"><span class="ac-pill {% if e.level == 'CRITICAL' %}is-error{% else %}is-warn{% endif %}">{{ e.level }}</span> <span class="ac-muted ac-small">{{ e.timestamp }} · {{ e.logger }}</span></p>
+            <p class="ac-break">{{ e.message }}</p>
+            {% if e.trace %}
+            <details class="ac-op-details">
+                <summary>Traceback ({{ e.trace|length }} line{{ e.trace|length|pluralize }})</summary>
+                <pre class="ac-op-pre">{{ e.trace|join:"&#10;" }}</pre>
+            </details>
+            {% endif %}
+        </li>
+        {% empty %}
+        <li class="ac-muted">No errors in the recent log.</li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+</section>
+
+<section id="slow" class="ac-card" aria-labelledby="st-slow">
+    {% include "admin_v2/console/_list_header.html" with title="Slow pages" count=slow|length heading="h2" refresh=False %}
+    <p class="ac-muted ac-small ac-op-intro">Requests over {{ slow_ms }} ms still in the timing buffer (about the last day; every slow request is kept, other requests are sampled 1 in {{ perf.sample_rate }}). {{ perf.total_requests }} request(s) counted; average {{ perf.avg_response_time_ms }} ms over the last hour's samples (an estimate, biased up).</p>
+    <div class="ac-table-wrap">
+        <table class="ac-table">
+            <thead><tr><th>Page</th><th>Time</th><th>Queries</th><th>DB time</th><th>When</th></tr></thead>
+            <tbody>
+                {% for r in slow %}
+                <tr><td class="ac-op-mono ac-break">{{ r.path }}</td><td class="ac-nowrap">{{ r.ms }} ms</td><td>{{ r.queries }}</td><td class="ac-nowrap">{{ r.db_ms }} ms</td><td class="ac-nowrap">{{ r.when|timesince }} ago</td></tr>
+                {% empty %}
+                <tr><td colspan="5" class="ac-empty">No slow requests in the buffer.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+</div>
+{% endblock %}

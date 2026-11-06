@@ -1,0 +1,18 @@
+{% extends "admin_v2/console/panel.html" %}
+{% comment %}
+One announcement email send as a slide-out panel (?panel=1 on
+admin_v2_email_log_detail; same view and gate as the full page). The body is
+_email_log_body.html, shared with console/email_log_detail.html.
+{% endcomment %}
+{% block panel_title %}{{ log.announcement.title }}{% endblock %}
+{% block panel_subtitle %}Sent by {{ log.initiated_by.name|default:"System" }} · {{ log.created_at|date:"M j, g:i A" }}{% endblock %}
+
+{% block panel_tabs %}
+<div class="ac-tabs" role="tablist" aria-label="Email send details">
+    <button type="button" role="tab" id="el-tab-delivery" aria-controls="el-delivery" aria-selected="true" data-ac-tab="delivery">Delivery</button>
+    <button type="button" role="tab" id="el-tab-recipients" aria-controls="el-recipients" aria-selected="false" tabindex="-1" data-ac-tab="recipients">Recipients</button>
+    <button type="button" role="tab" id="el-tab-console" aria-controls="el-console" aria-selected="false" tabindex="-1" data-ac-tab="console">Console</button>
+</div>
+{% endblock %}
+
+{% block panel_body %}{% include "admin_v2/console/_email_log_body.html" with tabs=True %}{% endblock %}

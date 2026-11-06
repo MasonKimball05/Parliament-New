@@ -1,0 +1,19 @@
+{% extends "admin_v2/console/panel.html" %}
+{% comment %}
+One security alert in the slide-out panel (security_alert_detail with
+?panel=1). Dismiss is a .js-dismiss-alert button, run by the list page's
+security_alerts.js (panel fragments don't run scripts).
+{% endcomment %}
+{% block panel_title %}{{ alert.title }}{% endblock %}
+{% block panel_subtitle %}{{ alert.get_alert_type_display }} · {{ alert.created_at|timesince }} ago{% endblock %}
+{% block panel_actions %}
+<a href="{% url 'admin_v2_user_login_security' alert.user.user_id %}" class="ac-btn">Investigate</a>
+{% if alert.status == 'new' %}<button type="button" class="ac-btn js-dismiss-alert" data-alert-id="{{ alert.id }}" data-url="{% url 'admin_v2_dismiss_alert' alert.id %}">Dismiss</button>{% endif %}
+{% endblock %}
+{% block panel_tabs %}
+<div class="ac-tabs" role="tablist" aria-label="Alert details">
+    <button type="button" role="tab" id="sa-tab-overview" aria-controls="sa-overview" aria-selected="true" data-ac-tab="overview">Overview</button>
+    <button type="button" role="tab" id="sa-tab-signin" aria-controls="sa-signin" aria-selected="false" tabindex="-1" data-ac-tab="signin">Sign-in</button>
+</div>
+{% endblock %}
+{% block panel_body %}{% include "admin_v2/console/_security_alert_body.html" with tabs=True %}{% endblock %}

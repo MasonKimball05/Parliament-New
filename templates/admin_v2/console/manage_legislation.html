@@ -1,0 +1,70 @@
+{% extends "admin_v2/base.html" %}
+{% comment %}
+Legislation in the console look (admin_v2_manage_legislation when
+`admin_console_ui` is on; classic: admin_v2/manage_legislation.html). Same
+filters (`search`, `status`), 25-row pages, View link (new tab) and per-row
+Delete POST form (data-confirm), plus Actions ▾ "Delete selected" for the
+ticked rows (src/view/admin_v2_messaging.py).
+{% endcomment %}
+{% load admin_v2_tags %}
+
+{% block title %}Legislation - Admin{% endblock %}
+
+{% block admin_content %}
+<section class="ac-card">
+    {% include "admin_v2/console/_list_header.html" with title="Legislation" count=legislation.paginator.count actions=bulk_actions %}
+
+    <form method="get" class="ac-filterbar" role="search" aria-label="Filter legislation">
+        <label class="ac-field ac-field-grow">
+            <span class="ac-sr">Search</span>
+            {% console_icon "filter" %}
+            <input type="search" name="search" value="{{ search_query }}" placeholder="Filter by title or author" class="ac-input">
+        </label>
+        <label class="ac-field"><span class="ac-field-label">Status</span>
+            <select name="status" class="ac-select" data-autosubmit>
+                <option value="">All statuses</option>
+                {% for status in status_choices %}<option value="{{ status }}"{% if status_filter == status %} selected{% endif %}>{{ status|title }}</option>{% endfor %}
+            </select>
+        </label>
+        <button type="submit" class="ac-btn">Apply</button>
+        {% if search_query or status_filter %}<a href="{% url 'admin_v2_manage_legislation' %}" class="ac-btn ac-btn-ghost">Clear</a>{% endif %}
+    </form>
+
+    <div class="ac-table-wrap">
+        <table class="ac-table" id="ac-list" data-ac-select>
+            <thead>
+                <tr>
+                    <th class="ac-col-check"><input type="checkbox" data-ac-select-all aria-label="Select all legislation on this page"></th>
+                    <th>Title</th>
+                    <th>Posted by</th>
+                    <th>Status</th>
+                    <th>Created</th>
+                    <th><span class="ac-sr">Actions</span></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for leg in legislation %}
+                <tr data-ac-row>
+                    <td class="ac-col-check"><input type="checkbox" value="{{ leg.id }}" data-ac-row-select aria-label="Select {{ leg.title }}"></td>
+                    <td><a href="{% url 'legislation_detail' leg.id %}" class="ac-row-link ac-break" target="_blank" rel="noopener">{{ leg.title }}</a></td>
+                    <td>{{ leg.posted_by.get_display_name }}</td>
+                    <td><span class="ac-pill {% if leg.status == 'passed' %}is-ok{% elif leg.status == 'draft' %}is-warn{% elif leg.status == 'removed' %}is-error{% else %}is-muted{% endif %}">{{ leg.status|title }}</span></td>
+                    <td class="ac-nowrap">{{ leg.created_at|date:"M d, Y" }}</td>
+                    <td class="ac-msg-actions">
+                        <a href="{% url 'legislation_detail' leg.id %}" class="ac-btn ac-btn-sm" target="_blank" rel="noopener">View</a>
+                        <form method="post" action="{% url 'admin_v2_delete_legislation' leg.id %}"
+                              data-confirm="Are you sure you want to delete this legislation? This cannot be undone.">
+                            {% csrf_token %}
+                            <button type="submit" class="ac-btn ac-btn-sm ac-btn-danger-text">Delete</button>
+                        </form>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="6" class="ac-empty">No legislation found.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% include "admin_v2/console/_pagination.html" with page=legislation %}
+</section>
+{% endblock %}

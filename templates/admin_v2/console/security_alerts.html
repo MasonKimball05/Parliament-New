@@ -1,0 +1,115 @@
+{% extends "admin_v2/base.html" %}
+{% comment %}
+Security alerts in the console look (admin_v2_security_alerts when
+`admin_console_ui` is on; the classic page is admin_v2/security_alerts.html).
+Same filters and the latest 100. Each alert opens in the slide-out panel
+(security_alert_detail, ?panel=1) with its details, Investigate and Dismiss.
+Actions ▾ dismisses the ticked alerts (dismiss_alerts_bulk); "Dismiss all new"
+keeps the old page's hook (#dismiss-all-btn, admin_v2_dismiss_all_alerts).
+Dismiss buttons (.js-dismiss-alert) work in the list and in the panel:
+security_alerts.js, delegated.
+{% endcomment %}
+{% load static_version admin_v2_tags %}
+
+{% block title %}Security alerts - Admin{% endblock %}
+
+{% block admin_content %}
+<ul class="ac-sec-stats" aria-label="Alert totals">
+    <li><a href="{% url 'admin_v2_security_alerts' %}"><span class="ac-stat-n">{{ stats.total_alerts }}</span><span class="ac-stat-l">Total</span></a></li>
+    <li><a href="?status=new" class="is-accent"><span class="ac-stat-n">{{ stats.new_alerts }}</span><span class="ac-stat-l">New</span></a></li>
+    <li><a href="?status=investigating" class="is-warn"><span class="ac-stat-n">{{ stats.investigating }}</span><span class="ac-stat-l">Investigating</span></a></li>
+    <li><a href="?severity=critical&amp;status=new" class="is-alarm"><span class="ac-stat-n">{{ stats.critical_alerts }}</span><span class="ac-stat-l">Critical, new</span></a></li>
+    <li><a href="?severity=high&amp;status=new" class="is-alarm"><span class="ac-stat-n">{{ stats.high_alerts }}</span><span class="ac-stat-l">High, new</span></a></li>
+</ul>
+
+<section class="ac-card">
+    <div class="ac-list-head">
+        <div class="ac-list-title">
+            <h1>Security alerts <span class="ac-count">({{ alerts|length }})</span></h1>
+            <p>Suspicious sign-in activity across all members · latest 100</p>
+        </div>
+        <div class="ac-list-tools">
+            <a href="{{ request.get_full_path }}" class="ac-btn ac-btn-icon" aria-label="Refresh" title="Refresh">{% console_icon "refresh" %}</a>
+            {% if stats.new_alerts %}
+            <button type="button" id="dismiss-all-btn" class="ac-btn" data-url="{% url 'admin_v2_dismiss_all_alerts' %}">Dismiss all new ({{ stats.new_alerts }})</button>
+            {% endif %}
+            <div class="ac-dropdown" data-ac-bulk="ac-list" data-ac-bulk-field="ids">
+                <button type="button" class="ac-btn" data-ac-menu data-ac-bulk-button aria-haspopup="true" aria-expanded="false" disabled title="Tick rows to act on them">
+                    Actions<span class="ac-bulk-count" data-ac-bulk-count></span>{% console_icon "chevron-down" "ac-icon-sm" %}
+                </button>
+                <div class="ac-menu ac-menu-right hidden">
+                    {% for a in bulk_actions %}
+                    <form method="post" action="{{ a.url }}" data-ac-bulk-form{% if a.confirm %} data-confirm="{{ a.confirm }}"{% endif %}>
+                        {% csrf_token %}
+                        <button type="submit" class="ac-menu-item{% if a.danger %} is-danger{% endif %}">{{ a.label }}</button>
+                    </form>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <form method="get" class="ac-filterbar" aria-label="Filter alerts">
+        <label class="ac-field"><span class="ac-field-label">Status</span>
+            <select name="status" class="ac-select" data-autosubmit>
+                <option value="">All</option>
+                <option value="new"{% if status_filter == 'new' %} selected{% endif %}>New</option>
+                <option value="investigating"{% if status_filter == 'investigating' %} selected{% endif %}>Investigating</option>
+                <option value="resolved"{% if status_filter == 'resolved' %} selected{% endif %}>Resolved</option>
+                <option value="false_positive"{% if status_filter == 'false_positive' %} selected{% endif %}>False positive</option>
+            </select>
+        </label>
+        <label class="ac-field"><span class="ac-field-label">Severity</span>
+            <select name="severity" class="ac-select" data-autosubmit>
+                <option value="">All</option>
+                <option value="critical"{% if severity_filter == 'critical' %} selected{% endif %}>Critical</option>
+                <option value="high"{% if severity_filter == 'high' %} selected{% endif %}>High</option>
+                <option value="medium"{% if severity_filter == 'medium' %} selected{% endif %}>Medium</option>
+                <option value="low"{% if severity_filter == 'low' %} selected{% endif %}>Low</option>
+            </select>
+        </label>
+        <button type="submit" class="ac-btn">Apply</button>
+        {% if status_filter or severity_filter %}<a href="{% url 'admin_v2_security_alerts' %}" class="ac-btn ac-btn-ghost">Clear</a>{% endif %}
+    </form>
+
+    <div class="ac-table-wrap">
+        <table class="ac-table ac-sec-subs" id="ac-list" data-ac-select>
+            <thead>
+                <tr>
+                    <th class="ac-col-check"><input type="checkbox" data-ac-select-all aria-label="Select every alert on this page"></th>
+                    <th>Alert</th>
+                    <th>Severity</th>
+                    <th>Status</th>
+                    <th class="ac-sec-hide-panel">Member</th>
+                    <th>Created</th>
+                    <th><span class="ac-sr">Actions</span></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for alert in alerts %}
+                <tr data-ac-row data-alert-row="{{ alert.id }}">
+                    <td class="ac-col-check"><input type="checkbox" value="{{ alert.id }}" data-ac-row-select aria-label="Select {{ alert.title }}"></td>
+                    <td>
+                        <a href="{% url 'admin_v2_security_alert' alert.id %}" class="ac-row-link" data-ac-panel>{{ alert.title }}</a>
+                        <span class="ac-sub">{{ alert.get_alert_type_display }}{% if alert.reviewed_by %} · reviewed by {{ alert.reviewed_by.get_display_name }}{% endif %}</span>
+                    </td>
+                    <td>{% include "admin_v2/console/_security_severity.html" with severity=alert.severity label=alert.get_severity_display %}</td>
+                    <td><span class="ac-pill {% if alert.status == 'new' %}is-error{% elif alert.status == 'investigating' %}is-warn{% else %}is-ok{% endif %}" data-alert-status>{{ alert.get_status_display }}</span></td>
+                    <td class="ac-sec-hide-panel"><a href="{% url 'admin_v2_user_login_security' alert.user.user_id %}">{{ alert.user.get_display_name }}</a></td>
+                    <td class="ac-nowrap"><span title="{{ alert.created_at|date:'M d, Y h:i A' }}">{{ alert.created_at|timesince }} ago</span></td>
+                    <td class="ac-sec-actions">
+                        {% if alert.status == 'new' %}
+                        <button type="button" class="ac-btn ac-btn-sm js-dismiss-alert" data-alert-id="{{ alert.id }}" data-url="{% url 'admin_v2_dismiss_alert' alert.id %}">Dismiss</button>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="7" class="ac-empty">No security alerts found.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endblock %}
+
+{% block console_js %}<script src="{% static_v 'js/admin_v2/security_alerts.js' %}"></script>{% endblock %}

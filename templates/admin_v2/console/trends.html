@@ -1,0 +1,60 @@
+{% extends "admin_v2/base.html" %}
+{% comment %}
+Trends in the console look (admin_v2_trends when `admin_console_ui` is on; the
+classic page is admin_v2/trends.html with Chart.js). The same three weekly
+series, drawn server-side as SVG bars (`charts` from console_charts in
+src/view/admin_v2_trends.py) in the console's royal blue: no script, and the
+colors follow the light and dark tokens. The numbers are in the table below.
+{% endcomment %}
+{% load admin_v2_tags %}
+
+{% block title %}Trends - Admin{% endblock %}
+
+{% block admin_content %}
+<div class="ac-op-head">
+    <div>
+        <h1 class="ac-h1">Trends</h1>
+        <p class="ac-muted ac-small">Week by week, the last 12 weeks (weeks start Monday).</p>
+    </div>
+    <div class="ac-list-tools">
+        <a href="{{ request.get_full_path }}" class="ac-btn ac-btn-icon" aria-label="Refresh" title="Refresh">{% console_icon "refresh" %}</a>
+        <a href="{% url 'admin_v2_health' %}" class="ac-btn">{% console_icon "heart" %}Chapter health</a>
+    </div>
+</div>
+
+<div class="ac-op">
+    <div class="ac-op-grid is-3">
+        {% for s in charts %}
+        <figure class="ac-card ac-widget ac-op-figure" data-trend="{{ s.id }}">
+            <figcaption class="ac-widget-head">
+                <h2>{{ s.title }}</h2>
+                <span class="ac-muted ac-small">12 weeks: {{ s.total }}</span>
+            </figcaption>
+            <p class="ac-op-latest"><span class="ac-stat-n">{{ s.latest }}</span> <span class="ac-muted ac-small">this week</span></p>
+            <svg class="ac-chart ac-op-chart" viewBox="0 0 300 120" role="img" aria-labelledby="tr-{{ s.id }}-desc">
+                <desc id="tr-{{ s.id }}-desc">{{ s.title }}, weekly, last 12 weeks; the most in one week was {{ s.top }}. Exact numbers in the table below.</desc>
+                <line x1="0" y1="14.5" x2="300" y2="14.5" class="ac-op-grid-line"/>
+                <text x="0" y="10" class="ac-chart-label">{{ s.top }}</text>
+                <line x1="0" y1="104.5" x2="300" y2="104.5" class="ac-chart-axis"/>
+                {% for b in s.bars %}
+                {% if b.h %}<rect x="{{ b.x }}" y="{{ b.y }}" width="{{ b.w }}" height="{{ b.h }}" rx="2" class="ac-chart-bar"><title>Week of {{ b.label }}: {{ b.value }} {{ s.unit }}</title></rect>{% endif %}
+                {% if b.show_label %}<text x="{{ b.tx }}" y="117" text-anchor="middle" class="ac-chart-label">{{ b.label }}</text>{% endif %}
+                {% endfor %}
+            </svg>
+        </figure>
+        {% endfor %}
+    </div>
+
+    <section class="ac-card" aria-labelledby="tr-numbers">
+        <div class="ac-list-head"><div class="ac-list-title"><h2 id="tr-numbers">The numbers</h2><p>One row per week, oldest first.</p></div></div>
+        <div class="ac-table-wrap">
+            <table class="ac-table">
+                <thead><tr><th>Week of</th>{% for s in data.series %}<th class="ac-op-num">{{ s.title }}</th>{% endfor %}</tr></thead>
+                <tbody>
+                    {% for row in rows %}<tr>{% for cell in row %}<td{% if not forloop.first %} class="ac-op-num"{% endif %}>{{ cell }}</td>{% endfor %}</tr>{% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+</div>
+{% endblock %}

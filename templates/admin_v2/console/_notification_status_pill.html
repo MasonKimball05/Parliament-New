@@ -1,0 +1,1 @@
+{% comment %}A NotificationLog's status as a console pill (`log`).{% endcomment %}<span class="ac-pill {% if log.status == 'sent' %}is-ok{% elif log.status == 'failed' %}is-error{% elif log.status == 'pending' %}is-warn{% else %}is-muted{% endif %}">{{ log.get_status_display }}</span>

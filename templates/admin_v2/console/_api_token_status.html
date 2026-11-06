@@ -1,0 +1,1 @@
+{% if token.status == 'pending' %}<span class="ac-pill is-warn">Pending</span>{% elif token.status == 'active' %}<span class="ac-pill is-ok">Active</span>{% elif token.status == 'revoked' %}<span class="ac-pill is-error">Revoked</span>{% elif token.status == 'rejected' %}<span class="ac-pill is-muted">Rejected</span>{% endif %}

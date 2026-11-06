@@ -1,0 +1,76 @@
+{% extends "admin_v2/base.html" %}
+{% comment %}
+Backups in the console look (admin_v2_backups when `admin_console_ui` is on;
+the classic page is admin_v2/backups.html). Same view and data
+(backups_overview). Read-only: backups run from the server's timers.
+{% endcomment %}
+{% load admin_v2_tags %}
+
+{% block title %}Backups - Admin{% endblock %}
+
+{% block admin_content %}
+<div class="ac-op-head">
+    <div>
+        <h1 class="ac-h1">Backups</h1>
+        <p class="ac-muted ac-small">Nightly database backups and the restore drill that proves they work. Backups run from the server's timers, not from here.</p>
+    </div>
+    <div class="ac-list-tools">
+        <a href="{{ request.get_full_path }}" class="ac-btn ac-btn-icon" aria-label="Refresh" title="Refresh">{% console_icon "refresh" %}</a>
+    </div>
+</div>
+
+<div class="ac-op">
+    {% if failing %}
+    <div class="ac-banner is-alarm ac-op-banner" role="alert">
+        {% console_icon "alert" %}
+        <div>
+            <p><strong>The last restore drill failed ({{ last_fail.sent_at|date:"M j, g:i A" }}).</strong></p>
+            <p class="ac-break ac-small">{{ last_fail.details|truncatechars:400 }}</p>
+        </div>
+    </div>
+    {% elif stale %}
+    <div class="ac-banner is-warn ac-op-banner" role="alert">
+        {% console_icon "alert" %}
+        <p>The newest backup is {{ newest.modified|timesince }} old. The backup timer may have stopped.</p>
+    </div>
+    {% endif %}
+
+    <ul class="ac-op-stats" aria-label="Backup status">
+        <li class="ac-card"><span class="ac-stat-n">{% if newest %}{{ newest.modified|timesince }} ago{% else %}—{% endif %}</span><span class="ac-stat-l">Newest backup</span></li>
+        <li class="ac-card{% if last_ok %} is-ok{% endif %}"><span class="ac-stat-n">{% if last_ok %}{{ last_ok.sent_at|timesince }} ago{% else %}Never{% endif %}</span><span class="ac-stat-l">Last good restore drill</span></li>
+        <li class="ac-card"><span class="ac-stat-n">{{ file_count }}</span><span class="ac-stat-l">Backups kept</span></li>
+    </ul>
+
+    <div class="ac-op-grid">
+        <section class="ac-card ac-widget" aria-labelledby="bk-folder">
+            <header class="ac-widget-head"><h2 id="bk-folder">Backup folder</h2></header>
+            <p class="ac-muted ac-small ac-op-mono ac-break">{{ directory }}</p>
+            {% if error %}
+            <p>{{ error }} The restore drill results on the right still show whether backups are healthy.</p>
+            {% else %}
+            <ul class="ac-rows">
+                {% for f in files %}
+                <li class="ac-rows-split"><span class="ac-op-truncate">{% console_icon "database" "ac-icon-sm" %}{{ f.name }}</span><span class="ac-muted ac-small ac-nowrap">{{ f.size|filesizeformat }} · {{ f.modified|date:"M j" }}</span></li>
+                {% empty %}
+                <li class="ac-muted">No backups in this folder.</li>
+                {% endfor %}
+            </ul>
+            {% endif %}
+        </section>
+
+        <section class="ac-card ac-widget" aria-labelledby="bk-drills">
+            <header class="ac-widget-head"><h2 id="bk-drills">Restore drills</h2></header>
+            <ul class="ac-rows">
+                {% for d in drills %}
+                <li class="ac-rows-stack">
+                    <p>{% if d.event_type == 'BACKUP_VERIFIED' %}<span class="ac-pill is-ok">Restored OK</span>{% else %}<span class="ac-pill is-error">Failed</span>{% endif %} <span class="ac-muted ac-small">{{ d.sent_at|date:"M j, g:i A" }}</span></p>
+                    <p class="ac-muted ac-small ac-break">{{ d.details|truncatechars:200 }}</p>
+                </li>
+                {% empty %}
+                <li class="ac-muted">No drill has run yet. Install <code class="ac-op-code">parliament-backup-verify.timer</code>, or run <code class="ac-op-code">python manage.py verify_backup</code> on the server.</li>
+                {% endfor %}
+            </ul>
+        </section>
+    </div>
+</div>
+{% endblock %}

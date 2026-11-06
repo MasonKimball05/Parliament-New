@@ -1,0 +1,110 @@
+{% extends "admin_v2/base.html" %}
+{% comment %}
+Quarantine in the console look (admin_v2_quarantine when `admin_console_ui`
+is on; the classic page is admin_v2/quarantine_management.html). Same POST
+forms to the page: action = quarantine_user (user_id, ip_address, reason,
+expires_at) and action = release (quarantine_id, release_notes). Members'
+names open them in the slide-out panel.
+{% endcomment %}
+{% load admin_v2_tags %}
+
+{% block title %}Quarantine - Admin{% endblock %}
+
+{% block admin_content %}
+<section class="ac-card">
+    <div class="ac-list-head">
+        <div class="ac-list-title">
+            <h1>Quarantined accounts <span class="ac-count">({{ active_quarantines|length }})</span></h1>
+            <p>Accounts locked for suspicious activity</p>
+        </div>
+        <div class="ac-list-tools">
+            <a href="{{ request.get_full_path }}" class="ac-btn ac-btn-icon" aria-label="Refresh" title="Refresh">{% console_icon "refresh" %}</a>
+            <a href="#qa-new" class="ac-btn ac-btn-primary">Quarantine a member</a>
+        </div>
+    </div>
+    <div class="ac-table-wrap">
+        <table class="ac-table ac-sec-subs" id="ac-list">
+            <thead>
+                <tr>
+                    <th>Member</th>
+                    <th>Type</th>
+                    <th>IP address</th>
+                    <th>Reason</th>
+                    <th>Quarantined</th>
+                    <th>Release</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for q in active_quarantines %}
+                <tr data-ac-row>
+                    <td>
+                        <a href="{% url 'admin_v2_member' q.user.user_id %}" class="ac-row-link" data-ac-panel>{{ q.user.name }}</a>
+                        <span class="ac-sub">{{ q.user.username }} · by {% if q.quarantined_by %}{{ q.quarantined_by.name }}{% else %}System (auto){% endif %}</span>
+                    </td>
+                    <td>{% if q.is_auto %}<span class="ac-pill is-warn">Auto</span>{% else %}<span class="ac-pill is-error">Manual</span>{% endif %}</td>
+                    <td><code class="ac-sec-code">{{ q.ip_address|default:"—" }}</code></td>
+                    <td class="ac-sec-wrap">{{ q.reason }}</td>
+                    <td class="ac-nowrap">{{ q.quarantined_at|date:"M d, Y H:i" }}{% if q.expires_at %}<span class="ac-sub">auto-releases in {{ q.expires_at|timeuntil }}</span>{% endif %}</td>
+                    <td>
+                        <form method="post" class="ac-sec-inline-form" aria-label="Release {{ q.user.name }}">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="release">
+                            <input type="hidden" name="quarantine_id" value="{{ q.id }}">
+                            <label><span class="ac-sr">Release notes for {{ q.user.name }}</span>
+                                <input type="text" name="release_notes" placeholder="Notes (optional)" class="ac-input"></label>
+                            <button type="submit" class="ac-btn ac-btn-sm">Release</button>
+                        </form>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="6" class="ac-empty">No accounts are quarantined.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<section class="ac-card ac-widget" id="qa-new" aria-labelledby="qa-new-title">
+    <header class="ac-widget-head"><h2 id="qa-new-title">Quarantine a member</h2></header>
+    <form method="post" class="ac-sec-form ac-sec-form-grid">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="quarantine_user">
+        <label class="ac-field"><span class="ac-field-label">Member</span>
+            <select name="user_id" required class="ac-select">
+                <option value="">Select a member</option>
+                {% for user in selectable_users %}
+                <option value="{{ user.user_id }}">{{ user.name }} ({{ user.username }}){% if user.member_status != 'Active' %} — {{ user.member_status }}{% endif %}</option>
+                {% endfor %}
+            </select></label>
+        <label class="ac-field"><span class="ac-field-label">IP address</span>
+            <input type="text" name="ip_address" placeholder="0.0.0.0" class="ac-input"></label>
+        <label class="ac-field ac-sec-span2"><span class="ac-field-label">Reason</span>
+            <textarea name="reason" rows="2" required placeholder="Explain why this account is being quarantined..." class="ac-input ac-sec-textarea"></textarea></label>
+        <label class="ac-field"><span class="ac-field-label">Auto-release (optional)</span>
+            <input type="datetime-local" name="expires_at" class="ac-input"></label>
+        <div class="ac-sec-form-end"><button type="submit" class="ac-btn ac-sec-btn-danger">Quarantine member</button></div>
+    </form>
+</section>
+
+<section class="ac-card">
+    <div class="ac-list-head"><div class="ac-list-title"><h2>Recently released</h2></div></div>
+    <div class="ac-table-wrap">
+        <table class="ac-table ac-sec-subs">
+            <thead><tr><th>Member</th><th>Quarantined</th><th>Released</th><th>Released by</th><th>Reason</th></tr></thead>
+            <tbody>
+                {% for q in released_quarantines %}
+                <tr data-ac-row>
+                    <td><a href="{% url 'admin_v2_member' q.user.user_id %}" class="ac-row-link" data-ac-panel>{{ q.user.name }}</a></td>
+                    <td class="ac-nowrap">{{ q.quarantined_at|date:"M d, H:i" }}</td>
+                    <td class="ac-nowrap">{{ q.released_at|date:"M d, H:i" }}</td>
+                    <td>{% if q.released_by %}{{ q.released_by.name }}{% else %}System{% endif %}</td>
+                    <td>{{ q.reason|truncatechars:50 }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="5" class="ac-empty">No quarantine history.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endblock %}

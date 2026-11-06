@@ -1,0 +1,115 @@
+{% extends "admin_v2/base.html" %}
+{% comment %}
+Page visits in the console look (admin_v2_page_visits when `admin_console_ui`
+is on; the classic page is admin_v2/page_visits.html). Same view and data
+(page_visits_data) and the same GET parameters: sort, path (drill into one
+page), user, status.
+{% endcomment %}
+{% load admin_v2_tags %}
+
+{% block title %}Page Visits - Admin v2{% endblock %}
+{% block console_crumb %}{% if drill_path %}{{ drill_path }}{% endif %}{% endblock %}
+
+{% block admin_content %}
+{% if drill_path %}
+<section class="ac-card">
+    {% include "admin_v2/console/_list_header.html" with title="Visitors" count=rows|length subtitle="Per-user visit counts for "|add:drill_path %}
+    <form method="get" class="ac-filterbar" role="search" aria-label="Filter visitors">
+        <input type="hidden" name="path" value="{{ drill_path }}">
+        <input type="hidden" name="sort" value="{{ sort }}">
+        <label class="ac-field ac-field-grow"><span class="ac-sr">Member</span>{% console_icon "filter" %}
+            <input type="text" name="user" value="{{ user_filter }}" placeholder="Filter by name…" class="ac-input"></label>
+        <label class="ac-field"><span class="ac-field-label">Status</span>
+            <select name="status" class="ac-select" data-autosubmit>
+                <option value="">All statuses</option>
+                {% for s in status_choices %}
+                <option value="{{ s }}" {% if status_filter == s %}selected{% endif %}>{{ s }}</option>
+                {% endfor %}
+            </select></label>
+        <button type="submit" class="ac-btn">Filter</button>
+        {% if user_filter or status_filter %}<a href="?path={{ drill_path|urlencode }}&sort={{ sort }}" class="ac-btn ac-btn-ghost">Clear</a>{% endif %}
+        <a href="{% url 'admin_v2_page_visits' %}?sort={{ sort }}{% if user_filter %}&user={{ user_filter|urlencode }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}" class="ac-btn ac-op-push">{% console_icon "arrow-left" %}All pages</a>
+    </form>
+    <div class="ac-table-wrap">
+        <table class="ac-table" id="ac-list">
+            <thead><tr><th>Member</th><th>Role</th><th class="ac-op-num">Visits</th></tr></thead>
+            <tbody>
+                {% for row in rows %}
+                <tr>
+                    <td><strong>{{ row.user.get_display_name }}</strong></td>
+                    <td class="ac-muted">{{ row.user.member_type|default:"—" }}</td>
+                    <td class="ac-op-num ac-op-mono">{{ row.count }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="3" class="ac-empty">No visits recorded for this page yet.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+
+{% else %}
+<section class="ac-card">
+    {% if user_filter or status_filter %}
+    {% include "admin_v2/console/_list_header.html" with title="Page visits" count=pages|length subtitle="Visit counts for the matching members" %}
+    {% else %}
+    {% include "admin_v2/console/_list_header.html" with title="Page visits" count=pages|length subtitle="Aggregated visit counts across all tracked pages" %}
+    {% endif %}
+    <form method="get" class="ac-filterbar" role="search" aria-label="Filter page visits">
+        <input type="hidden" name="sort" value="{{ sort }}">
+        <label class="ac-field ac-field-grow"><span class="ac-sr">Member</span>{% console_icon "filter" %}
+            <input type="text" name="user" value="{{ user_filter }}" placeholder="Filter by member name or username…" class="ac-input"></label>
+        <label class="ac-field"><span class="ac-field-label">Status</span>
+            <select name="status" class="ac-select" data-autosubmit>
+                <option value="">All statuses</option>
+                {% for s in status_choices %}
+                <option value="{{ s }}" {% if status_filter == s %}selected{% endif %}>{{ s }}</option>
+                {% endfor %}
+            </select></label>
+        <button type="submit" class="ac-btn">Filter</button>
+        {% if user_filter or status_filter %}<a href="?sort={{ sort }}" class="ac-btn ac-btn-ghost">Clear</a>{% endif %}
+        <nav class="ac-op-seg ac-op-push" aria-label="Sort">
+            <a href="?sort=total{% if user_filter %}&user={{ user_filter|urlencode }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}"{% if sort == 'total' or not sort %} aria-current="true"{% endif %}>Sort by Total Visits</a>
+            <a href="?sort=users{% if user_filter %}&user={{ user_filter|urlencode }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}"{% if sort == 'users' %} aria-current="true"{% endif %}>Sort by Unique Users</a>
+        </nav>
+    </form>
+
+    {% if user_filter %}
+    <p class="ac-op-matched">
+        {% if matched_users %}
+        <span class="ac-muted">Showing visits by:</span>
+        {% for u in matched_users %}<span class="ac-pill is-accent">{{ u.get_display_name }}</span>{% endfor %}
+        {% if matched_users|length == 20 %}<span class="ac-muted ac-small">(first 20 shown)</span>{% endif %}
+        {% else %}
+        <span class="ac-text-warn">No members with recorded visits match &ldquo;{{ user_filter }}&rdquo;.</span>
+        {% endif %}
+    </p>
+    {% endif %}
+
+    <div class="ac-table-wrap">
+        <table class="ac-table" id="ac-list">
+            <thead>
+                <tr>
+                    <th>Page</th>
+                    <th class="ac-op-num"><a href="?sort=total{% if user_filter %}&user={{ user_filter|urlencode }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}"{% if sort == 'total' or not sort %} aria-current="true"{% endif %} class="ac-op-sort">Total Visits</a></th>
+                    <th class="ac-op-num"><a href="?sort=users{% if user_filter %}&user={{ user_filter|urlencode }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}"{% if sort == 'users' %} aria-current="true"{% endif %} class="ac-op-sort">Unique Users</a></th>
+                    <th class="ac-op-num">Drill Down</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for page in pages %}
+                <tr>
+                    <td class="ac-op-mono ac-break">{{ page.path }}</td>
+                    <td class="ac-op-num ac-op-mono"><strong>{{ page.total }}</strong></td>
+                    <td class="ac-op-num ac-op-mono">{{ page.unique_users }}</td>
+                    <td class="ac-op-num"><a href="?path={{ page.path|urlencode }}&sort={{ sort }}{% if user_filter %}&user={{ user_filter|urlencode }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}" class="ac-link-sm">Users →</a></td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="4" class="ac-empty">No page visit data yet. Visits are recorded automatically as members browse the site.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endif %}
+{% endblock %}

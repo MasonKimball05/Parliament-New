@@ -1,0 +1,93 @@
+{% extends "admin_v2/base.html" %}
+{% comment %}
+Notification schedules in the console look (admin_v2_notification_schedules
+when `admin_console_ui` is on; classic: admin_v2/notifications/schedules.html).
+Same JSON endpoints and field names: "New schedule" (the gold button, a link
+to #new-schedule) opens a <dialog> whose form posts JSON to
+admin_v2_create_notification_schedule; each row's Activate/Deactivate and
+Delete buttons post to their own URLs (data-toggle-url / data-delete-url,
+reversed here, not built in JS). Behaviour: static/js/admin_v2/notification_schedules.js.
+{% endcomment %}
+{% load static_version admin_v2_tags %}
+
+{% block title %}Notification schedules - Admin{% endblock %}
+{% block console_crumb %}Schedules{% endblock %}
+
+{% block admin_content %}
+<section class="ac-card">
+    {% include "admin_v2/console/_list_header.html" with title="Notification schedules" count=schedules|length subtitle="Automated notification triggers and reminders." primary_label="New schedule" primary_url="#new-schedule" %}
+
+    <div class="ac-table-wrap">
+        <table class="ac-table ac-msg-list" id="ac-list">
+            <thead>
+                <tr><th>Name</th><th>Type</th><th>Timing</th><th>Channels</th><th>Status</th><th><span class="ac-sr">Actions</span></th></tr>
+            </thead>
+            <tbody>
+                {% for schedule in schedules %}
+                <tr data-ac-row>
+                    <td>
+                        <span class="ac-msg-strong">{{ schedule.name }}</span>
+                        {% if schedule.description %}<span class="ac-sub">{{ schedule.description|truncatechars:50 }}</span>{% endif %}
+                    </td>
+                    <td><span class="ac-pill is-accent">{{ schedule.get_notification_type_display }}</span></td>
+                    <td>{{ schedule.hours_before }} hours before{% if schedule.send_at_time %}<span class="ac-sub">at {{ schedule.send_at_time }}</span>{% endif %}</td>
+                    <td><span class="ac-msg-pills">{% if schedule.send_email %}<span class="ac-pill is-muted">Email</span>{% endif %}{% if schedule.send_in_app %}<span class="ac-pill is-muted">In-app</span>{% endif %}</span></td>
+                    <td>{% if schedule.is_active %}<span class="ac-pill is-ok">Active</span>{% else %}<span class="ac-pill is-muted">Inactive</span>{% endif %}</td>
+                    <td class="ac-msg-actions">
+                        <button type="button" class="ac-btn ac-btn-sm js-toggle-schedule" data-schedule-id="{{ schedule.id }}"
+                                data-toggle-url="{% url 'admin_v2_toggle_notification_schedule' schedule.id %}">{% if schedule.is_active %}Deactivate{% else %}Activate{% endif %}</button>
+                        <button type="button" class="ac-btn ac-btn-sm ac-btn-danger-text js-delete-schedule" data-schedule-id="{{ schedule.id }}"
+                                data-schedule-name="{{ schedule.name }}" data-delete-url="{% url 'admin_v2_delete_notification_schedule' schedule.id %}">Delete</button>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="6" class="ac-empty">No schedules yet. Create one to automate reminders.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<dialog id="new-schedule" class="ac-dialog" aria-labelledby="modal-title">
+    <form id="schedule-form" class="ac-msg-form" data-create-url="{% url 'admin_v2_create_notification_schedule' %}" data-no-double-submit-protection>
+        {% csrf_token %}
+        <header class="ac-dialog-head">
+            <h2 id="modal-title">Create schedule</h2>
+            <button type="button" class="ac-btn ac-btn-icon js-close-modal" aria-label="Close">{% console_icon "x" %}</button>
+        </header>
+        <div class="ac-dialog-body">
+            <label class="ac-field"><span class="ac-field-label">Name *</span>
+                <input type="text" name="name" required class="ac-input"></label>
+            <label class="ac-field"><span class="ac-field-label">Type *</span>
+                <select name="notification_type" required class="ac-select">
+                    {% for value, label in notification_types %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
+                </select></label>
+            <label class="ac-field"><span class="ac-field-label">Description</span>
+                <textarea name="description" rows="2" class="ac-input"></textarea></label>
+            <div class="ac-msg-form-row">
+                <label class="ac-field"><span class="ac-field-label">Hours before</span>
+                    <input type="number" name="hours_before" value="24" min="1" class="ac-input"></label>
+                <label class="ac-field"><span class="ac-field-label">Target audience</span>
+                    <select name="target_audience" class="ac-select">
+                        {% for value, label in target_audiences %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
+                    </select></label>
+            </div>
+            <div class="ac-msg-checks">
+                <label class="ac-check"><input type="checkbox" name="send_email" checked> Send via email</label>
+                <label class="ac-check"><input type="checkbox" name="send_in_app" checked> Send in-app</label>
+            </div>
+            <label class="ac-field"><span class="ac-field-label">Message template *</span>
+                <textarea name="message_template" rows="4" required class="ac-input"
+                          placeholder="Use {event_name}, {event_date}, {event_time}, {event_location} as placeholders"></textarea>
+                <span class="ac-msg-hint">Placeholders: {event_name}, {event_date}, {event_time}, {event_location}</span></label>
+            <p class="ac-text-error ac-small" data-schedule-error role="alert" hidden></p>
+        </div>
+        <footer class="ac-dialog-foot">
+            <button type="button" class="ac-btn js-close-modal">Cancel</button>
+            <button type="submit" class="ac-btn ac-msg-btn-save">Save schedule</button>
+        </footer>
+    </form>
+</dialog>
+{% endblock %}
+
+{% block console_js %}<script src="{% static_v 'js/admin_v2/notification_schedules.js' %}"></script>{% endblock %}

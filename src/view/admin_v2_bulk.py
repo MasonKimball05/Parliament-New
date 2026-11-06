@@ -157,6 +157,7 @@ def _apply(request, rows, action, value):
 
 @require_admin_v2_auth
 def admin_v2_bulk_members(request):
+    from src.admin_console import console_enabled
     params = request.POST if request.method == 'POST' else request.GET
     filters = {k: params.get(k, '') for k in ('status', 'type', 'pledge_class', 'role', 'q')}
     roles = list(Role.objects.order_by('name'))
@@ -182,7 +183,8 @@ def admin_v2_bulk_members(request):
             skipped = sum(1 for r in rows if r['skip'])
             messages.success(request, f'Changed {done} member(s).' + (f' {skipped} skipped.' if skipped else ''))
             return redirect('admin_v2_bulk_members')
-        return render(request, 'admin_v2/bulk_members_confirm.html', {
+        return render(request, 'admin_v2/console/bulk_members_confirm.html' if console_enabled(request)
+                      else 'admin_v2/bulk_members_confirm.html', {
             'rows': rows, 'action': action, 'action_label': ACTIONS[action], 'value': value,
             'value_label': next((r.name for r in roles if str(r.pk) == value), value),
             'will_change': sum(1 for r in rows if not r['skip']), 'filters': filters,
@@ -191,7 +193,8 @@ def admin_v2_bulk_members(request):
     members = list(_filtered(filters)[:MAX_SELECTED])
     pledge_classes = (ParliamentUser.objects.exclude(pledge_class='')
                       .values_list('pledge_class', flat=True).distinct().order_by('-pledge_class'))
-    return render(request, 'admin_v2/bulk_members.html', {
+    return render(request, 'admin_v2/console/bulk_members.html' if console_enabled(request)
+                  else 'admin_v2/bulk_members.html', {
         'members': members, 'filters': filters, 'roles': roles, 'actions': ACTIONS,
         'statuses': [s for s, _ in ParliamentUser.MEMBER_STATUS],
         'types': [t for t, _ in ParliamentUser.MEMBER_TYPES],

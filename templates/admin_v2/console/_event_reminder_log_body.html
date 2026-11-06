@@ -1,0 +1,78 @@
+{% comment %}
+One event reminder dispatch (`log`, `dispatched`, `skipped`, `email_enabled`,
+`emails_viewed`, `emails_not_viewed`), shared by the slide-out panel
+(event_reminder_log_panel.html, `tabs=True`) and the console full page
+(event_reminder_log_detail.html). Ids are prefixed "er-".
+{% endcomment %}
+{% load admin_v2_tags %}
+<section {% if tabs %}role="tabpanel" id="er-summary" aria-labelledby="er-tab-summary" tabindex="0"{% else %}class="ac-msg-section" aria-labelledby="er-h-summary"{% endif %}>
+    {% if not tabs %}<h2 class="ac-blade-h3" id="er-h-summary">Summary</h2>{% endif %}
+    <div class="ac-msg-stats">
+        <div class="ac-stat"><span class="ac-stat-n">{{ log.users_eligible }}</span><span class="ac-stat-l">Eligible</span></div>
+        <div class="ac-stat"><span class="ac-stat-n">{{ log.users_subscribed }}</span><span class="ac-stat-l">Subscribed</span></div>
+        <div class="ac-stat"><span class="ac-stat-n ac-text-ok">{{ log.notifications_dispatched }}</span><span class="ac-stat-l">Push dispatched</span></div>
+        <div class="ac-stat"><span class="ac-stat-n">{{ log.users_opted_out }}</span><span class="ac-stat-l">Push opted out</span></div>
+    </div>
+    {% if email_enabled %}
+    <div class="ac-msg-stats">
+        <div class="ac-stat"><span class="ac-stat-n">{{ log.users_with_email }}</span><span class="ac-stat-l">With email</span></div>
+        <div class="ac-stat"><span class="ac-stat-n">{{ log.emails_dispatched }}</span><span class="ac-stat-l">Emails sent</span></div>
+        <div class="ac-stat"><span class="ac-stat-n">{{ log.users_email_opted_out }}</span><span class="ac-stat-l">Email opted out</span></div>
+    </div>
+    {% endif %}
+    <dl class="ac-kv">
+        <div><dt>Status</dt><dd>{% include "admin_v2/console/_reminder_status_pill.html" %}</dd></div>
+        <div><dt>Reminder</dt><dd>{{ log.reminder_slot }}</dd></div>
+        <div><dt>Sent</dt><dd>{{ log.sent_at|date:"M j, Y g:i A" }}</dd></div>
+        <div><dt>Event</dt><dd>{{ log.event.date_time|date:"M j, Y g:i A" }}</dd></div>
+        {% if log.event.location %}<div><dt>Location</dt><dd class="ac-break">{{ log.event.location }}</dd></div>{% endif %}
+    </dl>
+    {% if log.error_message %}
+    <div class="ac-banner is-alarm ac-msg-banner" role="alert">{% console_icon "alert" %}<span class="ac-break">{{ log.error_message }}</span></div>
+    {% endif %}
+    {% if email_enabled and log.emails_dispatched > 0 %}
+    <h3 class="ac-blade-h3">Viewed email <span class="ac-pill is-accent">{{ emails_viewed|length }}</span></h3>
+    <ul class="ac-rows ac-scroll">
+        {% for r in emails_viewed %}
+        <li class="ac-rows-split"><span>{{ r.user_name }} <span class="ac-muted ac-small">· {{ r.user_member_type }}</span></span><span class="ac-muted ac-small ac-nowrap">{{ r.viewed_at|date:"M j, g:i A" }}</span></li>
+        {% empty %}
+        <li class="ac-muted">No one has opened this email yet.</li>
+        {% endfor %}
+    </ul>
+    <h3 class="ac-blade-h3">Not yet viewed <span class="ac-pill is-muted">{{ emails_not_viewed|length }}</span></h3>
+    <ul class="ac-rows ac-scroll">
+        {% for r in emails_not_viewed %}
+        <li class="ac-rows-split"><span>{{ r.user_name }} <span class="ac-muted ac-small">· {{ r.user_member_type }}</span></span><span class="ac-muted ac-small">Not opened</span></li>
+        {% empty %}
+        <li class="ac-muted">Everyone has opened this email.</li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+</section>
+
+<section {% if tabs %}role="tabpanel" id="er-recipients" aria-labelledby="er-tab-recipients" tabindex="0" hidden{% else %}class="ac-msg-section" aria-labelledby="er-h-recipients"{% endif %}>
+    {% if not tabs %}<h2 class="ac-blade-h3" id="er-h-recipients">Recipients</h2>{% endif %}
+    {% if dispatched %}
+    <h3 class="ac-blade-h3">Notifications dispatched <span class="ac-pill is-ok">{{ dispatched|length }}</span></h3>
+    <ul class="ac-rows">
+        {% for r in dispatched %}
+        <li class="ac-rows-split ac-msg-wrap">
+            <span>{{ r.user_name }} <span class="ac-muted ac-small">· {{ r.user_member_type }}</span></span>
+            <span class="ac-msg-pills"><span class="ac-pill is-ok">Push dispatched</span>{% if r.email_status %} <span class="ac-pill {% if r.email_status == 'dispatched' %}is-accent{% elif r.email_status == 'failed' %}is-error{% else %}is-muted{% endif %}">Email: {{ r.get_email_status_display }}</span>{% endif %}</span>
+        </li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+    {% if skipped %}
+    <h3 class="ac-blade-h3">Skipped <span class="ac-pill is-muted">{{ skipped|length }}</span></h3>
+    <ul class="ac-rows">
+        {% for r in skipped %}
+        <li class="ac-rows-split ac-msg-wrap">
+            <span>{{ r.user_name }} <span class="ac-muted ac-small">· {{ r.user_member_type }}</span></span>
+            <span class="ac-msg-pills"><span class="ac-pill {% if r.status == 'skipped_opted_out' %}is-warn{% else %}is-muted{% endif %}">{{ r.get_status_display }}</span>{% if r.email_status %} <span class="ac-pill {% if r.email_status == 'dispatched' %}is-accent{% elif r.email_status == 'failed' %}is-error{% else %}is-muted{% endif %}">Email: {{ r.get_email_status_display }}</span>{% endif %}</span>
+        </li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+    {% if not dispatched and not skipped %}<p class="ac-muted">No recipients were recorded for this reminder.</p>{% endif %}
+</section>

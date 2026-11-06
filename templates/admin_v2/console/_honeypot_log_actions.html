@@ -1,0 +1,7 @@
+{% comment %}One honeypot hit's buttons (panel and full page): Block (POST admin_v2_add_ip_blacklist), Delete (.js-delete-log, security_honeypot.js).{% endcomment %}
+{% if log.ip_address %}
+{% if blocked %}<span class="ac-pill is-error">IP blocked</span>
+{% else %}<form method="post" action="{% url 'admin_v2_add_ip_blacklist' %}" class="js-confirm-submit" data-confirm="Block {{ log.ip_address }}?">{% csrf_token %}<input type="hidden" name="ip_address" value="{{ log.ip_address }}"><input type="hidden" name="reason" value="Honeypot trigger: {{ log.endpoint }}"><button type="submit" class="ac-btn">Block IP</button></form>{% endif %}
+<a href="{% url 'admin_v2_honeypot_logs' %}?ip={{ log.ip_address }}" class="ac-btn">All hits from this IP</a>
+{% endif %}
+<button type="button" class="ac-btn ac-btn-danger-text js-delete-log" data-log-id="{{ log.id }}" data-url="{% url 'admin_v2_delete_honeypot_log' log.id %}" data-list-url="{% url 'admin_v2_honeypot_logs' %}">Delete</button>

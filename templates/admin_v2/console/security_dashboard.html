@@ -1,0 +1,181 @@
+{% extends "admin_v2/base.html" %}
+{% comment %}
+Security overview in the console look (admin_v2_security when
+`admin_console_ui` is on; the classic page is admin_v2/security_dashboard.html;
+admins only, as before). Same data (security_overview) as stats and widgets.
+Alerts and honeypot hits open in the slide-out panel; the Release / Clear /
+Blacklist / Block / "Blacklist all new IPs" forms post where the classic
+page's do, with the same confirms (data-confirm).
+{% endcomment %}
+{% load static_version admin_v2_tags custom_filters %}
+
+{% block title %}Security overview - Admin{% endblock %}
+
+{% block admin_content %}
+<div class="ac-home-head">
+    <div>
+        <h1 class="ac-h1">Security overview</h1>
+        <p class="ac-muted ac-small">Alerts, lockouts, quarantines and attacks at a glance</p>
+    </div>
+    <div class="ac-list-tools">
+        <a href="{% url 'admin_v2_audit_log' %}" class="ac-btn">{% console_icon "doc-search" %}Audit log</a>
+        <a href="{% url 'admin_v2_security_alerts' %}" class="ac-btn ac-btn-primary">Review alerts</a>
+    </div>
+</div>
+
+{% if lockdown.is_active %}
+<div class="ac-banner is-alarm" role="alert">
+    {% console_icon "alert" %}<span><strong>Emergency lockdown is active.</strong> {{ lockdown.reason }}</span>
+    <a href="{% url 'admin_v2_lockdown' %}" class="ac-btn ac-btn-sm">Manage lockdown</a>
+</div>
+{% endif %}
+
+<ul class="ac-sec-stats ac-sec-stats-7" aria-label="Security totals">
+    <li><a href="{% url 'admin_v2_lockdown' %}" class="{% if lockdown.is_active %}is-alarm{% else %}is-ok{% endif %}"><span class="ac-stat-n">{% if lockdown.is_active %}Lockdown{% else %}Normal{% endif %}</span><span class="ac-stat-l">System</span></a></li>
+    <li><a href="{% url 'admin_v2_security_alerts' %}" class="{% if critical_alerts_count %}is-alarm{% elif new_alerts_count %}is-warn{% endif %}"><span class="ac-stat-n">{{ new_alerts_count }}</span><span class="ac-stat-l">New alerts</span><span class="ac-stat-s">{% if critical_alerts_count %}{{ critical_alerts_count }} critical/high{% else %}unreviewed{% endif %}</span></a></li>
+    <li><a href="{% url 'admin_v2_quarantine' %}" class="{% if active_quarantines %}is-warn{% endif %}"><span class="ac-stat-n">{{ active_quarantines|length }}</span><span class="ac-stat-l">Quarantined</span><span class="ac-stat-s">accounts</span></a></li>
+    <li><a href="{% url 'admin_v2_lockouts' %}" class="{% if active_lockouts_count %}is-warn{% endif %}"><span class="ac-stat-n">{{ active_lockouts_count }}</span><span class="ac-stat-l">Lockouts</span><span class="ac-stat-s">active</span></a></li>
+    <li><a href="{% url 'admin_v2_honeypot_logs' %}" class="{% if honeypot_24h %}is-alarm{% endif %}"><span class="ac-stat-n">{{ honeypot_24h }}</span><span class="ac-stat-l">Honeypot, 24h</span><span class="ac-stat-s">hits</span></a></li>
+    <li><a href="{% url 'admin_v2_ip_blacklist' %}"><span class="ac-stat-n">{{ blacklist_count }}</span><span class="ac-stat-l">Blocked IPs</span><span class="ac-stat-s">{{ whitelist_count }} allowed</span></a></li>
+    <li><a href="{% url 'admin_v2_csp_violations' %}" class="{% if csp_violation_count %}is-warn{% endif %}"><span class="ac-stat-n">{{ csp_violation_count }}</span><span class="ac-stat-l">CSP violations</span><span class="ac-stat-s">undismissed</span></a></li>
+</ul>
+
+<div class="ac-widgets">
+    <section class="ac-card ac-widget" aria-labelledby="sd-alerts">
+        <header class="ac-widget-head"><h2 id="sd-alerts">New alerts{% if new_alerts_count %} <span class="ac-count">({{ new_alerts_count }})</span>{% endif %}</h2><a href="{% url 'admin_v2_security_alerts' %}" class="ac-link-sm">View all</a></header>
+        <ul class="ac-rows ac-scroll ac-sec-subs">
+            {% for alert in new_alerts %}
+            <li class="ac-rows-split" data-ac-row>
+                <div>
+                    <a href="{% url 'admin_v2_security_alert' alert.id %}" class="ac-row-link" data-ac-panel>{{ alert.title }}</a>
+                    <span class="ac-sub">{{ alert.user.get_display_name }} · {{ alert.created_at|timesince }} ago</span>
+                </div>
+                {% include "admin_v2/console/_security_severity.html" with severity=alert.severity label=alert.severity %}
+            </li>
+            {% empty %}
+            <li class="ac-text-ok">No unreviewed alerts.</li>
+            {% endfor %}
+        </ul>
+        {% if new_alerts_count > new_alerts|length %}<p class="ac-small"><a href="{% url 'admin_v2_security_alerts' %}?status=new" class="ac-link-sm">+ {{ new_alerts_count|add:"-8" }} more</a></p>{% endif %}
+    </section>
+
+    <section class="ac-card ac-widget" aria-labelledby="sd-quarantine">
+        <header class="ac-widget-head"><h2 id="sd-quarantine">Quarantined accounts</h2><a href="{% url 'admin_v2_quarantine' %}" class="ac-link-sm">Manage</a></header>
+        <ul class="ac-rows ac-scroll ac-sec-subs">
+            {% for q in active_quarantines %}
+            <li class="ac-rows-split" data-ac-row>
+                <div>
+                    <a href="{% url 'admin_v2_member' q.user.user_id %}" class="ac-row-link" data-ac-panel>{{ q.user.name }}</a>
+                    <span class="ac-sub">{% if q.is_auto %}Auto{% else %}Manual{% endif %} · {{ q.ip_address|default:"no IP" }} · {{ q.quarantined_at|timesince }} ago</span>
+                    <span class="ac-sub">{{ q.reason|truncatechars:80 }}</span>
+                </div>
+                <form method="post" action="{% url 'admin_v2_quarantine' %}" class="js-confirm-submit" data-confirm="Release quarantine for {{ q.user.name }}?">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="release">
+                    <input type="hidden" name="quarantine_id" value="{{ q.id }}">
+                    <button type="submit" class="ac-btn ac-btn-sm">Release</button>
+                </form>
+            </li>
+            {% empty %}
+            <li class="ac-text-ok">No accounts quarantined.</li>
+            {% endfor %}
+        </ul>
+    </section>
+
+    <section class="ac-card ac-widget" aria-labelledby="sd-lockouts">
+        <header class="ac-widget-head"><h2 id="sd-lockouts">Login lockouts</h2><a href="{% url 'admin_v2_lockouts' %}" class="ac-link-sm">Manage</a></header>
+        <ul class="ac-rows ac-scroll ac-sec-subs">
+            {% for lockout in active_lockouts %}
+            <li class="ac-rows-split">
+                <div>
+                    <code class="ac-sec-code">{{ lockout.ip_address|default:"—" }}</code>
+                    <span class="ac-sub">{% if lockout.username %}{{ lockout.username }} · {% endif %}{% if lockout.source == 'ip' %}login view{% elif lockout.source == 'middleware_ip' %}middleware{% elif lockout.source == 'middleware_user' %}username{% endif %} · expires in {{ lockout.expires_at|timeuntil }}</span>
+                </div>
+                <div class="ac-sec-actions">
+                    <form method="post" action="{% url 'admin_v2_lockouts' %}" class="js-confirm-submit" data-confirm="Clear lockout for {{ lockout.ip_address }}?">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="clear">
+                        <input type="hidden" name="lockout_id" value="{{ lockout.pk }}">
+                        <input type="hidden" name="ip_address" value="{{ lockout.ip_address }}">
+                        <button type="submit" class="ac-btn ac-btn-sm">Clear</button>
+                    </form>
+                    <form method="post" action="{% url 'admin_v2_lockouts' %}" class="js-confirm-submit" data-confirm="Permanently blacklist {{ lockout.ip_address }}?">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="blacklist">
+                        <input type="hidden" name="lockout_id" value="{{ lockout.pk }}">
+                        <input type="hidden" name="ip_address" value="{{ lockout.ip_address }}">
+                        <button type="submit" class="ac-btn ac-btn-sm ac-btn-danger-text">Blacklist</button>
+                    </form>
+                </div>
+            </li>
+            {% empty %}
+            <li class="ac-text-ok">No active lockouts.</li>
+            {% endfor %}
+        </ul>
+    </section>
+
+    <section class="ac-card ac-widget" aria-labelledby="sd-honeypot">
+        <header class="ac-widget-head"><h2 id="sd-honeypot">Honeypot activity{% if honeypot_24h %} <span class="ac-count">({{ honeypot_24h }} today)</span>{% endif %}</h2><a href="{% url 'admin_v2_honeypot_logs' %}" class="ac-link-sm">All logs</a></header>
+        <ul class="ac-rows ac-scroll ac-sec-subs">
+            {% for h in recent_honeypot %}
+            <li class="ac-rows-split" data-ac-row>
+                <div>
+                    <a href="{% url 'admin_v2_honeypot_log' h.id %}" class="ac-row-link" data-ac-panel><code class="ac-sec-code ac-break">{{ h.endpoint }}</code></a>
+                    <span class="ac-sub">{{ h.request_method }} · {% if h.ip_address %}<a href="{% url 'admin_v2_honeypot_logs' %}?ip={{ h.ip_address }}">{{ h.ip_address }}</a>{% else %}unknown IP{% endif %}{% with geo=h.additional_data.geo %}{% if geo and not geo.geo_error %}{% if geo.country_code %} {{ geo.country_code|country_flag }}{% endif %}{% if geo.city %} {{ geo.city }}{% endif %}{% endif %}{% endwith %} · {{ h.accessed_at|timesince }} ago</span>
+                </div>
+                {% if h.ip_address and h.ip_address not in blacklisted_ips %}
+                <form method="post" action="{% url 'admin_v2_add_ip_blacklist' %}" class="js-confirm-submit" data-confirm="Block {{ h.ip_address }}?">
+                    {% csrf_token %}
+                    <input type="hidden" name="ip_address" value="{{ h.ip_address }}">
+                    <input type="hidden" name="reason" value="Honeypot trigger: {{ h.endpoint }}">
+                    <button type="submit" class="ac-btn ac-btn-sm ac-btn-danger-text" title="Block this IP">Block</button>
+                </form>
+                {% elif h.ip_address %}
+                <span class="ac-pill is-error">blocked</span>
+                {% endif %}
+            </li>
+            {% empty %}
+            <li class="ac-muted">No honeypot activity recorded.</li>
+            {% endfor %}
+        </ul>
+        <div class="ac-widget-actions">
+            <form method="post" action="{% url 'admin_v2_blacklist_all_honeypot_ips' %}" class="js-confirm-submit" data-confirm="Blacklist every unique honeypot IP not already blocked?">
+                {% csrf_token %}
+                <button type="submit" class="ac-btn ac-btn-sm">Blacklist all new IPs</button>
+            </form>
+        </div>
+    </section>
+
+    <section class="ac-card ac-widget" aria-labelledby="sd-emails">
+        <header class="ac-widget-head"><h2 id="sd-emails">Security emails{% if critical_notifications %} <span class="ac-count ac-text-error">({{ critical_notifications }} critical today)</span>{% endif %}</h2><a href="{% url 'admin_v2_security_notifications' %}" class="ac-link-sm">View all</a></header>
+        <ul class="ac-rows ac-scroll ac-sec-subs">
+            {% for n in recent_notifications %}
+            <li class="ac-rows-split">
+                <div>
+                    <strong>{{ n.event_type }}</strong>
+                    <span class="ac-sub ac-sec-clamp">{{ n.details }}</span>
+                    <span class="ac-sub">{% if n.ip_address %}{{ n.ip_address }} · {% endif %}{{ n.sent_at|timesince }} ago</span>
+                </div>
+                {% include "admin_v2/console/_security_severity.html" with severity=n.severity label=n.severity %}
+            </li>
+            {% empty %}
+            <li class="ac-muted">No security emails sent.</li>
+            {% endfor %}
+        </ul>
+    </section>
+
+    <section class="ac-card ac-widget" aria-labelledby="sd-tools">
+        <header class="ac-widget-head"><h2 id="sd-tools">Tools</h2></header>
+        <ul class="ac-link-list">
+            <li><a href="{% url 'admin_v2_login_history' %}">{% console_icon "login" %}Login history</a></li>
+            <li><a href="{% url 'admin_v2_lockdown' %}">{% console_icon "exclamation" %}{% if lockdown.is_active %}Lockdown is on{% else %}Emergency lockdown{% endif %}</a></li>
+            <li><a href="{% url 'admin_v2_ip_whitelist' %}">{% console_icon "check-circle" %}IP allow list</a></li>
+            <li><a href="{% url 'admin_v2_ip_blacklist' %}">{% console_icon "x-circle" %}IP block list</a></li>
+            <li><a href="{% url 'admin_v2_audit_log' %}">{% console_icon "doc-search" %}Audit log</a></li>
+        </ul>
+    </section>
+</div>
+{% endblock %}
+
+{% block console_js %}<script src="{% static_v 'js/admin_v2/security_alerts.js' %}"></script>
+<script src="{% static_v 'js/admin_v2/security_honeypot.js' %}"></script>{% endblock %}

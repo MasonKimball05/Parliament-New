@@ -1,0 +1,93 @@
+{% extends "admin_v2/base.html" %}
+{% comment %}
+App installs in the console look (admin_v2_mobile when `admin_console_ui` is
+on; the classic page is admin_v2/mobile.html). Same numbers and the same test
+push form; a member's name opens their panel (Devices tab).
+{% endcomment %}
+{% load static_version admin_v2_tags %}
+
+{% block title %}Mobile app - Admin{% endblock %}
+
+{% block admin_content %}
+<div class="ac-id-stack">
+    <section class="ac-card" aria-label="Mobile app">
+        {% include "admin_v2/console/_list_header.html" with title="Mobile app" subtitle="Signed-in app installs, versions, and push. Browser push is under Web push." %}
+    </section>
+
+    <ul class="ac-id-stats" aria-label="App installs">
+        <li class="ac-stat"><span class="ac-stat-n">{{ stats.total }}</span><span class="ac-stat-l">Signed-in installs</span></li>
+        <li class="ac-stat"><span class="ac-stat-n">{{ stats.members }}</span><span class="ac-stat-l">Members</span></li>
+        <li class="ac-stat"><span class="ac-stat-n">{{ stats.ios }}</span><span class="ac-stat-l">iPhone</span></li>
+        <li class="ac-stat"><span class="ac-stat-n">{{ stats.android }}</span><span class="ac-stat-l">Android</span></li>
+        <li class="ac-stat"><span class="ac-stat-n">{{ stats.push }}</span><span class="ac-stat-l">Push on</span></li>
+        <li class="ac-stat"><span class="ac-stat-n">{{ stats.week }}</span><span class="ac-stat-l">Active this week</span></li>
+    </ul>
+
+    <div class="ac-id-grid">
+        <section class="ac-card" aria-labelledby="mob-setup">
+            <header class="ac-id-card-head"><h2 id="mob-setup">Server setup</h2></header>
+            <div class="ac-id-card-body">
+                <ul class="ac-rows">
+                    {% for label, ok, hint in setup %}
+                    <li class="ac-rows-split">
+                        <div><p>{{ label }}</p>{% if not ok %}<p class="ac-muted ac-small">Not set: {{ hint }}</p>{% endif %}</div>
+                        {% if ok %}<span class="ac-pill is-ok">Set</span>{% else %}<span class="ac-pill is-warn">Missing</span>{% endif %}
+                    </li>
+                    {% endfor %}
+                </ul>
+                <p class="ac-id-note">{{ awaiting_receipts }} push message(s) awaiting an Expo receipt (checked every 15 minutes; failures go to the server log).</p>
+            </div>
+        </section>
+
+        <section class="ac-card" aria-labelledby="mob-push">
+            <header class="ac-id-card-head"><h2 id="mob-push">Send a test push</h2></header>
+            <div class="ac-id-card-body">
+                {% if push_members %}
+                <form method="post" action="{% url 'admin_v2_mobile_push' %}" class="ac-id-inline">
+                    {% csrf_token %}
+                    <label class="ac-id-label" for="push-member">Member
+                        <select id="push-member" name="user_id" class="ac-select">
+                            {% for m in push_members %}<option value="{{ m.user_id }}" {% if m.user_id == request.user.user_id %}selected{% endif %}>{{ m.get_display_name }}</option>{% endfor %}
+                        </select></label>
+                    <button type="submit" class="ac-btn ac-btn-primary">Send test</button>
+                </form>
+                <p class="ac-id-note">Goes to every signed-in install of that member with notifications on. Tapping it opens Notifications.</p>
+                {% else %}
+                <p class="ac-muted">No one has the app with notifications turned on yet.</p>
+                {% endif %}
+            </div>
+        </section>
+
+        <section class="ac-card" aria-labelledby="mob-versions">
+            <header class="ac-id-card-head"><h2 id="mob-versions">App versions in use</h2></header>
+            <div class="ac-id-card-body">
+                <ul class="ac-rows">
+                    {% for v in versions %}
+                    <li class="ac-rows-split"><span>{% if v.platform == 'ios' %}iPhone{% else %}Android{% endif %} {{ v.app_version|default:"unknown" }}</span><span class="ac-muted">{{ v.n }}</span></li>
+                    {% empty %}
+                    <li class="ac-muted">No signed-in installs.</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </section>
+
+        <section class="ac-card" aria-labelledby="mob-recent">
+            <header class="ac-id-card-head"><h2 id="mob-recent">Recent sign-ins</h2></header>
+            <div class="ac-id-card-body">
+                <ul class="ac-rows">
+                    {% for d in recent %}
+                    <li data-ac-row>
+                        <a href="{% url 'admin_v2_member' d.user.user_id %}" class="ac-row-link" data-ac-panel>{{ d.user.get_display_name }}</a>
+                        <span class="ac-muted">{{ d.get_platform_display }} {{ d.app_version }} · {{ d.created_at|date:"M j" }}{% if d.revoked_at %} · signed out{% endif %}</span>
+                    </li>
+                    {% empty %}
+                    <li class="ac-muted">Nobody has signed in to the app yet.</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </section>
+    </div>
+</div>
+{% endblock %}
+
+{% block console_js %}<script src="{% static_v 'js/admin_v2/members.js' %}"></script>{% endblock %}

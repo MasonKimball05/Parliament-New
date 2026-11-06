@@ -1,0 +1,74 @@
+{% extends "admin_v2/base.html" %}
+{% comment %}
+Email logs in the console look (admin_v2_email_logs when `admin_console_ui`
+is on; the classic page is admin_v2/email_logs.html). Same rows: the newest
+announcement email sends (each opens in the slide-out panel,
+console/email_log_panel.html) and the announcements still waiting to email,
+each with its "Send now" POST form (data-confirm; the site's double-submit
+guard disables the button while it posts).
+{% endcomment %}
+{% load admin_v2_tags %}
+
+{% block title %}Email logs - Admin{% endblock %}
+
+{% block admin_content %}
+<section class="ac-card">
+    {% include "admin_v2/console/_list_header.html" with title="Email logs" count=logs|length subtitle="Announcement email sends, newest first (last 50)." links=header_links %}
+
+    {% if pending_announcements %}
+    <div class="ac-msg-callout" role="region" aria-labelledby="el-pending-title">
+        <h2 id="el-pending-title" class="ac-msg-callout-title">{% console_icon "clock" "ac-icon-sm" %}Waiting to email <span class="ac-count">({{ pending_announcements|length }})</span></h2>
+        <p class="ac-muted ac-small">Announcements set to email on publish that haven't sent yet.</p>
+        <ul class="ac-rows">
+            {% for announcement in pending_announcements %}
+            <li class="ac-rows-split">
+                <div>
+                    <p class="ac-msg-strong">{{ announcement.title }}</p>
+                    <p class="ac-muted ac-small">Posted by {{ announcement.posted_by.name }} · {{ announcement.posted_at|date:"M d, Y g:i A" }}{% if announcement.publish_at %} · {% if announcement.is_published %}<span class="ac-text-ok">Published</span>{% else %}<span class="ac-text-warn">Scheduled for {{ announcement.publish_at|date:"M d, Y g:i A" }}</span>{% endif %}{% endif %}{% if announcement.visible_to %} · {{ announcement.visible_to|join:", " }}{% endif %}</p>
+                </div>
+                <form method="post" action="{% url 'admin_v2_send_scheduled_email' announcement.id %}" class="send-now-form"
+                      data-confirm="Send emails for this announcement now?">
+                    {% csrf_token %}
+                    <button type="submit" class="ac-btn ac-btn-sm send-now-btn">{% console_icon "send" "ac-icon-sm" %}<span class="send-text">Send now</span></button>
+                </form>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+
+    <div class="ac-table-wrap">
+        <table class="ac-table ac-msg-list" id="ac-list">
+            <thead>
+                <tr>
+                    <th>Announcement</th>
+                    <th>Status</th>
+                    <th>Audience</th>
+                    <th>Matching</th>
+                    <th>Sent</th>
+                    <th>Failed</th>
+                    <th>Started</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for log in logs %}
+                <tr data-ac-row>
+                    <td>
+                        <a href="{% url 'admin_v2_email_log_detail' log.id %}" class="ac-row-link" data-ac-panel>{{ log.announcement.title }}</a>
+                        {% if log.initiated_by %}<span class="ac-sub">by {{ log.initiated_by.name }}</span>{% endif %}
+                    </td>
+                    <td>{% include "admin_v2/console/_email_status_pill.html" %}</td>
+                    <td>{% if log.visible_to_raw %}{{ log.visible_to_raw|join:", " }}{% else %}All{% endif %}</td>
+                    <td>{{ log.users_matching_visibility }}<span class="ac-muted"> / {{ log.total_active_users }}</span></td>
+                    <td class="ac-text-ok">{{ log.emails_sent }}</td>
+                    <td>{% if log.emails_failed > 0 %}<span class="ac-text-error">{{ log.emails_failed }}</span>{% else %}<span class="ac-muted">0</span>{% endif %}</td>
+                    <td class="ac-nowrap"><span title="{{ log.created_at|date:'M d, Y g:i A' }}">{{ log.created_at|date:"M j, g:i A" }}</span></td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="7" class="ac-empty">No email logs yet. They appear when announcements are sent with email notifications.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endblock %}

@@ -1,1 +1,145 @@
-/* Admin console (admin_console_ui): security pages. Shared pieces live in ../admin-console.css. */
+/* Admin console (admin_console_ui): security pages. Shared pieces live in ../admin-console.css.
+ *
+ * Every console page loads this file, so every rule here hangs off an
+ * `ac-sec-*` class that only the Security group's templates use
+ * (templates/admin_v2/console/security_*.html, lockouts, lockdown_control,
+ * quarantine, honeypot_*, csp_violations, ip_*list, audit_log,
+ * admin_activity, login_history). Colours come from the --ac-* tokens, so dark
+ * mode follows the frame.
+ */
+
+/* ---- Text bits ---------------------------------------------------------- */
+.ac-sec-code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12.5px;
+    background: var(--ac-surface-muted); color: var(--ac-text); padding: 1px 6px; border-radius: 4px; white-space: nowrap;
+}
+.ac-sec-code.ac-break { white-space: normal; }
+/* With the slide-out panel open the list narrows: drop the columns it repeats. */
+.ac-shell.is-panel-open .ac-sec-hide-panel { display: none; }
+.ac-sec-subs .ac-sub { display: block; }
+.ac-sec-wrap { min-width: 220px; max-width: 520px; white-space: normal; overflow-wrap: anywhere; }
+.ac-sec-uri { max-width: 420px; }
+.ac-sec-desc { margin: 0 0 10px; color: var(--ac-text-2); font-size: 13.5px; }
+.ac-sec-note { margin: 12px 2px 0; }
+.ac-sec-clamp { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.ac-sec-list { margin: 4px 0 0; padding-left: 18px; }
+.ac-sec-list li { margin: 2px 0; }
+.ac-sec-pre {
+    margin: 0; padding: 8px 10px; border-radius: var(--ac-radius-sm); background: var(--ac-surface-muted);
+    font-size: 12px; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 240px; overflow-y: auto;
+}
+.ac-pill.ac-sec-critical { background: var(--ac-danger); color: #fff; font-weight: 600; }
+.dark .ac-pill.ac-sec-critical { color: #1a0705; }
+
+/* ---- Rows ---------------------------------------------------------------- */
+.ac-table tbody tr.ac-sec-row-alarm td { background: color-mix(in srgb, var(--ac-danger-soft) 70%, transparent); }
+.ac-table tbody tr.ac-sec-row-alarm td:first-child { box-shadow: inset 3px 0 0 var(--ac-danger); }
+.ac-sec-actions { white-space: nowrap; text-align: right; }
+.ac-sec-actions form { display: inline-block; margin: 0 0 0 4px; }
+.ac-sec-btns { display: inline-flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px; }
+.ac-sec-btns form { margin: 0; }
+.ac-rows .ac-sec-actions form { margin: 0; }
+.ac-rows .ac-sec-actions { display: flex; gap: 4px; flex-shrink: 0; }
+.ac-rows-split > form { flex-shrink: 0; margin: 0; }
+.ac-sec-fading td { opacity: 0; transition: opacity 0.3s; }
+tr.js-honeypot-row { cursor: pointer; }
+
+/* ---- Stat tiles (alerts, honeypot, overview) ------------------------------ */
+.ac-sec-stats {
+    list-style: none; margin: 0 0 16px; padding: 0;
+    display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px;
+}
+.ac-sec-stats-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 0; }
+.ac-sec-stats-7 { grid-template-columns: repeat(7, minmax(0, 1fr)); }
+.ac-sec-stats a {
+    display: flex; flex-direction: column; height: 100%; padding: 10px 12px; border-radius: var(--ac-radius);
+    background: var(--ac-surface); border: 1px solid var(--ac-border); border-top: 3px solid var(--ac-border);
+}
+.ac-sec-stats a:hover { background: var(--ac-surface-muted); }
+.ac-sec-stats a.is-accent { border-top-color: var(--ac-accent); }
+.ac-sec-stats a.is-ok { border-top-color: var(--ac-success); }
+.ac-sec-stats a.is-warn { border-top-color: var(--ac-warning); }
+.ac-sec-stats a.is-alarm { border-top-color: var(--ac-danger); }
+.ac-sec-stats a.is-alarm .ac-stat-n { color: var(--ac-danger); }
+.ac-sec-stats a.is-warn .ac-stat-n { color: var(--ac-warning); }
+
+/* Honeypot: totals beside the top endpoints */
+.ac-sec-split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); gap: 16px; margin-bottom: 16px; align-items: stretch; }
+.ac-sec-split > .ac-card + .ac-card, .ac-sec-split > .ac-card { margin-top: 0; }
+.ac-sec-split + .ac-card, .ac-sec-split + section { margin-top: 0; }
+.ac-sec-chips { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.ac-sec-chips li {
+    display: inline-flex; align-items: center; gap: 6px; padding: 3px 4px 3px 8px; min-height: 30px;
+    border: 1px solid var(--ac-border); border-radius: 999px; background: var(--ac-surface-muted); font-size: 12.5px;
+}
+.ac-sec-chips li form { margin: 0; }
+.ac-sec-chips li > a { display: inline-flex; gap: 6px; align-items: center; }
+.ac-sec-chips li > a:hover code { color: var(--ac-accent); }
+.ac-sec-chips code { font-size: 12px; overflow-wrap: anywhere; }
+.ac-sec-filternote {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 0 14px 12px; font-size: 13px; color: var(--ac-text-2);
+}
+.ac-sec-filternote form { margin: 0; }
+
+/* ---- Forms ---------------------------------------------------------------- */
+.ac-sec-addbar { padding-top: 2px; }
+.ac-sec-grow { flex: 1 1 260px; }
+.ac-sec-addbar .ac-field:first-of-type { flex: 0 1 240px; }
+.ac-sec-form { display: flex; flex-direction: column; gap: 10px; margin: 0; }
+.ac-sec-form .ac-field { display: flex; }
+.ac-sec-form p { margin: 0; }
+.ac-sec-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 14px; }
+.ac-sec-span2 { grid-column: 1 / -1; }
+.ac-sec-form-end { display: flex; align-items: flex-end; justify-content: flex-end; }
+.ac-sec-textarea { min-height: 64px; resize: vertical; line-height: 1.4; }
+.ac-sec-inline-form { display: flex; align-items: center; gap: 6px; margin: 0; min-width: 220px; }
+.ac-sec-inline-form label { flex: 1 1 auto; }
+.ac-sec-inline-form .ac-input { min-height: 28px; font-size: 12.5px; padding: 3px 8px; }
+.ac-btn.ac-sec-btn-danger { background: var(--ac-danger); border-color: var(--ac-danger); color: #fff !important; font-weight: 600; }
+.ac-btn.ac-sec-btn-danger:hover { background: color-mix(in srgb, var(--ac-danger) 85%, #000); }
+.dark .ac-btn.ac-sec-btn-danger { color: #1a0705 !important; }
+
+/* ---- Lockdown -------------------------------------------------------------- */
+.ac-sec-status { display: flex; align-items: center; gap: 14px; padding: 14px 16px; border-left: 4px solid var(--ac-success); }
+.ac-sec-status.is-alarm { border-left-color: var(--ac-danger); background: var(--ac-danger-soft); }
+.ac-sec-status-icon { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 50%; flex-shrink: 0; background: var(--ac-success-soft); color: var(--ac-success); }
+.ac-sec-status.is-alarm .ac-sec-status-icon { background: var(--ac-danger); color: #fff; }
+.ac-sec-status-icon .ac-icon { width: 22px; height: 22px; }
+.ac-sec-status-text { flex: 1; min-width: 0; }
+.ac-sec-status-text h2 { margin: 0; font-size: 16px; font-weight: 650; }
+.ac-sec-status.is-alarm .ac-sec-status-text h2 { color: var(--ac-danger); }
+.ac-sec-status-text p, .ac-sec-status-meta p { margin: 0; font-size: 12.5px; color: var(--ac-muted); }
+.ac-sec-status-meta { text-align: right; }
+.ac-sec-grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 16px; }
+.ac-sec-grid2 > .ac-card + .ac-card { margin-top: 0; }
+.ac-sec-grid2 + .ac-card { margin-top: 16px; }
+.ac-sec-banner { align-items: flex-start; }
+.ac-sec-banner ul { color: var(--ac-text-2); }
+
+/* ---- Detail pages (one alert / one honeypot hit, full page) --------------- */
+.ac-sec-detail { max-width: 760px; }
+.ac-sec-detail-body { padding: 4px 16px 16px; border-top: 1px solid var(--ac-separator); }
+.ac-sec-detail-body > section + section { margin-top: 8px; }
+
+/* ---- Narrow screens -------------------------------------------------------- */
+@media (max-width: 1279px) {
+    .ac-sec-stats-7 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+@media (max-width: 767px) {
+    .ac-sec-stats, .ac-sec-stats-7 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .ac-sec-split, .ac-sec-grid2, .ac-sec-form-grid { grid-template-columns: minmax(0, 1fr); }
+    .ac-sec-status { flex-wrap: wrap; }
+    .ac-sec-status-meta { text-align: left; flex-basis: 100%; }
+    .ac-sec-addbar .ac-field, .ac-sec-addbar .ac-field:first-of-type { flex: 1 1 100%; }
+    .ac-sec-wrap, .ac-sec-uri { min-width: 0; max-width: none; }
+    .ac-sec-inline-form { min-width: 0; flex-wrap: wrap; }
+    .ac-sec-actions { text-align: left; white-space: normal; }
+    .ac-sec-btns { justify-content: flex-start; }
+    .ac-sec-actions form { margin: 0 4px 4px 0; }
+}
+@media (max-width: 639px) {
+    /* tables.js stacks rows into cards; a cell's sub-line goes under its value. */
+    .ac-sec-subs.admin-v2-stack tbody td { flex-wrap: wrap; }
+    .ac-sec-subs.admin-v2-stack tbody td > .ac-sub { flex-basis: 100%; padding-left: calc(6.5rem + 0.75rem); }
+    .dark .ac-sec-subs.admin-v2-stack tbody tr { border-bottom-color: var(--ac-row-sep); }
+}

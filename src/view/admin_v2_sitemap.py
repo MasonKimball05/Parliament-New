@@ -1109,8 +1109,9 @@ def _confirm_panel(request):
 @require_admin_v2_auth
 def admin_v2_sitemap(request):
     request.session.pop(SITEMAP_RETURN_KEY, None)  # back on the map: the return bar's job is done
+    from src.admin_console import console_enabled
     data = build_tree()
-    return render(request, 'admin_v2/sitemap.html', {
+    return render(request, 'admin_v2/console/sitemap.html' if console_enabled(request) else 'admin_v2/sitemap.html', {
         'tree': client_payload(data), 'kinds': data['kinds'], 'django_admin': data['django_admin'],
         'confirm': _confirm_panel(request),
         'selected': (request.GET.get('node') or '')[:300],

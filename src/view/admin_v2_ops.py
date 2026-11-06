@@ -17,6 +17,7 @@ from django.core.cache import cache
 from django.shortcuts import render
 from django.utils import timezone
 
+from src.admin_console import console_enabled
 from src.models import SecurityNotificationLog, SystemLockdown
 from src.models_feature_flags import FeatureFlag, PageToggle, SiteSetting
 from src.view.admin_v2 import require_admin_v2_auth
@@ -76,7 +77,8 @@ def backups_overview():
 
 @require_admin_v2_auth
 def admin_v2_backups(request):
-    return render(request, 'admin_v2/backups.html', backups_overview())
+    return render(request, 'admin_v2/console/backups.html' if console_enabled(request) else 'admin_v2/backups.html',
+                  backups_overview())
 
 
 @require_admin_v2_auth
@@ -94,4 +96,4 @@ def admin_v2_maintenance(request):
         # Legacy chat polling keys (removed in v3.0.0) may still be in the table.
         'settings': list(SiteSetting.objects.exclude(key__in=LEGACY_SETTINGS).order_by('category', 'display_name')),
     }
-    return render(request, 'admin_v2/maintenance.html', context)
+    return render(request, 'admin_v2/console/maintenance.html' if console_enabled(request) else 'admin_v2/maintenance.html', context)

@@ -1,0 +1,30 @@
+{% comment %}One security alert's details (console markup): used by the slide-out panel (console/security_alert_panel.html, with tabs=True: two tab panels) and the full page (security_alert.html: both sections, stacked). Ids are prefixed "sa-" because the panel shares the list's document.{% endcomment %}
+<section{% if tabs %} role="tabpanel" id="sa-overview" aria-labelledby="sa-tab-overview" tabindex="0"{% endif %}>
+    <p class="ac-sec-desc">{{ alert.description|linebreaksbr }}</p>
+    <dl class="ac-kv">
+        <div><dt>Severity</dt><dd>{% include "admin_v2/console/_security_severity.html" with severity=alert.severity label=alert.get_severity_display %}</dd></div>
+        <div><dt>Status</dt><dd><span class="ac-pill {% if alert.status == 'new' %}is-error{% elif alert.status == 'investigating' %}is-warn{% else %}is-ok{% endif %}" data-alert-status>{{ alert.get_status_display }}</span></dd></div>
+        <div><dt>Type</dt><dd>{{ alert.get_alert_type_display }}</dd></div>
+        <div><dt>Member</dt><dd><a href="{% url 'admin_v2_member' alert.user.user_id %}">{{ alert.user.get_display_name }}</a></dd></div>
+        <div><dt>Created</dt><dd>{{ alert.created_at|date:"M d, Y h:i A" }}</dd></div>
+        <div><dt>Reviewed by</dt><dd>{% if alert.reviewed_by %}{{ alert.reviewed_by.get_display_name }}{% if alert.reviewed_at %} · {{ alert.reviewed_at|date:"M d, Y h:i A" }}{% endif %}{% else %}—{% endif %}</dd></div>
+        {% if alert.resolution_notes %}<div><dt>Resolution</dt><dd>{{ alert.resolution_notes }}</dd></div>{% endif %}
+    </dl>
+</section>
+<section{% if tabs %} role="tabpanel" id="sa-signin" aria-labelledby="sa-tab-signin" tabindex="0" hidden{% endif %}>
+    {% if not tabs %}<h2 class="ac-widget-h3">Sign-in</h2>{% endif %}
+    {% if login %}
+    <dl class="ac-kv">
+        <div><dt>Time</dt><dd>{{ login.timestamp|date:"M d, Y h:i A" }}</dd></div>
+        <div><dt>Result</dt><dd>{{ login.get_status_display }}</dd></div>
+        <div><dt>IP address</dt><dd><code class="ac-sec-code">{{ login.ip_address }}</code></dd></div>
+        <div><dt>Location</dt><dd>{% if login.city %}{{ login.city }}{% if login.region %}, {{ login.region }}{% endif %}{% if login.country %}, {{ login.country }}{% endif %}{% else %}Unknown{% endif %}</dd></div>
+        <div><dt>Device</dt><dd>{{ login.device_type|title|default:"—" }}{% if login.browser %} · {{ login.browser }}{% endif %}{% if login.os %} · {{ login.os }}{% endif %}</dd></div>
+        <div><dt>Risk</dt><dd>{{ login.get_risk_level_display }}</dd></div>
+        {% if login.risk_factors %}<div><dt>Risk factors</dt><dd>{{ login.risk_factors|join:", " }}</dd></div>{% endif %}
+        {% if login.distance_from_last %}<div><dt>From last sign-in</dt><dd>{{ login.distance_from_last|floatformat:0 }} km{% if login.time_from_last %} in {{ login.time_from_last|floatformat:1 }} h{% endif %}</dd></div>{% endif %}
+    </dl>
+    {% else %}
+    <p class="ac-muted">No sign-in attached: this alert was raised by an admin or a scheduled check.</p>
+    {% endif %}
+</section>

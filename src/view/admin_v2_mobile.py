@@ -39,7 +39,9 @@ def _setup_checks():
 
 @require_admin_v2_auth
 def admin_v2_mobile(request):
-    return render(request, 'admin_v2/mobile.html', mobile_overview())
+    from src.admin_console import console_enabled
+    return render(request, 'admin_v2/console/mobile.html' if console_enabled(request) else 'admin_v2/mobile.html',
+                  mobile_overview())
 
 
 def mobile_overview():

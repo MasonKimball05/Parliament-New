@@ -1,0 +1,63 @@
+{% extends "admin_v2/base.html" %}
+{% comment %}
+CSP violations in the console look (admin_v2_csp_violations when
+`admin_console_ui` is on; the classic page is admin_v2/csp_violations.html;
+admins only, as before). Same groups (directive + blocked URI) and the same
+Dismiss hook: .js-dismiss-btn[data-directive][data-blocked] inside
+.js-violation-row, POSTed by security_csp.js to admin_v2_csp_violation_dismiss
+(the list's data-dismiss-url).
+{% endcomment %}
+{% load static_version admin_v2_tags %}
+
+{% block title %}CSP violations - Admin{% endblock %}
+
+{% block admin_content %}
+<section class="ac-card">
+    <div class="ac-list-head">
+        <div class="ac-list-title">
+            <h1>CSP violations <span class="ac-count">({{ total_undismissed }})</span></h1>
+            <p>Browser-reported Content-Security-Policy violations, grouped by type{% if total_undismissed %} · {{ total_undismissed }} undismissed{% endif %}</p>
+        </div>
+        <div class="ac-list-tools">
+            <a href="{{ request.get_full_path }}" class="ac-btn ac-btn-icon" aria-label="Refresh" title="Refresh">{% console_icon "refresh" %}</a>
+            {% if show_dismissed %}
+            <a href="{% url 'admin_v2_csp_violations' %}" class="ac-btn">Hide dismissed</a>
+            {% else %}
+            <a href="?show_dismissed=1" class="ac-btn">Show dismissed</a>
+            {% endif %}
+        </div>
+    </div>
+    <div class="ac-table-wrap">
+        <table class="ac-table ac-sec-subs">
+            <thead>
+                <tr>
+                    <th>Directive</th>
+                    <th>Blocked URI</th>
+                    <th>Reports</th>
+                    <th>Latest</th>
+                    {% if not show_dismissed %}<th><span class="ac-sr">Actions</span></th>{% endif %}
+                </tr>
+            </thead>
+            <tbody id="js-violation-list" data-dismiss-url="{% url 'admin_v2_csp_violation_dismiss' %}">
+                {% for g in groups %}
+                <tr class="js-violation-row" data-directive="{{ g.violated_directive }}" data-blocked="{{ g.blocked_uri }}">
+                    <td><span class="ac-pill is-error">{{ g.violated_directive }}</span></td>
+                    <td class="ac-sec-uri"><code class="ac-sec-code ac-break" title="{{ g.blocked_uri }}">{{ g.blocked_uri|default:"(inline)" }}</code></td>
+                    <td>{{ g.count }}</td>
+                    <td class="ac-nowrap">{{ g.latest|date:"M d, Y H:i" }}</td>
+                    {% if not show_dismissed %}
+                    <td class="ac-sec-actions">
+                        <button type="button" class="ac-btn ac-btn-sm js-dismiss-btn" data-directive="{{ g.violated_directive }}" data-blocked="{{ g.blocked_uri }}">Dismiss</button>
+                    </td>
+                    {% endif %}
+                </tr>
+                {% empty %}
+                <tr><td colspan="{% if show_dismissed %}4{% else %}5{% endif %}" class="ac-empty">{% if show_dismissed %}No CSP violations recorded.{% else %}No undismissed violations.{% endif %}</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endblock %}
+
+{% block console_js %}<script src="{% static_v 'js/admin_v2/security_csp.js' %}"></script>{% endblock %}

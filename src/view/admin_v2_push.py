@@ -336,15 +336,20 @@ def _context(request, form=None, preview=None, error=None):
 @require_admin_v2_auth
 def admin_v2_push(request):
     """GET: the composer. POST: check the form and show the preview (sends nothing)."""
+    from src.admin_console import console_enabled
+    console = console_enabled(request)  # same form, fields and confirm in either look
     if request.method != 'POST':
-        return render(request, 'admin_v2/push_composer.html', _context(request))
+        return render(request, 'admin_v2/console/push_composer.html' if console
+                      else 'admin_v2/push_composer.html', _context(request))
     form = {k: (request.POST.get(k) or '') for k in
             ('audience', 'committee', 'member_type', 'member_status', 'user_id', 'title', 'body', 'link')}
     try:
         preview = push_preview(request.user, request.POST)
     except PushFormError as exc:
-        return render(request, 'admin_v2/push_composer.html', _context(request, form, error=str(exc)), status=400)
-    return render(request, 'admin_v2/push_composer.html', _context(request, form, preview=preview))
+        return render(request, 'admin_v2/console/push_composer.html' if console
+                      else 'admin_v2/push_composer.html', _context(request, form, error=str(exc)), status=400)
+    return render(request, 'admin_v2/console/push_composer.html' if console
+                  else 'admin_v2/push_composer.html', _context(request, form, preview=preview))
 
 
 @require_admin_v2_auth

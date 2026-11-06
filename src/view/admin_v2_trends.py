@@ -15,6 +15,7 @@ from django.db.models.functions import TruncWeek
 from django.shortcuts import render
 from django.utils import timezone
 
+from src.admin_console import console_enabled
 from src.models import LoginHistory
 from src.models.mobile import MobileDevice
 from src.view.admin_v2 import require_admin_v2_auth
@@ -59,5 +60,35 @@ def trend_series():
 @require_admin_v2_auth
 def admin_v2_trends(request):
     data = trend_series()
-    return render(request, 'admin_v2/trends.html', {'data': data, 'rows': list(zip(
-        data['labels'], *[s['values'] for s in data['series']]))})
+    context = {'data': data, 'rows': list(zip(data['labels'], *[s['values'] for s in data['series']]))}
+    if console_enabled(request):
+        context['charts'] = console_charts(data)
+        return render(request, 'admin_v2/console/trends.html', context)
+    return render(request, 'admin_v2/trends.html', context)
+
+
+#: The console charts' SVG box (admin_v2/console/trends.html): bars in the
+#: plot area PLOT_TOP..PLOT_BOTTOM, week labels under it.
+CHART_W, PLOT_TOP, PLOT_BOTTOM = 300, 14, 104
+
+
+def console_charts(data):
+    """The console look draws each series as server-side SVG bars (royal blue,
+    `ac-chart-bar`) instead of Chart.js: no script, and the colors follow the
+    console tokens in light and dark. Every other week is labelled."""
+    labels = data['labels']
+    step = CHART_W / max(len(labels), 1)
+    width = round(step * 0.62, 1)
+    plot_h = PLOT_BOTTOM - PLOT_TOP
+    charts = []
+    for s in data['series']:
+        top = max(s['values'] or [0]) or 1
+        bars = []
+        for i, (label, value) in enumerate(zip(labels, s['values'])):
+            h = round(value / top * plot_h, 1)
+            x = round(i * step + (step - width) / 2, 1)
+            bars.append({'label': label, 'value': value, 'x': x, 'w': width, 'h': h,
+                         'y': round(PLOT_BOTTOM - h, 1), 'tx': round(x + width / 2, 1),
+                         'show_label': (len(labels) - 1 - i) % 2 == 0})
+        charts.append({**s, 'bars': bars, 'top': max(s['values'] or [0])})
+    return charts

@@ -1,0 +1,61 @@
+{% extends "admin_v2/base.html" %}
+{% comment %}
+Admin activity in the console look (admin_v2_admin_activity when
+`admin_console_ui` is on; the classic page is admin_v2/admin_activity.html).
+Same filters (actor, action, q) and page; Kai rows are already left out by the
+view (exclude_kai_logs). A changed member opens in the slide-out panel.
+{% endcomment %}
+{% load admin_v2_tags %}
+
+{% block title %}Admin activity - Admin{% endblock %}
+
+{% block admin_content %}
+<section class="ac-card">
+    {% include "admin_v2/console/_list_header.html" with title="Admin activity" count=page.paginator.count actions=None subtitle="What admins changed. Routine sign-ins and votes are left out; the audit log has everything." %}
+
+    <form method="get" class="ac-filterbar" role="search" aria-label="Filter admin activity">
+        <label class="ac-field ac-field-grow"><span class="ac-sr">Search</span>{% console_icon "filter" %}
+            <input type="search" name="q" value="{{ q }}" placeholder="Member or text" class="ac-input"></label>
+        <label class="ac-field"><span class="ac-field-label">Admin</span>
+            <select name="actor" class="ac-select" data-autosubmit>
+                <option value="">Anyone</option>
+                {% for a in actors %}<option value="{{ a.user_id }}"{% if a.user_id == actor %} selected{% endif %}>{{ a.get_display_name }}</option>{% endfor %}
+            </select>
+        </label>
+        <label class="ac-field"><span class="ac-field-label">Action</span>
+            <select name="action" class="ac-select" data-autosubmit>
+                <option value="">Any</option>
+                {% for a in actions %}<option value="{{ a }}"{% if a == action %} selected{% endif %}>{{ a|cut:"_"|title }}</option>{% endfor %}
+            </select>
+        </label>
+        <button type="submit" class="ac-btn">Apply</button>
+        {% if actor or action or q %}<a href="{% url 'admin_v2_admin_activity' %}" class="ac-btn ac-btn-ghost">Clear</a>{% endif %}
+    </form>
+
+    <div class="ac-table-wrap">
+        <table class="ac-table ac-sec-subs">
+            <thead>
+                <tr>
+                    <th>What happened</th>
+                    <th>Admin</th>
+                    <th>Action</th>
+                    <th>When</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for log in page %}
+                <tr data-ac-row>
+                    <td class="ac-sec-wrap">{{ log.description }}{% if log.object_type == 'ParliamentUser' and log.object_id %}<span class="ac-sub"><a href="{% url 'admin_v2_member' log.object_id %}" class="ac-row-link" data-ac-panel>{{ log.object_repr|default:"member" }}</a></span>{% endif %}</td>
+                    <td>{{ log.user.get_display_name }}</td>
+                    <td><span class="ac-pill is-muted">{{ log.get_action_type_display }}</span></td>
+                    <td class="ac-nowrap"><span title="{{ log.timestamp|date:'M j, Y g:i A' }}">{{ log.timestamp|date:"M j, Y g:i A" }}</span></td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="4" class="ac-empty">Nothing yet.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% include "admin_v2/console/_pagination.html" with page=page %}
+</section>
+{% endblock %}

@@ -1,0 +1,99 @@
+{% extends "admin_v2/base.html" %}
+{% comment %}
+Test email targeting in the console look (admin_v2_test_email_targeting when
+`admin_console_ui` is on; classic: admin_v2/test_email_targeting.html). Same
+POST form (`visibility` checkboxes; sends nothing) and the same results:
+who would get an announcement email, who matches but can't, and who the
+visibility leaves out.
+{% endcomment %}
+{% load admin_v2_tags %}
+
+{% block title %}Test email targeting - Admin{% endblock %}
+{% block console_crumb %}Test targeting{% endblock %}
+
+{% block admin_content %}
+<section class="ac-card">
+    {% include "admin_v2/console/_list_header.html" with title="Test email targeting" subtitle="Simulate who an announcement email would reach. Nothing is sent." refresh=False %}
+    <form method="POST" class="ac-msg-pad ac-msg-pad-top0 ac-msg-form">
+        {% csrf_token %}
+        <fieldset class="ac-msg-fieldset">
+            <legend class="ac-field-label">Visibility</legend>
+            <div class="ac-msg-checks">
+                {% for option in visibility_options %}
+                <label class="ac-check"><input type="checkbox" name="visibility" value="{{ option }}"{% if option in selected_visibility %} checked{% endif %}> {{ option }}</label>
+                {% endfor %}
+            </div>
+            <p class="ac-muted ac-small">Leave all unticked to target every active member (no visibility restriction).</p>
+        </fieldset>
+        <div><button type="submit" class="ac-btn ac-btn-primary">Test targeting</button></div>
+    </form>
+</section>
+
+{% if results %}
+<section class="ac-card ac-msg-pad" aria-labelledby="et-summary-title">
+    <h2 class="ac-msg-card-title" id="et-summary-title">Results</h2>
+    <dl class="ac-kv">
+        <div><dt>Selected visibility</dt><dd>{{ results.selected_visibility|join:", " }}</dd></div>
+        <div><dt>Expanded types</dt><dd>{{ results.expanded_member_types|join:", " }}</dd></div>
+        <div><dt>Active members</dt><dd>{{ results.total_active_users }}</dd></div>
+        <div><dt>Matching visibility</dt><dd>{{ results.total_targeted }}</dd></div>
+    </dl>
+    <div class="ac-msg-stats">
+        <div class="ac-stat"><span class="ac-stat-n ac-text-ok">{{ results.would_receive_email }}</span><span class="ac-stat-l">Would receive email</span></div>
+        <div class="ac-stat"><span class="ac-stat-n ac-text-warn">{{ results.would_not_receive_email_issues }}</span><span class="ac-stat-l">No email or turned off</span><span class="ac-stat-s">Match visibility but can't receive</span></div>
+        <div class="ac-stat"><span class="ac-stat-n">{{ results.excluded_by_visibility }}</span><span class="ac-stat-l">Excluded by visibility</span><span class="ac-stat-s">Member type not selected</span></div>
+    </div>
+</section>
+
+<section class="ac-card" aria-labelledby="et-receive-title">
+    <div class="ac-list-head"><div class="ac-list-title"><h2 id="et-receive-title"><span class="ac-dot is-ok" aria-hidden="true"></span> Would receive email <span class="ac-count">({{ results.would_receive_email }})</span></h2></div></div>
+    {% for member_type, users in results.email_recipients_by_type.items %}
+    <h3 class="ac-blade-h3 ac-msg-pad-x">{{ member_type }} <span class="ac-pill is-muted">{{ users|length }}</span></h3>
+    <div class="ac-table-wrap">
+        <table class="ac-table">
+            <thead><tr><th>Name</th><th>Email</th><th>User ID</th></tr></thead>
+            <tbody>
+                {% for user in users %}<tr><td>{{ user.name }}</td><td class="ac-break">{{ user.email }}</td><td class="ac-muted">{{ user.user_id }}</td></tr>{% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% empty %}
+    <p class="ac-empty">No members would receive this email.</p>
+    {% endfor %}
+</section>
+
+<section class="ac-card" aria-labelledby="et-issues-title">
+    <div class="ac-list-head"><div class="ac-list-title"><h2 id="et-issues-title"><span class="ac-status is-warn" aria-hidden="true"></span> Match visibility but can't receive email <span class="ac-count">({{ results.would_not_receive_email_issues }})</span></h2><p>In the selected member types, but no email address or email notifications turned off.</p></div></div>
+    {% for member_type, users in results.no_email_by_type.items %}
+    <h3 class="ac-blade-h3 ac-msg-pad-x">{{ member_type }} <span class="ac-pill is-muted">{{ users|length }}</span></h3>
+    <div class="ac-table-wrap">
+        <table class="ac-table">
+            <thead><tr><th>Name</th><th>Email</th><th>Reason</th></tr></thead>
+            <tbody>
+                {% for user in users %}<tr><td>{{ user.name }}</td><td class="ac-break">{{ user.email }}</td><td class="ac-text-warn">{{ user.reason }}</td></tr>{% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% empty %}
+    <p class="ac-empty">Every matching member has an email address and email notifications on.</p>
+    {% endfor %}
+</section>
+
+<section class="ac-card" aria-labelledby="et-excluded-title">
+    <div class="ac-list-head"><div class="ac-list-title"><h2 id="et-excluded-title"><span class="ac-dot" aria-hidden="true"></span> Excluded by visibility <span class="ac-count">({{ results.excluded_by_visibility }})</span></h2><p>Their member type wasn't selected, so they won't get the email.</p></div></div>
+    {% for member_type, users in results.excluded_by_type.items %}
+    <h3 class="ac-blade-h3 ac-msg-pad-x">{{ member_type }} <span class="ac-pill is-muted">{{ users|length }}</span></h3>
+    <div class="ac-table-wrap">
+        <table class="ac-table">
+            <thead><tr><th>Name</th><th>Email</th><th>User ID</th></tr></thead>
+            <tbody>
+                {% for user in users %}<tr><td>{{ user.name }}</td><td class="ac-break">{{ user.email }}</td><td class="ac-muted">{{ user.user_id }}</td></tr>{% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% empty %}
+    <p class="ac-empty">Nobody excluded: every member type is selected, or there's no visibility restriction.</p>
+    {% endfor %}
+</section>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,30 @@
+{% load custom_filters %}{% comment %}One honeypot hit's details (panel and full page): log, geo.{% endcomment %}
+<dl class="ac-kv">
+    <div><dt>IP address</dt><dd>{% if log.ip_address %}<code class="ac-sec-code">{{ log.ip_address }}</code>{% else %}<span class="ac-muted">unknown</span>{% endif %}</dd></div>
+    <div><dt>Action taken</dt><dd>{{ log.get_action_taken_display }}</dd></div>
+    <div><dt>Endpoint</dt><dd><a href="{% url 'admin_v2_honeypot_logs' %}?endpoint={{ log.endpoint|urlencode }}"><code class="ac-sec-code ac-break">{{ log.endpoint }}</code></a></dd></div>
+    {% if log.referer %}<div><dt>Referer</dt><dd class="ac-break">{{ log.referer }}</dd></div>{% endif %}
+</dl>
+<h3 class="ac-widget-h3">User agent</h3>
+<p class="ac-small ac-break">{% if log.user_agent %}{{ log.user_agent }}{% else %}<span class="ac-muted">Not provided</span>{% endif %}</p>
+{% if log.request_body %}
+<h3 class="ac-widget-h3">Request body</h3>
+<pre class="ac-sec-pre">{{ log.request_body }}</pre>
+{% endif %}
+<h3 class="ac-widget-h3">Location</h3>
+{% if geo and not geo.geo_error %}
+<dl class="ac-kv">
+    <div><dt>Country</dt><dd>{% if geo.country_code %}{{ geo.country_code|country_flag }} {% endif %}{{ geo.country|default:"—" }}</dd></div>
+    {% if geo.region %}<div><dt>Region</dt><dd>{{ geo.region }}</dd></div>{% endif %}
+    {% if geo.city %}<div><dt>City</dt><dd>{{ geo.city }}</dd></div>{% endif %}
+    {% if geo.zip %}<div><dt>ZIP</dt><dd>{{ geo.zip }}</dd></div>{% endif %}
+    {% if geo.lat and geo.lon %}<div><dt>Coordinates</dt><dd>{{ geo.lat }}, {{ geo.lon }} · <a href="https://www.openstreetmap.org/?mlat={{ geo.lat }}&amp;mlon={{ geo.lon }}&amp;zoom=10" target="_blank" rel="noopener noreferrer">map ↗</a></dd></div>{% endif %}
+    {% if geo.isp %}<div><dt>ISP</dt><dd>{{ geo.isp }}</dd></div>{% endif %}
+    {% if geo.org %}<div><dt>Org</dt><dd>{{ geo.org }}</dd></div>{% endif %}
+    {% if geo.as %}<div><dt>AS</dt><dd>{{ geo.as }}</dd></div>{% endif %}
+</dl>
+{% elif geo.geo_error %}
+<p class="ac-text-error ac-small">Lookup failed: {{ geo.geo_error }}</p>
+{% else %}
+<p class="ac-muted ac-small">Lookup pending: it can take a few seconds after the hit.</p>
+{% endif %}

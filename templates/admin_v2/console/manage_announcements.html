@@ -1,0 +1,64 @@
+{% extends "admin_v2/base.html" %}
+{% comment %}
+Announcements in the console look (admin_v2_manage_announcements when
+`admin_console_ui` is on; classic: admin_v2/manage_announcements.html). Same
+filter (`active`), 25-row pages and per-row Delete POST form (data-confirm),
+plus Actions ▾ "Delete selected" for the ticked rows
+(src/view/admin_v2_messaging.py).
+{% endcomment %}
+{% load admin_v2_tags %}
+
+{% block title %}Announcements - Admin{% endblock %}
+
+{% block admin_content %}
+<section class="ac-card">
+    {% include "admin_v2/console/_list_header.html" with title="Announcements" count=announcements.paginator.count actions=bulk_actions %}
+
+    <form method="get" class="ac-filterbar" role="search" aria-label="Filter announcements">
+        <label class="ac-field"><span class="ac-field-label">Active</span>
+            <select name="active" class="ac-select" data-autosubmit>
+                <option value="">All</option>
+                <option value="yes"{% if active_filter == 'yes' %} selected{% endif %}>Yes</option>
+                <option value="no"{% if active_filter == 'no' %} selected{% endif %}>No</option>
+            </select>
+        </label>
+        <button type="submit" class="ac-btn">Apply</button>
+        {% if active_filter %}<a href="{% url 'admin_v2_manage_announcements' %}" class="ac-btn ac-btn-ghost">Clear</a>{% endif %}
+    </form>
+
+    <div class="ac-table-wrap">
+        <table class="ac-table" id="ac-list" data-ac-select>
+            <thead>
+                <tr>
+                    <th class="ac-col-check"><input type="checkbox" data-ac-select-all aria-label="Select every announcement on this page"></th>
+                    <th>Title</th>
+                    <th>Posted by</th>
+                    <th>Posted</th>
+                    <th>Status</th>
+                    <th><span class="ac-sr">Actions</span></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for announcement in announcements %}
+                <tr data-ac-row>
+                    <td class="ac-col-check"><input type="checkbox" value="{{ announcement.id }}" data-ac-row-select aria-label="Select {{ announcement.title }}"></td>
+                    <td class="ac-msg-strong ac-break">{{ announcement.title }}</td>
+                    <td>{{ announcement.posted_by.get_display_name }}</td>
+                    <td class="ac-nowrap">{{ announcement.posted_at|date:"M d, Y" }}</td>
+                    <td>{% if announcement.is_active %}<span class="ac-pill is-ok">Active</span>{% else %}<span class="ac-pill is-muted">Inactive</span>{% endif %}</td>
+                    <td class="ac-msg-actions">
+                        <form method="post" action="{% url 'admin_v2_delete_announcement' announcement.id %}" data-confirm="Delete this announcement?">
+                            {% csrf_token %}
+                            <button type="submit" class="ac-btn ac-btn-sm ac-btn-danger-text">Delete</button>
+                        </form>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="6" class="ac-empty">No announcements found.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% include "admin_v2/console/_pagination.html" with page=announcements %}
+</section>
+{% endblock %}

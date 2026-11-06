@@ -139,7 +139,7 @@ from src.view.api import (
     dismiss_announcement_api,
     request_api_token, revoke_api_token,
     admin_api_tokens, admin_approve_token, admin_reject_token,
-    admin_revoke_token, admin_update_token_scopes, admin_api_token_logs,
+    admin_revoke_token, admin_update_token_scopes, admin_api_token_logs, admin_api_tokens_bulk,
     admin_toggle_api_flag,
 )
 from src.view.notifications import notifications_page, notifications_dropdown_api, mark_notification_read, mark_all_notifications_read, delete_notification
@@ -166,10 +166,11 @@ from src.view import admin_v2_push as admin_v2_push_views
 from src.view import admin_v2_permissions as admin_v2_permissions_views
 from src.view import admin_v2_sitemap as admin_v2_sitemap_views
 from src.view import admin_v2_console as admin_v2_console_views
+from src.view import admin_v2_messaging as admin_v2_messaging_views
 from src.view.admin_v2 import (
     admin_v2_login, admin_v2_dashboard, toggle_feature_flag,
     toggle_page, admin_v2_logout, manage_legislation, delete_legislation,
-    manage_committees as admin_v2_manage_committees, toggle_committee_active,
+    manage_committees as admin_v2_manage_committees, toggle_committee_active, bulk_committees_active,
     manage_users, toggle_user_admin, remove_user_profile_picture, manage_login_history, edit_user_profile,
     release_user_lockout,
     manage_announcements as admin_v2_manage_announcements_view,
@@ -186,6 +187,8 @@ from src.view.admin_v2 import (
     security_dashboard, quarantine_management, lockdown_control,
     honeypot_logs, security_notifications_log, csp_violations, csp_violation_dismiss, audit_log,
     dismiss_alert, dismiss_all_alerts,
+    security_alert_detail, dismiss_alerts_bulk, honeypot_log_detail,
+    remove_ip_whitelist_bulk, remove_ip_blacklist_bulk,
     delete_honeypot_log, clear_honeypot_logs, blacklist_all_honeypot_ips,
     manage_lockouts, clear_push_subscriptions,
     push_subscriptions_list, delete_push_subscription,
@@ -1088,6 +1091,7 @@ urlpatterns = [
 
     # Admin API token management
     path('admin-v2/api-tokens/', admin_api_tokens, name='admin_api_tokens'),
+    path('admin-v2/api-tokens/bulk/', admin_api_tokens_bulk, name='admin_api_tokens_bulk'),
     path('admin-v2/api-tokens/<int:token_id>/approve/', admin_approve_token, name='admin_approve_token'),
     path('admin-v2/api-tokens/<int:token_id>/reject/', admin_reject_token, name='admin_reject_token'),
     path('admin-v2/api-tokens/<int:token_id>/revoke/', admin_revoke_token, name='admin_revoke_token'),
@@ -1172,6 +1176,7 @@ urlpatterns = [
     path('admin-v2/security/quarantine/', quarantine_management, name='admin_v2_quarantine'),
     path('admin-v2/security/lockdown/', lockdown_control, name='admin_v2_lockdown'),
     path('admin-v2/security/honeypot-logs/', honeypot_logs, name='admin_v2_honeypot_logs'),
+    path('admin-v2/security/honeypot-logs/<int:log_id>/', honeypot_log_detail, name='admin_v2_honeypot_log'),
     path('admin-v2/security/honeypot-logs/<int:log_id>/delete/', delete_honeypot_log, name='admin_v2_delete_honeypot_log'),
     path('admin-v2/security/honeypot-logs/clear/', clear_honeypot_logs, name='admin_v2_clear_honeypot_logs'),
     path('admin-v2/security/honeypot-logs/blacklist-all/', blacklist_all_honeypot_ips, name='admin_v2_blacklist_all_honeypot_ips'),
@@ -1191,10 +1196,13 @@ urlpatterns = [
     # Admin v2 - Management Pages
     path('admin-v2/legislation/', manage_legislation, name='admin_v2_manage_legislation'),
     path('admin-v2/legislation/<int:legislation_id>/delete/', delete_legislation, name='admin_v2_delete_legislation'),
+    path('admin-v2/legislation/delete-selected/', admin_v2_messaging_views.bulk_delete_legislation, name='admin_v2_delete_legislation_bulk'),
     path('admin-v2/events/', admin_v2_manage_events, name='admin_v2_manage_events'),
     path('admin-v2/events/<int:event_id>/delete/', admin_v2_delete_event, name='admin_v2_delete_event'),
+    path('admin-v2/events/delete-selected/', admin_v2_messaging_views.bulk_delete_events, name='admin_v2_delete_events_bulk'),
     path('admin-v2/committees/', admin_v2_manage_committees, name='admin_v2_manage_committees'),
     path('admin-v2/committees/<int:committee_id>/toggle/', toggle_committee_active, name='admin_v2_toggle_committee'),
+    path('admin-v2/committees/bulk/', bulk_committees_active, name='admin_v2_committees_bulk'),
     path('admin-v2/users/', manage_users, name='admin_v2_manage_users'),
     # v4.1.0: ⌘K search and the member page (src/view/admin_v2_member.py)
     path('admin-v2/search/', admin_v2_member_views.admin_v2_search, name='admin_v2_search'),
@@ -1239,6 +1247,7 @@ urlpatterns = [
     path('admin-v2/login-history/', manage_login_history, name='admin_v2_login_history'),
     path('admin-v2/announcements/', admin_v2_manage_announcements_view, name='admin_v2_manage_announcements'),
     path('admin-v2/announcements/<int:announcement_id>/delete/', admin_v2_delete_announcement_view, name='admin_v2_delete_announcement'),
+    path('admin-v2/announcements/delete-selected/', admin_v2_messaging_views.bulk_delete_announcements, name='admin_v2_delete_announcements_bulk'),
 
     # Admin v2 - User Login Security
     path('admin-v2/users/<str:user_id>/login-security/', user_login_security, name='admin_v2_user_login_security'),
@@ -1250,13 +1259,17 @@ urlpatterns = [
     path('admin-v2/ip/whitelist/', manage_ip_whitelist, name='admin_v2_ip_whitelist'),
     path('admin-v2/ip/whitelist/add/', add_ip_to_whitelist, name='admin_v2_add_ip_whitelist'),
     path('admin-v2/ip/whitelist/remove/', remove_ip_from_whitelist, name='admin_v2_remove_ip_whitelist'),
+    path('admin-v2/ip/whitelist/remove-selected/', remove_ip_whitelist_bulk, name='admin_v2_remove_ip_whitelist_bulk'),
     path('admin-v2/ip/blacklist/', manage_ip_blacklist, name='admin_v2_ip_blacklist'),
     path('admin-v2/ip/blacklist/add/', add_ip_to_blacklist, name='admin_v2_add_ip_blacklist'),
     path('admin-v2/ip/blacklist/remove/', remove_ip_from_blacklist, name='admin_v2_remove_ip_blacklist'),
+    path('admin-v2/ip/blacklist/remove-selected/', remove_ip_blacklist_bulk, name='admin_v2_remove_ip_blacklist_bulk'),
 
     # Admin v2 - Security Alerts
     path('admin-v2/security/alerts/', manage_security_alerts, name='admin_v2_security_alerts'),
     path('admin-v2/security/alerts/dismiss-all/', dismiss_all_alerts, name='admin_v2_dismiss_all_alerts'),
+    path('admin-v2/security/alerts/<int:alert_id>/', security_alert_detail, name='admin_v2_security_alert'),
+    path('admin-v2/security/alerts/dismiss-selected/', dismiss_alerts_bulk, name='admin_v2_dismiss_alerts_bulk'),
     path('admin-v2/security/alerts/<int:alert_id>/dismiss/', dismiss_alert, name='admin_v2_dismiss_alert'),
 
     # Admin v2 - Two-Factor Authentication
@@ -1279,6 +1292,7 @@ urlpatterns = [
     # Admin v2 - Push Notifications
     path('admin-v2/push/subscriptions/', push_subscriptions_list, name='admin_v2_push_subscriptions'),
     path('admin-v2/push/subscriptions/<int:sub_id>/delete/', delete_push_subscription, name='admin_v2_delete_push_subscription'),
+    path('admin-v2/push/subscriptions/delete-selected/', admin_v2_messaging_views.bulk_delete_push_subscriptions, name='admin_v2_delete_push_subscriptions_bulk'),
     path('admin-v2/push/clear-subscriptions/', clear_push_subscriptions, name='admin_v2_clear_push_subscriptions'),
 
     # Health Check API

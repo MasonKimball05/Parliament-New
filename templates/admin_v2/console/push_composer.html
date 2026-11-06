@@ -1,0 +1,134 @@
+{% extends "admin_v2/base.html" %}
+{% comment %}
+Push composer in the console look (admin_v2_push when `admin_console_ui` is
+on; classic: admin_v2/push_composer.html). The flow is unchanged: the
+Compose form POSTs to admin_v2_push (Preview: sends nothing, same field
+names); the preview shows the push, who gets it, and, only when someone can
+get it, the master switch is on and sends are left, a confirm form
+(data-confirm) POSTing the signed preview token to admin_v2_push_send. That
+Send button is the page's one gold button.
+{% endcomment %}
+{% load admin_v2_tags %}
+
+{% block title %}Push composer - Admin{% endblock %}
+
+{% block admin_content %}
+<section class="ac-card">
+    {% include "admin_v2/console/_list_header.html" with title="Push composer" subtitle="Send a push to a group's signed-in app installs and browsers. Anyone who turned off announcement pushes is skipped, and every send is logged." refresh=False %}
+    {% if not master_on %}
+    <div class="ac-msg-pad ac-msg-pad-top0"><div class="ac-banner ac-msg-banner is-warn" role="status">{% console_icon "exclamation" %}<span>Push notifications are switched off site-wide (Maintenance, "Push Notifications (Master)"). You can preview, but nothing will send.</span></div></div>
+    {% endif %}
+    {% if error %}
+    <div class="ac-msg-pad ac-msg-pad-top0"><div class="ac-banner ac-msg-banner" role="alert">{% console_icon "alert" %}<span>{{ error }}</span></div></div>
+    {% endif %}
+</section>
+
+<div class="ac-msg-grid">
+    <section class="ac-card ac-msg-pad" aria-labelledby="push-compose-title">
+        <h2 class="ac-msg-card-title" id="push-compose-title">Compose</h2>
+        <form method="post" action="{% url 'admin_v2_push' %}" class="ac-msg-form">
+            {% csrf_token %}
+            <label class="ac-field"><span class="ac-field-label">Send to</span>
+                <select name="audience" class="ac-select">
+                    {% for value, label in audiences %}<option value="{{ value }}" {% if form.audience == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+                </select>
+            </label>
+            <div class="ac-msg-form-row">
+                <label class="ac-field"><span class="ac-field-label">Committee <span class="ac-msg-hint-inline">for "A committee"</span></span>
+                    <select name="committee" class="ac-select">
+                        <option value="">Choose</option>
+                        {% for c in committees %}<option value="{{ c.pk }}" {% if form.committee == c.pk|stringformat:"s" %}selected{% endif %}>{{ c.name }}</option>{% endfor %}
+                    </select>
+                </label>
+                <label class="ac-field"><span class="ac-field-label">Member type <span class="ac-msg-hint-inline">Active members</span></span>
+                    <select name="member_type" class="ac-select">
+                        <option value="">Choose</option>
+                        {% for t in member_types %}<option value="{{ t }}" {% if form.member_type == t %}selected{% endif %}>{{ t }}</option>{% endfor %}
+                    </select>
+                </label>
+                <label class="ac-field"><span class="ac-field-label">Member status</span>
+                    <select name="member_status" class="ac-select">
+                        <option value="">Choose</option>
+                        {% for s in statuses %}<option value="{{ s }}" {% if form.member_status == s %}selected{% endif %}>{{ s }}</option>{% endfor %}
+                    </select>
+                </label>
+                <label class="ac-field"><span class="ac-field-label">Member <span class="ac-msg-hint-inline">for "One member"</span></span>
+                    <select name="user_id" class="ac-select">
+                        <option value="">Choose</option>
+                        {% for m in members %}<option value="{{ m.user_id }}" {% if form.user_id == m.user_id %}selected{% endif %}>{{ m.get_display_name }}</option>{% endfor %}
+                    </select>
+                </label>
+            </div>
+            <label class="ac-field"><span class="ac-field-label">Title</span>
+                <input type="text" name="title" value="{{ form.title }}" maxlength="{{ title_max }}" required class="ac-input">
+            </label>
+            <label class="ac-field"><span class="ac-field-label">Message</span>
+                <textarea name="body" rows="3" maxlength="{{ body_max }}" required class="ac-input">{{ form.body }}</textarea>
+            </label>
+            <label class="ac-field"><span class="ac-field-label">Opens <span class="ac-msg-hint-inline">optional page on this site, e.g. /calendar/; default Notifications</span></span>
+                <input type="text" name="link" value="{{ form.link }}" placeholder="/announcements/" class="ac-input">
+            </label>
+            <div class="ac-msg-form-foot">
+                <p class="ac-muted ac-small">{{ sends_left }} of {{ rate_limit }} sends left this hour. A test push to one member is on <a href="{% url 'admin_v2_mobile' %}" class="ac-link-sm">App installs</a>.</p>
+                <button type="submit" class="ac-btn">Preview</button>
+            </div>
+        </form>
+    </section>
+
+    <section class="ac-card ac-msg-pad" aria-labelledby="push-preview-title">
+        <h2 class="ac-msg-card-title" id="push-preview-title">Preview</h2>
+        {% if preview %}
+        <div class="ac-msg-push" aria-label="How the notification looks">
+            <p class="ac-msg-push-app">Parliament · now</p>
+            <p class="ac-msg-push-title ac-break">{{ preview.title }}</p>
+            <p class="ac-msg-push-body ac-break">{{ preview.body }}</p>
+        </div>
+        <p class="ac-muted ac-small">Tapping it opens {{ preview.link|default:"/notifications/" }}.</p>
+
+        <dl class="ac-msg-stats ac-msg-stats-dl">
+            <div class="ac-stat"><dt class="ac-stat-l">In {{ preview.audience_label }}</dt><dd class="ac-stat-n">{{ preview.members }}</dd></div>
+            <div class="ac-stat"><dt class="ac-stat-l">Pushes off</dt><dd class="ac-stat-n">{{ preview.opted_out }}</dd></div>
+            <div class="ac-stat"><dt class="ac-stat-l">No app or browser</dt><dd class="ac-stat-n">{{ preview.no_device }}</dd></div>
+            <div class="ac-stat ac-msg-stat-accent"><dt class="ac-stat-l">Will get it</dt><dd class="ac-stat-n" data-recipient-count>{{ preview.n }}</dd></div>
+        </dl>
+
+        {% if preview.names %}
+        <details class="ac-msg-details">
+            <summary>Who gets it</summary>
+            <p class="ac-muted">{{ preview.names|join:", " }}{% if preview.n > preview.names|length %} and {{ preview.n|add:"-50" }} more{% endif %}</p>
+        </details>
+        {% endif %}
+
+        {% if preview.n and master_on and sends_left %}
+        <form method="post" action="{% url 'admin_v2_push_send' %}" class="ac-msg-send"
+              data-confirm="Send this push to {{ preview.n }} member(s)? It can't be taken back.">
+            {% csrf_token %}
+            <input type="hidden" name="token" value="{{ preview.token }}">
+            <button type="submit" class="ac-btn ac-btn-primary">Send to {{ preview.n }} member{{ preview.n|pluralize }}</button>
+            <span class="ac-muted ac-small">Pushes can't be unsent. This preview expires in 15 minutes.</span>
+        </form>
+        {% elif not preview.n %}
+        <p class="ac-muted">Nobody in this group can get a push right now.</p>
+        {% elif not sends_left %}
+        <p class="ac-text-warn">You've used this hour's {{ rate_limit }} sends.</p>
+        {% endif %}
+        {% else %}
+        <p class="ac-muted">Write the push and press Preview to see how it looks and how many members will get it. Nothing is sent until you confirm.</p>
+        {% endif %}
+    </section>
+</div>
+
+<section class="ac-card" aria-labelledby="push-recent-title">
+    <div class="ac-list-head"><div class="ac-list-title"><h2 id="push-recent-title">Recent sends</h2></div></div>
+    <ul class="ac-rows ac-msg-rows-pad">
+        {% for log in recent %}
+        <li class="ac-rows-stack">
+            <span class="ac-msg-strong ac-break">{{ log.metadata.title|default:log.object_repr }}</span>
+            <span class="ac-muted">{{ log.timestamp|date:"M j, Y g:i A" }} · {{ log.user.get_display_name|default:"Unknown" }} · to {{ log.metadata.audience_label }} · {{ log.metadata.n }} member{{ log.metadata.n|pluralize }}</span>
+        </li>
+        {% empty %}
+        <li class="ac-muted">No pushes sent from here yet.</li>
+        {% endfor %}
+    </ul>
+</section>
+{% endblock %}

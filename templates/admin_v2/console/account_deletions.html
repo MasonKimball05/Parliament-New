@@ -1,0 +1,80 @@
+{% extends "admin_v2/base.html" %}
+{% comment %}
+Account deletions in the console look (admin_v2_account_deletions when
+`admin_console_ui` is on; the classic page is admin_v2/account_deletions.html).
+Same restore and rebuild forms. No Actions menu on purpose: each restore or
+rebuild is one member's own request, checked one at a time.
+{% endcomment %}
+{% load admin_v2_tags %}
+
+{% block title %}Account Deletions - Admin v2{% endblock %}
+
+{% block admin_content %}
+<div class="ac-id-stack">
+    <section class="ac-card" aria-label="Pending account deletions">
+        <div class="ac-list-head">
+            <div class="ac-list-title">
+                <h1>Account deletions</h1>
+                <p>Members who deleted their own account. They are signed out everywhere and shown as former members. Personal data is erased {{ purge_days }} days after the request; the membership record (name, roll number, class, roles, votes, attendance) is kept.</p>
+            </div>
+            <div class="ac-list-tools">
+                <a href="{{ request.get_full_path }}" class="ac-btn ac-btn-icon" aria-label="Refresh" title="Refresh">{% console_icon "refresh" %}</a>
+            </div>
+        </div>
+        <header class="ac-id-card-head">
+            <h2>Pending account deletions <span class="ac-count">({{ pending|length }})</span></h2>
+            <p>Restore only when the member asks for it. A restored member signs in again by resetting their password.</p>
+        </header>
+        <div class="ac-table-wrap ac-id-gap">
+            <table class="ac-table">
+                <thead><tr><th>Member</th><th>Requested</th><th>Data erased on</th><th><span class="ac-sr">Restore</span></th></tr></thead>
+                <tbody>
+                    {% for row in pending %}
+                    <tr data-ac-row>
+                        <td><a href="{% url 'admin_v2_member' row.member.user_id %}" class="ac-row-link" data-ac-panel>{{ row.member.get_display_name }}</a>{% if row.member.role_number %}<span class="ac-sub">#{{ row.member.role_number }}</span>{% endif %}</td>
+                        <td>{{ row.member.deletion_requested_at|date:"M j, Y" }}{% if row.member.deletion_requested_via %} <span class="ac-muted">({{ row.member.deletion_requested_via }})</span>{% endif %}</td>
+                        <td>{{ row.purge_on|date:"M j, Y" }}</td>
+                        <td>
+                            <form method="post" action="{% url 'admin_v2_restore_account' row.member.user_id %}"
+                                  data-confirm="Restore {{ row.member.get_display_name }}'s account? Only do this if they asked.">
+                                {% csrf_token %}
+                                <button type="submit" class="ac-btn ac-btn-sm">Restore at the member's request</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="4" class="ac-empty">No pending deletions.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <section class="ac-card" aria-labelledby="ad-erased">
+        <header class="ac-id-card-head">
+            <h2 id="ad-erased">Erased accounts <span class="ac-count">({{ purged|length }})</span></h2>
+            <p>Their personal data is gone. If a former member asks the chapter for their account back, verify who they are, then rebuild it: this attaches a new sign-in to their kept record and emails them a set-password link. Nothing that was erased comes back.</p>
+        </header>
+        <div class="ac-id-card-body">
+            <ul class="ac-rows">
+                {% for m in purged %}
+                <li class="ac-rows-stack">
+                    <span><strong>{{ m.get_display_name }}</strong>{% if m.role_number %} · #{{ m.role_number }}{% endif %} <span class="ac-muted">Erased {{ m.account_deleted_at|date:"M j, Y" }}</span></span>
+                    <form method="post" action="{% url 'admin_v2_rebuild_account' m.user_id %}" class="ac-id-inline"
+                          data-confirm="Rebuild an account for {{ m.get_display_name }}'s record? Only do this if they asked and you've verified who they are.">
+                        {% csrf_token %}
+                        <label class="ac-id-label" for="rebuild-email-{{ forloop.counter }}">New email
+                            <input id="rebuild-email-{{ forloop.counter }}" type="email" name="email" required class="ac-input"></label>
+                        <label class="ac-id-label" for="rebuild-username-{{ forloop.counter }}">Username (optional)
+                            <input id="rebuild-username-{{ forloop.counter }}" type="text" name="username" class="ac-input"></label>
+                        <button type="submit" class="ac-btn">Rebuild account at the member's request</button>
+                    </form>
+                </li>
+                {% empty %}
+                <li class="ac-muted">None.</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </section>
+</div>
+{% endblock %}

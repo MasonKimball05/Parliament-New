@@ -18,7 +18,8 @@ from datetime import date as _date
 from django.http import JsonResponse, HttpResponseForbidden, Http404
 from django.views.decorators.http import require_POST, require_http_methods
 from django.contrib.auth.decorators import login_required
-from django.shortcuts import render, get_object_or_404
+from django.contrib import messages
+from django.shortcuts import redirect, render, get_object_or_404
 from django.utils import timezone
 
 from src.notifications import mark_announcement_dismissed
@@ -235,6 +236,19 @@ def admin_api_tokens(request):
         'flag_auto_approve': flag_auto_approve,
         'now': timezone.now(),
     }
+    from src.admin_console import console_enabled
+    if console_enabled(request):
+        from django.urls import reverse
+        bulk = reverse('admin_api_tokens_bulk')
+        context['bulk_actions'] = [
+            {'label': 'Reject (pending)', 'url': bulk, 'fields': {'action': 'reject'},
+             'confirm': 'Reject the selected pending requests? Tokens that are not pending are skipped.',
+             'danger': True},
+            {'label': 'Revoke (active)', 'url': bulk, 'fields': {'action': 'revoke'},
+             'confirm': 'Revoke the selected active tokens? They stop working at once. Tokens that are not active are skipped.',
+             'danger': True},
+        ]
+        return render(request, 'admin_v2/console/api_tokens.html', context)
     return render(request, 'admin_v2/api_tokens.html', context)
 
 
@@ -370,6 +384,48 @@ def admin_update_token_scopes(request, token_id):
     return JsonResponse({'scopes': token.scopes})
 
 
+@require_POST
+@login_required
+def admin_api_tokens_bulk(request):
+    """Admin: the console list's Actions menu — revoke the ticked active tokens
+    or reject the ticked pending ones (one ``ids`` per ticked row). Each id is
+    re-checked: a token in any other status is skipped, not changed."""
+    forbidden = _require_admin(request)
+    if forbidden:
+        return forbidden
+    action = request.POST.get('action')
+    reason = request.POST.get('reason', '').strip()
+    ids = [i for i in request.POST.getlist('ids') if i.isdigit()][:200]
+    if action not in ('revoke', 'reject') or not ids:
+        messages.error(request, 'Tick at least one token and pick an action.')
+        return redirect('admin_api_tokens')
+    wanted = APIToken.STATUS_ACTIVE if action == 'revoke' else APIToken.STATUS_PENDING
+    tokens = list(APIToken.objects.select_related('user').defer(*member_defer('user'))
+                  .filter(id__in=ids, status=wanted))
+    now = timezone.now()
+    for token in tokens:
+        if action == 'revoke':
+            token.status = APIToken.STATUS_REVOKED
+            token.revoked_by = request.user
+            token.revoked_at = now
+            token.revoke_reason = reason
+            token.save(update_fields=['status', 'revoked_by', 'revoked_at', 'revoke_reason'])
+        else:
+            token.status = APIToken.STATUS_REJECTED
+            token.rejection_reason = reason
+            token.save(update_fields=['status', 'rejection_reason'])
+        log_admin_action(
+            actor=request.user, action='token_revoked' if action == 'revoke' else 'token_denied',
+            request=request, target_user=token.user, target_repr=token.name,
+            detail=f"Reason: {reason or '(none given)'} (bulk)",
+        )
+    skipped = len(ids) - len(tokens)
+    verb = 'Revoked' if action == 'revoke' else 'Rejected'
+    messages.success(request, f'{verb} {len(tokens)} token(s).'
+                     + (f' {skipped} skipped (not {wanted}).' if skipped else ''))
+    return redirect('admin_api_tokens')
+
+
 @login_required
 def admin_api_token_logs(request, token_id):
     """Admin: view access logs for a specific token."""
@@ -386,4 +442,11 @@ def admin_api_token_logs(request, token_id):
         'logs': logs,
         'defined_scopes': DEFINED_SCOPES,
     }
+    from src.admin_console import console_enabled, panel_response, wants_panel
+    if wants_panel(request):
+        # The console list's slide-out panel: the token and its latest requests.
+        context['logs'] = logs[:25]
+        return panel_response(render(request, 'admin_v2/console/api_token_panel.html', context))
+    if console_enabled(request):
+        return render(request, 'admin_v2/console/api_token_logs.html', context)
     return render(request, 'admin_v2/api_token_logs.html', context)

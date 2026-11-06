@@ -1,1 +1,139 @@
-/* Admin console (admin_console_ui): messaging pages. Shared pieces live in ../admin-console.css. */
+/* Admin console (admin_console_ui): messaging pages. Shared pieces live in ../admin-console.css.
+ *
+ * Messaging and Content pages (templates/admin_v2/console/): email logs,
+ * event reminders, notifications (overview, schedules, logs), push composer,
+ * web push, test email targeting, announcements, events, legislation, and
+ * their slide-out panels. Only `ac-msg-*` classes (plus the schedules
+ * dialog, `ac-dialog`), colors from the --ac-* tokens so dark mode follows. */
+
+/* Card padding helpers */
+.ac-msg-pad { padding: 12px 14px 14px; }
+.ac-msg-pad-top0 { padding-top: 0; }
+.ac-msg-pad-x { padding-left: 14px; padding-right: 14px; }
+.ac-msg-card-title { margin: 0 0 10px; font-size: 14.5px; font-weight: 650; color: var(--ac-text); }
+.ac-msg-strong { font-weight: 600; color: var(--ac-text); }
+.ac-msg-mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; overflow-wrap: anywhere; }
+.ac-msg-hint, .ac-msg-hint-inline { font-size: 11.5px; color: var(--ac-muted); text-transform: none; letter-spacing: 0; font-weight: 400; }
+.ac-msg-hint-inline::before { content: "· "; }
+
+/* "Waiting to email" / "Still to fire": a tinted block between the list head and its table */
+.ac-msg-callout {
+    margin: 0 14px 12px; padding: 10px 12px; border-radius: var(--ac-radius-sm);
+    background: var(--ac-warning-soft); border: 1px solid color-mix(in srgb, var(--ac-warning) 35%, transparent);
+}
+.ac-msg-callout-title { display: flex; align-items: center; gap: 6px; margin: 0; font-size: 13.5px; font-weight: 650; color: var(--ac-warning); }
+.ac-msg-callout > p { margin: 2px 0 4px; }
+.ac-msg-callout .ac-rows > li { border-bottom-color: color-mix(in srgb, var(--ac-warning) 22%, transparent); }
+.ac-msg-callout form { margin: 0; flex-shrink: 0; }
+.ac-msg-pills { display: inline-flex; flex-wrap: wrap; gap: 4px; }
+.ac-msg-wrap { flex-wrap: wrap; }
+
+/* Stats: like .ac-stat-row, but as many columns as fit */
+.ac-msg-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 8px; margin: 8px 0 10px; }
+.ac-msg-stats-dl { margin-top: 12px; }
+.ac-msg-stats-dl dt, .ac-msg-stats-dl dd { margin: 0; }
+.ac-msg-stats-dl .ac-stat { flex-direction: column-reverse; justify-content: flex-end; }
+.ac-msg-stat-accent { background: var(--ac-accent-soft); }
+.ac-msg-stat-accent .ac-stat-n { color: var(--ac-on-soft); }
+a.ac-msg-stat-link { border: 1px solid transparent; }
+a.ac-msg-stat-link:hover { border-color: var(--ac-border); background: var(--ac-accent-soft); }
+.ac-msg-links { margin-top: 4px; }
+
+/* Delivery meter (email log): an SVG sized by viewBox units, no inline styles */
+.ac-msg-meter { display: block; width: 100%; height: 8px; border-radius: 4px; overflow: hidden; margin: 4px 0 6px; }
+.ac-msg-meter-track { fill: var(--ac-surface-muted); }
+.ac-msg-meter-ok { fill: var(--ac-success); }
+.ac-msg-meter-fail { fill: var(--ac-danger); }
+.ac-msg-legend { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 0 0 6px; font-size: 12.5px; color: var(--ac-text-2); }
+.ac-msg-key { display: inline-flex; align-items: center; gap: 6px; }
+.ac-msg-key::before { content: ""; width: 9px; height: 9px; border-radius: 2px; background: var(--ac-surface-muted); border: 1px solid var(--ac-border); }
+.ac-msg-key.is-ok::before { background: var(--ac-success); border-color: var(--ac-success); }
+.ac-msg-key.is-fail::before { background: var(--ac-danger); border-color: var(--ac-danger); }
+
+/* Console output / error text */
+.ac-msg-console {
+    margin: 4px 0 0; padding: 10px 12px; max-height: 360px; overflow: auto; border-radius: var(--ac-radius-sm);
+    background: var(--ac-surface-muted); color: var(--ac-text); border: 1px solid var(--ac-border);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; line-height: 1.5;
+    white-space: pre-wrap; overflow-wrap: anywhere;
+}
+.ac-msg-console.is-error { background: var(--ac-danger-soft); color: var(--ac-danger); border-color: color-mix(in srgb, var(--ac-danger) 40%, transparent); }
+.ac-msg-prose p { margin: 0 0 8px; }
+.ac-msg-banner { margin: 10px 0 0; }
+.ac-banner.is-warn { background: var(--ac-warning-soft); color: var(--ac-warning); border-color: color-mix(in srgb, var(--ac-warning) 45%, transparent); }
+
+/* Full-page detail (the panel's sections stacked) */
+.ac-msg-detail-body { padding: 0 14px 16px; }
+.ac-msg-section + .ac-msg-section { margin-top: 8px; }
+.ac-msg-detail .ac-scroll { max-height: none; }
+
+/* Row actions column and card footers */
+.ac-msg-actions { text-align: right; white-space: nowrap; }
+.ac-msg-actions form { display: inline-block; margin: 0; }
+.ac-msg-actions > * + * { margin-left: 4px; }
+.ac-msg-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 14px; border-top: 1px solid var(--ac-separator); }
+.ac-msg-foot form { margin: 0; }
+.ac-msg-rows-pad { padding: 0 14px 8px; border-top: 1px solid var(--ac-separator); }
+
+/* Forms (push composer, targeting, schedule dialog) */
+.ac-msg-form { display: flex; flex-direction: column; gap: 12px; margin: 0; }
+.ac-msg-form .ac-field { display: flex; width: 100%; }
+.ac-msg-form textarea.ac-input { resize: vertical; min-height: 64px; line-height: 1.45; }
+.ac-msg-form-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.ac-msg-form-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.ac-msg-form-foot p { margin: 0; }
+.ac-msg-checks { display: flex; flex-wrap: wrap; gap: 8px 18px; }
+.ac-msg-checks input[type="checkbox"] { width: 15px; height: 15px; accent-color: var(--ac-accent); }
+.ac-msg-fieldset { border: 0; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.ac-msg-fieldset legend { color: var(--ac-muted); margin-bottom: 6px; padding: 0; }
+.ac-msg-fieldset p { margin: 0; }
+
+/* Push composer */
+.ac-msg-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin: 16px 0; align-items: start; }
+.ac-msg-grid > .ac-card + .ac-card { margin-top: 0; }
+.ac-msg-push { padding: 12px 14px; border-radius: 14px; background: var(--ac-surface-muted); border: 1px solid var(--ac-border); margin-bottom: 6px; }
+.ac-msg-push p { margin: 0; }
+.ac-msg-push-app { font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ac-muted); }
+.ac-msg-push-title { margin-top: 3px !important; font-weight: 650; color: var(--ac-text); }
+.ac-msg-push-body { color: var(--ac-text-2); white-space: pre-line; }
+.ac-msg-details { margin: 6px 0 0; font-size: 13px; }
+.ac-msg-details summary { cursor: pointer; color: var(--ac-accent); font-weight: 500; }
+.ac-msg-details p { margin: 6px 0 0; }
+.ac-msg-send { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 14px 0 0; padding-top: 12px; border-top: 1px solid var(--ac-separator); }
+
+/* Notification schedules: the create dialog */
+.ac-dialog {
+    width: min(620px, calc(100vw - 32px)); max-height: calc(100vh - 48px); padding: 0; overflow: hidden;
+    border: 1px solid var(--ac-border); border-radius: var(--ac-radius);
+    background: var(--ac-surface); color: var(--ac-text); box-shadow: 0 20px 50px var(--ac-shadow-lg);
+}
+.ac-dialog::backdrop { background: rgba(10, 20, 40, 0.45); }
+.ac-dialog .ac-msg-form { gap: 0; max-height: calc(100vh - 50px); }
+.ac-dialog-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--ac-separator); }
+.ac-dialog-head h2 { margin: 0; font-size: 16px; font-weight: 650; }
+.ac-dialog-body { display: flex; flex-direction: column; gap: 12px; padding: 14px 16px; overflow-y: auto; }
+.ac-dialog-body p { margin: 0; }
+.ac-dialog-foot { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 16px; border-top: 1px solid var(--ac-separator); }
+
+/* A modal <dialog> renders in the top layer but stays where it is in the DOM
+   (inside the .ac frame), so the --ac-* tokens still apply; ::backdrop does
+   not inherit them, hence its fixed tint. */
+
+@media (max-width: 1023px) {
+    .ac-msg-grid { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 639px) {
+    .ac-msg-form-row { grid-template-columns: minmax(0, 1fr); }
+    .ac-msg-callout { margin: 0 10px 10px; }
+    .ac-msg-callout .ac-rows-split { flex-wrap: wrap; }
+    .ac-msg-actions { text-align: left; }
+    .ac-msg-detail-body { padding: 0 12px 14px; }
+}
+
+/* The dialog's Save: accent outline (the page's one gold button is "New schedule"). */
+.ac-msg-btn-save { border-color: var(--ac-accent); color: var(--ac-accent) !important; font-weight: 600; }
+.ac-msg-btn-save:hover { background: var(--ac-accent-soft); }
+
+/* Second lines under a cell's main text (who sent it, which reminder, …). */
+.ac-msg-list td > .ac-sub { display: block; }
+.ac-msg-list td:first-child:not(.ac-col-check) { min-width: 180px; }

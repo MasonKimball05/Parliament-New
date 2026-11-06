@@ -1,0 +1,51 @@
+{% extends "admin_v2/base.html" %}
+{% comment %}
+Committees in the console look (admin_v2_manage_committees when
+`admin_console_ui` is on; the classic page is admin_v2/manage_committees.html).
+Each row keeps its Activate / Deactivate toggle; the Actions menu does the
+same for every ticked row (admin_v2_committees_bulk).
+{% endcomment %}
+{% load admin_v2_tags %}
+
+{% block title %}Manage Committees - Admin v2{% endblock %}
+
+{% block admin_content %}
+<section class="ac-card" aria-label="Committees">
+    {% include "admin_v2/console/_list_header.html" with title="Committees" count=committees|length subtitle="Toggle committee status" actions=bulk_actions %}
+    <div class="ac-table-wrap">
+        <table class="ac-table" id="ac-list" data-ac-select>
+            <thead>
+                <tr>
+                    <th class="ac-col-check"><input type="checkbox" data-ac-select-all aria-label="Select every committee"></th>
+                    <th>Name</th>
+                    <th>Members</th>
+                    <th>Chairs</th>
+                    <th>Documents</th>
+                    <th>Status</th>
+                    <th><span class="ac-sr">Actions</span></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for committee in committees %}
+                <tr data-ac-row>
+                    <td class="ac-col-check"><input type="checkbox" value="{{ committee.id }}" data-ac-row-select aria-label="Select {{ committee.name }}"></td>
+                    <td><strong>{{ committee.name }}</strong></td>
+                    <td>{{ committee.member_count }}</td>
+                    <td>{{ committee.chair_count }}</td>
+                    <td>{{ committee.document_count }}</td>
+                    <td>{% if committee.is_active %}<span class="ac-pill is-ok">Active</span>{% else %}<span class="ac-pill is-muted">Inactive</span>{% endif %}</td>
+                    <td>
+                        <form method="post" action="{% url 'admin_v2_toggle_committee' committee.id %}">
+                            {% csrf_token %}
+                            <button type="submit" class="ac-btn ac-btn-sm{% if committee.is_active %} ac-btn-danger-text{% endif %}">{% if committee.is_active %}Deactivate{% else %}Activate{% endif %}</button>
+                        </form>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="7" class="ac-empty">No committees found.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endblock %}

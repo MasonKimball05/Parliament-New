@@ -1,0 +1,131 @@
+{% extends "admin_v2/base.html" %}
+{% load static_version admin_v2_tags %}
+{% comment %}
+Site map in the console look (admin_v2_sitemap when `admin_console_ui` is on;
+the classic page is admin_v2/sitemap.html). Only the chrome and colors
+change: static/js/admin_v2/sitemap.js is the same script and finds the same
+hooks (#sm-data, #sm-config, #sm-canvas, #sm-list, #sm-panel, #sm-search,
+#sm-search-results, #sm-show-all, [data-sm], [data-sm-zoom]). The map's
+styles (the classic page's inline style block) live in
+static/css/admin-console/operations.css under .ac-sitemap, on console tokens.
+The confirm card keeps every POST (confirm=yes) the classic page has.
+{% endcomment %}
+
+{% block title %}Site map - Admin{% endblock %}
+
+{% block admin_content %}
+<div class="ac-sitemap">
+<div class="ac-op-head">
+    <div>
+        <h1 class="ac-h1">Site map</h1>
+        <p class="ac-muted ac-small">Every page, generated from the URL conf and nested by path, with committees and recent elections filled in. Pick a page to see what decides who can open it, check a member against it, and change its switches. Every change is recorded in Admin activity.</p>
+    </div>
+    <div class="ac-list-tools">
+        <a href="{% url 'admin_v2_url_explorer' %}" class="ac-btn">{% console_icon "link" %}URL explorer</a>
+    </div>
+</div>
+
+<div class="ac-op">
+    {% if confirm %}
+    <section class="ac-card ac-op-confirm" aria-labelledby="confirm-title">
+        {% if confirm.kind == 'page' or confirm.kind == 'flag' %}
+        <h2 id="confirm-title">Turn {% if confirm.enabled %}off{% else %}on{% endif %} {% if confirm.kind == 'page' %}the page{% else %}the feature{% endif %} "{{ confirm.display }}"?</h2>
+        <p>
+            {% if confirm.kind == 'page' %}{% if confirm.enabled %}Members who open it see its "unavailable" message instead, until it's turned back on.{% else %}Members can open it again.{% endif %}
+            Same switch as on the Maintenance page (PageToggle <code class="ac-op-code">{{ confirm.target }}</code>).
+            {% else %}{% if confirm.enabled %}Every page and feature that needs it stops working until it's turned back on.{% else %}Everything that needs it starts working again.{% endif %}
+            Same switch as on the Maintenance page (FeatureFlag <code class="ac-op-code">{{ confirm.target }}</code>).{% endif %}
+        </p>
+        <form method="post" action="{% if confirm.kind == 'page' %}{% url 'admin_v2_sitemap_page_toggle' %}{% else %}{% url 'admin_v2_sitemap_feature_flag' %}{% endif %}" class="ac-op-actions">
+            {% csrf_token %}
+            <input type="hidden" name="target" value="{{ confirm.target }}">
+            <input type="hidden" name="node" value="{{ confirm.node }}">
+            <input type="hidden" name="confirm" value="yes">
+            <button type="submit" class="ac-btn ac-btn-primary">Turn it {% if confirm.enabled %}off{% else %}on{% endif %}</button>
+            <a href="?node={{ confirm.node|urlencode }}" class="ac-btn">Cancel</a>
+        </form>
+        {% elif confirm.kind == 'pledge_set' %}
+        <h2 id="confirm-title">Restrict "{{ confirm.display }}" for pledges?</h2>
+        <p>Tick the phases that may open it. Leave every box empty to block all pledges. Same rule the education dashboard sets (PledgePageRestriction <code class="ac-op-code">{{ confirm.target }}</code>), enforced on every page.</p>
+        <form method="post" action="{% url 'admin_v2_sitemap_pledge_restriction' %}">
+            {% csrf_token %}
+            <input type="hidden" name="target" value="{{ confirm.target }}">
+            <input type="hidden" name="node" value="{{ confirm.node }}">
+            <input type="hidden" name="action" value="set">
+            <input type="hidden" name="confirm" value="yes">
+            <div class="ac-op-checks">
+                {% for value, label in confirm.phase_choices %}
+                <label class="ac-check"><input type="checkbox" name="phases" value="{{ value }}" {% if value in confirm.phases %}checked{% endif %}> {{ label }}</label>
+                {% endfor %}
+            </div>
+            <div class="ac-op-actions">
+                <button type="submit" class="ac-btn ac-btn-primary">Save restriction</button>
+                <a href="?node={{ confirm.node|urlencode }}" class="ac-btn">Cancel</a>
+            </div>
+        </form>
+        {% elif confirm.kind == 'pledge_remove' %}
+        <h2 id="confirm-title">Remove the pledge restriction on "{{ confirm.display }}"?</h2>
+        <p>With no restriction every pledge can open it again (allowed now: {{ confirm.phases|join:", "|default:"no phase" }}).</p>
+        <form method="post" action="{% url 'admin_v2_sitemap_pledge_restriction' %}" class="ac-op-actions">
+            {% csrf_token %}
+            <input type="hidden" name="target" value="{{ confirm.target }}">
+            <input type="hidden" name="node" value="{{ confirm.node }}">
+            <input type="hidden" name="action" value="remove">
+            <input type="hidden" name="confirm" value="yes">
+            <button type="submit" class="ac-btn ac-btn-primary">Remove it</button>
+            <a href="?node={{ confirm.node|urlencode }}" class="ac-btn">Cancel</a>
+        </form>
+        {% endif %}
+    </section>
+    {% endif %}
+
+    <section class="ac-card" aria-label="Site map">
+        <div class="ac-filterbar ac-sm-toolbar">
+            <div class="ac-field ac-field-grow">
+                <label for="sm-search" class="ac-sr">Search pages</label>
+                {% console_icon "search" %}
+                <input id="sm-search" type="search" autocomplete="off" spellcheck="false" placeholder="Search by name, url name or path"
+                       class="ac-input" role="combobox" aria-expanded="false" aria-controls="sm-search-results">
+                <ul id="sm-search-results" class="sm-results hidden" role="listbox"></ul>
+            </div>
+            <button type="button" class="ac-btn" data-sm="expand">Expand all</button>
+            <button type="button" class="ac-btn" data-sm="collapse">Collapse all</button>
+            <span class="sm-wide ac-sm-zoom" data-sm-zoom>
+                <button type="button" class="ac-btn ac-btn-icon" data-sm="zoom-out" aria-label="Zoom out">−</button>
+                <button type="button" class="ac-btn ac-btn-icon" data-sm="zoom-in" aria-label="Zoom in">+</button>
+                <button type="button" class="ac-btn" data-sm="fit">Fit</button>
+            </span>
+            <label class="ac-check">
+                <input id="sm-show-all" type="checkbox">
+                Show API, mobile, files, actions, redirects and traps
+            </label>
+        </div>
+        <div class="ac-sm-legend">
+            {% for k in kinds %}<span><span class="sm-kind {{ k.key }}"></span>{{ k.label }} · {{ k.n }}</span>{% endfor %}
+            <span>{{ total }} in all{% if django_admin %}; {{ django_admin }} Django admin routes not mapped{% endif %}.</span>
+            <span class="sm-wide">Drag to pan, ⌘/Ctrl + scroll to zoom, click a page for details, its circle to open or close it. Pages that link to the selected one have a gold dashed outline.</span>
+        </div>
+
+        <div class="ac-sm-body">
+            <div class="ac-sm-map">
+                <div id="sm-canvas" class="sm-canvas hidden" aria-label="Site map diagram"></div>
+                <div id="sm-list" class="sm-list hidden" aria-label="Site map"></div>
+            </div>
+            <aside id="sm-panel" class="sm-panel" aria-live="polite">
+                <p class="ac-muted">Pick a page to see who can open it.</p>
+            </aside>
+        </div>
+    </section>
+</div>
+</div>
+
+{{ tree|json_script:"sm-data" }}
+<div id="sm-config" hidden
+     data-node-url="{% url 'admin_v2_sitemap_node' %}"
+     data-open-url="{% url 'admin_v2_sitemap_open' %}"
+     data-check-url="{% url 'admin_v2_sitemap_check' %}"
+     data-members-url="{% url 'admin_v2_sitemap_members' %}"
+     data-selected="{{ selected }}"></div>
+{% endblock %}
+
+{% block console_js %}<script src="{% static_v 'js/admin_v2/sitemap.js' %}"></script>{% endblock %}

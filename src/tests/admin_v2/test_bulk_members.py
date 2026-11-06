@@ -84,4 +84,7 @@ class BulkMembersTests(AdminV2TestCase):
         self.assertFalse(self.b.roles.filter(pk=self.solo.pk).exists())
 
     def test_member_route_does_not_swallow_bulk(self):
+        # Bulk edit's own template (console look on by default; classic when off).
+        self.assertEqual(self.client.get(reverse(URL)).templates[0].name, 'admin_v2/console/bulk_members.html')
+        self.set_console(False)
         self.assertEqual(self.client.get(reverse(URL)).templates[0].name, 'admin_v2/bulk_members.html')

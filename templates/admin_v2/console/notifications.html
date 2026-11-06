@@ -1,0 +1,56 @@
+{% extends "admin_v2/base.html" %}
+{% comment %}
+Notifications overview in the console look (admin_v2_notifications when
+`admin_console_ui` is on; classic: admin_v2/notifications/dashboard.html).
+Same numbers and the 20 most recent notifications; each opens in the
+slide-out panel (console/notification_log_panel.html).
+{% endcomment %}
+{% load admin_v2_tags %}
+
+{% block title %}Notifications - Admin{% endblock %}
+
+{% block admin_content %}
+<section class="ac-card">
+    {% url 'admin_v2_notification_schedules' as schedules_url %}
+    {% include "admin_v2/console/_list_header.html" with title="Notifications" subtitle="Automated notification schedules and their delivery history." %}
+    <div class="ac-msg-pad">
+        <div class="ac-msg-stats">
+            <a class="ac-stat ac-msg-stat-link" href="{{ schedules_url }}"><span class="ac-stat-n">{{ stats.total_schedules }}</span><span class="ac-stat-l">Schedules</span></a>
+            <a class="ac-stat ac-msg-stat-link" href="{{ schedules_url }}"><span class="ac-stat-n ac-text-ok">{{ stats.active_schedules }}</span><span class="ac-stat-l">Active schedules</span></a>
+            <a class="ac-stat ac-msg-stat-link" href="{% url 'admin_v2_notification_logs' %}"><span class="ac-stat-n">{{ stats.logs_today }}</span><span class="ac-stat-l">Sent today</span></a>
+            <a class="ac-stat ac-msg-stat-link" href="{% url 'admin_v2_notification_logs' %}?status=failed"><span class="ac-stat-n{% if stats.failed_today %} ac-text-error{% endif %}">{{ stats.failed_today }}</span><span class="ac-stat-l">Failed today</span></a>
+        </div>
+        <ul class="ac-link-list ac-msg-links">
+            <li><a href="{{ schedules_url }}">{% console_icon "clock" %}<span>Notification schedules <span class="ac-muted">· {{ stats.active_schedules }} active schedule{{ stats.active_schedules|pluralize }}</span></span></a></li>
+            <li><a href="{% url 'admin_v2_notification_logs' %}">{% console_icon "doc-search" %}<span>Notification logs <span class="ac-muted">· {{ stats.logs_today }} notification{{ stats.logs_today|pluralize }} today</span></span></a></li>
+        </ul>
+    </div>
+</section>
+
+<section class="ac-card">
+    <div class="ac-list-head">
+        <div class="ac-list-title"><h2>Recent notifications</h2></div>
+        <div class="ac-list-tools"><a href="{% url 'admin_v2_notification_logs' %}" class="ac-btn">View all logs</a></div>
+    </div>
+    <div class="ac-table-wrap">
+        <table class="ac-table" id="ac-list">
+            <thead>
+                <tr><th>Notification</th><th>Type</th><th>Recipients</th><th>Status</th><th>When</th></tr>
+            </thead>
+            <tbody>
+                {% for log in recent_logs %}
+                <tr data-ac-row>
+                    <td><a href="{% url 'admin_v2_notification_log_detail' log.id %}" class="ac-row-link" data-ac-panel>{{ log.title }}</a></td>
+                    <td><span class="ac-pill is-accent">{{ log.notification_type }}</span></td>
+                    <td>{{ log.recipient_count }}</td>
+                    <td>{% include "admin_v2/console/_notification_status_pill.html" %}</td>
+                    <td class="ac-nowrap">{{ log.created_at|timesince }} ago</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="5" class="ac-empty">No notifications sent yet. Set up a schedule to get started.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endblock %}

@@ -1,0 +1,168 @@
+{% extends "admin_v2/base.html" %}
+{% comment %}
+API tokens in the console look (admin_api_tokens when `admin_console_ui` is
+on; the classic page is admin_v2/api_tokens.html). Same settings switches,
+row buttons and modals (ids and js-* hooks kept); static/js/admin_v2/api_tokens.js
+replaces the classic inline script and reads every endpoint from data-url.
+A token's name opens its panel (admin_api_token_logs ?panel=1); the Actions
+menu rejects / revokes the ticked tokens (admin_api_tokens_bulk).
+{% endcomment %}
+{% load static_version admin_v2_tags %}
+
+{% block title %}API Tokens - Admin v2{% endblock %}
+
+{% block admin_content %}
+<div class="ac-id-stack">
+    <section class="ac-card" aria-labelledby="api-settings">
+        <header class="ac-id-card-head"><h2 id="api-settings">API settings</h2></header>
+        <div class="ac-id-card-body">
+            <div class="ac-id-settings">
+                <div class="ac-id-setting">
+                    <div id="api-flag-rest"><strong>REST API enabled</strong><span>Gates all API access. Disable to block every request immediately.</span></div>
+                    <button type="button" id="toggle-rest-api" class="ac-id-switch" role="switch" aria-labelledby="api-flag-rest"
+                            aria-checked="{% if flag_rest_api and flag_rest_api.is_enabled %}true{% else %}false{% endif %}"
+                            data-flag="rest_api" data-url="{% url 'admin_toggle_api_flag' 'rest_api' %}"
+                            data-enabled="{{ flag_rest_api.is_enabled|yesno:'true,false' }}"></button>
+                </div>
+                <div class="ac-id-setting">
+                    <div id="api-flag-auto"><strong>Auto-approve tokens</strong><span>Approve new token requests automatically. When off, requests need manual approval.</span></div>
+                    <button type="button" id="toggle-auto-approve" class="ac-id-switch" role="switch" aria-labelledby="api-flag-auto"
+                            aria-checked="{% if flag_auto_approve and flag_auto_approve.is_enabled %}true{% else %}false{% endif %}"
+                            data-flag="api_token_auto_approve" data-url="{% url 'admin_toggle_api_flag' 'api_token_auto_approve' %}"
+                            data-enabled="{{ flag_auto_approve.is_enabled|yesno:'true,false' }}"></button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="ac-card" aria-label="Tokens">
+        {% include "admin_v2/console/_list_header.html" with title="API tokens" count=tokens|length subtitle="Member API token requests, approvals, and access scopes." actions=bulk_actions %}
+        <form method="get" class="ac-filterbar" aria-label="Filter tokens">
+            <label class="ac-field"><span class="ac-field-label">Status</span>
+                <select name="status" class="ac-select" data-autosubmit>
+                    {% for tab_value, tab_label in status_choices %}
+                    <option value="{{ tab_value }}"{% if status_filter == tab_value %} selected{% endif %}>{{ tab_label }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <noscript><button type="submit" class="ac-btn">Apply</button></noscript>
+        </form>
+        <div class="ac-table-wrap">
+            <table class="ac-table" id="ac-list" data-ac-select>
+                <thead>
+                    <tr>
+                        <th class="ac-col-check"><input type="checkbox" data-ac-select-all aria-label="Select every token shown"></th>
+                        <th>User</th>
+                        <th>Token name</th>
+                        <th>Status</th>
+                        <th>Scopes</th>
+                        <th>Created</th>
+                        <th>Last used</th>
+                        <th>Expires</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for token in tokens %}
+                    <tr data-ac-row id="token-row-{{ token.id }}">
+                        <td class="ac-col-check"><input type="checkbox" value="{{ token.id }}" data-ac-row-select aria-label="Select {{ token.name }}"></td>
+                        <td>{{ token.user.get_display_name }}<span class="ac-sub">{{ token.user.username }}</span></td>
+                        <td>
+                            <a href="{% url 'admin_api_token_logs' token.id %}" class="ac-row-link" data-ac-panel>{{ token.name }}</a>
+                            {% if token.request_note %}<span class="ac-sub ac-id-truncate" title="{{ token.request_note }}">{{ token.request_note }}</span>{% endif %}
+                        </td>
+                        <td>
+                            {% if token.status == 'pending' %}<span class="ac-pill is-warn">Pending</span>
+                            {% elif token.status == 'active' %}<span class="ac-pill is-ok">Active</span>
+                            {% elif token.status == 'revoked' %}<span class="ac-pill is-error">Revoked</span>
+                                {% if token.revoked_by %}<span class="ac-sub">by {{ token.revoked_by.username }} {{ token.revoked_at|date:"M d" }}</span>{% endif %}
+                                {% if token.revoke_reason %}<span class="ac-sub ac-id-truncate" title="{{ token.revoke_reason }}">{{ token.revoke_reason }}</span>{% endif %}
+                            {% elif token.status == 'rejected' %}<span class="ac-pill is-muted">Rejected</span>
+                                {% if token.rejection_reason %}<span class="ac-sub ac-id-truncate" title="{{ token.rejection_reason }}">{{ token.rejection_reason }}</span>{% endif %}
+                            {% endif %}
+                        </td>
+                        <td><div class="ac-id-chips js-token-scopes">{% for scope in token.scopes %}<span class="ac-id-chip is-accent">{{ scope }}</span>{% endfor %}</div></td>
+                        <td class="ac-nowrap">{{ token.created_at|date:"M d, Y" }}</td>
+                        <td class="ac-nowrap">{% if token.last_used_at %}{{ token.last_used_at|date:"M d, Y H:i" }}{% else %}<span class="ac-muted">Never</span>{% endif %}</td>
+                        <td class="ac-nowrap">
+                            {% if token.expires_at %}
+                                {% if token.expires_at < now %}<span class="ac-text-error">Expired {{ token.expires_at|date:"M d, Y" }}</span>{% else %}{{ token.expires_at|date:"M d, Y" }}{% endif %}
+                            {% else %}<span class="ac-muted">Never</span>{% endif %}
+                        </td>
+                        <td>
+                            <div class="ac-id-row-actions">
+                                {% include "admin_v2/console/_api_token_buttons.html" %}
+                                <a href="{% url 'admin_api_token_logs' token.id %}" class="ac-btn ac-btn-sm ac-btn-ghost">Logs</a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="9" class="ac-empty">No tokens found{% if status_filter != 'all' %} with status "{{ status_filter }}"{% endif %}.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+</div>
+
+<div id="approve-modal" class="ac-id-modal hidden" role="dialog" aria-modal="true" aria-labelledby="approve-modal-title">
+    <div class="ac-id-modal-box">
+        <h3 id="approve-modal-title">Approve token request</h3>
+        <p>Approving token for <strong id="approve-modal-user"></strong> — "<span id="approve-modal-name"></span>"</p>
+        <p class="ac-id-label">Scopes <span class="ac-muted">(uncheck to narrow access)</span></p>
+        <div id="approve-scopes-list" class="ac-id-scope-list"></div>
+        <label class="ac-id-label">Expiry date <span class="ac-muted">(optional)</span>
+            <input type="date" id="approve-expires-input" class="ac-input">
+            <span class="ac-id-hint">Leave blank for no expiry.</span></label>
+        <div class="ac-id-modal-foot">
+            <button type="button" id="approve-modal-cancel" class="ac-btn">Cancel</button>
+            <button type="button" id="approve-modal-confirm" class="ac-btn ac-id-save">Approve</button>
+        </div>
+    </div>
+</div>
+
+<div id="reject-modal" class="ac-id-modal hidden" role="dialog" aria-modal="true" aria-labelledby="reject-modal-title">
+    <div class="ac-id-modal-box">
+        <h3 id="reject-modal-title">Reject token request</h3>
+        <p id="reject-modal-subtitle">Rejecting token for <strong id="reject-modal-user"></strong> — "<span id="reject-modal-name"></span>"</p>
+        <label class="ac-id-label">Reason <span class="ac-muted">(optional)</span>
+            <textarea id="reject-reason-input" rows="3" maxlength="500" placeholder="Explain why the request is being rejected..." class="ac-input ac-id-textarea"></textarea></label>
+        <div class="ac-id-modal-foot">
+            <button type="button" id="reject-modal-cancel" class="ac-btn">Cancel</button>
+            <button type="button" id="reject-modal-confirm" class="ac-btn ac-btn-danger-text">Reject</button>
+        </div>
+    </div>
+</div>
+
+<div id="revoke-modal" class="ac-id-modal hidden" role="dialog" aria-modal="true" aria-labelledby="revoke-modal-title">
+    <div class="ac-id-modal-box">
+        <h3 id="revoke-modal-title">Revoke token</h3>
+        <p>Revoking token for <strong id="revoke-modal-user"></strong> — "<span id="revoke-modal-name"></span>"</p>
+        <label class="ac-id-label">Reason <span class="ac-muted">(optional)</span>
+            <textarea id="revoke-reason-input" rows="3" maxlength="500" placeholder="Explain why the token is being revoked..." class="ac-input ac-id-textarea"></textarea></label>
+        <div class="ac-id-modal-foot">
+            <button type="button" id="revoke-modal-cancel" class="ac-btn">Cancel</button>
+            <button type="button" id="revoke-modal-confirm" class="ac-btn ac-btn-danger-text">Revoke</button>
+        </div>
+    </div>
+</div>
+
+<div id="scopes-modal" class="ac-id-modal hidden" role="dialog" aria-modal="true" aria-labelledby="scopes-modal-title">
+    <div class="ac-id-modal-box">
+        <h3 id="scopes-modal-title">Edit token scopes</h3>
+        <p>"<span id="scopes-modal-name"></span>"</p>
+        <div class="ac-id-scope-list">
+            {% for scope_key, scope_label in defined_scopes %}
+            <label class="ac-check"><input type="checkbox" name="scope_edit" value="{{ scope_key }}" class="js-scope-checkbox" data-label="{{ scope_label }}">
+                <span><span class="ac-id-chip">{{ scope_key }}</span> — {{ scope_label }}</span></label>
+            {% endfor %}
+        </div>
+        <div class="ac-id-modal-foot">
+            <button type="button" id="scopes-modal-cancel" class="ac-btn">Cancel</button>
+            <button type="button" id="scopes-modal-confirm" class="ac-btn ac-id-save">Save scopes</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block console_js %}<script src="{% static_v 'js/admin_v2/api_tokens.js' %}"></script>{% endblock %}

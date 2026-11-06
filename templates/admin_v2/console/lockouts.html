@@ -1,0 +1,145 @@
+{% extends "admin_v2/base.html" %}
+{% comment %}
+Login lockouts in the console look (admin_v2_lockouts when `admin_console_ui`
+is on; the classic page is admin_v2/lockouts.html; admins only, as before).
+Same POST actions to the page itself (action = clear / blacklist /
+whitelist_and_clear / clear_all_active, lockout_id, ip_address); Actions ▾
+clears the ticked active lockouts (action = clear_selected, ids).
+{% endcomment %}
+{% load admin_v2_tags %}
+
+{% block title %}Lockouts - Admin{% endblock %}
+
+{% block admin_content %}
+<section class="ac-card">
+    <div class="ac-list-head">
+        <div class="ac-list-title">
+            <h1>Active lockouts <span class="ac-count">({{ active_count }})</span></h1>
+            <p>Rate-limit lockouts from all three enforcement systems</p>
+        </div>
+        <div class="ac-list-tools">
+            <a href="{{ request.get_full_path }}" class="ac-btn ac-btn-icon" aria-label="Refresh" title="Refresh">{% console_icon "refresh" %}</a>
+            {% if active_count > 0 %}
+            <form method="post" class="js-confirm-submit" data-confirm="Clear all {{ active_count }} active lockout(s)?">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="clear_all_active">
+                <button type="submit" class="ac-btn">Clear all active ({{ active_count }})</button>
+            </form>
+            {% endif %}
+            <div class="ac-dropdown" data-ac-bulk="ac-list" data-ac-bulk-field="ids">
+                <button type="button" class="ac-btn" data-ac-menu data-ac-bulk-button aria-haspopup="true" aria-expanded="false" disabled title="Tick rows to act on them">
+                    Actions<span class="ac-bulk-count" data-ac-bulk-count></span>{% console_icon "chevron-down" "ac-icon-sm" %}
+                </button>
+                <div class="ac-menu ac-menu-right hidden">
+                    {% for a in bulk_actions %}
+                    <form method="post" action="{{ a.url }}" data-ac-bulk-form{% if a.confirm %} data-confirm="{{ a.confirm }}"{% endif %}>
+                        {% csrf_token %}
+                        {% for name, value in a.fields.items %}<input type="hidden" name="{{ name }}" value="{{ value }}">{% endfor %}
+                        <button type="submit" class="ac-menu-item{% if a.danger %} is-danger{% endif %}">{{ a.label }}</button>
+                    </form>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="ac-table-wrap">
+        <table class="ac-table ac-sec-subs" id="ac-list" data-ac-select>
+            <thead>
+                <tr>
+                    <th class="ac-col-check"><input type="checkbox" data-ac-select-all aria-label="Select every active lockout"></th>
+                    <th>IP address</th>
+                    <th>Username</th>
+                    <th>Source</th>
+                    <th>Locked</th>
+                    <th>Expires</th>
+                    <th><span class="ac-sr">Actions</span></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for lockout in active_lockouts %}
+                <tr data-ac-row>
+                    <td class="ac-col-check"><input type="checkbox" value="{{ lockout.pk }}" data-ac-row-select aria-label="Select lockout for {{ lockout.ip_address|default:'unknown address' }}"></td>
+                    <td><code class="ac-sec-code">{{ lockout.ip_address|default:"—" }}</code></td>
+                    <td>{{ lockout.username|default:"—" }}</td>
+                    <td>{% include "admin_v2/console/_security_lockout_source.html" %}</td>
+                    <td class="ac-nowrap">{{ lockout.locked_at|date:"M j, Y H:i" }}</td>
+                    <td class="ac-nowrap"><span title="{{ lockout.expires_at|date:'M j, Y H:i' }}">in {{ lockout.expires_at|timeuntil }}</span></td>
+                    <td class="ac-sec-actions"><div class="ac-sec-btns">
+                        <form method="post" class="js-confirm-submit" data-confirm="Clear lockout for {{ lockout.ip_address }}?">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="clear">
+                            <input type="hidden" name="lockout_id" value="{{ lockout.pk }}">
+                            <input type="hidden" name="ip_address" value="{{ lockout.ip_address }}">
+                            <button type="submit" class="ac-btn ac-btn-sm">Clear</button>
+                        </form>
+                        <form method="post" class="js-confirm-submit" data-confirm="Permanently blacklist {{ lockout.ip_address }}? This will block all access from this IP.">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="blacklist">
+                            <input type="hidden" name="lockout_id" value="{{ lockout.pk }}">
+                            <input type="hidden" name="ip_address" value="{{ lockout.ip_address }}">
+                            <button type="submit" class="ac-btn ac-btn-sm ac-btn-danger-text">Blacklist</button>
+                        </form>
+                        <form method="post" class="js-confirm-submit" data-confirm="Whitelist {{ lockout.ip_address }} and clear lockout? Whitelisted IPs bypass all rate limiting.">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="whitelist_and_clear">
+                            <input type="hidden" name="lockout_id" value="{{ lockout.pk }}">
+                            <input type="hidden" name="ip_address" value="{{ lockout.ip_address }}">
+                            <button type="submit" class="ac-btn ac-btn-sm">Whitelist</button>
+                        </form>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="7" class="ac-empty">No active lockouts.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+
+{% if expired_lockouts %}
+<section class="ac-card">
+    <div class="ac-list-head"><div class="ac-list-title"><h2>Recently expired <span class="ac-count">(awaiting cleanup)</span></h2></div></div>
+    <div class="ac-table-wrap">
+        <table class="ac-table ac-sec-subs">
+            <thead><tr><th>IP address</th><th>Username</th><th>Source</th><th>Locked</th><th>Expired</th></tr></thead>
+            <tbody>
+                {% for lockout in expired_lockouts %}
+                <tr>
+                    <td><code class="ac-sec-code">{{ lockout.ip_address|default:"—" }}</code></td>
+                    <td>{{ lockout.username|default:"—" }}</td>
+                    <td>{{ lockout.get_source_display }}</td>
+                    <td class="ac-nowrap">{{ lockout.locked_at|date:"M j, Y H:i" }}</td>
+                    <td class="ac-nowrap">{{ lockout.expires_at|date:"M j, Y H:i" }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endif %}
+
+{% if recent_cleared %}
+<section class="ac-card">
+    <div class="ac-list-head"><div class="ac-list-title"><h2>Recently cleared</h2></div></div>
+    <div class="ac-table-wrap">
+        <table class="ac-table ac-sec-subs">
+            <thead><tr><th>IP address</th><th>Username</th><th>Source</th><th>Locked</th><th>Cleared</th><th>Cleared by</th></tr></thead>
+            <tbody>
+                {% for lockout in recent_cleared %}
+                <tr>
+                    <td><code class="ac-sec-code">{{ lockout.ip_address|default:"—" }}</code></td>
+                    <td>{{ lockout.username|default:"—" }}</td>
+                    <td>{{ lockout.get_source_display }}</td>
+                    <td class="ac-nowrap">{{ lockout.locked_at|date:"M j, Y H:i" }}</td>
+                    <td class="ac-nowrap">{{ lockout.cleared_at|date:"M j, Y H:i"|default:"—" }}</td>
+                    <td>{{ lockout.cleared_by.name|default:"System" }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endif %}
+{% endblock %}

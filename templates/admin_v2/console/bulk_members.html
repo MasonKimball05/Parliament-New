@@ -1,0 +1,113 @@
+{% extends "admin_v2/base.html" %}
+{% comment %}
+Bulk edit in the console look (admin_v2_bulk_members GET when
+`admin_console_ui` is on; the classic page is admin_v2/bulk_members.html).
+Same two forms: the GET filters, and the POST that goes to the preview step
+(step=preview, bulk_action, value_status / value_type / value_role, ids).
+Nothing changes until the confirm page's Apply.
+{% endcomment %}
+{% load static_version admin_v2_tags %}
+
+{% block title %}Bulk edit members - Admin{% endblock %}
+
+{% block admin_content %}
+<div class="ac-id-stack">
+<section class="ac-card" aria-label="Bulk edit members">
+    {% include "admin_v2/console/_list_header.html" with title="Bulk edit members" count=members|length subtitle="Filter, tick members, choose a change. You'll see every change before it's saved." actions=None %}
+
+    <form method="get" class="ac-filterbar" role="search" aria-label="Filter members">
+        <label class="ac-field ac-field-grow">
+            <span class="ac-sr">Search</span>
+            {% console_icon "filter" %}
+            <input type="search" name="q" value="{{ filters.q }}" placeholder="Name or #" class="ac-input">
+        </label>
+        <label class="ac-field"><span class="ac-field-label">Status</span>
+            <select name="status" data-autosubmit class="ac-select">
+                <option value="">Any (not Removed)</option>
+                {% for s in statuses %}<option value="{{ s }}" {% if filters.status == s %}selected{% endif %}>{{ s }}</option>{% endfor %}
+            </select>
+        </label>
+        <label class="ac-field"><span class="ac-field-label">Type</span>
+            <select name="type" data-autosubmit class="ac-select">
+                <option value="">Any</option>
+                {% for t in types %}<option value="{{ t }}" {% if filters.type == t %}selected{% endif %}>{{ t }}</option>{% endfor %}
+            </select>
+        </label>
+        <label class="ac-field"><span class="ac-field-label">Pledge class</span>
+            <select name="pledge_class" data-autosubmit class="ac-select">
+                <option value="">Any</option>
+                {% for p in pledge_classes %}<option value="{{ p }}" {% if filters.pledge_class == p %}selected{% endif %}>{{ p }}</option>{% endfor %}
+            </select>
+        </label>
+        <label class="ac-field"><span class="ac-field-label">Role</span>
+            <select name="role" data-autosubmit class="ac-select">
+                <option value="">Any</option>
+                {% for r in roles %}<option value="{{ r.pk }}" {% if filters.role == r.pk|stringformat:"s" %}selected{% endif %}>{{ r.name }}</option>{% endfor %}
+            </select>
+        </label>
+        <button type="submit" class="ac-btn">Apply</button>
+    </form>
+
+    <form method="post">
+        {% csrf_token %}
+        <input type="hidden" name="step" value="preview">
+        {% for k, v in filters.items %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endfor %}
+
+        <div class="ac-id-changebar">
+            <label class="ac-field"><span class="ac-field-label">Change</span>
+                <select name="bulk_action" required class="ac-select">
+                    <option value="">Choose…</option>
+                    {% for key, label in actions.items %}<option value="{{ key }}">{{ label }}</option>{% endfor %}
+                </select>
+            </label>
+            <label class="ac-field"><span class="ac-field-label">Status (for Set status)</span>
+                <select name="value_status" class="ac-select">
+                    {% for s in statuses %}<option value="{{ s }}">{{ s }}</option>{% endfor %}
+                </select>
+            </label>
+            <label class="ac-field"><span class="ac-field-label">Type (for Set member type)</span>
+                <select name="value_type" class="ac-select">
+                    {% for t in types %}<option value="{{ t }}">{{ t }}</option>{% endfor %}
+                </select>
+            </label>
+            <label class="ac-field"><span class="ac-field-label">Role (for Add/Remove role)</span>
+                <select name="value_role" class="ac-select">
+                    {% for r in roles %}<option value="{{ r.pk }}">{{ r.name }}{% if r.one_per_chapter %} (one per chapter){% endif %}</option>{% endfor %}
+                </select>
+            </label>
+            <button type="submit" class="ac-btn ac-btn-primary">Preview</button>
+        </div>
+        {% if members|length == limit %}<p class="ac-filterbar ac-text-warn ac-small">Showing the first {{ limit }}; narrow the filters.</p>{% endif %}
+
+        <div class="ac-table-wrap">
+            <table class="ac-table">
+                <thead>
+                    <tr>
+                        <th class="ac-col-check"><input type="checkbox" data-check-all="ids" aria-label="Select all {{ members|length }}"></th>
+                        <th>Name</th>
+                        <th>Type</th>
+                        <th>Status</th>
+                        <th>Pledge class</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for m in members %}
+                    <tr data-ac-row>
+                        <td class="ac-col-check"><input type="checkbox" name="ids" value="{{ m.user_id }}" aria-label="Select {{ m.get_display_name }}"></td>
+                        <td><a href="{% url 'admin_v2_member' m.user_id %}" class="ac-row-link" data-ac-panel>{{ m.get_display_name }}</a><span class="ac-sub">#{{ m.user_id }}</span></td>
+                        <td>{{ m.member_type }}</td>
+                        <td>{{ m.member_status }}</td>
+                        <td>{{ m.pledge_class|default:"—" }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="5" class="ac-empty">No members match.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </form>
+</section>
+</div>
+{% endblock %}
+
+{% block console_js %}<script src="{% static_v 'js/admin_v2/members.js' %}"></script>{% endblock %}

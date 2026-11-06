@@ -1,0 +1,10 @@
+{% extends "admin_v2/console/panel.html" %}
+{% comment %}
+One honeypot hit in the slide-out panel (honeypot_log_detail with ?panel=1;
+admins only). Block is a plain POST form; Delete is a .js-delete-log button
+run by the list page's security_honeypot.js.
+{% endcomment %}
+{% block panel_title %}{{ log.endpoint }}{% endblock %}
+{% block panel_subtitle %}{{ log.request_method }} · {{ log.accessed_at|date:"M d, Y H:i:s" }}{% endblock %}
+{% block panel_actions %}{% include "admin_v2/console/_honeypot_log_actions.html" %}{% endblock %}
+{% block panel_body %}{% include "admin_v2/console/_honeypot_log_body.html" %}{% endblock %}

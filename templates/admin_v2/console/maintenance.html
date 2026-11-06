@@ -1,0 +1,116 @@
+{% extends "admin_v2/base.html" %}
+{% comment %}
+Maintenance & switches in the console look (admin_v2_maintenance when
+`admin_console_ui` is on; the classic page is admin_v2/maintenance.html).
+Every switch is the same POST form as the classic page (toggle_feature_flag,
+toggle_page, update_site_setting, next=maintenance); only the look changes.
+The maintenance-mode form keeps its data-confirm.
+{% endcomment %}
+{% load admin_v2_tags %}
+
+{% block title %}Maintenance - Admin{% endblock %}
+
+{% block admin_content %}
+<div class="ac-op-head">
+    <div>
+        <h1 class="ac-h1">Maintenance &amp; switches</h1>
+        <p class="ac-muted ac-small">Take the site down for maintenance, turn features and pages on or off, and change site settings.</p>
+    </div>
+    <div class="ac-list-tools">
+        <a href="{{ request.get_full_path }}" class="ac-btn ac-btn-icon" aria-label="Refresh" title="Refresh">{% console_icon "refresh" %}</a>
+    </div>
+</div>
+
+<div class="ac-op">
+    <div class="ac-op-grid">
+        <section class="ac-card ac-widget ac-op-status{% if maintenance.is_enabled %} is-alarm{% endif %}" aria-labelledby="mt-mode">
+            <header class="ac-widget-head"><h2 id="mt-mode">Maintenance mode</h2>{% if maintenance %}<span class="ac-pill {% if maintenance.is_enabled %}is-error{% else %}is-muted{% endif %}">{% if maintenance.is_enabled %}On{% else %}Off{% endif %}</span>{% endif %}</header>
+            {% if maintenance %}
+            <p class="{% if maintenance.is_enabled %}ac-text-error{% else %}ac-muted{% endif %}">
+                {% if maintenance.is_enabled %}<strong>ON: members see the maintenance page. Admins can still use the site.</strong>{% else %}Off.{% endif %}
+            </p>
+            {% if maintenance.is_enabled and blocked %}<p class="ac-muted ac-small">{{ blocked }} request(s) turned away.</p>{% endif %}
+            <form method="post" action="{% url 'toggle_feature_flag' maintenance.id %}" class="ac-op-actions"
+                  data-confirm="{% if maintenance.is_enabled %}Bring the site back for everyone?{% else %}Take the site down for everyone except admins?{% endif %}">
+                {% csrf_token %}<input type="hidden" name="next" value="maintenance">
+                <button type="submit" class="ac-btn {% if maintenance.is_enabled %}ac-btn-primary{% else %}ac-btn-danger{% endif %}">{% if maintenance.is_enabled %}End maintenance{% else %}Start maintenance{% endif %}</button>
+            </form>
+            {% else %}
+            <p class="ac-muted">The maintenance flag isn't set up yet. Open the dashboard once and it is created.</p>
+            {% endif %}
+        </section>
+
+        <section class="ac-card ac-widget ac-op-status{% if lockdown.is_active %} is-alarm{% endif %}" aria-labelledby="mt-lockdown">
+            <header class="ac-widget-head"><h2 id="mt-lockdown">Lockdown</h2><span class="ac-pill {% if lockdown.is_active %}is-error{% else %}is-muted{% endif %}">{% if lockdown.is_active %}Active{% else %}Off{% endif %}</span></header>
+            <p class="{% if lockdown.is_active %}ac-text-error{% endif %}">{% if lockdown.is_active %}<strong>ACTIVE</strong>{% else %}Off.{% endif %} Lockdown is the security version: it blocks all sign-ins except from allow-listed IPs.</p>
+            <p class="ac-op-actions"><a href="{% url 'admin_v2_lockdown' %}" class="ac-btn">Lockdown controls</a></p>
+        </section>
+    </div>
+
+    <section class="ac-card" aria-labelledby="mt-features">
+        <div class="ac-list-head"><div class="ac-list-title"><h2 id="mt-features">Features <span class="ac-count">({{ flags|length }})</span></h2><p>Turning one off stops every page and feature that needs it.</p></div></div>
+        <ul class="ac-op-switches">
+            {% for f in flags %}
+            <li>
+                <div class="ac-op-switch-text">
+                    <p><strong>{{ f.display_name }}</strong> <span class="ac-pill is-muted">{{ f.get_category_display }}</span></p>
+                    <p class="ac-muted ac-small">{{ f.description }}{% if f.last_toggled_by %} · last changed by {{ f.last_toggled_by }}{% endif %}</p>
+                </div>
+                <form method="post" action="{% url 'toggle_feature_flag' f.id %}">{% csrf_token %}<input type="hidden" name="next" value="maintenance">
+                    <button type="submit" aria-label="{% if f.is_enabled %}Turn off{% else %}Turn on{% endif %} {{ f.display_name }}"
+                            class="ac-op-toggle{% if f.is_enabled %} is-on{% endif %}"><span class="ac-op-toggle-track" aria-hidden="true"></span><span class="ac-op-toggle-label">{% if f.is_enabled %}On{% else %}Off{% endif %}</span></button>
+                </form>
+            </li>
+            {% endfor %}
+        </ul>
+    </section>
+
+    <section class="ac-card" aria-labelledby="mt-settings">
+        <div class="ac-list-head"><div class="ac-list-title"><h2 id="mt-settings">Settings <span class="ac-count">({{ settings|length }})</span></h2></div></div>
+        <ul class="ac-op-switches">
+            {% for st in settings %}
+            <li>
+                <form method="post" action="{% url 'update_site_setting' st.id %}" class="ac-op-setting">
+                    {% csrf_token %}<input type="hidden" name="next" value="maintenance">
+                    <label for="setting-{{ st.id }}" class="ac-op-switch-text">
+                        <strong>{{ st.display_name }}</strong>
+                        <span class="ac-muted ac-small">{{ st.description }}</span>
+                    </label>
+                    {% if st.setting_type == 'boolean' %}
+                    <select id="setting-{{ st.id }}" name="value" class="ac-select ac-op-setting-field">
+                        <option value="true" {% if st.value == 'true' %}selected{% endif %}>On</option>
+                        <option value="false" {% if st.value != 'true' %}selected{% endif %}>Off</option>
+                    </select>
+                    {% elif st.setting_type == 'integer' %}
+                    <input id="setting-{{ st.id }}" type="number" name="value" value="{{ st.value }}" class="ac-input ac-op-setting-field is-narrow">
+                    {% else %}
+                    <input id="setting-{{ st.id }}" type="text" name="value" value="{{ st.value }}" class="ac-input ac-op-setting-field">
+                    {% endif %}
+                    <button type="submit" class="ac-btn ac-btn-sm">Save</button>
+                </form>
+            </li>
+            {% empty %}
+            <li class="ac-muted">No settings.</li>
+            {% endfor %}
+        </ul>
+    </section>
+
+    <section class="ac-card" aria-labelledby="mt-pages">
+        <div class="ac-list-head"><div class="ac-list-title"><h2 id="mt-pages">Pages <span class="ac-count">({{ pages|length }})</span></h2><p>A page that is off shows members its "unavailable" message.</p></div></div>
+        <ul class="ac-op-switches">
+            {% for p in pages %}
+            <li>
+                <div class="ac-op-switch-text">
+                    <p><strong>{{ p.display_name }}</strong></p>
+                    {% if p.description %}<p class="ac-muted ac-small">{{ p.description }}</p>{% endif %}
+                </div>
+                <form method="post" action="{% url 'toggle_page' p.id %}">{% csrf_token %}<input type="hidden" name="next" value="maintenance">
+                    <button type="submit" aria-label="{% if p.is_enabled %}Turn off{% else %}Turn on{% endif %} {{ p.display_name }}"
+                            class="ac-op-toggle{% if p.is_enabled %} is-on{% endif %}"><span class="ac-op-toggle-track" aria-hidden="true"></span><span class="ac-op-toggle-label">{% if p.is_enabled %}On{% else %}Off{% endif %}</span></button>
+                </form>
+            </li>
+            {% endfor %}
+        </ul>
+    </section>
+</div>
+{% endblock %}

@@ -264,7 +264,9 @@ def notification_dashboard(request):
         'stats': stats,
     }
 
-    return render(request, 'admin_v2/notifications/dashboard.html', context)
+    from src.admin_console import console_enabled
+    return render(request, 'admin_v2/console/notifications.html' if console_enabled(request)
+                  else 'admin_v2/notifications/dashboard.html', context)
 
 
 @login_required
@@ -286,7 +288,9 @@ def notification_schedules(request):
         'target_audiences': NotificationSchedule.TARGET_AUDIENCE_CHOICES,
     }
 
-    return render(request, 'admin_v2/notifications/schedules.html', context)
+    from src.admin_console import console_enabled
+    return render(request, 'admin_v2/console/notification_schedules.html' if console_enabled(request)
+                  else 'admin_v2/notifications/schedules.html', context)
 
 
 @login_required
@@ -416,7 +420,9 @@ def notification_logs(request):
         'type_choices': NotificationSchedule.NOTIFICATION_TYPE_CHOICES,
     }
 
-    return render(request, 'admin_v2/notifications/logs.html', context)
+    from src.admin_console import console_enabled
+    return render(request, 'admin_v2/console/notification_logs.html' if console_enabled(request)
+                  else 'admin_v2/notifications/logs.html', context)
 
 
 @login_required
@@ -431,4 +437,9 @@ def notification_log_detail(request, log_id):
         'log': log,
     }
 
-    return render(request, 'admin_v2/notifications/log_detail.html', context)
+    # Console: ?panel=1 is the slide-out fragment (same gate).
+    from src.admin_console import console_enabled, panel_response, wants_panel
+    if wants_panel(request):
+        return panel_response(render(request, 'admin_v2/console/notification_log_panel.html', context))
+    return render(request, 'admin_v2/console/notification_log_detail.html' if console_enabled(request)
+                  else 'admin_v2/notifications/log_detail.html', context)

@@ -1,0 +1,252 @@
+{% extends "admin_v2/base.html" %}
+{% comment %}
+Edit profile in the console look (admin_v2_edit_user_profile when
+`admin_console_ui` is on; the classic page is admin_v2/edit_user_profile.html).
+Same POST forms, `action` values and field names. The pledge-class sync is
+static/js/admin_v2/edit_profile.js (it reads data-greek on the datalist
+options; no inline script).
+{% endcomment %}
+{% load static_version admin_v2_tags %}
+
+{% block title %}Edit Profile — {{ target.get_display_name }} — Admin v2{% endblock %}
+{% block console_crumb %}{{ target.get_display_name }} · Edit profile{% endblock %}
+
+{% block admin_content %}
+<div class="ac-id-stack">
+    <section class="ac-card ac-id-head" aria-labelledby="ep-title">
+        {% if target.profile_picture %}<img class="ac-avatar-lg" src="{{ target.profile_picture.url }}" alt="">{% else %}<span class="ac-avatar-lg" aria-hidden="true">{{ target.name|slice:":1"|upper }}</span>{% endif %}
+        <div class="ac-id-head-text">
+            <h1 id="ep-title">{{ target.get_display_name }}</h1>
+            <p>{{ target.member_type }} &middot; {{ target.member_status }} &middot; ID {{ target.user_id }}</p>
+        </div>
+        <div class="ac-list-tools">
+            <a href="{% url 'admin_v2_member' target.user_id %}" class="ac-btn">Member page</a>
+            <a href="{% url 'admin_v2_user_login_security' target.user_id %}" class="ac-btn">{% console_icon "lock" %}Login security</a>
+        </div>
+    </section>
+
+    <section class="ac-card" aria-labelledby="ep-core">
+        <header class="ac-id-card-head"><h2 id="ep-core">Core info</h2></header>
+        <div class="ac-id-card-body">
+            <form method="POST">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="core">
+                <div class="ac-id-form-grid">
+                    <label class="ac-id-label">Full name
+                        <input type="text" name="name" value="{{ target.name }}" required class="ac-input"></label>
+                    <label class="ac-id-label">Preferred first name
+                        <input type="text" name="preferred_name" value="{{ target.preferred_name|default:'' }}" class="ac-input"></label>
+                    <label class="ac-id-label">Member type
+                        <select name="member_type" class="ac-select">
+                            {% for val, label in target.MEMBER_TYPES %}
+                            <option value="{{ val }}" {% if target.member_type == val %}selected{% endif %}>{{ label }}</option>
+                            {% endfor %}
+                        </select></label>
+                    <label class="ac-id-label">Member status
+                        <select name="member_status" class="ac-select">
+                            {% for val, label in target.MEMBER_STATUS %}
+                            <option value="{{ val }}" {% if target.member_status == val %}selected{% endif %}>{{ label }}</option>
+                            {% endfor %}
+                        </select></label>
+                    <label class="ac-id-label">Email
+                        <input type="email" name="email" value="{{ target.email|default:'' }}" class="ac-input"></label>
+                    <label class="ac-id-label">Phone number
+                        <input type="text" name="phone_number" value="{{ target.phone_number|default:'' }}" class="ac-input"></label>
+                    <label class="ac-id-label">Roll number
+                        <input type="text" name="role_number" value="{{ target.role_number|default:'' }}" class="ac-input"></label>
+                    <label class="ac-id-label">House
+                        <select name="house" class="ac-select">
+                            <option value="">— None —</option>
+                            {% for val, label in target.HOUSE_CHOICES %}
+                            <option value="{{ val }}" {% if target.house == val %}selected{% endif %}>{{ label }}</option>
+                            {% endfor %}
+                        </select></label>
+                </div>
+                <div class="ac-id-form-foot"><button type="submit" class="ac-btn ac-id-save">Save core info</button></div>
+            </form>
+        </div>
+    </section>
+
+    <section class="ac-card" aria-labelledby="ep-public">
+        <header class="ac-id-card-head"><h2 id="ep-public">Public profile</h2></header>
+        <div class="ac-id-card-body">
+            <form method="POST">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="extended">
+                <label class="ac-id-label">About me
+                    <textarea name="about_me" rows="3" class="ac-input ac-id-textarea">{{ target.about_me }}</textarea></label>
+
+                <h3 class="ac-id-sub">Chapter</h3>
+                <div class="ac-id-form-grid">
+                    <label class="ac-id-label">Pledge class semester
+                        <input type="text" name="pledge_class" value="{{ target.pledge_class }}" placeholder="e.g. Spring 2024"
+                               list="pledge-class-options" autocomplete="off" class="ac-input" data-pledge-class-sync></label>
+                    <datalist id="pledge-class-options">
+                        {% for c in pledge_class_choices %}<option value="{{ c.label }}" data-greek="{{ c.greek }}">{{ c.label }} — {{ c.greek }} Class</option>{% endfor %}
+                    </datalist>
+                    <label class="ac-id-label">Pledge class Greek name
+                        <input type="text" name="pledge_class_greek" value="{{ target.pledge_class_greek }}" placeholder="Auto-fills from class" class="ac-input">
+                        <span class="ac-id-hint">Pick a class above and this fills in automatically.</span></label>
+                    <label class="ac-id-label">Big brother
+                        <select name="big_brother" class="ac-select">
+                            <option value="">— None —</option>
+                            {% for m in all_members %}
+                            <option value="{{ m.user_id }}" {% if target.big_brother_id == m.user_id %}selected{% endif %}>{{ m.get_display_name }}{% if m.member_status != 'Active' %} ({{ m.member_status }}){% endif %}</option>
+                            {% endfor %}
+                        </select></label>
+                    <div class="ac-id-label">Little brothers
+                        {% with littles=target.little_brothers.all %}
+                        <div class="ac-id-readonly">{% if littles %}{{ littles|join:", " }}{% else %}<span class="ac-muted">None</span>{% endif %}</div>
+                        {% endwith %}
+                        <span class="ac-id-hint">Set automatically when a member selects this user as their big.</span>
+                    </div>
+                    <label class="ac-id-label">Graduation semester
+                        <select name="graduation_semester" class="ac-select">
+                            <option value="">— Not set —</option>
+                            <option value="Spring" {% if target.graduation_semester == 'Spring' %}selected{% endif %}>Spring</option>
+                            <option value="Fall" {% if target.graduation_semester == 'Fall' %}selected{% endif %}>Fall</option>
+                        </select></label>
+                    <label class="ac-id-label">Graduation year
+                        <input type="number" name="graduation_year" value="{{ target.graduation_year|default:'' }}" min="2000" max="2060" placeholder="e.g. 2027" class="ac-input"></label>
+                    <label class="ac-id-label">Other / secondary email
+                        <input type="email" name="other_email" value="{{ target.other_email|default:'' }}" class="ac-input"></label>
+                </div>
+
+                <h3 class="ac-id-sub">Social handles <span class="ac-muted">(handle only)</span></h3>
+                <div class="ac-id-form-grid">
+                    <label class="ac-id-label">Instagram<input type="text" name="instagram" value="{{ target.instagram }}" class="ac-input"></label>
+                    <label class="ac-id-label">Twitter / X<input type="text" name="twitter" value="{{ target.twitter }}" class="ac-input"></label>
+                    <label class="ac-id-label">LinkedIn<input type="text" name="linkedin" value="{{ target.linkedin }}" class="ac-input"></label>
+                    <label class="ac-id-label">Snapchat<input type="text" name="snapchat" value="{{ target.snapchat }}" class="ac-input"></label>
+                    <label class="ac-id-label">Facebook<input type="text" name="facebook" value="{{ target.facebook }}" class="ac-input"></label>
+                </div>
+                <div class="ac-id-form-foot"><button type="submit" class="ac-btn ac-id-save">Save public profile</button></div>
+            </form>
+        </div>
+    </section>
+
+    <div class="ac-id-grid">
+        <section class="ac-card" aria-labelledby="ep-roles">
+            <header class="ac-id-card-head"><h2 id="ep-roles">Role history</h2><p>Positions this member has held in the chapter.</p></header>
+            <div class="ac-id-card-body">
+                <ul class="ac-rows">
+                    {% for rh in role_histories %}
+                    <li class="ac-rows-split">
+                        <div><p>{{ rh.role_name }} <span class="ac-muted">{{ rh.start_semester }}{% if rh.end_semester %} – {{ rh.end_semester }}{% else %} – present{% endif %}</span></p></div>
+                        <form method="POST" class="ac-id-rows-form">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="role_history_delete">
+                            <input type="hidden" name="rh_id" value="{{ rh.id }}">
+                            <button type="submit" class="ac-btn ac-btn-sm ac-btn-icon ac-id-x" title="Remove" aria-label="Remove {{ rh.role_name }}">{% console_icon "x" "ac-icon-sm" %}</button>
+                        </form>
+                    </li>
+                    {% empty %}
+                    <li class="ac-muted">No role history yet.</li>
+                    {% endfor %}
+                </ul>
+                <form method="POST" class="ac-id-inline">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="role_history_add">
+                    <label class="ac-id-label">Position<input type="text" name="rh_role_name" placeholder="e.g. President" required class="ac-input"></label>
+                    <label class="ac-id-label">Start semester<input type="text" name="rh_start_semester" placeholder="e.g. Spring 2026" required class="ac-input"></label>
+                    <label class="ac-id-label">End semester <span class="ac-muted">(blank = current)</span><input type="text" name="rh_end_semester" placeholder="e.g. Fall 2026" class="ac-input"></label>
+                    <button type="submit" class="ac-btn">+ Add</button>
+                </form>
+            </div>
+        </section>
+
+        <section class="ac-card" aria-labelledby="ep-socials">
+            <header class="ac-id-card-head"><h2 id="ep-socials">Custom social links</h2><p>Extra social handles beyond the standard five (Signal, WhatsApp, etc.).</p></header>
+            <div class="ac-id-card-body">
+                {% with socials=target.custom_socials %}
+                <ul class="ac-rows">
+                    {% for s in socials %}
+                    <li class="ac-rows-split">
+                        <div><p>{{ s.platform }} <span class="ac-muted">@{{ s.handle }}</span></p></div>
+                        <form method="POST" class="ac-id-rows-form">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="custom_social_delete">
+                            <input type="hidden" name="cs_index" value="{{ forloop.counter0 }}">
+                            <button type="submit" class="ac-btn ac-btn-sm ac-btn-icon ac-id-x" title="Remove" aria-label="Remove {{ s.platform }}">{% console_icon "x" "ac-icon-sm" %}</button>
+                        </form>
+                    </li>
+                    {% empty %}
+                    <li class="ac-muted">No custom socials yet.</li>
+                    {% endfor %}
+                </ul>
+                {% endwith %}
+                <form method="POST" class="ac-id-inline">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="custom_social_add">
+                    <label class="ac-id-label">Platform<input type="text" name="cs_platform" placeholder="e.g. Signal" required class="ac-input"></label>
+                    <label class="ac-id-label">Handle<input type="text" name="cs_handle" placeholder="username" required class="ac-input"></label>
+                    <button type="submit" class="ac-btn">+ Add</button>
+                </form>
+            </div>
+        </section>
+
+        <section class="ac-card" aria-labelledby="ep-academics">
+            <header class="ac-id-card-head"><h2 id="ep-academics">Academics</h2><p>Majors, minors, and concentrations. Add multiple if applicable.</p></header>
+            <div class="ac-id-card-body">
+                {% for label, field_type, items in academic_sections %}
+                <h3 class="ac-id-sub">{{ label }}</h3>
+                <ul class="ac-rows">
+                    {% for item in items %}
+                    <li class="ac-rows-split">
+                        <div><p>{{ item }}</p></div>
+                        <form method="POST" class="ac-id-rows-form">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="academic_item_delete">
+                            <input type="hidden" name="ai_type" value="{{ field_type }}">
+                            <input type="hidden" name="ai_index" value="{{ forloop.counter0 }}">
+                            <button type="submit" class="ac-btn ac-btn-sm ac-btn-icon ac-id-x" title="Remove" aria-label="Remove {{ item }}">{% console_icon "x" "ac-icon-sm" %}</button>
+                        </form>
+                    </li>
+                    {% endfor %}
+                </ul>
+                <form method="POST" class="ac-id-inline">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="academic_item_add">
+                    <input type="hidden" name="ai_type" value="{{ field_type }}">
+                    <label class="ac-id-label"><span class="ac-sr">{{ label }}</span><input type="text" name="ai_value" placeholder="Add {{ label|lower }}…" class="ac-input"></label>
+                    <button type="submit" class="ac-btn">+ Add</button>
+                </form>
+                {% endfor %}
+            </div>
+        </section>
+
+        <section class="ac-card" aria-labelledby="ep-initiation">
+            <header class="ac-id-card-head"><h2 id="ep-initiation">Initiation chapters</h2><p>Where this member was initiated. Empty defaults to Alpha Mu — Samford University. Add multiple for dual-chapter members.</p></header>
+            <div class="ac-id-card-body">
+                {% with chapters=target.initiation_chapters %}
+                <ul class="ac-rows">
+                    {% for c in chapters %}
+                    <li class="ac-rows-split">
+                        <div><p>{{ c.chapter }} <span class="ac-muted">— {{ c.school }}{% if c.role_number %} · #{{ c.role_number }}{% endif %}</span></p></div>
+                        <form method="POST" class="ac-id-rows-form">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="initiation_chapter_delete">
+                            <input type="hidden" name="ic_index" value="{{ forloop.counter0 }}">
+                            <button type="submit" class="ac-btn ac-btn-sm ac-btn-icon ac-id-x" title="Remove" aria-label="Remove {{ c.chapter }}">{% console_icon "x" "ac-icon-sm" %}</button>
+                        </form>
+                    </li>
+                    {% empty %}
+                    <li class="ac-muted">Defaulting to Alpha Mu — Samford University.</li>
+                    {% endfor %}
+                </ul>
+                {% endwith %}
+                <form method="POST" class="ac-id-inline">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="initiation_chapter_add">
+                    <label class="ac-id-label">School<input type="text" name="ic_school" placeholder="e.g. Auburn University" required class="ac-input"></label>
+                    <label class="ac-id-label">Chapter<input type="text" name="ic_chapter" placeholder="e.g. Delta Zeta" required class="ac-input"></label>
+                    <label class="ac-id-label is-narrow">Role # <span class="ac-muted">(optional)</span><input type="text" name="ic_role_number" placeholder="e.g. 42" class="ac-input"></label>
+                    <button type="submit" class="ac-btn">+ Add</button>
+                </form>
+            </div>
+        </section>
+    </div>
+</div>
+{% endblock %}
+
+{% block console_js %}<script src="{% static_v 'js/admin_v2/edit_profile.js' %}"></script>{% endblock %}

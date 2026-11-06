@@ -1,0 +1,1 @@
+{% comment %}A severity pill for the console security pages: severity (critical/high/medium/low), label (display text).{% endcomment %}<span class="ac-pill {% if severity == 'critical' %}is-error ac-sec-critical{% elif severity == 'high' %}is-error{% elif severity == 'medium' %}is-warn{% else %}is-muted{% endif %}">{{ label|default:severity|capfirst }}</span>

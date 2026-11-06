@@ -237,4 +237,5 @@ def admin_v2_permissions(request):
     flagged = request.GET.get('flagged') == '1'
     data = permissions_map(q, flagged)
     data.update({'q': q, 'flagged': flagged, 'stale_days': STALE_DAYS})
-    return render(request, 'admin_v2/permissions.html', data)
+    from src.admin_console import console_enabled
+    return render(request, 'admin_v2/console/permissions.html' if console_enabled(request) else 'admin_v2/permissions.html', data)

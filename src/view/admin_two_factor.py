@@ -3,7 +3,8 @@ Admin v2 Two-Factor Authentication management views.
 Allows configuring 2FA policies and individual member requirements.
 """
 import json
-from django.shortcuts import render, get_object_or_404
+from django.contrib import messages
+from django.shortcuts import redirect, render, get_object_or_404
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST
 from django.db.models import Q
@@ -180,6 +181,20 @@ def two_factor_dashboard(request):
         'search': search,
     }
 
+    from src.admin_console import console_enabled
+    if console_enabled(request):
+        from django.urls import reverse
+        bulk = reverse('admin_v2_two_factor_bulk_action')
+        context['bulk_actions'] = [
+            {'label': 'Require 2FA', 'url': bulk, 'fields': {'action': 'require'},
+             'confirm': 'Require two-factor sign-in for the selected members?'},
+            {'label': 'Exempt', 'url': bulk, 'fields': {'action': 'exempt'},
+             'confirm': 'Exempt the selected members from the 2FA requirement?'},
+            {'label': 'Clear override (follow policy)', 'url': bulk, 'fields': {'action': 'clear'},
+             'confirm': 'Clear the override for the selected members? They follow the global policy again.'},
+        ]
+        context['shown'] = len(member_data)
+        return render(request, 'admin_v2/console/two_factor_dashboard.html', context)
     return render(request, 'admin_v2/two_factor_dashboard.html', context)
 
 
@@ -330,12 +345,79 @@ def set_two_factor_requirement(request, user_id):
         return JsonResponse({'success': False, 'error': str(e)}, status=500)
 
 
+def apply_bulk_two_factor(request, action, user_ids, reason=''):
+    """Require / exempt / clear the 2FA override for every member in
+    ``user_ids`` (unknown ids are skipped) and write one `other` row.
+    Returns how many changed, or None for an unknown action."""
+    members = ParliamentUser.objects.filter(user_id__in=user_ids)
+    count = 0
+
+    if action == 'require':
+        for member in members:
+            TwoFactorRequirement.objects.update_or_create(
+                user=member,
+                defaults={
+                    'requirement': 'required',
+                    'reason': reason or 'Bulk action',
+                    'set_by': request.user,
+                }
+            )
+            count += 1
+        action_desc = 'required 2FA for'
+
+    elif action == 'exempt':
+        for member in members:
+            TwoFactorRequirement.objects.update_or_create(
+                user=member,
+                defaults={
+                    'requirement': 'exempt',
+                    'reason': reason or 'Bulk action',
+                    'set_by': request.user,
+                }
+            )
+            count += 1
+        action_desc = 'exempted from 2FA'
+
+    elif action == 'clear':
+        count = TwoFactorRequirement.objects.filter(user__in=members).delete()[0]
+        action_desc = 'cleared 2FA requirement for'
+
+    else:
+        return None
+
+    # Log the bulk action
+    ActivityLog.log_activity(
+        action_type='other',
+        user=request.user,
+        description=f'Bulk action: {action_desc} {count} members',
+        request=request,
+    )
+    return count
+
+
 @require_admin_v2_auth
 @require_POST
 def bulk_two_factor_action(request):
     """
     AJAX endpoint for bulk 2FA requirement actions.
+
+    The console list's Actions menu posts a plain form instead (``action``
+    plus one ``ids`` per ticked row); that gets a message and a redirect back
+    to the list rather than JSON.
     """
+    if request.content_type != 'application/json':
+        user_ids = request.POST.getlist('ids')
+        if not user_ids:
+            messages.error(request, 'Tick at least one member first.')
+        else:
+            count = apply_bulk_two_factor(request, request.POST.get('action'), user_ids,
+                                          request.POST.get('reason', '').strip())
+            if count is None:
+                messages.error(request, 'Unknown action.')
+            else:
+                messages.success(request, f'Updated the 2FA requirement for {count} member(s).')
+        return redirect('admin_v2_two_factor')
+
     try:
         data = json.loads(request.body)
         action = data.get('action')
@@ -345,49 +427,9 @@ def bulk_two_factor_action(request):
         if not user_ids:
             return JsonResponse({'success': False, 'error': 'No users selected'}, status=400)
 
-        members = ParliamentUser.objects.filter(user_id__in=user_ids)
-        count = 0
-
-        if action == 'require':
-            for member in members:
-                TwoFactorRequirement.objects.update_or_create(
-                    user=member,
-                    defaults={
-                        'requirement': 'required',
-                        'reason': reason or 'Bulk action',
-                        'set_by': request.user,
-                    }
-                )
-                count += 1
-            action_desc = 'required 2FA for'
-
-        elif action == 'exempt':
-            for member in members:
-                TwoFactorRequirement.objects.update_or_create(
-                    user=member,
-                    defaults={
-                        'requirement': 'exempt',
-                        'reason': reason or 'Bulk action',
-                        'set_by': request.user,
-                    }
-                )
-                count += 1
-            action_desc = 'exempted from 2FA'
-
-        elif action == 'clear':
-            count = TwoFactorRequirement.objects.filter(user__in=members).delete()[0]
-            action_desc = 'cleared 2FA requirement for'
-
-        else:
+        count = apply_bulk_two_factor(request, action, user_ids, reason)
+        if count is None:
             return JsonResponse({'success': False, 'error': 'Invalid action'}, status=400)
-
-        # Log the bulk action
-        ActivityLog.log_activity(
-            action_type='other',
-            user=request.user,
-            description=f'Bulk action: {action_desc} {count} members',
-            request=request,
-        )
 
         return JsonResponse({
             'success': True,

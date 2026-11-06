@@ -1,0 +1,21 @@
+{% extends "admin_v2/base.html" %}
+{% comment %}
+One event reminder dispatch, full page, console look
+(admin_v2_event_reminder_log_detail when `admin_console_ui` is on; classic:
+admin_v2/event_reminder_log_detail.html). Same sections as the panel.
+{% endcomment %}
+{% block title %}Reminder log - Admin{% endblock %}
+{% block console_crumb %}{{ log.event.title }}{% endblock %}
+
+{% block admin_content %}
+<section class="ac-card ac-msg-detail">
+    <div class="ac-list-head">
+        <div class="ac-list-title">
+            <h1>{{ log.event.title }} <span class="ac-pill is-muted">Reminder {{ log.reminder_slot }}</span></h1>
+            <p>Sent {{ log.sent_at|date:"M j, Y g:i A" }} · event {{ log.event.date_time|date:"M j, Y g:i A" }}{% if log.event.location %} · {{ log.event.location }}{% endif %}</p>
+        </div>
+        <div class="ac-list-tools"><a href="{% url 'admin_v2_event_reminder_logs' %}" class="ac-btn">All reminder logs</a></div>
+    </div>
+    <div class="ac-msg-detail-body">{% include "admin_v2/console/_event_reminder_log_body.html" %}</div>
+</section>
+{% endblock %}

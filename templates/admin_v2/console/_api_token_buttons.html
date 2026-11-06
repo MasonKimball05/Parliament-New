@@ -1,0 +1,18 @@
+{% comment %}
+A token's row actions (API tokens list and its slide-out panel). The buttons
+open the list page's modals (static/js/admin_v2/api_tokens.js, delegated);
+each carries its endpoint in data-url.
+{% endcomment %}{% if token.status == 'pending' %}<button type="button" class="js-approve-btn ac-btn ac-btn-sm"
+        data-token-id="{{ token.id }}" data-token-name="{{ token.name }}" data-token-user="{{ token.user.get_display_name }}"
+        data-token-expires="{{ token.expires_at|date:'Y-m-d' }}" data-token-scopes="{{ token.scopes|join:',' }}"
+        data-url="{% url 'admin_approve_token' token.id %}">Approve</button>
+<button type="button" class="js-reject-btn ac-btn ac-btn-sm ac-btn-danger-text"
+        data-token-id="{{ token.id }}" data-token-name="{{ token.name }}" data-token-user="{{ token.user.get_display_name }}"
+        data-url="{% url 'admin_reject_token' token.id %}">Reject</button>
+{% elif token.status == 'active' %}<button type="button" class="js-revoke-btn ac-btn ac-btn-sm ac-btn-danger-text"
+        data-token-id="{{ token.id }}" data-token-name="{{ token.name }}" data-token-user="{{ token.user.get_display_name }}"
+        data-url="{% url 'admin_revoke_token' token.id %}">Revoke</button>
+<button type="button" class="js-edit-scopes-btn ac-btn ac-btn-sm"
+        data-token-id="{{ token.id }}" data-token-name="{{ token.name }}" data-scopes="{{ token.scopes|join:',' }}"
+        data-url="{% url 'admin_update_token_scopes' token.id %}">Edit scopes</button>
+{% endif %}

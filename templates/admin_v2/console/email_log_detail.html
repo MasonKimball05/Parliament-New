@@ -1,0 +1,21 @@
+{% extends "admin_v2/base.html" %}
+{% comment %}
+One announcement email send, full page, console look (admin_v2_email_log_detail
+when `admin_console_ui` is on; classic: admin_v2/email_log_detail.html). Same
+sections as the slide-out panel (_email_log_body.html), one after another.
+{% endcomment %}
+{% block title %}Email log - Admin{% endblock %}
+{% block console_crumb %}{{ log.announcement.title }}{% endblock %}
+
+{% block admin_content %}
+<section class="ac-card ac-msg-detail">
+    <div class="ac-list-head">
+        <div class="ac-list-title">
+            <h1>{{ log.announcement.title }}</h1>
+            <p>Sent by {{ log.initiated_by.name|default:"System" }} · {{ log.created_at|date:"M j, Y g:i A" }}</p>
+        </div>
+        <div class="ac-list-tools"><a href="{% url 'admin_v2_email_logs' %}" class="ac-btn">All email logs</a></div>
+    </div>
+    <div class="ac-msg-detail-body">{% include "admin_v2/console/_email_log_body.html" %}</div>
+</section>
+{% endblock %}

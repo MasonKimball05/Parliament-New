@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% load static static_version admin_v2_tags %}
+{% comment %}
+The Admin v2 sign-in in the console look (admin_v2_login when
+`admin_console_ui` is on; the classic page is admin_v2/login.html). Outside
+the console frame: a royal blue bar and one centered card. The same form
+(POST user_password + secret_key, csrf) and the same passkey flow, moved out
+of the inline script into static/js/admin_v2/login.js (URLs in data-*).
+Styles: admin-console.css (tokens, buttons, inputs) and
+admin-console/operations.css (.ac-login).
+{% endcomment %}
+
+{% block title %}Admin v2 Login - Parliament{% endblock %}
+{% block admin_head %}<link rel="stylesheet" href="{% static_v 'css/admin-console.css' %}">
+<link rel="stylesheet" href="{% static_v 'css/admin-console/operations.css' %}">{% endblock %}
+{% block site_nav %}{% endblock %}
+{% block site_messages %}{% endblock %}
+{% block site_footer %}{% endblock %}
+
+{% block content %}
+<div class="ac ac-login">
+    <header class="ac-topbar">
+        <a href="{% url 'home' %}" class="ac-brand" aria-label="Parliament, back to the site">
+            <span class="ac-crest"><img src="{% static 'images/am-coat-of-arms.png' %}" alt=""></span>
+            <span>Parliament <b>Admin</b></span>
+        </a>
+    </header>
+
+    <div class="ac-login-main">
+        <div class="ac-login-box">
+            <div class="ac-login-head">
+                <img src="{% static 'images/am-coat-of-arms.png' %}" alt="Alpha Mu Coat of Arms" class="ac-login-crest">
+                <h1>Admin v2</h1>
+                <p class="ac-muted">Advanced Administration Panel</p>
+            </div>
+
+            <section class="ac-card ac-login-card">
+                {% if messages %}
+                <div class="ac-flashes">
+                    {% for message in messages %}
+                    <div class="js-flash-message ac-flash ac-flash-{{ message.tags|default:'info' }}" data-message-tags="{{ message.tags }}" role="{% if 'error' in message.tags %}alert{% else %}status{% endif %}">{{ message }}</div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                <div class="ac-login-notice" role="note">
+                    {% console_icon "shield" %}
+                    <p><strong>High Security Area</strong><br>Requires dual authentication. All access attempts are logged.</p>
+                </div>
+
+                <form method="post" class="ac-login-form">
+                    {% csrf_token %}
+                    <label for="user_password" class="ac-login-label">{% console_icon "lock" "ac-icon-sm" %}Your User Password</label>
+                    <input type="password"
+                           name="user_password"
+                           id="user_password"
+                           required
+                           class="ac-input"
+                           placeholder="Enter your Parliament password">
+
+                    <label for="secret_key" class="ac-login-label">{% console_icon "key" "ac-icon-sm" %}Admin v2 Secret Key</label>
+                    <input type="password"
+                           name="secret_key"
+                           id="secret_key"
+                           required
+                           class="ac-input"
+                           placeholder="Enter Admin v2 secret key">
+                    <p class="ac-muted ac-small">This key is stored securely in the environment configuration</p>
+
+                    <button type="submit" class="ac-btn ac-btn-primary ac-login-submit">{% console_icon "lock" %}Authenticate &amp; Enter</button>
+                </form>
+
+                {% if has_passkeys %}
+                <div class="ac-login-passkey">
+                    <p class="ac-login-or"><span>or</span></p>
+                    <button id="passkey-btn" type="button" class="ac-btn ac-login-submit"
+                            data-begin-url="{% url 'admin_v2_passkey_auth_begin' %}"
+                            data-complete-url="{% url 'admin_v2_passkey_auth_complete' %}"
+                            data-done-url="{% url 'admin_v2_dashboard' %}">{% console_icon "key" %} Use a Passkey instead</button>
+                    <p id="passkey-error" class="ac-text-error ac-small ac-login-error hidden"></p>
+                </div>
+                {% endif %}
+            </section>
+
+            <p class="ac-login-back"><a href="{% url 'home' %}" class="ac-link-sm">← Back to Home</a></p>
+        </div>
+    </div>
+</div>
+{% if messages %}<script src="{% static_v 'js/base/flash-messages.js' %}"></script>{% endif %}
+{% if has_passkeys %}<script src="{% static_v 'js/admin_v2/login.js' %}"></script>{% endif %}
+{% endblock %}

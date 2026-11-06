@@ -1,0 +1,152 @@
+{% extends "admin_v2/base.html" %}
+{% comment %}
+Two-factor in the console look (admin_v2_two_factor when `admin_console_ui` is
+on; the classic page is admin_v2/two_factor_dashboard.html). The bulk bar is
+the list's Actions menu (a form post to admin_v2_two_factor_bulk_action with
+one `ids` per ticked row); the policy cards and the two modals keep the
+classic ids and js-* hooks and run from static/js/admin_v2/two_factor.js, which
+reads its URLs from data-* attributes (no inline script, no hard-coded paths).
+{% endcomment %}
+{% load static_version admin_v2_tags %}
+
+{% block title %}Two-Factor Authentication - Admin v2{% endblock %}
+
+{% block admin_content %}
+<div class="ac-id-stack">
+    <section class="ac-card" aria-labelledby="tf-policy" data-policy-url="{% url 'admin_v2_two_factor_update_policy' %}" id="tf-policy-card">
+        <header class="ac-id-card-head">
+            <h2 id="tf-policy">Global policy</h2>
+            <p>Select who is required to use two-factor authentication. Individual overrides can be set below.</p>
+        </header>
+        <div class="ac-id-card-body">
+            <div class="ac-id-choices" role="radiogroup" aria-labelledby="tf-policy">
+                {% for value, label in policy_options %}
+                <label class="ac-id-choice{% if current_policy == value %} is-on{% endif %}">
+                    <input type="radio" name="policy" value="{{ value }}" {% if current_policy == value %}checked{% endif %}
+                           class="js-policy-radio ac-sr" data-policy-value="{{ value }}">
+                    <span>{{ label }}</span>
+                    {% if current_policy == value %}{% console_icon "check-circle" %}{% endif %}
+                </label>
+                {% endfor %}
+            </div>
+        </div>
+    </section>
+
+    <ul class="ac-id-stats" aria-label="Two-factor numbers">
+        <li class="ac-stat"><span class="ac-stat-n">{{ stats.total }}</span><span class="ac-stat-l">Total members</span></li>
+        <li class="ac-stat is-ok"><span class="ac-stat-n">{{ stats.has_2fa }}</span><span class="ac-stat-l">2FA enabled</span></li>
+        <li class="ac-stat is-accent"><span class="ac-stat-n">{{ stats.required }}</span><span class="ac-stat-l">Individually required</span></li>
+        <li class="ac-stat is-warn"><span class="ac-stat-n">{{ stats.exempt }}</span><span class="ac-stat-l">Exempt</span></li>
+        <li class="ac-stat"><span class="ac-stat-n">{{ stats.policy_required }}</span><span class="ac-stat-l">Required by policy</span></li>
+    </ul>
+
+    <section class="ac-card" aria-label="Members">
+        {% include "admin_v2/console/_list_header.html" with title="Two-factor" count=shown subtitle="Members and their 2FA requirement" actions=bulk_actions %}
+
+        <form method="get" class="ac-filterbar" role="search" aria-label="Filter members">
+            <label class="ac-field ac-field-grow">
+                <span class="ac-sr">Search</span>
+                {% console_icon "filter" %}
+                <input type="search" name="search" value="{{ search }}" placeholder="Search by name..." class="ac-input">
+            </label>
+            <label class="ac-field"><span class="ac-field-label">Show</span>
+                <select name="filter" class="ac-select" data-autosubmit>
+                    <option value="all" {% if filter == 'all' %}selected{% endif %}>All members</option>
+                    <option value="has_2fa" {% if filter == 'has_2fa' %}selected{% endif %}>Has 2FA enabled</option>
+                    <option value="no_2fa" {% if filter == 'no_2fa' %}selected{% endif %}>No 2FA</option>
+                    <option value="required" {% if filter == 'required' %}selected{% endif %}>Individually required</option>
+                    <option value="exempt" {% if filter == 'exempt' %}selected{% endif %}>Exempt</option>
+                    <option value="needs_setup" {% if filter == 'needs_setup' %}selected{% endif %}>Needs setup (required but not enabled)</option>
+                </select>
+            </label>
+            <button type="submit" class="ac-btn">Filter</button>
+            {% if search or filter != 'all' %}<a href="{% url 'admin_v2_two_factor' %}" class="ac-btn ac-btn-ghost">Clear</a>{% endif %}
+        </form>
+
+        <div class="ac-table-wrap">
+            <table class="ac-table" id="ac-list" data-ac-select>
+                <thead>
+                    <tr>
+                        <th class="ac-col-check"><input type="checkbox" id="selectAll" data-ac-select-all aria-label="Select every member shown"></th>
+                        <th>Member</th>
+                        <th>Type</th>
+                        <th>2FA status</th>
+                        <th>Requirement</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in member_data %}
+                    <tr data-ac-row data-user-id="{{ item.user.user_id }}">
+                        <td class="ac-col-check"><input type="checkbox" class="member-checkbox" value="{{ item.user.user_id }}" data-ac-row-select aria-label="Select {{ item.user.name }}"></td>
+                        <td>
+                            <div class="ac-cell-name">
+                                {% if item.user.profile_picture %}<img class="ac-avatar-sm" src="{{ item.user.profile_picture.url }}" alt="">{% else %}<span class="ac-avatar-sm" aria-hidden="true">{{ item.user.name|slice:":1"|upper }}</span>{% endif %}
+                                <div>
+                                    <a href="{% url 'admin_v2_member' item.user.user_id %}" class="ac-row-link" data-ac-panel>{{ item.user.name }}</a>
+                                    {% if item.user.is_admin %}<span class="ac-sub ac-text-error">Admin</span>{% endif %}
+                                </div>
+                            </div>
+                        </td>
+                        <td>{{ item.user.member_type }}</td>
+                        <td>{% if item.has_2fa %}<span class="ac-pill is-ok">Enabled</span>{% else %}<span class="ac-pill is-muted">Not set up</span>{% endif %}</td>
+                        <td>
+                            {% if item.requirement_status == 'required' %}<span class="ac-pill is-accent">Required</span>
+                            {% elif item.requirement_status == 'exempt' %}<span class="ac-pill is-warn">Exempt</span>
+                            {% elif item.requires_2fa %}<span class="ac-pill is-accent">Policy</span>
+                            {% else %}<span class="ac-pill is-muted">Optional</span>{% endif %}
+                        </td>
+                        <td>
+                            <div class="ac-id-row-actions">
+                                <button type="button" class="js-open-req-modal ac-btn ac-btn-sm"
+                                        data-user-id="{{ item.user.user_id }}" data-user-name="{{ item.user.name }}"
+                                        data-url="{% url 'admin_v2_two_factor_set_requirement' item.user.user_id %}">Set requirement</button>
+                                {% if item.has_2fa %}
+                                <button type="button" class="js-reset-2fa ac-btn ac-btn-sm ac-btn-danger-text"
+                                        data-user-id="{{ item.user.user_id }}" data-user-name="{{ item.user.name }}"
+                                        data-url="{% url 'admin_v2_two_factor_reset' item.user.user_id %}">Reset 2FA</button>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="6" class="ac-empty">No members found matching your criteria.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+</div>
+
+<div id="requirementModal" class="ac-id-modal hidden" role="dialog" aria-modal="true" aria-labelledby="requirementModalTitle">
+    <div class="ac-id-modal-box">
+        <h3 id="requirementModalTitle">Set 2FA requirement</h3>
+        <p>Set requirement for <strong id="modalMemberName"></strong></p>
+        <input type="hidden" id="modalUserId">
+        <label class="ac-id-option"><input type="radio" name="modalRequirement" value="required"><span><strong>Required</strong><span>User must set up 2FA</span></span></label>
+        <label class="ac-id-option"><input type="radio" name="modalRequirement" value="exempt"><span><strong>Exempt</strong><span>User is exempt from 2FA requirement</span></span></label>
+        <label class="ac-id-option"><input type="radio" name="modalRequirement" value="clear"><span><strong>Follow policy</strong><span>Remove override, follow global policy</span></span></label>
+        <label class="ac-id-label">Reason (optional)
+            <textarea id="modalReason" rows="2" class="ac-input ac-id-textarea" placeholder="Reason for this setting..."></textarea></label>
+        <div class="ac-id-modal-foot">
+            <button type="button" id="js-close-req-modal" class="ac-btn">Cancel</button>
+            <button type="button" id="js-save-req" class="ac-btn ac-id-save">Save</button>
+        </div>
+    </div>
+</div>
+
+<div id="reset2FAModal" class="ac-id-modal hidden" role="dialog" aria-modal="true" aria-labelledby="reset2FAModalTitle">
+    <div class="ac-id-modal-box">
+        <h3 id="reset2FAModalTitle">Reset 2FA</h3>
+        <p>Are you sure you want to reset 2FA for <strong id="reset2FAMemberName"></strong>?</p>
+        <p class="ac-text-warn">This will remove their 2FA device. They will need to set it up again.</p>
+        <input type="hidden" id="reset2FAUserId">
+        <div class="ac-id-modal-foot">
+            <button type="button" id="js-close-reset-modal" class="ac-btn">Cancel</button>
+            <button type="button" id="js-confirm-reset" class="ac-btn ac-btn-danger-text">Reset 2FA</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block console_js %}<script src="{% static_v 'js/admin_v2/two_factor.js' %}"></script>{% endblock %}

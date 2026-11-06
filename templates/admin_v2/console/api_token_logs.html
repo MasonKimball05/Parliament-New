@@ -1,0 +1,71 @@
+{% extends "admin_v2/base.html" %}
+{% comment %}
+A token's access logs in the console look (admin_api_token_logs when
+`admin_console_ui` is on; the classic page is admin_v2/api_token_logs.html;
+?panel=1 is admin_v2/console/api_token_panel.html).
+{% endcomment %}
+{% load admin_v2_tags %}
+
+{% block title %}API Token Logs - Admin v2{% endblock %}
+{% block console_crumb %}{{ token.name }} · Access logs{% endblock %}
+
+{% block admin_content %}
+<div class="ac-id-stack">
+    <section class="ac-card ac-id-head" aria-labelledby="tl-title">
+        <span class="ac-avatar-lg" aria-hidden="true">{% console_icon "key" %}</span>
+        <div class="ac-id-head-text">
+            <h1 id="tl-title">{{ token.name }}</h1>
+            <p>{{ token.user.get_display_name }} · {{ token.user.username }}</p>
+            <div class="ac-id-pills">{% include "admin_v2/console/_api_token_status.html" %}</div>
+        </div>
+        <div class="ac-list-tools">
+            <a href="{% url 'admin_api_tokens' %}" class="ac-btn">Back to tokens</a>
+        </div>
+    </section>
+
+    <section class="ac-card" aria-labelledby="tl-summary">
+        <header class="ac-id-card-head"><h2 id="tl-summary">Token</h2></header>
+        <div class="ac-id-card-body">
+            <dl class="ac-kv">
+                <div><dt>User</dt><dd>{{ token.user.get_display_name }} <span class="ac-muted">{{ token.user.username }}</span></dd></div>
+                <div><dt>Token name</dt><dd>{{ token.name }}</dd></div>
+                <div><dt>Scopes</dt><dd><div class="ac-id-chips">{% for scope in token.scopes %}<span class="ac-id-chip is-accent">{{ scope }}</span>{% endfor %}</div></dd></div>
+                <div><dt>Created</dt><dd>{{ token.created_at|date:"M d, Y" }}</dd></div>
+                <div><dt>Last used</dt><dd>{% if token.last_used_at %}{{ token.last_used_at|date:"M d, Y H:i" }}{% else %}<span class="ac-muted">Never</span>{% endif %}</dd></div>
+            </dl>
+        </div>
+    </section>
+
+    <section class="ac-card" aria-label="Request log">
+        {% include "admin_v2/console/_list_header.html" with title="Access logs" heading="h2" count=logs|length subtitle="Last 200 API requests authenticated with this token." %}
+        <div class="ac-table-wrap">
+            <table class="ac-table">
+                <thead><tr><th>Timestamp</th><th>Method</th><th>Endpoint</th><th>Params</th><th>Data accessed</th><th>IP</th><th>Status</th><th>Scopes used</th></tr></thead>
+                <tbody>
+                    {% for log in logs %}
+                    <tr>
+                        <td class="ac-nowrap">{{ log.timestamp|date:"M d, Y H:i:s" }}</td>
+                        <td>{% include "admin_v2/console/_api_log_cells.html" %}</td>
+                        <td class="ac-id-mono">{{ log.endpoint }}</td>
+                        <td>{% if log.query_params %}<div class="ac-id-chips">{% for k, v in log.query_params.items %}<span class="ac-id-chip">{{ k }}={{ v }}</span>{% endfor %}</div>{% else %}<span class="ac-muted">—</span>{% endif %}</td>
+                        <td>
+                            {% if log.response_summary %}
+                                <strong>{{ log.response_summary.count }} record{% if log.response_summary.count != 1 %}s{% endif %}</strong>
+                                {% if log.response_summary.sample %}
+                                <span class="ac-sub ac-id-truncate">{{ log.response_summary.sample|join:", " }}{% if log.response_summary.count > log.response_summary.sample|length %} +{{ log.response_summary.count|add:"-5" }} more{% endif %}</span>
+                                {% endif %}
+                            {% else %}<span class="ac-muted">—</span>{% endif %}
+                        </td>
+                        <td class="ac-id-mono">{% if log.ip_address %}{{ log.ip_address }}{% else %}<span class="ac-muted">unknown</span>{% endif %}</td>
+                        <td><span class="ac-pill {% if log.response_status >= 500 %}is-error{% elif log.response_status >= 400 %}is-warn{% elif log.response_status >= 300 %}is-muted{% else %}is-ok{% endif %}">{{ log.response_status }}</span></td>
+                        <td><div class="ac-id-chips">{% for scope in log.scopes_used %}<span class="ac-id-chip">{{ scope }}</span>{% endfor %}</div></td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="8" class="ac-empty">No access logs recorded for this token yet.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+</div>
+{% endblock %}

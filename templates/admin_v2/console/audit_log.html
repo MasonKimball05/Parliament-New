@@ -1,0 +1,86 @@
+{% extends "admin_v2/base.html" %}
+{% comment %}
+Audit log in the console look (admin_v2_audit_log when `admin_console_ui` is
+on; the classic page is admin_v2/audit_log.html; admins only, as before).
+Same filters (action, actor, date_from, date_to), page and CSV export
+(?…&export=csv). Target members open in the slide-out panel.
+{% endcomment %}
+{% load admin_v2_tags %}
+
+{% block title %}Audit log - Admin{% endblock %}
+
+{% block admin_content %}
+<section class="ac-card">
+    <div class="ac-list-head">
+        <div class="ac-list-title">
+            <h1>Audit log <span class="ac-count">({{ total_count }})</span></h1>
+            <p>Officer actions: token approvals, quarantines, role changes and block-list edits</p>
+        </div>
+        <div class="ac-list-tools">
+            <a href="{{ request.get_full_path }}" class="ac-btn ac-btn-icon" aria-label="Refresh" title="Refresh">{% console_icon "refresh" %}</a>
+            <a href="?{% if action_filter %}action={{ action_filter|urlencode }}&amp;{% endif %}{% if actor_filter %}actor={{ actor_filter|urlencode }}&amp;{% endif %}{% if date_from %}date_from={{ date_from|urlencode }}&amp;{% endif %}{% if date_to %}date_to={{ date_to|urlencode }}&amp;{% endif %}export=csv" class="ac-btn">{% console_icon "download" %}Export CSV</a>
+        </div>
+    </div>
+
+    <form method="get" class="ac-filterbar" aria-label="Filter the audit log">
+        <label class="ac-field"><span class="ac-field-label">Action</span>
+            <select name="action" class="ac-select" data-autosubmit>
+                <option value="">All actions</option>
+                {% for value, label in action_choices %}
+                <option value="{{ value }}"{% if action_filter == value %} selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </label>
+        <label class="ac-field"><span class="ac-field-label">Actor</span>
+            <select name="actor" class="ac-select" data-autosubmit>
+                <option value="">All officers</option>
+                {% for a in actors %}
+                <option value="{{ a.user_id }}"{% if actor_filter == a.user_id|stringformat:"s" %} selected{% endif %}>{{ a.name }}</option>
+                {% endfor %}
+            </select>
+        </label>
+        <label class="ac-field"><span class="ac-field-label">From</span>
+            <input type="date" name="date_from" value="{{ date_from }}" class="ac-input"></label>
+        <label class="ac-field"><span class="ac-field-label">To</span>
+            <input type="date" name="date_to" value="{{ date_to }}" class="ac-input"></label>
+        <button type="submit" class="ac-btn">Apply</button>
+        {% if action_filter or actor_filter or date_from or date_to %}<a href="{% url 'admin_v2_audit_log' %}" class="ac-btn ac-btn-ghost">Clear</a>{% endif %}
+    </form>
+
+    <div class="ac-table-wrap">
+        <table class="ac-table ac-sec-subs">
+            <thead>
+                <tr>
+                    <th>Time</th>
+                    <th>Actor</th>
+                    <th>Action</th>
+                    <th>Target</th>
+                    <th>Detail</th>
+                    <th class="ac-hide-phone">IP</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for entry in page_obj %}
+                <tr data-ac-row>
+                    <td class="ac-nowrap"><span title="{{ entry.timestamp|date:'Y-m-d H:i:s' }}">{{ entry.timestamp|date:"M d, Y" }}<span class="ac-sub">{{ entry.timestamp|date:"H:i" }}</span></span></td>
+                    <td>{% if entry.actor %}{{ entry.actor.name }}{% else %}<span class="ac-muted">deleted</span>{% endif %}</td>
+                    <td>{% with action=entry.action %}<span class="ac-pill {% if action == 'quarantine_set' or action == 'blacklist_added' %}is-error{% elif action == 'quarantine_lifted' %}is-ok{% elif action == 'token_approved' or action == 'role_changed' %}is-accent{% elif action == 'token_denied' or action == 'token_revoked' %}is-warn{% else %}is-muted{% endif %}">{{ entry.get_action_display }}</span>{% endwith %}</td>
+                    <td>
+                        {% if entry.target_user %}
+                        <a href="{% url 'admin_v2_member' entry.target_user.user_id %}" class="ac-row-link" data-ac-panel>{{ entry.target_user.name }}</a>
+                        {% if entry.target_repr and entry.target_repr != entry.target_user.name|stringformat:"s" %}<span class="ac-sub">{{ entry.target_repr }}</span>{% endif %}
+                        {% elif entry.target_repr %}{{ entry.target_repr }}
+                        {% else %}<span class="ac-muted">—</span>{% endif %}
+                    </td>
+                    <td class="ac-sec-wrap">{% if entry.detail %}<span title="{{ entry.detail }}">{{ entry.detail|truncatechars:80 }}</span>{% else %}<span class="ac-muted">—</span>{% endif %}</td>
+                    <td class="ac-hide-phone"><code class="ac-sec-code">{{ entry.ip_address|default:"—" }}</code></td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="6" class="ac-empty">No audit log entries match these filters.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% include "admin_v2/console/_pagination.html" with page=page_obj %}
+</section>
+{% endblock %}

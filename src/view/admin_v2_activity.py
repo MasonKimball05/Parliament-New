@@ -57,7 +57,9 @@ def admin_v2_admin_activity(request):
     q = (request.GET.get('q') or '').strip()[:100]
     page = Paginator(admin_activity(request.user, actor, action, q), PAGE_SIZE).get_page(request.GET.get('page'))
     actions = admin_activity_actions()
-    return render(request, 'admin_v2/admin_activity.html', {
+    from src.admin_console import console_enabled
+    return render(request, 'admin_v2/console/admin_activity.html' if console_enabled(request)
+                  else 'admin_v2/admin_activity.html', {
         'page': page, 'actor': actor, 'action': action, 'q': q,
         'actors': admin_actors().order_by('name').only('user_id', 'name', 'preferred_name'),
         'actions': list(actions),
