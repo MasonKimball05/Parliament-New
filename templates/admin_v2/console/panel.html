@@ -1,0 +1,34 @@
+{% load admin_v2_tags %}{% comment %}
+Base for a slide-out panel fragment (Azure-style blade). A detail view
+renders a template extending this when asked with ?panel=1 (see
+src/admin_console.py `wants_panel` / `panel_response`); panel.js fetches it
+and drops it into the frame's #ac-panel. Opened directly (no JS, a new tab,
+a shared link) the same URL without ?panel=1 is the full page.
+
+Blocks:
+  panel_avatar    optional leading avatar/icon
+  panel_title     the item's name (an <h2>, focused when the panel opens)
+  panel_subtitle  one line under it
+  panel_full_url  link for "open full page" (default: this path)
+  panel_actions   buttons / POST forms under the header
+  panel_tabs      optional tabs: buttons with data-ac-tab and aria-controls,
+                  inside <div class="ac-tabs" role="tablist">
+  panel_body      the content; with tabs, one <section role="tabpanel"> each
+                  (all but the first `hidden`)
+
+No script tags here: they would not run (the fragment is inserted as HTML).
+Forms work as usual (POST, data-confirm) and their redirects load full pages.
+{% endcomment %}<div class="ac-blade" data-ac-blade>
+    <header class="ac-blade-head">
+        {% block panel_avatar %}{% endblock %}
+        <div class="ac-blade-titles">
+            <h2 id="ac-blade-title" tabindex="-1">{% block panel_title %}{% endblock %}</h2>
+            <p>{% block panel_subtitle %}{% endblock %}</p>
+        </div>
+        <a href="{% block panel_full_url %}{{ request.path }}{% endblock %}" class="ac-btn ac-btn-icon" title="Open full page" aria-label="Open full page">{% console_icon "external" %}</a>
+        <button type="button" class="ac-btn ac-btn-icon" data-ac-panel-close title="Close (Esc)" aria-label="Close panel">{% console_icon "x" %}</button>
+    </header>
+    <div class="ac-blade-actions">{% block panel_actions %}{% endblock %}</div>
+    {% block panel_tabs %}{% endblock %}
+    <div class="ac-blade-body">{% block panel_body %}{% endblock %}</div>
+</div>

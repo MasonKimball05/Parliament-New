@@ -15,6 +15,7 @@
 
     <!-- Tailwind CSS (self-hosted, no CDN) -->
     <link rel="stylesheet" href="{% static_v 'css/tailwind.css' %}">{% if ui_refresh %}<link rel="stylesheet" href="{% static_v 'css/refresh.css' %}">{% endif %}{% if ui_refresh %}<link rel="stylesheet" href="{% static_v 'css/refresh-pages/vote-announcements-profile.css' %}">{% endif %}{% if ui_refresh %}<link rel="stylesheet" href="{% static_v 'css/refresh-pages/calendar-directory.css' %}">{% endif %}{% if ui_refresh %}<link rel="stylesheet" href="{% static_v 'css/refresh-pages/chats-service-prefs-songbook.css' %}">{% endif %}{% if ui_refresh %}<link rel="stylesheet" href="{% static_v 'css/refresh-pages/committee.css' %}">{% endif %}{% if ui_refresh %}<link rel="stylesheet" href="{% static_v 'css/refresh-pages/member-tools.css' %}">{% endif %}
+    {% block admin_head %}{% endblock %}
 
     <!-- Alpine.js: hide x-cloak elements until Alpine initialises -->
     <style>[x-cloak]{display:none!important}</style>
@@ -137,6 +138,7 @@
 
     <!-- Navigation -->
     {# in_mobile_app: hidden in the app's web view (it has native navigation). Layout only — see src/middleware/mobile_session.py #}
+    {% block site_nav %}
     <nav class="bg-primary-700 text-white shadow-lg relative z-10{% if in_mobile_app %} hidden{% endif %}">
         <div class="max-w-full mx-auto px-3 sm:px-4 lg:px-6">
             <div class="flex items-center justify-between h-14">
@@ -469,6 +471,7 @@
         </div>
         {% endif %}
     </nav>
+    {% endblock site_nav %}
 
     <!-- Upcoming Maintenance Warning Banner (shown to all users) -->
     {% if upcoming_maintenance and not maintenance_mode_active %}
@@ -636,6 +639,7 @@
     <script src="{% static_v 'js/base/mobile-menu.js' %}"></script>
 
     <!-- Messages -->
+    {% block site_messages %}
     {% if messages %}
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-4">
             {% for message in messages %}
@@ -665,6 +669,7 @@
         </div>
         <script src="{% static_v 'js/base/flash-messages.js' %}"></script>
     {% endif %}
+    {% endblock site_messages %}
 
     <!-- Email Requirement Modal (suppressed on 2FA pages — setup handles email collection inline) -->
     {% if user.is_authenticated and not user.email %}
@@ -870,6 +875,7 @@
     </main>
 
     <!-- Footer -->
+    {% block site_footer %}
     <footer class="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 mt-auto transition-colors duration-200{% if in_mobile_app %} hidden{% endif %}">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
             <div class="flex flex-col items-center space-y-4">
@@ -934,6 +940,7 @@
             </div>
         </div>
     </footer>
+    {% endblock site_footer %}
 
     <!-- Announcement Dismiss Script -->
     <script src="{% static_v 'js/base/announcements.js' %}"></script>

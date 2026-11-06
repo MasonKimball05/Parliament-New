@@ -1,0 +1,52 @@
+{% load admin_v2_tags %}
+{% comment %}
+The console's service sidebar: Console home, Favorites, every group from
+CONSOLE_GROUPS (src/admin_v2_nav.py), Recently visited. Rendered once, in
+the frame's <aside>; on phones that same aside becomes the drawer.
+{% endcomment %}
+{% admin_console_frame as console %}
+<nav class="ac-nav" aria-label="Admin sections">
+    {% if console.home %}
+    <a href="{{ console.home.url }}" class="ac-nav-link ac-nav-home{% if console.home.active %} is-active{% endif %}"{% if console.home.active %} aria-current="page"{% endif %}>
+        {% console_icon "home" %}<span>Console home</span>
+    </a>
+    {% endif %}
+
+    <div class="ac-nav-group" data-ac-favorites-group{% if not console.favorites %} hidden{% endif %}>
+        <p class="ac-nav-title">{% console_icon "star" "ac-nav-title-icon" filled=True %}Favorites</p>
+        <ul data-ac-favorites-list>
+            {% for item in console.favorites %}
+            <li class="ac-nav-row" data-ac-fav-row="{{ item.name }}">
+                <a href="{{ item.url }}" class="ac-nav-link{% if item.active %} is-active{% endif %}"{% if item.active %} aria-current="page"{% endif %}>{% console_icon item.icon %}<span>{{ item.label }}</span></a>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+
+    {% for group in console.groups %}
+    <div class="ac-nav-group">
+        <p class="ac-nav-title">{{ group.title }}</p>
+        <ul>
+            {% for item in group.items %}
+            <li class="ac-nav-row" data-ac-page="{{ item.name }}">
+                <a href="{{ item.url }}" class="ac-nav-link{% if item.active %} is-active{% endif %}"{% if item.active %} aria-current="page"{% endif %}>{% console_icon item.icon %}<span>{{ item.label }}</span></a>
+                {% include "admin_v2/console/_fav_button.html" %}
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endfor %}
+
+    {% if console.recent %}
+    <div class="ac-nav-group">
+        <p class="ac-nav-title">Recently visited</p>
+        <ul>
+            {% for item in console.recent %}
+            <li class="ac-nav-row">
+                <a href="{{ item.url }}" class="ac-nav-link ac-nav-recent">{% console_icon "clock" %}<span>{{ item.label }}</span></a>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+</nav>

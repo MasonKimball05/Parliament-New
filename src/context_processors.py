@@ -281,6 +281,12 @@ def feature_flags(request):
         # query so it costs nothing. Per-request preview cookie applied in
         # _with_ui_refresh, outside the cache.
         'web_refresh_flag': any(f.name == 'web_refresh' and f.is_enabled for f in all_flags),
+        # The Admin v2 console look (src/admin_console.py): fail-OPEN like
+        # dark_mode above (seeded on; a missing row means on), from the same
+        # query so it costs nothing.
+        'admin_console_ui': next(
+            (f.is_enabled for f in all_flags if f.name == 'admin_console_ui'),
+            'admin_console_ui' not in FeatureFlag.DISABLED_BY_DEFAULT),
     }
 
     # Cache for 60 seconds
@@ -294,6 +300,9 @@ def _with_ui_refresh(request, data):
     from src.ui_refresh import ui_refresh_for
     out = dict(data)
     out['ui_refresh'] = ui_refresh_for(request, data.get('web_refresh_flag', False))
+    # A dict cached before this key existed (a deploy inside the 60 s window)
+    # reads as on, the flag's own default.
+    out.setdefault('admin_console_ui', True)
     return out
 
 

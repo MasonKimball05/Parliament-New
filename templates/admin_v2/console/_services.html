@@ -1,0 +1,39 @@
+{% load admin_v2_tags %}
+{% comment %}
+The Services menu (AWS-style): every console page by group, with Favorites
+and Recently visited first. Opened by the top bar's Services button
+(console.js `data-ac-menu`); Esc or a click outside closes it.
+{% endcomment %}
+{% admin_console_frame as console %}
+<div id="ac-services" class="ac-menu ac-services hidden">
+    <div class="ac-services-side">
+        <p class="ac-services-title">{% console_icon "star" "" filled=True %}Favorites</p>
+        <ul class="ac-services-list">
+            {% for item in console.favorites %}
+            <li><a href="{{ item.url }}">{% console_icon item.icon %}{{ item.label }}</a></li>
+            {% empty %}
+            <li class="ac-services-empty">Star a page in the sidebar to pin it here.</li>
+            {% endfor %}
+        </ul>
+        <p class="ac-services-title">{% console_icon "clock" %}Recently visited</p>
+        <ul class="ac-services-list">
+            {% for item in console.recent %}
+            <li><a href="{{ item.url }}">{% console_icon item.icon %}{{ item.label }}<span>{{ item.group }}</span></a></li>
+            {% empty %}
+            <li class="ac-services-empty">Pages you open show up here.</li>
+            {% endfor %}
+        </ul>
+    </div>
+    <div class="ac-services-grid">
+        {% for group in console.groups %}
+        <section>
+            <h3>{% console_icon group.icon %}{{ group.title }}</h3>
+            <ul class="ac-services-list">
+                {% for item in group.items %}
+                <li><a href="{{ item.url }}"{% if item.active %} aria-current="page"{% endif %}>{{ item.label }}</a></li>
+                {% endfor %}
+            </ul>
+        </section>
+        {% endfor %}
+    </div>
+</div>

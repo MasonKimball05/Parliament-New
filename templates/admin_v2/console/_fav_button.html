@@ -1,0 +1,5 @@
+{% load admin_v2_tags %}{% comment %}
+Pin/unpin star for one console page (`item` from src/admin_console.py frame).
+A real POST form, so it works without JS; console.js submits it in the
+background and flips the star instead of reloading.
+{% endcomment %}<form method="post" action="{% url 'admin_v2_console_favorite' %}" class="ac-fav-form" data-ac-favorite>{% csrf_token %}<input type="hidden" name="page" value="{{ item.name }}"><button type="submit" class="ac-fav{% if item.favorite %} is-on{% endif %}" aria-pressed="{{ item.favorite|yesno:'true,false' }}" aria-label="{% if item.favorite %}Remove {{ item.label }} from favorites{% else %}Add {{ item.label }} to favorites{% endif %}" title="{% if item.favorite %}Remove from favorites{% else %}Add to favorites{% endif %}">{% console_icon "star" "ac-star-outline" %}{% console_icon "star" "ac-star-filled" filled=True %}</button></form>

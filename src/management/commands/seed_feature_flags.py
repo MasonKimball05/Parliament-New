@@ -218,6 +218,23 @@ class Command(BaseCommand):
                 'category': 'admin',
                 'is_enabled': False,
             },
+            {
+                # The Admin v2 console look (src/admin_console.py): AWS-style
+                # top bar, Services menu and service sidebar, resource lists
+                # and slide-out detail panels. Seeded ON and fail-open (not in
+                # DISABLED_BY_DEFAULT). Off: the classic Admin v2 layout,
+                # unchanged.
+                'name': 'admin_console_ui',
+                'display_name': 'Admin console look',
+                'description': (
+                    'Shows Admin v2 as a console: a royal-blue top bar with a '
+                    'Services menu, a service sidebar with favorites and recently '
+                    'visited pages, breadcrumbs, resource lists and slide-out '
+                    'detail panels. Off: the classic Admin v2 layout.'
+                ),
+                'category': 'admin',
+                'is_enabled': True,
+            },
 
             # ── Constitution & Bylaws, one flag per document (v3.19.1) ───────
             #

@@ -165,6 +165,7 @@ from src.view import admin_v2_system as admin_v2_system_views
 from src.view import admin_v2_push as admin_v2_push_views
 from src.view import admin_v2_permissions as admin_v2_permissions_views
 from src.view import admin_v2_sitemap as admin_v2_sitemap_views
+from src.view import admin_v2_console as admin_v2_console_views
 from src.view.admin_v2 import (
     admin_v2_login, admin_v2_dashboard, toggle_feature_flag,
     toggle_page, admin_v2_logout, manage_legislation, delete_legislation,
@@ -1134,6 +1135,9 @@ urlpatterns = [
     # Admin v2 - Advanced Administration
     path('admin-v2/', admin_v2_login, name='admin_v2_login'),
     path('admin-v2/dashboard/', admin_v2_dashboard, name='admin_v2_dashboard'),
+    # The console look's Favorites star (src/view/admin_v2_console.py)
+    path('admin-v2/console/favorite/', admin_v2_console_views.admin_v2_console_favorite,
+         name='admin_v2_console_favorite'),
     path('admin-v2/feature-flag/<int:flag_id>/toggle/', toggle_feature_flag, name='toggle_feature_flag'),
     path('admin-v2/page/<int:toggle_id>/toggle/', toggle_page, name='toggle_page'),
     path('admin-v2/setting/<int:setting_id>/update/', update_site_setting, name='update_site_setting'),

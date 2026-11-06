@@ -20,6 +20,8 @@ from src.tests.admin_v2.base import AdminV2TestCase, make_user
 class LayoutTests(AdminV2TestCase):
 
     def test_sidebar_groups_and_active_item(self):
+        # The classic layout (the console's is in test_console.py).
+        self.set_console(False)
         r = self.client.get(reverse('admin_v2_manage_users'))
         self.assertEqual(r.status_code, 200)
         html = r.content.decode()

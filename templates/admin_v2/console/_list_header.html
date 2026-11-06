@@ -1,0 +1,59 @@
+{% load admin_v2_tags %}
+{% comment %}
+Resource list header: title (count), refresh, Actions ▾ for the selected rows,
+other buttons, and one gold primary button. Put it first inside an
+`<section class="ac-card">`; see the conversion guide and admin_v2/console/members.html.
+
+  {% include "admin_v2/console/_list_header.html" with title="Members" count=page.paginator.count actions=bulk_actions primary_label="Add member" primary_url=add_url %}
+
+  title          required
+  count          optional number shown as "(86)"
+  subtitle       optional line under the title
+  heading        "h1" (default) or "h2" when the page already has an h1
+  actions        optional list of dicts, one POST form each, applied to the
+                 ticked rows of the table `table_id`:
+                   {'label', 'url', 'fields': {name: value} (hidden inputs),
+                    'confirm': 'Text?' (data-confirm), 'danger': bool}
+                 console.js adds one hidden <input name="{field}"> per ticked
+                 row and refuses to submit with none ticked.
+  table_id       id of the table holding the row checkboxes (default "ac-list")
+  field          name the ticked ids are posted as (default "ids")
+  links          optional list of {'label', 'url'} secondary buttons
+  primary_label  gold button text; primary_url its link
+  refresh        False to hide the refresh button
+{% endcomment %}
+<div class="ac-list-head">
+    <div class="ac-list-title">
+        {% if heading == "h2" %}<h2>{{ title }}{% if count is not None and count != "" %} <span class="ac-count">({{ count }})</span>{% endif %}</h2>
+        {% else %}<h1>{{ title }}{% if count is not None and count != "" %} <span class="ac-count">({{ count }})</span>{% endif %}</h1>{% endif %}
+        {% if subtitle %}<p>{{ subtitle }}</p>{% endif %}
+    </div>
+    <div class="ac-list-tools">
+        {% if refresh is not False %}
+        <a href="{{ request.get_full_path }}" class="ac-btn ac-btn-icon" aria-label="Refresh" title="Refresh">{% console_icon "refresh" %}</a>
+        {% endif %}
+        {% for link in links %}
+        <a href="{{ link.url }}" class="ac-btn">{{ link.label }}</a>
+        {% endfor %}
+        {% if actions %}
+        <div class="ac-dropdown" data-ac-bulk="{{ table_id|default:'ac-list' }}" data-ac-bulk-field="{{ field|default:'ids' }}">
+            <button type="button" class="ac-btn" data-ac-menu data-ac-bulk-button aria-haspopup="true" aria-expanded="false" disabled
+                    title="Tick rows to act on them">
+                Actions<span class="ac-bulk-count" data-ac-bulk-count></span>{% console_icon "chevron-down" "ac-icon-sm" %}
+            </button>
+            <div class="ac-menu ac-menu-right hidden">
+                {% for a in actions %}
+                <form method="post" action="{{ a.url }}" data-ac-bulk-form{% if a.confirm %} data-confirm="{{ a.confirm }}"{% endif %}>
+                    {% csrf_token %}
+                    {% for name, value in a.fields.items %}<input type="hidden" name="{{ name }}" value="{{ value }}">{% endfor %}
+                    <button type="submit" class="ac-menu-item{% if a.danger %} is-danger{% endif %}">{{ a.label }}</button>
+                </form>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+        {% if primary_url %}
+        <a href="{{ primary_url }}" class="ac-btn ac-btn-primary">{{ primary_label|default:"Create" }}</a>
+        {% endif %}
+    </div>
+</div>

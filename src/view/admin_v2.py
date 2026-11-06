@@ -785,12 +785,22 @@ def admin_v2_dashboard(request):
 
     # `new_login_alerts` and `recent_alerts` are the same number under two names
     # — the template uses both. Now one COUNT feeds both instead of two queries.
+    # The console home's Alarms widget and top-bar bell (src/admin_console.py)
+    # read the same table; their counts ride along in this one aggregate
+    # rather than costing two more queries.
+    _open = Q(status__in=('new', 'investigating'))
+    _severe = Q(severity__in=('critical', 'high'))
     _alert_agg = LoginAlert.objects.aggregate(
         total_alerts=Count('pk'),
         _new=Count('pk', filter=Q(status='new')),
+        _alarm=Count('pk', filter=_open & _severe),
+        _warning=Count('pk', filter=_open & ~_severe),
+        _ok=Count('pk', filter=Q(status__in=('resolved', 'false_positive'),
+                                 reviewed_at__gte=_7d)),
     )
     _alert_agg['new_login_alerts'] = _alert_agg['_new']
     _alert_agg['recent_alerts'] = _alert_agg.pop('_new')
+    alarms = {k: _alert_agg.pop(f'_{k}') for k in ('alarm', 'warning', 'ok')}
 
     _quarantine_total = _safe_count(lambda: QuarantinedAccount.objects.filter(
         released_at__isnull=True
@@ -999,6 +1009,12 @@ def admin_v2_dashboard(request):
         'attention': attention_items(),
     }
 
+    # The console look (src/admin_console.py) shows the same numbers as widgets
+    # on its home page, plus service health, alarms and sign-ins for the week.
+    from src.admin_console import console_enabled, home_widgets
+    if console_enabled(request):
+        context['home'] = home_widgets(stats, celery_summary, performance_summary, alarms)
+        return render(request, 'admin_v2/console/home.html', context)
     return render(request, 'admin_v2/dashboard.html', context)
 
 
@@ -1571,6 +1587,15 @@ def manage_users(request):
     # Build query (v4.4.3: `users_queryset`, shared with the app's member search)
     users_list = users_queryset(status_filter, type_filter, admin_filter, picture_filter, search_query)
 
+    from src.admin_console import console_enabled
+    console = console_enabled(request)
+    if console:
+        # The console list's 2FA column: one EXISTS subquery, not a query per row.
+        from django.db.models import Exists, OuterRef
+        from django_otp.plugins.otp_totp.models import TOTPDevice
+        users_list = users_list.annotate(has_totp=Exists(
+            TOTPDevice.objects.filter(user=OuterRef('pk'), confirmed=True)))
+
     # Paginate
     paginator = Paginator(users_list, 50)
     page_number = request.GET.get('page')
@@ -1585,7 +1610,33 @@ def manage_users(request):
         'search_query': search_query,
     }
 
-    return render(request, 'admin_v2/manage_users.html', context)
+    if not console:
+        return render(request, 'admin_v2/manage_users.html', context)
+    return render(request, 'admin_v2/console/members.html', members_console_context(context))
+
+
+def members_console_context(context):
+    """The console Members list (admin_v2/console/members.html): the same filters
+    and page, plus the Actions menu, which hands the ticked members to Bulk
+    edit's preview step (POST; nothing changes until that page's Apply)."""
+    from django.urls import reverse
+
+    bulk = reverse('admin_v2_bulk_members')
+    actions = [
+        {'label': f'Set status: {status}', 'url': bulk,
+         'fields': {'bulk_action': 'set_status', 'value': status},
+         'confirm': f'Preview setting the selected members to {status}? Nothing changes until you apply it.'}
+        for status in ('Active', 'Inactive', 'Alumni')
+    ] + [
+        {'label': 'Remove all roles…', 'url': bulk, 'fields': {'bulk_action': 'clear_roles'},
+         'confirm': 'Preview removing every role from the selected members? Nothing changes until you apply it.',
+         'danger': True},
+    ]
+    filters = [(k, v) for k, v in (('status', context['status_filter']), ('type', context['type_filter']),
+                                   ('admin', context['admin_filter']), ('picture', context['picture_filter']),
+                                   ('search', context['search_query'])) if v]
+    return {**context, 'bulk_actions': actions, 'active_filters': filters,
+            'add_url': reverse('add_member'), 'bulk_url': bulk}
 
 
 @require_admin_v2_auth

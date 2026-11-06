@@ -239,8 +239,9 @@ class UserPreferencesForm(forms.Form):
     # `save()` rebuilds prefs wholesale, so anything set by another surface has
     # to be carried across explicitly or it is silently wiped the next time the
     # user touches this page. 'dev' is written by the gated toggle_dev_mode
-    # endpoint (developer mode), never by this form.
-    PRESERVED_SECTIONS = ('dev',)
+    # endpoint (developer mode), never by this form. 'admin_console' holds an
+    # admin's pinned Admin v2 pages (src/admin_console.py).
+    PRESERVED_SECTIONS = ('dev', 'admin_console')
 
     def save(self):
         """Write cleaned data into instance.prefs and save. Returns the instance."""

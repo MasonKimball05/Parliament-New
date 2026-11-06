@@ -39,13 +39,23 @@ def _member_meta(u):
 @require_admin_v2_auth
 def admin_v2_search(request):
     """GET ?q= → {'pages': [...], 'members': [...]} for the ⌘K palette."""
+    from src.admin_console import console_enabled
+    from src.admin_v2_nav import CONSOLE_GROUPS, console_item
+
     q = (request.GET.get('q') or '').strip()[:80]
+    console = console_enabled(request)  # name groups the way the sidebar does
     if not q:
         # Nothing typed yet: one starting point per section.
         pages = []
-        for title, items in NAV:
-            for label, name, _also, _kw in items[:1]:
-                pages.extend(p for p in search_pages(label) if p['label'] == label)
+        if console:
+            for title, _icon, names in CONSOLE_GROUPS:
+                item = console_item(names[0])
+                if item:
+                    pages.append({'label': item['label'], 'group': title, 'url': item['url']})
+        else:
+            for title, items in NAV:
+                for label, name, _also, _kw in items[:1]:
+                    pages.extend(p for p in search_pages(label) if p['label'] == label)
         return JsonResponse({'pages': pages, 'members': []})
 
     term = q.lstrip('#')
@@ -61,7 +71,8 @@ def admin_v2_search(request):
         'meta': _member_meta(u),
         'url': reverse('admin_v2_member', args=[u.user_id]),
     } for u in users]
-    return JsonResponse({'pages': search_pages(q), 'members': members, 'content': search_content(term)})
+    return JsonResponse({'pages': search_pages(q, console=console), 'members': members,
+                         'content': search_content(term)})
 
 
 CONTENT_RESULTS = 6
@@ -92,8 +103,15 @@ def search_content(term):
 
 @require_admin_v2_auth
 def admin_v2_member(request, user_id):
+    """The member page; with ?panel=1, the same data as the console's slide-out
+    panel fragment (admin_v2/member_panel.html; same gate, same rows)."""
+    from src.admin_console import panel_response, wants_panel
+
     member = get_object_or_404(ParliamentUser, user_id=user_id)
-    return render(request, 'admin_v2/member.html', member_page_data(member, request.user))
+    data = member_page_data(member, request.user)
+    if wants_panel(request):
+        return panel_response(render(request, 'admin_v2/member_panel.html', data))
+    return render(request, 'admin_v2/member.html', data)
 
 
 def member_page_data(member, viewer):

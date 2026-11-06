@@ -29,3 +29,13 @@ class AdminV2TestCase(TestCase):
         session['admin_v2_authenticated'] = True
         session['admin_v2_auth_time'] = timezone.now().isoformat()
         session.save()
+
+    def set_console(self, on):
+        """Turn the console look (`admin_console_ui`, src/admin_console.py) on
+        or off. With no row it is on (fail-open), which is what every other
+        admin-v2 test renders."""
+        from src.models_feature_flags import FeatureFlag
+        FeatureFlag.objects.update_or_create(
+            name='admin_console_ui',
+            defaults={'display_name': 'Admin console look', 'description': 'test',
+                      'category': 'admin', 'is_enabled': on})

@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+{% load static static_version admin_v2_tags %}
+
+{% comment %}
+The Admin v2 console frame ("Royal console", `admin_console_ui` flag; picked
+by admin_v2/base.html). AWS-console layout in the site's colors:
+
+  top bar     crest + "Parliament Admin" (→ console home), Services menu, the
+              ⌘K search (palette.js, unchanged ids), chapter, alarms bell,
+              account menu with Exit admin
+  sidebar     Console home, Favorites, the service groups (src/admin_v2_nav.py
+              CONSOLE_GROUPS), Recently visited; on phones the same aside is
+              an off-canvas drawer (console.js)
+  main        breadcrumbs (Group › Page › `console_crumb`), messages, then the
+              page's `admin_content`
+  panel       the slide-out detail panel host (panel.js; see
+              admin_v2/console/panel.html for the fragment side)
+
+Everything is styled by static/css/admin-console.css (`ac-*` classes and
+tokens, light and dark). The site's own nav, footer and flash messages are
+switched off here (base.html blocks) because the top bar replaces them.
+No inline script or style (prod CSP): console.js and panel.js do the rest.
+{% endcomment %}
+
+{% block admin_head %}<link rel="stylesheet" href="{% static_v 'css/admin-console.css' %}">
+<link rel="stylesheet" href="{% static_v 'css/admin-console/identity.css' %}">
+<link rel="stylesheet" href="{% static_v 'css/admin-console/security.css' %}">
+<link rel="stylesheet" href="{% static_v 'css/admin-console/messaging.css' %}">
+<link rel="stylesheet" href="{% static_v 'css/admin-console/operations.css' %}">{% endblock %}
+{% block site_nav %}{% endblock %}
+{% block site_messages %}{% endblock %}
+{% block site_footer %}{% endblock %}
+
+{% block subnav %}
+{% admin_console_frame as console %}
+<header class="ac ac-topbar">
+    <button type="button" class="ac-topbar-btn ac-only-narrow" data-ac-drawer-open aria-controls="ac-sidebar" aria-expanded="false" aria-label="Open admin menu">
+        {% console_icon "menu" %}
+    </button>
+    <a href="{% url 'admin_v2_dashboard' %}" class="ac-brand" aria-label="Parliament Admin, console home">
+        <span class="ac-crest"><img src="{% static 'images/am-coat-of-arms.png' %}" alt=""></span>
+        <span class="ac-brand-text">Parliament <b>Admin</b></span>
+    </a>
+    <div class="ac-dropdown ac-services-wrap">
+        <button type="button" class="ac-topbar-btn ac-services-btn" data-ac-menu aria-haspopup="true" aria-expanded="false" aria-controls="ac-services">
+            {% console_icon "grid" %}<span class="ac-hide-sm">Services</span>
+        </button>
+        {% include "admin_v2/console/_services.html" %}
+    </div>
+    <button type="button" class="ac-search" data-admin-search-open aria-label="Search pages and members">
+        {% console_icon "search" %}
+        <span class="ac-search-text">Search services, members and logs</span>
+        <kbd>⌘K</kbd>
+    </button>
+    <span class="ac-chapter ac-hide-md">Alpha Mu chapter</span>
+    <a href="{% url 'admin_v2_security_alerts' %}?status=new" class="ac-topbar-btn ac-bell"
+       aria-label="Security alerts: {{ console.alarms.total|default:0 }} open{% if console.alarms.alarm %}, {{ console.alarms.alarm }} in alarm{% endif %}"
+       title="{{ console.alarms.total|default:0 }} open security alert{{ console.alarms.total|pluralize }}">
+        {% console_icon "bell" %}
+        {% if console.alarms.total %}<span class="ac-bell-count{% if console.alarms.alarm %} is-alarm{% endif %}">{{ console.alarms.total }}</span>{% endif %}
+    </a>
+    <div class="ac-dropdown">
+        <button type="button" class="ac-avatar" data-ac-menu aria-haspopup="true" aria-expanded="false" aria-controls="ac-account-menu"
+                aria-label="Account menu for {{ request.user.get_display_name }}">{{ console.initials }}</button>
+        <div id="ac-account-menu" class="ac-menu ac-menu-right hidden">
+            <p class="ac-menu-head">{{ request.user.get_display_name }}<span>Admin v2 session</span></p>
+            <a href="{% url 'home' %}" class="ac-menu-item">{% console_icon "arrow-left" %}Back to the site</a>
+            <a href="{% url 'preferences' %}" class="ac-menu-item">{% console_icon "adjustments" %}Preferences (theme)</a>
+            <a href="{% url 'admin_v2_logout' %}" class="ac-menu-item is-danger">{% console_icon "logout" %}Exit admin</a>
+        </div>
+    </div>
+</header>
+
+<!-- ⌘K search (static/js/admin_v2/palette.js reads these ids) -->
+<div id="admin-v2-palette" class="ac ac-palette hidden" role="dialog" aria-modal="true" aria-label="Search admin"
+     data-search-url="{% url 'admin_v2_search' %}">
+    <div class="ac-backdrop" data-admin-search-close></div>
+    <div class="ac-palette-box">
+        <div class="ac-palette-field">
+            {% console_icon "search" %}
+            <input id="admin-v2-search-input" type="search" autocomplete="off" spellcheck="false"
+                   placeholder="Search services, members, events, announcements" aria-label="Search">
+        </div>
+        <ul id="admin-v2-search-results" class="ac-palette-results" role="listbox"></ul>
+        <p class="ac-palette-foot">↑↓ to move · Enter to open · Esc to close</p>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+{% admin_console_frame as console %}
+<div class="ac ac-shell" id="ac-shell" data-ac-favorite-url="{% url 'admin_v2_console_favorite' %}">
+    <div class="ac-drawer-backdrop" data-ac-drawer-close hidden></div>
+    <aside id="ac-sidebar" class="ac-sidebar" aria-label="Admin services">
+        <div class="ac-drawer-head ac-only-narrow">
+            <span>Services</span>
+            <button type="button" class="ac-btn ac-btn-icon" data-ac-drawer-close aria-label="Close admin menu">{% console_icon "x" %}</button>
+        </div>
+        {% include "admin_v2/console/_sidebar.html" %}
+    </aside>
+
+    <div class="ac-main admin-v2-content" id="ac-main">
+        <div class="ac-crumbbar">
+            <nav class="ac-crumbs" aria-label="Breadcrumb">
+                <ol>
+                    {% if console.page %}
+                    {% if console.group %}<li><span>{{ console.group }}</span></li>{% endif %}
+                    <li><a href="{{ console.page.url }}"{% if console.page.active %} aria-current="page"{% endif %}>{{ console.page.label }}</a></li>
+                    {% else %}
+                    <li><a href="{% url 'admin_v2_dashboard' %}">Console home</a></li>
+                    {% endif %}
+                    <li class="ac-crumb-item">{% block console_crumb %}{% endblock %}</li>
+                </ol>
+            </nav>
+            {% if console.page and console.page.name != 'admin_v2_dashboard' %}
+            <form method="post" action="{% url 'admin_v2_console_favorite' %}" class="ac-fav-form" data-ac-favorite>
+                {% csrf_token %}
+                <input type="hidden" name="page" value="{{ console.page.name }}">
+                <button type="submit" class="ac-fav ac-fav-page{% if console.page.favorite %} is-on{% endif %}"
+                        aria-pressed="{{ console.page.favorite|yesno:'true,false' }}"
+                        aria-label="{% if console.page.favorite %}Remove {{ console.page.label }} from favorites{% else %}Add {{ console.page.label }} to favorites{% endif %}"
+                        title="{% if console.page.favorite %}Remove from favorites{% else %}Add to favorites{% endif %}">
+                    {% console_icon "star" "ac-star-outline" %}{% console_icon "star" "ac-star-filled" filled=True %}
+                </button>
+            </form>
+            {% endif %}
+        </div>
+
+        {% if messages %}
+        <div class="ac-flashes">
+            {% for message in messages %}
+            <div class="js-flash-message ac-flash ac-flash-{{ message.tags|default:'info' }}" data-message-tags="{{ message.tags }}" role="{% if 'error' in message.tags %}alert{% else %}status{% endif %}">{{ message }}</div>
+            {% endfor %}
+        </div>
+        <script src="{% static_v 'js/base/flash-messages.js' %}"></script>
+        {% endif %}
+
+        <div class="ac-content">
+            {% block admin_content %}{% endblock %}
+        </div>
+    </div>
+
+    <aside id="ac-panel" class="ac-panel" aria-label="Details" hidden
+           data-ac-panel-host data-ac-admin-root="{% url 'admin_v2_login' %}">
+        <div class="ac-panel-scroll" data-ac-panel-content></div>
+    </aside>
+</div>
+<script src="{% static_v 'js/admin_v2/palette.js' %}"></script>
+<script src="{% static_v 'js/admin_v2/tables.js' %}"></script>
+<script src="{% static_v 'js/admin_v2/console.js' %}"></script>
+<script src="{% static_v 'js/admin_v2/panel.js' %}"></script>
+{% block console_js %}{% endblock %}
+{% endblock %}

@@ -568,7 +568,8 @@ class SecurityAlertsQueryBudgetTests(QueryBudgetMixin, TestCase):
     #: FLAT, which is what `test_it_does_not_scale_with_alert_count` pins and
     #: what the 51-query incident violated.
     #: v3.19.10: 35 → 32, see `warm_singleton_rows`.
-    BUDGET = 33  # v3.48.1: +1, the v3.47.0 last_seen_at UPDATE (cold path, once per session per 5 min)
+    BUDGET = 34  # v3.48.1: +1, the v3.47.0 last_seen_at UPDATE (cold path, once per session per 5 min)
+    # +1: the admin console's alarm bell (one LoginAlert aggregate, cached 60 s; src/admin_console.py alarm_counts)
 
     #: admin-v2 has its own session gate on top of login (`require_admin_v2_auth`
     #: — an allowlisted user id plus two session keys), so `force_login` alone
@@ -882,7 +883,8 @@ class TwoFactorDashboardQueryBudgetTests(QueryBudgetMixin, TestCase):
     #: Measured 08-17-26 (v3.19.10) on sqlite, cold cache, four consecutive
     #: runs: 32, 29, 29, 29. 29 is the steady-state number; 32 was the
     #: singleton-creation artefact — see `warm_singleton_rows`.
-    BUDGET = 30  # v3.48.1: +1, the v3.47.0 last_seen_at UPDATE (cold path, once per session per 5 min)
+    BUDGET = 31  # v3.48.1: +1, the v3.47.0 last_seen_at UPDATE (cold path, once per session per 5 min)
+    # +1: the admin console's alarm bell (one LoginAlert aggregate, cached 60 s; src/admin_console.py alarm_counts)
 
     def test_the_dashboard_stays_within_budget(self):
         self.assert_within_budget(self.admin, 'admin_v2_two_factor', self.BUDGET)

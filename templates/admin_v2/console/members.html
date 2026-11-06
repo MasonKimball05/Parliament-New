@@ -1,0 +1,100 @@
+{% extends "admin_v2/base.html" %}
+{% comment %}
+Members in the console look (admin_v2_manage_users when `admin_console_ui`
+is on; the classic page is admin_v2/manage_users.html). The reference
+conversion for phase 2: list frame (ac-card + _list_header + ac-filterbar +
+ac-table + _pagination), row checkboxes feeding the Actions menu, and a name
+link that opens the member in the slide-out panel (data-ac-panel) while
+staying a normal link to the full page.
+{% endcomment %}
+{% load static_version admin_v2_tags %}
+
+{% block title %}Members - Admin{% endblock %}
+
+{% block admin_content %}
+<section class="ac-card">
+    {% include "admin_v2/console/_list_header.html" with title="Members" count=users.paginator.count actions=bulk_actions primary_label="Add member" primary_url=add_url %}
+
+    <form method="get" class="ac-filterbar" role="search" aria-label="Filter members">
+        <label class="ac-field ac-field-grow">
+            <span class="ac-sr">Search</span>
+            {% console_icon "filter" %}
+            <input type="search" name="search" value="{{ search_query }}" placeholder="Filter by name, username or roll number" class="ac-input">
+        </label>
+        <label class="ac-field"><span class="ac-field-label">Status</span>
+            <select name="status" class="ac-select" data-autosubmit>
+                <option value="">Any</option>
+                <option value="Active"{% if status_filter == 'Active' %} selected{% endif %}>Active</option>
+                <option value="Inactive"{% if status_filter == 'Inactive' %} selected{% endif %}>Inactive</option>
+                <option value="Alumni"{% if status_filter == 'Alumni' %} selected{% endif %}>Alumni</option>
+                <option value="Removed"{% if status_filter == 'Removed' %} selected{% endif %}>Removed</option>
+            </select>
+        </label>
+        <label class="ac-field"><span class="ac-field-label">Type</span>
+            <select name="type" class="ac-select" data-autosubmit>
+                <option value="">Any</option>
+                <option value="Officer"{% if type_filter == 'Officer' %} selected{% endif %}>Officer</option>
+                <option value="Member"{% if type_filter == 'Member' %} selected{% endif %}>Member</option>
+                <option value="Pledge"{% if type_filter == 'Pledge' %} selected{% endif %}>Pledge</option>
+                <option value="Advisor"{% if type_filter == 'Advisor' %} selected{% endif %}>Advisor</option>
+            </select>
+        </label>
+        <label class="ac-field"><span class="ac-field-label">Admin</span>
+            <select name="admin" class="ac-select" data-autosubmit>
+                <option value="">Any</option>
+                <option value="yes"{% if admin_filter == 'yes' %} selected{% endif %}>Yes</option>
+                <option value="no"{% if admin_filter == 'no' %} selected{% endif %}>No</option>
+            </select>
+        </label>
+        <label class="ac-field"><span class="ac-field-label">Picture</span>
+            <select name="picture" class="ac-select" data-autosubmit>
+                <option value="">Any</option>
+                <option value="yes"{% if picture_filter == 'yes' %} selected{% endif %}>Has picture</option>
+                <option value="no"{% if picture_filter == 'no' %} selected{% endif %}>No picture</option>
+            </select>
+        </label>
+        <button type="submit" class="ac-btn">Apply</button>
+        {% if active_filters %}<a href="{% url 'admin_v2_manage_users' %}" class="ac-btn ac-btn-ghost">Clear</a>{% endif %}
+    </form>
+
+    <div class="ac-table-wrap">
+        <table class="ac-table" id="ac-list" data-ac-select>
+            <thead>
+                <tr>
+                    <th class="ac-col-check"><input type="checkbox" data-ac-select-all aria-label="Select every member on this page"></th>
+                    <th>Name</th>
+                    <th>Status</th>
+                    <th>Type</th>
+                    <th>2FA</th>
+                    <th>Last sign-in</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for user in users %}
+                <tr data-ac-row>
+                    <td class="ac-col-check"><input type="checkbox" value="{{ user.user_id }}" data-ac-row-select aria-label="Select {{ user.get_display_name }}"></td>
+                    <td>
+                        <div class="ac-cell-name">
+                            {% if user.profile_picture %}<img class="ac-avatar-sm" src="{{ user.profile_picture.url }}" alt="">{% else %}<span class="ac-avatar-sm" aria-hidden="true">{{ user.name|make_list|first|upper }}</span>{% endif %}
+                            <div>
+                                <a href="{% url 'admin_v2_member' user.user_id %}" class="ac-row-link" data-ac-panel>{{ user.get_display_name }}</a>
+                                <span class="ac-sub">{{ user.username }}{% if user.role_number %} · #{{ user.role_number }}{% endif %}{% if user.is_admin %} · <span class="ac-text-error">admin</span>{% endif %}</span>
+                            </div>
+                        </div>
+                    </td>
+                    <td><span class="ac-pill {% if user.member_status == 'Active' %}is-ok{% elif user.member_status == 'Removed' %}is-error{% elif user.member_status == 'Inactive' %}is-warn{% else %}is-accent{% endif %}">{{ user.member_status }}</span></td>
+                    <td>{% if user.member_type == 'Pledge' %}<span class="ac-pill is-accent">Pledge</span>{% else %}{{ user.member_type }}{% endif %}</td>
+                    <td>{% if user.has_totp %}On{% else %}<span class="ac-text-warn">Off</span>{% endif %}</td>
+                    <td>{% if user.last_login %}<span title="{{ user.last_login|date:'M d, Y g:i A' }}">{{ user.last_login|timesince }} ago</span>{% else %}<span class="ac-muted">Never</span>{% endif %}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="6" class="ac-empty">No members match these filters.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% include "admin_v2/console/_pagination.html" with page=users %}
+</section>
+{% endblock %}
+
+{% block console_js %}<script src="{% static_v 'js/admin_v2/members.js' %}"></script>{% endblock %}

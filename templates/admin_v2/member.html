@@ -1,6 +1,7 @@
 {% extends "admin_v2/base.html" %}
 
 {% block title %}{{ member.get_display_name }} - Admin{% endblock %}
+{% block console_crumb %}{{ member.get_display_name }}{% endblock %}
 
 {% block admin_content %}
 <div class="px-4 sm:px-6 py-6 max-w-6xl">

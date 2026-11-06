@@ -1,0 +1,232 @@
+{% extends "admin_v2/base.html" %}
+{% comment %}
+Console home (admin_v2_dashboard when `admin_console_ui` is on; the classic
+page is admin_v2/dashboard.html). Same view and numbers as the classic
+dashboard, laid out as widgets, plus the console's own (`home`, from
+src/admin_console.py home_widgets): service health, alarms, sign-ins over the
+last 7 days, resources. No inline script: home.js runs the health check and
+the email preview link.
+{% endcomment %}
+{% load static_version admin_v2_tags %}
+
+{% block title %}Console home - Admin{% endblock %}
+
+{% block admin_content %}
+{% admin_console_frame as console %}
+<div class="ac-home-head">
+    <div>
+        <h1 class="ac-h1">Console home</h1>
+        <p class="ac-muted ac-small">
+            Python {{ system_info.python_version }} · Django {{ system_info.django_version }} · {{ system_info.database_engine|title }}
+            {% if system_info.debug_mode %}· <span class="ac-text-warn">DEBUG mode</span>{% endif %}
+        </p>
+    </div>
+    <div class="ac-list-tools">
+        <a href="{% url 'admin_v2_security' %}" class="ac-btn">{% console_icon "shield" %}Security overview</a>
+        <a href="{% url 'admin_v2_maintenance' %}" class="ac-btn ac-btn-primary">Feature flags &amp; maintenance</a>
+    </div>
+</div>
+
+{% if lockdown_active %}
+<div class="ac-banner is-alarm" role="alert">
+    {% console_icon "alert" %}<strong>Emergency lockdown is active.</strong>
+    <a href="{% url 'admin_v2_lockdown' %}" class="ac-btn ac-btn-sm">Manage</a>
+</div>
+{% endif %}
+
+<ul class="ac-stat-strip" aria-label="Totals">
+    <li><a href="{% url 'admin_v2_manage_users' %}"><span class="ac-stat-n">{{ stats.users.total }}</span><span class="ac-stat-l">Users</span><span class="ac-stat-s">{{ stats.users.active }} active</span></a></li>
+    <li><a href="{% url 'admin_v2_manage_legislation' %}"><span class="ac-stat-n">{{ stats.legislation.total }}</span><span class="ac-stat-l">Legislation</span><span class="ac-stat-s">{{ stats.legislation.passed }} passed</span></a></li>
+    <li><a href="{% url 'admin_v2_manage_events' %}"><span class="ac-stat-n">{{ stats.events.total }}</span><span class="ac-stat-l">Events</span><span class="ac-stat-s">{{ stats.events.upcoming }} upcoming</span></a></li>
+    <li><a href="{% url 'admin_v2_manage_committees' %}"><span class="ac-stat-n">{{ stats.committees.total }}</span><span class="ac-stat-l">Committees</span><span class="ac-stat-s">{{ stats.committees.active }} active</span></a></li>
+    <li><a href="{% url 'admin_v2_security_alerts' %}"><span class="ac-stat-n">{{ stats.security.recent_alerts }}</span><span class="ac-stat-l">Alerts</span><span class="ac-stat-s">{{ stats.security.logins_24h }} logins / 24h</span></a></li>
+    <li><a href="{% url 'activity_logs' %}"><span class="ac-stat-n">{{ stats.communications.logs_last_24h }}</span><span class="ac-stat-l">Activity / 24h</span><span class="ac-stat-s">{{ stats.communications.total_activity_logs }} total</span></a></li>
+</ul>
+
+<div class="ac-widgets">
+    <!-- Service health -->
+    <section class="ac-card ac-widget" aria-labelledby="w-health">
+        <header class="ac-widget-head"><h2 id="w-health">Service health</h2><a href="{% url 'admin_v2_system' %}" class="ac-link-sm">System tools</a></header>
+        <ul class="ac-service-list">
+            {% for s in home.services %}
+            <li>
+                <span class="ac-status is-{{ s.status }}" aria-hidden="true"></span>
+                <div class="ac-service-text">
+                    {% if s.url %}<a href="{{ s.url }}">{{ s.name }}</a>{% else %}{{ s.name }}{% endif %}
+                    <span class="ac-muted">{{ s.detail }}</span>
+                </div>
+                <span class="ac-pill {% if s.status == 'ok' %}is-ok{% elif s.status == 'warn' %}is-warn{% elif s.status == 'alarm' %}is-error{% else %}is-muted{% endif %}">{% if s.status == 'ok' %}Healthy{% elif s.status == 'warn' %}Warning{% elif s.status == 'alarm' %}Down{% else %}Unknown{% endif %}</span>
+            </li>
+            {% endfor %}
+        </ul>
+    </section>
+
+    <!-- Alarms -->
+    <section class="ac-card ac-widget" aria-labelledby="w-alarms">
+        <header class="ac-widget-head"><h2 id="w-alarms">Alarms</h2><a href="{% url 'admin_v2_security_alerts' %}" class="ac-link-sm">Security alerts</a></header>
+        <div class="ac-alarm-row">
+            <a href="{% url 'admin_v2_security_alerts' %}?status=new" class="ac-alarm is-alarm"><span class="ac-stat-n">{{ home.alarms.alarm|default:0 }}</span><span class="ac-stat-l">In alarm</span></a>
+            <a href="{% url 'admin_v2_security_alerts' %}?status=new" class="ac-alarm is-warn"><span class="ac-stat-n">{{ home.alarms.warning|default:0 }}</span><span class="ac-stat-l">Warning</span></a>
+            <a href="{% url 'admin_v2_security_alerts' %}?status=resolved" class="ac-alarm is-ok"><span class="ac-stat-n">{{ home.alarms.ok|default:0 }}</span><span class="ac-stat-l">OK this week</span></a>
+        </div>
+        <p class="ac-muted ac-small">In alarm: open critical or high alerts. Warning: other open alerts. OK: resolved in the last 7 days.</p>
+    </section>
+
+    <!-- Needs attention -->
+    <section class="ac-card ac-widget" aria-labelledby="w-attention">
+        <header class="ac-widget-head"><h2 id="w-attention">Needs attention</h2></header>
+        {% if attention %}
+        <ul class="ac-attention">
+            {% for item in attention %}
+            <li><a href="{{ item.url }}" class="is-{{ item.severity }}"><span class="ac-attention-n">{{ item.n }}</span>{{ item.label }}{% console_icon "chevron-right" "ac-icon-sm" %}</a></li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <p class="ac-text-ok">Nothing waiting. All clear.</p>
+        {% endif %}
+    </section>
+
+    <!-- Sign-ins, last 7 days -->
+    <section class="ac-card ac-widget" aria-labelledby="w-signins">
+        <header class="ac-widget-head"><h2 id="w-signins">Sign-ins, last 7 days</h2><a href="{% url 'admin_v2_trends' %}" class="ac-link-sm">Trends</a></header>
+        <p class="ac-small"><strong>{{ home.signins_total }}</strong> successful · <span class="{% if home.signins_failed %}ac-text-error{% else %}ac-muted{% endif %}">{{ home.signins_failed }} failed</span></p>
+        <svg class="ac-chart" viewBox="0 0 280 78" role="img" aria-labelledby="w-signins-desc">
+            <desc id="w-signins-desc">Successful and failed sign-ins per day for the last 7 days; exact numbers in the table below.</desc>
+            <line x1="0" y1="60.5" x2="280" y2="60.5" class="ac-chart-axis"/>
+            {% for d in home.signins %}
+            {% if d.h %}<rect x="{{ d.x }}" y="{{ d.y }}" width="13" height="{{ d.h }}" rx="2" class="ac-chart-bar"><title>{{ d.day|date:"D M j" }}: {{ d.success }} successful</title></rect>{% endif %}
+            {% if d.fh %}<rect x="{{ d.fx }}" y="{{ d.fy }}" width="9" height="{{ d.fh }}" rx="2" class="ac-chart-bar-fail"><title>{{ d.day|date:"D M j" }}: {{ d.failed }} failed</title></rect>{% endif %}
+            <text x="{{ d.tx }}" y="74" text-anchor="middle" class="ac-chart-label">{{ d.label }}</text>
+            {% endfor %}
+        </svg>
+        <p class="ac-legend"><span class="ac-legend-key is-bar"></span>Successful <span class="ac-legend-key is-fail"></span>Failed</p>
+        <table class="ac-sr">
+            <caption>Sign-ins per day</caption>
+            <thead><tr><th>Day</th><th>Successful</th><th>Failed</th></tr></thead>
+            <tbody>{% for d in home.signins %}<tr><td>{{ d.day|date:"D M j" }}</td><td>{{ d.success }}</td><td>{{ d.failed }}</td></tr>{% endfor %}</tbody>
+        </table>
+    </section>
+
+    <!-- Resources -->
+    <section class="ac-card ac-widget" aria-labelledby="w-resources">
+        <header class="ac-widget-head"><h2 id="w-resources">Resources</h2></header>
+        <ul class="ac-resource-grid">
+            {% for r in home.resources %}
+            <li><a href="{{ r.url }}">{% console_icon r.icon %}<span class="ac-stat-n">{{ r.n }}</span><span class="ac-stat-l">{{ r.label }}</span></a></li>
+            {% endfor %}
+        </ul>
+    </section>
+
+    <!-- Recently visited -->
+    <section class="ac-card ac-widget" aria-labelledby="w-recent">
+        <header class="ac-widget-head"><h2 id="w-recent">Recently visited</h2></header>
+        {% if console.recent %}
+        <ul class="ac-link-list">
+            {% for item in console.recent %}
+            <li><a href="{{ item.url }}">{% console_icon item.icon %}<span>{{ item.label }}</span><span class="ac-muted">{{ item.group }}</span></a></li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <p class="ac-muted ac-small">Pages you open in this session show up here.</p>
+        {% endif %}
+        {% if console.favorites %}
+        <h3 class="ac-widget-h3">Favorites</h3>
+        <ul class="ac-link-list">
+            {% for item in console.favorites %}
+            <li><a href="{{ item.url }}">{% console_icon item.icon %}<span>{{ item.label }}</span></a></li>
+            {% endfor %}
+        </ul>
+        {% endif %}
+    </section>
+
+    <!-- Users -->
+    <section class="ac-card ac-widget" aria-labelledby="w-users">
+        <header class="ac-widget-head"><h2 id="w-users">Users</h2><span class="ac-muted ac-small">{{ stats.users.total }} total, {{ stats.users.active }} active</span></header>
+        <div class="ac-stat-row">
+            <div class="ac-stat"><span class="ac-stat-n">{{ stats.users.officers }}</span><span class="ac-stat-l">Officers</span></div>
+            <div class="ac-stat"><span class="ac-stat-n">{{ stats.users.members }}</span><span class="ac-stat-l">Members</span></div>
+            <div class="ac-stat"><span class="ac-stat-n">{{ stats.users.alumni }}</span><span class="ac-stat-l">Alumni</span></div>
+        </div>
+        <div class="ac-meter-row">
+            <span class="ac-small">Onboarding complete</span>
+            <span class="ac-small"><strong>{{ onboarding_stats.completed }}/{{ onboarding_stats.total }}</strong> ({{ onboarding_stats.percent }}%)</span>
+        </div>
+        <svg class="ac-meter" viewBox="0 0 100 6" preserveAspectRatio="none" role="img" aria-label="Onboarding {{ onboarding_stats.percent }}% complete">
+            <rect width="100" height="6" rx="3" class="ac-meter-track"/>
+            <rect width="{{ onboarding_stats.percent }}" height="6" rx="3" class="ac-meter-fill{% if onboarding_stats.percent == 100 %} is-ok{% elif onboarding_stats.percent < 75 %} is-warn{% endif %}"/>
+        </svg>
+        {% if onboarding_stats.pending > 0 %}<p class="ac-muted ac-small">{{ onboarding_stats.pending }} member{{ onboarding_stats.pending|pluralize }} yet to complete</p>{% endif %}
+        <div class="ac-widget-actions">
+            <a href="{% url 'admin_v2_manage_users' %}" class="ac-btn ac-btn-primary">Manage members</a>
+            <a href="{% url 'admin_v2_two_factor' %}" class="ac-btn">Two-factor</a>
+        </div>
+    </section>
+
+    <!-- Email & Notifications -->
+    <section class="ac-card ac-widget" aria-labelledby="w-email">
+        <header class="ac-widget-head"><h2 id="w-email">Email &amp; notifications</h2></header>
+        <ul class="ac-link-list">
+            <li><a href="{% url 'admin_v2_email_logs' %}">{% console_icon "mail" %}<span>Email logs</span></a></li>
+            <li><a href="{% url 'admin_v2_event_reminder_logs' %}">{% console_icon "clock" %}<span>Event reminder logs</span></a></li>
+            <li><a href="{% url 'admin_v2_notifications' %}">{% console_icon "bell" %}<span>Notification schedules</span></a></li>
+            <li><a href="{% url 'admin_v2_test_email_targeting' %}">{% console_icon "users" %}<span>Test email targeting</span></a></li>
+        </ul>
+        <form method="post" action="{% url 'send_test_announcement_email' %}" class="ac-test-email">
+            {% csrf_token %}
+            <label class="ac-check"><input type="checkbox" name="include_test_poll" id="include-test-poll"> Include a test poll</label>
+            <div class="ac-widget-actions">
+                <button type="submit" class="ac-btn">Send test email</button>
+                <a href="{% url 'preview_test_email' %}" id="preview-test-email-link" target="_blank" rel="noopener" class="ac-btn ac-btn-ghost">Preview in browser</a>
+            </div>
+        </form>
+    </section>
+
+    <!-- Performance -->
+    <section class="ac-card ac-widget" aria-labelledby="w-perf">
+        <header class="ac-widget-head"><h2 id="w-perf">Performance</h2>
+            <span class="ac-muted ac-small">{{ performance.avg_response_time_ms|default:"0" }} ms avg{% if performance.sampled %} · sampled 1 in {{ performance.sample_rate }}{% endif %}</span></header>
+        <div class="ac-stat-row">
+            <div class="ac-stat"><span class="ac-stat-n">{{ performance.total_requests|default:"0" }}</span><span class="ac-stat-l">Requests (exact)</span></div>
+            <div class="ac-stat"><span class="ac-stat-n">{{ performance.max_response_time_ms|default:"0" }}</span><span class="ac-stat-l">Max (ms)</span></div>
+            <div class="ac-stat"><span class="ac-stat-n">{{ performance.slow_requests|default:"0" }}</span><span class="ac-stat-l">Slow</span></div>
+        </div>
+        {% if performance.sampled %}
+        <p class="ac-muted ac-small">Requests is an exact count. Max and Slow are measured over {{ performance.stored_samples|default:"0" }} retained samples (of {{ performance.sampled_requests|default:"0" }} stored), which keep slow requests preferentially — so they read high.</p>
+        {% endif %}
+        <div class="ac-widget-actions">
+            <button type="button" class="ac-btn" id="health-check-btn" data-health-url="{% url 'health_check' %}">{% console_icon "refresh" %}Run health check</button>
+        </div>
+        <p id="health-result" class="ac-small" role="status" hidden></p>
+    </section>
+
+    <!-- Recent activity -->
+    <section class="ac-card ac-widget ac-widget-wide" aria-labelledby="w-activity">
+        <header class="ac-widget-head"><h2 id="w-activity">Recent activity</h2><a href="{% url 'activity_logs' %}" class="ac-link-sm">View all</a></header>
+        <ul class="ac-rows ac-scroll">
+            {% for log in recent_logs %}
+            {% comment %} v3.18.2 — display_actor / display_description, NOT log.user.name or log.description (Kai rows name the reporter / the accused; src/kai_audit.py). {% endcomment %}
+            <li class="ac-rows-split"><span class="ac-break"><strong>{{ log.display_actor|default:"System" }}</strong> <span class="ac-muted">{{ log.display_description|default:log.get_action_type_display|truncatechars:90 }}</span></span><span class="ac-muted ac-nowrap">{{ log.timestamp|timesince }} ago</span></li>
+            {% empty %}
+            <li class="ac-muted">No recent activity</li>
+            {% endfor %}
+        </ul>
+    </section>
+
+    <!-- Recent logins -->
+    <section class="ac-card ac-widget ac-widget-wide" aria-labelledby="w-logins">
+        <header class="ac-widget-head"><h2 id="w-logins">Recent sign-ins</h2><a href="{% url 'admin_v2_login_history' %}" class="ac-link-sm">View all</a></header>
+        <ul class="ac-rows ac-scroll">
+            {% for login in recent_logins %}
+            <li class="ac-rows-split">
+                <span><strong>{{ login.user.name }}</strong> <span class="ac-muted">{{ login.ip_address }}</span></span>
+                <span class="ac-pill {% if login.status == 'success' %}is-ok{% elif login.status == 'blocked' %}is-warn{% else %}is-error{% endif %}">{{ login.get_status_display }}</span>
+            </li>
+            {% empty %}
+            <li class="ac-muted">No recent logins</li>
+            {% endfor %}
+        </ul>
+    </section>
+</div>
+{% endblock %}
+
+{% block console_js %}<script src="{% static_v 'js/admin_v2/home.js' %}"></script>{% endblock %}

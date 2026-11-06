@@ -1,0 +1,18 @@
+{% comment %}
+Pagination footer for a resource list. `page` is a Django Page; the other
+query parameters (filters) are kept.
+
+  {% include "admin_v2/console/_pagination.html" with page=users %}
+{% endcomment %}
+{% if page.paginator %}
+<div class="ac-pager">
+    <span>{% if page.paginator.count %}{{ page.start_index }}–{{ page.end_index }} of {{ page.paginator.count }}{% else %}No results{% endif %}</span>
+    {% if page.has_other_pages %}
+    <nav class="ac-pager-links" aria-label="Pages">
+        {% if page.has_previous %}<a href="{% querystring page=page.previous_page_number %}" class="ac-btn" rel="prev">Previous</a>{% else %}<span class="ac-btn is-disabled" aria-disabled="true">Previous</span>{% endif %}
+        <span class="ac-pager-current" aria-current="page">Page {{ page.number }} of {{ page.paginator.num_pages }}</span>
+        {% if page.has_next %}<a href="{% querystring page=page.next_page_number %}" class="ac-btn" rel="next">Next</a>{% else %}<span class="ac-btn is-disabled" aria-disabled="true">Next</span>{% endif %}
+    </nav>
+    {% endif %}
+</div>
+{% endif %}

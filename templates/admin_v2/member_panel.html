@@ -1,0 +1,120 @@
+{% extends "admin_v2/console/panel.html" %}
+{% comment %}
+The member page as a console slide-out panel (?panel=1 on admin_v2_member;
+same view, same rows as admin_v2/member.html). Reference implementation of a
+panel fragment: header, actions, tabs, key/value rows, lists.
+{% endcomment %}
+{% load admin_v2_tags %}
+
+{% block panel_avatar %}{% if member.profile_picture %}<img class="ac-avatar-lg" src="{{ member.profile_picture.url }}" alt="">{% else %}<span class="ac-avatar-lg" aria-hidden="true">{{ member.name|make_list|first|upper }}</span>{% endif %}{% endblock %}
+{% block panel_title %}{{ member.get_display_name }}{% endblock %}
+{% block panel_subtitle %}{{ member.member_type }}{% if member.role_number %} · Roll #{{ member.role_number }}{% endif %} · {{ member.username }}{% endblock %}
+
+{% block panel_actions %}
+<a href="{% url 'admin_v2_edit_user_profile' member.user_id %}" class="ac-btn">Edit profile</a>
+<a href="{% url 'admin_v2_user_login_security' member.user_id %}" class="ac-btn">Reset password…</a>
+<form method="post" action="{% url 'admin_v2_member_sign_out' member.user_id %}"
+      data-confirm="Sign {{ member.get_display_name }} out of every browser and their app?">{% csrf_token %}
+    <button type="submit" class="ac-btn">Sign out everywhere</button>
+</form>
+{% if lockouts %}
+<form method="post" action="{% url 'admin_v2_release_user_lockout' member.user_id %}">{% csrf_token %}
+    <input type="hidden" name="return_to" value="member">
+    <button type="submit" class="ac-btn">Release lockout</button>
+</form>
+{% endif %}
+<form method="post" action="{% url 'admin_v2_toggle_user_admin' member.user_id %}"
+      data-confirm="{% if member.is_admin %}Revoke{% else %}Grant{% endif %} admin access for {{ member.get_display_name }}?">{% csrf_token %}
+    <button type="submit" class="ac-btn ac-btn-danger-text">{% if member.is_admin %}Revoke admin{% else %}Grant admin{% endif %}</button>
+</form>
+{% endblock %}
+
+{% block panel_tabs %}
+<div class="ac-tabs" role="tablist" aria-label="Member details">
+    <button type="button" role="tab" id="mp-tab-overview" aria-controls="mp-overview" aria-selected="true" data-ac-tab="overview">Overview</button>
+    <button type="button" role="tab" id="mp-tab-security" aria-controls="mp-security" aria-selected="false" tabindex="-1" data-ac-tab="security">Security</button>
+    <button type="button" role="tab" id="mp-tab-devices" aria-controls="mp-devices" aria-selected="false" tabindex="-1" data-ac-tab="devices">Devices</button>
+    <button type="button" role="tab" id="mp-tab-activity" aria-controls="mp-activity" aria-selected="false" tabindex="-1" data-ac-tab="activity">Activity</button>
+</div>
+{% endblock %}
+
+{% block panel_body %}
+<section role="tabpanel" id="mp-overview" aria-labelledby="mp-tab-overview" tabindex="0">
+    <dl class="ac-kv">
+        <div><dt>Status</dt><dd><span class="ac-pill {% if member.member_status == 'Active' %}is-ok{% elif member.member_status == 'Removed' %}is-error{% elif member.member_status == 'Inactive' %}is-warn{% else %}is-accent{% endif %}">{{ member.member_status }}</span>{% if member.is_admin %} <span class="ac-pill is-error">Admin</span>{% endif %}{% if member.is_quarantined %} <span class="ac-pill is-warn">Quarantined</span>{% endif %}{% if lockouts %} <span class="ac-pill is-error">Locked out</span>{% endif %}</dd></div>
+        <div><dt>Two-factor</dt><dd>{% if has_totp %}Authenticator app{% elif passkeys %}Passkey only{% else %}<span class="ac-text-warn">Off</span>{% endif %}</dd></div>
+        <div><dt>App installs</dt><dd>{{ active_devices }} device{{ active_devices|pluralize }}</dd></div>
+        <div><dt>Roles</dt><dd>{% for r in roles %}{{ r.name }}{% if not forloop.last %}, {% endif %}{% empty %}—{% endfor %}</dd></div>
+        <div><dt>Committees</dt><dd>{% for c in committees %}{{ c.name }}{% if c in chaired %} (chair){% endif %}{% if not forloop.last %}, {% endif %}{% empty %}—{% endfor %}</dd></div>
+        <div><dt>Last seen</dt><dd>{% if member.last_seen_at %}{{ member.last_seen_at|timesince }} ago{% else %}Never{% endif %}</dd></div>
+        <div><dt>Email</dt><dd class="ac-break">{{ member.email|default:"—" }}</dd></div>
+        <div><dt>Phone</dt><dd>{{ member.phone_number|default:"—" }}</dd></div>
+        <div><dt>Pledge class</dt><dd>{{ member.pledge_class|default:"—" }}</dd></div>
+    </dl>
+
+    <h3 class="ac-blade-h3">Chapter</h3>
+    <div class="ac-stat-row">
+        {% with a=chapter.attendance %}
+        <div class="ac-stat"><span class="ac-stat-n{% if a.rate is not None and a.rate < 75 %} ac-text-warn{% endif %}">{% if a.rate is None %}—{% else %}{{ a.rate }}%{% endif %}</span><span class="ac-stat-l">Attendance, 90 days</span></div>
+        {% endwith %}
+        <div class="ac-stat"><span class="ac-stat-n">{{ chapter.excuses_pending }}</span><span class="ac-stat-l">Excuses waiting</span></div>
+        <div class="ac-stat"><span class="ac-stat-n">{% if chapter.service %}{{ chapter.service.approved_hours|floatformat:"-1" }}<small> / {{ chapter.service.expected_hours|floatformat:"-1" }}</small>{% else %}—{% endif %}</span><span class="ac-stat-l">Service hours</span></div>
+    </div>
+</section>
+
+<section role="tabpanel" id="mp-security" aria-labelledby="mp-tab-security" tabindex="0" hidden>
+    <dl class="ac-kv">
+        <div><dt>2FA app</dt><dd>{% if has_totp %}<span class="ac-pill is-ok">On</span>{% else %}<span class="ac-pill is-warn">Off</span>{% endif %}</dd></div>
+        <div><dt>Passkeys</dt><dd>{% for p in passkeys %}{{ p.name }}{% if not forloop.last %}, {% endif %}{% empty %}None{% endfor %}</dd></div>
+        <div><dt>Failed sign-ins (30 days)</dt><dd{% if failed_30d %} class="ac-text-error"{% endif %}>{{ failed_30d }}</dd></div>
+        {% if watch %}<div><dt>Watch flag</dt><dd class="ac-break">{{ watch.reason }}</dd></div>{% endif %}
+        <div><dt>Default password</dt><dd><button type="button" class="ac-btn ac-btn-sm js-check-password" data-check-url="{% url 'check_default_password' member.user_id %}">Check</button></dd></div>
+    </dl>
+    <h3 class="ac-blade-h3">Recent sign-ins <a href="{% url 'admin_v2_user_login_security' member.user_id %}" class="ac-link-sm">All</a></h3>
+    <ul class="ac-rows">
+        {% for l in logins %}
+        <li><span class="ac-dot {% if l.status == 'success' %}is-ok{% else %}is-error{% endif %}" aria-hidden="true"></span><span>{{ l.timestamp|date:"M j, g:i A" }}</span><span class="ac-muted">{{ l.get_status_display }} · {{ l.location_display|default:"Unknown" }}{% if l.is_suspicious %} · suspicious{% endif %}</span></li>
+        {% empty %}
+        <li class="ac-muted">No sign-ins recorded.</li>
+        {% endfor %}
+    </ul>
+    <h3 class="ac-blade-h3">Web sessions</h3>
+    <ul class="ac-rows">
+        {% for s in sessions %}
+        <li><span>{{ s.browser|default:"Browser" }} on {{ s.operating_system|default:"unknown" }}</span><span class="ac-muted">{{ s.location|default:"Unknown location" }} · active {{ s.last_activity|timesince }} ago</span></li>
+        {% empty %}
+        <li class="ac-muted">No open web sessions.</li>
+        {% endfor %}
+    </ul>
+</section>
+
+<section role="tabpanel" id="mp-devices" aria-labelledby="mp-tab-devices" tabindex="0" hidden>
+    <ul class="ac-rows">
+        {% for d in devices %}
+        <li class="ac-rows-split">
+            <div>
+                <p class="{% if d.revoked_at %}ac-struck{% endif %}">{{ d.get_platform_display }} · {{ d.device_name|default:"Unnamed device" }}</p>
+                <p class="ac-muted">v{{ d.app_version|default:"?" }} · {% if d.revoked_at %}signed out {{ d.revoked_at|date:"M j" }}{% else %}last seen {{ d.last_seen_at|timesince|default:"never" }}{% if d.last_seen_at %} ago{% endif %}{% if d.push_token %} · push on{% endif %}{% endif %}</p>
+            </div>
+            {% if not d.revoked_at %}
+            <form method="post" action="{% url 'admin_v2_member_revoke_device' member.user_id d.public_id %}" data-confirm="Sign this app install out?">{% csrf_token %}
+                <button type="submit" class="ac-btn ac-btn-sm ac-btn-danger-text">Sign out</button>
+            </form>
+            {% endif %}
+        </li>
+        {% empty %}
+        <li class="ac-muted">Never signed in to the app.</li>
+        {% endfor %}
+    </ul>
+</section>
+
+<section role="tabpanel" id="mp-activity" aria-labelledby="mp-tab-activity" tabindex="0" hidden>
+    <ul class="ac-rows">
+        {% for a in activity %}
+        <li class="ac-rows-stack"><span class="ac-break">{{ a.description }}</span><span class="ac-muted">{{ a.timestamp|date:"M j, g:i A" }} · {{ a.get_action_type_display }}</span></li>
+        {% empty %}
+        <li class="ac-muted">No activity yet.</li>
+        {% endfor %}
+    </ul>
+</section>
+{% endblock %}
