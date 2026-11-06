@@ -89,7 +89,20 @@ def clear_remember_cookie(response):
     response.delete_cookie(_REMEMBER_COOKIE_NAME)
 
 
-def _generate_backup_codes(user):
+def _delete_devices(queryset, keep_mobile_device_id=None):
+    """
+    Delete OTP devices one by one so each ``post_delete`` sees the instance we
+    tagged: src/mobile/revocation.py signs every app install out when a
+    confirmed factor is deleted, sparing ``keep_mobile_device_id`` (the app
+    install that asked, as a password change keeps it). The website passes
+    nothing, which is what the queryset ``.delete()`` this replaced did.
+    """
+    for device in list(queryset):
+        device._keep_mobile_device_id = keep_mobile_device_id
+        device.delete()
+
+
+def _generate_backup_codes(user, keep_mobile_device_id=None):
     """
     Generate a fresh set of backup codes for a user.
     Deletes any existing StaticDevice for this user and creates a new one.
@@ -97,7 +110,7 @@ def _generate_backup_codes(user):
     Clears backup_codes_acknowledged so the user is prompted to view the new codes.
     """
     # Remove any existing backup code device
-    StaticDevice.objects.filter(user=user, name='backup').delete()
+    _delete_devices(StaticDevice.objects.filter(user=user, name='backup'), keep_mobile_device_id)
 
     device = StaticDevice.objects.create(user=user, name='backup', confirmed=True)
     codes = []
@@ -121,6 +134,72 @@ def _generate_backup_codes(user):
 def _get_backup_device(user):
     """Return the user's confirmed backup StaticDevice, or None."""
     return StaticDevice.objects.filter(user=user, name='backup', confirmed=True).first()
+
+
+# ── Shared with the app (src/mobile/views_two_factor.py) ─────────────────────
+
+def manual_entry_key(device):
+    """The TOTP secret as authenticator apps expect it: base32, in groups of four."""
+    import base64
+    raw = base64.b32encode(device.bin_key).decode('ascii').rstrip('=')
+    return ' '.join(raw[i:i + 4] for i in range(0, len(raw), 4))
+
+
+def pending_totp_device(user, fresh=False):
+    """
+    The unconfirmed TOTP device a setup shows, created if there is none.
+    ``fresh=True`` (the app) replaces any pending one with a new key, so a
+    secret is only ever handed out once; the website keeps showing the same
+    pending key on reload, as it always has.
+    """
+    pending = TOTPDevice.objects.filter(user=user, confirmed=False)
+    if fresh:
+        pending.delete()   # never confirmed, so never a security event
+    else:
+        device = pending.first()
+        if device:
+            return device
+    return TOTPDevice.objects.create(user=user, name='default', confirmed=False, key=random_hex())
+
+
+def confirm_totp_setup(user, device, token, keep_mobile_device_id=None):
+    """
+    Confirm a pending TOTP ``device`` with ``token``. Returns the new backup
+    codes (plaintext, to be shown once) or None for a wrong code.
+    """
+    if not device.verify_token(token):
+        return None
+    device.confirmed = True
+    device.save(update_fields=['confirmed'])
+    return _generate_backup_codes(user, keep_mobile_device_id=keep_mobile_device_id)
+
+
+def regenerate_backup_codes(user, via='', keep_mobile_device_id=None):
+    """Replace ``user``'s backup codes; returns the new ones (shown once)."""
+    codes = _generate_backup_codes(user, keep_mobile_device_id=keep_mobile_device_id)
+    logger.info(f"User {user.username} regenerated 2FA backup codes.{via}")
+    return codes
+
+
+def disable_two_factor(user, ip_address, via='', keep_mobile_device_id=None):
+    """
+    Remove ``user``'s authenticator and backup codes (the password has
+    already been confirmed), with the website's log line and the "Two-Factor
+    Authentication was disabled" notification and email.
+    """
+    _delete_devices(TOTPDevice.objects.filter(user=user), keep_mobile_device_id)
+    _delete_devices(StaticDevice.objects.filter(user=user, name='backup'), keep_mobile_device_id)
+    security_logger.info(
+        f'2FA disabled by {user.username} from {ip_address} (password re-auth passed){via}'
+    )
+    from src.security_notifications import notify_user_security_event
+    notify_user_security_event(
+        user,
+        'Two-Factor Authentication was disabled on your account',
+        'Two-Factor Authentication (TOTP and backup codes) was just disabled on your '
+        'Parliament account after a correct password was entered.',
+        ip_address=ip_address,
+    )
 
 
 @login_required
@@ -175,12 +254,9 @@ def two_factor_setup(request):
             return redirect('two_factor_setup')
 
         # Verify the token
-        if device.verify_token(token):
-            device.confirmed = True
-            device.save(update_fields=['confirmed'])
-
-            # Generate backup codes and store them in session to show once
-            backup_codes = _generate_backup_codes(user)
+        backup_codes = confirm_totp_setup(user, device, token)
+        if backup_codes is not None:
+            # Store the backup codes in the session to show once
             request.session['new_backup_codes'] = backup_codes
 
             return redirect('two_factor_backup_codes_reveal')
@@ -189,16 +265,13 @@ def two_factor_setup(request):
 
     # Create a new device if none exists
     if not device:
-        device = TOTPDevice.objects.create(
-            user=user,
-            name='default',
-            confirmed=False,
-            key=random_hex()
-        )
+        device = pending_totp_device(user)
 
     context = {
         'qr_code_url': '/accounts/two-factor/qrcode/',
-        'manual_entry_key': device.key,
+        # 11-06-26: authenticator apps take the key in base32 (what the QR's
+        # otpauth URL carries); `device.key` is hex, so typing it in failed.
+        'manual_entry_key': manual_entry_key(device),
         'account_name': user.username,
     }
 
@@ -240,9 +313,8 @@ def two_factor_regenerate_backup_codes(request):
         return redirect('two_factor_setup')
 
     if request.method == 'POST':
-        backup_codes = _generate_backup_codes(request.user)
+        backup_codes = regenerate_backup_codes(request.user)
         request.session['new_backup_codes'] = backup_codes
-        logger.info(f"User {request.user.username} regenerated 2FA backup codes.")
         return redirect('two_factor_backup_codes_reveal')
 
     # GET: show confirmation page
@@ -459,21 +531,8 @@ def two_factor_disable(request):
 
         cache.delete(attempts_key)
 
-        # Delete all devices for this user (TOTP + backup codes)
-        TOTPDevice.objects.filter(user=request.user).delete()
-        StaticDevice.objects.filter(user=request.user, name='backup').delete()
-
-        security_logger.info(
-            f'2FA disabled by {request.user.username} from {ip_address} (password re-auth passed)'
-        )
-        from src.security_notifications import notify_user_security_event
-        notify_user_security_event(
-            request.user,
-            'Two-Factor Authentication was disabled on your account',
-            'Two-Factor Authentication (TOTP and backup codes) was just disabled on your '
-            'Parliament account after a correct password was entered.',
-            ip_address=ip_address,
-        )
+        # Delete all devices for this user (TOTP + backup codes), log, notify
+        disable_two_factor(request.user, ip_address)
 
         messages.success(request, 'Two-Factor Authentication has been disabled.')
         response = redirect('profile')

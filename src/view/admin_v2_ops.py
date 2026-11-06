@@ -49,8 +49,8 @@ def backup_files(directory):
     return files, None
 
 
-@require_admin_v2_auth
-def admin_v2_backups(request):
+def backups_overview():
+    """The Backups page's data (v4.4.5: factored out for the app)."""
     from src.management.commands.verify_backup import backup_dir
 
     directory = backup_dir()
@@ -60,7 +60,7 @@ def admin_v2_backups(request):
         event_type__in=('BACKUP_VERIFIED', 'BACKUP_VERIFY_FAILED')).order_by('-sent_at')
     last_ok = drills.filter(event_type='BACKUP_VERIFIED').first()
     last_fail = drills.filter(event_type='BACKUP_VERIFY_FAILED').first()
-    context = {
+    return {
         'directory': directory,
         'error': error,
         'files': files[:LIST_LIMIT],
@@ -72,7 +72,11 @@ def admin_v2_backups(request):
         'failing': bool(last_fail and (not last_ok or last_fail.sent_at > last_ok.sent_at)),
         'drills': list(drills[:10]),
     }
-    return render(request, 'admin_v2/backups.html', context)
+
+
+@require_admin_v2_auth
+def admin_v2_backups(request):
+    return render(request, 'admin_v2/backups.html', backups_overview())
 
 
 @require_admin_v2_auth

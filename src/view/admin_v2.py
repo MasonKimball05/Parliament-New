@@ -1089,6 +1089,44 @@ def _settings_return(request):
     return 'admin_v2_maintenance' if request.POST.get('next') == 'maintenance' else 'admin_v2_dashboard'
 
 
+def clean_site_setting_value(setting, raw):
+    """
+    The Maintenance page's check for a setting's new value: (value, error).
+    Integers must parse; booleans become 'true'/'false'; anything else is kept
+    as typed. The app adds its stricter checks on top (src/mobile/
+    views_site_admin_config.py: `strict_site_setting_value`).
+    """
+    new_value = raw.strip()
+    if setting.setting_type == 'integer':
+        try:
+            int(new_value)
+        except ValueError:
+            return None, f'Invalid value for {setting.display_name}. Must be a number.'
+    elif setting.setting_type == 'boolean':
+        new_value = 'true' if new_value.lower() in ('true', '1', 'yes', 'on') else 'false'
+    return new_value, None
+
+
+def apply_site_setting_change(request, user, setting, new_value):
+    """
+    Save a setting's new value, name who changed it, and write the
+    `setting_change` ActivityLog row. Shared by the Maintenance page and the
+    app. The post_save receiver drops the cached `get_setting` answer.
+    """
+    old_value = setting.value
+    setting.value = new_value
+    setting.last_modified_by = user.get_display_name()
+    # updated_at (auto_now) only moves when it is named in update_fields.
+    setting.save(update_fields=['value', 'last_modified_by', 'updated_at'])
+    ActivityLog.log_activity(
+        action_type='setting_change',
+        user=user,
+        description=f'{user.get_display_name()} changed {setting.display_name} from {old_value} to {new_value}',
+        request=request
+    )
+    return old_value
+
+
 @require_admin_v2_auth
 def update_site_setting(request, setting_id):
     """
@@ -1097,35 +1135,43 @@ def update_site_setting(request, setting_id):
     if request.method == 'POST':
         try:
             setting = SiteSetting.objects.get(id=setting_id)
-            new_value = request.POST.get('value', '').strip()
+            new_value, error = clean_site_setting_value(setting, request.POST.get('value', ''))
+            if error:
+                messages.error(request, error)
+                return redirect(_settings_return(request))
 
-            # Validate based on setting type
-            if setting.setting_type == 'integer':
-                try:
-                    int(new_value)
-                except ValueError:
-                    messages.error(request, f'Invalid value for {setting.display_name}. Must be a number.')
-                    return redirect(_settings_return(request))
-            elif setting.setting_type == 'boolean':
-                new_value = 'true' if new_value.lower() in ('true', '1', 'yes', 'on') else 'false'
-
-            old_value = setting.value
-            setting.value = new_value
-            setting.last_modified_by = request.user.get_display_name()
-            setting.save(update_fields=['value', 'last_modified_by'])
-
+            apply_site_setting_change(request, request.user, setting, new_value)
             messages.success(request, f'Setting "{setting.display_name}" updated to {new_value}')
-
-            ActivityLog.log_activity(
-                action_type='setting_change',
-                user=request.user,
-                description=f'{request.user.get_display_name()} changed {setting.display_name} from {old_value} to {new_value}',
-                request=request
-            )
         except SiteSetting.DoesNotExist:
             messages.error(request, 'Setting not found')
 
     return redirect(_settings_return(request))
+
+
+def delete_push_subscription_row(request, actor, sub):
+    """Delete one browser push subscription and log it; returns who it was for (v4.4.5: shared)."""
+    sub_id = sub.pk
+    user_display = str(sub.user)
+    sub.delete()
+    ActivityLog.log_activity(
+        action_type='push_subscription_deleted',
+        user=actor,
+        description=f'{actor.get_display_name()} deleted push subscription {sub_id} for {user_display}',
+        request=request
+    )
+    return user_display
+
+
+def clear_all_push_subscriptions(request, actor):
+    """Delete every browser push subscription and log it; returns how many (v4.4.5: shared)."""
+    count, _ = PushSubscription.objects.all().delete()
+    ActivityLog.log_activity(
+        action_type='push_subscriptions_cleared',
+        user=actor,
+        description=f'{actor.get_display_name()} cleared all push subscriptions ({count} removed)',
+        request=request
+    )
+    return count
 
 
 @require_admin_v2_auth
@@ -1144,16 +1190,8 @@ def delete_push_subscription(request, sub_id):
     Delete a single push subscription by ID.
     """
     sub = get_object_or_404(PushSubscription, id=sub_id)
-    user_display = str(sub.user)
-    sub.delete()
+    user_display = delete_push_subscription_row(request, request.user, sub)
     messages.success(request, f'Deleted push subscription for {user_display}.')
-
-    ActivityLog.log_activity(
-        action_type='push_subscription_deleted',
-        user=request.user,
-        description=f'{request.user.get_display_name()} deleted push subscription {sub_id} for {user_display}',
-        request=request
-    )
 
     return redirect('admin_v2_push_subscriptions')
 
@@ -1164,15 +1202,8 @@ def clear_push_subscriptions(request):
     """
     Delete all push subscriptions (nuclear option — forces all devices to re-subscribe).
     """
-    count, _ = PushSubscription.objects.all().delete()
+    count = clear_all_push_subscriptions(request, request.user)
     messages.success(request, f'Cleared {count} push subscription(s). Users will need to re-subscribe.')
-
-    ActivityLog.log_activity(
-        action_type='push_subscriptions_cleared',
-        user=request.user,
-        description=f'{request.user.get_display_name()} cleared all push subscriptions ({count} removed)',
-        request=request
-    )
 
     return redirect('admin_v2_dashboard')
 
@@ -3204,12 +3235,8 @@ def send_scheduled_announcement_email(request, announcement_id):
 # Security Management Views
 # =============================================================================
 
-@require_admin_v2_auth
-def security_dashboard(request):
-    """Main security dashboard showing all security tools and alerts."""
-    if not request.user.is_admin:
-        return HttpResponseForbidden("Admin access required")
-
+def security_overview():
+    """The Security dashboard's data (v4.4.5: factored out for the app)."""
     from src.models import (
         QuarantinedAccount, HoneypotAccess, SystemLockdown,
         SecurityNotificationLog, LoginLockout, LoginAlert,
@@ -3278,7 +3305,7 @@ def security_dashboard(request):
     # CSP violations
     csp_violation_count = CSPViolation.objects.filter(dismissed=False).count()
 
-    return render(request, 'admin_v2/security_dashboard.html', {
+    return {
         'active_quarantines': active_quarantines,
         'recent_honeypot': recent_honeypot,
         'honeypot_24h': honeypot_24h,
@@ -3294,7 +3321,65 @@ def security_dashboard(request):
         'whitelist_count': whitelist_count,
         'blacklisted_ips': blacklisted_ips,
         'csp_violation_count': csp_violation_count,
-    })
+    }
+
+
+@require_admin_v2_auth
+def security_dashboard(request):
+    """Main security dashboard showing all security tools and alerts."""
+    if not request.user.is_admin:
+        return HttpResponseForbidden("Admin access required")
+    return render(request, 'admin_v2/security_dashboard.html', security_overview())
+
+
+def release_quarantine(request, actor, quarantine, notes=''):
+    """Release one quarantine and log it (v4.4.5: shared by the page and the app)."""
+    quarantine.release(actor, notes)
+    logger.info(f"Admin {actor.username} released quarantine for {quarantine.user.name}")
+    log_admin_action(
+        actor=actor, action='quarantine_lifted', request=request,
+        target_user=quarantine.user, target_repr=str(quarantine.user),
+        detail=f"Release notes: {notes}" if notes else '',
+    )
+
+
+def quarantine_member(request, actor, user, reason, ip_address, expires_at=None):
+    """
+    Quarantine ``user`` by hand, log it and send the security alert. Returns
+    the " (expires …)" text for the message, or ''. v4.4.5: shared.
+    """
+    from src.models import QuarantinedAccount
+    from src.security_notifications import alert_account_quarantined
+
+    QuarantinedAccount.quarantine_user(
+        user=user,
+        ip_address=ip_address,
+        reason=reason,
+        admin=actor,
+        expires_at=expires_at,
+    )
+    expiry_msg = f" (expires {timezone.localtime(expires_at).strftime('%Y-%m-%d %H:%M')})" if expires_at else ''
+    logger.info(f"Admin {actor.username} quarantined {user.name}: {reason}{expiry_msg}")
+    log_admin_action(
+        actor=actor, action='quarantine_set', request=request,
+        target_user=user, target_repr=str(user),
+        detail=f"Reason: {reason}; IP: {ip_address}{expiry_msg}",
+    )
+    alert_account_quarantined(user, ip_address, reason, is_auto=False)
+    return expiry_msg
+
+
+def active_quarantines_list(now=None):
+    """Unreleased, unexpired quarantines, newest first (the Quarantine page's list)."""
+    from src.models import QuarantinedAccount
+    now = now or timezone.now()
+    return list(
+        QuarantinedAccount.objects.filter(released_at__isnull=True)
+        .filter(Q(expires_at__isnull=True) | Q(expires_at__gt=now))
+        .select_related('user', 'quarantined_by')
+        .defer(*member_defer('user', 'quarantined_by'))
+        .order_by('-quarantined_at')
+    )
 
 
 @require_admin_v2_auth
@@ -3312,15 +3397,8 @@ def quarantine_management(request):
         if action == 'release' and quarantine_id:
             try:
                 quarantine = QuarantinedAccount.objects.get(pk=quarantine_id)
-                notes = request.POST.get('release_notes', '')
-                quarantine.release(request.user, notes)
+                release_quarantine(request, request.user, quarantine, request.POST.get('release_notes', ''))
                 messages.success(request, f'Released quarantine for {quarantine.user.name}')
-                logger.info(f"Admin {request.user.username} released quarantine for {quarantine.user.name}")
-                log_admin_action(
-                    actor=request.user, action='quarantine_lifted', request=request,
-                    target_user=quarantine.user, target_repr=str(quarantine.user),
-                    detail=f"Release notes: {notes}" if notes else '',
-                )
             except QuarantinedAccount.DoesNotExist:
                 messages.error(request, 'Quarantine record not found')
 
@@ -3345,26 +3423,8 @@ def quarantine_management(request):
 
             try:
                 user = ParliamentUser.objects.get(user_id=user_id)
-                QuarantinedAccount.quarantine_user(
-                    user=user,
-                    ip_address=ip_address,
-                    reason=reason,
-                    admin=request.user,
-                    expires_at=expires_at,
-                )
-                expiry_msg = f" (expires {timezone.localtime(expires_at).strftime('%Y-%m-%d %H:%M')})" if expires_at else ''
+                expiry_msg = quarantine_member(request, request.user, user, reason, ip_address, expires_at)
                 messages.success(request, f'Quarantined account: {user.name}{expiry_msg}')
-                logger.info(f"Admin {request.user.username} quarantined {user.name}: {reason}{expiry_msg}")
-                log_admin_action(
-                    actor=request.user, action='quarantine_set', request=request,
-                    target_user=user, target_repr=str(user),
-                    detail=f"Reason: {reason}; IP: {ip_address}{expiry_msg}",
-                )
-
-                # Send alert
-                from src.security_notifications import alert_account_quarantined
-                alert_account_quarantined(user, ip_address, reason, is_auto=False)
-
             except ParliamentUser.DoesNotExist:
                 messages.error(request, 'User not found')
 
@@ -3486,112 +3546,19 @@ def lockdown_control(request):
     })
 
 
-@require_admin_v2_auth
-def honeypot_logs(request):
-    """View honeypot access logs."""
-    if not request.user.is_admin:
-        return HttpResponseForbidden("Admin access required")
-
+def clear_honeypot_entries(ip_address=''):
+    """Delete the honeypot log rows for one address, or all of them: how many (v4.4.5: shared)."""
     from src.models import HoneypotAccess
-    from django.core.paginator import Paginator
-    from django.db.models import Count
-
-    logs = HoneypotAccess.objects.order_by('-accessed_at')
-
-    # Filters
-    endpoint_filter = request.GET.get('endpoint', '')
-    ip_filter = request.GET.get('ip', '')
-    if endpoint_filter:
-        logs = logs.filter(endpoint__icontains=endpoint_filter)
-    if ip_filter:
-        logs = logs.filter(ip_address=ip_filter)
-
-    total_filtered = logs.count()
-
-    # Paginate
-    paginator = Paginator(logs, 50)
-    page_number = request.GET.get('page')
-    page_obj = paginator.get_page(page_number)
-
-    # Get stats
-    total_24h = HoneypotAccess.objects.filter(
-        accessed_at__gte=timezone.now() - timedelta(hours=24)
-    ).count()
-    total_all = HoneypotAccess.objects.count()
-
-    # Most targeted endpoints
-    top_endpoints = HoneypotAccess.objects.values('endpoint').annotate(
-        count=Count('id')
-    ).order_by('-count')[:10]
-
-    # Top attacking IPs
-    top_ips = HoneypotAccess.objects.values('ip_address').annotate(
-        count=Count('id')
-    ).order_by('-count')[:10]
-
-    # Currently blacklisted IPs (for showing block status per row)
-    blacklisted_ips = set(
-        IPBlacklist.objects.filter(is_active=True).values_list('ip_address', flat=True)
-    )
-
-    return render(request, 'admin_v2/honeypot_logs.html', {
-        'logs': page_obj,
-        'endpoint_filter': endpoint_filter,
-        'ip_filter': ip_filter,
-        'total_24h': total_24h,
-        'total_all': total_all,
-        'total_filtered': total_filtered,
-        'top_endpoints': top_endpoints,
-        'top_ips': top_ips,
-        'blacklisted_ips': blacklisted_ips,
-    })
+    qs = HoneypotAccess.objects.filter(ip_address=ip_address) if ip_address else HoneypotAccess.objects.all()
+    deleted, _ = qs.delete()
+    return deleted
 
 
-@require_admin_v2_auth
-@require_POST
-def delete_honeypot_log(request, log_id):
-    """Delete a single honeypot log entry."""
-    if not request.user.is_admin:
-        return JsonResponse({'success': False, 'error': 'Admin access required'}, status=403)
-    from src.models import HoneypotAccess
-    try:
-        entry = HoneypotAccess.objects.get(id=log_id)
-        entry.delete()
-        return JsonResponse({'success': True})
-    except HoneypotAccess.DoesNotExist:
-        return JsonResponse({'success': False, 'error': 'Log not found'}, status=404)
-
-
-@require_admin_v2_auth
-@require_POST
-def clear_honeypot_logs(request):
-    """Bulk delete honeypot logs, optionally filtered by IP."""
-    if not request.user.is_admin:
-        return HttpResponseForbidden("Admin access required")
-    from src.models import HoneypotAccess
-    ip_address = request.POST.get('ip_address', '').strip()
-    if ip_address:
-        deleted, _ = HoneypotAccess.objects.filter(ip_address=ip_address).delete()
-        if deleted:
-            messages.success(request, f'Deleted {deleted} log entr{"ies" if deleted != 1 else "y"} for {ip_address}.')
-        else:
-            messages.info(request, f'No logs found for {ip_address}.')
-    else:
-        deleted, _ = HoneypotAccess.objects.all().delete()
-        if deleted:
-            messages.success(request, f'Cleared {deleted} honeypot log entr{"ies" if deleted != 1 else "y"}.')
-        else:
-            messages.info(request, 'No honeypot logs to clear.')
-    return redirect('admin_v2_honeypot_logs')
-
-
-@require_admin_v2_auth
-@require_POST
-def blacklist_all_honeypot_ips(request):
-    """Blacklist every unique honeypot IP that is not already blacklisted."""
-    if not request.user.is_admin:
-        return JsonResponse({'success': False, 'error': 'Admin access required'}, status=403)
-
+def blacklist_honeypot_ips(request, actor):
+    """
+    Blacklist every honeypot address not already blocked (and ban it for 24
+    hours); logs one row when any were added. Returns how many. v4.4.5: shared.
+    """
     from src.models import HoneypotAccess
 
     already_blocked = set(
@@ -3615,19 +3582,130 @@ def blacklist_all_honeypot_ips(request):
         IPBlacklist.objects.create(
             ip_address=ip,
             reason='Honeypot trigger — bulk blacklist',
-            added_by=request.user,
+            added_by=actor,
         )
         cache.delete(f'ip_blacklisted_{ip}')
         cache.set(f'honeypot_ban_{ip}', True, 24 * 60 * 60)
         created += 1
-
     if created:
         ActivityLog.log_activity(
             action_type='ip_blacklisted',
-            user=request.user,
-            description=f'{request.user.get_display_name()} bulk-blacklisted {created} honeypot IP(s)',
+            user=actor,
+            description=f'{actor.get_display_name()} bulk-blacklisted {created} honeypot IP(s)',
             request=request,
         )
+    return created
+
+
+def honeypot_log_data(endpoint_filter='', ip_filter='', page_number=None):
+    """The Honeypot logs page's data: 50 a page, filtered (v4.4.5: shared)."""
+    from src.models import HoneypotAccess
+    from django.core.paginator import Paginator
+    from django.db.models import Count
+
+    logs = HoneypotAccess.objects.order_by('-accessed_at')
+
+    # Filters
+    if endpoint_filter:
+        logs = logs.filter(endpoint__icontains=endpoint_filter)
+    if ip_filter:
+        logs = logs.filter(ip_address=ip_filter)
+
+    total_filtered = logs.count()
+
+    # Paginate
+    paginator = Paginator(logs, 50)
+    page_obj = paginator.get_page(page_number)
+
+    # Get stats
+    total_24h = HoneypotAccess.objects.filter(
+        accessed_at__gte=timezone.now() - timedelta(hours=24)
+    ).count()
+    total_all = HoneypotAccess.objects.count()
+
+    # Most targeted endpoints
+    top_endpoints = HoneypotAccess.objects.values('endpoint').annotate(
+        count=Count('id')
+    ).order_by('-count')[:10]
+
+    # Top attacking IPs
+    top_ips = HoneypotAccess.objects.values('ip_address').annotate(
+        count=Count('id')
+    ).order_by('-count')[:10]
+
+    # Currently blacklisted IPs (for showing block status per row)
+    blacklisted_ips = set(
+        IPBlacklist.objects.filter(is_active=True).values_list('ip_address', flat=True)
+    )
+
+    return {
+        'logs': page_obj,
+        'endpoint_filter': endpoint_filter,
+        'ip_filter': ip_filter,
+        'total_24h': total_24h,
+        'total_all': total_all,
+        'total_filtered': total_filtered,
+        'top_endpoints': top_endpoints,
+        'top_ips': top_ips,
+        'blacklisted_ips': blacklisted_ips,
+    }
+
+
+@require_admin_v2_auth
+def honeypot_logs(request):
+    """View honeypot access logs."""
+    if not request.user.is_admin:
+        return HttpResponseForbidden("Admin access required")
+
+    return render(request, 'admin_v2/honeypot_logs.html', honeypot_log_data(
+        request.GET.get('endpoint', ''), request.GET.get('ip', ''), request.GET.get('page')))
+
+
+@require_admin_v2_auth
+@require_POST
+def delete_honeypot_log(request, log_id):
+    """Delete a single honeypot log entry."""
+    if not request.user.is_admin:
+        return JsonResponse({'success': False, 'error': 'Admin access required'}, status=403)
+    from src.models import HoneypotAccess
+    try:
+        entry = HoneypotAccess.objects.get(id=log_id)
+        entry.delete()
+        return JsonResponse({'success': True})
+    except HoneypotAccess.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Log not found'}, status=404)
+
+
+@require_admin_v2_auth
+@require_POST
+def clear_honeypot_logs(request):
+    """Bulk delete honeypot logs, optionally filtered by IP."""
+    if not request.user.is_admin:
+        return HttpResponseForbidden("Admin access required")
+    ip_address = request.POST.get('ip_address', '').strip()
+    deleted = clear_honeypot_entries(ip_address)
+    if ip_address:
+        if deleted:
+            messages.success(request, f'Deleted {deleted} log entr{"ies" if deleted != 1 else "y"} for {ip_address}.')
+        else:
+            messages.info(request, f'No logs found for {ip_address}.')
+    else:
+        if deleted:
+            messages.success(request, f'Cleared {deleted} honeypot log entr{"ies" if deleted != 1 else "y"}.')
+        else:
+            messages.info(request, 'No honeypot logs to clear.')
+    return redirect('admin_v2_honeypot_logs')
+
+
+@require_admin_v2_auth
+@require_POST
+def blacklist_all_honeypot_ips(request):
+    """Blacklist every unique honeypot IP that is not already blacklisted."""
+    if not request.user.is_admin:
+        return JsonResponse({'success': False, 'error': 'Admin access required'}, status=403)
+
+    created = blacklist_honeypot_ips(request, request.user)
+    if created:
         messages.success(request, f'{created} IP address{"es" if created != 1 else ""} blacklisted.')
     else:
         messages.info(request, 'All honeypot IPs are already blacklisted.')
@@ -4010,6 +4088,30 @@ def audit_log(request):
 # CSP Violation Analytics
 # ---------------------------------------------------------------------------
 
+def csp_groups(show_dismissed=False):
+    """CSP reports grouped by (directive, blocked URI), newest first (v4.4.5: shared)."""
+    from src.models import CSPViolation
+    from django.db.models import Count, Max
+
+    qs = CSPViolation.objects.all() if show_dismissed else CSPViolation.objects.filter(dismissed=False)
+    return (
+        qs
+        .values('violated_directive', 'blocked_uri')
+        .annotate(count=Count('id'), latest=Max('created_at'))
+        .order_by('-latest')
+    )
+
+
+def dismiss_csp_group(actor, directive, blocked):
+    """Dismiss every open report for one (directive, blocked URI): how many (v4.4.5: shared)."""
+    from src.models import CSPViolation
+    return CSPViolation.objects.filter(
+        violated_directive=directive,
+        blocked_uri=blocked,
+        dismissed=False,
+    ).update(dismissed=True, dismissed_at=timezone.now(), dismissed_by=actor)
+
+
 @require_admin_v2_auth
 def csp_violations(request):
     """Analytics dashboard for CSP violation reports."""
@@ -4017,19 +4119,11 @@ def csp_violations(request):
         return HttpResponseForbidden("Admin access required")
 
     from src.models import CSPViolation
-    from django.db.models import Count, Max
 
     show_dismissed = request.GET.get('show_dismissed') == '1'
 
-    qs = CSPViolation.objects.all() if show_dismissed else CSPViolation.objects.filter(dismissed=False)
-
     # Group by (violated_directive, blocked_uri) — one row per unique violation type
-    groups = (
-        qs
-        .values('violated_directive', 'blocked_uri')
-        .annotate(count=Count('id'), latest=Max('created_at'))
-        .order_by('-latest')
-    )
+    groups = csp_groups(show_dismissed)
 
     total_undismissed = CSPViolation.objects.filter(dismissed=False).count()
 
@@ -4055,11 +4149,7 @@ def csp_violation_dismiss(request):
     if not directive and not blocked:
         return JsonResponse({'ok': False, 'error': 'Missing parameters'}, status=400)
 
-    updated = CSPViolation.objects.filter(
-        violated_directive=directive,
-        blocked_uri=blocked,
-        dismissed=False,
-    ).update(dismissed=True, dismissed_at=timezone.now(), dismissed_by=request.user)
+    updated = dismiss_csp_group(request.user, directive, blocked)
 
     return JsonResponse({'ok': True, 'dismissed': updated})
 
@@ -4295,15 +4385,15 @@ def event_reminder_log_detail_data(log):
 
 
 
-@require_admin_v2_auth
-def celery_health(request):
+def celery_overview(now=None):
     """
-    Celery task health dashboard — shows worker status and the state of every
-    registered PeriodicTask (schedule, last run, run count, enabled/disabled).
+    The Scheduled jobs page's data: workers answering a ping (1 second), and
+    every PeriodicTask with its schedule and status. v4.4.5: factored out of
+    `celery_health` for the app.
     """
     from django_celery_beat.models import PeriodicTask
 
-    now = timezone.now()
+    now = now or timezone.now()
 
     # ── Worker ping ────────────────────────────────────────────────────────────
     # inspect().ping() broadcasts to all workers and collects responses.
@@ -4348,9 +4438,18 @@ def celery_health(request):
             'next_due': next_due,
         })
 
-    return render(request, 'admin_v2/celery_health.html', {
+    return {
         'workers_up': workers_up,
         'worker_details': worker_details,
         'task_rows': task_rows,
         'now': now,
-    })
+    }
+
+
+@require_admin_v2_auth
+def celery_health(request):
+    """
+    Celery task health dashboard — shows worker status and the state of every
+    registered PeriodicTask (schedule, last run, run count, enabled/disabled).
+    """
+    return render(request, 'admin_v2/celery_health.html', celery_overview())

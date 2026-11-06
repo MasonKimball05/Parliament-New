@@ -1,0 +1,54 @@
+{% comment %}
+Website refresh (src/ui_refresh.py): My Attendance's history as the app's
+Attendance screen lists it: a section title with Manage Excuses, then one
+grouped card, a row per event with a status tile, the title, the date and
+time, and a status pill. Same records, link and wording as the card it
+replaces in my_attendance.html.
+{% endcomment %}
+<div class="lg:col-span-2 rf-att-history">
+    <div class="rf-section-title">
+        <h2>Attendance History</h2>
+        <a href="{% url 'my_excuses' %}">Manage Excuses</a>
+    </div>
+    {% if attendance_history %}
+    <div class="rf-card rf-att-list">
+        {% for item in attendance_history %}
+        <div class="rf-row rf-att-row">
+            <span class="rf-tile {% if item.status == 'present' %}is-green{% elif item.status == 'late' %}is-gold{% elif item.status == 'absent' %}is-red{% elif item.status == 'excused' %}is-blue{% else %}is-gray{% endif %}" aria-hidden="true">
+                {% if item.status == 'present' %}
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+                {% elif item.status == 'late' %}
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                {% elif item.status == 'absent' %}
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
+                {% elif item.status == 'excused' %}
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                {% else %}
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                {% endif %}
+            </span>
+            <span class="rf-row-body">
+                <span class="rf-row-title">{{ item.event.title }}</span>
+                <span class="rf-row-sub">{{ item.event.date_time|date:"M j, Y" }} at {{ item.event.date_time|date:"g:i A" }}</span>
+            </span>
+            {% if item.status == 'present' %}
+            <span class="rf-chip is-success">Present</span>
+            {% elif item.status == 'late' %}
+            <span class="rf-chip is-warning">Late</span>
+            {% elif item.status == 'absent' %}
+            <span class="rf-chip is-danger">Absent</span>
+            {% elif item.status == 'excused' %}
+            <span class="rf-chip is-accent">Excused</span>
+            {% else %}
+            <span class="rf-chip">--</span>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="rf-card rf-empty">
+        <svg class="rf-empty-svg" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+        <p class="rf-empty-sub">No attendance records found for this period.</p>
+    </div>
+    {% endif %}
+</div>

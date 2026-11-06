@@ -14,15 +14,23 @@ from src.models import ParliamentUser, TwoFactorRequirement, ActivityLog
 from src.models_feature_flags import SiteSetting
 from src.view.admin_v2 import require_admin_v2_auth
 
+#: The values SiteSetting '2fa_policy_mode' can hold (Enforce2FAMiddleware reads
+#: them), with the 2FA page's labels. Also the app's choices for that setting.
+TWO_FACTOR_POLICY_OPTIONS = (
+    ('none', 'No 2FA Required'),
+    ('admins_only', 'Admins Only'),
+    ('officers_and_admins', 'Officers & Admins'),
+    ('all_members', 'All Members'),
+    ('custom', 'Custom (Individual Selection)'),
+)
 
-@require_admin_v2_auth
-def two_factor_dashboard(request):
-    """
-    Main 2FA management dashboard showing policy, statistics, and member list.
-    """
-    # Get current policy
-    current_policy = SiteSetting.get_setting('2fa_policy_mode', 'none')
 
+def two_factor_members(current_policy):
+    """
+    Every active, not-Inactive member with their 2FA state under
+    ``current_policy``: (member_data, stats). v4.4.5: factored out of the
+    dashboard for the app.
+    """
     # Get all active members.
     #
     # v3.18.6 — `select_related('two_factor_requirement')` and `list()`.
@@ -126,8 +134,12 @@ def two_factor_dashboard(request):
             'requires_2fa': requires_2fa,
         })
 
+    return member_data, stats
+
+
+def filter_two_factor_members(member_data, filter_type='all', search=''):
+    """The dashboard's filter (has_2fa / no_2fa / required / exempt / needs_setup) and name search."""
     # Filter handling
-    filter_type = request.GET.get('filter', 'all')
     if filter_type == 'has_2fa':
         member_data = [m for m in member_data if m['has_2fa']]
     elif filter_type == 'no_2fa':
@@ -140,19 +152,28 @@ def two_factor_dashboard(request):
         member_data = [m for m in member_data if m['requires_2fa'] and not m['has_2fa']]
 
     # Search handling
-    search = request.GET.get('search', '').strip()
     if search:
         member_data = [m for m in member_data if search.lower() in m['user'].name.lower()]
 
+    return member_data
+
+
+@require_admin_v2_auth
+def two_factor_dashboard(request):
+    """
+    Main 2FA management dashboard showing policy, statistics, and member list.
+    """
+    # Get current policy
+    current_policy = SiteSetting.get_setting('2fa_policy_mode', 'none')
+
+    member_data, stats = two_factor_members(current_policy)
+    filter_type = request.GET.get('filter', 'all')
+    search = request.GET.get('search', '').strip()
+    member_data = filter_two_factor_members(member_data, filter_type, search)
+
     context = {
         'current_policy': current_policy,
-        'policy_options': [
-            ('none', 'No 2FA Required'),
-            ('admins_only', 'Admins Only'),
-            ('officers_and_admins', 'Officers & Admins'),
-            ('all_members', 'All Members'),
-            ('custom', 'Custom (Individual Selection)'),
-        ],
+        'policy_options': list(TWO_FACTOR_POLICY_OPTIONS),
         'member_data': member_data,
         'stats': stats,
         'filter': filter_type,
@@ -160,6 +181,47 @@ def two_factor_dashboard(request):
     }
 
     return render(request, 'admin_v2/two_factor_dashboard.html', context)
+
+
+def set_two_factor_policy(request, actor, policy):
+    """
+    Set SiteSetting '2fa_policy_mode' (created if missing) and write the
+    `other` row. False for a value not in TWO_FACTOR_POLICY_OPTIONS (nothing
+    changed). v4.4.5: shared by `update_two_factor_policy` and the app.
+    """
+    valid_policies = [value for value, _label in TWO_FACTOR_POLICY_OPTIONS]
+    if policy not in valid_policies:
+        return False
+
+    # Get or create the setting
+    setting, created = SiteSetting.objects.get_or_create(
+        key='2fa_policy_mode',
+        defaults={
+            'display_name': '2FA Policy Mode',
+            'description': 'Global policy for requiring two-factor authentication',
+            'category': 'security',
+            'setting_type': 'string',
+            'value': policy,
+            'default_value': 'none',
+        }
+    )
+
+    if not created:
+        setting.value = policy
+        setting.last_modified_by = actor.get_display_name()
+        setting.save()
+
+    # Log the change
+    ActivityLog.log_activity(
+        action_type='other',
+        user=actor,
+        description=f'Updated 2FA policy to: {policy}',
+        request=request,
+        object_type='SiteSetting',
+        object_id=setting.id,
+        object_repr=f'2fa_policy_mode={policy}'
+    )
+    return True
 
 
 @require_admin_v2_auth
@@ -172,38 +234,8 @@ def update_two_factor_policy(request):
         data = json.loads(request.body)
         policy = data.get('policy')
 
-        valid_policies = ['none', 'admins_only', 'officers_and_admins', 'all_members', 'custom']
-        if policy not in valid_policies:
+        if not set_two_factor_policy(request, request.user, policy):
             return JsonResponse({'success': False, 'error': 'Invalid policy'}, status=400)
-
-        # Get or create the setting
-        setting, created = SiteSetting.objects.get_or_create(
-            key='2fa_policy_mode',
-            defaults={
-                'display_name': '2FA Policy Mode',
-                'description': 'Global policy for requiring two-factor authentication',
-                'category': 'security',
-                'setting_type': 'string',
-                'value': policy,
-                'default_value': 'none',
-            }
-        )
-
-        if not created:
-            setting.value = policy
-            setting.last_modified_by = request.user.get_display_name()
-            setting.save()
-
-        # Log the change
-        ActivityLog.log_activity(
-            action_type='other',
-            user=request.user,
-            description=f'Updated 2FA policy to: {policy}',
-            request=request,
-            object_type='SiteSetting',
-            object_id=setting.id,
-            object_repr=f'2fa_policy_mode={policy}'
-        )
 
         return JsonResponse({'success': True, 'policy': policy})
 

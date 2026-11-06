@@ -21,7 +21,7 @@ the website's own code (src/view/change_password.py, src/view/session_viewer.py)
   browser session and every other app install (``end_other_sessions``), this
   install kept.
 
-Two-factor setup stays on the website; passkeys are views_passkeys.py (v4.4.3).
+Two-factor is views_two_factor.py; passkeys are views_passkeys.py (v4.4.3).
 """
 from django.contrib.auth.forms import PasswordChangeForm
 from django.shortcuts import get_object_or_404

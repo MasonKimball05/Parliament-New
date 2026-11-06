@@ -8,7 +8,7 @@ from django.utils import timezone
 from django.db.models import Q
 
 from src.committee_management import (
-    attendance_members, can_mark_committee_attendance, mark_committee_attendance, todays_attendance,
+    attendance_history, attendance_members, can_mark_committee_attendance, mark_committee_attendance, todays_attendance,
 )
 from src.models import Committee, Attendance, ParliamentUser, ActivityLog, CommitteePermissions
 from src.decorators import officer_required
@@ -87,22 +87,15 @@ def committee_attendance_history(request, code):
     """
     committee = get_object_or_404(Committee, code=code)
 
-    # Get all attendance records for this committee
-    attendance_records = Attendance.objects.filter(
-        committee=committee,
-        attendance_type='committee'
-    ).select_related('user', 'marked_by').defer(*member_defer('user', 'marked_by')).order_by('-date', 'user__name')
-
-    # Group by date
-    attendance_by_date = {}
-    for record in attendance_records:
-        if record.date not in attendance_by_date:
-            attendance_by_date[record.date] = []
-        attendance_by_date[record.date].append(record)
-
     context = {
         'committee': committee,
-        'attendance_by_date': dict(sorted(attendance_by_date.items(), reverse=True)),
+        # src/committee_management.attendance_history, shared with the app.
+        # 11-06-26: each day with its present count; "Total Present" was the
+        # number of records, whatever their status.
+        'attendance_days': [
+            {'date': day, 'records': records, 'present_n': sum(1 for r in records if r.status == 'present')}
+            for day, records in attendance_history(committee).items()
+        ],
     }
 
     return render(request, 'committee/attendance_history.html', context)

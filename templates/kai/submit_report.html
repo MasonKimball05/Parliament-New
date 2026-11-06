@@ -3,7 +3,7 @@
 {% block title %}Submit Kai Report{% endblock %}
 
 {% block content %}
-<div class="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 py-10 transition-colors duration-200">
+<div class="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 py-10 transition-colors duration-200{% if ui_refresh %} rf-mp rf-kai-submit{% endif %}">
   <div class="max-w-4xl mx-auto px-4">
     <!-- Header -->
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-6 transition-colors duration-200">

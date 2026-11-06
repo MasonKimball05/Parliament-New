@@ -1,0 +1,31 @@
+{% comment %}
+Website refresh (src/ui_refresh.py): "Submit New Excuse" as the app's
+Excuses screen asks it ("Ask to be excused"): a section title with the
+count, then one grouped card, a row per event with its date block, title,
+when and where, the deadline, and a Submit Excuse button. Same events,
+links and wording as the cards it replaces in my_excuses.html.
+{% endcomment %}
+<div class="rf-exc-available">
+    <div class="rf-section-title">
+        <h2>Submit New Excuse</h2>
+        <span class="rf-row-trailing">{{ available_events|length }} event{{ available_events|length|pluralize }}</span>
+    </div>
+    <div class="rf-card">
+        {% for event in available_events %}
+        <div class="rf-row rf-exc-event">
+            <span class="rf-date" aria-hidden="true">
+                <span class="rf-date-month">{{ event.date_time|date:"M" }}</span>
+                <span class="rf-date-day">{{ event.date_time|date:"j" }}</span>
+            </span>
+            <span class="rf-row-body">
+                <span class="rf-row-title">{{ event.title }}</span>
+                <span class="rf-row-sub">{{ event.date_time|date:"l, M j, Y" }} at {{ event.date_time|date:"g:i A" }}{% if event.location %} · {{ event.location }}{% endif %}</span>
+                <span class="rf-row-sub rf-exc-deadline{% if event.excuse_deadline %} is-set{% endif %}">Deadline: {% if event.excuse_deadline %}{{ event.excuse_deadline|date:"M j, g:i A" }}{% else %}Event time{% endif %}</span>
+                {% if event.description %}<span class="rf-row-sub rf-exc-desc">{{ event.description|truncatewords:20 }}</span>{% endif %}
+                {% if not event.requires_attendance %}<span class="rf-row-pills"><span class="rf-chip is-accent">Optional Attendance</span></span>{% endif %}
+            </span>
+            <a href="{% url 'submit_excuse' event.id %}" class="rf-btn rf-exc-submit">Submit Excuse</a>
+        </div>
+        {% endfor %}
+    </div>
+</div>

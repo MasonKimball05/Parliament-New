@@ -5,7 +5,7 @@
 
 {% block content %}
 {% include "components/page_guide.html" with page_key="my_excuses" guide_title="My Excuses" guide_icon="📋" guide_body="Submit an excuse here if you can&#39;t make it to a chapter event. Officers review excuses and mark them as approved or denied. Submit early — excuses submitted after the event may not be accepted. You can track the status of your past excuses here too." %}
-<div class="container mx-auto px-4 py-8 max-w-5xl">
+<div class="container mx-auto px-4 py-8 max-w-5xl{% if ui_refresh %} rf-mp rf-exc{% endif %}">
     <!-- Header -->
     <div class="bg-gradient-to-br from-primary-600 via-primary-700 to-primary-800 rounded-xl shadow-lg p-4 sm:p-5 mb-6 text-white relative overflow-hidden">
         <div class="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-yellow-400/60 to-transparent pointer-events-none"></div>
@@ -29,7 +29,7 @@
 
     <!-- Status Summary Cards -->
     {% if my_excuses %}
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8{% if ui_refresh %} rf-exc-counts{% endif %}">
         <div class="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-xl p-4">
             <div class="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{{ excuse_counts.pending }}</div>
             <div class="text-sm text-yellow-700 dark:text-yellow-300">Pending</div>
@@ -51,7 +51,7 @@
 
     <!-- Available Events Section -->
     {% if available_events %}
-    <div class="mb-10">
+    {% if ui_refresh %}{% include "excuses_refresh/_available.html" %}{% else %}<div class="mb-10">
         <div class="flex items-center justify-between mb-4">
             <h3 class="text-xl font-semibold text-gray-900 dark:text-white flex items-center">
                 <svg class="w-5 h-5 mr-2 text-primary-600 dark:text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -114,11 +114,11 @@
             </div>
             {% endfor %}
         </div>
-    </div>
+    </div>{% endif %}{# /rf #}
     {% endif %}
 
     <!-- My Requests Section -->
-    <div>
+    {% if ui_refresh %}{% include "excuses_refresh/_requests.html" %}{% else %}<div>
         <div class="flex items-center justify-between mb-4">
             <h3 class="text-xl font-semibold text-gray-900 dark:text-white flex items-center">
                 <svg class="w-5 h-5 mr-2 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -283,11 +283,11 @@
             {% endif %}
         </div>
         {% endif %}
-    </div>
+    </div>{% endif %}{# /rf #}
 
     {% if not available_events and not my_excuses %}
     <!-- No Events Available -->
-    <div class="bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-800 rounded-xl p-12 text-center">
+    <div class="bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-800 rounded-xl p-12 text-center{% if ui_refresh %} rf-exc-none{% endif %}">
         <div class="w-16 h-16 mx-auto mb-4 bg-primary-100 dark:bg-primary-900/50 rounded-full flex items-center justify-center">
             <svg class="w-8 h-8 text-primary-500 dark:text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>

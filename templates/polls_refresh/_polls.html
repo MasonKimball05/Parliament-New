@@ -1,0 +1,74 @@
+{% comment %}
+Website refresh (src/ui_refresh.py): Polls as the app's Polls screen lists
+them: "Open" and "Closed" section titles with their counts, each a grouped
+card with a row per poll (its announcement, title, pills for responded /
+anonymous, when it closes) and the Take Poll / Edit Response button. Same
+polls, links and wording as the cards it replaces in polls.html.
+{% endcomment %}
+<div class="rf-section-title">
+    <h2><span class="rf-polls-dot is-open" aria-hidden="true"></span>Open Polls <span class="rf-polls-count">({{ open_polls|length }})</span></h2>
+</div>
+{% if open_polls %}
+<div class="rf-card">
+    {% for entry in open_polls %}
+    <div class="rf-row rf-poll-row">
+        <span class="rf-tile is-blue" aria-hidden="true">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+        </span>
+        <span class="rf-row-body">
+            <span class="rf-poll-from">From: {{ entry.announcement.title }}</span>
+            <span class="rf-row-title">{{ entry.poll.title }}</span>
+            <span class="rf-row-pills">
+                {% if entry.responded %}
+                <span class="rf-chip is-success">Responded</span>
+                {% else %}
+                <span class="rf-chip is-warning">Not yet answered</span>
+                {% endif %}
+                {% if entry.poll.is_anonymous %}
+                <span class="rf-chip">Anonymous</span>
+                {% endif %}
+                {% if entry.poll.closes_at %}
+                <span class="rf-poll-closes">Closes {{ entry.poll.closes_at|date:"M d, g:i A" }}</span>
+                {% endif %}
+            </span>
+        </span>
+        <a href="{% url 'take_poll' entry.announcement.id %}" class="rf-btn rf-poll-btn{% if entry.responded %} is-secondary{% endif %}">{% if entry.responded %}Edit Response{% else %}Take Poll{% endif %}</a>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="rf-card rf-empty">
+    <p class="rf-empty-sub">No open polls right now — check back later.</p>
+</div>
+{% endif %}
+
+<div class="rf-section-title rf-polls-closed-title">
+    <h2><span class="rf-polls-dot" aria-hidden="true"></span>Closed Polls <span class="rf-polls-count">({{ closed_polls|length }})</span></h2>
+</div>
+{% if closed_polls %}
+<div class="rf-card">
+    {% for entry in closed_polls %}
+    <div class="rf-row rf-poll-row is-closed">
+        <span class="rf-tile is-gray" aria-hidden="true">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+        </span>
+        <span class="rf-row-body">
+            <span class="rf-poll-from">From: {{ entry.announcement.title }}</span>
+            <span class="rf-row-title">{{ entry.poll.title }}</span>
+            <span class="rf-row-pills">
+                {% if entry.responded %}
+                <span class="rf-chip is-success">You responded</span>
+                {% else %}
+                <span class="rf-chip">You didn't respond</span>
+                {% endif %}
+            </span>
+        </span>
+        <span class="rf-chip rf-poll-closed">Closed</span>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="rf-card rf-empty">
+    <p class="rf-empty-sub">No closed polls yet.</p>
+</div>
+{% endif %}

@@ -23,6 +23,7 @@ from src.mobile import views_legislation_drafts
 from src.mobile import views_qr
 from src.mobile import views_legislation_manage
 from src.mobile import views_committee_management
+from src.mobile import views_landing_page
 from src.mobile import views_kai_filing
 from src.mobile import views_officer_roles
 from src.mobile import views_education_manage
@@ -34,10 +35,12 @@ from src.mobile import views_guide, views_study_hours
 from src.mobile import views_account_security, views_cnb_manage
 from src.mobile import views_cnb_resolutions
 from src.mobile import views_passkeys
+from src.mobile import views_two_factor
 from src.mobile import views_slating_apply, views_slating_committee
 from src.mobile import views_slating_setup
 from src.mobile import views_slating_slate
 from src.mobile import views_service_admin
+from src.mobile import views_form_builder
 from src.mobile import views_document_manage, views_member_admin, views_songbook_manage
 from src.mobile import views_chat_channels
 from src.mobile import views_committee_settings
@@ -47,6 +50,8 @@ from src.mobile import views_officer_logs
 from src.mobile import views_site_admin
 from src.mobile import views_site_admin_ops
 from src.mobile import views_site_admin_logs
+from src.mobile import views_site_admin_config
+from src.mobile import views_site_admin_security, views_site_admin_tools
 
 app_name = 'mobile'
 
@@ -158,6 +163,14 @@ urlpatterns = [
     path('officer/reports/', views_officer_tools.ReportListView.as_view(), name='mobile_officer_reports'),
     path('officer/reports/<int:document_id>/file/', views_officer_tools.ReportFileView.as_view(),
          name='mobile_officer_report_file'),
+    path('officer/reports/upload/', views_officer_tools.ReportUploadView.as_view(),
+         name='mobile_officer_report_upload'),
+    # Edit Landing Page (src/mobile/views_landing_page.py)
+    path('officer/landing-page/', views_landing_page.LandingPageView.as_view(), name='mobile_officer_landing_page'),
+    path('officer/landing-page/og-image/', views_landing_page.LandingOgImageView.as_view(),
+         name='mobile_officer_landing_og_image'),
+    path('officer/landing-page/photos/<int:photo_id>/image/', views_landing_page.LandingPhotoImageView.as_view(),
+         name='mobile_officer_landing_photo_image'),
     # Officer tools, batch 3 (v4.x): All Activity, houses and bigs, Kai
     # commendations, legacy resolutions.
     path('officer/activity/', views_officer_activity.OfficerActivityView.as_view(), name='mobile_officer_activity'),
@@ -683,6 +696,9 @@ urlpatterns = [
          views_committee_management.CommitteeMemberPermissionsView.as_view(), name='mobile_committee_member_permissions'),
     path('committees/<str:code>/attendance/', views_committee_management.CommitteeAttendanceView.as_view(),
          name='mobile_committee_attendance'),
+    path('committees/<str:code>/attendance/history/',
+         views_committee_management.CommitteeAttendanceHistoryView.as_view(),
+         name='mobile_committee_attendance_history'),
     path('committees/<str:code>/documents/<int:document_id>/publish/',
          views_committee_management.CommitteeDocumentPublishView.as_view(), name='mobile_committee_document_publish'),
     path('committees/<str:code>/documents/<int:document_id>/delete/',
@@ -828,6 +844,17 @@ urlpatterns = [
          name='mobile_account_sessions_revoke_all'),
     path('account/sessions/<int:session_id>/revoke/', views_account_security.SessionRevokeView.as_view(),
          name='mobile_account_session_revoke'),
+    # Two-factor authentication (views_two_factor.py, the website's code).
+    path('account/two-factor/', views_two_factor.TwoFactorStatusView.as_view(), name='mobile_account_two_factor'),
+    path('account/two-factor/setup/', views_two_factor.TwoFactorSetupView.as_view(),
+         name='mobile_account_two_factor_setup'),
+    path('account/two-factor/setup/confirm/', views_two_factor.TwoFactorSetupConfirmView.as_view(),
+         name='mobile_account_two_factor_setup_confirm'),
+    path('account/two-factor/backup-codes/regenerate/',
+         views_two_factor.TwoFactorRegenerateBackupCodesView.as_view(),
+         name='mobile_account_two_factor_regenerate'),
+    path('account/two-factor/disable/', views_two_factor.TwoFactorDisableView.as_view(),
+         name='mobile_account_two_factor_disable'),
     # v4.4.3: your passkeys (views_passkeys.py, the website's code).
     path('account/passkeys/', views_passkeys.PasskeyListView.as_view(), name='mobile_account_passkeys'),
     path('account/passkeys/register/begin/', views_passkeys.PasskeyRegisterBeginView.as_view(),
@@ -934,4 +961,82 @@ urlpatterns = [
          name='mobile_admin_admin_activity'),
     path('admin/security-notifications/', views_site_admin_logs.SecurityNotificationsView.as_view(),
          name='mobile_admin_security_notifications'),
+    # Notification schedules and site settings (src/mobile/views_site_admin_config.py)
+    path('admin/notification-schedules/', views_site_admin_config.NotificationSchedulesView.as_view(),
+         name='mobile_admin_notification_schedules'),
+    path('admin/notification-schedules/create/', views_site_admin_config.NotificationScheduleCreateView.as_view(),
+         name='mobile_admin_notification_schedule_create'),
+    path('admin/notification-schedules/<int:schedule_id>/update/',
+         views_site_admin_config.NotificationScheduleUpdateView.as_view(),
+         name='mobile_admin_notification_schedule_update'),
+    path('admin/notification-schedules/<int:schedule_id>/toggle/',
+         views_site_admin_config.NotificationScheduleToggleView.as_view(),
+         name='mobile_admin_notification_schedule_toggle'),
+    path('admin/notification-schedules/<int:schedule_id>/delete/',
+         views_site_admin_config.NotificationScheduleDeleteView.as_view(),
+         name='mobile_admin_notification_schedule_delete'),
+    path('admin/site-settings/', views_site_admin_config.SiteSettingsView.as_view(),
+         name='mobile_admin_site_settings'),
+    path('admin/site-settings/<int:setting_id>/', views_site_admin_config.SiteSettingUpdateView.as_view(),
+         name='mobile_admin_site_setting'),
+    # Admin v2 tools, reports and security pages (views_site_admin_tools.py, views_site_admin_security.py)
+    path('admin/chapter-health/', views_site_admin_tools.ChapterHealthView.as_view(),
+         name='mobile_admin_chapter_health'),
+    path('admin/system/', views_site_admin_tools.SystemView.as_view(),
+         name='mobile_admin_system'),
+    path('admin/system/clear-cache/', views_site_admin_tools.SystemClearCacheView.as_view(),
+         name='mobile_admin_system_clear_cache'),
+    path('admin/system/run-job/', views_site_admin_tools.SystemRunJobView.as_view(),
+         name='mobile_admin_system_run_job'),
+    path('admin/celery/', views_site_admin_tools.CeleryView.as_view(),
+         name='mobile_admin_celery'),
+    path('admin/backups/', views_site_admin_tools.BackupsView.as_view(),
+         name='mobile_admin_backups'),
+    path('admin/permissions/', views_site_admin_tools.PermissionsView.as_view(),
+         name='mobile_admin_permissions'),
+    path('admin/push/', views_site_admin_tools.PushView.as_view(),
+         name='mobile_admin_push'),
+    path('admin/push/preview/', views_site_admin_tools.PushPreviewView.as_view(),
+         name='mobile_admin_push_preview'),
+    path('admin/push/send/', views_site_admin_tools.PushSendView.as_view(),
+         name='mobile_admin_push_send'),
+    path('admin/push-subscriptions/', views_site_admin_tools.PushSubscriptionsView.as_view(),
+         name='mobile_admin_push_subscriptions'),
+    path('admin/push-subscriptions/<int:sub_id>/delete/', views_site_admin_tools.PushSubscriptionDeleteView.as_view(),
+         name='mobile_admin_push_subscription_delete'),
+    path('admin/push-subscriptions/clear/', views_site_admin_tools.PushSubscriptionsClearView.as_view(),
+         name='mobile_admin_push_subscriptions_clear'),
+    path('admin/notifications/', views_site_admin_tools.NotificationsView.as_view(),
+         name='mobile_admin_notifications'),
+    path('admin/notification-logs/', views_site_admin_tools.NotificationLogsView.as_view(),
+         name='mobile_admin_notification_logs'),
+    path('admin/notification-logs/<int:log_id>/', views_site_admin_tools.NotificationLogDetailView.as_view(),
+         name='mobile_admin_notification_log'),
+    path('admin/security/', views_site_admin_security.SecurityView.as_view(),
+         name='mobile_admin_security'),
+    path('admin/security/quarantine/', views_site_admin_security.QuarantineView.as_view(),
+         name='mobile_admin_quarantine'),
+    path('admin/security/quarantine/add/', views_site_admin_security.QuarantineAddView.as_view(),
+         name='mobile_admin_quarantine_add'),
+    path('admin/security/quarantine/<int:quarantine_id>/release/', views_site_admin_security.QuarantineReleaseView.as_view(),
+         name='mobile_admin_quarantine_release'),
+    path('admin/security/honeypot/', views_site_admin_security.HoneypotView.as_view(),
+         name='mobile_admin_honeypot'),
+    path('admin/security/honeypot/<int:log_id>/delete/', views_site_admin_security.HoneypotDeleteView.as_view(),
+         name='mobile_admin_honeypot_delete'),
+    path('admin/security/honeypot/clear/', views_site_admin_security.HoneypotClearView.as_view(),
+         name='mobile_admin_honeypot_clear'),
+    path('admin/security/honeypot/blacklist-all/', views_site_admin_security.HoneypotBlacklistAllView.as_view(),
+         name='mobile_admin_honeypot_blacklist_all'),
+    path('admin/security/csp/', views_site_admin_security.CSPView.as_view(),
+         name='mobile_admin_csp'),
+    path('admin/security/csp/dismiss/', views_site_admin_security.CSPDismissView.as_view(),
+         name='mobile_admin_csp_dismiss'),
+    path('admin/two-factor/', views_site_admin_security.TwoFactorView.as_view(),
+         name='mobile_admin_two_factor'),
+    path('admin/two-factor/policy/', views_site_admin_security.TwoFactorPolicyView.as_view(),
+         name='mobile_admin_two_factor_policy'),
 ]
+
+# The three form builders (Kai, service hours, slating), src/mobile/views_form_builder.py.
+urlpatterns += views_form_builder.urlpatterns

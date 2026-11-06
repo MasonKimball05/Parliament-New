@@ -542,6 +542,9 @@ class MeView(MobileAPIView):
             # passkey" offer after a password sign-in (and, by being present,
             # that this server has account/passkeys/).
             'has_passkeys': WebAuthnCredential.objects.filter(user=user).exists(),
+            # Two-factor in the app (views_two_factor.py): whether it is on, and
+            # by being present, that this server has account/two-factor/.
+            'has_2fa': user_has_device(user),
             # FeatureFlag fails OPEN for an unseeded flag, exactly as the views do.
             # No 'calendar' flag: that FeatureFlag row is dead (it never gated
             # anything; see prune_dead_feature_flags.py). The calendar's real

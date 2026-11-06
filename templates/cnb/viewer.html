@@ -4,7 +4,7 @@
 {% block title %}Constitution & Bylaws - Parliament{% endblock %}
 
 {% block content %}
-<div class="min-h-screen bg-gradient-to-br from-primary-50 to-primary-100 dark:from-gray-900 dark:to-gray-800 transition-colors duration-200">
+<div class="min-h-screen bg-gradient-to-br from-primary-50 to-primary-100 dark:from-gray-900 dark:to-gray-800 transition-colors duration-200{% if ui_refresh %} rf-mp rf-read rf-cnb{% endif %}">
 
     <!-- Banner -->
     <div class="bg-gradient-to-r from-primary-600 via-primary-700 to-primary-800 text-white py-8 shadow-lg relative overflow-hidden">

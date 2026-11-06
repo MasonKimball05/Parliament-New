@@ -36,7 +36,11 @@ permissions, attendance and document publish/delete pages.
 * ``GET|POST committees/<code>/member-permissions/`` — designations
   (``committee_member_permissions``: chairs, the VP, admins).
 * ``GET|POST committees/<code>/attendance/`` — today's committee attendance
-  (``committee_attendance``: chairs and officers).
+  (``committee_attendance``: chairs and officers). ``can_view_history`` says
+  whether the history below would open.
+* ``GET committees/<code>/attendance/history/`` — every past session's records
+  (``committee_attendance_history``: ``officer_required``, so officers and any
+  chair), with a present count per session and each member's totals.
 * ``POST committees/<code>/documents/<id>/publish/`` / ``delete/`` —
   (``toggle_document_publish`` / ``delete_committee_document``: chairs and
   members designated to manage documents).
@@ -60,6 +64,7 @@ from src.mobile.api import MobileAPIView
 from src.mobile.views_committees import _document_json, _person
 from src.models import Committee, CommitteeDocument, CommitteeLegislation, CommitteePermissions, ParliamentUser
 from src.models.users import member_defer
+from src.permissions import user_is_officer_or_chair
 from src.view.committee.member_permissions import (
     DESIGNATIONS, can_designate, can_manage_documents, can_manage_members,
 )
@@ -715,6 +720,7 @@ class CommitteeAttendanceView(MobileAPIView):
             'members': rows,
             'present_count': sum(1 for r in rows if r['present']),
             'total_members': len(rows),
+            'can_view_history': user_is_officer_or_chair(self.request.user),
         }
 
     def get(self, request, code):
@@ -727,6 +733,50 @@ class CommitteeAttendanceView(MobileAPIView):
             raise BadRequest('Send present as a list of user ids.', code='invalid_input')
         count = cm.mark_committee_attendance(committee, request.user, present, request._request)
         return Response({'updated': count, **self.payload(committee)})
+
+
+class CommitteeAttendanceHistoryView(MobileAPIView):
+    """
+    The website's Attendance History page: each date's records (who, status,
+    who marked it, when), newest first, from the same query
+    (``cm.attendance_history``). The page counts every record as "Total
+    Present"; here each session carries a count per status, and each member
+    their totals across the sessions listed.
+    """
+    web_page = 'committee_attendance_history'
+    web_page_toggle = False
+
+    def get(self, request, code):
+        if not user_is_officer_or_chair(request.user):   # @officer_required
+            raise exceptions.PermissionDenied('Officers and chairs only.', code='forbidden')
+        committee = _committee(code)
+        sessions = []
+        totals = {}
+        for day, records in cm.attendance_history(committee).items():
+            rows = []
+            for record in records:
+                person = _person(record.user)
+                rows.append({
+                    **person,
+                    'status': record.status,
+                    'status_label': record.get_status_display(),
+                    'marked_by': record.marked_by.name if record.marked_by_id else None,
+                    'marked_at': record.marked_at.isoformat() if record.marked_at else None,
+                })
+                total = totals.setdefault(record.user_id, {**person, 'present': 0, 'absent': 0,
+                                                           'excused': 0, 'late': 0, 'recorded': 0})
+                total['recorded'] += 1
+                if record.status in ('present', 'absent', 'excused', 'late'):
+                    total[record.status] += 1
+            counts = {s: sum(1 for r in rows if r['status'] == s) for s in ('present', 'absent', 'excused', 'late')}
+            sessions.append({'date': day.isoformat(), 'records': rows, 'counts': counts})
+        members = sorted(totals.values(), key=lambda m: (-m['present'], m['name'].lower()))
+        return Response({
+            'committee': {'code': committee.code, 'name': committee.name},
+            'sessions': sessions,
+            'members': members,
+            'can_mark': cm.can_mark_committee_attendance(request.user, committee),
+        })
 
 
 # ── Documents ───────────────────────────────────────────────────────────────

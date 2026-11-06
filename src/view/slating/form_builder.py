@@ -12,6 +12,9 @@ from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 import json
 from src.models import SlatingPeriod, SlatingFormField, SlatingActivity
+from src.view.form_field_builder import (
+    FieldBuilder, FieldBuilderError, add_field, remove_field, toggle_field, update_field,
+)
 from .permissions import slating_chair_required
 
 
@@ -26,7 +29,7 @@ def form_builder(request, period_id):
 
     # Warn if not in setup phase
     if period.status != 'setup':
-        messages.warning(request, 'Form can only be fully edited during setup phase. Some changes may affect existing applications.')
+        messages.warning(request, NOT_SETUP_WARNING)
 
     if request.method == 'POST':
         action = request.POST.get('action')
@@ -45,7 +48,7 @@ def form_builder(request, period_id):
         return redirect('slating_form_builder', period_id=period_id)
 
     # GET request - show form builder
-    fields = period.form_fields.filter(is_active=True).order_by('display_order')
+    fields, inactive_fields = slating_builder_fields(period)
 
     # Group by section
     sections = {}
@@ -54,9 +57,6 @@ def form_builder(request, period_id):
         if section not in sections:
             sections[section] = []
         sections[section].append(field)
-
-    # Get inactive fields
-    inactive_fields = period.form_fields.filter(is_active=False)
 
     context = {
         'period': period,
@@ -69,175 +69,105 @@ def form_builder(request, period_id):
     return render(request, 'slating/form_builder.html', context)
 
 
+def _log_change(user, action, field):
+    """The period's activity log, as the page has always written it (adds and edits only)."""
+    if action == 'add':
+        SlatingActivity.objects.create(
+            period=field.period,
+            user=user,
+            action='form_field_added',
+            details=f'Added form field: {field.label} ({field.field_type})',
+            metadata={'field_id': field.id, 'field_name': field.field_name}
+        )
+    elif action == 'update':
+        SlatingActivity.objects.create(
+            period=field.period,
+            user=user,
+            action='form_field_modified',
+            details=f'Updated form field: {field.label}',
+            metadata={'field_id': field.id}
+        )
+
+
+#: The application form's switches for the shared field editing (src/view/form_field_builder.py).
+SLATING_FIELDS = FieldBuilder(
+    model=SlatingFormField,
+    file_settings=True,
+    validation_rules=True,
+    review_flags=True,
+    log=_log_change,
+)
+
+#: The field types the page's Add Field menu offers (the model knows a few more it never shows).
+SLATING_BUILDER_TYPES = (
+    'text', 'textarea', 'number', 'decimal', 'email', 'date', 'select', 'multiselect', 'checkbox', 'radio',
+    'file', 'image', 'gpa', 'position_preference',
+)
+#: The option boxes the page shows.
+SLATING_OPTION_TYPES = ('select', 'multiselect', 'radio')
+
+#: The page's warning outside the setup stage (there is no lock: the form stays editable).
+NOT_SETUP_WARNING = 'Form can only be fully edited during setup phase. Some changes may affect existing applications.'
+
+
+def slating_builder_fields(period):
+    """``(active, inactive)``: the page lists the active ones in display order."""
+    return (period.form_fields.filter(is_active=True).order_by('display_order'),
+            period.form_fields.filter(is_active=False))
+
+
 def _handle_add_field(request, period):
     """Add a new form field."""
-    field_name = request.POST.get('field_name', '').strip().lower().replace(' ', '_')
-    label = request.POST.get('label', '').strip()
-    field_type = request.POST.get('field_type', 'text')
-
-    if not field_name or not label:
-        messages.error(request, 'Field name and label are required.')
+    try:
+        field = add_field(SLATING_FIELDS, request.POST, user=request.user,
+                          scope={'period': period}, unique_scope={'period': period})
+    except FieldBuilderError as e:
+        messages.error(request, str(e))
         return redirect('slating_form_builder', period_id=period.id)
-
-    # Check for duplicate field name
-    if period.form_fields.filter(field_name=field_name).exists():
-        messages.error(request, f'A field with name "{field_name}" already exists.')
-        return redirect('slating_form_builder', period_id=period.id)
-
-    # Build field data
-    field_data = {
-        'field_name': field_name,
-        'label': label,
-        'field_type': field_type,
-        'is_required': request.POST.get('is_required') == 'on',
-        'placeholder': request.POST.get('placeholder', ''),
-        'help_text': request.POST.get('help_text', ''),
-        'section': request.POST.get('section', ''),
-        'show_in_review': request.POST.get('show_in_review', 'on') == 'on',
-        'is_confidential': request.POST.get('is_confidential') == 'on',
-        'display_order': period.form_fields.count(),
-    }
-
-    # Handle options for select/radio/checkbox
-    if field_type in ['select', 'multiselect', 'radio', 'checkbox']:
-        options_text = request.POST.get('options', '')
-        field_data['options'] = [o.strip() for o in options_text.split('\n') if o.strip()]
-
-    # Handle file type restrictions
-    if field_type in ['file', 'image']:
-        allowed_types = request.POST.getlist('allowed_file_types')
-        if allowed_types:
-            field_data['allowed_file_types'] = allowed_types
-        try:
-            field_data['max_file_size_mb'] = int(request.POST.get('max_file_size_mb', 10))
-        except (ValueError, TypeError):
-            field_data['max_file_size_mb'] = 10
-
-    # Handle validation rules
-    validation_rules = []
-    min_length = request.POST.get('min_length')
-    max_length = request.POST.get('max_length')
-    min_value = request.POST.get('min_value')
-    max_value = request.POST.get('max_value')
-
-    if min_length:
-        try:
-            validation_rules.append({'type': 'min_length', 'value': int(min_length)})
-        except ValueError:
-            pass
-    if max_length:
-        try:
-            validation_rules.append({'type': 'max_length', 'value': int(max_length)})
-        except ValueError:
-            pass
-    if min_value:
-        try:
-            validation_rules.append({'type': 'min_value', 'value': float(min_value)})
-        except ValueError:
-            pass
-    if max_value:
-        try:
-            validation_rules.append({'type': 'max_value', 'value': float(max_value)})
-        except ValueError:
-            pass
-
-    if validation_rules:
-        field_data['validation_rules'] = validation_rules
-
-    # Create the field
-    field = SlatingFormField.objects.create(period=period, **field_data)
-
-    # Log activity
-    SlatingActivity.objects.create(
-        period=period,
-        user=request.user,
-        action='form_field_added',
-        details=f'Added form field: {label} ({field_type})',
-        metadata={'field_id': field.id, 'field_name': field_name}
-    )
-
-    messages.success(request, f'Field "{label}" added successfully.')
+    messages.success(request, f'Field "{field.label}" added successfully.')
     return redirect('slating_form_builder', period_id=period.id)
 
 
 def _handle_update_field(request, period):
     """Update an existing form field."""
-    field_id = request.POST.get('field_id')
-    field = get_object_or_404(SlatingFormField, id=field_id, period=period)
-
-    field.label = request.POST.get('label', field.label).strip()
-    field.is_required = request.POST.get('is_required') == 'on'
-    field.placeholder = request.POST.get('placeholder', '')
-    field.help_text = request.POST.get('help_text', '')
-    field.section = request.POST.get('section', '')
-    field.show_in_review = request.POST.get('show_in_review', 'on') == 'on'
-    field.is_confidential = request.POST.get('is_confidential') == 'on'
-
-    # Update options
-    if field.field_type in ['select', 'multiselect', 'radio', 'checkbox']:
-        options_text = request.POST.get('options', '')
-        field.options = [o.strip() for o in options_text.split('\n') if o.strip()]
-
-    # Update file settings
-    if field.field_type in ['file', 'image']:
-        allowed_types = request.POST.getlist('allowed_file_types')
-        if allowed_types:
-            field.allowed_file_types = allowed_types
-        try:
-            field.max_file_size_mb = int(request.POST.get('max_file_size_mb', 10))
-        except (ValueError, TypeError):
-            pass
-
-    field.save()
-
-    # Log activity
-    SlatingActivity.objects.create(
-        period=period,
-        user=request.user,
-        action='form_field_modified',
-        details=f'Updated form field: {field.label}',
-        metadata={'field_id': field.id}
-    )
-
+    field = get_object_or_404(SlatingFormField, id=request.POST.get('field_id'), period=period)
+    update_field(SLATING_FIELDS, field, request.POST, user=request.user)
     messages.success(request, f'Field "{field.label}" updated.')
     return redirect('slating_form_builder', period_id=period.id)
 
 
 def _handle_delete_field(request, period):
     """Delete (deactivate) a form field."""
-    field_id = request.POST.get('field_id')
-    field = get_object_or_404(SlatingFormField, id=field_id, period=period)
-
-    label = field.label
-
-    # Soft delete - just deactivate
-    field.is_active = False
-    field.save(update_fields=['is_active'])
-
-    messages.success(request, f'Field "{label}" removed.')
+    field = get_object_or_404(SlatingFormField, id=request.POST.get('field_id'), period=period)
+    remove_field(SLATING_FIELDS, field, user=request.user)
+    messages.success(request, f'Field "{field.label}" removed.')
     return redirect('slating_form_builder', period_id=period.id)
 
 
 def _handle_toggle_field(request, period):
     """Toggle field active status."""
-    field_id = request.POST.get('field_id')
-    field = get_object_or_404(SlatingFormField, id=field_id, period=period)
-
-    field.is_active = not field.is_active
-    field.save(update_fields=['is_active'])
-
-    status = 'activated' if field.is_active else 'deactivated'
-    messages.success(request, f'Field "{field.label}" {status}.')
+    field = get_object_or_404(SlatingFormField, id=request.POST.get('field_id'), period=period)
+    level, message = toggle_field(SLATING_FIELDS, field)
+    getattr(messages, level)(request, message)
     return redirect('slating_form_builder', period_id=period.id)
 
 
 def _handle_add_default_fields(request, period):
     """Add default form fields for a standard officer application."""
+    level, message = add_default_fields(period, request.user)
+    getattr(messages, level)(request, message)
+    return redirect('slating_form_builder', period_id=period.id)
 
+
+def add_default_fields(period, user):
+    """
+    The page's "Add default fields": the standard officer application, only
+    onto a form with no active fields (a previously deleted default comes
+    back). ``(level, message)`` as the page flashes it.
+    """
     # Check if active fields already exist
     if period.form_fields.filter(is_active=True).exists():
-        messages.warning(request, 'This form already has fields. Default fields were not added to avoid duplicates.')
-        return redirect('slating_form_builder', period_id=period.id)
+        return 'warning', 'This form already has fields. Default fields were not added to avoid duplicates.'
 
     # Default fields for officer applications
     default_fields = [
@@ -340,21 +270,19 @@ def _handle_add_default_fields(request, period):
             reactivated_count += 1
 
     # Log activity
-    total_count = created_count + reactivated_count
     SlatingActivity.objects.create(
         period=period,
-        user=request.user,
+        user=user,
         action='form_field_added',
         details=f'Added {created_count} new, reactivated {reactivated_count} default form fields'
     )
 
     if reactivated_count > 0 and created_count > 0:
-        messages.success(request, f'Added {created_count} new fields and restored {reactivated_count} previously deleted fields.')
+        return 'success', (f'Added {created_count} new fields and restored {reactivated_count} '
+                           'previously deleted fields.')
     elif reactivated_count > 0:
-        messages.success(request, f'Restored {reactivated_count} previously deleted fields.')
-    else:
-        messages.success(request, f'Added {created_count} default fields to the form.')
-    return redirect('slating_form_builder', period_id=period.id)
+        return 'success', f'Restored {reactivated_count} previously deleted fields.'
+    return 'success', f'Added {created_count} default fields to the form.'
 
 
 @login_required

@@ -138,10 +138,10 @@
     .quote-book-page-indicator { font-size: 0.85rem; color: #6b7280; min-width: 4.5rem; text-align: center; }
 </style>
 
-<div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+<div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8{% if ui_refresh %} rf-mp rf-quotes{% endif %}">
 
     <!-- Page Header -->
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-6">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-6{% if ui_refresh %} rf-quotes-head{% endif %}">
         <div class="flex items-center justify-between flex-wrap gap-4">
             <div class="flex items-center gap-4">
                 <div class="w-12 h-12 sm:w-14 sm:h-14 bg-pink-100 dark:bg-pink-900/30 rounded-full flex items-center justify-center">

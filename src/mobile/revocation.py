@@ -26,6 +26,12 @@ Receivers are connected on import; ``src/signals.py`` imports this module.
 Note: regenerating backup codes deletes the old StaticDevice, so it signs the
 app out too. That's on purpose — old codes are usually regenerated because they
 may have been seen.
+
+From the app's own Two-factor screen (src/mobile/views_two_factor.py), turning
+2FA off or regenerating codes keeps the install that asked, as a password
+change does: ``src/view/two_factor._delete_devices`` tags each deleted device
+with ``_keep_mobile_device_id`` and the receivers below spare it. Every other
+install is signed out. The website passes nothing, so it signs out every app.
 """
 import logging
 
@@ -76,13 +82,15 @@ def _totp_deleted(sender, instance, **kwargs):
     # An unconfirmed device is a half-finished setup that never protected
     # anything; deleting one isn't a security event.
     if instance.confirmed:
-        revoke_user_devices(instance.user_id, 'authenticator removed')
+        revoke_user_devices(instance.user_id, 'authenticator removed',
+                            except_device_id=getattr(instance, '_keep_mobile_device_id', None))
 
 
 @receiver(post_delete, sender=StaticDevice, dispatch_uid='mobile_revoke_on_static_delete')
 def _static_deleted(sender, instance, **kwargs):
     if instance.confirmed:
-        revoke_user_devices(instance.user_id, 'backup codes removed')
+        revoke_user_devices(instance.user_id, 'backup codes removed',
+                            except_device_id=getattr(instance, '_keep_mobile_device_id', None))
 
 
 @receiver(post_delete, sender=WebAuthnCredential, dispatch_uid='mobile_revoke_on_passkey_delete')

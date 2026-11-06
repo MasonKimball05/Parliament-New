@@ -4,7 +4,7 @@
 {% block title %}Add a Quote - Quote Book{% endblock %}
 
 {% block content %}
-<div class="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+<div class="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8{% if ui_refresh %} rf-mp rf-quote-form{% endif %}">
     <!-- Breadcrumb -->
     {% url 'quote_book' as quote_book_url %}
     {% include 'includes/breadcrumbs.html' with back_url=quote_book_url back_label='Quote Book' current='Add a Quote' %}

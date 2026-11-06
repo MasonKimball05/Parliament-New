@@ -15,6 +15,13 @@ data and rules:
   ``POST officer/contact/read-all/`` mark them read.
 * ``GET officer/reports/`` — ``view_all_reports``: every committee document,
   published or not, newest first; ``GET officer/reports/<id>/file/`` serves one.
+* ``GET|POST officer/reports/upload/`` — ``upload_report``: the form's choices
+  (committees, document types, the file input's ``accept`` list, the size
+  limit); multipart ``{file, title, committee?, document_type, description?,
+  meeting_date? (YYYY-MM-DD), published_to_chapter? ("true")}`` saves through
+  the page's own ``create_officer_report`` (``validate_uploaded_file`` and
+  ``CommitteeDocumentForm``). 201 ``{document, message}``; a refused file or
+  field is 400 ``invalid_input`` naming the problem. ``officer_required``.
 
 Contact messages and reports follow ``officer_or_advisor_required`` (advisors
 too), like the web; the rest ``officer_required`` (officers and chairs).
@@ -27,15 +34,18 @@ from django.http import FileResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import exceptions
+from rest_framework.parsers import JSONParser, MultiPartParser
 from rest_framework.response import Response
 
 from src.feature_flag_decorators import check_feature_enabled
+from src.forms import CommitteeDocumentForm
 from src.mobile.api import MobileAPIView
 from src.mobile.views_directory import photo_path
 from src.models import CommitteeDocument, ContactSubmission, Event, ParliamentUser
 from src.models.users import member_defer
 from src.permissions import user_is_officer_or_chair
 from src.utils.content_disposition import apply_disposition
+from src.view.officer.upload_report import ReportRefused, create_officer_report, report_uploaded_message
 
 
 class _Officers(MobileAPIView):
@@ -210,6 +220,31 @@ class ContactReadAllView(_OfficersAndAdvisors):
 REPORT_LIMIT = 500
 
 
+def _report_json(d):
+    return {
+        'id': d.id,
+        'title': d.title,
+        'description': d.description or '',
+        'type': d.document_type,
+        'type_label': d.get_document_type_display(),
+        'committee': d.committee.name if d.committee_id else None,
+        'uploaded_at': d.uploaded_at.isoformat() if d.uploaded_at else None,
+        'uploaded_by': d.uploaded_by.get_display_name() if d.uploaded_by_id else '',
+        'published': d.published_to_chapter,
+        'file_name': os.path.basename(d.document.name) if d.document else '',
+        'extension': os.path.splitext(d.document.name)[1].lstrip('.').lower() if d.document else '',
+        'file': f'officer/reports/{d.id}/file/',
+    }
+
+
+def _str(value):
+    return '' if value is None else str(value)
+
+
+class BadRequest(exceptions.APIException):
+    status_code = 400
+
+
 class ReportListView(_OfficersAndAdvisors):
     web_page = 'view_all_reports'
 
@@ -218,20 +253,7 @@ class ReportListView(_OfficersAndAdvisors):
                 .defer(*member_defer('uploaded_by')).order_by('-uploaded_at')[:REPORT_LIMIT])
         totals = dict(CommitteeDocument.objects.values_list('document_type').annotate(n=Count('pk')))
         return Response({
-            'documents': [{
-                'id': d.id,
-                'title': d.title,
-                'description': d.description or '',
-                'type': d.document_type,
-                'type_label': d.get_document_type_display(),
-                'committee': d.committee.name if d.committee_id else None,
-                'uploaded_at': d.uploaded_at.isoformat() if d.uploaded_at else None,
-                'uploaded_by': d.uploaded_by.get_display_name() if d.uploaded_by_id else '',
-                'published': d.published_to_chapter,
-                'file_name': os.path.basename(d.document.name) if d.document else '',
-                'extension': os.path.splitext(d.document.name)[1].lstrip('.').lower() if d.document else '',
-                'file': f'officer/reports/{d.id}/file/',
-            } for d in docs],
+            'documents': [_report_json(d) for d in docs],
             'totals': totals,
             'truncated': sum(totals.values()) > len(docs),
         })
@@ -254,6 +276,48 @@ class ReportFileView(_OfficersAndAdvisors):
         apply_disposition(response, content_type, name)
         response['Cache-Control'] = 'private, no-store'
         return response
+
+
+#: The Upload Report page's file input ``accept`` list (CommitteeDocumentForm).
+REPORT_UPLOAD_EXTENSIONS = ['.pdf', '.docx', '.doc', '.xlsx', '.xls', '.pptx', '.ppt',
+                            '.txt', '.md', '.rtf', '.csv', '.log', '.json', '.xml']
+#: CommitteeDocumentForm.clean_document's limit.
+REPORT_MAX_BYTES = 20 * 1024 * 1024
+
+
+class ReportUploadView(_Officers):
+    web_page = 'upload_report'
+    parser_classes = [JSONParser, MultiPartParser]
+
+    def get(self, request):
+        form = CommitteeDocumentForm()
+        return Response({
+            'committees': [{'id': c.id, 'name': c.name} for c in form.fields['committee'].queryset.order_by('name')],
+            'types': [{'value': v, 'label': label} for v, label in CommitteeDocument.DOCUMENT_TYPES],
+            'extensions': REPORT_UPLOAD_EXTENSIONS,
+            'max_bytes': REPORT_MAX_BYTES,
+        })
+
+    def post(self, request):
+        data = request.data
+        upload = request.FILES.get('file')
+        if upload is None:
+            raise BadRequest('Choose a file to upload.', code='invalid_input')
+        fields = {
+            'title': _str(data.get('title')).strip(),
+            'committee': _str(data.get('committee')).strip(),
+            'document_type': _str(data.get('document_type')).strip() or 'general',
+            'description': _str(data.get('description')),
+            'meeting_date': _str(data.get('meeting_date')).strip(),
+        }
+        if _str(data.get('published_to_chapter')).lower() == 'true':
+            fields['published_to_chapter'] = 'on'
+        try:
+            document = create_officer_report(request.user, fields, {'document': upload})
+        except ReportRefused as refused:
+            raise BadRequest(refused.detail, code='invalid_input')
+        return Response({'document': _report_json(document), 'message': report_uploaded_message(document)},
+                        status=201)
 
 
 # ── Attendance dashboard ─────────────────────────────────────────────────────

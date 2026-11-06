@@ -1,6 +1,5 @@
 from django import forms
 from django.conf import settings
-import magic  # python-magic for MIME type detection
 
 from src.models import CommitteeDocument
 
@@ -72,37 +71,20 @@ class CommitteeDocumentForm(forms.ModelForm):
             if file.size > 20 * 1024 * 1024:
                 raise forms.ValidationError('File size must not exceed 20 MB.')
 
-            # Check MIME type to prevent file extension spoofing
+            # 11-06-26: the shared check (src/utils/file_validation.py), as the Kai
+            # form uses since v4.4.2. `magic.from_buffer(first 2 KB)` can't name a
+            # Word or Excel file saved by Office (libmagic says zip or octet-stream),
+            # so real .docx/.xlsx uploads were refused. The extension list above
+            # still narrows what's allowed; this checks the content matches it.
+            from django.core.files.uploadedfile import UploadedFile
+            from src.utils.file_validation import validate_uploaded_file
             try:
-                mime = magic.from_buffer(file.read(2048), mime=True)
-                file.seek(0)  # Reset file pointer
-
-                allowed_mimes = getattr(settings, 'ALLOWED_DOCUMENT_TYPES', [
-                    'application/pdf',
-                    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-                    'application/msword',
-                    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                    'application/vnd.ms-excel',
-                    'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-                    'application/vnd.ms-powerpoint',
-                    'text/plain',
-                    'text/markdown',
-                    'text/csv',
-                    'application/csv',
-                    'application/rtf',
-                    'text/rtf',
-                    'text/x-log',
-                    'application/json',
-                    'application/xml',
-                    'text/xml',
-                ])
-
-                if mime not in allowed_mimes:
-                    raise forms.ValidationError(
-                        f'Invalid file type detected: {mime}. Please upload a valid document.'
-                    )
-            except Exception as e:
-                # If MIME detection fails, reject the upload for security
+                # Only a new upload: a file already stored was checked when it came in.
+                if isinstance(file, UploadedFile):
+                    validate_uploaded_file(file)
+            except forms.ValidationError:
+                raise
+            except Exception:
                 raise forms.ValidationError('Unable to verify file type. Please try again.')
 
         return file

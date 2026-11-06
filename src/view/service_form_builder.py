@@ -15,6 +15,9 @@ import logging
 
 from src.models import ServiceFormField
 from src.decorators import vpp_required
+from src.view.form_field_builder import (
+    FieldBuilder, FieldBuilderError, add_field, apply_field_order, remove_field, toggle_field, update_field,
+)
 
 logger = logging.getLogger('function_calls')
 
@@ -112,6 +115,10 @@ def _ensure_builtin_fields():
         ServiceFormField.objects.bulk_create(missing, ignore_conflicts=True)
 
 
+#: For the app's builder (src/mobile/views_form_builder.py), which seeds them as the page does.
+ensure_builtin_fields = _ensure_builtin_fields
+
+
 @vpp_required
 def service_form_builder(request):
     """
@@ -139,11 +146,7 @@ def service_form_builder(request):
     # `sections` and again by the template, and the active/inactive split was a
     # second SELECT — six queries on one small table. One fetch, split in
     # Python.
-    all_fields = list(
-        ServiceFormField.objects.all().order_by('display_order', 'section')
-    )
-    fields = [f for f in all_fields if f.is_active]
-    inactive_fields = [f for f in all_fields if not f.is_active]
+    fields, inactive_fields = service_builder_fields()
 
     # Group by section
     sections = {}
@@ -163,103 +166,66 @@ def service_form_builder(request):
     return render(request, 'service_hours/form_builder.html', context)
 
 
+def _log_change(user, action, field):
+    verb = {'add': 'added', 'update': 'updated', 'remove': 'deleted'}[action]
+    suffix = f' ({field.field_type})' if action == 'add' else ''
+    logger.info(f"{user.username} {verb} service form field: {field.label}{suffix}")
+
+
+#: The service hours form's switches for the shared field editing (src/view/form_field_builder.py).
+SERVICE_FIELDS = FieldBuilder(
+    model=ServiceFormField,
+    tracks_creator=True,
+    builtin_remove_message='Built-in fields cannot be deleted.',
+    log=_log_change,
+)
+
+#: The option boxes the page shows (checkbox included: a group of checkboxes).
+SERVICE_OPTION_TYPES = ('select', 'multiselect', 'radio', 'checkbox')
+
+
+def service_builder_fields():
+    """``(active, inactive)`` as the page lists them, by display order then section. One query."""
+    all_fields = list(ServiceFormField.objects.all().order_by('display_order', 'section'))
+    return [f for f in all_fields if f.is_active], [f for f in all_fields if not f.is_active]
+
+
 def _handle_add_field(request):
     """Add a new form field."""
-    field_name = request.POST.get('field_name', '').strip().lower().replace(' ', '_')
-    label = request.POST.get('label', '').strip()
-    field_type = request.POST.get('field_type', 'text')
-
-    if not field_name or not label:
-        messages.error(request, 'Field name and label are required.')
+    try:
+        field = add_field(SERVICE_FIELDS, request.POST, user=request.user)
+    except FieldBuilderError as e:
+        messages.error(request, str(e))
         return redirect('service_form_builder')
-
-    # Check for duplicate field name
-    if ServiceFormField.objects.filter(field_name=field_name).exists():
-        messages.error(request, f'A field with name "{field_name}" already exists.')
-        return redirect('service_form_builder')
-
-    # Build field data
-    field_data = {
-        'field_name': field_name,
-        'label': label,
-        'field_type': field_type,
-        'is_required': request.POST.get('is_required') == 'on',
-        'placeholder': request.POST.get('placeholder', ''),
-        'help_text': request.POST.get('help_text', ''),
-        'section': request.POST.get('section', ''),
-        'display_order': ServiceFormField.objects.count(),
-        'created_by': request.user,
-    }
-
-    # Handle options for select/radio/checkbox
-    if field_type in ['select', 'multiselect', 'radio', 'checkbox']:
-        options_text = request.POST.get('options', '')
-        options_list = [o.strip() for o in options_text.split('\n') if o.strip()]
-        field_data['options'] = options_list
-
-    # Create the field
-    field = ServiceFormField.objects.create(**field_data)
-
-    logger.info(f"{request.user.username} added service form field: {label} ({field_type})")
-    messages.success(request, f'Field "{label}" added successfully.')
+    messages.success(request, f'Field "{field.label}" added successfully.')
     return redirect('service_form_builder')
 
 
 def _handle_update_field(request):
     """Update an existing form field."""
-    field_id = request.POST.get('field_id')
-    field = get_object_or_404(ServiceFormField, id=field_id)
-
-    field.label = request.POST.get('label', field.label).strip()
-    field.is_required = request.POST.get('is_required') == 'on'
-    field.placeholder = request.POST.get('placeholder', '')
-    field.help_text = request.POST.get('help_text', '')
-    field.section = request.POST.get('section', '')
-
-    # Update options (for select/radio/checkbox)
-    if field.field_type in ['select', 'multiselect', 'radio', 'checkbox']:
-        options_text = request.POST.get('options', '')
-        options_list = [o.strip() for o in options_text.split('\n') if o.strip()]
-        field.options = options_list
-
-    field.save()
-
-    logger.info(f"{request.user.username} updated service form field: {field.label}")
+    field = get_object_or_404(ServiceFormField, id=request.POST.get('field_id'))
+    update_field(SERVICE_FIELDS, field, request.POST, user=request.user)
     messages.success(request, f'Field "{field.label}" updated.')
     return redirect('service_form_builder')
 
 
 def _handle_delete_field(request):
-    """Delete (deactivate) a form field."""
-    field_id = request.POST.get('field_id')
-    field = get_object_or_404(ServiceFormField, id=field_id)
-
-    # Prevent deleting built-in fields
-    if field.is_builtin:
-        messages.error(request, 'Built-in fields cannot be deleted.')
+    """Delete (deactivate) a form field. Built-in fields cannot be deleted."""
+    field = get_object_or_404(ServiceFormField, id=request.POST.get('field_id'))
+    try:
+        remove_field(SERVICE_FIELDS, field, user=request.user)
+    except FieldBuilderError as e:
+        messages.error(request, str(e))
         return redirect('service_form_builder')
-
-    label = field.label
-
-    # Soft delete - just deactivate
-    field.is_active = False
-    field.save()
-
-    logger.info(f"{request.user.username} deleted service form field: {label}")
-    messages.success(request, f'Field "{label}" removed.')
+    messages.success(request, f'Field "{field.label}" removed.')
     return redirect('service_form_builder')
 
 
 def _handle_toggle_field(request):
     """Toggle field active status (reactivate a deleted field)."""
-    field_id = request.POST.get('field_id')
-    field = get_object_or_404(ServiceFormField, id=field_id)
-
-    field.is_active = not field.is_active
-    field.save()
-    status = 'activated' if field.is_active else 'deactivated'
-    messages.success(request, f'Field "{field.label}" {status}.')
-
+    field = get_object_or_404(ServiceFormField, id=request.POST.get('field_id'))
+    level, message = toggle_field(SERVICE_FIELDS, field)
+    getattr(messages, level)(request, message)
     return redirect('service_form_builder')
 
 
@@ -276,9 +242,7 @@ def reorder_service_fields(request):
 
         order_data = json.loads(request.POST.get('order', '[]'))
 
-        # Update order
-        for idx, field_id in enumerate(order_data):
-            ServiceFormField.objects.filter(id=field_id).update(display_order=idx)
+        apply_field_order(ServiceFormField.objects.all(), order_data)
 
         return JsonResponse({'status': 'success'})
 

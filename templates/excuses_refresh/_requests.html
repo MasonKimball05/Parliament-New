@@ -1,0 +1,78 @@
+{% comment %}
+Website refresh (src/ui_refresh.py): "My Requests" as the app's Excuses
+screen shows "Your requests": a card per request with the event and its
+status pill, when it was sent, your reason, the attached document, the
+officer's decision, and Cancel Request while it is pending. Same requests,
+links, cancel form (and its js-confirm-submit hook) and wording as the
+cards it replaces in my_excuses.html.
+{% endcomment %}
+<div class="rf-exc-requests">
+    <div class="rf-section-title">
+        <h2>My Requests</h2>
+    </div>
+
+    {% if my_excuses %}
+    <div class="rf-stack">
+        {% for excuse in my_excuses %}
+        <div class="rf-card rf-exc-request">
+            <div class="rf-exc-request-head">
+                <span class="rf-row-body">
+                    <span class="rf-row-title">{{ excuse.event.title }}</span>
+                    <span class="rf-row-sub">{{ excuse.event.date_time|date:"M j, Y" }} · {{ excuse.event.date_time|date:"g:i A" }}{% if excuse.event.location %} · {{ excuse.event.location }}{% endif %}</span>
+                </span>
+                {% if excuse.status == 'pending' %}
+                <span class="rf-chip is-warning">Pending Review</span>
+                {% elif excuse.status == 'approved' %}
+                <span class="rf-chip is-success">Approved</span>
+                {% elif excuse.status == 'denied' %}
+                <span class="rf-chip is-danger">Denied</span>
+                {% else %}
+                <span class="rf-chip">{{ excuse.status|title }}</span>
+                {% endif %}
+            </div>
+
+            <div class="rf-exc-reason">
+                <span class="rf-exc-label">Your Reason</span>
+                <p>{{ excuse.reason }}</p>
+            </div>
+
+            {% if excuse.supporting_document %}
+            <a href="{% url 'excuse_document' excuse.id %}" target="_blank" class="rf-exc-doc">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/></svg>
+                View Attached Document
+            </a>
+            {% endif %}
+
+            {% if excuse.status == 'approved' or excuse.status == 'denied' %}
+            <div class="rf-exc-review">
+                <p><span class="rf-exc-reviewer">{{ excuse.reviewed_by.get_display_name }}</span> {% if excuse.status == 'approved' %}approved{% else %}denied{% endif %} this request</p>
+                <p class="rf-exc-meta">{{ excuse.reviewed_at|date:"M j, Y" }} at {{ excuse.reviewed_at|date:"g:i A" }}</p>
+                {% if excuse.review_notes %}
+                <p class="rf-exc-notes">"{{ excuse.review_notes }}"</p>
+                {% endif %}
+            </div>
+            {% endif %}
+
+            <div class="rf-exc-foot">
+                <span class="rf-exc-meta">Submitted {{ excuse.submitted_at|date:"M j, Y" }}</span>
+                {% if excuse.status == 'pending' %}
+                <form method="post" action="{% url 'cancel_excuse' excuse.id %}" class="js-confirm-submit" data-confirm-msg="Are you sure you want to cancel this excuse request?">
+                    {% csrf_token %}
+                    <button type="submit" class="rf-exc-cancel">Cancel Request</button>
+                </form>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="rf-card rf-empty">
+        <svg class="rf-empty-svg" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+        <p class="rf-empty-title">No Excuse Requests Yet</p>
+        <p class="rf-empty-sub">You haven't submitted any excuse requests.</p>
+        {% if available_events %}
+        <p class="rf-empty-sub">Submit an excuse for an upcoming event above.</p>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>

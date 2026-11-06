@@ -4,9 +4,9 @@
 {% block title %}My Attendance{% endblock %}
 
 {% block content %}
-<div class="container mx-auto px-4 py-8 max-w-5xl">
+<div class="container mx-auto px-4 py-8 max-w-5xl{% if ui_refresh %} rf-mp rf-att{% endif %}">
     <!-- Header -->
-    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8{% if ui_refresh %} rf-att-head{% endif %}">
         <div>
             <h2 class="text-3xl font-bold text-gray-900 dark:text-white">My Attendance</h2>
             <p class="text-gray-600 dark:text-gray-400 mt-1">Track your attendance history and statistics</p>
@@ -27,7 +27,7 @@
     </div>
 
     <!-- Stats Cards -->
-    <div class="grid grid-cols-2 lg:grid-cols-6 gap-4 mb-8">
+    <div class="grid grid-cols-2 lg:grid-cols-6 gap-4 mb-8{% if ui_refresh %} rf-att-stats{% endif %}">
         <!-- Main Attendance Rate Card -->
         <div class="col-span-2 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
             <div class="flex items-center justify-between">
@@ -87,9 +87,9 @@
         </div>
     </div>
 
-    <div class="grid lg:grid-cols-3 gap-6 mb-8">
+    <div class="grid lg:grid-cols-3 gap-6 mb-8{% if ui_refresh %} rf-att-grid{% endif %}">
         <!-- Attendance by Event Series -->
-        <div class="lg:col-span-1 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+        <div class="lg:col-span-1 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6{% if ui_refresh %} rf-att-series{% endif %}">
             <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">By Event Series</h3>
             {% if series_stats %}
             <div class="space-y-4">
@@ -113,7 +113,7 @@
             {% endif %}
         </div>
 
-        <!-- Attendance History -->
+        {% if ui_refresh %}{% include "attendance_refresh/_history.html" %}{% else %}<!-- Attendance History -->
         <div class="lg:col-span-2 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
             <div class="p-6 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
                 <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Attendance History</h3>
@@ -186,11 +186,11 @@
                 <p class="mt-4 text-gray-500 dark:text-gray-400">No attendance records found for this period.</p>
             </div>
             {% endif %}
-        </div>
+        </div>{% endif %}{# /rf #}
     </div>
 
     <!-- Quick Tips -->
-    <div class="bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-800 rounded-xl p-6">
+    <div class="bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-800 rounded-xl p-6{% if ui_refresh %} rf-att-tips{% endif %}">
         <div class="flex items-start gap-4">
             <div class="flex-shrink-0">
                 <svg class="w-6 h-6 text-primary-600 dark:text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -305,6 +305,45 @@ def _log(request, description, object_type, object_id, object_repr, metadata=Non
         metadata=metadata, request=request)
 
 
+def clear_cache_scope(request, scope):
+    """
+    Clear one named scope (already checked to be in SCOPES) and log it:
+    (ok, message). Shared by the page and the app.
+    """
+    label, _help, clear = SCOPES[scope]
+    try:
+        clear()
+    except Exception:
+        logger.exception('admin-v2 cache clear failed: %s', scope)
+        return False, f'Could not clear "{label}". The server log has the reason.'
+    _log(request, f'{request.user.get_display_name()} cleared the cache: {label}',
+         'Cache', scope, label, {'scope': scope})
+    return True, f'Cleared "{label}". It is rebuilt from the database on the next read.'
+
+
+def run_job_now(request, task):
+    """
+    Queue one run of ``task`` now and log it: (level, message), level being
+    'success', 'warning' (queued under a minute ago) or 'error' (refused, or
+    the broker is down). Shared by the page and the app.
+    """
+    refusal = job_refusal(task)
+    if refusal:
+        return 'error', f'"{task.name}" can\'t be run from here: {refusal}'
+    if not cache.add(f'admin_v2_run_job:{task.pk}', 1, RUN_COOLDOWN_SECONDS):
+        return 'warning', f'"{task.name}" was queued less than a minute ago. Give it a moment.'
+    try:
+        task_id = queue_job(task)
+    except Exception:
+        cache.delete(f'admin_v2_run_job:{task.pk}')
+        logger.exception('admin-v2 run job failed: %s', task.task)
+        return 'error', f'Could not queue "{task.name}" (is the broker up?). The server log has the reason.'
+    _log(request, f'{request.user.get_display_name()} ran a scheduled job now: {task.name}',
+         'PeriodicTask', task.pk, task.name, {'task': task.task, 'celery_id': str(task_id)})
+    return 'success', (f'Queued "{task.name}". A worker picks it up within seconds if one is running '
+                       '(see Scheduled jobs).')
+
+
 @require_admin_v2_auth
 def admin_v2_system(request):
     rows = job_rows()
@@ -350,16 +389,8 @@ def admin_v2_system_clear_cache(request):
     if request.POST.get('confirm') != 'yes':
         messages.warning(request, 'Confirm to clear the cache.')
         return _back('cache', confirm='cache', scope=scope)
-    label, _help, clear = SCOPES[scope]
-    try:
-        clear()
-    except Exception:
-        logger.exception('admin-v2 cache clear failed: %s', scope)
-        messages.error(request, f'Could not clear "{label}". The server log has the reason.')
-        return _back('cache')
-    _log(request, f'{request.user.get_display_name()} cleared the cache: {label}',
-         'Cache', scope, label, {'scope': scope})
-    messages.success(request, f'Cleared "{label}". It is rebuilt from the database on the next read.')
+    ok, message = clear_cache_scope(request, scope)
+    (messages.success if ok else messages.error)(request, message)
     return _back('cache')
 
 
@@ -380,18 +411,6 @@ def admin_v2_system_run_job(request):
     if request.POST.get('confirm') != 'yes':
         messages.warning(request, 'Confirm to run the job.')
         return _back('jobs', confirm='job', task=task.pk)
-    if not cache.add(f'admin_v2_run_job:{task.pk}', 1, RUN_COOLDOWN_SECONDS):
-        messages.warning(request, f'"{task.name}" was queued less than a minute ago. Give it a moment.')
-        return _back('jobs')
-    try:
-        task_id = queue_job(task)
-    except Exception:
-        cache.delete(f'admin_v2_run_job:{task.pk}')
-        logger.exception('admin-v2 run job failed: %s', task.task)
-        messages.error(request, f'Could not queue "{task.name}" (is the broker up?). The server log has the reason.')
-        return _back('jobs')
-    _log(request, f'{request.user.get_display_name()} ran a scheduled job now: {task.name}',
-         'PeriodicTask', task.pk, task.name, {'task': task.task, 'celery_id': str(task_id)})
-    messages.success(request, f'Queued "{task.name}". A worker picks it up within seconds if one is running '
-                              '(see Scheduled jobs).')
+    level, message = run_job_now(request, task)
+    getattr(messages, level)(request, message)
     return _back('jobs')

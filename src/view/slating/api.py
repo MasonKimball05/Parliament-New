@@ -12,6 +12,8 @@ from src.models import (
     SlatingPeriod, SlatingPosition, SlatingFormField,
     SlatingApplication, SlatingBallot, SlatingVote, Slate
 )
+from src.view.form_field_builder import apply_field_order, toggle_field
+from .form_builder import SLATING_FIELDS
 from .permissions import slating_chair_required, slating_committee_required
 from src.models.users import member_defer
 
@@ -30,11 +32,7 @@ def reorder_fields(request, period_id):
         data = json.loads(request.body)
         field_order = data.get('field_order', [])
 
-        for index, field_id in enumerate(field_order):
-            SlatingFormField.objects.filter(
-                id=field_id,
-                period=period
-            ).update(display_order=index)
+        apply_field_order(SlatingFormField.objects.filter(period=period), field_order)
 
         return JsonResponse({'status': 'success'})
     except Exception as e:
@@ -333,8 +331,7 @@ def toggle_field_active(request, period_id, field_id):
     period = get_object_or_404(SlatingPeriod, id=period_id)
     field = get_object_or_404(SlatingFormField, id=field_id, period=period)
 
-    field.is_active = not field.is_active
-    field.save()
+    toggle_field(SLATING_FIELDS, field)
 
     return JsonResponse({
         'status': 'success',

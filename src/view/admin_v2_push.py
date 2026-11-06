@@ -255,6 +255,63 @@ def send_admin_push(request, audience, title, body, link):
     return len(recipients)
 
 
+def push_preview(user, data):
+    """
+    Check the composer form and work out who would get it: the preview dict
+    (with ``recipient_names``, the first 50, and the signed confirm ``token``).
+    Sends nothing. Raises PushFormError. Shared by the page and the app.
+    """
+    audience = parse_audience(data)
+    title, body, link = parse_message(data)
+    found = resolve_recipients(audience)
+    token = signing.dumps({'a': audience, 't': title, 'b': body, 'l': link,
+                           'u': user.pk, 'n': uuid.uuid4().hex}, salt=TOKEN_SALT)
+    return {
+        'audience_label': audience_label(audience), 'title': title, 'body': body, 'link': link,
+        'members': len(found['members']), 'opted_out': len(found['opted_out']),
+        'no_device': len(found['no_device']), 'n': len(found['recipients']),
+        'names': [m.get_display_name() for m in found['recipients'][:50]],
+        'token': token,
+    }
+
+
+def send_previewed_push(request, token):
+    """
+    Send a previewed push from its confirm token (signed, this admin's, at
+    most 15 minutes old, used once), within the master switch and the hourly
+    limit: (level, message, n sent). level is 'success', 'warning' or 'error'.
+    Shared by the page and the app.
+    """
+    try:
+        data = signing.loads(token or '', salt=TOKEN_SALT, max_age=TOKEN_MAX_AGE)
+    except signing.SignatureExpired:
+        return 'error', 'That preview is more than 15 minutes old. Preview it again.', 0
+    except signing.BadSignature:
+        return 'error', 'Preview the push first, then confirm it.', 0
+    if not isinstance(data, dict) or data.get('u') != request.user.pk:
+        return 'error', 'Preview the push first, then confirm it.', 0
+    if not push_master_on():
+        return ('error', 'Push notifications are switched off site-wide (Maintenance, '
+                         '"Push Notifications (Master)"). Nothing was sent.', 0)
+    if sends_left(request.user) <= 0:
+        return 'error', f'You can send {RATE_LIMIT} pushes an hour. Try again later.', 0
+    # One token, one send: a double click or a back-button resubmit does nothing.
+    if not cache.add(f'admin_v2_push_token_{data.get("n")}', 1, TOKEN_MAX_AGE + 60):
+        return 'warning', 'That push was already sent.', 0
+    try:
+        audience = parse_audience({'audience': data['a']['kind'], 'committee': data['a']['value'],
+                                   'member_type': data['a']['value'], 'member_status': data['a']['value'],
+                                   'user_id': data['a']['value']})
+        title, body, link = parse_message({'title': data['t'], 'body': data['b'], 'link': data['l']})
+    except (PushFormError, KeyError, TypeError) as exc:
+        return ('error', f'{exc} Nothing was sent.' if isinstance(exc, PushFormError)
+                else 'Preview the push first, then confirm it.', 0)
+    n = send_admin_push(request, audience, title, body, link)
+    if n:
+        return 'success', f'Push queued for {n} member(s). It should arrive within a minute.', n
+    return 'warning', 'Nobody in that group can get a push right now, so nothing was sent.', 0
+
+
 # ---------------------------------------------------------------- views
 
 def _context(request, form=None, preview=None, error=None):
@@ -284,20 +341,9 @@ def admin_v2_push(request):
     form = {k: (request.POST.get(k) or '') for k in
             ('audience', 'committee', 'member_type', 'member_status', 'user_id', 'title', 'body', 'link')}
     try:
-        audience = parse_audience(request.POST)
-        title, body, link = parse_message(request.POST)
+        preview = push_preview(request.user, request.POST)
     except PushFormError as exc:
         return render(request, 'admin_v2/push_composer.html', _context(request, form, error=str(exc)), status=400)
-    found = resolve_recipients(audience)
-    token = signing.dumps({'a': audience, 't': title, 'b': body, 'l': link,
-                           'u': request.user.pk, 'n': uuid.uuid4().hex}, salt=TOKEN_SALT)
-    preview = {
-        'audience_label': audience_label(audience), 'title': title, 'body': body, 'link': link,
-        'members': len(found['members']), 'opted_out': len(found['opted_out']),
-        'no_device': len(found['no_device']), 'n': len(found['recipients']),
-        'names': [m.get_display_name() for m in found['recipients'][:50]],
-        'token': token,
-    }
     return render(request, 'admin_v2/push_composer.html', _context(request, form, preview=preview))
 
 
@@ -305,40 +351,6 @@ def admin_v2_push(request):
 @require_POST
 def admin_v2_push_send(request):
     """Send a previewed push. Only with a valid, unused confirm token from this admin."""
-    try:
-        data = signing.loads(request.POST.get('token', ''), salt=TOKEN_SALT, max_age=TOKEN_MAX_AGE)
-    except signing.SignatureExpired:
-        messages.error(request, 'That preview is more than 15 minutes old. Preview it again.')
-        return redirect('admin_v2_push')
-    except signing.BadSignature:
-        messages.error(request, 'Preview the push first, then confirm it.')
-        return redirect('admin_v2_push')
-    if data.get('u') != request.user.pk:
-        messages.error(request, 'Preview the push first, then confirm it.')
-        return redirect('admin_v2_push')
-    if not push_master_on():
-        messages.error(request, 'Push notifications are switched off site-wide (Maintenance, '
-                                '"Push Notifications (Master)"). Nothing was sent.')
-        return redirect('admin_v2_push')
-    if sends_left(request.user) <= 0:
-        messages.error(request, f'You can send {RATE_LIMIT} pushes an hour. Try again later.')
-        return redirect('admin_v2_push')
-    # One token, one send: a double click or a back-button resubmit does nothing.
-    if not cache.add(f'admin_v2_push_token_{data.get("n")}', 1, TOKEN_MAX_AGE + 60):
-        messages.warning(request, 'That push was already sent.')
-        return redirect('admin_v2_push')
-    try:
-        audience = parse_audience({'audience': data['a']['kind'], 'committee': data['a']['value'],
-                                   'member_type': data['a']['value'], 'member_status': data['a']['value'],
-                                   'user_id': data['a']['value']})
-        title, body, link = parse_message({'title': data['t'], 'body': data['b'], 'link': data['l']})
-    except (PushFormError, KeyError, TypeError) as exc:
-        messages.error(request, f'{exc} Nothing was sent.' if isinstance(exc, PushFormError)
-                       else 'Preview the push first, then confirm it.')
-        return redirect('admin_v2_push')
-    n = send_admin_push(request, audience, title, body, link)
-    if n:
-        messages.success(request, f'Push queued for {n} member(s). It should arrive within a minute.')
-    else:
-        messages.warning(request, 'Nobody in that group can get a push right now, so nothing was sent.')
+    level, message, _n = send_previewed_push(request, request.POST.get('token', ''))
+    getattr(messages, level)(request, message)
     return redirect('admin_v2_push')

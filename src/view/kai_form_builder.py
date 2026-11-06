@@ -16,6 +16,9 @@ import logging
 
 from src.models import Committee, KaiFormField, KaiReportActivity
 from src.decorators import kai_chair_required
+from src.view.form_field_builder import (
+    FieldBuilder, FieldBuilderError, add_field, apply_field_order, remove_field, toggle_field, update_field,
+)
 
 logger = logging.getLogger('function_calls')
 
@@ -57,7 +60,7 @@ def kai_form_builder(request, form_type='discipline'):
         return redirect(_builder_url_name(posted_form_type))
 
     # GET request - show form builder
-    fields = KaiFormField.objects.filter(is_active=True, form_type=form_type).order_by('section', 'display_order')
+    fields, inactive_fields = kai_builder_fields(form_type)
 
     # Group by section
     sections = {}
@@ -66,9 +69,6 @@ def kai_form_builder(request, form_type='discipline'):
         if section not in sections:
             sections[section] = []
         sections[section].append(field)
-
-    # Get inactive fields (excluding built-in, which should never be inactive)
-    inactive_fields = KaiFormField.objects.filter(is_active=False, is_builtin=False, form_type=form_type)
 
     # Get Kai committee for context
     try:
@@ -93,173 +93,87 @@ def _builder_url_name(form_type):
     return 'kai_commendation_form_builder' if form_type == 'commendation' else 'kai_form_builder'
 
 
+def _log_change(user, action, field):
+    verb = {'add': 'added', 'update': 'updated', 'remove': 'deleted'}[action]
+    suffix = f' ({field.field_type})' if action == 'add' else ''
+    logger.info(f"{user.username} {verb} Kai form field: {field.label}{suffix}")
+
+
+#: The Kai forms' switches for the shared field editing (src/view/form_field_builder.py).
+#: Field names are unique across both forms (see KaiFormField's docstring).
+KAI_FIELDS = FieldBuilder(
+    model=KaiFormField,
+    options_as_dicts=True,
+    file_settings=True,
+    validation_rules=True,
+    tracks_creator=True,
+    builtin_label_locked=True,
+    builtin_toggle_locked=True,
+    log=_log_change,
+)
+
+#: The option boxes the page shows (it saves checkbox options too, but never shows the box for one).
+KAI_OPTION_TYPES = ('select', 'multiselect', 'radio')
+
+
+def kai_builder_allowed(user):
+    """``kai_chair_required``'s rule: a Kai chair or a site admin; a site admin only when there's no committee."""
+    try:
+        kai_committee = Committee.objects.get(is_kai_committee=True)
+    except Committee.DoesNotExist:
+        return bool(user.is_admin)
+    return bool(kai_committee.is_chair(user) or user.is_admin)
+
+
+def kai_builder_fields(form_type):
+    """``(active, inactive)`` as the page lists them: active by section then order; inactive non-built-in."""
+    active = KaiFormField.objects.filter(is_active=True, form_type=form_type).order_by('section', 'display_order')
+    inactive = KaiFormField.objects.filter(is_active=False, is_builtin=False, form_type=form_type)
+    return active, inactive
+
+
 def _handle_add_field(request, form_type='discipline'):
-    """Add a new form field."""
-    field_name = request.POST.get('field_name', '').strip().lower().replace(' ', '_')
-    label = request.POST.get('label', '').strip()
-    field_type = request.POST.get('field_type', 'text')
+    """Add a new form field.
 
-    if not field_name or not label:
-        messages.error(request, 'Field name and label are required.')
+    Display order is scoped to THIS form (v3.28.9): counting every field
+    regardless of form_type would give a brand-new commendation field a
+    display_order picking up wherever the (unrelated) discipline field count
+    happened to leave off. The duplicate-name check is GLOBAL across both
+    forms (field_name is unique on the model)."""
+    try:
+        field = add_field(KAI_FIELDS, request.POST, user=request.user, scope={'form_type': form_type})
+    except FieldBuilderError as e:
+        messages.error(request, str(e))
         return redirect(_builder_url_name(form_type))
-
-    # Check for duplicate field name — GLOBAL across both forms (field_name
-    # is unique on the model regardless of form_type; see KaiFormField's
-    # docstring on why that's the right scope).
-    if KaiFormField.objects.filter(field_name=field_name).exists():
-        messages.error(request, f'A field with name "{field_name}" already exists.')
-        return redirect(_builder_url_name(form_type))
-
-    # Build field data
-    field_data = {
-        'form_type': form_type,
-        'field_name': field_name,
-        'label': label,
-        'field_type': field_type,
-        'is_required': request.POST.get('is_required') == 'on',
-        'placeholder': request.POST.get('placeholder', ''),
-        'help_text': request.POST.get('help_text', ''),
-        'section': request.POST.get('section', ''),
-        # Scoped to THIS form — v3.28.9. Counting every field regardless of
-        # form_type would give a brand-new commendation field a
-        # display_order picking up wherever the (unrelated) discipline
-        # field count happened to leave off.
-        'display_order': KaiFormField.objects.filter(form_type=form_type).count(),
-        'created_by': request.user,
-        'is_builtin': False,  # User-created fields are never built-in
-    }
-
-    # Handle options for select/radio/checkbox
-    if field_type in ['select', 'multiselect', 'radio', 'checkbox']:
-        options_text = request.POST.get('options', '')
-        options_list = [o.strip() for o in options_text.split('\n') if o.strip()]
-        # Store as list of dicts with value and label
-        field_data['options'] = [{'value': o.lower().replace(' ', '_'), 'label': o} for o in options_list]
-
-    # Handle file type restrictions
-    if field_type in ['file', 'image']:
-        allowed_types = request.POST.getlist('allowed_file_types')
-        if allowed_types:
-            field_data['allowed_file_types'] = allowed_types
-        try:
-            field_data['max_file_size_mb'] = int(request.POST.get('max_file_size_mb', 10))
-        except (ValueError, TypeError):
-            field_data['max_file_size_mb'] = 10
-
-    # Handle validation rules
-    validation_rules = []
-    min_length = request.POST.get('min_length')
-    max_length = request.POST.get('max_length')
-    min_value = request.POST.get('min_value')
-    max_value = request.POST.get('max_value')
-
-    if min_length:
-        try:
-            validation_rules.append({'type': 'min_length', 'value': int(min_length)})
-        except ValueError:
-            pass
-    if max_length:
-        try:
-            validation_rules.append({'type': 'max_length', 'value': int(max_length)})
-        except ValueError:
-            pass
-    if min_value:
-        try:
-            validation_rules.append({'type': 'min_value', 'value': float(min_value)})
-        except ValueError:
-            pass
-    if max_value:
-        try:
-            validation_rules.append({'type': 'max_value', 'value': float(max_value)})
-        except ValueError:
-            pass
-
-    if validation_rules:
-        field_data['validation_rules'] = validation_rules
-
-    # Create the field
-    field = KaiFormField.objects.create(**field_data)
-
-    logger.info(f"{request.user.username} added Kai form field: {label} ({field_type})")
-    messages.success(request, f'Field "{label}" added successfully.')
+    messages.success(request, f'Field "{field.label}" added successfully.')
     return redirect(_builder_url_name(form_type))
 
 
 def _handle_update_field(request, form_type='discipline'):
-    """Update an existing form field."""
-    field_id = request.POST.get('field_id')
-    field = get_object_or_404(KaiFormField, id=field_id)
-
-    # Built-in fields have restricted editing (can't change field_name or field_type)
-    if not field.is_builtin:
-        field.label = request.POST.get('label', field.label).strip()
-
-    field.is_required = request.POST.get('is_required') == 'on'
-    field.placeholder = request.POST.get('placeholder', '')
-    field.help_text = request.POST.get('help_text', '')
-    field.section = request.POST.get('section', '')
-
-    # Update options (for select/radio/checkbox)
-    if field.field_type in ['select', 'multiselect', 'radio', 'checkbox']:
-        options_text = request.POST.get('options', '')
-        options_list = [o.strip() for o in options_text.split('\n') if o.strip()]
-        field.options = [{'value': o.lower().replace(' ', '_'), 'label': o} for o in options_list]
-
-    # Update file settings
-    if field.field_type in ['file', 'image']:
-        allowed_types = request.POST.getlist('allowed_file_types')
-        if allowed_types:
-            field.allowed_file_types = allowed_types
-        try:
-            field.max_file_size_mb = int(request.POST.get('max_file_size_mb', 10))
-        except (ValueError, TypeError):
-            pass
-
-    field.save()
-
-    logger.info(f"{request.user.username} updated Kai form field: {field.label}")
+    """Update an existing form field (built-in fields keep their label, name and type)."""
+    field = get_object_or_404(KaiFormField, id=request.POST.get('field_id'))
+    update_field(KAI_FIELDS, field, request.POST, user=request.user)
     messages.success(request, f'Field "{field.label}" updated.')
     return redirect(_builder_url_name(form_type))
 
 
 def _handle_delete_field(request, form_type='discipline'):
     """Delete (deactivate) a form field. Built-in fields cannot be deleted."""
-    field_id = request.POST.get('field_id')
-    field = get_object_or_404(KaiFormField, id=field_id)
-
-    if field.is_builtin:
-        messages.error(request, f'"{field.label}" is a built-in field and cannot be removed.')
+    field = get_object_or_404(KaiFormField, id=request.POST.get('field_id'))
+    try:
+        remove_field(KAI_FIELDS, field, user=request.user)
+    except FieldBuilderError as e:
+        messages.error(request, str(e))
         return redirect(_builder_url_name(form_type))
-
-    label = field.label
-
-    # Soft delete - just deactivate
-    field.is_active = False
-    field.save(update_fields=['is_active'])
-
-    logger.info(f"{request.user.username} deleted Kai form field: {label}")
-    messages.success(request, f'Field "{label}" removed.')
+    messages.success(request, f'Field "{field.label}" removed.')
     return redirect(_builder_url_name(form_type))
 
 
 def _handle_toggle_field(request, form_type='discipline'):
     """Toggle field active status (reactivate a deleted field)."""
-    field_id = request.POST.get('field_id')
-    field = get_object_or_404(KaiFormField, id=field_id)
-
-    if field.is_builtin and not field.is_active:
-        # Built-in fields should always be active, reactivate them
-        field.is_active = True
-        field.save(update_fields=['is_active'])
-        messages.success(request, f'Field "{field.label}" restored.')
-    elif not field.is_builtin:
-        field.is_active = not field.is_active
-        field.save(update_fields=['is_active'])
-        status = 'activated' if field.is_active else 'deactivated'
-        messages.success(request, f'Field "{field.label}" {status}.')
-    else:
-        messages.warning(request, f'"{field.label}" is a built-in field and cannot be deactivated.')
-
+    field = get_object_or_404(KaiFormField, id=request.POST.get('field_id'))
+    level, message = toggle_field(KAI_FIELDS, field)
+    getattr(messages, level)(request, message)
     return redirect(_builder_url_name(form_type))
 
 
@@ -271,19 +185,12 @@ def reorder_kai_fields(request):
     """
     try:
         # Check permission
-        try:
-            kai_committee = Committee.objects.get(is_kai_committee=True)
-            if not kai_committee.is_chair(request.user) and not request.user.is_admin:
-                return JsonResponse({'status': 'error', 'message': 'Permission denied'}, status=403)
-        except Committee.DoesNotExist:
-            if not request.user.is_admin:
-                return JsonResponse({'status': 'error', 'message': 'Permission denied'}, status=403)
+        if not kai_builder_allowed(request.user):
+            return JsonResponse({'status': 'error', 'message': 'Permission denied'}, status=403)
 
         order_data = json.loads(request.POST.get('order', '[]'))
 
-        # Update order
-        for idx, field_id in enumerate(order_data):
-            KaiFormField.objects.filter(id=field_id).update(display_order=idx)
+        apply_field_order(KaiFormField.objects.all(), order_data)
 
         return JsonResponse({'status': 'success'})
 

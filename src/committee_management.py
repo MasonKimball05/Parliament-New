@@ -686,6 +686,23 @@ def todays_attendance(committee):
     }
 
 
+def attendance_history(committee):
+    """
+    ``committee_attendance_history``: every committee attendance record,
+    grouped by date — ``{date: [Attendance, …]}``, newest date first and
+    members by name within a date. Shared with the app (views_committee_management).
+    """
+    from src.models import Attendance
+    from src.models.users import member_defer
+    records = Attendance.objects.filter(
+        committee=committee, attendance_type='committee',
+    ).select_related('user', 'marked_by').defer(*member_defer('user', 'marked_by')).order_by('-date', 'user__name')
+    by_date = {}
+    for record in records:
+        by_date.setdefault(record.date, []).append(record)
+    return dict(sorted(by_date.items(), reverse=True))
+
+
 def mark_committee_attendance(committee, marked_by, present_ids, request):
     """
     Today's attendance: active members in ``present_ids`` are present, everyone

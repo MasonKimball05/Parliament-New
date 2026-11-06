@@ -1,5 +1,4 @@
 from django import forms
-import magic  # python-magic for MIME type detection
 
 from src.models import Legislation, LegislationDraft
 
@@ -53,21 +52,20 @@ class LegislationForm(forms.ModelForm):
             if file.size > 20 * 1024 * 1024:
                 raise forms.ValidationError('File size must not exceed 20 MB.')
 
-            # Check MIME type to prevent file extension spoofing
+            # 11-06-26: the shared check (src/utils/file_validation.py), as the Kai
+            # form uses since v4.4.2. `magic.from_buffer(first 2 KB)` can't name a
+            # Word or Excel file saved by Office (libmagic says zip or octet-stream),
+            # so real .docx/.xlsx uploads were refused. The extension list above
+            # still narrows what's allowed; this checks the content matches it.
+            from django.core.files.uploadedfile import UploadedFile
+            from src.utils.file_validation import validate_uploaded_file
             try:
-                mime = magic.from_buffer(file.read(2048), mime=True)
-                file.seek(0)  # Reset file pointer
-
-                allowed_mimes = [
-                    'application/pdf',
-                    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-                ]
-
-                if mime not in allowed_mimes:
-                    raise forms.ValidationError(
-                        f'Invalid file type. Expected PDF or DOCX, but got {mime}.'
-                    )
-            except Exception as e:
+                # Only a new upload: a file already stored was checked when it came in.
+                if isinstance(file, UploadedFile):
+                    validate_uploaded_file(file)
+            except forms.ValidationError:
+                raise
+            except Exception:
                 raise forms.ValidationError('Unable to verify file type. Please try again.')
 
         return file
@@ -141,22 +139,18 @@ class LegislationDraftForm(forms.ModelForm):
         # It matters here even though a draft is private, because publish copies
         # the file across to the real bill WITHOUT re-validating it. This is the
         # only place the draft's document is ever checked.
+        # 11-06-26: the shared check (src/utils/file_validation.py), as the Kai
+        # form uses since v4.4.2. `magic.from_buffer(first 2 KB)` can't name a
+        # Word or Excel file saved by Office (libmagic says zip or octet-stream),
+        # so real .docx/.xlsx uploads were refused. The extension list above
+        # still narrows what's allowed; this checks the content matches it.
+        from django.core.files.uploadedfile import UploadedFile
+        from src.utils.file_validation import validate_uploaded_file
         try:
-            mime = magic.from_buffer(file.read(2048), mime=True)
-            file.seek(0)
-            allowed_mimes = [
-                'application/pdf',
-                'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-            ]
-            if mime not in allowed_mimes:
-                raise forms.ValidationError(
-                    f'Invalid file type. Expected PDF or DOCX, but got {mime}.'
-                )
+            # Only a new upload: a file already stored was checked when it came in.
+            if isinstance(file, UploadedFile):
+                validate_uploaded_file(file)
         except forms.ValidationError:
-            # v3.19.0 — re-raise BEFORE the bare handler below. LegislationForm's
-            # version of this block swallows its own ValidationError into the
-            # generic "Unable to verify file type" message, which is why a
-            # spoofed .pdf reports a confusing error there. Do not copy that.
             raise
         except Exception:
             raise forms.ValidationError('Unable to verify file type. Please try again.')
