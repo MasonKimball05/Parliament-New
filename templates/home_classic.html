@@ -186,6 +186,11 @@
                     </a>
                     {% endif %}
                 </div>
+                {% elif active_slating_period.status == 'nominations_closed' or active_slating_period.status == 'deliberation' or active_slating_period.status == 'voting_closed' %}
+                {# 11-06-26: the stages between applying, voting and results. #}
+                <h3 class="text-lg font-semibold text-purple-900 dark:text-purple-100 mb-2">{% if active_slating_period.status == 'voting_closed' %}Counting Votes{% else %}Officer Election Coming Up{% endif %}</h3>
+                <p class="text-sm text-purple-700 dark:text-purple-200 mb-4">{{ active_slating_period.name }} - {% if active_slating_period.status == 'voting_closed' %}voting has closed; results will be posted once they're published.{% elif active_slating_period.voting_open_at %}applications are closed; voting opens {{ active_slating_period.voting_open_at|date:"l, M j" }}.{% else %}applications are closed; voting opens at the chapter meeting.{% endif %}</p>
+                <a href="{% url 'slating_dashboard' %}" class="inline-flex items-center px-4 py-2 border border-purple-300 dark:border-purple-600 rounded-md shadow-sm text-sm font-medium text-purple-700 dark:text-purple-300 bg-white dark:bg-gray-800 hover:bg-purple-50 dark:hover:bg-purple-900/30 transition">{% if has_slating_access %}Manage Slating{% else %}View Slating{% endif %}</a>
                 {% elif has_slating_access %}
                 <!-- No active period but user has committee access -->
                 <h3 class="text-lg font-semibold text-purple-900 dark:text-purple-100 mb-2">Officer Slating</h3>

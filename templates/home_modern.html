@@ -247,6 +247,26 @@
         </div>
     </div>
 
+    {% elif active_slating_period.status == 'nominations_closed' or active_slating_period.status == 'deliberation' or active_slating_period.status == 'voting_closed' %}
+    {# 11-06-26: the stages between applying, voting and results. #}
+    <div class="bg-gradient-to-br from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20 border border-purple-200 dark:border-purple-800 rounded-xl p-5">
+        <div class="flex items-start justify-between gap-3">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-purple-600 flex items-center justify-center flex-shrink-0 shadow-sm">
+                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                </div>
+                <div>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <p class="text-sm font-bold text-purple-900 dark:text-purple-100">{{ active_slating_period.name }}</p>
+                        <span class="px-2 py-0.5 bg-purple-600 text-white text-xs font-semibold rounded-full">{% if active_slating_period.status == 'voting_closed' %}Counting votes{% else %}Election coming up{% endif %}</span>
+                    </div>
+                    <p class="text-xs text-purple-600 dark:text-purple-400 mt-0.5">{% if active_slating_period.status == 'voting_closed' %}Voting has closed. Results will be posted here once they're published.{% elif active_slating_period.voting_open_at %}Applications are closed. Voting opens {{ active_slating_period.voting_open_at|date:"l, M j" }}.{% else %}Applications are closed. Voting opens at the chapter meeting.{% endif %}</p>
+                </div>
+            </div>
+            <a href="{% url 'slating_dashboard' %}" class="inline-flex items-center gap-1.5 px-3 py-1.5 border border-purple-300 dark:border-purple-600 text-purple-700 dark:text-purple-300 bg-white dark:bg-gray-800 hover:bg-purple-50 dark:hover:bg-purple-900/30 text-xs font-medium rounded-lg transition-colors shrink-0">{% if has_slating_access %}Manage Slating{% else %}Slating{% endif %}</a>
+        </div>
+    </div>
+
     {% elif has_slating_access %}
     <!-- No active period but committee member can still access dashboard -->
     <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4 flex items-center gap-3">

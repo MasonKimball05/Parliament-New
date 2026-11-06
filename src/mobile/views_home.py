@@ -138,7 +138,9 @@ def _quick_links(user, pending_votes):
         # query count is kept flat (HomeTests.test_query_count_is_flat).
         if key == 'slating' and (user.is_pledge or not cache.get_or_set(
                 'mobile:home:slating_active', lambda: SlatingPeriod.objects.filter(
-                    status__in=['nominations_open', 'voting_open', 'results_published']).exists(), 60)):
+                    # 11-06-26: the in-between stages too, as the website's banner.
+                    status__in=['nominations_open', 'nominations_closed', 'deliberation', 'voting_open',
+                                'voting_closed', 'results_published']).exists(), 60)):
             continue
         if not _may_open(user, url_name, flag):
             continue

@@ -394,8 +394,12 @@ def home(request):
 
     # === ACTIVE SLATING PERIOD ===
     # Show card if there's an active slating period (nominations or voting open, or results published)
+    # 11-06-26: also between stages (applications closed, the committee
+    # deliberating, votes being counted), which had no banner at all, so the
+    # card vanished the day before an election.
     active_slating_period = SlatingPeriod.objects.filter(
-        status__in=['nominations_open', 'voting_open', 'results_published']
+        status__in=['nominations_open', 'nominations_closed', 'deliberation', 'voting_open',
+                    'voting_closed', 'results_published']
     ).first()
 
     # Check if user has access to the active period's slating committee
