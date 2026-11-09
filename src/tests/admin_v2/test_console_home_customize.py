@@ -212,12 +212,19 @@ class ClassicOnlyQueriesTests(AdminV2TestCase):
     page shows; with it off, it computes (and renders) everything as before.
 
     Measured on this fixture (warm caches): classic 46 queries before and
-    after; console home 52 before, 37 after (default layout)."""
+    after; console home 52 before, 37 after (default layout).
+
+    11-09-26: the worker ping is faked as "no worker answered". The counts
+    depended on the machine: with Redis as the broker (a dev machine) the real
+    ping raised and the job schedule was never read; on CI (in-memory broker)
+    it returned nothing and the schedule was read, one query more (47 != 46).
+    Faked, every machine reads the schedule, as production does."""
 
     def measure(self):
-        self.client.get(reverse('admin_v2_dashboard'))  # warm flags, prefs, seeded defaults
-        with CaptureQueriesContext(connection) as ctx:
-            r = self.client.get(reverse('admin_v2_dashboard'))
+        with mock.patch('celery.app.control.Inspect.ping', return_value={}):
+            self.client.get(reverse('admin_v2_dashboard'))  # warm flags, prefs, seeded defaults
+            with CaptureQueriesContext(connection) as ctx:
+                r = self.client.get(reverse('admin_v2_dashboard'))
         self.assertEqual(r.status_code, 200)
         return r, [q['sql'] for q in ctx.captured_queries]
 
@@ -250,8 +257,24 @@ class ClassicOnlyQueriesTests(AdminV2TestCase):
         self.assertTrue(classic.context['feature_flags'])
         self.assertTrue(classic.context['stats']['database']['tables'])
         self.assertIn('top_paths', classic.context['page_visit_summary'])
-        # 52 -> 37 on the console; the classic page's 46 is untouched. If a
+        # 52 -> 37 on the console; the classic page's 46 is untouched (47 and
+        # 38 with the schedule read, see the docstring). If a
         # change moves these on purpose, update the numbers (and the docstring).
-        self.assertEqual(len(classic_sql), 46, 'the classic dashboard should compute exactly what it did')
-        self.assertLessEqual(len(console_sql), 37)
+        self.assertEqual(len(classic_sql), 47, 'the classic dashboard should compute exactly what it did')
+        self.assertLessEqual(len(console_sql), 38)
         self.assertLessEqual(len(console_sql), len(classic_sql) - 8)
+
+
+class ConsoleIconTests(AdminV2TestCase):
+    """11-09-26: console_icon passes its path through format_html (escaped)
+    instead of mark_safe (CI's bandit scan fails on mark_safe). That's only
+    lossless while no path has a character escaping would change."""
+
+    def test_icon_paths_survive_escaping(self):
+        from django.utils.html import escape
+        from src.admin_console_icons import ICON_PATHS
+        from src.templatetags.admin_v2_tags import console_icon
+        for name, path in ICON_PATHS.items():
+            with self.subTest(icon=name):
+                self.assertEqual(escape(path), path)
+                self.assertIn(f'd="{path}"', console_icon(name))

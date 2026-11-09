@@ -1,6 +1,5 @@
 from django import template
 from django.utils.html import format_html
-from django.utils.safestring import mark_safe
 
 from src.admin_console_icons import ICON_PATHS
 from src.admin_v2_nav import nav_groups
@@ -31,4 +30,4 @@ def console_icon(name, css='', filled=False):
     return format_html(
         '<svg class="ac-icon {}" viewBox="0 0 24 24" fill="{}" stroke="currentColor" stroke-width="2" '
         'aria-hidden="true" focusable="false"><path stroke-linecap="round" stroke-linejoin="round" d="{}"/></svg>',
-        css, fill, mark_safe(path))
+        css, fill, path)  # icon paths are constants: digits, letters, spaces, '.', '-' (escaping is a no-op)
