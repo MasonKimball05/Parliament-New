@@ -246,6 +246,7 @@ which predate this file and are more specific than their commit dates.
 | v4.4.4 | 11-04-26 | `6023348` | See `changelogs/v4.4.4.md`. Deploy confirmed by Mason 11-05-26, through the site map fixes in `af36656` (collectstatic and `seed_feature_flags` run). |
 | v4.4.5 | *not deployed* | `b08595d` | See `changelogs/v4.4.5.md`. |
 | v4.4.6 | *not deployed* | `5036872` | See `changelogs/v4.4.6.md`. |
+| v4.4.7 | *not deployed* | `2261932` | See `changelogs/v4.4.7.md`. |
 
 > **‡ 10-19-26 — Mason: "All deployments are live on prod."** Every row marked ‡
 > had been left *not deployed* while it shipped. He deploys as he goes; the exact
