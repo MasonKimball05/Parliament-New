@@ -4,10 +4,10 @@
 {% block title %}{{ block.super }} - Slating{% endblock %}
 
 {% block content %}
-<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6{% if ui_refresh %} rf-sl-shell{% endif %}">
     <!-- Slating Header -->
-    <div class="mb-6">
-        <nav class="flex mb-4" aria-label="Breadcrumb">
+    <div class="mb-6{% if ui_refresh %} rf-sl-header{% endif %}">
+        <nav class="flex mb-4{% if ui_refresh %} rf-sl-crumbs{% endif %}" aria-label="Breadcrumb">
             <ol class="flex items-center space-x-2 text-sm">
                 <li>
                     <a href="{% url 'slating_dashboard' %}" class="text-gray-500 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400">
@@ -22,9 +22,9 @@
 
     <!-- Messages -->
     {% if messages %}
-    <div class="mb-6 space-y-2">
+    <div class="mb-6 space-y-2{% if ui_refresh %} rf-sl-msgs{% endif %}">
         {% for message in messages %}
-        <div class="rounded-md p-4 {% if message.tags == 'error' %}bg-red-50 dark:bg-red-900/30 text-red-800 dark:text-red-200{% elif message.tags == 'warning' %}bg-yellow-50 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200{% elif message.tags == 'success' %}bg-green-50 dark:bg-green-900/30 text-green-800 dark:text-green-200{% else %}bg-blue-50 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200{% endif %}">
+        <div class="rounded-md p-4{% if ui_refresh %} rf-sl-msg{% endif %} {% if message.tags == 'error' %}bg-red-50 dark:bg-red-900/30 text-red-800 dark:text-red-200{% elif message.tags == 'warning' %}bg-yellow-50 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200{% elif message.tags == 'success' %}bg-green-50 dark:bg-green-900/30 text-green-800 dark:text-green-200{% else %}bg-blue-50 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200{% endif %}">
             <div class="flex">
                 <div class="flex-shrink-0">
                     {% if message.tags == 'error' %}
@@ -57,7 +57,7 @@
     <!-- Progress Stepper (only shown on period pages) -->
     {% if period %}
     <div class="mb-6">
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700{% if ui_refresh %} rf-sl-steps{% endif %}">
             <nav aria-label="Election progress" class="overflow-x-auto">
                 <ol class="flex items-center w-full py-4 px-5 min-w-max">
                     {% with s=period.status %}

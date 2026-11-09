@@ -12,16 +12,16 @@
 {% endblock %}
 
 {% block page_header %}
-<div>
+<div{% if ui_refresh %} class="rf-ss-head"{% endif %}>
     <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Officer Transition</h1>
     <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Transfer roles from outgoing to incoming officers</p>
 </div>
 {% endblock %}
 
-{% block slating_content %}
+{% block slating_content %}{% if ui_refresh %}<div class="rf-ss rf-ss-transition">{% endif %}
 <div class="max-w-4xl mx-auto space-y-6">
     <!-- Info Banner -->
-    <div class="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+    <div class="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-lg p-4{% if ui_refresh %} rf-ss-note{% endif %}">
         <div class="flex">
             <div class="flex-shrink-0">
                 <svg class="h-5 w-5 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
@@ -43,7 +43,7 @@
     </div>
 
     {% if has_scheduled %}
-    <div class="bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
+    <div class="bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4{% if ui_refresh %} rf-ss-note{% endif %}">
         <div class="flex items-start justify-between">
             <div class="flex">
                 <div class="flex-shrink-0">
@@ -68,7 +68,7 @@
         </div>
     </div>
     {% elif has_auto_assignments %}
-    <div class="bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800 rounded-lg p-4">
+    <div class="bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800 rounded-lg p-4{% if ui_refresh %} rf-ss-note{% endif %}">
         <div class="flex">
             <div class="flex-shrink-0">
                 <svg class="h-5 w-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -85,12 +85,12 @@
     {% endif %}
 
     <!-- Transition Form -->
-    <form method="post">
+    <form method="post"{% if ui_refresh %} class="rf-ss-form"{% endif %}>
         {% csrf_token %}
         <input type="hidden" name="action" value="confirm">
 
-        <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
-            <div class="px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-gray-700">
+        <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden{% if ui_refresh %} rf-ss-card{% endif %}">
+            <div class="px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-gray-700{% if ui_refresh %} rf-ss-card-head{% endif %}">
                 <h3 class="text-lg font-medium text-gray-900 dark:text-white">Position Assignments</h3>
                 <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
                     Select who should receive each officer role
@@ -171,8 +171,8 @@
         </div>
 
         <!-- Effective Date -->
-        <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
-            <div class="px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-gray-700">
+        <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden{% if ui_refresh %} rf-ss-card{% endif %}">
+            <div class="px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-gray-700{% if ui_refresh %} rf-ss-card-head{% endif %}">
                 <h3 class="text-lg font-medium text-gray-900 dark:text-white">Effective Date</h3>
                 <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
                     When should the officer transition take effect?
@@ -217,7 +217,7 @@
         </div>
 
         <!-- Warning Banner -->
-        <div class="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg p-4">
+        <div class="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg p-4{% if ui_refresh %} rf-ss-note{% endif %}">
             <div class="flex">
                 <div class="flex-shrink-0">
                     <svg class="h-5 w-5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
@@ -234,13 +234,13 @@
         </div>
 
         <!-- Action Buttons -->
-        <div class="flex justify-end space-x-3">
+        <div class="flex justify-end space-x-3{% if ui_refresh %} rf-ss-actions{% endif %}">
             <a href="{% url 'slating_results' period_id=period.id %}"
                class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
                 Cancel
             </a>
             <button type="submit"
-                class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+                class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500{% if ui_refresh %} rf-ss-primary{% endif %}">
                 <svg class="-ml-1 mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/>
                 </svg>
@@ -302,4 +302,4 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 </script>
-{% endblock %}
+{% if ui_refresh %}</div>{% endif %}{% endblock %}

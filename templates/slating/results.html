@@ -13,7 +13,7 @@
 {% endblock %}
 
 {% block page_header %}
-<div class="flex items-center justify-between">
+<div class="flex items-center justify-between{% if ui_refresh %} rf-sl-head{% endif %}">
     <div>
         <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Election Results</h1>
         <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ period.name }}</p>
@@ -39,18 +39,18 @@
 {% endblock %}
 
 {% block slating_content %}
-<div class="max-w-4xl mx-auto space-y-6">
+<div class="max-w-4xl mx-auto space-y-6{% if ui_refresh %} rf-sl rf-sl-results{% endif %}">
     {% if overview.positions %}
     {# 11-05-26: the results lead with who holds each position and how it was decided; per-position #}
     {# counts only for positions a position round decided (the closed rounds' stored outcomes).      #}
-    <div class="bg-white dark:bg-gray-800 shadow rounded-xl overflow-hidden">
+    <div class="bg-white dark:bg-gray-800 shadow rounded-xl overflow-hidden{% if ui_refresh %} rf-sl-officers{% endif %}">
         <div class="px-5 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between gap-3 flex-wrap">
             <h2 class="text-sm font-semibold text-gray-900 dark:text-white">Officers</h2>
             <span class="text-sm text-gray-600 dark:text-gray-300" data-headline>{{ overview.headline }}</span>
         </div>
         <ul class="divide-y divide-gray-100 dark:divide-gray-700">
             {% for p in overview.positions %}
-            <li class="px-5 py-3 text-sm">
+            <li class="px-5 py-3 text-sm{% if ui_refresh %} rf-sl-officer{% endif %}">
                 <div class="flex items-center justify-between gap-3">
                     <span class="font-medium text-gray-700 dark:text-gray-300">{{ p.title }}</span>
                     <span class="{% if p.winner %}text-gray-900 dark:text-white font-semibold{% else %}text-gray-500 dark:text-gray-400{% endif %}">
@@ -81,7 +81,7 @@
     {% endif %}
     {% if period.status == 'voting_open' and is_committee %}
     <!-- Live Voting Banner -->
-    <div class="bg-primary-50 dark:bg-primary-900/30 border border-primary-200 dark:border-primary-800 rounded-lg p-4">
+    <div class="bg-primary-50 dark:bg-primary-900/30 border border-primary-200 dark:border-primary-800 rounded-lg p-4{% if ui_refresh %} rf-sl-live{% endif %}">
         <div class="flex items-center justify-between">
             <div class="flex items-center">
                 <div class="flex-shrink-0">
@@ -102,7 +102,7 @@
     </div>
     {% elif is_published %}
     <!-- Published Banner -->
-    <div class="bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800 rounded-lg p-4">
+    <div class="bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800 rounded-lg p-4{% if ui_refresh %} rf-sl-published{% endif %}">
         <div class="flex items-start justify-between gap-4">
             <div class="flex">
                 <div class="flex-shrink-0">
@@ -143,7 +143,7 @@
         </div>
         <div class="px-4 py-5 sm:p-6">
             <!-- Full slate vote summary -->
-            <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6{% if ui_refresh %} rf-sl-stats{% endif %}">
                 <div class="text-center">
                     <p class="text-2xl font-bold text-gray-900 dark:text-white">{{ total_ballots }}</p>
                     <p class="text-sm text-gray-500 dark:text-gray-400">Total Votes</p>
@@ -166,7 +166,7 @@
             {% endif %}
 
             <!-- Progress Bar -->
-            <div class="mb-4">
+            <div class="mb-4{% if ui_refresh %} rf-sl-meter{% endif %}">
                 <div class="flex justify-between text-sm mb-1">
                     <span class="text-gray-700 dark:text-gray-300">Approval Rate</span>
                     <span class="font-medium {% if period.status == 'voting_open' %}text-gray-900 dark:text-white{% elif vote_tally.passed %}text-green-600 dark:text-green-400{% else %}text-red-600 dark:text-red-400{% endif %}">
@@ -185,13 +185,13 @@
 
             <!-- Result (11-05-26: no verdict while the round is open) -->
             {% if period.status == 'voting_open' %}
-            <div class="bg-primary-50 dark:bg-primary-900/30 rounded-lg p-4 text-center" data-live-note>
+            <div class="bg-primary-50 dark:bg-primary-900/30 rounded-lg p-4 text-center{% if ui_refresh %} rf-sl-verdict{% endif %}" data-live-note>
                 <p class="text-sm text-primary-800 dark:text-primary-200">
                     Currently {{ vote_tally.approval_percentage|floatformat:0 }}% approve — not final until you close voting.
                 </p>
             </div>
             {% elif vote_tally.passed %}
-            <div class="bg-green-50 dark:bg-green-900/30 rounded-lg p-4 text-center">
+            <div class="bg-green-50 dark:bg-green-900/30 rounded-lg p-4 text-center{% if ui_refresh %} rf-sl-verdict{% endif %}">
                 <svg class="mx-auto h-12 w-12 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
                 </svg>
@@ -201,7 +201,7 @@
                 </p>
             </div>
             {% else %}
-            <div class="bg-red-50 dark:bg-red-900/30 rounded-lg p-4 text-center">
+            <div class="bg-red-50 dark:bg-red-900/30 rounded-lg p-4 text-center{% if ui_refresh %} rf-sl-verdict{% endif %}">
                 <svg class="mx-auto h-12 w-12 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"/>
                 </svg>
@@ -228,7 +228,7 @@
             {% if rejection_analysis %}
             <div class="space-y-3">
                 {% for item in rejection_analysis %}
-                <div class="flex items-center justify-between p-3 bg-red-50 dark:bg-red-900/20 rounded-lg">
+                <div class="flex items-center justify-between p-3 bg-red-50 dark:bg-red-900/20 rounded-lg{% if ui_refresh %} rf-sl-objrow{% endif %}">
                     <div>
                         <p class="font-medium text-gray-900 dark:text-white">{{ item.position }}</p>
                         <p class="text-sm text-gray-500 dark:text-gray-400">{{ item.candidate_name }}</p>
@@ -258,7 +258,7 @@
     {% if history %}
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm px-4 py-5 sm:p-6">
         <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-3">Voting history</h3>
-        <ul class="space-y-3 text-sm">
+        <ul class="space-y-3 text-sm{% if ui_refresh %} rf-sl-history{% endif %}">
             {% for rnd in history %}
             <li>
                 <div class="font-medium text-gray-900 dark:text-white">

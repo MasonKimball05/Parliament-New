@@ -1,6 +1,6 @@
 {# 10-29-26 — open the next voting round (src/slating_rounds.py; Bylaws Art. II §3). #}
 {# 11-05-26: confirm with the round and who is present; refused (server side) with no one present. #}
-<form method="post" action="{% url 'slating_change_status' period_id=period.id %}" class="flex flex-col gap-3 js-confirm-submit"
+<form method="post" action="{% url 'slating_change_status' period_id=period.id %}" class="flex flex-col gap-3 js-confirm-submit{% if ui_refresh %} rf-sc rf-sc-next{% endif %}"
     data-confirm-msg="Open voting — round {{ period.current_voting_attempt|add:1 }}{% if not election.has_rounds %}, full slate{% endif %}, {{ election.present }} member{{ election.present|pluralize }} present?">
     {% csrf_token %}
     <input type="hidden" name="status" value="voting_open">
@@ -21,7 +21,7 @@
             <span><strong>Positions</strong> — the ones ticked below. The bylaws take them one at a time, in slate order.</span>
         </label>
     </div>
-    <div class="rounded-lg border border-gray-200 dark:border-gray-700 divide-y divide-gray-100 dark:divide-gray-700">
+    <div class="rounded-lg border border-gray-200 dark:border-gray-700 divide-y divide-gray-100 dark:divide-gray-700{% if ui_refresh %} rf-sc-ballot{% endif %}">
         {% for s in election.selectable %}
         <div class="px-3 py-2">
             <label class="flex items-center gap-2 text-sm text-gray-800 dark:text-gray-200">

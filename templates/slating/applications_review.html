@@ -12,7 +12,7 @@
 {% endblock %}
 
 {% block page_header %}
-<div class="flex items-center justify-between">
+<div class="flex items-center justify-between{% if ui_refresh %} rf-sc rf-sc-head{% endif %}">
     <div>
         <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Applications Review</h1>
         <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ period.name }} - {{ applications|length }} applications</p>
@@ -27,9 +27,9 @@
 {% endblock %}
 
 {% block slating_content %}
-<div class="space-y-6">
+<div class="space-y-6{% if ui_refresh %} rf-sc rf-sc-apps{% endif %}">
     <!-- Filters -->
-    <div class="bg-white dark:bg-gray-800 shadow rounded-lg px-4 py-4 sm:px-6">
+    <div class="bg-white dark:bg-gray-800 shadow rounded-lg px-4 py-4 sm:px-6{% if ui_refresh %} rf-sc-filters{% endif %}">
         <form method="get" class="flex flex-wrap gap-4 items-end">
             <div class="flex-1 min-w-[200px]">
                 <label for="search" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Search</label>
@@ -80,7 +80,7 @@
     </div>
 
     <!-- Status Counts -->
-    <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-4">
+    <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-4{% if ui_refresh %} rf-sc-stats{% endif %}">
         {% for status, data in status_counts.items %}
         <a href="?status={{ status }}" class="bg-white dark:bg-gray-800 shadow rounded-lg px-4 py-3 hover:shadow-md transition-shadow {% if status_filter == status %}ring-2 ring-primary-500{% endif %}">
             <p class="text-2xl font-bold text-gray-900 dark:text-white">{{ data.count }}</p>
@@ -97,7 +97,7 @@
         <form method="post" action="{% url 'slating_bulk_update' period_id=period.id %}" id="bulkForm"
             data-confirm="Change the status of every selected application?">
             {% csrf_token %}
-            <div class="px-4 py-3 bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-700 flex flex-wrap items-center justify-between gap-2">
+            <div class="px-4 py-3 bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-700 flex flex-wrap items-center justify-between gap-2{% if ui_refresh %} rf-sc-bulk{% endif %}">
                 <div class="flex items-center space-x-3">
                     <input type="checkbox" id="selectAll" data-check-all="application_ids" class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500">
                     <label for="selectAll" class="text-sm text-gray-700 dark:text-gray-300">Select All</label>
@@ -118,7 +118,7 @@
         <div>
         {% endif %}
 
-            <ul class="divide-y divide-gray-200 dark:divide-gray-700">
+            <ul class="divide-y divide-gray-200 dark:divide-gray-700{% if ui_refresh %} rf-sc-rows{% endif %}">
                 {% for app in applications %}
                 <li class="hover:bg-gray-50 dark:hover:bg-gray-700/50">
                     <div class="px-4 py-4 sm:px-6 flex items-center">

@@ -12,16 +12,16 @@
 {% endblock %}
 
 {% block page_header %}
-<div>
+<div{% if ui_refresh %} class="rf-ss-head"{% endif %}>
     <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Transfer Committee Admin</h1>
     <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Transfer administrative control of the Slating Committee</p>
 </div>
 {% endblock %}
 
-{% block slating_content %}
+{% block slating_content %}{% if ui_refresh %}<div class="rf-ss rf-ss-transfer">{% endif %}
 <div class="max-w-2xl mx-auto">
     <!-- Warning Banner -->
-    <div class="bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4 mb-6">
+    <div class="bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4 mb-6{% if ui_refresh %} rf-ss-note{% endif %}">
         <div class="flex">
             <div class="flex-shrink-0">
                 <svg class="h-5 w-5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
@@ -39,8 +39,8 @@
     </div>
 
     <!-- Current Admin Info -->
-    <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden mb-6">
-        <div class="px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-gray-700">
+    <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden mb-6{% if ui_refresh %} rf-ss-card{% endif %}">
+        <div class="px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-gray-700{% if ui_refresh %} rf-ss-card-head{% endif %}">
             <h3 class="text-lg font-medium text-gray-900 dark:text-white">Current Admin</h3>
         </div>
         <div class="px-4 py-5 sm:p-6">
@@ -61,10 +61,10 @@
     </div>
 
     <!-- Transfer Form -->
-    <form method="post" class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
+    <form method="post" class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden{% if ui_refresh %} rf-ss-card{% endif %}">
         {% csrf_token %}
 
-        <div class="px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-gray-700">
+        <div class="px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-gray-700{% if ui_refresh %} rf-ss-card-head{% endif %}">
             <h3 class="text-lg font-medium text-gray-900 dark:text-white">Transfer To</h3>
         </div>
 
@@ -92,7 +92,7 @@
             </div>
         </div>
 
-        <div class="bg-gray-50 dark:bg-gray-700 px-4 py-4 sm:px-6 flex justify-end space-x-3">
+        <div class="bg-gray-50 dark:bg-gray-700 px-4 py-4 sm:px-6 flex justify-end space-x-3{% if ui_refresh %} rf-ss-card-foot{% endif %}">
             <a href="{% url 'slating_period_setup' period_id=period.id %}"
                class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
                 Cancel
@@ -109,7 +109,7 @@
 
     <!-- Previous Transfer Info (if applicable) -->
     {% if period.admin_transferred %}
-    <div class="mt-6 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+    <div class="mt-6 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-lg p-4{% if ui_refresh %} rf-ss-note{% endif %}">
         <div class="flex">
             <div class="flex-shrink-0">
                 <svg class="h-5 w-5 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
@@ -134,4 +134,4 @@
     </div>
     {% endif %}
 </div>
-{% endblock %}
+{% if ui_refresh %}</div>{% endif %}{% endblock %}

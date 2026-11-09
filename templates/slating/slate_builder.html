@@ -13,7 +13,7 @@
 {% endblock %}
 
 {% block page_header %}
-<div class="flex items-center justify-between">
+<div class="flex items-center justify-between{% if ui_refresh %} rf-sc rf-sc-head{% endif %}">
     <div>
         <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Slate Builder</h1>
         <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ period.name }}</p>
@@ -47,7 +47,7 @@
 {% endblock %}
 
 {% block slating_content %}
-<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6{% if ui_refresh %} rf-sc rf-sc-builder{% endif %}">
     <!-- Slate Positions -->
     <div class="lg:col-span-2 space-y-4">
         <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
@@ -202,7 +202,7 @@
 </div>
 
 <!-- Assign Candidate Modal -->
-<div id="assignModal" class="hidden fixed inset-0 z-50 overflow-y-auto">
+<div id="assignModal" class="hidden fixed inset-0 z-50 overflow-y-auto{% if ui_refresh %} rf-sc rf-sc-modal{% endif %}">
     <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:p-0">
         <div class="fixed inset-0 bg-gray-500 dark:bg-gray-900 bg-opacity-75 dark:bg-opacity-75 transition-opacity js-close-assign-modal"></div>
 

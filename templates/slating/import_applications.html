@@ -16,17 +16,17 @@
 {% endblock %}
 
 {% block page_header %}
-<div>
+<div{% if ui_refresh %} class="rf-ss-head"{% endif %}>
     <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Import Applications</h1>
     <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ period.name }} — bring in responses collected outside Parliament (Google Forms, Sheets, Excel)</p>
 </div>
 {% endblock %}
 
-{% block slating_content %}
+{% block slating_content %}{% if ui_refresh %}<div class="rf-ss rf-ss-import">{% endif %}
 <div class="space-y-6">
 
 {% if step == 'upload' %}
-    <div class="bg-white dark:bg-gray-800 shadow rounded-lg p-6 space-y-4">
+    <div class="bg-white dark:bg-gray-800 shadow rounded-lg p-6 space-y-4{% if ui_refresh %} rf-ss-card{% endif %}">
         <h2 class="text-lg font-semibold text-gray-900 dark:text-white">1. Upload the responses</h2>
         <ul class="text-sm text-gray-600 dark:text-gray-300 list-disc pl-6 space-y-1">
             <li><strong>Google Forms:</strong> open the form → <em>Responses</em> → ⋮ → <em>Download responses (.csv)</em>.</li>
@@ -45,7 +45,7 @@
             <form method="post" id="csv-upload-form" data-csv-target>
                 {% csrf_token %}
                 <input type="hidden" name="step" value="upload">
-                <button type="submit" disabled class="inline-flex items-center px-4 py-2 rounded-md text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed">Continue</button>
+                <button type="submit" disabled class="inline-flex items-center px-4 py-2 rounded-md text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed{% if ui_refresh %} rf-ss-primary{% endif %}">Continue</button>
             </form>
             <span id="csv-file-error" class="hidden text-sm text-red-600 dark:text-red-400"></span>
         </div>
@@ -53,13 +53,13 @@
 
     {% if earlier_imports %}
     {# v4.3.0: undo an import, or one application from it. #}
-    <div class="bg-white dark:bg-gray-800 shadow rounded-lg p-6 space-y-4">
+    <div class="bg-white dark:bg-gray-800 shadow rounded-lg p-6 space-y-4{% if ui_refresh %} rf-ss-card{% endif %}">
         <div>
             <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Earlier imports</h2>
             <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Remove an import to undo it, for example to import the same members again from a corrected file. Applications that have an interview, are slated or have moved past review are kept.</p>
         </div>
         {% for batch in earlier_imports %}
-        <div class="rounded-lg border border-gray-200 dark:border-gray-700">
+        <div class="rounded-lg border border-gray-200 dark:border-gray-700{% if ui_refresh %} rf-ss-sub{% endif %}">
             <div class="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-b border-gray-100 dark:border-gray-700">
                 <div class="text-sm">
                     <span class="font-medium text-gray-900 dark:text-white">{{ batch.at|date:"M j, Y g:i A" }}</span>
@@ -101,7 +101,7 @@
 
 {% else %}
     {# The files in this import (v4.3.0). The picker sits outside the form, like step 1's; its buttons post the form by id. #}
-    <div class="bg-white dark:bg-gray-800 shadow rounded-lg p-6 space-y-3">
+    <div class="bg-white dark:bg-gray-800 shadow rounded-lg p-6 space-y-3{% if ui_refresh %} rf-ss-card{% endif %}">
         <div class="flex flex-wrap items-center justify-between gap-3">
             <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Files</h2>
             <label class="inline-flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium text-primary-700 dark:text-primary-300 border border-primary-300 dark:border-primary-700 hover:bg-primary-50 dark:hover:bg-gray-700 cursor-pointer">
@@ -128,14 +128,14 @@
         <textarea name="csv_text" class="hidden" aria-hidden="true">{{ f.text }}</textarea>
         {% endfor %}
 
-        <div class="bg-white dark:bg-gray-800 shadow rounded-lg p-6 space-y-4">
+        <div class="bg-white dark:bg-gray-800 shadow rounded-lg p-6 space-y-4{% if ui_refresh %} rf-ss-card{% endif %}">
             <div class="flex items-center justify-between">
                 <h2 class="text-lg font-semibold text-gray-900 dark:text-white">2. Match the columns</h2>
                 <span class="text-sm text-gray-500 dark:text-gray-400">{{ row_count }} response{{ row_count|pluralize }}</span>
             </div>
             <p class="text-sm text-gray-600 dark:text-gray-300">Pick what each column is. Our guesses are filled in. A question you want to keep that isn't in your <a class="underline" href="{% url 'slating_form_builder' period_id=period.id %}">application form</a> can stay unmapped and be kept in the review notes.</p>
             <div class="overflow-x-auto">
-                <table class="min-w-full text-sm">
+                <table class="min-w-full text-sm{% if ui_refresh %} rf-ss-table{% endif %}">
                     <thead>
                         <tr class="text-left text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700">
                             <th class="py-2 pr-4 font-medium">Column</th>
@@ -167,13 +167,13 @@
             </label>
             <p class="text-xs text-gray-500 dark:text-gray-400">Position columns match position titles or codes ({% for p in positions %}{{ p.title }}{% if not forloop.last %}, {% endif %}{% empty %}none yet{% endfor %}). File-upload answers can't be imported; leave those columns unmapped to keep their links in the notes.</p>
             <div class="flex gap-3">
-                <button type="submit" name="step" value="preview" formnovalidate class="inline-flex items-center px-4 py-2 rounded-md text-sm font-medium text-white bg-primary-600 hover:bg-primary-700">Preview import</button>
+                <button type="submit" name="step" value="preview" formnovalidate class="inline-flex items-center px-4 py-2 rounded-md text-sm font-medium text-white bg-primary-600 hover:bg-primary-700{% if ui_refresh %} rf-ss-primary{% endif %}">Preview import</button>
                 <a href="{% url 'slating_import_applications' period_id=period.id %}" class="inline-flex items-center px-4 py-2 rounded-md text-sm font-medium text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600">Start over</a>
             </div>
         </div>
 
         {% if step == 'preview' %}
-        <div class="bg-white dark:bg-gray-800 shadow rounded-lg p-6 space-y-5">
+        <div class="bg-white dark:bg-gray-800 shadow rounded-lg p-6 space-y-5{% if ui_refresh %} rf-ss-card{% endif %}">
             <h2 class="text-lg font-semibold text-gray-900 dark:text-white">3. Confirm</h2>
 
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
@@ -196,7 +196,7 @@
             <div class="space-y-2">
                 {% for item in items %}
                 {% if item.status == 'import' %}
-                <details class="rounded-lg border border-gray-200 dark:border-gray-700" {% if item.warnings or item.fixed %}open{% endif %}>
+                <details class="rounded-lg border border-gray-200 dark:border-gray-700{% if ui_refresh %} rf-ss-sub{% endif %}" {% if item.warnings or item.fixed %}open{% endif %}>
                     <summary class="cursor-pointer px-4 py-3 flex flex-wrap items-center gap-2 text-sm">
                         <span class="px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300">Import</span>
                         <span class="font-medium text-gray-900 dark:text-white">{{ item.applicant.get_display_name }}</span>
@@ -241,7 +241,7 @@
                         </div>
                         {# v4.3.0: correct what the CSV got wrong. Each control posts beside the CSV's own value (was_…); only a change counts, and the import re-plans with the same POST. #}
                         {% with pk=item.applicant.pk fix=item.fix %}
-                        <div class="rounded-md bg-gray-50 dark:bg-gray-700/40 p-3 space-y-3">
+                        <div class="rounded-md bg-gray-50 dark:bg-gray-700/40 p-3 space-y-3{% if ui_refresh %} rf-ss-fix{% endif %}">
                             <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Fix this application</p>
                             <div class="space-y-2">
                                 <span class="text-xs text-gray-500 dark:text-gray-400">Whose response{{ item.parts|length|pluralize }}</span>
@@ -304,7 +304,7 @@
                     <button type="submit" name="step" value="preview" formnovalidate class="inline-flex items-center px-3 py-1.5 rounded-md text-sm font-medium text-primary-700 dark:text-primary-300 bg-white dark:bg-gray-800 border border-primary-300 dark:border-primary-700 hover:bg-primary-50 dark:hover:bg-gray-700">Update preview</button>
                 </div>
                 <p class="text-xs text-gray-500 dark:text-gray-400">If a row is someone whose name didn't match, choose them and press <em>Update preview</em>.</p>
-                <ul class="text-sm divide-y divide-gray-100 dark:divide-gray-700 rounded-lg border border-gray-200 dark:border-gray-700">
+                <ul class="text-sm divide-y divide-gray-100 dark:divide-gray-700 rounded-lg border border-gray-200 dark:border-gray-700{% if ui_refresh %} rf-ss-sub{% endif %}">
                     {% for item in items %}{% if item.status != 'import' %}
                     <li class="px-4 py-3 space-y-2">
                         <div class="text-gray-600 dark:text-gray-400"><span class="text-xs text-gray-500">{{ item.where|capfirst }}</span> · <span class="text-gray-900 dark:text-white">{{ item.applicant.get_display_name|default:item.identity|default:"(no applicant)" }}</span> — {{ item.reason }}</div>
@@ -319,11 +319,11 @@
             {% endif %}
 
             {% if import_count %}
-            <label class="flex items-start gap-2 text-sm text-gray-800 dark:text-gray-200">
+            <label class="flex items-start gap-2 text-sm text-gray-800 dark:text-gray-200{% if ui_refresh %} rf-ss-confirm{% endif %}">
                 <input type="checkbox" name="confirmed" value="1" required class="mt-0.5">
                 I've checked who is getting an application and what's in it. GPAs stay unverified (there's no screenshot).
             </label>
-            <button type="submit" name="step" value="import" class="inline-flex items-center px-4 py-2 rounded-md text-sm font-medium text-white bg-green-600 hover:bg-green-700">Import {{ import_count }} application{{ import_count|pluralize }}</button>
+            <button type="submit" name="step" value="import" class="inline-flex items-center px-4 py-2 rounded-md text-sm font-medium text-white bg-green-600 hover:bg-green-700{% if ui_refresh %} rf-ss-primary rf-ss-go{% endif %}">Import {{ import_count }} application{{ import_count|pluralize }}</button>
             {% else %}
             <p class="text-sm text-gray-600 dark:text-gray-300">Nothing to import with these settings.</p>
             {% endif %}
@@ -333,7 +333,7 @@
 {% endif %}
 
 </div>
-{% endblock %}
+{% if ui_refresh %}</div>{% endif %}{% endblock %}
 
 {% block slating_js %}
 <script nonce="{{ request.csp_nonce }}">

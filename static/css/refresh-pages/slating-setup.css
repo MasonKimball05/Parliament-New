@@ -1,0 +1,334 @@
+/* =========================================================================
+   Website refresh: the slating manager's setup pages, in the app's look.
+
+   Loaded by base.html after refresh.css, only when `ui_refresh` is on (see
+   src/ui_refresh.py). Plain CSS, no Tailwind build; refresh.css's tokens
+   (--rf-*). Each template wraps its slating_content block in
+   `<div class="rf-ss rf-ss-<page>">` (switched, so the old markup is
+   untouched with the refresh off), adds `rf-ss-head` to its page header,
+   and a few `rf-ss-*` hooks on the markup it already has. Nothing is
+   swapped out: every link, form, field and script hook is the page's own.
+   Every rule is scoped under `.ui-refresh .rf-ss…`, which also outranks the
+   Tailwind utilities (and their `dark:` variants), so nothing needs
+   !important.
+
+     .rf-ss-setup       slating/period_setup.html (+ _positions_panel.html)
+     .rf-ss-positions   slating/positions.html
+     .rf-ss-builder     slating/form_builder.html
+     .rf-ss-import      slating/import_applications.html (+ _import_raw,
+                        _import_who)
+     .rf-ss-fill        slating/fill_imported_answers.html
+     .rf-ss-transfer    slating/transfer_admin.html
+     .rf-ss-transition  slating/transition_confirm.html
+     .rf-ss-review      slating/transition_review.html
+
+   Hooks:
+     rf-ss-head         the page header (title, subtitle, header button)
+     rf-ss-card         a settings section / grouped card
+     rf-ss-card-head    its title strip (title + one-line description)
+     rf-ss-card-foot    a card's button strip
+     rf-ss-actions      a form's Save / Cancel row (sticky on Period Setup)
+     rf-ss-primary      the page's main button (Save, Add, Import, Confirm)
+     rf-ss-status       Period Setup's "what's next" banner; rf-ss-strip its
+                        link strip
+     rf-ss-stats        Overview counts; rf-ss-nav the sidebar link list
+     rf-ss-danger       Danger Zone; rf-ss-help the new-period help card
+     rf-ss-note         info / warning callouts
+     rf-ss-modal        a modal's panel; rf-ss-modal-foot its buttons
+     rf-ss-list         drag-to-reorder lists (positions, form fields)
+     rf-ss-sub, rf-ss-fix, rf-ss-raw, rf-ss-table, rf-ss-confirm, rf-ss-who
+                        Import Applications' nested boxes and controls
+   ========================================================================= */
+
+/* ---------- Page --------------------------------------------------------- */
+
+.ui-refresh .rf-ss { padding-bottom: 48px; }
+
+.ui-refresh .rf-ss-head h1 {
+    font-size: clamp(24px, 3.6vw, 30px);
+    line-height: 1.2;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: var(--rf-text);
+    overflow-wrap: anywhere;
+}
+.ui-refresh .rf-ss-head h1 + p { font-size: 15px; color: var(--rf-text-secondary); }
+
+/* ---------- Buttons ------------------------------------------------------ */
+
+/* The main action: the app's PrimaryButton (accent fill, 10px, 600) */
+.ui-refresh :is(.rf-ss, .rf-ss-head) .rf-ss-primary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 40px;
+    padding-left: 18px;
+    padding-right: 18px;
+    border: 1px solid transparent;
+    border-radius: var(--rf-radius-control);
+    background-color: var(--rf-accent);
+    color: var(--rf-accent-text);
+    font-size: 15px;
+    font-weight: 600;
+    --tw-shadow: 0 0 #0000;
+    box-shadow: none;
+}
+.ui-refresh :is(.rf-ss, .rf-ss-head) .rf-ss-primary:hover { background-color: var(--rf-accent-hover); }
+.ui-refresh :is(.rf-ss, .rf-ss-head) .rf-ss-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+.ui-refresh :is(.rf-ss, .rf-ss-head) .rf-ss-primary svg { color: currentColor; }
+/* Import's final button stays green: it writes the applications */
+.ui-refresh .rf-ss .rf-ss-primary.rf-ss-go { background-color: var(--rf-success); color: #ffffff; }
+.ui-refresh .rf-ss .rf-ss-primary.rf-ss-go:hover { filter: brightness(0.93); }
+:root.ui-refresh.dark .rf-ss .rf-ss-primary.rf-ss-go { color: var(--rf-accent-text); }
+
+/* Secondary buttons beside it (Cancel, Back, Start over): outlined */
+.ui-refresh .rf-ss :is(.rf-ss-actions, .rf-ss-card-foot) a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 40px;
+    padding-left: 16px;
+    padding-right: 16px;
+    border: 1px solid var(--rf-separator);
+    border-radius: var(--rf-radius-control);
+    background-color: var(--rf-surface);
+    color: var(--rf-text);
+    font-size: 15px;
+    font-weight: 600;
+    --tw-shadow: 0 0 #0000;
+    box-shadow: none;
+}
+.ui-refresh .rf-ss :is(.rf-ss-actions, .rf-ss-card-foot) a:hover { background-color: var(--rf-surface-muted); }
+
+/* ---------- Cards (settings sections) ------------------------------------- */
+
+.ui-refresh .rf-ss .rf-ss-card {
+    background-color: var(--rf-surface);
+    border-color: transparent;
+    border-radius: var(--rf-radius-card);
+    box-shadow: 0 0 0 1px var(--rf-card-border), 0 4px 14px var(--rf-shadow);
+}
+.ui-refresh .rf-ss .rf-ss-padded { padding: 24px; }
+
+/* Title strip: no grey band; a sentence-case title over a muted description */
+.ui-refresh .rf-ss .rf-ss-card-head {
+    background-color: transparent;
+    border-color: var(--rf-separator);
+    padding: 16px 20px 12px;
+}
+.ui-refresh .rf-ss .rf-ss-card-head :is(h2, h3) {
+    font-size: 17px;
+    line-height: 1.3;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    text-transform: none;
+    color: var(--rf-text);
+}
+.ui-refresh .rf-ss .rf-ss-card-head p { margin-top: 2px; font-size: 13px; color: var(--rf-text-muted); }
+.ui-refresh .rf-ss .rf-ss-card-head > span { font-size: 13px; color: var(--rf-text-muted); }
+
+/* Step cards on Import (titles sit in the card's own padding) */
+.ui-refresh .rf-ss-import .rf-ss-card > h2,
+.ui-refresh .rf-ss-import .rf-ss-card > div > h2 {
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    color: var(--rf-text);
+}
+
+/* Labels and help text inside a section */
+.ui-refresh .rf-ss .rf-ss-card label.block,
+.ui-refresh .rf-ss .rf-ss-modal label.block {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--rf-text-secondary);
+}
+.ui-refresh .rf-ss .rf-ss-card label .font-normal { font-weight: 400; color: var(--rf-text-muted); }
+.ui-refresh .rf-ss .rf-ss-card p.text-xs:not([class*="text-amber-"]):not([class*="text-yellow-"]) { color: var(--rf-text-muted); }
+.ui-refresh .rf-ss :is(.text-amber-700, .text-amber-600, .text-yellow-700, .text-yellow-600) { color: var(--rf-warning); }
+
+/* A read-only control the form builder greys out (field_name when editing) */
+.ui-refresh .rf-ss input.bg-gray-100 { background-color: var(--rf-separator); color: var(--rf-text-muted); }
+
+/* Button strip at a card's foot */
+.ui-refresh .rf-ss .rf-ss-card-foot {
+    background-color: transparent;
+    border-top: 1px solid var(--rf-separator);
+    padding: 14px 20px;
+    gap: 12px;
+}
+.ui-refresh .rf-ss .rf-ss-card-foot > * + * { margin-left: 0; }
+.ui-refresh .rf-ss .rf-ss-card-foot button[type="submit"] {
+    min-height: 40px;
+    border-radius: var(--rf-radius-control);
+    font-size: 15px;
+    font-weight: 600;
+}
+
+/* ---------- Save row ----------------------------------------------------------- */
+
+.ui-refresh .rf-ss .rf-ss-actions { gap: 12px; align-items: center; }
+.ui-refresh .rf-ss .rf-ss-actions > * + * { margin-left: 0; }
+
+/* Period Setup's long settings form: the Save row rides along the bottom of
+   the window, so the button is always in reach. */
+.ui-refresh .rf-ss-setup .rf-ss-form .rf-ss-actions {
+    position: sticky;
+    bottom: 12px;
+    z-index: 5;
+    padding: 10px 12px;
+    border-radius: var(--rf-radius-stat);
+    background-color: var(--rf-surface-glass);
+    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(12px);
+    box-shadow: 0 0 0 1px var(--rf-card-border), 0 6px 18px var(--rf-shadow);
+}
+
+/* Transition: the form's cards stack with the page's rhythm */
+.ui-refresh .rf-ss-transition .rf-ss-form > * + * { margin-top: 24px; }
+
+/* ---------- Period Setup ------------------------------------------------------- */
+
+/* "What's next" banner: the stage in bold, the next-stage button beside it */
+.ui-refresh .rf-ss .rf-ss-status p.font-semibold { font-size: 16px; font-weight: 700; color: var(--rf-text); }
+.ui-refresh .rf-ss .rf-ss-status :is(form, a, button):not(.rf-ss-strip *) { border-radius: var(--rf-radius-control); }
+.ui-refresh .rf-ss .rf-ss-status button[type="submit"]:not(.rf-ss-strip *) { min-height: 40px; font-weight: 600; }
+
+/* Its link strip: the app's muted fill, toned for the stage */
+.ui-refresh .rf-ss .rf-ss-strip {
+    background-color: var(--rf-surface-muted);
+    border-color: var(--rf-separator);
+}
+.ui-refresh .rf-ss .rf-ss-strip a { color: var(--rf-accent); font-weight: 600; }
+.ui-refresh .rf-ss .rf-ss-strip.bg-yellow-50 { background-color: var(--rf-warning-soft); }
+.ui-refresh .rf-ss .rf-ss-strip.bg-yellow-50 a { color: var(--rf-warning); }
+.ui-refresh .rf-ss .rf-ss-strip.bg-primary-50 { background-color: var(--rf-accent-soft); }
+.ui-refresh .rf-ss .rf-ss-strip.bg-primary-50 a { color: var(--rf-accent-on-soft); }
+
+/* Overview counts: three pressable tiles */
+.ui-refresh .rf-ss .rf-ss-stats { gap: 8px; padding: 12px; border-color: var(--rf-separator); }
+.ui-refresh .rf-ss .rf-ss-stats > a {
+    border-radius: 12px;
+    background-color: var(--rf-surface-muted);
+    padding-top: 10px;
+    padding-bottom: 10px;
+}
+.ui-refresh .rf-ss .rf-ss-stats > a:hover { background-color: var(--rf-accent-soft); }
+.ui-refresh .rf-ss .rf-ss-stats p.text-xl { font-size: 22px; font-weight: 800; letter-spacing: -0.02em; }
+
+/* Sidebar links: grouped rows */
+.ui-refresh .rf-ss .rf-ss-nav { padding: 6px; }
+.ui-refresh .rf-ss .rf-ss-nav > * + * { margin-top: 0; }
+.ui-refresh .rf-ss .rf-ss-nav > a {
+    min-height: 42px;
+    border-radius: var(--rf-radius-control);
+    font-size: 15px;
+    color: var(--rf-text);
+}
+.ui-refresh .rf-ss .rf-ss-nav > a:hover { background-color: var(--rf-surface-muted); }
+.ui-refresh .rf-ss .rf-ss-nav > a.bg-primary-50 { background-color: var(--rf-accent-soft); color: var(--rf-accent-on-soft); }
+.ui-refresh .rf-ss .rf-ss-nav span.rounded { border-radius: 999px; padding-left: 8px; padding-right: 8px; font-weight: 600; }
+
+/* Danger Zone: the app's destructive tone */
+.ui-refresh .rf-ss .rf-ss-danger {
+    background-color: var(--rf-danger-soft);
+    border-color: transparent;
+    border-radius: var(--rf-radius-card);
+}
+.ui-refresh .rf-ss .rf-ss-danger > div { border-color: transparent; }
+.ui-refresh .rf-ss .rf-ss-danger h3 { font-size: 17px; font-weight: 700; color: var(--rf-danger); }
+.ui-refresh .rf-ss .rf-ss-danger p { color: var(--rf-text-secondary); }
+.ui-refresh .rf-ss .rf-ss-danger button[type="submit"] {
+    min-height: 40px;
+    border-color: var(--rf-danger);
+    border-radius: var(--rf-radius-control);
+    background-color: var(--rf-surface);
+    color: var(--rf-danger);
+    font-weight: 600;
+}
+.ui-refresh .rf-ss .rf-ss-danger button[type="submit"]:hover { background-color: var(--rf-danger); color: #ffffff; }
+:root.ui-refresh.dark .rf-ss .rf-ss-danger button[type="submit"]:hover { color: var(--rf-accent-text); }
+
+/* New-period help card */
+.ui-refresh .rf-ss .rf-ss-help { background-color: var(--rf-accent-soft); border-color: transparent; border-radius: var(--rf-radius-card); }
+.ui-refresh .rf-ss .rf-ss-help :is(h3, ol, svg) { color: var(--rf-accent-on-soft); }
+
+/* Positions panel (rounds): rows on the card */
+.ui-refresh .rf-ss .rf-ss-panel > ul > li { padding-top: 14px; padding-bottom: 14px; }
+.ui-refresh .rf-ss .rf-ss-panel :is(select, input[type="text"]) { border-radius: 8px; }
+
+/* ---------- Lists (Positions, Form Builder) ------------------------------------ */
+
+.ui-refresh .rf-ss .rf-ss-list > li { padding-top: 14px; padding-bottom: 14px; }
+.ui-refresh .rf-ss .rf-ss-list > li:hover { background-color: var(--rf-surface-muted); }
+.ui-refresh .rf-ss .rf-ss-list > li p.font-medium { font-size: 15px; font-weight: 600; color: var(--rf-text); }
+.ui-refresh .rf-ss .rf-ss-list > li :is(button, form button) { border-radius: 8px; }
+.ui-refresh .rf-ss .rf-ss-list > li :is(button, form button):hover { background-color: var(--rf-accent-soft); }
+
+/* Form Builder's field-type reference: a definition list look */
+.ui-refresh .rf-ss .rf-ss-types > * + * { margin-top: 0; }
+.ui-refresh .rf-ss .rf-ss-types > p { padding: 7px 0; border-bottom: 1px solid var(--rf-separator); }
+.ui-refresh .rf-ss .rf-ss-types > p:last-child { border-bottom: 0; }
+
+/* Sidebar quick actions (Add Default Positions / Fields, Back to Period Setup) */
+.ui-refresh .rf-ss .rf-ss-card :is(form > button.w-full, a.block) { border-radius: var(--rf-radius-control); font-weight: 600; min-height: 40px; }
+
+/* ---------- Callouts --------------------------------------------------------------- */
+
+.ui-refresh .rf-ss .rf-ss-note { border-color: transparent; border-radius: 12px; }
+.ui-refresh .rf-ss .rf-ss-note.bg-blue-50 { background-color: var(--rf-accent-soft); }
+.ui-refresh .rf-ss .rf-ss-note.bg-blue-50 [class*="text-blue-"] { color: var(--rf-accent-on-soft); }
+.ui-refresh .rf-ss .rf-ss-note.bg-yellow-50 { background-color: var(--rf-warning-soft); }
+.ui-refresh .rf-ss .rf-ss-note.bg-yellow-50 [class*="text-yellow-"] { color: var(--rf-warning); }
+.ui-refresh .rf-ss .rf-ss-note.bg-green-50 { background-color: var(--rf-success-soft); }
+.ui-refresh .rf-ss .rf-ss-note.bg-green-50 [class*="text-green-"] { color: var(--rf-success); }
+.ui-refresh .rf-ss .rf-ss-note.bg-red-50 { background-color: var(--rf-danger-soft); }
+.ui-refresh .rf-ss .rf-ss-note.bg-red-50 [class*="text-red-"] { color: var(--rf-danger); }
+.ui-refresh .rf-ss .rf-ss-note h3 { font-size: 15px; font-weight: 700; }
+
+/* ---------- Modals ------------------------------------------------------------------ */
+
+.ui-refresh .rf-ss .rf-ss-modal {
+    background-color: var(--rf-surface);
+    border-radius: var(--rf-radius-stat);
+    box-shadow: 0 0 0 1px var(--rf-card-border), 0 20px 50px rgba(0, 0, 0, 0.25);
+}
+.ui-refresh .rf-ss .rf-ss-modal h3 { font-size: 18px; font-weight: 700; color: var(--rf-text); }
+.ui-refresh .rf-ss .rf-ss-modal :is(button, a) { border-radius: var(--rf-radius-control); font-weight: 600; }
+.ui-refresh .rf-ss .rf-ss-modal-foot {
+    background-color: transparent;
+    border-top: 1px solid var(--rf-separator);
+}
+.ui-refresh .rf-ss .rf-ss-modal-foot button { min-height: 40px; font-size: 15px; --tw-shadow: 0 0 #0000; box-shadow: none; }
+.ui-refresh .rf-ss .rf-ss-modal-foot button[type="submit"] { background-color: var(--rf-accent); color: var(--rf-accent-text); }
+.ui-refresh .rf-ss .rf-ss-modal-foot button[type="submit"]:hover { background-color: var(--rf-accent-hover); }
+
+/* ---------- Import Applications ----------------------------------------------------- */
+
+.ui-refresh .rf-ss .rf-ss-sub { border-color: var(--rf-card-border); border-radius: 12px; overflow: hidden; }
+.ui-refresh .rf-ss details.rf-ss-sub > summary:hover { background-color: var(--rf-surface-muted); }
+.ui-refresh .rf-ss .rf-ss-fix { background-color: var(--rf-surface-muted); border-radius: 12px; padding: 14px; }
+.ui-refresh .rf-ss .rf-ss-raw { border-color: var(--rf-separator); border-radius: var(--rf-radius-control); }
+.ui-refresh .rf-ss .rf-ss-raw > summary { color: var(--rf-accent); font-weight: 600; }
+.ui-refresh .rf-ss .rf-ss-table thead th {
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--rf-text-muted);
+}
+.ui-refresh .rf-ss .rf-ss-table :is(tr, thead tr) { border-color: var(--rf-separator); }
+.ui-refresh .rf-ss .rf-ss-confirm {
+    padding: 12px 14px;
+    border-radius: 12px;
+    background-color: var(--rf-accent-soft);
+    color: var(--rf-text);
+}
+.ui-refresh .rf-ss .rf-ss-who { max-width: 100%; }
+/* The step's soft result tiles (will import / skipped) */
+.ui-refresh .rf-ss-import .rf-ss-card .bg-green-50.rounded-lg { background-color: var(--rf-success-soft); color: var(--rf-success); }
+.ui-refresh .rf-ss-import .rf-ss-card .bg-yellow-50.rounded-lg { background-color: var(--rf-warning-soft); color: var(--rf-warning); }
+.ui-refresh .rf-ss-import .rf-ss-card .bg-red-50 { background-color: var(--rf-danger-soft); color: var(--rf-danger); border-radius: var(--rf-radius-control); }
+.ui-refresh .rf-ss-import .rf-ss-card > .flex > label[class*="border-primary-"] { border-radius: var(--rf-radius-control); font-weight: 600; }
+.ui-refresh .rf-ss-import .rf-ss-card button[name="step"][value="preview"]:not(.rf-ss-primary) { border-radius: var(--rf-radius-control); font-weight: 600; }
+/* Period Setup: the Committee Members card sits under the settings form */
+.ui-refresh .rf-ss-setup .rf-ss-form + .rf-ss-card { margin-top: 20px; }

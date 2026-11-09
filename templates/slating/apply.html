@@ -20,7 +20,7 @@
 {% endblock %}
 
 {% block slating_content %}
-<form method="post" enctype="multipart/form-data" class="space-y-6">
+<form method="post" enctype="multipart/form-data" class="space-y-6{% if ui_refresh %} rf-sl rf-sl-apply{% endif %}">
     {% csrf_token %}
     <input type="hidden" name="action" id="formAction" value="save_draft">
 
@@ -151,7 +151,7 @@
                     <p class="text-sm text-gray-600 dark:text-gray-400">Select your preference level for each position. You must indicate interest in at least one position.</p>
 
                     <!-- Legend -->
-                    <div class="flex flex-wrap gap-2 text-xs pb-2 border-b border-gray-200 dark:border-gray-700">
+                    <div class="flex flex-wrap gap-2 text-xs pb-2 border-b border-gray-200 dark:border-gray-700{% if ui_refresh %} rf-sl-legend{% endif %}">
                         <span class="inline-flex items-center px-2 py-1 rounded bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">1st = Most Preferred</span>
                         <span class="inline-flex items-center px-2 py-1 rounded bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">2nd = Would Accept</span>
                         <span class="inline-flex items-center px-2 py-1 rounded bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300">3rd = Last Resort</span>
@@ -209,7 +209,7 @@
     {% endfor %}
 
     <!-- Submit Buttons -->
-    <div class="flex justify-between items-center bg-white dark:bg-gray-800 shadow rounded-lg px-4 py-4 sm:px-6">
+    <div class="flex justify-between items-center bg-white dark:bg-gray-800 shadow rounded-lg px-4 py-4 sm:px-6{% if ui_refresh %} rf-sl-actions{% endif %}">
         <div class="text-sm text-gray-500 dark:text-gray-400">
             {% if application.status == 'draft' %}
             <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300">

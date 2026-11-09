@@ -13,16 +13,16 @@
 {% endblock %}
 
 {% block page_header %}
-<div>
+<div{% if ui_refresh %} class="rf-sl-head"{% endif %}>
     <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Individual Position Voting</h1>
     <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ period.name }}</p>
 </div>
 {% endblock %}
 
 {% block slating_content %}
-<div class="max-w-3xl mx-auto space-y-4">
+<div class="max-w-3xl mx-auto space-y-4{% if ui_refresh %} rf-sl rf-sl-ivote{% endif %}">
 
-    <div class="bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
+    <div class="bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4{% if ui_refresh %} rf-sl-note{% endif %}">
         <div class="flex gap-3">
             <svg class="h-5 w-5 text-yellow-500 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
                 <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
@@ -37,7 +37,7 @@
 
     {% if sitting_out %}
     <!-- v4.4.5: candidates sit out their own race (period setting) -->
-    <div class="mb-4 rounded-xl border border-sky-200 dark:border-sky-800 bg-sky-50 dark:bg-sky-900/30 px-4 py-3 text-sm text-sky-900 dark:text-sky-100">
+    <div class="mb-4 rounded-xl border border-sky-200 dark:border-sky-800 bg-sky-50 dark:bg-sky-900/30 px-4 py-3 text-sm text-sky-900 dark:text-sky-100{% if ui_refresh %} rf-sl-sitout{% endif %}">
         You're a candidate for <strong>{{ sitting_out|join:", " }}</strong>, so {% if sitting_out|length == 1 %}that position isn't{% else %}those positions aren't{% endif %} on your ballot. The slating chair set this election so candidates sit out their own race; nothing is recorded for you there, not even an abstention.
     </div>
     {% endif %}
@@ -67,7 +67,7 @@
         <div class="space-y-3">
             {% for row in rows %}
             {% if row.voted %}
-            <div class="bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-700 rounded-xl px-5 py-4 flex items-center justify-between">
+            <div class="bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-700 rounded-xl px-5 py-4 flex items-center justify-between{% if ui_refresh %} rf-sl-pos-done{% endif %}">
                 <div>
                     <p class="text-sm font-semibold text-gray-700 dark:text-gray-300">{{ row.position.title }}</p>
                     {% if row.pass_fail %}<p class="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{{ row.nominee }}</p>{% endif %}
@@ -78,28 +78,28 @@
                 </span>
             </div>
             {% else %}
-            <div class="bg-white dark:bg-gray-800 shadow rounded-xl overflow-hidden">
+            <div class="bg-white dark:bg-gray-800 shadow rounded-xl overflow-hidden{% if ui_refresh %} rf-sl-pos{% endif %}">
                 <div class="px-5 py-4 border-b border-gray-200 dark:border-gray-700">
                     <p class="text-sm font-semibold text-gray-900 dark:text-white">{{ row.position.title }}{% if row.kind_label %} <span class="ml-1 text-xs font-medium text-primary-600 dark:text-primary-400">{{ row.kind_label }}</span>{% endif %}</p>
                     {% if row.pass_fail %}<p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{{ row.nominee }}{% if row.is_write_in %} <span class="text-purple-500">(write-in)</span>{% endif %}</p>
                     {% else %}<p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Choose one.</p>{% endif %}
                 </div>
                 <div class="px-5 py-4">
-                    <div class="flex flex-wrap gap-3" role="radiogroup" aria-label="{{ row.position.title }}">
+                    <div class="flex flex-wrap gap-3{% if ui_refresh %} rf-sl-opts{% endif %}" role="radiogroup" aria-label="{{ row.position.title }}">
                         {% if row.pass_fail %}
-                        <label class="flex-1 min-w-[90px] flex items-center gap-3 p-3 border border-gray-200 dark:border-gray-600 rounded-lg cursor-pointer hover:border-green-400 dark:hover:border-green-500 has-[:checked]:border-green-500 has-[:checked]:bg-green-50 dark:has-[:checked]:bg-green-900/20 transition-colors">
+                        <label class="flex-1 min-w-[90px] flex items-center gap-3 p-3 border border-gray-200 dark:border-gray-600 rounded-lg cursor-pointer hover:border-green-400 dark:hover:border-green-500 has-[:checked]:border-green-500 has-[:checked]:bg-green-50 dark:has-[:checked]:bg-green-900/20 transition-colors{% if ui_refresh %} rf-sl-opt rf-sl-approve{% endif %}">
                             <input type="radio" name="vote_{{ row.position.id }}" value="approve" required
                                 class="h-4 w-4 text-green-600 border-gray-300 focus:ring-green-500">
                             <span class="text-sm font-medium text-gray-800 dark:text-gray-200">Approve</span>
                         </label>
-                        <label class="flex-1 min-w-[90px] flex items-center gap-3 p-3 border border-gray-200 dark:border-gray-600 rounded-lg cursor-pointer hover:border-red-400 dark:hover:border-red-500 has-[:checked]:border-red-500 has-[:checked]:bg-red-50 dark:has-[:checked]:bg-red-900/20 transition-colors">
+                        <label class="flex-1 min-w-[90px] flex items-center gap-3 p-3 border border-gray-200 dark:border-gray-600 rounded-lg cursor-pointer hover:border-red-400 dark:hover:border-red-500 has-[:checked]:border-red-500 has-[:checked]:bg-red-50 dark:has-[:checked]:bg-red-900/20 transition-colors{% if ui_refresh %} rf-sl-opt rf-sl-reject-choice{% endif %}">
                             <input type="radio" name="vote_{{ row.position.id }}" value="reject"
                                 class="h-4 w-4 text-red-600 border-gray-300 focus:ring-red-500">
                             <span class="text-sm font-medium text-gray-800 dark:text-gray-200">Reject</span>
                         </label>
                         {% else %}
                         {% for choice in row.choices %}
-                        <label class="flex-1 min-w-[140px] flex items-center gap-3 p-3 border border-gray-200 dark:border-gray-600 rounded-lg cursor-pointer hover:border-primary-400 has-[:checked]:border-primary-500 has-[:checked]:bg-primary-50 dark:has-[:checked]:bg-primary-900/20 transition-colors">
+                        <label class="flex-1 min-w-[140px] flex items-center gap-3 p-3 border border-gray-200 dark:border-gray-600 rounded-lg cursor-pointer hover:border-primary-400 has-[:checked]:border-primary-500 has-[:checked]:bg-primary-50 dark:has-[:checked]:bg-primary-900/20 transition-colors{% if ui_refresh %} rf-sl-opt rf-sl-pick{% endif %}">
                             <input type="radio" name="vote_{{ row.position.id }}" value="{{ choice.key }}" required
                                 class="h-4 w-4 text-primary-600 border-gray-300 focus:ring-primary-500">
                             <span class="text-sm font-medium text-gray-800 dark:text-gray-200">{{ choice.name }}</span>
@@ -107,7 +107,7 @@
                         {% endfor %}
                         {% endif %}
                         {% if row.allow_abstain %}
-                        <label class="flex-1 min-w-[90px] flex items-center gap-3 p-3 border border-gray-200 dark:border-gray-600 rounded-lg cursor-pointer hover:border-gray-400 dark:hover:border-gray-400 has-[:checked]:border-gray-400 has-[:checked]:bg-gray-50 dark:has-[:checked]:bg-gray-700/50 transition-colors">
+                        <label class="flex-1 min-w-[90px] flex items-center gap-3 p-3 border border-gray-200 dark:border-gray-600 rounded-lg cursor-pointer hover:border-gray-400 dark:hover:border-gray-400 has-[:checked]:border-gray-400 has-[:checked]:bg-gray-50 dark:has-[:checked]:bg-gray-700/50 transition-colors{% if ui_refresh %} rf-sl-opt rf-sl-abstain{% endif %}">
                             <input type="radio" name="vote_{{ row.position.id }}" value="abstain"
                                 class="h-4 w-4 text-gray-500 border-gray-300 focus:ring-gray-400">
                             <span class="text-sm font-medium text-gray-800 dark:text-gray-200">Abstain</span>
@@ -120,8 +120,8 @@
             {% endfor %}
         </div>
 
-        <div class="mt-4 bg-white dark:bg-gray-800 shadow rounded-xl overflow-hidden">
-            <div class="px-5 py-4">
+        <div class="mt-4 bg-white dark:bg-gray-800 shadow rounded-xl overflow-hidden{% if ui_refresh %} rf-sl-confirm-card{% endif %}">
+            <div class="px-5 py-4{% if ui_refresh %} rf-sl-confirm{% endif %}">
                 <label for="password" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Confirm it&#x27;s you</label>
                 <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Enter your Parliament login password (the one you sign in to this site with){% if has_passkeys %}, or use your passkey{% endif %}.</p>
                 <input type="password" name="password" id="password" required
@@ -139,7 +139,7 @@
                 <p class="js-passkey-error hidden text-sm text-red-600 dark:text-red-400 mt-1"></p>
                 {% endif %}
             </div>
-            <div class="bg-gray-50 dark:bg-gray-700/50 px-5 py-4">
+            <div class="bg-gray-50 dark:bg-gray-700/50 px-5 py-4{% if ui_refresh %} rf-sl-submit{% endif %}">
                 <p class="js-ballot-hint text-xs text-gray-500 dark:text-gray-400 mb-2 text-center" aria-live="polite"></p>
                 <button type="submit"
                     class="w-full inline-flex justify-center items-center px-4 py-2.5 border border-transparent rounded-lg text-sm font-semibold text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
@@ -156,7 +156,7 @@
 
     {% if decided_positions %}
     {# 11-05-26: after the live ballot, collapsed — the run-off position(s) come first. #}
-    <details class="bg-white dark:bg-gray-800 shadow rounded-xl overflow-hidden">
+    <details class="bg-white dark:bg-gray-800 shadow rounded-xl overflow-hidden{% if ui_refresh %} rf-sl-decided{% endif %}">
         <summary class="px-5 py-3 cursor-pointer text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide bg-gray-50 dark:bg-gray-700/50">
             Not on this ballot ({{ decided_positions|length }} decided in an earlier round)
         </summary>

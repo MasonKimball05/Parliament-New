@@ -12,7 +12,7 @@
 {% endblock %}
 
 {% block page_header %}
-<div class="flex items-center justify-between">
+<div class="flex items-center justify-between{% if ui_refresh %} rf-sc rf-sc-head{% endif %}">
     <div>
         <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Interview Management</h1>
         <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ period.name }}</p>
@@ -21,10 +21,10 @@
 {% endblock %}
 
 {% block slating_content %}
-<div class="space-y-6">
+<div class="space-y-6{% if ui_refresh %} rf-sc rf-sc-interviews{% endif %}">
     <!-- Filter Tabs -->
-    <div class="border-b border-gray-200 dark:border-gray-700">
-        <nav class="-mb-px flex space-x-8">
+    <div class="border-b border-gray-200 dark:border-gray-700{% if ui_refresh %} rf-sc-tabbar{% endif %}">
+        <nav class="-mb-px flex space-x-8{% if ui_refresh %} rf-sc-tabs{% endif %}">
             <a href="{% url 'slating_interviews' period_id=period.id %}"
                 class="{% if not status_filter %}border-primary-500 text-primary-600 dark:text-primary-400{% else %}border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300{% endif %} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
                 All
@@ -46,7 +46,7 @@
 
     <!-- Applicants Needing Interviews -->
     {% if apps_without_interview %}
-    <div class="bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
+    <div class="bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4{% if ui_refresh %} rf-sc-note{% endif %}">
         <div class="flex">
             <div class="flex-shrink-0">
                 <svg class="h-5 w-5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
@@ -79,7 +79,7 @@
     <!-- Interviews List -->
     <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
         {% if interviews %}
-        <ul class="divide-y divide-gray-200 dark:divide-gray-700">
+        <ul class="divide-y divide-gray-200 dark:divide-gray-700{% if ui_refresh %} rf-sc-rows{% endif %}">
             {% for interview in interviews %}
             <li class="px-4 py-4 sm:px-6 hover:bg-gray-50 dark:hover:bg-gray-700/50">
                 <div class="flex items-center justify-between">
@@ -157,7 +157,7 @@
 
     {% if can_manage %}
     <!-- v4.0.0: Destroy interview notes (the view existed; nothing linked to it) -->
-    <div class="bg-white dark:bg-gray-800 shadow rounded-lg p-6 border border-red-200 dark:border-red-800">
+    <div class="bg-white dark:bg-gray-800 shadow rounded-lg p-6 border border-red-200 dark:border-red-800{% if ui_refresh %} rf-sc-danger{% endif %}">
         <h3 class="text-lg font-medium text-gray-900 dark:text-white">Destroy interview notes</h3>
         {% if notes_remaining %}
         <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">Permanently erases the confidential notes, strengths and concerns from all {{ notes_remaining }} interview{{ notes_remaining|pluralize }} in this period, as the bylaws require once the minutes are approved. Interview dates and who interviewed stay. This can't be undone.</p>

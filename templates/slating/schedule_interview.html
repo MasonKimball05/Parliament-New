@@ -12,14 +12,14 @@
 {% endblock %}
 
 {% block page_header %}
-<div>
+<div{% if ui_refresh %} class="rf-sc rf-sc-head"{% endif %}>
     <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Schedule Interview</h1>
     <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ application.applicant.name }} - {{ period.name }}</p>
 </div>
 {% endblock %}
 
 {% block slating_content %}
-<div class="max-w-2xl">
+<div class="max-w-2xl{% if ui_refresh %} rf-sc rf-sc-form{% endif %}">
     <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
         <div class="px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-gray-700">
             <h3 class="text-lg font-medium text-gray-900 dark:text-white">
@@ -67,7 +67,7 @@
                     Interviewers
                 </label>
                 {% if interviewers %}
-                <div class="space-y-2 max-h-48 overflow-y-auto border border-gray-200 dark:border-gray-600 rounded-md p-3">
+                <div class="space-y-2 max-h-48 overflow-y-auto border border-gray-200 dark:border-gray-600 rounded-md p-3{% if ui_refresh %} rf-sc-picks{% endif %}">
                     {% for interviewer in interviewers %}
                     <label class="flex items-center">
                         <input type="checkbox" name="interviewers" value="{{ interviewer.user_id }}"

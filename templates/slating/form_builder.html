@@ -12,13 +12,13 @@
 {% endblock %}
 
 {% block page_header %}
-<div class="flex items-center justify-between">
+<div class="flex items-center justify-between{% if ui_refresh %} rf-ss-head{% endif %}">
     <div>
         <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Application Form Builder</h1>
         <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ period.name }}</p>
     </div>
     <button type="button" id="js-open-add-field-modal"
-        class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
+        class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500{% if ui_refresh %} rf-ss-primary{% endif %}">
         <svg class="-ml-1 mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
         </svg>
@@ -27,18 +27,18 @@
 </div>
 {% endblock %}
 
-{% block slating_content %}
+{% block slating_content %}{% if ui_refresh %}<div class="rf-ss rf-ss-builder">{% endif %}
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
     <!-- Form Fields List -->
     <div class="lg:col-span-2">
-        <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
-            <div class="px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-gray-700">
+        <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden{% if ui_refresh %} rf-ss-card{% endif %}">
+            <div class="px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-gray-700{% if ui_refresh %} rf-ss-card-head{% endif %}">
                 <h3 class="text-lg font-medium text-gray-900 dark:text-white">Form Fields</h3>
                 <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Drag to reorder fields</p>
             </div>
 
             {% if fields %}
-            <ul id="fieldsList" class="divide-y divide-gray-200 dark:divide-gray-700">
+            <ul id="fieldsList" class="divide-y divide-gray-200 dark:divide-gray-700{% if ui_refresh %} rf-ss-list{% endif %}">
                 {% for field in fields %}
                 <li class="field-item px-4 py-4 sm:px-6 hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-grab active:cursor-grabbing transition-all duration-150" data-field-id="{{ field.id }}" draggable="true">
                     <div class="flex items-center justify-between">
@@ -105,11 +105,11 @@
     <!-- Sidebar -->
     <div class="space-y-6">
         <!-- Field Types Reference -->
-        <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
-            <div class="px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-gray-700">
+        <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden{% if ui_refresh %} rf-ss-card{% endif %}">
+            <div class="px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-gray-700{% if ui_refresh %} rf-ss-card-head{% endif %}">
                 <h3 class="text-lg font-medium text-gray-900 dark:text-white">Field Types</h3>
             </div>
-            <div class="px-4 py-4 space-y-2 text-sm text-gray-700 dark:text-gray-300">
+            <div class="px-4 py-4 space-y-2 text-sm text-gray-700 dark:text-gray-300{% if ui_refresh %} rf-ss-types{% endif %}">
                 <p><span class="font-medium text-gray-900 dark:text-white">Text:</span> Single line input</p>
                 <p><span class="font-medium text-gray-900 dark:text-white">Text Area:</span> Multi-line text</p>
                 <p><span class="font-medium text-gray-900 dark:text-white">Select:</span> Dropdown options</p>
@@ -126,8 +126,8 @@
         </div>
 
         <!-- Quick Actions -->
-        <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
-            <div class="px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-gray-700">
+        <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden{% if ui_refresh %} rf-ss-card{% endif %}">
+            <div class="px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-gray-700{% if ui_refresh %} rf-ss-card-head{% endif %}">
                 <h3 class="text-lg font-medium text-gray-900 dark:text-white">Quick Actions</h3>
             </div>
             <div class="px-4 py-4 space-y-2">
@@ -151,7 +151,7 @@
     <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:p-0">
         <div class="js-close-field-modal fixed inset-0 bg-gray-500 dark:bg-gray-900 bg-opacity-75 dark:bg-opacity-75 transition-opacity"></div>
 
-        <div class="inline-block align-bottom bg-white dark:bg-gray-800 rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+        <div class="inline-block align-bottom bg-white dark:bg-gray-800 rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full{% if ui_refresh %} rf-ss-modal{% endif %}">
             <form method="post" id="fieldForm">
                 {% csrf_token %}
                 <input type="hidden" name="action" id="formAction" value="add_field">
@@ -233,7 +233,7 @@
                     </div>
                 </div>
 
-                <div class="bg-gray-50 dark:bg-gray-700 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                <div class="bg-gray-50 dark:bg-gray-700 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse{% if ui_refresh %} rf-ss-modal-foot{% endif %}">
                     <button type="submit" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-primary-600 text-base font-medium text-white hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 sm:ml-3 sm:w-auto sm:text-sm">
                         Save Field
                     </button>
@@ -245,7 +245,7 @@
         </div>
     </div>
 </div>
-{% endblock %}
+{% if ui_refresh %}</div>{% endif %}{% endblock %}
 
 {% block slating_js %}
 <script nonce="{{ request.csp_nonce }}">

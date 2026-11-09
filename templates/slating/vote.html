@@ -13,7 +13,7 @@
 {% endblock %}
 
 {% block page_header %}
-<div class="flex items-center justify-between flex-wrap gap-3">
+<div class="flex items-center justify-between flex-wrap gap-3{% if ui_refresh %} rf-sl-head{% endif %}">
     <div>
         <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Officer Election - Vote</h1>
         <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ period.name }}</p>
@@ -36,11 +36,11 @@
 {% endblock %}
 
 {% block slating_content %}
-<div class="max-w-3xl mx-auto space-y-6">
+<div class="max-w-3xl mx-auto space-y-6{% if ui_refresh %} rf-sl rf-sl-vote{% endif %}">
 
 {% if voting_paused %}
 <!-- Voting Paused State (committee only) -->
-<div class="bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-300 dark:border-yellow-700 rounded-xl p-6">
+<div class="bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-300 dark:border-yellow-700 rounded-xl p-6{% if ui_refresh %} rf-sl-paused{% endif %}">
     <div class="flex items-start gap-4">
         <svg class="h-6 w-6 text-yellow-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
@@ -108,7 +108,7 @@
 </div>
 
 <!-- Normal Voting Info Banner -->
-    <div class="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+    <div class="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-lg p-4{% if ui_refresh %} rf-sl-note{% endif %}">
         <div class="flex">
             <div class="flex-shrink-0">
                 <svg class="h-5 w-5 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
@@ -126,7 +126,7 @@
     </div>
 
     <!-- Slate Preview -->
-    <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
+    <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden{% if ui_refresh %} rf-sl-slate{% endif %}">
         <div class="px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-gray-700">
             <h3 class="text-lg font-medium text-gray-900 dark:text-white">{{ slate.name }}</h3>
             {% if slate.description %}
@@ -153,7 +153,7 @@
 
     {% if has_voted %}
     <!-- Already Voted -->
-    <div class="bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800 rounded-lg p-6 text-center">
+    <div class="bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800 rounded-lg p-6 text-center{% if ui_refresh %} rf-sl-done{% endif %}">
         <svg class="mx-auto h-12 w-12 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
         </svg>
@@ -190,21 +190,21 @@
     </div>
     {% elif sits_out %}
     <!-- v4.4.5: candidates sit out their own race (period setting) -->
-    <div class="bg-sky-50 dark:bg-sky-900/30 border border-sky-200 dark:border-sky-800 rounded-lg p-6 text-center">
+    <div class="bg-sky-50 dark:bg-sky-900/30 border border-sky-200 dark:border-sky-800 rounded-lg p-6 text-center{% if ui_refresh %} rf-sl-sitout{% endif %}">
         <h3 class="text-sm font-semibold text-sky-900 dark:text-sky-100">You're on this slate, so you don't vote on it</h3>
         <p class="mt-1 text-sm text-sky-800 dark:text-sky-200">The slating chair set this election so candidates sit out their own race. Nothing is recorded for you, not even an abstention, so the result is decided by everyone else's votes.</p>
         <a href="{% url 'slating_dashboard' %}" class="mt-4 inline-flex items-center text-sm text-primary-600 dark:text-primary-400 hover:underline">Back to Dashboard</a>
     </div>
     {% else %}
     <!-- Vote Form -->
-    <form method="post" class="js-vote-form js-ballot-form bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden"
+    <form method="post" class="js-vote-form js-ballot-form bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden{% if ui_refresh %} rf-sl-ballot{% endif %}"
         data-confirm="Cast your ballot? Your vote is secret and can&#x27;t be changed once it&#x27;s in.">
         {% csrf_token %}
         <div class="px-4 py-5 sm:p-6 space-y-6">
             <div>
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Your Vote</label>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3{% if ui_refresh %} rf-sl-label{% endif %}">Your Vote</label>
                 <div class="space-y-3">
-                    <div class="js-radio-card flex items-center p-4 border border-gray-200 dark:border-gray-600 rounded-lg hover:border-green-500 dark:hover:border-green-500 cursor-pointer" data-radio-id="vote_approve">
+                    <div class="js-radio-card flex items-center p-4 border border-gray-200 dark:border-gray-600 rounded-lg hover:border-green-500 dark:hover:border-green-500 cursor-pointer{% if ui_refresh %} rf-sl-choice rf-sl-approve{% endif %}" data-radio-id="vote_approve">
                         <input type="radio" name="vote_choice" id="vote_approve" value="approve" required
                             class="js-vote-radio h-4 w-4 border-gray-300 text-green-600 focus:ring-green-500">
                         <label for="vote_approve" class="ml-3 flex-1 cursor-pointer">
@@ -212,24 +212,24 @@
                             <span class="block text-sm text-gray-500 dark:text-gray-400">I approve this slate of officers</span>
                         </label>
                     </div>
-                    <div class="js-radio-card flex items-center p-4 border border-gray-200 dark:border-gray-600 rounded-lg hover:border-red-500 dark:hover:border-red-500 cursor-pointer" data-radio-id="vote_reject">
+                    <div class="js-radio-card flex items-center p-4 border border-gray-200 dark:border-gray-600 rounded-lg hover:border-red-500 dark:hover:border-red-500 cursor-pointer{% if ui_refresh %} rf-sl-choice rf-sl-reject-choice{% endif %}" data-radio-id="vote_reject">
                         <input type="radio" name="vote_choice" id="vote_reject" value="reject" required
                             class="js-vote-radio h-4 w-4 border-gray-300 text-red-600 focus:ring-red-500">
                         <label for="vote_reject" class="ml-3 flex-1 cursor-pointer">
                             <span class="block text-sm font-medium text-gray-900 dark:text-white">Reject</span>
-                            <span class="block text-sm text-gray-500 dark:text-gray-400">I do not approve this slate</span>
+                            <span class="block text-sm text-gray-500 dark:text-gray-400">I do not approve this slate</span>{% if ui_refresh %}<span class="rf-sl-choice-req">You&#x27;ll then pick at least one position you object to.</span>{% endif %}
                         </label>
                     </div>
 
                     <!-- Rejection Reasons (shown when Reject is selected) -->
-                    <div id="rejection_reasons" class="hidden ml-8 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                    <div id="rejection_reasons" class="hidden ml-8 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg{% if ui_refresh %} rf-sl-reject{% endif %}">
                         <label class="block text-sm font-medium text-red-800 dark:text-red-200 mb-3">
                             Which position(s) are you objecting to? <span class="text-red-600">*</span>
                         </label>
-                        <p class="text-xs text-red-600 dark:text-red-400 mb-3">Select at least one position to continue.</p>
+                        <p class="text-xs text-red-600 dark:text-red-400 mb-3{% if ui_refresh %} rf-sl-req{% endif %}">Select at least one position to continue.</p>
                         <div class="space-y-2">
                             {% for candidate in candidates %}
-                            <label class="flex items-center p-2 rounded hover:bg-red-100 dark:hover:bg-red-900/30 cursor-pointer">
+                            <label class="flex items-center p-2 rounded hover:bg-red-100 dark:hover:bg-red-900/30 cursor-pointer{% if ui_refresh %} rf-sl-objection{% endif %}">
                                 <input type="checkbox" name="rejected_positions" value="{{ candidate.position.id }}"
                                     class="h-4 w-4 border-gray-300 text-red-600 focus:ring-red-500 rounded rejected-position-checkbox">
                                 <span class="ml-3 text-sm text-gray-900 dark:text-white">
@@ -240,7 +240,7 @@
                         </div>
                     </div>
                     {% if period.allow_abstain %}
-                    <div class="js-radio-card flex items-center p-4 border border-gray-200 dark:border-gray-600 rounded-lg hover:border-gray-400 dark:hover:border-gray-400 cursor-pointer" data-radio-id="vote_abstain">
+                    <div class="js-radio-card flex items-center p-4 border border-gray-200 dark:border-gray-600 rounded-lg hover:border-gray-400 dark:hover:border-gray-400 cursor-pointer{% if ui_refresh %} rf-sl-choice rf-sl-abstain{% endif %}" data-radio-id="vote_abstain">
                         <input type="radio" name="vote_choice" id="vote_abstain" value="abstain" required
                             class="js-vote-radio h-4 w-4 border-gray-300 text-gray-600 focus:ring-gray-500">
                         <label for="vote_abstain" class="ml-3 flex-1 cursor-pointer">
@@ -252,7 +252,7 @@
                 </div>
             </div>
 
-            <div class="border-t border-gray-200 dark:border-gray-700 pt-6">
+            <div class="border-t border-gray-200 dark:border-gray-700 pt-6{% if ui_refresh %} rf-sl-confirm{% endif %}">
                 <label for="password" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Confirm it&#x27;s you</label>
                 <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Enter your Parliament login password (the one you sign in to this site with){% if has_passkeys %}, or use your passkey{% endif %}.</p>
                 <input type="password" name="password" id="password" required
@@ -272,7 +272,7 @@
             </div>
         </div>
 
-        <div class="bg-gray-50 dark:bg-gray-700 px-4 py-4 sm:px-6">
+        <div class="bg-gray-50 dark:bg-gray-700 px-4 py-4 sm:px-6{% if ui_refresh %} rf-sl-submit{% endif %}">
             <p class="js-ballot-hint text-xs text-gray-500 dark:text-gray-400 mb-2 text-center" aria-live="polite"></p>
             <button type="submit"
                 class="w-full inline-flex justify-center items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed">
@@ -286,7 +286,7 @@
     {% endif %}
 
     <!-- Participation Stats -->
-    <div class="bg-white dark:bg-gray-800 shadow rounded-lg px-4 py-5 sm:p-6">
+    <div class="bg-white dark:bg-gray-800 shadow rounded-lg px-4 py-5 sm:p-6{% if ui_refresh %} rf-sl-turnout{% endif %}">
         <div class="text-center">
             <p class="text-sm text-gray-500 dark:text-gray-400">
                 <span class="font-medium text-gray-900 dark:text-white">{{ total_ballots }}</span> members have voted so far

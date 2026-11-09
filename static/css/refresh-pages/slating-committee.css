@@ -1,0 +1,475 @@
+/* =========================================================================
+   Website refresh: the slating committee's working pages (applications,
+   interviews, the slate builder, attendance, paper ballots, manual results
+   and the next-round form) in the app's look.
+
+   Loaded by base.html after refresh.css, only when `ui_refresh` is on (see
+   src/ui_refresh.py). Plain CSS, no Tailwind build; refresh.css's tokens
+   (--rf-*). Each template adds `rf-sc` and one page class to the root of
+   its slating_content block (and `rf-sc rf-sc-head` to its page_header),
+   plus a few `rf-sc-*` hooks on the markup it already has. Nothing is
+   swapped out: every link, form, field and script hook is the page's own.
+   Every rule is scoped under `.ui-refresh .rf-sc…`, which also outranks the
+   Tailwind utilities (and their `dark:` variants), so nothing needs
+   !important. base_slating.html (breadcrumbs, stage tracker, messages) is
+   the member/setup restyle's, not this file's.
+
+     .rf-sc-head        every page's title row (page_header block)
+     .rf-sc-apps        slating/applications_review.html
+     .rf-sc-app         slating/application_detail.html
+     .rf-sc-interviews  slating/interviews.html
+     .rf-sc-form        slating/schedule_interview.html, complete_interview.html
+     .rf-sc-builder     slating/slate_builder.html (+ .rf-sc-modal, its picker)
+     .rf-sc-preview     slating/slate_preview.html
+     .rf-sc-editslate   slating/edit_approved_slate.html
+     .rf-sc-att         slating/attendance.html
+     .rf-sc-paper       slating/paper_ballots.html
+     .rf-sc-manual      slating/manual_results.html
+     .rf-sc-next        slating/_next_round.html (inside period_setup.html)
+
+   These are dense working tools: rows stay compact and scannable, status
+   pills are the app's soft tones, and each page keeps one solid primary
+   action.
+   ========================================================================= */
+
+:root.ui-refresh {
+    --rf-sc-purple: #553aa8;
+    --rf-sc-purple-soft: #ece6fa;
+}
+:root.ui-refresh.dark {
+    --rf-sc-purple: #c9bcf6;
+    --rf-sc-purple-soft: #2b2452;
+}
+
+/* ---------- Titles --------------------------------------------------------- */
+
+.ui-refresh .rf-sc-head { gap: 12px; flex-wrap: wrap; }
+.ui-refresh .rf-sc-head h1 {
+    font-size: clamp(24px, 3.6vw, 30px);
+    line-height: 1.2;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: var(--rf-text);
+    overflow-wrap: anywhere;
+}
+.ui-refresh .rf-sc-head h1 + p { color: var(--rf-text-muted); }
+
+/* Card titles and their header strips */
+.ui-refresh .rf-sc :is(h2, h3):is(.text-lg, .text-base) {
+    font-size: 17px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    color: var(--rf-text);
+}
+.ui-refresh .rf-sc .rounded-lg > .border-b:first-child,
+.ui-refresh .rf-sc .rounded-xl > .border-b:first-child { border-color: var(--rf-separator); }
+/* Small-caps headings already on the pages (Members who can vote, Next round…) */
+.ui-refresh .rf-sc :is(h2, h3, p).uppercase:is(.tracking-wide, .tracking-wider) {
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    color: var(--rf-text-muted);
+}
+
+/* ---------- Cards ------------------------------------------------------------ */
+
+.ui-refresh .rf-sc :is(div, form, section).bg-white:is(.rounded-lg, .rounded-xl):is(.shadow, .shadow-sm),
+.ui-refresh .rf-sc.bg-white.rounded-lg.shadow { border-radius: var(--rf-radius-card); }
+/* A card with a real border and no shadow (attendance's list): the refresh's
+   ring instead, so every card has the same edge */
+.ui-refresh .rf-sc .bg-white.rounded-xl.border:not(.shadow):not(.shadow-sm) {
+    border-color: transparent;
+    box-shadow: 0 0 0 1px var(--rf-card-border), 0 3px 10px var(--rf-shadow);
+}
+.ui-refresh .rf-sc .bg-white:is(.rounded-lg, .rounded-xl).border:is(.shadow, .shadow-sm):not(.rf-sc-danger) { border-color: transparent; }
+
+/* Inner grey panels (applicant summary, notes, modal footer): the app's
+   muted fill */
+.ui-refresh .rf-sc .bg-white :is(.bg-gray-50, .bg-gray-100):not(button):not(a):not(span):not(thead):not(tr) { background-color: var(--rf-surface-muted); }
+.ui-refresh .rf-sc .bg-white :is(.bg-gray-50, .bg-gray-100):not(button):not(a):not(span).border-b { border-color: var(--rf-separator); }
+.ui-refresh .rf-sc .bg-white :is(.bg-gray-50, .bg-gray-100).rounded { border-radius: 10px; }
+
+/* Notes and warnings (tinted boxes): the app's soft tones, no edge */
+.ui-refresh .rf-sc :is(.bg-yellow-50, .bg-amber-50, .bg-red-50, .bg-blue-50, .bg-green-50):is(.rounded-lg, .rounded-md, .rounded-xl) {
+    border-color: transparent;
+    border-radius: 12px;
+}
+
+/* ---------- Ink and pills --------------------------------------------------------- */
+
+.ui-refresh .rf-sc :is(.text-green-500, .text-green-600, .text-green-700, .text-green-800) { color: var(--rf-success); }
+.ui-refresh .rf-sc :is(.text-yellow-600, .text-yellow-700, .text-yellow-800, .text-amber-500, .text-amber-800) { color: var(--rf-warning); }
+.ui-refresh .rf-sc :is(.text-red-500, .text-red-600, .text-red-700, .text-red-800) { color: var(--rf-danger); }
+.ui-refresh .rf-sc :is(.text-blue-700, .text-blue-800) { color: var(--rf-accent-on-soft); }
+.ui-refresh .rf-sc :is(.text-purple-600, .text-purple-800) { color: var(--rf-sc-purple); }
+.ui-refresh .rf-sc .text-yellow-400 { color: var(--rf-warning); }
+
+.ui-refresh .rf-sc :is(.bg-green-50, .bg-green-100) { background-color: var(--rf-success-soft); }
+.ui-refresh .rf-sc :is(.bg-yellow-50, .bg-yellow-100, .bg-amber-50) { background-color: var(--rf-warning-soft); }
+.ui-refresh .rf-sc :is(.bg-red-50, .bg-red-100) { background-color: var(--rf-danger-soft); }
+.ui-refresh .rf-sc :is(.bg-blue-50, .bg-blue-100) { background-color: var(--rf-accent-soft); }
+.ui-refresh .rf-sc .bg-purple-100 { background-color: var(--rf-sc-purple-soft); }
+/* Ink on those fills stays readable in dark (the dark: variants are pale) */
+.ui-refresh .rf-sc :is(.bg-yellow-50, .bg-amber-50) :is([class*="text-yellow-"], [class*="text-amber-"]) { color: var(--rf-warning); }
+
+/* Status pills (kit Pill: 999px, 12px/600) */
+.ui-refresh .rf-sc span:is(.rounded-full, .rounded):is(.text-xs, .text-sm):is([class*="bg-"]):not(:empty) {
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+}
+.ui-refresh .rf-sc span:is(.rounded-full, .rounded):is(.bg-gray-100, .bg-gray-200):not(:empty) {
+    background-color: var(--rf-surface-muted);
+    color: var(--rf-text-secondary);
+}
+
+/* ---------- Buttons ----------------------------------------------------------------- */
+
+/* Solid buttons: the app's PrimaryButton (accent), approve / mark-present
+   (green, 11-09-26: approve actions stay green, per Mason) and the
+   destructive one. The green rules come after these, so they win. */
+.ui-refresh .rf-sc :is(a, button):is(.bg-primary-600, .bg-green-600):not(:disabled) {
+    background-color: var(--rf-accent);
+    color: var(--rf-accent-text);
+    border-color: transparent;
+    border-radius: var(--rf-radius-control);
+    font-weight: 600;
+    --tw-shadow: 0 0 #0000;
+}
+.ui-refresh .rf-sc :is(a, button):is(.bg-primary-600, .bg-green-600):disabled {
+    background-color: var(--rf-surface-muted);
+    color: var(--rf-text-muted);
+    border-radius: var(--rf-radius-control);
+    font-weight: 600;
+    opacity: 1;
+}
+.ui-refresh .rf-sc :is(a, button):is(.bg-primary-600, .bg-green-600):not(:disabled):hover { background-color: var(--rf-accent-hover); }
+.ui-refresh .rf-sc :is(a, button).bg-green-600:not(:disabled) {
+    background-color: var(--rf-success);
+    color: #ffffff;
+}
+.ui-refresh .rf-sc :is(a, button).bg-green-600:not(:disabled):hover { background-color: #155f2b; }
+:root.ui-refresh.dark .rf-sc :is(a, button).bg-green-600:not(:disabled) { color: #08180e; }
+:root.ui-refresh.dark .rf-sc :is(a, button).bg-green-600:not(:disabled):hover { background-color: #66cf8a; }
+.ui-refresh .rf-sc :is(a, button).bg-red-600 {
+    background-color: var(--rf-danger);
+    color: #ffffff;
+    border-radius: var(--rf-radius-control);
+    font-weight: 600;
+}
+:root.ui-refresh.dark .rf-sc :is(a, button).bg-red-600 { color: var(--rf-accent-text); }
+.ui-refresh .rf-sc :is(a, button).bg-red-600:hover { filter: brightness(0.94); }
+/* Outlined (Cancel, Copy to Draft, Back to…) buttons: a hairline ring */
+.ui-refresh .rf-sc :is(a, button).border:is(.border-gray-300):not(.js-attendance-toggle *) {
+    border-color: transparent;
+    background-color: transparent;
+    box-shadow: inset 0 0 0 1.5px var(--rf-separator);
+    border-radius: var(--rf-radius-control);
+    color: var(--rf-text-secondary);
+    font-weight: 600;
+}
+.ui-refresh .rf-sc :is(a, button).border.border-gray-300:not(.js-attendance-toggle *):hover { background-color: var(--rf-surface-muted); color: var(--rf-text); }
+/* Grey fill buttons (paper ballots' Cancel): the secondary button */
+.ui-refresh .rf-sc a.bg-gray-100 {
+    background-color: transparent;
+    box-shadow: inset 0 0 0 1.5px var(--rf-separator);
+    border-radius: var(--rf-radius-control);
+    color: var(--rf-text-secondary);
+    font-weight: 600;
+}
+.ui-refresh .rf-sc a.bg-gray-100:hover { background-color: var(--rf-surface-muted); }
+.ui-refresh .rf-sc :is(a, button):focus-visible { outline: 2px solid var(--rf-accent); outline-offset: 2px; }
+
+/* ---------- Fields (form.tsx Field: filled, borderless, 10px) ----------------- */
+
+.ui-refresh .rf-sc :is(input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="submit"]), select, textarea) {
+    background-color: var(--rf-surface-muted);
+    border-color: transparent;
+    border-radius: var(--rf-radius-control);
+    color: var(--rf-text);
+    --tw-shadow: 0 0 #0000;
+}
+.ui-refresh .rf-sc :is(input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="submit"]), select, textarea):focus {
+    background-color: var(--rf-surface);
+    border-color: var(--rf-accent);
+    outline: 2px solid transparent;
+    --tw-ring-color: var(--rf-accent);
+    box-shadow: 0 0 0 1px var(--rf-accent);
+}
+/* Fields that came with no padding of their own get the app's comfortable
+   one (selects keep room for their arrow) */
+.ui-refresh .rf-sc :is(input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="submit"]), textarea):not([class*="px-"]) { padding: 8px 12px; }
+.ui-refresh .rf-sc select:not([class*="px-"]) { padding: 8px 32px 8px 12px; }
+.ui-refresh .rf-sc :is(input, textarea)::placeholder { color: var(--rf-text-muted); }
+.ui-refresh .rf-sc :is(input[type="checkbox"], input[type="radio"]) { accent-color: var(--rf-accent); }
+.ui-refresh .rf-sc label.block:is(.font-medium) { font-weight: 600; color: var(--rf-text-secondary); }
+
+/* Checkbox pick lists (interviewers, recommended positions): one muted
+   panel, each choice a comfortable tap row */
+.ui-refresh .rf-sc .rf-sc-picks {
+    border-color: transparent;
+    border-radius: 12px;
+    background-color: var(--rf-surface-muted);
+    padding: 6px;
+}
+.ui-refresh .rf-sc .rf-sc-picks > :not([hidden]) ~ :not([hidden]) { margin-top: 0; }
+.ui-refresh .rf-sc .rf-sc-picks > label {
+    padding: 8px 10px;
+    border-radius: 8px;
+    cursor: pointer;
+}
+.ui-refresh .rf-sc .rf-sc-picks > label:hover { background-color: var(--rf-surface); }
+.ui-refresh .rf-sc .rf-sc-picks > label:has(input:checked) { background-color: var(--rf-accent-soft); }
+.ui-refresh .rf-sc .rf-sc-picks > label:has(input:checked) span { color: var(--rf-accent-on-soft); font-weight: 600; }
+
+/* ---------- Grouped rows ---------------------------------------------------------- */
+
+.ui-refresh .rf-sc ul.divide-y > li { transition: background-color 0.12s ease; }
+.ui-refresh .rf-sc .rf-sc-rows > li:hover { background-color: var(--rf-surface-muted); }
+.ui-refresh .rf-sc .rf-sc-rows a .text-sm.font-medium { font-weight: 600; }
+.ui-refresh .rf-sc .rf-sc-rows svg.text-gray-400 { color: var(--rf-text-muted); opacity: 0.7; }
+
+/* Empty states: muted glyph and copy */
+.ui-refresh .rf-sc .py-12.text-center svg { color: var(--rf-text-muted); opacity: 0.6; }
+
+/* ---------- Applications ----------------------------------------------------------- */
+
+/* Status counts: the app's stat cards (number, label), the filtered one
+   ringed in the accent */
+.ui-refresh .rf-sc .rf-sc-stats { gap: 10px; }
+.ui-refresh .rf-sc .rf-sc-stats > a {
+    border-radius: var(--rf-radius-stat);
+    padding: 12px 14px;
+    transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+.ui-refresh .rf-sc .rf-sc-stats > a:hover { transform: translateY(-1px); }
+.ui-refresh .rf-sc .rf-sc-stats > a p:first-child {
+    font-size: 26px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+}
+.ui-refresh .rf-sc .rf-sc-stats > a p + p { font-size: 13px; font-weight: 600; color: var(--rf-text-muted); }
+.ui-refresh .rf-sc .rf-sc-stats > a.ring-2 { --tw-ring-color: var(--rf-accent); }
+.ui-refresh .rf-sc .rf-sc-stats > a.ring-2 p + p { color: var(--rf-accent); }
+
+.ui-refresh .rf-sc .rf-sc-filters { border-radius: var(--rf-radius-card); }
+.ui-refresh .rf-sc .rf-sc-filters a { font-weight: 600; }
+/* Bulk bar: a muted strip above the rows */
+.ui-refresh .rf-sc .rf-sc-bulk { background-color: var(--rf-surface-muted); border-color: var(--rf-separator); }
+.ui-refresh .rf-sc .rf-sc-bulk select { background-color: var(--rf-surface); padding-top: 6px; padding-bottom: 6px; }
+
+/* ---------- Application detail -------------------------------------------------- */
+
+/* Preference tiers: the coloured rule becomes a soft row with a tone dot */
+.ui-refresh .rf-sc-app li.border-l-2 {
+    border-left-width: 3px;
+    border-radius: 2px;
+    padding-top: 2px;
+    padding-bottom: 2px;
+}
+.ui-refresh .rf-sc-app li.border-green-500 { border-color: var(--rf-success); }
+.ui-refresh .rf-sc-app li.border-blue-500 { border-color: var(--rf-accent); }
+.ui-refresh .rf-sc-app li.border-yellow-500 { border-color: var(--rf-warning); }
+.ui-refresh .rf-sc-app li.border-red-500 { border-color: var(--rf-danger); }
+.ui-refresh .rf-sc-app h4.text-sm { font-size: 12px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
+/* Answers: label over value, as the app's detail rows */
+.ui-refresh .rf-sc-app dl.divide-y dt { font-size: 12px; font-weight: 600; letter-spacing: 0.02em; color: var(--rf-text-muted); }
+.ui-refresh .rf-sc-app dl.divide-y dd { line-height: 1.55; }
+.ui-refresh .rf-sc-app dl.space-y-3 dt { color: var(--rf-text-muted); }
+
+/* ---------- Interviews -------------------------------------------------------------- */
+
+/* Filter tabs: the app's segmented control */
+.ui-refresh .rf-sc .rf-sc-tabbar { border-bottom: 0; }
+.ui-refresh .rf-sc .rf-sc-tabs {
+    display: inline-flex;
+    max-width: 100%;
+    overflow-x: auto;
+    margin-bottom: 0;
+    padding: 3px;
+    gap: 2px;
+    border-radius: var(--rf-radius-control);
+    background-color: var(--rf-surface-muted);
+    scrollbar-width: none;
+}
+.ui-refresh .rf-sc .rf-sc-tabs > :not([hidden]) ~ :not([hidden]) { margin-left: 0; margin-right: 0; }
+.ui-refresh .rf-sc .rf-sc-tabs > a {
+    border-bottom-width: 0;
+    padding: 6px 16px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--rf-text-secondary);
+}
+.ui-refresh .rf-sc .rf-sc-tabs > a:hover { color: var(--rf-text); }
+.ui-refresh .rf-sc .rf-sc-tabs > a.border-primary-500 {
+    background-color: var(--rf-surface);
+    color: var(--rf-text);
+    box-shadow: 0 1px 3px var(--rf-shadow), 0 0 0 1px var(--rf-card-border);
+}
+.ui-refresh .rf-sc .rf-sc-note li { list-style: none; padding: 4px 0; }
+.ui-refresh .rf-sc .rf-sc-note a { font-weight: 600; }
+.ui-refresh .rf-sc .rf-sc-rows a.text-primary-600 { font-weight: 600; }
+.ui-refresh .rf-sc .rf-sc-rows a.text-primary-600.text-sm:not(.font-medium) {
+    padding: 4px 10px;
+    border-radius: 8px;
+    background-color: var(--rf-accent-soft);
+    color: var(--rf-accent-on-soft);
+    text-decoration: none;
+}
+/* Destroy notes: a card edged in the danger tone */
+.ui-refresh .rf-sc .rf-sc-danger {
+    border-color: transparent;
+    border-radius: var(--rf-radius-card);
+    box-shadow: 0 0 0 1px var(--rf-danger), 0 3px 10px var(--rf-shadow);
+}
+
+/* ---------- Slate builder ------------------------------------------------------------ */
+
+/* Slot labels (Primary / Runoff): small caps */
+.ui-refresh .rf-sc-builder span.w-14 {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--rf-text-muted);
+}
+.ui-refresh .rf-sc-builder li > p.font-semibold { font-size: 15px; }
+.ui-refresh .rf-sc-builder span.text-sm.text-primary-600 { color: var(--rf-text); font-weight: 600; }
+.ui-refresh .rf-sc-builder span.text-sm.text-yellow-600 { color: var(--rf-warning); font-weight: 600; }
+/* Row actions (Assign, Change, + Add Runoff, Remove, View, Copy): small
+   tinted chips, so they read as buttons in a dense list */
+.ui-refresh .rf-sc-builder :is(button, a).text-xs.hover\:underline {
+    padding: 4px 10px;
+    border-radius: 8px;
+    font-weight: 600;
+    text-decoration: none;
+    background-color: var(--rf-accent-soft);
+    color: var(--rf-accent-on-soft);
+}
+.ui-refresh .rf-sc-builder button.text-xs.text-yellow-600 { background-color: var(--rf-warning-soft); color: var(--rf-warning); }
+.ui-refresh .rf-sc-builder button.text-xs.text-red-500 { background-color: var(--rf-danger-soft); color: var(--rf-danger); }
+.ui-refresh .rf-sc-builder :is(button, a).text-xs.hover\:underline:hover { filter: brightness(0.96); }
+:root.ui-refresh.dark .rf-sc-builder :is(button, a).text-xs.hover\:underline:hover { filter: brightness(1.15); }
+.ui-refresh .rf-sc-builder .max-h-96 { scrollbar-width: thin; }
+
+/* The candidate picker */
+.ui-refresh .rf-sc-modal .fixed.inset-0 { background-color: rgba(10, 20, 40, 0.55); }
+.ui-refresh .rf-sc-modal .inline-block.bg-white {
+    border-radius: 18px;
+    box-shadow: 0 0 0 1px var(--rf-card-border), 0 18px 48px rgba(0, 0, 0, 0.28);
+}
+.ui-refresh .rf-sc-modal .bg-gray-50 { background-color: var(--rf-surface-muted); }
+.ui-refresh .rf-sc-modal button.bg-white {
+    background-color: transparent;
+    border-color: transparent;
+    box-shadow: inset 0 0 0 1.5px var(--rf-separator);
+    color: var(--rf-text-secondary);
+    font-weight: 600;
+}
+
+/* ---------- Slate preview ------------------------------------------------------------ */
+
+.ui-refresh .rf-sc-preview ul.divide-y p.text-primary-600 { color: var(--rf-text); font-weight: 600; }
+.ui-refresh .rf-sc-preview .rf-sc-tally { gap: 10px; }
+.ui-refresh .rf-sc-preview .rf-sc-tally > div {
+    padding: 12px 8px;
+    border-radius: 12px;
+    background-color: var(--rf-surface-muted);
+}
+.ui-refresh .rf-sc-preview .rf-sc-tally dt { font-size: 12px; font-weight: 600; color: var(--rf-text-muted); }
+.ui-refresh .rf-sc-preview .rf-sc-tally dd { font-weight: 800; letter-spacing: -0.02em; }
+
+/* ---------- Edit approved slate ------------------------------------------------------ */
+
+.ui-refresh .rf-sc-editslate .js-replace-form label { font-weight: 600; }
+.ui-refresh .rf-sc-editslate .js-replace-form select { border-color: transparent; }
+
+/* ---------- Attendance --------------------------------------------------------------- */
+
+/* The count bar stays pinned while the chair works down the list: glass,
+   like the app's sticky headers */
+.ui-refresh .rf-sc .rf-sc-sticky {
+    border-color: transparent;
+    background-color: var(--rf-surface-glass);
+    -webkit-backdrop-filter: saturate(1.4) blur(14px);
+    backdrop-filter: saturate(1.4) blur(14px);
+}
+.ui-refresh .rf-sc .rf-sc-sticky p.text-lg { font-size: 20px; font-weight: 800; letter-spacing: -0.01em; }
+.ui-refresh .rf-sc .rf-sc-sticky #js-present-count { font-variant-numeric: tabular-nums; }
+/* Members list header strip: small caps on the card, not a grey band */
+.ui-refresh .rf-sc-att .rounded-xl > .bg-gray-50:first-child { background-color: transparent; }
+.ui-refresh .rf-sc .rf-sc-roster > li { padding-top: 10px; padding-bottom: 10px; }
+.ui-refresh .rf-sc .rf-sc-roster > li:hover { background-color: var(--rf-surface-muted); }
+.ui-refresh .rf-sc .rf-sc-roster .js-dot { width: 10px; height: 10px; }
+.ui-refresh .rf-sc .rf-sc-roster .js-dot.bg-green-500 { background-color: var(--rf-success); box-shadow: 0 0 0 3px var(--rf-success-soft); }
+.ui-refresh .rf-sc .rf-sc-roster .js-dot.bg-gray-300 { background-color: var(--rf-separator); }
+/* The toggle (attendance.js swaps its whole class list, so it is styled by
+   the row's data-present, which the script keeps in step) */
+.ui-refresh .rf-sc .rf-sc-roster .js-attendance-toggle button {
+    min-width: 112px;
+    padding: 6px 12px;
+    border-radius: 999px;
+    border-color: transparent;
+    font-size: 13px;
+    font-weight: 600;
+}
+.ui-refresh .rf-sc .rf-sc-roster li[data-present="0"] .js-attendance-toggle button {
+    background-color: var(--rf-success-soft);
+    color: var(--rf-success);
+}
+.ui-refresh .rf-sc .rf-sc-roster li[data-present="1"] .js-attendance-toggle button {
+    background-color: transparent;
+    box-shadow: inset 0 0 0 1.5px var(--rf-separator);
+    color: var(--rf-text-secondary);
+}
+.ui-refresh .rf-sc .rf-sc-roster .js-attendance-toggle button:hover { filter: brightness(0.96); }
+:root.ui-refresh.dark .rf-sc .rf-sc-roster .js-attendance-toggle button:hover { filter: brightness(1.15); }
+
+/* ---------- Paper ballots ------------------------------------------------------------- */
+
+.ui-refresh .rf-sc-paper { border-radius: var(--rf-radius-card); }
+.ui-refresh .rf-sc-paper table th {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--rf-text-muted);
+}
+.ui-refresh .rf-sc-paper table :is(thead tr, tbody tr) { border-color: var(--rf-separator); }
+.ui-refresh .rf-sc-paper table tbody tr:hover { background-color: var(--rf-surface-muted); }
+.ui-refresh .rf-sc-paper table td { vertical-align: middle; }
+.ui-refresh .rf-sc-paper input[type="number"] { font-variant-numeric: tabular-nums; }
+
+/* ---------- Manual results ------------------------------------------------------------ */
+
+/* Vote mode: choice rows, the chosen one in the accent */
+.ui-refresh .rf-sc-manual label.cursor-pointer:has(input[type="radio"]) {
+    padding: 10px 12px;
+    border-radius: 12px;
+    background-color: var(--rf-surface-muted);
+}
+.ui-refresh .rf-sc-manual label.cursor-pointer:has(input:checked) {
+    background-color: var(--rf-accent-soft);
+    box-shadow: inset 0 0 0 1.5px var(--rf-accent);
+}
+.ui-refresh .rf-sc-manual label.cursor-pointer:has(input:checked) p.font-medium { color: var(--rf-accent-on-soft); font-weight: 600; }
+.ui-refresh .rf-sc-manual #overall-vote-inputs { border-color: var(--rf-separator); }
+.ui-refresh .rf-sc-manual :is(#overall-vote-inputs, .per-position-votes) input { background-color: var(--rf-surface); }
+.ui-refresh .rf-sc-manual form > .flex:last-child > a { color: var(--rf-accent); font-weight: 600; }
+
+/* ---------- Next round (period setup) ------------------------------------------------- */
+
+.ui-refresh .rf-sc-next .rf-sc-ballot {
+    border-color: transparent;
+    border-radius: 12px;
+    background-color: var(--rf-surface-muted);
+    overflow: hidden;
+}
+.ui-refresh .rf-sc-next .rf-sc-ballot > :not([hidden]) ~ :not([hidden]) { border-color: var(--rf-separator); }
+.ui-refresh .rf-sc-next .rf-sc-ballot > div:has(> label > input:checked) { background-color: var(--rf-accent-soft); }
+.ui-refresh .rf-sc-next .rf-sc-ballot > div { padding-top: 10px; padding-bottom: 10px; }
+.ui-refresh .rf-sc-next :is(select, input[type="number"]) { padding-top: 6px; padding-bottom: 6px; }
+.ui-refresh .rf-sc-next [data-attendance] a { font-weight: 600; }

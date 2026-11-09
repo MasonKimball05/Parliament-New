@@ -1,6 +1,6 @@
 {# 10-29-26 — each position's state, floor nominations, and the chapter's own decisions (src/slating_rounds.py). #}
-<div id="positions" class="bg-white dark:bg-gray-800 shadow rounded-xl overflow-hidden mb-6">
-    <div class="px-5 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+<div id="positions" class="bg-white dark:bg-gray-800 shadow rounded-xl overflow-hidden mb-6{% if ui_refresh %} rf-ss-card rf-ss-panel{% endif %}">
+    <div class="px-5 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between{% if ui_refresh %} rf-ss-card-head{% endif %}">
         <h2 class="text-sm font-semibold text-gray-900 dark:text-white">Positions</h2>
         <span class="text-xs text-gray-500 dark:text-gray-400">{{ election.undecided|length }} still to decide</span>
     </div>

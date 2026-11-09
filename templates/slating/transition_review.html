@@ -1,16 +1,16 @@
 {% extends 'slating/base_slating.html' %}
 
 {% block page_header %}
-<div>
+<div{% if ui_refresh %} class="rf-ss-head"{% endif %}>
     <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Confirm the officer transition</h1>
     <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ period.name }}{% if when %} · takes effect {{ when }}{% else %} · takes effect now{% endif %}</p>
 </div>
 {% endblock %}
 
-{% block slating_content %}
+{% block slating_content %}{% if ui_refresh %}<div class="rf-ss rf-ss-review">{% endif %}
 {# 11-05-26: every role change is listed before anything is changed. #}
 <div class="max-w-3xl mx-auto space-y-6">
-    <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
+    <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden{% if ui_refresh %} rf-ss-card{% endif %}">
         <ul class="divide-y divide-gray-200 dark:divide-gray-700">
             {% for c in changes %}
             <li class="px-4 py-3 text-sm">
@@ -26,15 +26,15 @@
             {% endfor %}
         </ul>
     </div>
-    <form method="post" class="flex justify-end gap-3">
+    <form method="post" class="flex justify-end gap-3{% if ui_refresh %} rf-ss-actions{% endif %}">
         {% csrf_token %}
         {% for name, value in posted %}<input type="hidden" name="{{ name }}" value="{{ value }}">{% endfor %}
         <input type="hidden" name="reviewed" value="1">
         <a href="{% url 'slating_transition' period_id=period.id %}"
            class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700">Back</a>
-        <button type="submit" class="px-4 py-2 rounded-md text-sm font-medium text-white bg-primary-600 hover:bg-primary-700">
+        <button type="submit" class="px-4 py-2 rounded-md text-sm font-medium text-white bg-primary-600 hover:bg-primary-700{% if ui_refresh %} rf-ss-primary{% endif %}">
             Confirm {{ changes|length }} role change{{ changes|length|pluralize }}
         </button>
     </form>
 </div>
-{% endblock %}
+{% if ui_refresh %}</div>{% endif %}{% endblock %}

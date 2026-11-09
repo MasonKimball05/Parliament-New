@@ -1,7 +1,7 @@
 {% extends 'slating/base_slating.html' %}
 
 {% block page_header %}
-<div class="bg-gradient-to-br from-primary-600 via-primary-700 to-primary-800 rounded-xl shadow-lg p-4 sm:p-5 mb-6 text-white relative overflow-hidden">
+<div class="bg-gradient-to-br from-primary-600 via-primary-700 to-primary-800 rounded-xl shadow-lg p-4 sm:p-5 mb-6 text-white relative overflow-hidden{% if ui_refresh %} rf-sl-hero{% endif %}">
     <div class="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-yellow-400/60 to-transparent pointer-events-none"></div>
     <div class="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
@@ -21,14 +21,14 @@
 {% endblock %}
 
 {% block slating_content %}
-<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6{% if ui_refresh %} rf-sl rf-sl-dash{% endif %}">
     <!-- Main Content -->
     <div class="lg:col-span-2 space-y-5">
 
         <!-- Active Periods -->
         {% if period_rows %}
-        <div class="bg-white dark:bg-gray-800 shadow-sm rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
-            <div class="px-5 py-3.5 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
+        <div class="bg-white dark:bg-gray-800 shadow-sm rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden{% if ui_refresh %} rf-sl-card{% endif %}">
+            <div class="px-5 py-3.5 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50{% if ui_refresh %} rf-sl-cardhead{% endif %}">
                 <h3 class="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide">Active Elections</h3>
             </div>
             <ul class="divide-y divide-gray-200 dark:divide-gray-700">
@@ -46,7 +46,7 @@
                             <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{{ period.academic_term }}{% if row.locked_out and row.managed_by %} &middot; managed by {{ row.managed_by }}{% endif %}</p>
                         </div>
                         <div class="flex flex-wrap items-center gap-2">
-                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium{% if ui_refresh %} rf-sl-pill{% endif %}
                                 {% if period.status == 'nominations_open' %}bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300
                                 {% elif period.status == 'voting_open' %}bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300
                                 {% elif period.status == 'deliberation' %}bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300
@@ -56,7 +56,7 @@
                             </span>
                             {% if row.can_apply %}
                             <a href="{% url 'slating_apply' period_id=period.id %}"
-                               class="inline-flex items-center px-3 py-1 rounded-lg text-xs font-medium bg-primary-600 hover:bg-primary-700 text-white transition-colors">
+                               class="inline-flex items-center px-3 py-1 rounded-lg text-xs font-medium bg-primary-600 hover:bg-primary-700 text-white transition-colors{% if ui_refresh %} rf-sl-cta{% endif %}">
                                 Apply Now
                             </a>
                             {% endif %}
@@ -66,32 +66,32 @@
                             <span class="inline-flex items-center px-3 py-1 rounded-lg text-xs font-medium bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300">Nothing for you to vote on</span>
                             {% elif row.can_vote %}
                             <a href="{% if period.vote_type == 'individual' %}{% url 'slating_vote_individual' period_id=period.id %}{% else %}{% url 'slating_vote' period_id=period.id %}{% endif %}"
-                               class="inline-flex items-center px-3 py-1 rounded-lg text-xs font-medium bg-primary-600 hover:bg-primary-700 text-white transition-colors">
+                               class="inline-flex items-center px-3 py-1 rounded-lg text-xs font-medium bg-primary-600 hover:bg-primary-700 text-white transition-colors{% if ui_refresh %} rf-sl-cta{% endif %}">
                                 Cast Vote
                             </a>
                             {% endif %}
                             {% if row.can_manage %}
                             <a href="{% url 'slating_period_setup' period_id=period.id %}"
-                               class="inline-flex items-center px-3 py-1 rounded-lg text-xs font-medium border border-primary-600 text-primary-600 dark:text-primary-400 dark:border-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors">
+                               class="inline-flex items-center px-3 py-1 rounded-lg text-xs font-medium border border-primary-600 text-primary-600 dark:text-primary-400 dark:border-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors{% if ui_refresh %} rf-sl-ghost{% endif %}">
                                 Manage election &rarr;
                             </a>
                             {% elif row.can_review %}
                             {# 11-06-26: committee members (no setup): applications, interviews, the slate, results. #}
                             <a href="{% url 'slating_applications' period_id=period.id %}"
-                               class="inline-flex items-center px-3 py-1 rounded-lg text-xs font-medium border border-primary-600 text-primary-600 dark:text-primary-400 dark:border-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors">
+                               class="inline-flex items-center px-3 py-1 rounded-lg text-xs font-medium border border-primary-600 text-primary-600 dark:text-primary-400 dark:border-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors{% if ui_refresh %} rf-sl-ghost{% endif %}">
                                 Applications &rarr;
                             </a>
                             <a href="{% url 'slating_interviews' period_id=period.id %}"
-                               class="inline-flex items-center px-3 py-1 rounded-lg text-xs font-medium border border-primary-600 text-primary-600 dark:text-primary-400 dark:border-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors">
+                               class="inline-flex items-center px-3 py-1 rounded-lg text-xs font-medium border border-primary-600 text-primary-600 dark:text-primary-400 dark:border-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors{% if ui_refresh %} rf-sl-ghost{% endif %}">
                                 Interviews &rarr;
                             </a>
                             <a href="{% url 'slating_build_slate' period_id=period.id %}"
-                               class="inline-flex items-center px-3 py-1 rounded-lg text-xs font-medium border border-primary-600 text-primary-600 dark:text-primary-400 dark:border-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors">
+                               class="inline-flex items-center px-3 py-1 rounded-lg text-xs font-medium border border-primary-600 text-primary-600 dark:text-primary-400 dark:border-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors{% if ui_refresh %} rf-sl-ghost{% endif %}">
                                 Slate &rarr;
                             </a>
                             {% if period.current_voting_attempt or period.status == 'voting_open' %}
                             <a href="{% url 'slating_results' period_id=period.id %}"
-                               class="inline-flex items-center px-3 py-1 rounded-lg text-xs font-medium border border-primary-600 text-primary-600 dark:text-primary-400 dark:border-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors">
+                               class="inline-flex items-center px-3 py-1 rounded-lg text-xs font-medium border border-primary-600 text-primary-600 dark:text-primary-400 dark:border-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors{% if ui_refresh %} rf-sl-ghost{% endif %}">
                                 Results &rarr;
                             </a>
                             {% endif %}
@@ -106,8 +106,8 @@
 
         <!-- My Applications -->
         {% if my_applications %}
-        <div class="bg-white dark:bg-gray-800 shadow-sm rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
-            <div class="px-5 py-3.5 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
+        <div class="bg-white dark:bg-gray-800 shadow-sm rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden{% if ui_refresh %} rf-sl-card{% endif %}">
+            <div class="px-5 py-3.5 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50{% if ui_refresh %} rf-sl-cardhead{% endif %}">
                 <h3 class="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide">My Applications</h3>
             </div>
             <ul class="divide-y divide-gray-200 dark:divide-gray-700">
@@ -125,7 +125,7 @@
                             </p>
                         </div>
                         <div class="ml-4 flex-shrink-0 flex items-center gap-3">
-                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium{% if ui_refresh %} rf-sl-pill{% endif %}
                                 {% if app.status == 'submitted' %}bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300
                                 {% elif app.status == 'slated' %}bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300
                                 {% elif app.status == 'interviewed' %}bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300
@@ -154,8 +154,8 @@
 
         <!-- Pending Reviews (slating committee members) -->
         {% if pending_reviews %}
-        <div class="bg-white dark:bg-gray-800 shadow-sm rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
-            <div class="px-5 py-3.5 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
+        <div class="bg-white dark:bg-gray-800 shadow-sm rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden{% if ui_refresh %} rf-sl-card{% endif %}">
+            <div class="px-5 py-3.5 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50{% if ui_refresh %} rf-sl-cardhead{% endif %}">
                 <h3 class="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide">Pending Reviews</h3>
             </div>
             <ul class="divide-y divide-gray-200 dark:divide-gray-700">
@@ -178,8 +178,8 @@
 
         <!-- Published Results -->
         {% if published_results %}
-        <div class="bg-white dark:bg-gray-800 shadow-sm rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
-            <div class="px-5 py-3.5 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
+        <div class="bg-white dark:bg-gray-800 shadow-sm rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden{% if ui_refresh %} rf-sl-card{% endif %}">
+            <div class="px-5 py-3.5 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50{% if ui_refresh %} rf-sl-cardhead{% endif %}">
                 <h3 class="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide">Election Results</h3>
             </div>
             <ul class="divide-y divide-gray-200 dark:divide-gray-700">
@@ -202,7 +202,7 @@
 
         <!-- Empty State -->
         {% if not period_rows and not my_applications and not pending_reviews and not published_results %}
-        <div class="bg-white dark:bg-gray-800 shadow-sm rounded-xl border border-gray-200 dark:border-gray-700 px-6 py-12 text-center">
+        <div class="bg-white dark:bg-gray-800 shadow-sm rounded-xl border border-gray-200 dark:border-gray-700 px-6 py-12 text-center{% if ui_refresh %} rf-sl-card rf-sl-empty{% endif %}">
             <svg class="mx-auto h-10 w-10 text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
             </svg>
@@ -216,8 +216,8 @@
     <div class="space-y-5">
 
         <!-- Quick Links -->
-        <div class="bg-white dark:bg-gray-800 shadow-sm rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
-            <div class="px-5 py-3.5 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
+        <div class="bg-white dark:bg-gray-800 shadow-sm rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden{% if ui_refresh %} rf-sl-card{% endif %}">
+            <div class="px-5 py-3.5 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50{% if ui_refresh %} rf-sl-cardhead{% endif %}">
                 <h3 class="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide">Quick Links</h3>
             </div>
             <nav class="px-2 py-2 space-y-0.5">
@@ -247,8 +247,8 @@
 
         <!-- Admin Panel -->
         {% if user.is_admin %}
-        <div class="bg-white dark:bg-gray-800 shadow-sm rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
-            <div class="px-5 py-3.5 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50 flex items-center justify-between">
+        <div class="bg-white dark:bg-gray-800 shadow-sm rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden{% if ui_refresh %} rf-sl-card{% endif %}">
+            <div class="px-5 py-3.5 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50 flex items-center justify-between{% if ui_refresh %} rf-sl-cardhead{% endif %}">
                 <h3 class="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide">Administration</h3>
                 <a href="{% url 'slating_create_period' %}" class="text-xs text-primary-600 dark:text-primary-400 hover:underline font-medium">+ New</a>
             </div>

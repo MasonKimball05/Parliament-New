@@ -9,7 +9,7 @@
 {% endblock %}
 
 {% block page_header %}
-<div class="flex items-center justify-between flex-wrap gap-3">
+<div class="flex items-center justify-between flex-wrap gap-3{% if ui_refresh %} rf-ss-head{% endif %}">
     <div>
         <h1 class="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
             {% if period %}{{ period.name }}{% else %}Create Election Period{% endif %}
@@ -32,12 +32,13 @@
 </div>
 {% endblock %}
 
-{% block slating_content %}
+{% block slating_content %}{% if ui_refresh %}<div class="rf-ss rf-ss-setup">{% endif %}
 
 {# ─── Status Command Banner (period pages only) ─── #}
 {% if period %}
-<div class="mb-6 bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700 overflow-hidden">
-    <div class="px-5 py-4 flex flex-col sm:flex-row sm:items-center gap-4">
+<div class="mb-6 bg-white dark:bg-gray-800 rounded-xl shadow border border-gray-200 dark:border-gray-700 overflow-hidden{% if ui_refresh %} rf-ss-card rf-ss-status{% endif %}">
+    {# 11-09-26: stacked during deliberation — the next-round form is wide, and side by side it crushed this text to a word per line. #}
+    <div class="px-5 py-4 flex flex-col {% if period.status != 'deliberation' %}sm:flex-row sm:items-center {% endif %}gap-4">
         <div class="flex-1 min-w-0">
             {% if period.status == 'setup' %}
             <p class="text-sm font-semibold text-gray-900 dark:text-white">Setting up the election</p>
@@ -232,7 +233,7 @@
 
     {# Sub-action hint strip for deliberation stage #}
     {% if period.status == 'deliberation' %}
-    <div class="px-5 py-2.5 bg-yellow-50 dark:bg-yellow-900/20 border-t border-yellow-100 dark:border-yellow-900/40 flex flex-wrap gap-4 text-sm">
+    <div class="px-5 py-2.5 bg-yellow-50 dark:bg-yellow-900/20 border-t border-yellow-100 dark:border-yellow-900/40 flex flex-wrap gap-4 text-sm{% if ui_refresh %} rf-ss-strip{% endif %}">
         <a href="{% url 'slating_applications' period_id=period.id %}" class="text-yellow-800 dark:text-yellow-300 hover:underline font-medium">
             Review Applications ({{ application_count }})
         </a>
@@ -244,7 +245,7 @@
         </a>
     </div>
     {% elif period.status == 'setup' %}
-    <div class="px-5 py-3 bg-gray-50 dark:bg-gray-700/50 border-t border-gray-100 dark:border-gray-700 flex flex-col gap-3 text-sm">
+    <div class="px-5 py-3 bg-gray-50 dark:bg-gray-700/50 border-t border-gray-100 dark:border-gray-700 flex flex-col gap-3 text-sm{% if ui_refresh %} rf-ss-strip{% endif %}">
         <div class="flex flex-wrap gap-y-2 items-center">
             <a href="{% url 'slating_positions' period_id=period.id %}" class="text-primary-600 dark:text-primary-400 hover:underline font-medium whitespace-nowrap pr-4">
                 Manage Positions ({{ position_count }})
@@ -264,7 +265,7 @@
             </button>
             <div id="positionsModal" style="display:none" class="fixed inset-0 z-50 flex items-center justify-center p-4">
                 <div class="absolute inset-0 bg-black/50 js-close-positions-modal"></div>
-                <div class="relative bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-sm p-6">
+                <div class="relative bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-sm p-6{% if ui_refresh %} rf-ss-modal{% endif %}">
                     <h3 class="text-base font-semibold text-gray-900 dark:text-white mb-1">Add Default Positions</h3>
                     <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">The following positions will be added. Any that already exist will be skipped.</p>
                     <ul class="space-y-1.5 mb-5">
@@ -298,7 +299,7 @@
             </button>
             <div id="fieldsModal" style="display:none" class="fixed inset-0 z-50 flex items-center justify-center p-4">
                 <div class="absolute inset-0 bg-black/50 js-close-fields-modal"></div>
-                <div class="relative bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-sm p-6">
+                <div class="relative bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-sm p-6{% if ui_refresh %} rf-ss-modal{% endif %}">
                     <h3 class="text-base font-semibold text-gray-900 dark:text-white mb-1">Add Default Form Fields</h3>
                     <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">The following fields will be added to the application form. Only works if the form has no existing fields.</p>
                     <ul class="space-y-1.5 mb-5">
@@ -330,13 +331,13 @@
         </div>{# end defaults row #}
     </div>
     {% elif period.status == 'nominations_open' or period.status == 'nominations_closed' %}
-    <div class="px-5 py-2.5 bg-gray-50 dark:bg-gray-700/50 border-t border-gray-100 dark:border-gray-700 flex flex-wrap gap-4 text-sm">
+    <div class="px-5 py-2.5 bg-gray-50 dark:bg-gray-700/50 border-t border-gray-100 dark:border-gray-700 flex flex-wrap gap-4 text-sm{% if ui_refresh %} rf-ss-strip{% endif %}">
         <a href="{% url 'slating_applications' period_id=period.id %}" class="text-primary-600 dark:text-primary-400 hover:underline font-medium">
             View Applications ({{ application_count }})
         </a>
     </div>
     {% elif period.status == 'voting_open' or period.status == 'voting_closed' or period.status == 'deliberation' and period.current_voting_attempt > 0 %}
-    <div class="px-5 py-2.5 bg-primary-50 dark:bg-primary-900/20 border-t border-primary-100 dark:border-primary-900/40 flex flex-wrap gap-4 text-sm">
+    <div class="px-5 py-2.5 bg-primary-50 dark:bg-primary-900/20 border-t border-primary-100 dark:border-primary-900/40 flex flex-wrap gap-4 text-sm{% if ui_refresh %} rf-ss-strip{% endif %}">
         {% if period.status == 'voting_open' or period.status == 'voting_closed' %}
         <a href="{% url 'slating_results' period_id=period.id %}" class="text-primary-700 dark:text-primary-300 hover:underline font-medium">
             {% if period.status == 'voting_open' %}View Live Results{% else %}View Results{% endif %}
@@ -357,13 +358,13 @@
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
     {# ─── Main: Settings Form ─── #}
     <div class="lg:col-span-2">
-        <form method="post" class="space-y-5">
+        <form method="post" class="space-y-5{% if ui_refresh %} rf-ss-form{% endif %}">
             {% csrf_token %}
             {% if period %}<input type="hidden" name="action" value="save">{% endif %}
 
             {# Basic Information #}
-            <div class="bg-white dark:bg-gray-800 shadow-sm rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
-                <div class="px-5 py-3.5 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
+            <div class="bg-white dark:bg-gray-800 shadow-sm rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden{% if ui_refresh %} rf-ss-card{% endif %}">
+                <div class="px-5 py-3.5 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50{% if ui_refresh %} rf-ss-card-head{% endif %}">
                     <h3 class="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide">Basic Information</h3>
                 </div>
                 <div class="px-5 py-5 space-y-4">
@@ -412,8 +413,8 @@
             </div>
 
             {# Schedule #}
-            <div class="bg-white dark:bg-gray-800 shadow-sm rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
-                <div class="px-5 py-3.5 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
+            <div class="bg-white dark:bg-gray-800 shadow-sm rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden{% if ui_refresh %} rf-ss-card{% endif %}">
+                <div class="px-5 py-3.5 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50{% if ui_refresh %} rf-ss-card-head{% endif %}">
                     <h3 class="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide">Schedule</h3>
                     <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Dates trigger automatic status transitions. Leave blank to advance manually.</p>
                 </div>
@@ -450,8 +451,8 @@
             </div>
 
             {# Voting Configuration #}
-            <div class="bg-white dark:bg-gray-800 shadow-sm rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
-                <div class="px-5 py-3.5 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
+            <div class="bg-white dark:bg-gray-800 shadow-sm rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden{% if ui_refresh %} rf-ss-card{% endif %}">
+                <div class="px-5 py-3.5 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50{% if ui_refresh %} rf-ss-card-head{% endif %}">
                     <h3 class="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide">Voting Configuration</h3>
                 </div>
                 <div class="px-5 py-5 space-y-5">
@@ -482,8 +483,8 @@
             </div>
 
             {# GPA Requirements #}
-            <div class="bg-white dark:bg-gray-800 shadow-sm rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
-                <div class="px-5 py-3.5 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
+            <div class="bg-white dark:bg-gray-800 shadow-sm rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden{% if ui_refresh %} rf-ss-card{% endif %}">
+                <div class="px-5 py-3.5 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50{% if ui_refresh %} rf-ss-card-head{% endif %}">
                     <h3 class="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide">GPA Requirements</h3>
                 </div>
                 <div class="px-5 py-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -504,13 +505,13 @@
             </div>
 
             {# Save / Cancel #}
-            <div class="flex justify-end gap-3 pb-2">
+            <div class="flex justify-end gap-3 pb-2{% if ui_refresh %} rf-ss-actions{% endif %}">
                 <a href="{% url 'slating_dashboard' %}"
                     class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors">
                     Cancel
                 </a>
                 <button type="submit"
-                    class="px-5 py-2 border border-transparent rounded-lg text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-colors shadow-sm">
+                    class="px-5 py-2 border border-transparent rounded-lg text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-colors shadow-sm{% if ui_refresh %} rf-ss-primary{% endif %}">
                     {% if period %}Save Changes{% else %}Create Period{% endif %}
                 </button>
             </div>
@@ -518,8 +519,8 @@
 
         {# Committee Members — who can view applications/interview notes #}
         {% if period %}
-        <div class="bg-white dark:bg-gray-800 shadow-sm rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
-            <div class="px-5 py-3.5 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
+        <div class="bg-white dark:bg-gray-800 shadow-sm rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden{% if ui_refresh %} rf-ss-card{% endif %}">
+            <div class="px-5 py-3.5 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50{% if ui_refresh %} rf-ss-card-head{% endif %}">
                 <h3 class="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide">Committee Members</h3>
                 <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">These members can view applications and interview notes.</p>
             </div>
@@ -569,12 +570,12 @@
 
         {% if period %}
         {# Combined overview + quick links #}
-        <div class="bg-white dark:bg-gray-800 shadow-sm rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
-            <div class="px-5 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50 flex items-center justify-between">
+        <div class="bg-white dark:bg-gray-800 shadow-sm rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden{% if ui_refresh %} rf-ss-card{% endif %}">
+            <div class="px-5 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50 flex items-center justify-between{% if ui_refresh %} rf-ss-card-head{% endif %}">
                 <h3 class="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide">Overview</h3>
             </div>
             {# Counts row #}
-            <div class="px-4 py-3 grid grid-cols-3 gap-1 text-center border-b border-gray-100 dark:border-gray-700">
+            <div class="px-4 py-3 grid grid-cols-3 gap-1 text-center border-b border-gray-100 dark:border-gray-700{% if ui_refresh %} rf-ss-stats{% endif %}">
                 <a href="{% url 'slating_positions' period_id=period.id %}" class="group py-1">
                     <p class="text-xl font-bold text-gray-900 dark:text-white group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">{{ position_count }}</p>
                     <p class="text-xs text-gray-500 dark:text-gray-400">Positions</p>
@@ -589,7 +590,7 @@
                 </a>
             </div>
             {# Compact link list #}
-            <nav class="px-2 py-2 space-y-0.5">
+            <nav class="px-2 py-2 space-y-0.5{% if ui_refresh %} rf-ss-nav{% endif %}">
                 <a href="{% url 'slating_positions' period_id=period.id %}"
                     class="flex items-center justify-between px-3 py-2 rounded-md text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors {% if period.status == 'setup' %}font-medium{% endif %}">
                     Positions
@@ -651,8 +652,8 @@
 
         {# Live Voting Stats #}
         {% if vote_stats %}
-        <div class="bg-white dark:bg-gray-800 shadow-sm rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
-            <div class="px-5 py-3.5 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50 flex items-center justify-between">
+        <div class="bg-white dark:bg-gray-800 shadow-sm rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden{% if ui_refresh %} rf-ss-card{% endif %}">
+            <div class="px-5 py-3.5 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50{% if ui_refresh %} rf-ss-card-head{% endif %} flex items-center justify-between">
                 <h3 class="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide">Live Voting</h3>
                 {% if period.status == 'voting_open' %}
                 <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
@@ -763,8 +764,8 @@
 
         {# Write-in / Blank Position Assignment #}
         {% if blank_positions or write_in_candidates %}
-        <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
-            <div class="px-5 py-3.5 border-b border-gray-200 dark:border-gray-700">
+        <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden{% if ui_refresh %} rf-ss-card{% endif %}">
+            <div class="px-5 py-3.5 border-b border-gray-200 dark:border-gray-700{% if ui_refresh %} rf-ss-card-head{% endif %}">
                 <h3 class="text-sm font-semibold text-gray-900 dark:text-white">Blank Positions</h3>
                 <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Assign members to unfilled slots for individual voting.</p>
             </div>
@@ -837,7 +838,7 @@
 
         {# Danger Zone (admin only) #}
         {% if user.is_admin %}
-        <div class="bg-red-50 dark:bg-red-900/20 rounded-xl border border-red-200 dark:border-red-800 overflow-hidden">
+        <div class="bg-red-50 dark:bg-red-900/20 rounded-xl border border-red-200 dark:border-red-800 overflow-hidden{% if ui_refresh %} rf-ss-danger{% endif %}">
             <div class="px-5 py-3.5 border-b border-red-200 dark:border-red-800">
                 <h3 class="text-sm font-semibold text-red-800 dark:text-red-200">Danger Zone</h3>
             </div>
@@ -860,7 +861,7 @@
 
         {% else %}
         {# Help card for new period creation #}
-        <div class="bg-primary-50 dark:bg-primary-900/30 rounded-xl border border-primary-200 dark:border-primary-800 p-5">
+        <div class="bg-primary-50 dark:bg-primary-900/30 rounded-xl border border-primary-200 dark:border-primary-800 p-5{% if ui_refresh %} rf-ss-help{% endif %}">
             <div class="flex gap-3">
                 <svg class="h-5 w-5 text-primary-500 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
                     <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
@@ -879,7 +880,7 @@
         {% endif %}
     </div>
 </div>
-{% endblock %}
+{% if ui_refresh %}</div>{% endif %}{% endblock %}
 
 {% block slating_js %}
 <script nonce="{{ request.csp_nonce }}">

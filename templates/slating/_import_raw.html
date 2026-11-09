@@ -1,5 +1,5 @@
 {# One CSV row as submitted (v4.3.0): every non-blank question and answer. #}
-<details class="rounded-md border border-gray-200 dark:border-gray-700">
+<details class="rounded-md border border-gray-200 dark:border-gray-700{% if ui_refresh %} rf-ss-raw{% endif %}">
     <summary class="cursor-pointer px-3 py-2 text-xs font-medium text-primary-700 dark:text-primary-300">View the response{% if where %} ({{ where }}){% endif %}</summary>
     <dl class="px-3 pb-3 grid grid-cols-1 sm:grid-cols-3 gap-x-4 gap-y-2 text-sm">
         {% for q, a in raw %}

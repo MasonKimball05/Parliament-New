@@ -1,0 +1,485 @@
+/* =========================================================================
+   Website refresh: slating, the member pages (dashboard, applying, my
+   applications, the two ballots, results).
+
+   Loaded by base.html after refresh.css, only when `ui_refresh` is on (see
+   src/ui_refresh.py). Plain CSS, no Tailwind build; refresh.css's tokens
+   (--rf-*). Each template adds `rf-sl` and one page class to the root of its
+   `slating_content` block (and `rf-sl-head` / `rf-sl-hero` to its
+   `page_header`), plus a few `rf-sl-*` hooks on the markup it already has.
+   Nothing is swapped out: every link, form, field and script hook is the
+   page's own. Every rule is scoped under `.ui-refresh .rf-sl…`, which also
+   outranks the Tailwind utilities (and their `dark:` variants) these pages
+   are built from, so nothing needs !important.
+
+     .rf-sl-shell     slating/base_slating.html: the header, breadcrumb,
+                      messages and progress stepper every slating page shares
+                      (.rf-sl-header, .rf-sl-crumbs, .rf-sl-msgs, .rf-sl-steps)
+     .rf-sl-dash      slating/dashboard.html
+     .rf-sl-apply     slating/apply.html
+     .rf-sl-mine      slating/my_applications.html
+     .rf-sl-app       slating/view_application.html
+     .rf-sl-vote      slating/vote.html (the whole-slate ballot)
+     .rf-sl-ivote     slating/vote_individual.html (position ballots)
+     .rf-sl-results   slating/results.html
+     .rf-sl-rsum      slating/results_summary.html
+
+   Ballots stay plain: each choice is a big tappable card with a 22px
+   control, the picked one filled in its own tone (approve green, reject
+   red, a candidate accent, abstain grey), and the whole-slate Reject card
+   says up front that a No needs at least one position.
+
+   Never sets `display` on anything a script shows and hides with `hidden`
+   (#rejection_reasons, #slate-update-banner, .js-passkey-error).
+   ========================================================================= */
+
+/* ---------- Shell (base_slating.html) ------------------------------------ */
+
+.ui-refresh .rf-sl-shell { max-width: 1080px; padding-bottom: 48px; }
+
+/* Breadcrumb: the app's back-row ink, the trail in muted text */
+.ui-refresh .rf-sl-shell .rf-sl-crumbs ol { flex-wrap: wrap; row-gap: 4px; font-size: 14px; }
+.ui-refresh .rf-sl-shell .rf-sl-crumbs a { color: var(--rf-accent); font-weight: 600; text-decoration: none; }
+.ui-refresh .rf-sl-shell .rf-sl-crumbs a:hover { text-decoration: underline; }
+.ui-refresh .rf-sl-shell .rf-sl-crumbs li > span:not(.mx-2) { color: var(--rf-text-secondary); }
+.ui-refresh .rf-sl-shell .rf-sl-crumbs .mx-2 { color: var(--rf-text-muted); }
+
+/* Messages: the app's soft tones, no edge */
+.ui-refresh .rf-sl-shell .rf-sl-msgs .rf-sl-msg {
+    border-radius: 12px;
+    background-color: var(--rf-accent-soft);
+    color: var(--rf-accent-on-soft);
+}
+.ui-refresh .rf-sl-shell .rf-sl-msgs .rf-sl-msg.bg-green-50 { background-color: var(--rf-success-soft); color: var(--rf-success); }
+.ui-refresh .rf-sl-shell .rf-sl-msgs .rf-sl-msg.bg-red-50 { background-color: var(--rf-danger-soft); color: var(--rf-danger); }
+.ui-refresh .rf-sl-shell .rf-sl-msgs .rf-sl-msg.bg-yellow-50 { background-color: var(--rf-warning-soft); color: var(--rf-warning); }
+.ui-refresh .rf-sl-shell .rf-sl-msgs .rf-sl-msg :is(p, svg) { color: inherit; }
+.ui-refresh .rf-sl-shell .rf-sl-msgs .rf-sl-msg p { font-size: 14px; font-weight: 600; }
+
+/* Progress stepper: a card, done steps in the success tone, the current
+   one a filled accent dot */
+.ui-refresh .rf-sl-shell .rf-sl-steps {
+    border-color: transparent;
+    border-radius: var(--rf-radius-card);
+    background-color: var(--rf-surface);
+}
+.ui-refresh .rf-sl-shell .rf-sl-steps .bg-primary-600 { background-color: var(--rf-accent); }
+.ui-refresh .rf-sl-shell .rf-sl-steps .bg-primary-600 .text-white { color: var(--rf-accent-text); }
+.ui-refresh .rf-sl-shell .rf-sl-steps .text-primary-600 { color: var(--rf-accent); }
+.ui-refresh .rf-sl-shell .rf-sl-steps .bg-green-100 { background-color: var(--rf-success-soft); --tw-ring-color: var(--rf-success); }
+.ui-refresh .rf-sl-shell .rf-sl-steps .text-green-600 { color: var(--rf-success); }
+.ui-refresh .rf-sl-shell .rf-sl-steps .bg-green-400 { background-color: var(--rf-success); }
+.ui-refresh .rf-sl-shell .rf-sl-steps :is(.bg-gray-100, .bg-gray-200) { background-color: var(--rf-surface-muted); }
+.ui-refresh .rf-sl-shell .rf-sl-steps .text-gray-400 { color: var(--rf-text-muted); }
+
+/* ---------- Page titles ----------------------------------------------------- */
+
+.ui-refresh .rf-sl-head h1 {
+    font-size: clamp(24px, 3.6vw, 30px);
+    line-height: 1.2;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: var(--rf-text);
+    overflow-wrap: anywhere;
+}
+.ui-refresh .rf-sl-head h1 + p { font-size: 15px; color: var(--rf-text-secondary); }
+.ui-refresh .rf-sl-head a.border { border-radius: var(--rf-radius-control); font-weight: 600; }
+
+/* Dashboard banner: refresh.css flattens it to the chapter blue */
+.ui-refresh .rf-sl-hero { padding: 22px 22px 24px; }
+.ui-refresh .rf-sl-hero h1 { font-weight: 800; letter-spacing: -0.02em; color: var(--rf-hero-text); }
+.ui-refresh .rf-sl-hero .text-white\/75 { color: var(--rf-hero-muted); }
+.ui-refresh .rf-sl-hero a[class*="bg-white/"] {
+    background-color: var(--rf-hero-glass);
+    box-shadow: inset 0 0 0 1px var(--rf-hero-glass-border);
+    border-radius: var(--rf-radius-control);
+    font-weight: 600;
+}
+.ui-refresh .rf-sl-hero a[class*="bg-white/"]:hover { background-color: rgba(255, 255, 255, 0.26); }
+
+/* ---------- Shared: cards, headers, pills, buttons -------------------------- */
+
+/* Cards: refresh.css draws the edge as a ring; drop the second, real border */
+.ui-refresh .rf-sl :is(.rounded-xl, .rounded-lg).border:is(.shadow-sm, .shadow):not([class*="bg-"][class*="-50"]) { border-color: transparent; }
+.ui-refresh .rf-sl :is(div, form, details, section).bg-white:is(.rounded-lg, .rounded-xl) { border-radius: var(--rf-radius-card); }
+.ui-refresh .rf-sl.rf-sl-apply > .bg-white.rounded-lg { border-radius: var(--rf-radius-card); }
+
+/* Card header strips: the app's SectionTitle (small caps, muted) on the card */
+.ui-refresh .rf-sl .rf-sl-cardhead { background-color: transparent; border-color: var(--rf-separator); }
+.ui-refresh .rf-sl .rf-sl-cardhead h3 {
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    color: var(--rf-text-muted);
+}
+.ui-refresh .rf-sl :is(.rounded-lg, .rounded-xl) > .border-b:first-child { border-color: var(--rf-separator); }
+.ui-refresh .rf-sl :is(.rounded-lg, .rounded-xl) > .border-b:first-child h3.text-lg { font-size: 17px; font-weight: 700; letter-spacing: -0.01em; }
+
+/* Card footers (bg-gray-50 strips): the muted fill */
+.ui-refresh .rf-sl :is(.rounded-lg, .rounded-xl) > :is(.bg-gray-50, .rf-sl-cardfoot):last-child { background-color: var(--rf-surface-muted); border-color: var(--rf-separator); }
+
+/* Status pills: 999px, 12px/600, tinted fill + toned ink */
+.ui-refresh .rf-sl-pill { border-radius: 999px; font-weight: 600; font-size: 12px; padding: 3px 10px; }
+.ui-refresh .rf-sl-pill:is(.bg-green-100) { background-color: var(--rf-success-soft); color: var(--rf-success); }
+.ui-refresh .rf-sl-pill:is(.bg-blue-100) { background-color: var(--rf-accent-soft); color: var(--rf-accent-on-soft); }
+.ui-refresh .rf-sl-pill:is(.bg-yellow-100, .bg-orange-100) { background-color: var(--rf-warning-soft); color: var(--rf-warning); }
+.ui-refresh .rf-sl-pill:is(.bg-red-100) { background-color: var(--rf-danger-soft); color: var(--rf-danger); }
+.ui-refresh .rf-sl-pill:is(.bg-purple-100) { background-color: rgba(109, 79, 194, 0.12); color: var(--rf-tile-purple); }
+.ui-refresh .rf-sl-pill:is(.bg-gray-100) { background-color: var(--rf-surface-muted); color: var(--rf-text-secondary); }
+:root.ui-refresh.dark .rf-sl-pill:is(.bg-purple-100) { background-color: #2b2452; color: #c9bcf6; }
+
+/* Utility-built buttons: the app's 10px radius, 600 weight */
+.ui-refresh .rf-sl :is(a, button):is(.rounded-md, .rounded-lg):is(.px-3, .px-4) { border-radius: var(--rf-radius-control); font-weight: 600; }
+.ui-refresh .rf-sl :is(a, button).bg-primary-600 { background-color: var(--rf-accent); color: var(--rf-accent-text); }
+.ui-refresh .rf-sl :is(a, button).bg-primary-600:hover { background-color: var(--rf-accent-hover); }
+.ui-refresh .rf-sl :is(a, button).border-gray-300 { border-color: var(--rf-separator); background-color: var(--rf-surface); color: var(--rf-text); }
+.ui-refresh .rf-sl :is(a, button).border-gray-300:hover { background-color: var(--rf-surface-muted); }
+.ui-refresh .rf-sl .rf-sl-cta { padding: 6px 14px; font-size: 13px; }
+.ui-refresh .rf-sl .rf-sl-ghost {
+    padding: 6px 12px;
+    font-size: 13px;
+    border-color: transparent;
+    background-color: var(--rf-accent-soft);
+    color: var(--rf-accent-on-soft);
+}
+.ui-refresh .rf-sl .rf-sl-ghost:hover { filter: brightness(0.97); }
+
+/* Empty states */
+.ui-refresh .rf-sl .rf-sl-empty h3 { font-size: 16px; font-weight: 700; }
+.ui-refresh .rf-sl .rf-sl-empty svg { color: var(--rf-text-muted); }
+
+/* Notes and callouts: soft tones, 12px, no edge */
+.ui-refresh .rf-sl :is(.rf-sl-note, .rf-sl-sitout, .rf-sl-timeline, .rf-sl-live, .rf-sl-published, .rf-sl-paused) {
+    border-color: transparent;
+    border-radius: 12px;
+}
+.ui-refresh .rf-sl .rf-sl-note.bg-blue-50,
+.ui-refresh .rf-sl .rf-sl-timeline,
+.ui-refresh .rf-sl .rf-sl-live { background-color: var(--rf-accent-soft); }
+.ui-refresh .rf-sl :is(.rf-sl-note.bg-blue-50, .rf-sl-timeline, .rf-sl-live) :is(h3, p, span, div, svg):not(.animate-ping):not(.bg-primary-500) { color: var(--rf-accent-on-soft); }
+.ui-refresh .rf-sl :is(.rf-sl-note.bg-yellow-50, .rf-sl-paused) { background-color: var(--rf-warning-soft); }
+.ui-refresh .rf-sl :is(.rf-sl-note.bg-yellow-50, .rf-sl-paused) :is(h3, p, svg) { color: var(--rf-warning); }
+.ui-refresh .rf-sl .rf-sl-sitout { background-color: var(--rf-accent-soft); color: var(--rf-accent-on-soft); }
+.ui-refresh .rf-sl .rf-sl-sitout :is(h3, p) { color: var(--rf-accent-on-soft); }
+.ui-refresh .rf-sl .rf-sl-published { background-color: var(--rf-success-soft); }
+.ui-refresh .rf-sl .rf-sl-published :is(h3, p, svg) { color: var(--rf-success); }
+.ui-refresh .rf-sl .rf-sl-published button { border-color: var(--rf-success); color: var(--rf-success); background-color: var(--rf-surface); border-radius: var(--rf-radius-control); font-weight: 600; }
+
+/* ---------- Dashboard -------------------------------------------------------- */
+
+.ui-refresh .rf-sl-dash .rf-sl-card li { transition: background-color 0.15s ease; }
+.ui-refresh .rf-sl-dash .rf-sl-card li :is(p, a).text-sm.font-semibold { font-size: 15px; }
+.ui-refresh .rf-sl-dash .rf-sl-card li p.font-medium { font-size: 15px; font-weight: 600; }
+.ui-refresh .rf-sl-dash .rf-sl-card nav a { border-radius: var(--rf-radius-control); font-size: 15px; font-weight: 500; color: var(--rf-text); }
+.ui-refresh .rf-sl-dash .rf-sl-card nav a .text-gray-400 { color: var(--rf-text-muted); }
+.ui-refresh .rf-sl-dash .rf-sl-card li svg.text-gray-400 { color: var(--rf-text-muted); }
+.ui-refresh .rf-sl-dash .rf-sl-card .bg-yellow-100 { background-color: var(--rf-warning-soft); color: var(--rf-warning); border-radius: 999px; font-weight: 600; }
+
+/* ---------- Apply -------------------------------------------------------------- */
+
+.ui-refresh .rf-sl-apply label.block.text-sm { font-size: 14px; font-weight: 600; color: var(--rf-text); }
+.ui-refresh .rf-sl-apply :is(input[type="text"], input[type="email"], input[type="number"], input[type="date"], select, textarea) {
+    padding: 10px 12px;
+    border-color: transparent;
+    border-radius: var(--rf-radius-control);
+    background-color: var(--rf-surface-muted);
+    color: var(--rf-text);
+}
+.ui-refresh .rf-sl-apply :is(input, select, textarea):focus { background-color: var(--rf-surface); border-color: var(--rf-accent); }
+.ui-refresh .rf-sl-apply input:is([type="checkbox"], [type="radio"]) { width: 20px; height: 20px; accent-color: var(--rf-accent); }
+.ui-refresh .rf-sl-apply input[type="file"]::file-selector-button {
+    border-radius: var(--rf-radius-control);
+    background-color: var(--rf-accent-soft);
+    color: var(--rf-accent-on-soft);
+    font-weight: 600;
+}
+
+/* Position preferences: each position a row, the tier buttons large enough
+   to tap. The selected colours are the page's own (its inline <style>). */
+.ui-refresh .rf-sl-apply .rf-sl-legend { border-color: var(--rf-separator); }
+.ui-refresh .rf-sl-apply .rf-sl-legend span { border-radius: 999px; font-weight: 600; padding: 3px 10px; }
+.ui-refresh .rf-sl-apply .rf-sl-legend .bg-green-100 { background-color: var(--rf-success-soft); color: var(--rf-success); }
+.ui-refresh .rf-sl-apply .rf-sl-legend .bg-blue-100 { background-color: var(--rf-accent-soft); color: var(--rf-accent-on-soft); }
+.ui-refresh .rf-sl-apply .rf-sl-legend .bg-yellow-100 { background-color: var(--rf-warning-soft); color: var(--rf-warning); }
+.ui-refresh .rf-sl-apply .rf-sl-legend .bg-red-100 { background-color: var(--rf-danger-soft); color: var(--rf-danger); }
+.ui-refresh .rf-sl-apply .position-row { background-color: var(--rf-surface-muted); border-radius: 12px; padding: 12px 14px; }
+.ui-refresh .rf-sl-apply .position-row p.font-medium { font-size: 15px; font-weight: 600; color: var(--rf-text); }
+.ui-refresh .rf-sl-apply .position-row .tier-btn { min-width: 44px; min-height: 36px; border-radius: var(--rf-radius-control); font-size: 13px; font-weight: 700; }
+.ui-refresh .rf-sl-apply .position-row .tier-btn:not(.selected) {
+    background-color: var(--rf-surface);
+    color: var(--rf-text);
+    border-color: var(--rf-separator);
+}
+:root.ui-refresh.dark .rf-sl-apply .position-row .tier-btn:not(.selected) { background-color: var(--rf-surface); color: var(--rf-text); border-color: var(--rf-separator); }
+.ui-refresh .rf-sl-apply .position-row .tier-btn:focus-visible { outline: 2px solid var(--rf-accent); outline-offset: 2px; }
+
+/* Save / submit bar */
+.ui-refresh .rf-sl-apply .rf-sl-actions { flex-wrap: wrap; gap: 12px; }
+.ui-refresh .rf-sl-apply .rf-sl-actions button { min-height: 44px; padding-left: 18px; padding-right: 18px; border-radius: var(--rf-radius-control); font-weight: 600; }
+.ui-refresh .rf-sl-apply .rf-sl-actions button.bg-primary-600 { background-color: var(--rf-accent); color: var(--rf-accent-text); }
+.ui-refresh .rf-sl-apply .rf-sl-actions button.bg-primary-600:hover { background-color: var(--rf-accent-hover); }
+.ui-refresh .rf-sl-apply .rf-sl-actions button.border-gray-300 { border-color: var(--rf-accent); color: var(--rf-accent); background-color: transparent; }
+.ui-refresh .rf-sl-apply .rf-sl-actions button.border-gray-300:hover { background-color: var(--rf-accent-soft); }
+
+/* ---------- My applications / an application ------------------------------------ */
+
+.ui-refresh .rf-sl-mine dd, .ui-refresh .rf-sl-app dd { font-size: 15px; color: var(--rf-text); }
+.ui-refresh .rf-sl-mine dt { font-size: 12px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: var(--rf-text-muted); }
+.ui-refresh .rf-sl-mine .rf-sl-cardfoot { flex-wrap: wrap; gap: 10px; }
+.ui-refresh .rf-sl-mine .rf-sl-cardfoot > * + * { margin-left: 0; }
+.ui-refresh .rf-sl-app dt { color: var(--rf-text-muted); }
+.ui-refresh .rf-sl-app dd a { color: var(--rf-accent); font-weight: 600; }
+.ui-refresh .rf-sl-app .rf-sl-tiers h4 { font-size: 12px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; }
+.ui-refresh .rf-sl-app .rf-sl-tiers li { padding: 8px 12px; border-left-width: 3px; border-radius: 0 10px 10px 0; background-color: var(--rf-surface-muted); color: var(--rf-text); }
+.ui-refresh .rf-sl-app .rf-sl-tiers .text-green-700 { color: var(--rf-success); }
+.ui-refresh .rf-sl-app .rf-sl-tiers .text-blue-700 { color: var(--rf-accent); }
+.ui-refresh .rf-sl-app .rf-sl-tiers .text-yellow-700 { color: var(--rf-warning); }
+.ui-refresh .rf-sl-app .rf-sl-tiers .text-red-700 { color: var(--rf-danger); }
+.ui-refresh .rf-sl-app .rf-sl-tiers .border-green-500 { border-color: var(--rf-success); }
+.ui-refresh .rf-sl-app .rf-sl-tiers .border-blue-500 { border-color: var(--rf-accent); }
+.ui-refresh .rf-sl-app .rf-sl-tiers .border-yellow-500 { border-color: var(--rf-warning); }
+.ui-refresh .rf-sl-app .rf-sl-tiers .border-red-500 { border-color: var(--rf-danger); }
+.ui-refresh .rf-sl-app button.border-red-300 { border-color: var(--rf-danger); color: var(--rf-danger); background-color: var(--rf-surface); border-radius: var(--rf-radius-control); font-weight: 600; }
+.ui-refresh .rf-sl-app button.border-red-300:hover { background-color: var(--rf-danger-soft); }
+.ui-refresh .rf-sl-app .rf-sl-timeline h3 { font-size: 12px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; }
+.ui-refresh .rf-sl-app .rf-sl-timeline .flex { font-variant-numeric: tabular-nums; }
+
+/* ---------- Ballots (vote.html, vote_individual.html) ---------------------------- */
+
+/* The secret-ballot / how-it-works note */
+.ui-refresh .rf-sl:is(.rf-sl-vote, .rf-sl-ivote) .rf-sl-note { padding: 14px 16px; }
+.ui-refresh .rf-sl-vote .rf-sl-note h3 { font-size: 15px; font-weight: 700; }
+.ui-refresh .rf-sl-vote .rf-sl-note .mt-2 { font-size: 14px; }
+.ui-refresh .rf-sl-ivote .rf-sl-note .font-medium { font-size: 15px; font-weight: 700; }
+
+/* The slate being voted on: a grouped list, position small and muted,
+   the candidate's name large */
+.ui-refresh .rf-sl-vote .rf-sl-slate li p.font-medium { font-size: 12px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: var(--rf-text-muted); }
+.ui-refresh .rf-sl-vote .rf-sl-slate li p.font-medium + p { margin-top: 2px; font-size: 17px; font-weight: 600; color: var(--rf-text); }
+
+/* "Your Vote" */
+.ui-refresh .rf-sl .rf-sl-label { font-size: 13px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: var(--rf-text-muted); }
+
+/* Choice cards: big, obvious, the picked one filled in its tone */
+.ui-refresh .rf-sl :is(.rf-sl-choice, .rf-sl-opt) {
+    --rf-sl-tone: var(--rf-accent);
+    --rf-sl-tone-soft: var(--rf-accent-soft);
+    min-height: 60px;
+    padding: 16px 18px;
+    gap: 14px;
+    border: 2px solid var(--rf-separator);
+    border-radius: var(--rf-radius-card);
+    background-color: var(--rf-surface);
+    transition: border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+}
+.ui-refresh .rf-sl .rf-sl-approve { --rf-sl-tone: var(--rf-success); --rf-sl-tone-soft: var(--rf-success-soft); }
+.ui-refresh .rf-sl .rf-sl-reject-choice { --rf-sl-tone: var(--rf-danger); --rf-sl-tone-soft: var(--rf-danger-soft); }
+.ui-refresh .rf-sl .rf-sl-abstain { --rf-sl-tone: var(--rf-text-secondary); --rf-sl-tone-soft: var(--rf-surface-muted); }
+.ui-refresh .rf-sl :is(.rf-sl-choice, .rf-sl-opt):hover { border-color: var(--rf-sl-tone); }
+.ui-refresh .rf-sl :is(.rf-sl-choice, .rf-sl-opt):has(input:checked) {
+    border-color: var(--rf-sl-tone);
+    background-color: var(--rf-sl-tone-soft);
+    box-shadow: 0 0 0 1px var(--rf-sl-tone);
+}
+.ui-refresh .rf-sl :is(.rf-sl-choice, .rf-sl-opt):has(input:focus-visible) { outline: 2px solid var(--rf-sl-tone); outline-offset: 2px; }
+.ui-refresh .rf-sl :is(.rf-sl-choice, .rf-sl-opt) input[type="radio"] {
+    width: 22px;
+    height: 22px;
+    flex-shrink: 0;
+    margin: 0;
+    accent-color: var(--rf-sl-tone);
+    cursor: pointer;
+}
+.ui-refresh .rf-sl .rf-sl-choice label { margin-left: 0; }
+.ui-refresh .rf-sl .rf-sl-choice label > span:first-child { font-size: 17px; font-weight: 700; color: var(--rf-text); }
+.ui-refresh .rf-sl .rf-sl-choice label > span + span { margin-top: 2px; font-size: 14px; color: var(--rf-text-secondary); }
+.ui-refresh .rf-sl .rf-sl-choice:has(input:checked) label > span:first-child { color: var(--rf-sl-tone); }
+.ui-refresh .rf-sl .rf-sl-opt > span { font-size: 16px; font-weight: 600; color: var(--rf-text); }
+.ui-refresh .rf-sl .rf-sl-opt:has(input:checked) > span { color: var(--rf-sl-tone); font-weight: 700; }
+:root.ui-refresh.dark .rf-sl .rf-sl-pick { --rf-sl-tone-soft: var(--rf-accent-soft); }
+:root.ui-refresh.dark .rf-sl .rf-sl-pick:has(input:checked) > span { color: var(--rf-accent-on-soft); }
+
+/* The No-on-the-slate rule, up front on the Reject card */
+.ui-refresh .rf-sl .rf-sl-choice-req {
+    display: block;
+    margin-top: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--rf-danger);
+}
+
+/* After Reject: which positions (at least one). Shown by the page's script. */
+.ui-refresh .rf-sl .rf-sl-reject {
+    margin-left: 0;
+    padding: 16px;
+    border: 2px solid var(--rf-danger);
+    border-radius: var(--rf-radius-card);
+    background-color: var(--rf-danger-soft);
+}
+.ui-refresh .rf-sl .rf-sl-reject > label { font-size: 15px; font-weight: 700; color: var(--rf-danger); }
+.ui-refresh .rf-sl .rf-sl-reject > label .text-red-600 { color: var(--rf-danger); }
+.ui-refresh .rf-sl .rf-sl-reject .rf-sl-req { font-size: 14px; font-weight: 600; color: var(--rf-danger); }
+.ui-refresh .rf-sl .rf-sl-reject .rf-sl-objection {
+    min-height: 48px;
+    padding: 10px 12px;
+    border-radius: var(--rf-radius-control);
+    background-color: var(--rf-surface);
+}
+.ui-refresh .rf-sl .rf-sl-reject .rf-sl-objection:hover { background-color: var(--rf-surface-muted); }
+.ui-refresh .rf-sl .rf-sl-reject .rf-sl-objection:has(input:checked) { box-shadow: inset 0 0 0 2px var(--rf-danger); }
+.ui-refresh .rf-sl .rf-sl-reject .rf-sl-objection input { width: 20px; height: 20px; flex-shrink: 0; accent-color: var(--rf-danger); }
+.ui-refresh .rf-sl .rf-sl-reject .rf-sl-objection span { font-size: 15px; color: var(--rf-text); }
+
+/* Position ballots (vote_individual) */
+.ui-refresh .rf-sl-ivote .rf-sl-pos > .border-b:first-child p.font-semibold { font-size: 17px; font-weight: 700; }
+.ui-refresh .rf-sl-ivote .rf-sl-pos > .border-b:first-child p.text-xs { font-size: 14px; color: var(--rf-text-secondary); }
+.ui-refresh .rf-sl-ivote .rf-sl-pos .text-primary-600 { color: var(--rf-accent); }
+.ui-refresh .rf-sl-ivote .rf-sl-pos .text-purple-500 { color: var(--rf-tile-purple); }
+:root.ui-refresh.dark .rf-sl-ivote .rf-sl-pos .text-purple-500 { color: #c9bcf6; }
+.ui-refresh .rf-sl-ivote .rf-sl-opts { gap: 10px; }
+.ui-refresh .rf-sl-ivote .rf-sl-pos-done { border-color: transparent; border-radius: var(--rf-radius-card); background-color: var(--rf-surface-muted); }
+.ui-refresh .rf-sl-ivote .rf-sl-pos-done .bg-green-100 { background-color: var(--rf-success-soft); color: var(--rf-success); font-weight: 600; }
+.ui-refresh .rf-sl-ivote .rf-sl-decided summary { background-color: transparent; color: var(--rf-text-muted); letter-spacing: 0.05em; }
+.ui-refresh .rf-sl-ivote .rf-sl-decided .bg-gray-100 { background-color: var(--rf-surface-muted); color: var(--rf-text-secondary); font-weight: 600; }
+
+/* Confirm it's you + cast */
+.ui-refresh .rf-sl .rf-sl-confirm { border-color: var(--rf-separator); }
+.ui-refresh .rf-sl .rf-sl-confirm > label { font-size: 15px; font-weight: 700; color: var(--rf-text); }
+.ui-refresh .rf-sl .rf-sl-confirm input[type="password"] {
+    min-height: 48px;
+    padding: 12px 14px;
+    font-size: 16px;
+    border-color: transparent;
+    border-radius: var(--rf-radius-control);
+    background-color: var(--rf-surface-muted);
+    color: var(--rf-text);
+}
+.ui-refresh .rf-sl .rf-sl-confirm input[type="password"]:focus { background-color: var(--rf-surface); border-color: var(--rf-accent); }
+.ui-refresh .rf-sl .rf-sl-confirm .js-vote-passkey {
+    min-height: 44px;
+    border-color: transparent;
+    border-radius: var(--rf-radius-control);
+    background-color: var(--rf-accent-soft);
+    color: var(--rf-accent-on-soft);
+    font-weight: 600;
+}
+.ui-refresh .rf-sl .rf-sl-confirm .js-vote-passkey:hover { filter: brightness(0.97); }
+.ui-refresh .rf-sl .rf-sl-submit { background-color: var(--rf-surface-muted); }
+.ui-refresh .rf-sl .rf-sl-submit .js-ballot-hint { font-size: 13px; color: var(--rf-text-secondary); }
+.ui-refresh .rf-sl .rf-sl-submit button[type="submit"] {
+    min-height: 52px;
+    border-radius: var(--rf-radius-control);
+    font-size: 17px;
+    font-weight: 700;
+    background-color: var(--rf-accent);
+    color: var(--rf-accent-text);
+    --tw-shadow: 0 0 #0000;
+}
+.ui-refresh .rf-sl .rf-sl-submit button[type="submit"]:hover { background-color: var(--rf-accent-hover); }
+.ui-refresh .rf-sl .rf-sl-confirm-card { border-radius: var(--rf-radius-card); }
+
+/* Voted / sitting out / turnout */
+.ui-refresh .rf-sl-vote .rf-sl-done { border-color: transparent; border-radius: var(--rf-radius-card); background-color: var(--rf-success-soft); }
+.ui-refresh .rf-sl-vote .rf-sl-done > :is(h3, p, svg) { color: var(--rf-success); }
+.ui-refresh .rf-sl-vote .rf-sl-done > h3 { font-size: 18px; font-weight: 700; }
+.ui-refresh .rf-sl-vote .rf-sl-done > .bg-white { background-color: var(--rf-surface); border-radius: 12px; }
+.ui-refresh .rf-sl-vote .rf-sl-sitout h3 { font-size: 16px; font-weight: 700; }
+.ui-refresh .rf-sl-vote .rf-sl-turnout p { font-size: 15px; }
+.ui-refresh .rf-sl-vote .rf-sl-turnout p span { font-size: 17px; font-weight: 800; font-variant-numeric: tabular-nums; }
+
+/* ---------- Results ---------------------------------------------------------------- */
+
+/* Officers: position small caps, the winner large */
+.ui-refresh .rf-sl-results .rf-sl-officers > .border-b:first-child h2 { font-size: 12px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: var(--rf-text-muted); }
+.ui-refresh .rf-sl-results .rf-sl-officers > .border-b:first-child [data-headline] { font-size: 14px; font-weight: 600; color: var(--rf-text); }
+.ui-refresh .rf-sl-results .rf-sl-officer { padding-top: 14px; padding-bottom: 14px; }
+.ui-refresh .rf-sl-results .rf-sl-officer > .flex > span:first-child { font-size: 15px; font-weight: 600; color: var(--rf-text-secondary); }
+.ui-refresh .rf-sl-results .rf-sl-officer > .flex > span.font-semibold { font-size: 17px; font-weight: 700; color: var(--rf-text); }
+.ui-refresh .rf-sl-results .rf-sl-officer > p { font-size: 13px; color: var(--rf-text-muted); }
+.ui-refresh .rf-sl-results .rf-sl-officer ul { font-size: 13px; font-variant-numeric: tabular-nums; }
+.ui-refresh .rf-sl-results .rf-sl-officer .text-green-700 { color: var(--rf-success); font-weight: 700; }
+.ui-refresh .rf-sl-results .rf-sl-officer .text-red-700 { color: var(--rf-danger); font-weight: 600; }
+
+/* Stat tiles (Total / Approve / Reject / Abstain; the summary's counts) */
+.ui-refresh .rf-sl .rf-sl-stats > div {
+    padding: 14px 10px;
+    border-radius: var(--rf-radius-stat);
+    background-color: var(--rf-surface-muted);
+}
+.ui-refresh .rf-sl .rf-sl-stats p.text-2xl { font-size: 28px; line-height: 1.1; font-weight: 800; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.ui-refresh .rf-sl .rf-sl-stats p.text-sm { margin-top: 2px; font-size: 13px; font-weight: 600; color: var(--rf-text-secondary); }
+.ui-refresh .rf-sl .rf-sl-stats .text-green-600 { color: var(--rf-success); }
+.ui-refresh .rf-sl .rf-sl-stats .text-red-600 { color: var(--rf-danger); }
+.ui-refresh .rf-sl .rf-sl-stats .text-primary-600 { color: var(--rf-accent); }
+.ui-refresh .rf-sl .rf-sl-stats .text-purple-600 { color: var(--rf-tile-purple); }
+:root.ui-refresh.dark .rf-sl .rf-sl-stats .text-purple-600 { color: #c9bcf6; }
+.ui-refresh .rf-sl .rf-sl-stats p.text-gray-500.text-2xl { color: var(--rf-text-secondary); }
+
+/* Approval meter: a thicker track, the threshold marker in ink */
+.ui-refresh .rf-sl-results .rf-sl-meter > .flex { font-size: 15px; }
+.ui-refresh .rf-sl-results .rf-sl-meter > .flex > span:last-child { font-size: 17px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.ui-refresh .rf-sl-results .rf-sl-meter .text-green-600 { color: var(--rf-success); }
+.ui-refresh .rf-sl-results .rf-sl-meter .text-red-600 { color: var(--rf-danger); }
+.ui-refresh .rf-sl-results .rf-sl-meter .rounded-full.relative { height: 14px; overflow: visible; background-color: var(--rf-surface-muted); box-shadow: inset 0 0 0 1px var(--rf-separator); }
+.ui-refresh .rf-sl-results .rf-sl-meter .rounded-full.relative > .rounded-full { height: 14px; }
+.ui-refresh .rf-sl-results .rf-sl-meter .bg-green-500 { background-color: var(--rf-success); }
+.ui-refresh .rf-sl-results .rf-sl-meter .bg-red-500 { background-color: var(--rf-danger); }
+.ui-refresh .rf-sl-results .rf-sl-meter .bg-primary-500 { background-color: var(--rf-accent); }
+.ui-refresh .rf-sl-results .rf-sl-meter .absolute { top: -4px; height: 22px; width: 3px; border-radius: 2px; background-color: var(--rf-text); }
+.ui-refresh .rf-sl-results .rf-sl-meter > p { font-size: 13px; font-weight: 600; color: var(--rf-text-secondary); }
+
+/* The verdict */
+.ui-refresh .rf-sl-results .rf-sl-verdict { border-radius: var(--rf-radius-card); padding: 18px; }
+.ui-refresh .rf-sl-results .rf-sl-verdict.bg-green-50 { background-color: var(--rf-success-soft); }
+.ui-refresh .rf-sl-results .rf-sl-verdict.bg-green-50 :is(h4, p, svg) { color: var(--rf-success); }
+.ui-refresh .rf-sl-results .rf-sl-verdict.bg-red-50 { background-color: var(--rf-danger-soft); }
+.ui-refresh .rf-sl-results .rf-sl-verdict.bg-red-50 :is(h4, p, svg) { color: var(--rf-danger); }
+.ui-refresh .rf-sl-results .rf-sl-verdict.bg-primary-50 { background-color: var(--rf-accent-soft); }
+.ui-refresh .rf-sl-results .rf-sl-verdict.bg-primary-50 p { color: var(--rf-accent-on-soft); font-weight: 600; }
+.ui-refresh .rf-sl-results .rf-sl-verdict h4 { font-size: 20px; font-weight: 800; letter-spacing: -0.01em; }
+
+/* Rejection analysis rows, history */
+.ui-refresh .rf-sl-results .rf-sl-objrow { border-radius: 12px; background-color: var(--rf-danger-soft); }
+.ui-refresh .rf-sl-results .rf-sl-objrow .bg-red-100 { background-color: var(--rf-surface); color: var(--rf-danger); font-weight: 700; }
+.ui-refresh .rf-sl-results .rf-sl-history > li { padding: 12px 14px; border-radius: 12px; background-color: var(--rf-surface-muted); font-variant-numeric: tabular-nums; }
+.ui-refresh .rf-sl-results .rf-sl-history > li + li { margin-top: 8px; }
+.ui-refresh .rf-sl-results .rf-sl-history > li > .font-medium { font-weight: 700; color: var(--rf-text); }
+.ui-refresh .rf-sl-results .rf-sl-live .bg-primary-500 { background-color: var(--rf-accent); }
+.ui-refresh .rf-sl-results .rf-sl-live .bg-primary-400 { background-color: var(--rf-accent); }
+
+/* ---------- Results summary (committee) ------------------------------------------- */
+
+.ui-refresh .rf-sl-rsum .rf-sl-tiles > div { border-radius: var(--rf-radius-stat); }
+.ui-refresh .rf-sl-rsum .rf-sl-tiles p.text-3xl { font-size: 30px; line-height: 1.1; font-weight: 800; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.ui-refresh .rf-sl-rsum .rf-sl-tiles p.text-sm { margin-top: 2px; font-size: 13px; font-weight: 600; color: var(--rf-text-secondary); }
+.ui-refresh .rf-sl-rsum .rf-sl-tiles .text-green-600 { color: var(--rf-success); }
+.ui-refresh .rf-sl-rsum .rf-sl-tiles .text-yellow-600 { color: var(--rf-warning); }
+.ui-refresh .rf-sl-rsum .rf-sl-tiles .text-primary-600 { color: var(--rf-accent); }
+.ui-refresh .rf-sl-rsum .rf-sl-table thead { background-color: transparent; }
+.ui-refresh .rf-sl-rsum .rf-sl-table th { font-size: 12px; font-weight: 600; letter-spacing: 0.05em; color: var(--rf-text-muted); }
+.ui-refresh .rf-sl-rsum .rf-sl-table tbody { background-color: transparent; }
+.ui-refresh .rf-sl-rsum .rf-sl-table td { font-size: 15px; font-variant-numeric: tabular-nums; }
+.ui-refresh .rf-sl-rsum .rf-sl-table td.text-green-600 { color: var(--rf-success); font-weight: 600; }
+.ui-refresh .rf-sl-rsum .rf-sl-table td.text-red-600 { color: var(--rf-danger); font-weight: 600; }
+.ui-refresh .rf-sl-rsum .rf-sl-table tbody tr:hover { background-color: var(--rf-surface-muted); }
+.ui-refresh .rf-sl-rsum li p.text-green-600 { color: var(--rf-success); }
+.ui-refresh .rf-sl-rsum li p.text-red-600 { color: var(--rf-danger); }
+.ui-refresh .rf-sl-rsum li a { font-weight: 600; }
+.ui-refresh .rf-sl-rsum .rf-sl-foot { flex-wrap: wrap; gap: 10px; }
+.ui-refresh .rf-sl-rsum .rf-sl-foot > * + * { margin-left: 0; }
+
+/* ---------- Small screens, motion -------------------------------------------------- */
+
+@media (max-width: 640px) {
+    .ui-refresh .rf-sl-head { flex-wrap: wrap; gap: 12px; }
+    .ui-refresh .rf-sl-apply .rf-sl-actions > div:last-child { width: 100%; }
+    .ui-refresh .rf-sl-apply .rf-sl-actions > div:last-child button { flex: 1; }
+    .ui-refresh .rf-sl-apply .position-row .tier-btn { flex: 1; }
+    .ui-refresh .rf-sl-ivote .rf-sl-opt { flex-basis: 100%; }
+    .ui-refresh .rf-sl .rf-sl-stats p.text-2xl { font-size: 24px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .ui-refresh .rf-sl :is(.rf-sl-choice, .rf-sl-opt),
+    .ui-refresh .rf-sl-dash .rf-sl-card li { transition: none; }
+}
