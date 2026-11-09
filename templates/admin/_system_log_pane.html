@@ -1,0 +1,19 @@
+{% comment %}
+System Logs: the dark log pane (tool row + entry list), shared by both looks.
+Needs the context from src/system_logs.build_page plus `download_url`.
+{% endcomment %}
+<section class="sl-pane" aria-labelledby="sl-pane-title">
+    <div class="sl-pane-head">
+        <span id="sl-pane-title"><strong id="sl-shown">{{ entries|length }}</strong> of {{ total }} entries · last {{ filters.lines }} lines{% if summary.oldest %} · since {{ summary.oldest|slice:':16' }}{% endif %}</span>
+        <div class="sl-pane-tools">
+            <button type="button" id="sl-live" class="sl-btn" aria-pressed="false" title="Check for new lines every 10 seconds"><span class="sl-live-dot" aria-hidden="true"></span><span data-sl-live-label>Paused</span></button>
+            <span id="sl-updated" class="sl-updated" aria-live="polite"></span>
+            <button type="button" id="sl-expand" class="sl-btn" aria-pressed="false">Expand details</button>
+            <button type="button" id="sl-copy" class="sl-btn" title="Copy what's shown, with timestamps"><span data-sl-copy-label>Copy</span></button>
+            <a href="{{ download_url }}" class="sl-btn" download>Download .txt</a>
+        </div>
+    </div>
+    <div class="sl-scroll" tabindex="0" aria-label="Log entries (scrollable)">
+        {% include "admin/_system_log_entries.html" %}
+    </div>
+</section>

@@ -937,49 +937,14 @@ from django.urls import path
 from django.utils.html import format_html
 from django.shortcuts import render
 
-import re
-LOG_PATTERN = re.compile(r'^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d{3}) \[(\w+)\] ([^:]+): (.*)$')
-
 @user_passes_test(lambda u: hasattr(u, 'is_admin') and u.is_admin)
 def view_logs(request):
-    log_path = os.path.join('logs', 'django_actions.log')
-    logs = []
+    """11-09-26: the Django admin's "View logs" opens the System Logs page
+    (officers/system-logs/, which admins can open), instead of its own copy
+    that read the whole file and skipped the Kai redaction."""
+    from django.shortcuts import redirect
+    return redirect('view_logs')
 
-    try:
-        with open(log_path, 'r') as f:
-            for line in f.readlines()[-200:][::-1]:  # Show last 200 lines, most recent first
-                line = line.strip()
-                if not line:
-                    continue
-
-                match = LOG_PATTERN.match(line)
-                if match:
-                    timestamp, level, logger_name, message = match.groups()
-                    logs.append({
-                        'timestamp': timestamp,
-                        'logger': logger_name,
-                        'level': level,
-                        'message': f"[{level}] {message}",
-                    })
-                else:
-                    logs.append({
-                        'timestamp': '',
-                        'logger': '',
-                        'level': '',
-                        'message': line
-                    })
-    except Exception as e:
-        logs.append({
-            'timestamp': '',
-            'logger': '',
-            'level': 'ERROR',
-            'message': f"Error reading log file: {e}"
-        })
-
-    return render(request, 'admin/view_logs.html', {
-        'logs': logs,
-        'title': 'View Logs',
-    })
 
 @user_passes_test(lambda u: hasattr(u, 'is_admin') and u.is_admin)
 def view_error_logs(request):

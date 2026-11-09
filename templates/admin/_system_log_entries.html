@@ -1,0 +1,37 @@
+{% comment %}
+System Logs: the entry list (src/system_logs.py). Shared by the classic page
+(admin/system_logs.html) and the console page (admin_v2/console/system_logs.html),
+and returned alone for auto-refresh (?partial=1, static/js/system-logs.js).
+Styled by static/css/system-logs.css (`sl-*`). No inline script or style.
+{% endcomment %}
+<div id="sl-entries" data-sl-total="{{ total }}" data-sl-shown="{{ entries|length }}" data-sl-errors="{{ summary.errors }}" data-sl-warnings="{{ summary.warnings }}">
+{% if state == 'missing' %}
+    <p class="sl-empty">The log file wasn't found on the server (<code>logs/django_actions.log</code>). It's created when the site writes its first log line.</p>
+{% elif state == 'error' %}
+    <p class="sl-empty sl-empty-error">The log file couldn't be read: {{ error }}</p>
+{% elif not entries %}
+    <p class="sl-empty">{% if filtered %}Nothing matches these filters in the last {{ filters.lines }} lines.{% else %}No log entries yet.{% endif %}</p>
+{% else %}
+    <ol class="sl-list" aria-label="Log entries, {% if filters.order == 'oldest' %}oldest{% else %}newest{% endif %} first">
+    {% for e in entries %}
+        {% ifchanged e.date %}{% if e.date %}<li class="sl-day" aria-hidden="true">{{ e.day_label }}</li>{% endif %}{% endifchanged %}
+        <li class="sl-entry is-{{ e.level_key }}">
+            <span class="sl-time" title="{{ e.timestamp }}">{{ e.time|default:"—" }}</span>
+            <span class="sl-level">{{ e.level|default:"…" }}</span>
+            <span class="sl-body">
+                {% if e.logger %}<a class="sl-source" href="?{% if filters.level != 'all' %}level={{ filters.level }}&amp;{% endif %}source={{ e.logger|urlencode }}&amp;lines={{ filters.lines }}" title="Show only {{ e.logger }}">{{ e.logger }}</a>{% endif %}
+                <span class="sl-text">{{ e.text }}</span>
+                {% if e.detail %}
+                <details class="sl-detail"{% if e.level_key == 'error' %} data-sl-trace{% endif %}>
+                    <summary>{% if e.detail|length == 1 %}1 more line{% else %}{{ e.detail|length }} more lines{% endif %}</summary>
+                    <pre>{% for d in e.detail %}{{ d }}
+{% endfor %}</pre>
+                </details>
+                {% endif %}
+            </span>
+        </li>
+    {% endfor %}
+    </ol>
+{% endif %}
+<textarea id="sl-plain" class="sl-plain" hidden readonly aria-hidden="true" tabindex="-1">{{ plain_text }}</textarea>
+</div>

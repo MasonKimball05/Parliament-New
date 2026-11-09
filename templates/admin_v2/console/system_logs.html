@@ -1,0 +1,61 @@
+{% extends "admin_v2/console/base.html" %}
+{% comment %}
+System Logs in the console look (11-09-26; shown when `admin_console_ui` is
+on and the viewer has an Admin v2 session, else admin/system_logs.html).
+Same view and data (src/system_logs.py); pane and list are shared partials.
+{% endcomment %}
+{% load admin_v2_tags static_version %}
+
+{% block title %}System logs - Admin{% endblock %}
+
+{% block admin_head %}{{ block.super }}<link rel="stylesheet" href="{% static_v 'css/system-logs.css' %}">{% endblock %}
+
+{% block admin_content %}
+<div id="sl-root" class="ac-op">
+    <ul class="ac-stat-strip sl-stats" aria-label="Levels in these lines">
+        <li><a href="?level=error&amp;lines={{ filters.lines }}"{% if filters.level == 'error' %} aria-current="true"{% endif %}><span class="ac-stat-n">{{ summary.errors }}</span><span class="ac-stat-l">Errors</span><span class="ac-stat-s">ERROR and CRITICAL</span></a></li>
+        <li><a href="?level=warning&amp;lines={{ filters.lines }}"{% if filters.level == 'warning' %} aria-current="true"{% endif %}><span class="ac-stat-n">{{ summary.warnings }}</span><span class="ac-stat-l">Warnings</span><span class="ac-stat-s">in the last {{ filters.lines }} lines</span></a></li>
+        <li><a href="?level=info&amp;lines={{ filters.lines }}"{% if filters.level == 'info' %} aria-current="true"{% endif %}><span class="ac-stat-n">{{ summary.info }}</span><span class="ac-stat-l">Info</span><span class="ac-stat-s">requests and actions</span></a></li>
+        <li><a href="?lines={{ filters.lines }}"{% if not filtered %} aria-current="true"{% endif %}><span class="ac-stat-n">{{ total }}</span><span class="ac-stat-l">Entries</span><span class="ac-stat-s">{{ summary.sources|length }} source{{ summary.sources|length|pluralize }}</span></a></li>
+    </ul>
+
+    <section class="ac-card">
+        {% include "admin_v2/console/_list_header.html" with title="System logs" subtitle="The end of the server's log, newest first. Member names and Kai case details are hidden." %}
+        <form method="get" class="ac-filterbar" aria-label="Filter log entries">
+            <label class="ac-field ac-field-grow"><span class="ac-field-label">Search</span>
+                {% console_icon "search" %}
+                <input type="search" name="q" value="{{ filters.q }}" class="ac-input" placeholder="Text, source or traceback">
+            </label>
+            <label class="ac-field"><span class="ac-field-label">Show</span>
+                <select name="level" class="ac-select" data-autosubmit>
+                    {% for value, label in level_filters %}<option value="{{ value }}"{% if filters.level == value %} selected{% endif %}>{{ label }}</option>{% endfor %}
+                </select>
+            </label>
+            <label class="ac-field"><span class="ac-field-label">Source</span>
+                <select name="source" class="ac-select" data-autosubmit>
+                    <option value="">All sources</option>
+                    {% for name, n in summary.sources %}<option value="{{ name }}"{% if filters.source == name %} selected{% endif %}>{{ name }} ({{ n }})</option>{% endfor %}
+                </select>
+            </label>
+            <label class="ac-field"><span class="ac-field-label">Lines</span>
+                <select name="lines" class="ac-select" data-autosubmit>
+                    {% for n in line_choices %}<option value="{{ n }}"{% if filters.lines == n %} selected{% endif %}>Last {{ n }}</option>{% endfor %}
+                </select>
+            </label>
+            <label class="ac-field"><span class="ac-field-label">Order</span>
+                <select name="order" class="ac-select" data-autosubmit>
+                    <option value="newest"{% if filters.order == 'newest' %} selected{% endif %}>Newest first</option>
+                    <option value="oldest"{% if filters.order == 'oldest' %} selected{% endif %}>Oldest first</option>
+                </select>
+            </label>
+            <button type="submit" class="ac-btn">Apply</button>
+            {% if filtered %}<a href="?lines={{ filters.lines }}" class="ac-btn ac-btn-ghost">Clear filters</a>{% endif %}
+        </form>
+        <div class="sl-console-pane">
+            {% include "admin/_system_log_pane.html" %}
+        </div>
+    </section>
+</div>
+{% endblock %}
+
+{% block console_js %}<script src="{% static_v 'js/system-logs.js' %}"></script>{% endblock %}

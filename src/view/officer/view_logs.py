@@ -1,7 +1,8 @@
 from src.decorators import officer_required
+from django.http import HttpResponse
 from django.shortcuts import render
+from django.utils import timezone
 from django.contrib.auth.decorators import login_required, user_passes_test
-from django.contrib import messages
 from django.conf import settings
 import logging
 import os
@@ -35,7 +36,7 @@ def _tail_lines(path, max_lines=LOG_DISPLAY_LINES, tail_bytes=LOG_TAIL_BYTES):
     return chunk.decode('utf-8', errors='replace').splitlines()[-max_lines:]
 
 
-def read_log_entries():
+def read_log_entries(max_lines=LOG_DISPLAY_LINES):
     """
     The last `LOG_DISPLAY_LINES` lines of `django_actions.log`, newest first,
     parsed and Kai-redacted: `(entries, state, error)`, `state` one of
@@ -44,6 +45,10 @@ def read_log_entries():
     v4.4.3 — pulled out of `view_logs` so the app's System Logs screen
     (`src/mobile/views_officer_logs.py`) reads the same tail through the same
     redaction. Read the view's docstring before changing what this returns.
+
+    11-09-26: `max_lines` (the web page offers 200, 500 or 1,000); the tail
+    read grows with it at the same ~1 KB/line allowance, so 1,000 lines reads
+    at most ~1.25 MB. The app still gets the default 200.
     """
     from src.kai_audit import (_username_pattern, kai_log_view_names,
                                member_usernames, redact_kai_log_message)
@@ -58,7 +63,8 @@ def read_log_entries():
         logger.debug("view_logs: reading %s (exists=%s)", LOG_FILE_PATH, os.path.exists(LOG_FILE_PATH))
 
         if os.path.exists(LOG_FILE_PATH):
-            log_lines = _tail_lines(LOG_FILE_PATH)
+            log_lines = _tail_lines(LOG_FILE_PATH, max_lines=max_lines,
+                                    tail_bytes=max(LOG_TAIL_BYTES, max_lines * 1280))
             logger.debug("view_logs: read %d lines from file", len(log_lines))
 
             for line in reversed(log_lines):
@@ -145,11 +151,39 @@ def view_logs(request):
     username pattern are computed **once per request**, not per line — the
     first walks a module, the second is a query.
     """
-    logs, state, error = read_log_entries()
-    if state == 'missing':
-        messages.warning(request, "Log file not found.")
-    elif state == 'error':
-        messages.error(request, f"Error reading log file: {error}")
+    # 11-09-26: entries with their tracebacks, level / source / search
+    # filters, 200-1,000 lines, auto-refresh (?partial=1), and a plain-text
+    # download (?format=txt): src/system_logs.py. Everything is built from
+    # the redacted entries above, so the download, the copy text and the
+    # refreshed list carry exactly what the page shows.
+    from src.system_logs import as_text, build_page
 
-    logger.debug("view_logs: returning %d logs to template", len(logs))
-    return render(request, 'admin/view_logs.html', {'logs': logs})
+    page = build_page(request.GET, read_log_entries)
+    if request.GET.get('format') == 'txt':
+        response = HttpResponse(as_text(page['entries']), content_type='text/plain; charset=utf-8')
+        name = timezone.localtime().strftime('system-log-%Y-%m-%d-%H%M.txt')
+        response['Content-Disposition'] = f'attachment; filename="{name}"'
+        return response
+
+    page['plain_text'] = as_text(page['entries'])
+    if request.GET.get('partial') == '1':
+        return render(request, 'admin/_system_log_entries.html', page)
+
+    params = request.GET.copy()
+    params.pop('partial', None)
+    params['format'] = 'txt'
+    page['download_url'] = f'?{params.urlencode()}'
+    logger.debug("view_logs: %d of %d entries shown", len(page['entries']), page['total'])
+    return render(request, 'admin_v2/console/system_logs.html' if _console_look(request)
+                  else 'admin/system_logs.html', page)
+
+
+def _console_look(request):
+    """The admin console look: the console switch is on and this viewer is in
+    an Admin v2 session (officers outside it keep the site look, since the
+    console's menus all lead to pages they can't open)."""
+    from src.admin_console import console_enabled
+    from src.view.admin_v2 import ALLOWED_USER_IDS
+    return (console_enabled(request)
+            and getattr(request.user, 'user_id', None) in ALLOWED_USER_IDS
+            and bool(request.session.get('admin_v2_authenticated')))

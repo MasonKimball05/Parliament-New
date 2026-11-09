@@ -1,0 +1,61 @@
+{% extends "admin_base.html" %}
+{% load static static_version %}
+{% comment %}
+System Logs, classic look (11-09-26 rework; the console look is
+admin_v2/console/system_logs.html). View: src/view/officer/view_logs.py,
+data: src/system_logs.py. Pane and list are shared partials.
+{% endcomment %}
+
+{% block title %}System Logs - Parliament{% endblock %}
+
+{% block admin_head %}{{ block.super }}<link rel="stylesheet" href="{% static_v 'css/system-logs.css' %}">{% endblock %}
+
+{% block admin_content %}
+<div id="sl-root" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-4">
+    <div class="flex flex-wrap items-end justify-between gap-3">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-900 dark:text-white">System Logs</h1>
+            <p class="text-sm text-gray-600 dark:text-gray-400">The end of the server's log, newest first. Member names and Kai case details are hidden.</p>
+        </div>
+        <ul class="sl-chips" aria-label="Levels in these lines">
+            <li><a class="sl-chip is-error bg-red-50 text-red-800 dark:bg-red-900/30 dark:text-red-200" href="?level=error&amp;lines={{ filters.lines }}"{% if filters.level == 'error' %} aria-current="true"{% endif %}><span class="sl-chip-dot" aria-hidden="true"></span>Errors <b>{{ summary.errors }}</b></a></li>
+            <li><a class="sl-chip is-warning bg-amber-50 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200" href="?level=warning&amp;lines={{ filters.lines }}"{% if filters.level == 'warning' %} aria-current="true"{% endif %}><span class="sl-chip-dot" aria-hidden="true"></span>Warnings <b>{{ summary.warnings }}</b></a></li>
+            <li><a class="sl-chip is-info bg-blue-50 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200" href="?lines={{ filters.lines }}"{% if filters.level == 'all' and not filters.source and not filters.q %} aria-current="true"{% endif %}><span class="sl-chip-dot" aria-hidden="true"></span>All <b>{{ total }}</b></a></li>
+        </ul>
+    </div>
+
+    <form method="get" class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-3 flex flex-wrap items-end gap-3" aria-label="Filter log entries">
+        <label class="flex-1 min-w-[12rem] text-xs font-medium text-gray-600 dark:text-gray-300">Search
+            <input type="search" name="q" value="{{ filters.q }}" placeholder="Text, source or traceback" class="mt-1 block w-full rounded-md border border-gray-300 px-2.5 py-1.5 dark:border-gray-600 dark:bg-gray-700 dark:text-white text-sm">
+        </label>
+        <label class="text-xs font-medium text-gray-600 dark:text-gray-300">Show
+            <select name="level" data-autosubmit class="mt-1 block rounded-md border border-gray-300 px-2.5 py-1.5 dark:border-gray-600 dark:bg-gray-700 dark:text-white text-sm">
+                {% for value, label in level_filters %}<option value="{{ value }}"{% if filters.level == value %} selected{% endif %}>{{ label }}</option>{% endfor %}
+            </select>
+        </label>
+        <label class="text-xs font-medium text-gray-600 dark:text-gray-300">Source
+            <select name="source" data-autosubmit class="mt-1 block max-w-[16rem] rounded-md border border-gray-300 px-2.5 py-1.5 dark:border-gray-600 dark:bg-gray-700 dark:text-white text-sm">
+                <option value="">All sources</option>
+                {% for name, n in summary.sources %}<option value="{{ name }}"{% if filters.source == name %} selected{% endif %}>{{ name }} ({{ n }})</option>{% endfor %}
+            </select>
+        </label>
+        <label class="text-xs font-medium text-gray-600 dark:text-gray-300">Lines
+            <select name="lines" data-autosubmit class="mt-1 block rounded-md border border-gray-300 px-2.5 py-1.5 dark:border-gray-600 dark:bg-gray-700 dark:text-white text-sm">
+                {% for n in line_choices %}<option value="{{ n }}"{% if filters.lines == n %} selected{% endif %}>Last {{ n }}</option>{% endfor %}
+            </select>
+        </label>
+        <label class="text-xs font-medium text-gray-600 dark:text-gray-300">Order
+            <select name="order" data-autosubmit class="mt-1 block rounded-md border border-gray-300 px-2.5 py-1.5 dark:border-gray-600 dark:bg-gray-700 dark:text-white text-sm">
+                <option value="newest"{% if filters.order == 'newest' %} selected{% endif %}>Newest first</option>
+                <option value="oldest"{% if filters.order == 'oldest' %} selected{% endif %}>Oldest first</option>
+            </select>
+        </label>
+        <button type="submit" class="px-3 py-2 rounded-md bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium">Apply</button>
+        {% if filtered %}<a href="?lines={{ filters.lines }}" class="px-3 py-2 text-sm text-primary-700 dark:text-primary-300 hover:underline">Clear filters</a>{% endif %}
+    </form>
+
+    {% include "admin/_system_log_pane.html" %}
+</div>
+{% endblock %}
+
+{% block extra_js %}{{ block.super }}<script src="{% static_v 'js/system-logs.js' %}"></script>{% endblock %}

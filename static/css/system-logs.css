@@ -1,0 +1,123 @@
+/* =========================================================================
+   System Logs (11-09-26): the entry list and its toolbar bits, shared by the
+   classic page (admin/system_logs.html) and the console page
+   (admin_v2/console/system_logs.html). Plain CSS, no Tailwind build.
+
+   The list is a dark log pane in both themes (monospace, level colors that
+   keep 4.5:1 contrast on its background); the level is also written out as
+   a word on every row, so color is never the only signal.
+   ========================================================================= */
+
+.sl-pane {
+    --sl-bg: #0f172a;
+    --sl-row: #111c33;
+    --sl-line: #1e293b;
+    --sl-text: #e2e8f0;
+    --sl-muted: #94a3b8;
+    --sl-error: #fca5a5;
+    --sl-warning: #fcd34d;
+    --sl-info: #93c5fd;
+    --sl-debug: #c4b5fd;
+    --sl-link: #67e8f9;
+    background: var(--sl-bg);
+    color: var(--sl-text);
+    border-radius: 10px;
+    border: 1px solid var(--sl-line);
+    overflow: hidden;
+}
+
+.sl-pane-head {
+    display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px;
+    padding: 8px 12px; border-bottom: 1px solid var(--sl-line); background: #0b1222;
+    font-size: 12px; color: var(--sl-muted);
+}
+.sl-pane-head strong { color: var(--sl-text); font-weight: 600; }
+.sl-pane-tools { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.sl-btn {
+    display: inline-flex; align-items: center; gap: 5px; padding: 4px 9px; border-radius: 6px;
+    border: 1px solid #334155; background: #1e293b; color: var(--sl-text);
+    font: inherit; font-size: 12px; cursor: pointer; text-decoration: none; line-height: 1.4;
+}
+.sl-btn:hover { background: #273449; }
+.sl-pane a.sl-btn, .sl-pane a.sl-btn:visited { color: var(--sl-text); }
+.sl-btn:focus-visible { outline: 2px solid var(--sl-link); outline-offset: 1px; }
+.sl-btn[aria-pressed="true"] { border-color: #22c55e; color: #bbf7d0; }
+.sl-live-dot { width: 8px; height: 8px; border-radius: 50%; background: #64748b; flex: none; }
+.sl-btn[aria-pressed="true"] .sl-live-dot { background: #22c55e; box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.25); }
+.sl-updated { font-variant-numeric: tabular-nums; }
+
+.sl-scroll { max-height: calc(100vh - 320px); min-height: 320px; overflow: auto; }
+
+.sl-list {
+    list-style: none; margin: 0; padding: 4px 0;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12.5px; line-height: 1.5;
+}
+.sl-day {
+    position: sticky; top: 0; z-index: 1; padding: 3px 12px; background: #0b1222;
+    color: var(--sl-muted); font-size: 11px; letter-spacing: 0.04em; border-bottom: 1px solid var(--sl-line);
+}
+.sl-entry {
+    display: grid; grid-template-columns: 4.6em 5.6em minmax(0, 1fr); gap: 0 10px;
+    padding: 3px 12px; border-left: 3px solid transparent;
+}
+.sl-entry:hover { background: var(--sl-row); }
+.sl-time { color: var(--sl-muted); font-variant-numeric: tabular-nums; }
+.sl-level { font-weight: 700; font-size: 11px; letter-spacing: 0.03em; padding-top: 1px; }
+.sl-body { min-width: 0; overflow-wrap: anywhere; }
+.sl-text { white-space: pre-wrap; }
+.sl-source { color: var(--sl-link); text-decoration: none; margin-right: 8px; white-space: nowrap; }
+.sl-source:hover { text-decoration: underline; }
+
+.sl-entry.is-error { border-left-color: #ef4444; background: rgba(239, 68, 68, 0.07); }
+.sl-entry.is-error .sl-level, .sl-entry.is-error .sl-text { color: var(--sl-error); }
+.sl-entry.is-warning { border-left-color: #f59e0b; }
+.sl-entry.is-warning .sl-level { color: var(--sl-warning); }
+.sl-entry.is-info .sl-level { color: var(--sl-info); }
+.sl-entry.is-debug .sl-level, .sl-entry.is-debug .sl-text { color: var(--sl-debug); }
+.sl-entry.is-other .sl-level { color: var(--sl-muted); }
+
+.sl-detail { margin-top: 2px; }
+.sl-detail summary { cursor: pointer; color: var(--sl-muted); font-size: 11.5px; width: max-content; }
+.sl-detail summary:hover { color: var(--sl-text); }
+.sl-detail pre {
+    margin: 4px 0 2px; padding: 6px 8px; background: #0b1222; border-radius: 6px;
+    white-space: pre-wrap; overflow-wrap: anywhere; color: var(--sl-text); font: inherit; font-size: 12px;
+}
+
+.sl-empty { margin: 0; padding: 48px 16px; text-align: center; color: var(--sl-muted); font-size: 13px; }
+.sl-empty-error { color: var(--sl-error); }
+.sl-plain { display: none; }
+
+/* Level chips above the pane (both looks): counts of the whole tail. */
+.sl-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.sl-chip {
+    display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px;
+    font-size: 12.5px; text-decoration: none; border: 1px solid transparent;
+}
+.sl-chip b { font-variant-numeric: tabular-nums; }
+.sl-chip-dot { width: 8px; height: 8px; border-radius: 50%; }
+.sl-chip.is-error .sl-chip-dot { background: #ef4444; }
+.sl-chip.is-warning .sl-chip-dot { background: #f59e0b; }
+.sl-chip.is-info .sl-chip-dot { background: #3b82f6; }
+.sl-chip.is-debug .sl-chip-dot { background: #8b5cf6; }
+.sl-chip[aria-current="true"] { border-color: currentColor; font-weight: 600; }
+
+@media (max-width: 640px) {
+    .sl-entry { grid-template-columns: 4.6em minmax(0, 1fr); }
+    .sl-level { grid-column: 2; grid-row: 1; }
+    .sl-body { grid-column: 1 / -1; }
+    .sl-scroll { max-height: none; }
+}
+
+/* Console look: the pane sits inside the list card; four stat tiles. */
+.sl-console-pane { padding: 0 14px 14px; }
+.ac-stat-strip.sl-stats { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.ac-stat-strip.sl-stats li:nth-child(1) a { border-top-color: var(--ac-danger); }
+.ac-stat-strip.sl-stats li:nth-child(2) a { border-top-color: var(--ac-gold); }
+.ac-stat-strip.sl-stats li:nth-child(3) a,
+.ac-stat-strip.sl-stats li:nth-child(4) a { border-top-color: var(--ac-accent); }
+.ac-stat-strip.sl-stats a[aria-current="true"] { background: var(--ac-surface-muted); box-shadow: inset 0 0 0 1px var(--ac-accent); }
+@media (max-width: 640px) {
+    .ac-stat-strip.sl-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .sl-console-pane { padding: 0 8px 8px; }
+}
