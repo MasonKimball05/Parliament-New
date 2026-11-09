@@ -898,11 +898,12 @@ class SlatingVoteAdmin(NoRowPagesMixin, ReadOnlyAdmin):
     the next section over, second-level timestamps on choices allow a
     correlation join that de-anonymizes ballots in a small electorate.
     (Residual caveat: sequential PKs still leak coarse ordering — never add
-    voted_at or id-adjacent ballot data back to this view.)"""
+    voted_at or id-adjacent ballot data back to this view.)
+    11-09-26: the model no longer has voted_at at all, and its key is a random
+    UUID, so neither timing nor sequence exists to leak."""
     list_display = ('period', 'slate', 'slate_candidate', 'voting_attempt',
                     'vote_choice')
     list_filter = ('vote_choice', 'voting_attempt')
-    exclude = ('voted_at',)
     # 11-05-26: the model's own ordering is -voted_at, so the list came out in
     # the order ballots were cast and paired row for row with SlatingBallot's
     # list. Ordered by the random hash instead, with no sortable columns (a

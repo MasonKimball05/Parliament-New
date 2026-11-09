@@ -42,7 +42,6 @@ import secrets
 
 from django.db import transaction
 from django.db.models import Q
-from django.utils import timezone
 
 from src.models import SlatingActivity, SlatingAttendance, SlatingBallot, SlatingPeriod, SlatingVote, Slate
 from src.models.users import member_defer
@@ -161,7 +160,7 @@ def cast_slate(user, period, slate, candidates, vote_choice, rejected_raw):
             period=period, slate=slate, voting_attempt=attempt, vote_choice=vote_choice,
             rejected_positions=rejected,
             vote_hash=hashlib.sha256(
-                f'{secrets.token_hex(32)}:{timezone.now().isoformat()}'.encode()).hexdigest())
+                secrets.token_hex(32).encode()).hexdigest())
     SlatingActivity.objects.create(period=period, user=user, action='vote_cast', details='Vote recorded')
 
 
@@ -236,7 +235,7 @@ def cast_individual(user, period, ballot, voted_position_ids, config, choice_for
                     f'{user.user_id}:{period.id}:{state.position.id}:{secrets.token_hex(16)}'.encode()).hexdigest())
             vote = {'period': period, 'voting_attempt': attempt, 'position': state.position,
                     'vote_hash': hashlib.sha256(
-                        f'{secrets.token_hex(32)}:{timezone.now().isoformat()}'.encode()).hexdigest()}
+                        secrets.token_hex(32).encode()).hexdigest()}
             if state.kind == KIND_APPROVE:
                 SlatingVote.objects.create(**vote, slate_candidate=state.primary, vote_choice=choice)
             elif choice == 'abstain':

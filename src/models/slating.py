@@ -1,5 +1,7 @@
 import os
 
+import uuid
+
 from django.db import models
 from django.conf import settings
 from src.storage import DualLocationStorage, uuid_upload_path
@@ -960,7 +962,15 @@ class SlatingBallot(models.Model):
 class SlatingVote(models.Model):
     """
     Anonymous vote record. No direct link to voter.
+
+    11-09-26 (secret ballot, after the election): nothing here lines up with
+    the SlatingBallot written in the same request. There is no timestamp
+    (``voted_at`` matched the ballot's to the microsecond) and the key is a
+    random UUID instead of a sequence (sequential ids put votes in the order
+    ballots were cast, pairing them row for row with SlatingBallot). Never add
+    a creation time, a sequence or anything else ordered by casting time.
     """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     VOTE_CHOICES = [
         ('approve', 'Approve'),
         ('reject', 'Reject'),
@@ -1010,10 +1020,10 @@ class SlatingVote(models.Model):
 
     # Anonymous tracking
     vote_hash = models.CharField(max_length=64, unique=True)
-    voted_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        ordering = ['-voted_at']
+        # The random hash: no listing comes out in the order votes were cast.
+        ordering = ['vote_hash']
 
 
 class SlatingRound(models.Model):
