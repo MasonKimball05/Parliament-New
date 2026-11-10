@@ -132,3 +132,38 @@ class HistoryLabelTests(_ProfileBase):
         save_review(self.period, self.app, self.manager, 'under_review', '')
         row = SlatingActivity.objects.get(action='application_reviewed')
         self.assertIn('from Submitted to Under Review', row.details)
+
+
+class WholeCommitteeTests(_ProfileBase):
+    """11-10-26: the whole committee meets each candidate, so that's the default panel."""
+
+    def setUp(self):
+        super().setUp()
+        self.cm2 = member('sr-cm2')
+        self.committee.members.add(self.cm2)
+
+    def test_schedule_page_ticks_everyone_for_a_new_interview(self):
+        self.client.force_login(self.committee_member)
+        r = self.client.get(reverse('slating_schedule_interview', args=[self.app.id]))
+        self.assertEqual(r.context['panel_ids'], {self.committee_member.user_id, self.cm2.user_id})
+        self.assertContains(r, 'The whole committee is ticked')
+
+    def test_saving_with_nobody_ticked_seats_the_whole_committee(self):
+        from src.view.slating.interview_manager import save_schedule
+        i = save_schedule(self.app, self.committee_member, timezone.now(), 'Room', [])
+        self.assertEqual(set(i.interviewers.values_list('pk', flat=True)), {self.committee_member.pk, self.cm2.pk})
+        # Rescheduling with nobody ticked keeps the (now smaller) panel.
+        i.interviewers.set([self.cm2])
+        save_schedule(self.app, self.committee_member, timezone.now(), 'Room', [])
+        self.assertEqual(list(i.interviewers.values_list('pk', flat=True)), [self.cm2.pk])
+
+    def test_pages_say_whole_committee(self):
+        i = self.interview(scheduled_at=timezone.now())
+        i.interviewers.set([self.committee_member, self.cm2])
+        self.assertContains(self.get(), 'Whole committee')
+        self.client.force_login(self.committee_member)
+        self.assertContains(self.client.get(reverse('slating_interviews', args=[self.period.id])), 'Whole committee')
+        i.interviewers.set([self.cm2])
+        r = self.get()
+        self.assertNotContains(r, 'Whole committee')
+        self.assertContains(r, 'Interviewers: Member sr-cm2')

@@ -269,6 +269,8 @@ def applicant_profile(application, tiered_positions):
             member_prefetch('interviewers'), 'recommended_positions'
         ).order_by(F('scheduled_at').desc(nulls_last=True), '-created_at')
     )
+    from .interview_manager import committee_interviewers, mark_whole_committee
+    mark_whole_committee(interviews, [u.pk for u in committee_interviewers(application.period)])
     completed = [i for i in interviews if i.completed_at]
     marked = {p.id: p for i in completed for p in i.recommended_positions.all()}
     any_marked = bool(marked)

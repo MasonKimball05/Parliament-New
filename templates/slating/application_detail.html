@@ -169,7 +169,7 @@
                                 {% if interview.scheduled_at %}{{ interview.scheduled_at|date:"l, M j, Y \a\t g:i A" }}{% else %}Not scheduled yet{% endif %}
                             </p>
                             <p class="mt-0.5 text-sm text-gray-500 dark:text-gray-400">
-                                {% if interview.location %}{{ interview.location }} · {% endif %}{% with panel=interview.interviewers.all %}{% if panel %}Interviewers: {% for m in panel %}{{ m.name }}{% if not forloop.last %}, {% endif %}{% endfor %}{% else %}No interviewers assigned{% endif %}{% endwith %}
+                                {% if interview.location %}{{ interview.location }} · {% endif %}{% with panel=interview.interviewers.all %}{% if interview.whole_committee %}Whole committee{% elif panel %}Interviewers: {% for m in panel %}{{ m.name }}{% if not forloop.last %}, {% endif %}{% endfor %}{% else %}No interviewers assigned{% endif %}{% endwith %}
                             </p>
                         </div>
                         {% if interview.completed_at %}
@@ -313,7 +313,7 @@
                         {% if latest_interview %}
                             {% if latest_interview.completed_at %}Done{% elif latest_interview.scheduled_at %}Scheduled{% else %}Not scheduled yet{% endif %}{% if latest_interview.scheduled_at %} · {{ latest_interview.scheduled_at|date:"M j, g:i A" }}{% endif %}
                             {% if latest_interview.location %}<span class="block font-normal text-gray-600 dark:text-gray-400">{{ latest_interview.location }}</span>{% endif %}
-                            {% with panel=latest_interview.interviewers.all %}{% if panel %}<span class="block font-normal text-gray-600 dark:text-gray-400">With {% for m in panel %}{{ m.name }}{% if not forloop.last %}, {% endif %}{% endfor %}</span>{% endif %}{% endwith %}
+                            {% with panel=latest_interview.interviewers.all %}{% if latest_interview.whole_committee %}<span class="block font-normal text-gray-600 dark:text-gray-400">With the whole committee</span>{% elif panel %}<span class="block font-normal text-gray-600 dark:text-gray-400">With {% for m in panel %}{{ m.name }}{% if not forloop.last %}, {% endif %}{% endfor %}</span>{% endif %}{% endwith %}
                             <a href="#interviews" class="block mt-1 font-normal text-primary-600 dark:text-primary-400 hover:underline">See interview{{ interviews|length|pluralize }}</a>
                         {% else %}None yet{% endif %}
                     </dd>

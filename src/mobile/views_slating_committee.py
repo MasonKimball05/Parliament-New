@@ -60,8 +60,8 @@ from src.view.slating.attendance import (
     ATTENDANCE_CLOSED, ATTENDANCE_STATUSES, attendance_roster, mark_all_present, mark_attendance,
 )
 from src.view.slating.interview_manager import (
-    apps_without_interview, committee_interviewers, destroy_period_notes, period_interviews, save_completion,
-    save_schedule, schedule_refusal,
+    apps_without_interview, committee_interviewers, destroy_period_notes, mark_whole_committee, period_interviews,
+    save_completion, save_schedule, schedule_refusal,
 )
 from src.view.slating.paper_ballots import (
     PAPER_CLOSED, PaperBallotError, paper_ballots_state, round_accepts_paper, save_paper_ballots,
@@ -121,6 +121,8 @@ def _interview_json(interview, notes=False):
         'recommendation_label': interview.get_recommendation_display() if interview.recommendation else '',
         'recommended_positions': [{'id': p.id, 'title': p.title} for p in interview.recommended_positions.all()],
         'notes_destroyed': interview.notes_destroyed,
+        # 11-10-26: the panel is the whole committee (None where the caller didn't work it out).
+        'whole_committee': getattr(interview, 'whole_committee', None),
     }
     if notes:
         out.update({'notes': interview.notes, 'strengths': interview.strengths, 'concerns': interview.concerns})
@@ -291,14 +293,16 @@ class SlatingInterviewsView(_SlatingBase):
         status_filter = request.query_params.get('status', '')
         if status_filter not in ('', 'scheduled', 'completed', 'pending'):
             raise BadRequest('status is scheduled, completed or pending.', code='invalid_input')
+        committee = committee_interviewers(period)
         return Response({
             'period': _period_head(period, request.user),
-            'interviews': [_interview_json(i) for i in period_interviews(period, status_filter)],
+            'interviews': [_interview_json(i) for i in mark_whole_committee(
+                list(period_interviews(period, status_filter)), [u.pk for u in committee])],
             'without_interview': [{
                 'id': a.id, 'applicant': a.applicant.name, 'is_pledge': a.applicant.is_pledge,
                 'submitted_at': _iso(a.submitted_at),
             } for a in apps_without_interview(period)],
-            'interviewers': [_member(u) for u in sorted(committee_interviewers(period), key=lambda u: u.name)],
+            'interviewers': [_member(u) for u in sorted(committee, key=lambda u: u.name)],
             'notes_remaining': SlatingInterview.objects.filter(
                 application__period=period, notes_destroyed=False).count(),
             'can_manage': can_manage_period(request.user, period),

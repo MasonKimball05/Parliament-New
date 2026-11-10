@@ -53,3 +53,10 @@ class AppApplicantProfileTests(_AppBase):
 
     def test_still_committee_only(self):
         self.assertEqual(self.call('get', self.path).status_code, 403)
+
+    def test_whole_committee_flag(self):
+        i = SlatingInterview.objects.create(application=self.app, scheduled_at=timezone.now())
+        i.interviewers.set([self.committee_member])
+        self.assertTrue(self.body()['interviews'][0]['whole_committee'])
+        r = self.call('get', f'slating/periods/{self.period.id}/interviews/', user=self.committee_member)
+        self.assertTrue(r.json()['interviews'][0]['whole_committee'])

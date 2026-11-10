@@ -63,15 +63,16 @@
 
             <!-- Interviewers -->
             <div>
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Interviewers
                 </label>
                 {% if interviewers %}
+                <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">{% if existing_interview %}Untick anyone who won't be there.{% else %}The whole committee is ticked. Untick anyone who won't be there.{% endif %}</p>
                 <div class="space-y-2 max-h-48 overflow-y-auto border border-gray-200 dark:border-gray-600 rounded-md p-3{% if ui_refresh %} rf-sc-picks{% endif %}">
                     {% for interviewer in interviewers %}
                     <label class="flex items-center">
                         <input type="checkbox" name="interviewers" value="{{ interviewer.user_id }}"
-                            {% if existing_interview and interviewer in existing_interview.interviewers.all %}checked{% endif %}
+                            {% if interviewer.user_id in panel_ids %}checked{% endif %}
                             class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500">
                         <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">{{ interviewer.name }}</span>
                     </label>

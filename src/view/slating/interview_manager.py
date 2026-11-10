@@ -64,6 +64,20 @@ def committee_interviewers(period):
     return interviewers_list
 
 
+def mark_whole_committee(interviews, committee_ids):
+    """
+    Set ``whole_committee`` on each interview: True when its panel includes
+    everyone on the committee (11-10-26: the chapter's norm is the whole
+    committee meeting each candidate, so pages say "Whole committee" rather
+    than listing every name). Reads the prefetched panel; no queries.
+    """
+    committee_ids = set(committee_ids)
+    for interview in interviews:
+        panel = {m.pk for m in interview.interviewers.all()}
+        interview.whole_committee = bool(committee_ids) and committee_ids <= panel
+    return interviews
+
+
 def schedule_refusal(user, application):
     """
     Why ``user`` may not schedule ``application``'s interview, as
@@ -104,10 +118,13 @@ def save_schedule(application, user, scheduled_datetime, location, interviewer_i
         interview.location = location
         interview.save(update_fields=['scheduled_at', 'location'])
 
-    # Set interviewers
+    # Set interviewers. 11-10-26: a new interview with nobody ticked gets the
+    # whole committee (the chapter's norm); an existing one keeps its panel.
     if interviewer_ids:
         interviewers = ParliamentUser.objects.filter(user_id__in=interviewer_ids).exclude(member_type='Pledge')
         interview.interviewers.set(interviewers)
+    elif created:
+        interview.interviewers.set(committee_interviewers(period))
 
     # Update application status
     if application.status in ['submitted', 'under_review']:
@@ -209,6 +226,7 @@ def interview_list(request, period_id):
 
     # Get committee members for interviewer selection
     interviewers_list = committee_interviewers(period)
+    interviews = mark_whole_committee(list(interviews), [u.pk for u in interviewers_list])
 
     context = {
         'period': period,
@@ -258,11 +276,17 @@ def schedule_interview(request, app_id):
 
         # Regular request - render template
         existing_interview = SlatingInterview.objects.filter(application=application).first()
+        # 11-10-26: a new interview starts with the whole committee ticked.
+        if existing_interview:
+            panel_ids = set(existing_interview.interviewers.values_list('user_id', flat=True))
+        else:
+            panel_ids = {u.user_id for u in interviewers_list}
 
         context = {
             'period': period,
             'application': application,
-            'interviewers': interviewers_list,
+            'interviewers': sorted(interviewers_list, key=lambda u: u.name),
+            'panel_ids': panel_ids,
             'existing_interview': existing_interview,
         }
         return render(request, 'slating/schedule_interview.html', context)
