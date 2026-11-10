@@ -8,12 +8,13 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.http import JsonResponse
-from django.db.models import Count, Q
+from django.db.models import Count, F, Q
 from src.models import (
-    SlatingPeriod, SlatingApplication, SlatingPosition, SlatingActivity
+    SlatingPeriod, SlatingApplication, SlatingPosition, SlatingActivity,
+    SlateCandidate, SlatingNominee,
 )
 from .permissions import can_manage_period, can_view_applications, slating_committee_required, slating_chair_required
-from src.models.users import member_defer
+from src.models.users import member_defer, member_prefetch
 from .apply import tiered_position_lists
 
 
@@ -219,6 +220,78 @@ def applications_list(request, period_id):
     return render(request, 'slating/applications_review.html', context)
 
 
+WANTED_TIERS = ('first_choice', 'second_choice', 'third_choice')
+
+#: What the applicant's history card lists (SlatingActivity rows that name the application).
+PROFILE_ACTIVITY_LIMIT = 25
+
+
+def applicant_profile(application, tiered_positions):
+    """
+    Everything about one applicant in their period, for the application page
+    (11-10-26: it was the application alone, with a 50-word snippet of the
+    interview notes). Only for people who may read interview notes (the
+    page is ``slating_committee_required``, the same check as the notes form).
+
+    * ``interviews``: every interview, newest first, with its panel and
+      recommended positions (prefetched: one query each, not one per row).
+    * ``recommended_ids``: positions any completed interview recommended
+      them for; ``any_positions_marked`` is False until one marks any (so a
+      wanted position missing from the set only reads "not recommended"
+      once someone has actually marked positions).
+    * ``extra_recommended``: positions an interviewer recommended that they
+      didn't ask for.
+    * ``latest_interview`` / ``latest_recommendation``: for the summary card.
+    * ``slate_spots``, ``nominations``: where they've been placed this period.
+    * ``history``: the period's activity log entries about this application.
+    """
+    interviews = list(
+        application.interviews.prefetch_related(
+            member_prefetch('interviewers'), 'recommended_positions'
+        ).order_by(F('scheduled_at').desc(nulls_last=True), '-created_at')
+    )
+    completed = [i for i in interviews if i.completed_at]
+    marked = {p.id: p for i in completed for p in i.recommended_positions.all()}
+    any_marked = bool(marked)
+
+    wanted_ids = {p.id for tier in WANTED_TIERS for p in (tiered_positions.get(tier) or [])}
+    extra = sorted((p for pid, p in marked.items() if pid not in wanted_ids),
+                   key=lambda p: (p.display_order, p.title))
+
+    # Scheduled ones first (nulls last on every database), so [0] is the one to show.
+    latest = interviews[0] if interviews else None
+    latest_rec = next((i for i in completed if i.recommendation), None)
+
+    slate_spots = list(
+        SlateCandidate.objects.filter(application=application)
+        .select_related('slate', 'position').order_by('slate__created_at', 'display_order')
+    )
+    nominations = list(
+        SlatingNominee.objects.filter(period_id=application.period_id, member_id=application.applicant_id)
+        .select_related('position')
+    )
+    history = list(
+        SlatingActivity.objects.filter(period_id=application.period_id,
+                                       metadata__application_id=application.id)
+        .select_related('user').defer(*member_defer('user'))
+        .order_by('-timestamp')[:PROFILE_ACTIVITY_LIMIT]
+    )
+    return {
+        'interviews': interviews,
+        'completed_interviews': len(completed),
+        'recommended_ids': set(marked),
+        'recommended_positions_list': sorted(marked.values(), key=lambda p: (p.display_order, p.title)),
+        'any_positions_marked': any_marked,
+        'extra_recommended': extra,
+        'do_not_want_ids': {p.id for p in (tiered_positions.get('do_not_want') or [])},
+        'latest_interview': latest,
+        'latest_recommendation': latest_rec,
+        'slate_spots': slate_spots,
+        'nominations': nominations,
+        'history': history,
+    }
+
+
 @login_required
 @slating_committee_required
 def application_detail(request, period_id, app_id):
@@ -239,9 +312,7 @@ def application_detail(request, period_id, app_id):
     position_dict = {p.id: p for p in positions}
 
     tiered_positions, selected_positions = tiered_position_lists(application, position_dict)
-
-    # Get interviews
-    interviews = application.interviews.all().order_by('-scheduled_at')
+    profile = applicant_profile(application, tiered_positions)
 
     can_review = can_review_application(request.user, period)
 
@@ -251,7 +322,7 @@ def application_detail(request, period_id, app_id):
         'sections': sections,
         'selected_positions': selected_positions,
         'tiered_positions': tiered_positions,
-        'interviews': interviews,
+        **profile,
         'can_review': can_review,
         'can_schedule': can_view_applications(request.user, period),   # 11-06-26: the whole committee
         'can_manage': can_manage_period(request.user, period),

@@ -52,7 +52,7 @@
                     <ul class="space-y-1">
                         {% for position in tiered_positions.first_choice %}
                         <li class="text-sm text-gray-700 dark:text-gray-300 pl-3 border-l-2 border-green-500">
-                            <span class="font-medium">{{ position.title }}</span>
+                            <span class="font-medium">{{ position.title }}</span>{% include "slating/_rec_badge.html" %}
                         </li>
                         {% endfor %}
                     </ul>
@@ -66,7 +66,7 @@
                     <ul class="space-y-1">
                         {% for position in tiered_positions.second_choice %}
                         <li class="text-sm text-gray-700 dark:text-gray-300 pl-3 border-l-2 border-blue-500">
-                            <span class="font-medium">{{ position.title }}</span>
+                            <span class="font-medium">{{ position.title }}</span>{% include "slating/_rec_badge.html" %}
                         </li>
                         {% endfor %}
                     </ul>
@@ -80,7 +80,7 @@
                     <ul class="space-y-1">
                         {% for position in tiered_positions.third_choice %}
                         <li class="text-sm text-gray-700 dark:text-gray-300 pl-3 border-l-2 border-yellow-500">
-                            <span class="font-medium">{{ position.title }}</span>
+                            <span class="font-medium">{{ position.title }}</span>{% include "slating/_rec_badge.html" %}
                         </li>
                         {% endfor %}
                     </ul>
@@ -103,6 +103,17 @@
 
                 {% if not tiered_positions.first_choice and not tiered_positions.second_choice and not tiered_positions.third_choice %}
                 <p class="text-sm text-gray-500 dark:text-gray-400">No positions selected.</p>
+                {% endif %}
+
+                {% if extra_recommended %}
+                <div>
+                    <h4 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Also recommended for</h4>
+                    <ul class="space-y-1">
+                        {% for position in extra_recommended %}
+                        <li class="text-sm text-gray-700 dark:text-gray-300"><span class="font-medium">{{ position.title }}</span> <span class="text-gray-500 dark:text-gray-400">{% if position.id in do_not_want_ids %}(they marked it Do Not Want){% else %}(they didn't list it){% endif %}</span></li>
+                        {% endfor %}
+                    </ul>
+                </div>
                 {% endif %}
 
                 {% elif selected_positions %}
@@ -142,6 +153,96 @@
         </div>
         {% endif %}
 
+        <!-- Interviews (11-10-26: everything recorded, not a 50-word snippet) -->
+        <div id="interviews" class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
+            <div class="px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between gap-3">
+                <h3 class="text-lg font-medium text-gray-900 dark:text-white">Interview{{ interviews|length|pluralize }}</h3>
+                {% if interviews %}<span class="text-sm text-gray-500 dark:text-gray-400">{{ completed_interviews }} of {{ interviews|length }} completed</span>{% endif %}
+            </div>
+            {% if interviews %}
+            <ul class="divide-y divide-gray-200 dark:divide-gray-700">
+                {% for interview in interviews %}
+                <li class="px-4 py-5 sm:px-6 space-y-3">
+                    <div class="flex flex-wrap items-start justify-between gap-2">
+                        <div>
+                            <p class="text-sm font-medium text-gray-900 dark:text-white">
+                                {% if interview.scheduled_at %}{{ interview.scheduled_at|date:"l, M j, Y \a\t g:i A" }}{% else %}Not scheduled yet{% endif %}
+                            </p>
+                            <p class="mt-0.5 text-sm text-gray-500 dark:text-gray-400">
+                                {% if interview.location %}{{ interview.location }} · {% endif %}{% with panel=interview.interviewers.all %}{% if panel %}Interviewers: {% for m in panel %}{{ m.name }}{% if not forloop.last %}, {% endif %}{% endfor %}{% else %}No interviewers assigned{% endif %}{% endwith %}
+                            </p>
+                        </div>
+                        {% if interview.completed_at %}
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300" title="Notes saved {{ interview.completed_at|date:'M j, Y g:i A' }}">Completed</span>
+                        {% elif interview.scheduled_at %}
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300">Scheduled</span>
+                        {% else %}
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300">Not scheduled</span>
+                        {% endif %}
+                    </div>
+
+                    {% if interview.recommendation or interview.recommended_positions.all %}
+                    <dl class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {% if interview.recommendation %}
+                        <div>
+                            <dt class="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Recommendation</dt>
+                            <dd class="mt-1 text-sm font-medium {% if 'not' in interview.recommendation %}text-red-700 dark:text-red-300{% elif interview.recommendation == 'neutral' %}text-gray-700 dark:text-gray-300{% else %}text-green-700 dark:text-green-300{% endif %}">{{ interview.get_recommendation_display }}</dd>
+                        </div>
+                        {% endif %}
+                        {% if interview.recommended_positions.all %}
+                        <div>
+                            <dt class="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Recommended for</dt>
+                            <dd class="mt-1 text-sm text-gray-900 dark:text-white">{% for p in interview.recommended_positions.all %}{{ p.title }}{% if not forloop.last %}, {% endif %}{% endfor %}</dd>
+                        </div>
+                        {% endif %}
+                    </dl>
+                    {% endif %}
+
+                    {% if interview.notes_destroyed %}
+                    <p class="text-sm text-gray-500 dark:text-gray-400 italic">Notes destroyed per bylaws{% if interview.destroyed_at %} on {{ interview.destroyed_at|date:"M j, Y" }}{% endif %}.</p>
+                    {% elif interview.notes or interview.strengths or interview.concerns %}
+                    <div class="space-y-3">
+                        {% if interview.strengths %}
+                        <div class="pl-3 border-l-2 border-green-500">
+                            <h4 class="text-xs font-medium uppercase tracking-wide text-green-700 dark:text-green-400">Strengths</h4>
+                            <div class="mt-1 space-y-2 text-sm text-gray-800 dark:text-gray-200">{{ interview.strengths|linebreaks }}</div>
+                        </div>
+                        {% endif %}
+                        {% if interview.concerns %}
+                        <div class="pl-3 border-l-2 border-yellow-500">
+                            <h4 class="text-xs font-medium uppercase tracking-wide text-yellow-700 dark:text-yellow-400">Concerns</h4>
+                            <div class="mt-1 space-y-2 text-sm text-gray-800 dark:text-gray-200">{{ interview.concerns|linebreaks }}</div>
+                        </div>
+                        {% endif %}
+                        {% if interview.notes %}
+                        <div class="pl-3 border-l-2 border-gray-300 dark:border-gray-600">
+                            <h4 class="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Notes</h4>
+                            <div class="mt-1 space-y-2 text-sm text-gray-800 dark:text-gray-200">{{ interview.notes|linebreaks }}</div>
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% elif interview.completed_at %}
+                    <p class="text-sm text-gray-500 dark:text-gray-400">No notes were written.</p>
+                    {% endif %}
+
+                    {% if not interview.notes_destroyed %}
+                    <a href="{% url 'slating_complete_interview' interview_id=interview.id %}" class="inline-flex text-sm font-medium text-primary-600 dark:text-primary-400 hover:underline">{% if interview.completed_at %}Edit notes{% else %}Record notes{% endif %}</a>
+                    {% endif %}
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <div class="px-4 py-8 sm:px-6 text-center">
+                <p class="text-sm text-gray-500 dark:text-gray-400">No interview yet.</p>
+                {% if can_schedule and not application.applicant.is_pledge %}
+                <a href="{% url 'slating_schedule_interview' app_id=application.id %}" class="mt-2 inline-flex text-sm font-medium text-primary-600 dark:text-primary-400 hover:underline">Schedule one</a>
+                {% elif application.applicant.is_pledge %}
+                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Pledges are interviewed once they're initiated.</p>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+
         <!-- Application Responses -->
         {% for section_name, responses in sections.items %}
         <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
@@ -177,52 +278,78 @@
         </div>
         {% endfor %}
 
-        <!-- Interviews -->
-        {% if interviews %}
+        {% if history %}
+        <!-- History: the period's activity log entries about this application -->
         <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
             <div class="px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-gray-700">
-                <h3 class="text-lg font-medium text-gray-900 dark:text-white">Interviews</h3>
+                <h3 class="text-lg font-medium text-gray-900 dark:text-white">History</h3>
             </div>
-            <ul class="divide-y divide-gray-200 dark:divide-gray-700">
-                {% for interview in interviews %}
-                <li class="px-4 py-4 sm:px-6">
-                    <div class="flex items-center justify-between mb-2">
-                        <span class="text-sm font-medium text-gray-900 dark:text-white">
-                            {% if interview.scheduled_at %}
-                            {{ interview.scheduled_at|date:"M j, Y g:i A" }}
-                            {% else %}
-                            Not scheduled
-                            {% endif %}
-                        </span>
-                        {% if interview.completed_at %}
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
-                            Completed
-                        </span>
-                        {% else %}
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300">
-                            Pending
-                        </span>
-                        {% endif %}
+            <ol class="divide-y divide-gray-200 dark:divide-gray-700">
+                {% for event in history %}
+                <li class="px-4 py-3 sm:px-6 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+                    <div class="text-sm text-gray-800 dark:text-gray-200 min-w-0">
+                        <span class="font-medium">{{ event.get_action_display }}</span>{% if event.details %}<span class="text-gray-600 dark:text-gray-400"> · {{ event.details }}</span>{% endif %}
+                        {% if event.user %}<span class="text-gray-500 dark:text-gray-400"> · {{ event.user.name }}</span>{% endif %}
                     </div>
-                    {% if interview.recommendation %}
-                    <p class="text-sm text-gray-700 dark:text-gray-300">
-                        <span class="font-medium">Recommendation:</span> {{ interview.get_recommendation_display }}
-                    </p>
-                    {% endif %}
-                    {% if interview.notes and not interview.notes_destroyed %}
-                    <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">{{ interview.notes|truncatewords:50 }}</p>
-                    {% elif interview.notes_destroyed %}
-                    <p class="mt-2 text-sm text-gray-400 dark:text-gray-500 italic">Notes destroyed per bylaws</p>
-                    {% endif %}
+                    <time class="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap" datetime="{{ event.timestamp|date:'c' }}">{{ event.timestamp|date:"M j, g:i A" }}</time>
                 </li>
                 {% endfor %}
-            </ul>
+            </ol>
         </div>
         {% endif %}
     </div>
 
     <!-- Sidebar -->
     <div class="space-y-6">
+        <!-- At a glance (11-10-26): interview, recommendation, slate -->
+        <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
+            <div class="px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-gray-700">
+                <h3 class="text-lg font-medium text-gray-900 dark:text-white">At a Glance</h3>
+            </div>
+            <dl class="px-4 py-5 sm:p-6 space-y-4">
+                <div>
+                    <dt class="text-sm text-gray-500 dark:text-gray-400">Interview</dt>
+                    <dd class="mt-1 text-sm font-medium text-gray-900 dark:text-white">
+                        {% if latest_interview %}
+                            {% if latest_interview.completed_at %}Done{% elif latest_interview.scheduled_at %}Scheduled{% else %}Not scheduled yet{% endif %}{% if latest_interview.scheduled_at %} · {{ latest_interview.scheduled_at|date:"M j, g:i A" }}{% endif %}
+                            {% if latest_interview.location %}<span class="block font-normal text-gray-600 dark:text-gray-400">{{ latest_interview.location }}</span>{% endif %}
+                            {% with panel=latest_interview.interviewers.all %}{% if panel %}<span class="block font-normal text-gray-600 dark:text-gray-400">With {% for m in panel %}{{ m.name }}{% if not forloop.last %}, {% endif %}{% endfor %}</span>{% endif %}{% endwith %}
+                            <a href="#interviews" class="block mt-1 font-normal text-primary-600 dark:text-primary-400 hover:underline">See interview{{ interviews|length|pluralize }}</a>
+                        {% else %}None yet{% endif %}
+                    </dd>
+                </div>
+                <div>
+                    <dt class="text-sm text-gray-500 dark:text-gray-400">Recommendation</dt>
+                    <dd class="mt-1 text-sm font-medium {% if not latest_recommendation %}text-gray-500 dark:text-gray-400{% elif 'not' in latest_recommendation.recommendation %}text-red-700 dark:text-red-300{% elif latest_recommendation.recommendation == 'neutral' %}text-gray-900 dark:text-white{% else %}text-green-700 dark:text-green-300{% endif %}">
+                        {% if latest_recommendation %}{{ latest_recommendation.get_recommendation_display }}{% else %}None recorded{% endif %}
+                    </dd>
+                </div>
+                {% if any_positions_marked %}
+                <div>
+                    <dt class="text-sm text-gray-500 dark:text-gray-400">Recommended for</dt>
+                    <dd class="mt-1 text-sm font-medium text-gray-900 dark:text-white">{% for p in recommended_positions_list %}{{ p.title }}{% if not forloop.last %}, {% endif %}{% endfor %}</dd>
+                </div>
+                {% endif %}
+                <div>
+                    <dt class="text-sm text-gray-500 dark:text-gray-400">On the slate</dt>
+                    <dd class="mt-1 text-sm font-medium text-gray-900 dark:text-white">
+                        {% for spot in slate_spots %}
+                        <span class="block">{{ spot.position.title }}{% if spot.is_runoff %} (runoff){% endif %} <span class="font-normal text-gray-600 dark:text-gray-400">· {{ spot.slate.name }}{% if spot.individual_passed is True or spot.slate.passed is True and spot.individual_passed is None %}, elected{% elif spot.individual_passed is False or spot.slate.passed is False %}, not elected{% endif %}</span></span>
+                        {% empty %}<span class="font-normal text-gray-500 dark:text-gray-400">Not placed</span>
+                        {% endfor %}
+                    </dd>
+                </div>
+                {% if nominations %}
+                <div>
+                    <dt class="text-sm text-gray-500 dark:text-gray-400">Open nominations</dt>
+                    <dd class="mt-1 text-sm font-medium text-gray-900 dark:text-white">
+                        {% for n in nominations %}<span class="block">{{ n.position.title }} <span class="font-normal text-gray-600 dark:text-gray-400">· {% if n.elected is True %}elected{% elif n.elected is False %}not elected{% elif n.accepted %}accepted{% else %}not accepted yet{% endif %}</span></span>{% endfor %}
+                    </dd>
+                </div>
+                {% endif %}
+            </dl>
+        </div>
+
         <!-- Applicant Info -->
         <div class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
             <div class="px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-gray-700">

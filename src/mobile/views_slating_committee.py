@@ -52,8 +52,8 @@ from src.mobile.views_slating import _iso, _SlatingBase
 from src.mobile.views_votes import VoteRefused
 from src.models import SlatingApplication, SlatingInterview, SlatingPeriod
 from src.view.slating.applications_review import (
-    application_status_counts, can_review_application, filter_applications, ranked_positions, review_sections,
-    save_review,
+    applicant_profile, application_status_counts, can_review_application, filter_applications, ranked_positions,
+    review_sections, save_review,
 )
 from src.view.slating.apply import TIERS, tiered_position_lists
 from src.view.slating.attendance import (
@@ -127,6 +127,14 @@ def _interview_json(interview, notes=False):
     return out
 
 
+def _interview_notes(interview):
+    """An interview's written notes for the application screen: None each when destroyed or blank."""
+    if interview.notes_destroyed:
+        return {'notes': None, 'strengths': None, 'concerns': None}
+    return {'notes': interview.notes or None, 'strengths': interview.strengths or None,
+            'concerns': interview.concerns or None}
+
+
 # ── Applications ─────────────────────────────────────────────────────────────
 
 class SlatingApplicationsView(_SlatingBase):
@@ -188,6 +196,7 @@ def _answer(response):
 def _application_detail(period, application, user):
     positions = period.positions.filter(is_active=True)
     tiered, _ = tiered_position_lists(application, {p.id: p for p in positions})
+    profile = applicant_profile(application, tiered)
     can_review = can_review_application(user, period)
     applicant = application.applicant
     return {
@@ -218,9 +227,28 @@ def _application_detail(period, application, user):
                         for r in responses],
         } for title, responses in review_sections(application, user).items()],
         'preferences': {tier: [{'id': p.id, 'title': p.title} for p in tiered[tier]] for tier in TIERS},
-        'interviews': [_interview_json(i) | {
-            'notes': None if i.notes_destroyed else (i.notes or None)} for i in
-            application.interviews.all().order_by('-scheduled_at')],
+        # 11-10-26: the whole interview (strengths and concerns too, None
+        # once destroyed), and the rest of the web page's applicant profile.
+        'interviews': [_interview_json(i) | _interview_notes(i) for i in profile['interviews']],
+        'profile': {
+            'recommended_position_ids': sorted(profile['recommended_ids']),
+            'any_positions_marked': profile['any_positions_marked'],
+            'extra_recommended': [{'id': p.id, 'title': p.title,
+                                   'do_not_want': p.id in profile['do_not_want_ids']}
+                                  for p in profile['extra_recommended']],
+            'latest_recommendation': (profile['latest_recommendation'].get_recommendation_display()
+                                      if profile['latest_recommendation'] else None),
+            'slate_spots': [{
+                'position': s.position.title, 'slate': s.slate.name, 'is_runoff': s.is_runoff,
+                'elected': s.individual_passed if s.individual_passed is not None else s.slate.passed,
+            } for s in profile['slate_spots']],
+            'nominations': [{'position': n.position.title, 'accepted': n.accepted, 'elected': n.elected}
+                            for n in profile['nominations']],
+            'history': [{
+                'action': e.get_action_display(), 'details': e.details,
+                'by': e.user.name if e.user_id else None, 'at': _iso(e.timestamp),
+            } for e in profile['history']],
+        },
         'can_review': can_review,
         'can_manage': can_manage_period(user, period),
         'status_choices': [{'value': k, 'label': v} for k, v in SlatingApplication.STATUS_CHOICES],
