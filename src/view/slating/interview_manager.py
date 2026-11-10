@@ -334,6 +334,10 @@ def complete_interview(request, interview_id):
             'interview': interview,
             'application': interview.application,
             'positions': positions,
+            # 11-09-26: one query for the ticked boxes. The template asked
+            # `position in interview.recommended_positions.all` per position,
+            # re-running the M2M query once per checkbox (an N+1).
+            'recommended_ids': set(interview.recommended_positions.values_list('id', flat=True)),
             'recommendation_choices': SlatingInterview.RECOMMENDATION_CHOICES,
         }
         return render(request, 'slating/complete_interview.html', context)

@@ -165,7 +165,7 @@
                     {% for position in positions %}
                     <label class="flex items-center">
                         <input type="checkbox" name="recommended_positions" value="{{ position.id }}"
-                            {% if position in interview.recommended_positions.all %}checked{% endif %}
+                            {% if position.id in recommended_ids %}checked{% endif %}
                             class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500">
                         <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">{{ position.title }}</span>
                     </label>
