@@ -9,11 +9,9 @@ by the honeypot view itself — this digest only covers routine scanner noise.
 Usage:
     python manage.py send_honeypot_digest
 
-Cron example (runs every evening at 8pm server time):
-    0 20 * * * cd /path/to/project && /path/to/venv/bin/python manage.py send_honeypot_digest
-
-Or every morning at 8am:
-    0 8 * * * cd /path/to/project && /path/to/venv/bin/python manage.py send_honeypot_digest
+11-10-26: Celery beat now sends it daily at 8:00 AM
+(tasks.send_honeypot_digest, registered by setup_celery_schedules), so no
+cron entry is needed. This command stays for sending it by hand.
 """
 
 from django.core.management.base import BaseCommand

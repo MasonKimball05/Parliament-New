@@ -63,6 +63,13 @@ SCHEDULES = [
         'task': 'tasks.execute_scheduled_slating_transitions',
         'interval': {'every': 1, 'period': IntervalSchedule.MINUTES},
     },
+    # Scheduled maintenance windows (11-10-26): before, only a separate cron
+    # entry for check_scheduled_maintenance started them, and the server had none.
+    {
+        'name': 'Start scheduled maintenance',
+        'task': 'tasks.start_scheduled_maintenance',
+        'interval': {'every': 1, 'period': IntervalSchedule.MINUTES},
+    },
 
     # -------------------------------------------------------------------------
     # Vote receipt expiry notices — daily (v3.14.0)
@@ -245,6 +252,13 @@ SCHEDULES = [
     # the digest" intent this comment already documented. Fixed to 3:35
     # AM Central so the two stay adjacent.
     # -------------------------------------------------------------------------
+    # Daily honeypot digest (11-10-26): before, only a cron entry for the
+    # send_honeypot_digest command sent it, and the server had none.
+    {
+        'name': 'Send daily honeypot digest',
+        'task': 'tasks.send_honeypot_digest',
+        'crontab': {'hour': '8', 'minute': '0'},  # 8:00 AM Central
+    },
     {
         'name': 'Weekly weak-password audit',
         'task': 'tasks.check_weak_passwords',

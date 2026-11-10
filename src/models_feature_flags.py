@@ -538,14 +538,26 @@ class ScheduledMaintenance(models.Model):
 
     @classmethod
     def get_pending_maintenance(cls):
-        """Get maintenance that should start now"""
+        """
+        Maintenance that should start now: its start time has come and its
+        window (start + estimated duration) hasn't ended yet.
+
+        11-10-26: a window that has already ended is skipped rather than
+        started. Until today nothing ran the start job on the server (it
+        needed a cron entry that was never added), so an old window that
+        never fired would otherwise switch the site into maintenance as soon
+        as the job began running. A missed window stays unstarted; "Start
+        now" in the admin still starts it by hand.
+        """
         from django.utils import timezone
-        return cls.objects.filter(
+        now = timezone.now()
+        due = cls.objects.filter(
             is_active=True,
             maintenance_started=False,
             completed_at__isnull=True,
-            scheduled_start__lte=timezone.now()
-        ).order_by('scheduled_start').first()
+            scheduled_start__lte=now
+        ).order_by('scheduled_start')
+        return next((m for m in due if m.estimated_end_time > now), None)
 
     def start_maintenance(self):
         """Start the maintenance - enable maintenance mode and send notification"""

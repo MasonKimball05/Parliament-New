@@ -52,3 +52,16 @@ def check_weak_passwords():
             )
     except Exception as exc:
         logger.error(f"[tasks] check_weak_passwords failed: {exc}")
+
+
+@shared_task(name='tasks.send_honeypot_digest')
+def send_honeypot_digest_task():
+    """
+    The daily honeypot digest email: routine scanner hits from the last 24
+    hours in one message (serious hits are emailed as they happen). 11-10-26:
+    before, only the ``send_honeypot_digest`` command sent it, and it needed
+    a cron entry the server never had.
+    """
+    from src.security_notifications import send_honeypot_digest
+    if send_honeypot_digest():
+        logger.info("[tasks] send_honeypot_digest: sent")

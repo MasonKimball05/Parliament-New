@@ -1,8 +1,9 @@
 """
 Management command to check for scheduled maintenance and start it if due.
 
-Should be run frequently via cron (e.g., every minute):
-    * * * * * cd /path/to/parliament && python manage.py check_scheduled_maintenance
+11-10-26: Celery beat now does this every minute
+(tasks.start_scheduled_maintenance, registered by setup_celery_schedules), so
+no cron entry is needed. This command stays for running it by hand.
 
 This will:
 1. Check if any scheduled maintenance is due to start

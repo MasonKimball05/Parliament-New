@@ -219,6 +219,22 @@ def execute_scheduled_slating_transitions():
         logger.info(f"[tasks] execute_scheduled_slating_transitions: ran={ran}")
 
 
+@shared_task(name='tasks.start_scheduled_maintenance')
+def start_scheduled_maintenance():
+    """
+    Start a scheduled maintenance window when its time comes: maintenance
+    mode on, and the notice email (11-10-26). Before, only the
+    ``check_scheduled_maintenance`` command did this, and it needed a cron
+    entry the server never had, so scheduled maintenance never started.
+    """
+    from src.models_feature_flags import ScheduledMaintenance
+    pending = ScheduledMaintenance.get_pending_maintenance()
+    if pending is None:
+        return
+    pending.start_maintenance()
+    logger.info(f"[tasks] Started scheduled maintenance id={pending.id}: {pending.title}")
+
+
 @shared_task(name='tasks.publish_scheduled_announcements')
 def publish_scheduled_announcements():
     """

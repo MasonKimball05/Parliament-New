@@ -26,6 +26,7 @@ from src.tasks.votes import (
     auto_open_close_committee_votes,
     auto_open_close_slating_votes,
     execute_scheduled_slating_transitions,
+    start_scheduled_maintenance,
     publish_scheduled_announcements,
     announce_legislation_availability,
     notify_available_legislation,
@@ -56,6 +57,7 @@ from src.tasks.notifications import (
 )
 from src.tasks.security_audit import (
     check_weak_passwords,
+    send_honeypot_digest_task,
 )
 from src.tasks.db_health import (
     monitor_db_connection_pressure,
