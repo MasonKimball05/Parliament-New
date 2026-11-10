@@ -56,6 +56,13 @@ SCHEDULES = [
         'task': 'tasks.auto_open_close_slating_votes',
         'interval': {'every': 1, 'period': IntervalSchedule.MINUTES},
     },
+    # Scheduled officer transitions (11-10-26): before, only a separate cron
+    # entry for the execute_scheduled_transitions command ran them.
+    {
+        'name': 'Run scheduled officer transitions',
+        'task': 'tasks.execute_scheduled_slating_transitions',
+        'interval': {'every': 1, 'period': IntervalSchedule.MINUTES},
+    },
 
     # -------------------------------------------------------------------------
     # Vote receipt expiry notices — daily (v3.14.0)

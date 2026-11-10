@@ -298,6 +298,13 @@ class SlatingResultsView(_SlatingBase):
                          'slate': r.get('slate'), 'positions': r.get('positions', [])} for r in history],
             'published': period.status == 'results_published',
             'live': bool(overview.get('live')),
+            # 11-10-26: the officer transition, for a site admin once results are out (the web page's button).
+            'transition': ({
+                'state': ('done' if period.officer_transition_completed
+                          else 'scheduled' if period.officer_transition_at else 'ready'),
+                'scheduled_at': _iso(period.officer_transition_at),
+                'completed_at': _iso(period.officer_transition_completed_at),
+            } if request.user.is_admin and period.status == 'results_published' else None),
             # Committee only: [{position, position_id, candidate_name, objection_count}] or None.
             'objections': rejection_breakdown(period, slate) if committee else None,
         })

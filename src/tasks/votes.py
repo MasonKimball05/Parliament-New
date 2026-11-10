@@ -205,6 +205,20 @@ def auto_open_close_slating_votes():
         logger.info(f"[tasks] auto_open_close_slating_votes: opened={opened}, closed={closed}")
 
 
+@shared_task(name='tasks.execute_scheduled_slating_transitions')
+def execute_scheduled_slating_transitions():
+    """
+    Run officer transitions scheduled for a time that has come (11-10-26).
+    They used to run only from the ``execute_scheduled_transitions``
+    command, which needed a cron entry of its own; a transition scheduled
+    without one never happened.
+    """
+    from src.view.slating.transition import check_and_execute_scheduled_transitions
+    ran = check_and_execute_scheduled_transitions()
+    if ran:
+        logger.info(f"[tasks] execute_scheduled_slating_transitions: ran={ran}")
+
+
 @shared_task(name='tasks.publish_scheduled_announcements')
 def publish_scheduled_announcements():
     """

@@ -1,10 +1,10 @@
 """
 Management command to execute scheduled officer transitions.
 
-Should be run periodically via cron (e.g., every 5 minutes):
-    */5 * * * * cd /path/to/parliament && python manage.py execute_scheduled_transitions
-
-Or via Django's background task scheduler if configured.
+11-10-26: Celery beat now runs these every minute
+(tasks.execute_scheduled_slating_transitions, registered by
+setup_celery_schedules), so no cron entry is needed. This command stays for
+running them by hand, and --dry-run to see what's due.
 """
 
 from django.core.management.base import BaseCommand
@@ -27,7 +27,7 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         # Import here to avoid circular imports
         from src.models import SlatingPeriod
-        from src.view.slating.transition import execute_transition
+        from src.view.slating.transition import run_transition_once
 
         dry_run = options['dry_run']
         now = timezone.now()
@@ -58,7 +58,9 @@ class Command(BaseCommand):
                 self.stdout.write(f"  Positions to transition: {len(transition_data)}")
             else:
                 try:
-                    results = execute_transition(period, transition_data, performed_by=None)
+                    results = run_transition_once(period.pk, transition_data)
+                    if results is None:   # completed meanwhile (the beat task got there first)
+                        continue
 
                     added_count = len(results.get('added', []))
                     removed_count = len(results.get('removed', []))

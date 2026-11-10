@@ -39,6 +39,7 @@ from src.mobile import views_two_factor
 from src.mobile import views_slating_apply, views_slating_committee
 from src.mobile import views_slating_setup
 from src.mobile import views_slating_slate
+from src.mobile import views_slating_transition
 from src.mobile import views_service_admin
 from src.mobile import views_form_builder
 from src.mobile import views_document_manage, views_member_admin, views_songbook_manage
@@ -272,6 +273,8 @@ urlpatterns = [
     path('slating/periods/<int:period_id>/vote/', views_slating.SlatingVoteView.as_view(), name='mobile_slating_vote'),
     path('slating/periods/<int:period_id>/results/', views_slating.SlatingResultsView.as_view(),
          name='mobile_slating_results'),
+    path('slating/periods/<int:period_id>/transition/', views_slating_transition.SlatingTransitionView.as_view(),
+         name='mobile_slating_transition'),
     path('slating/periods/<int:period_id>/chair/', views_slating.SlatingChairView.as_view(),
          name='mobile_slating_chair'),
     path('slating/periods/<int:period_id>/chair/open/', views_slating.SlatingChairOpenView.as_view(),

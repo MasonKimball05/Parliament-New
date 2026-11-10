@@ -25,6 +25,7 @@ from src.tasks.votes import (
     auto_open_close_chapter_votes,
     auto_open_close_committee_votes,
     auto_open_close_slating_votes,
+    execute_scheduled_slating_transitions,
     publish_scheduled_announcements,
     announce_legislation_availability,
     notify_available_legislation,

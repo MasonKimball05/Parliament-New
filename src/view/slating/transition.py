@@ -8,10 +8,13 @@ Can be executed immediately or scheduled for a future date.
 """
 
 import logging
+from collections import defaultdict
 
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
+from django.db import transaction
+from django.db.models import F
 from django.http import HttpResponseForbidden
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
@@ -27,6 +30,134 @@ from src.models.users import member_defer
 logger = logging.getLogger(__name__)
 
 
+class TransitionError(Exception):
+    """A transition request that can't go ahead: ``code`` for the app, the message for people."""
+
+    def __init__(self, code, message):
+        super().__init__(message)
+        self.code = code
+
+
+def _when(dt):
+    return localtime(dt).strftime("%B %d, %Y at %I:%M %p %Z")
+
+
+def transition_refusal(user, period):
+    """
+    Why ``user`` can't open ``period``'s officer transition, as ``(code,
+    message)``, or None. Site admins only, once results are published, and
+    only once (shared by the web page and the app, 11-10-26).
+    """
+    if not user.is_admin:
+        return 'forbidden', 'Only site admins can run the officer transition.'
+    if period.status != 'results_published':
+        return 'not_published', 'Officer transition can only be performed after results are published.'
+    if period.officer_transition_completed:
+        return 'done', f'Officer transition was already completed on {_when(period.officer_transition_completed_at)}.'
+    return None
+
+
+def transition_rows(period, auto_assignments):
+    """
+    One row per active position for the transition form: its role, who the
+    election chose (``auto_assigned``), who's pre-selected (a scheduled
+    transition's pick, else the election's), and who holds the role now.
+    11-10-26: a fixed number of queries; it ran two per position.
+    """
+    positions = list(period.positions.filter(is_active=True).select_related('role').order_by('display_order'))
+    pending = period.officer_transition_data or {}
+    pending_members = {m.pk: m for m in ParliamentUser.objects.filter(pk__in=list(pending.values()))}
+    holders = defaultdict(list)
+    role_ids = [p.role_id for p in positions if p.role_id]
+    if role_ids:
+        for u in (ParliamentUser.objects.filter(roles__id__in=role_ids)
+                  .annotate(held_role=F('roles__id')).order_by('name')):
+            holders[u.held_role].append(u)
+    rows = []
+    for position in positions:
+        auto = auto_assignments.get(position.id)
+        selected = pending_members.get(pending.get(str(position.id))) or auto
+        current = holders.get(position.role_id, []) if position.role_id else []
+        rows.append({
+            'position': position,
+            'role': position.role,
+            'auto_assigned': auto,
+            'selected_member': selected,
+            'current_holders': current,
+            'current_holder': current[0] if current else None,
+            'enabled': selected is not None,
+        })
+    return rows
+
+
+def parse_assignments(period, picks, allowed_ids):
+    """
+    ``{position id: member user id}`` for the positions being filled, from
+    ``picks`` (the same keyed by position id, as text; blank means skip).
+    Every member must be one the form offered. Raises TransitionError.
+    """
+    data, unknown = {}, []
+    for position in period.positions.filter(is_active=True).order_by('display_order'):
+        member_id = str(picks.get(str(position.id)) or '').strip()
+        if not member_id:
+            continue
+        # 11-05-26: a member's id is their user id (ParliamentUser's key, not
+        # always a number: int() was a 500), and must be one offered.
+        if member_id not in allowed_ids:
+            unknown.append(position.title)
+            continue
+        data[str(position.id)] = member_id
+    if unknown:
+        raise TransitionError('unknown_member', 'Choose a member for ' + ', '.join(unknown) + '.')
+    if not data:
+        raise TransitionError('nothing_selected', 'No positions selected for transition.')
+    return data
+
+
+def schedule_or_run(period, user, transition_data, effective_at=None):
+    """
+    Schedule the transition for ``effective_at`` if that's in the future,
+    else run it now. Returns ``{'outcome': 'scheduled', 'at': datetime}`` or
+    ``{'outcome': 'done', 'added': [...], 'removed': [...], 'errors': [...]}``.
+    Runs at most once: the period row is locked and re-checked first.
+    """
+    if effective_at is not None and effective_at > timezone.now():
+        period.officer_transition_at = effective_at
+        period.officer_transition_data = transition_data
+        period.save(update_fields=['officer_transition_at', 'officer_transition_data'])
+        SlatingActivity.objects.create(
+            period=period, user=user, action='transition_scheduled',
+            details=f'Officer transition scheduled for {_when(effective_at)}',
+            metadata={'transition_data': transition_data})
+        return {'outcome': 'scheduled', 'at': effective_at}
+    results = run_transition_once(period.pk, transition_data, user)
+    if results is None:
+        raise TransitionError('done', 'The officer transition has already been completed.')
+    return {'outcome': 'done', **results}
+
+
+def run_transition_once(period_id, transition_data, performed_by=None):
+    """
+    ``execute_transition`` under a row lock on the period, skipped (None)
+    if it's already completed: the page, the app and the scheduled job can't
+    run the same transition twice (11-10-26).
+    """
+    with transaction.atomic():
+        period = SlatingPeriod.objects.select_for_update().get(pk=period_id)
+        if period.officer_transition_completed:
+            return None
+        return execute_transition(period, transition_data, performed_by)
+
+
+def cancel_scheduled_transition(period, user):
+    """Drop a scheduled transition (logged)."""
+    period.officer_transition_at = None
+    period.officer_transition_data = {}
+    period.save(update_fields=['officer_transition_at', 'officer_transition_data'])
+    SlatingActivity.objects.create(period=period, user=user, action='transition_cancelled',
+                                   details='Scheduled officer transition was cancelled')
+
+
 @login_required
 @admin_required
 def transition_officers(request, period_id):
@@ -37,18 +168,11 @@ def transition_officers(request, period_id):
     """
     period = get_object_or_404(SlatingPeriod, id=period_id)
 
-    # Verify period is in correct state
-    if period.status != 'results_published':
-        messages.error(request, 'Officer transition can only be performed after results are published.')
+    refusal = transition_refusal(request.user, period)
+    if refusal:
+        code, message = refusal
+        (messages.info if code == 'done' else messages.error)(request, message)
         return redirect('slating_results', period_id=period.id)
-
-    # Check if transition already completed
-    if period.officer_transition_completed:
-        messages.info(request, f'Officer transition was already completed on {localtime(period.officer_transition_completed_at).strftime("%B %d, %Y at %I:%M %p %Z")}.')
-        return redirect('slating_results', period_id=period.id)
-
-    # Get all positions and potential candidates
-    positions = period.positions.filter(is_active=True).select_related('role').order_by('display_order')
 
     # Build the auto-filled assignments from slate
     auto_assignments = build_auto_assignments(period)
@@ -66,26 +190,14 @@ def transition_officers(request, period_id):
             effective_date_str = request.POST.get('effective_date')
             effective_time_str = request.POST.get('effective_time', '00:00')
 
-            # Build transition data to save
-            transition_data = {}
-            unknown = []
-            for position in positions:
-                enabled = request.POST.get(f'enable_{position.id}') == 'on'
-                member_id = (request.POST.get(f'member_{position.id}') or '').strip()
-                if enabled and member_id:
-                    # 11-05-26: a member's id is their user id (ParliamentUser's
-                    # key, not always a number: int() was a 500), and must exist.
-                    if member_id not in allowed_ids:
-                        unknown.append(position.title)
-                        continue
-                    transition_data[str(position.id)] = member_id
-
-            if unknown:
-                messages.error(request, 'Choose a member for ' + ', '.join(unknown) + '.')
-                return redirect('slating_transition', period_id=period.id)
-
-            if not transition_data:
-                messages.error(request, 'No positions selected for transition.')
+            picks = {}
+            for position in period.positions.filter(is_active=True):
+                if request.POST.get(f'enable_{position.id}') == 'on':
+                    picks[str(position.id)] = request.POST.get(f'member_{position.id}') or ''
+            try:
+                transition_data = parse_assignments(period, picks, allowed_ids)
+            except TransitionError as e:
+                messages.error(request, str(e))
                 return redirect('slating_transition', period_id=period.id)
 
             # 11-05-26: confirm first — a page listing every role change (who
@@ -99,7 +211,7 @@ def transition_officers(request, period_id):
                     'when': effective_date_str and f'{effective_date_str} {effective_time_str or "00:00"}',
                 })
 
-            # Determine if immediate or scheduled
+            effective_datetime = None
             if effective_date_str:
                 # 11-05-26: the form's date and time are local; parse_datetime
                 # gives a naive datetime, and comparing it with now() raised a
@@ -115,89 +227,35 @@ def transition_officers(request, period_id):
                     return redirect('slating_transition', period_id=period.id)
                 if timezone.is_naive(effective_datetime):
                     effective_datetime = timezone.make_aware(effective_datetime, timezone.get_current_timezone())
-                if effective_datetime > timezone.now():
-                    # Schedule for later
-                    period.officer_transition_at = effective_datetime
-                    period.officer_transition_data = transition_data
-                    period.save(update_fields=['officer_transition_at', 'officer_transition_data'])
 
-                    SlatingActivity.objects.create(
-                        period=period,
-                        user=request.user,
-                        action='transition_scheduled',
-                        details=f'Officer transition scheduled for {localtime(effective_datetime).strftime("%B %d, %Y at %I:%M %p %Z")}',
-                        metadata={'transition_data': transition_data}
-                    )
+            try:
+                outcome = schedule_or_run(period, request.user, transition_data, effective_datetime)
+            except TransitionError as e:
+                messages.info(request, str(e))
+                return redirect('slating_results', period_id=period.id)
 
-                    messages.success(
-                        request,
-                        f'Officer transition scheduled for {localtime(effective_datetime).strftime("%B %d, %Y at %I:%M %p %Z")}.'
-                    )
-                    return redirect('slating_results', period_id=period.id)
+            if outcome['outcome'] == 'scheduled':
+                messages.success(request, f'Officer transition scheduled for {_when(outcome["at"])}.')
+                return redirect('slating_results', period_id=period.id)
 
-            # Execute immediately (no date, or a date already past)
-            results = execute_transition(period, transition_data, request.user)
-
-            if results['errors']:
-                for error in results['errors']:
-                    messages.error(request, error)
-
-            added_count = len(results.get('added', []))
-            removed_count = len(results.get('removed', []))
-
+            for error in outcome['errors']:
+                messages.error(request, error)
+            added_count = len(outcome.get('added', []))
+            removed_count = len(outcome.get('removed', []))
             if added_count > 0 or removed_count > 0:
                 messages.success(
                     request,
                     f'Officer transition complete: {added_count} roles added, {removed_count} removed.'
                 )
-
             return redirect('slating_results', period_id=period.id)
 
         elif action == 'cancel_scheduled':
-            # Cancel a scheduled transition
-            period.officer_transition_at = None
-            period.officer_transition_data = {}
-            period.save(update_fields=['officer_transition_at', 'officer_transition_data'])
-
-            SlatingActivity.objects.create(
-                period=period,
-                user=request.user,
-                action='transition_cancelled',
-                details='Scheduled officer transition was cancelled'
-            )
-
+            cancel_scheduled_transition(period, request.user)
             messages.info(request, 'Scheduled transition cancelled.')
             return redirect('slating_transition', period_id=period.id)
 
     # GET: Build the transition form data
-    transition_data = []
-    pending_data = period.officer_transition_data or {}
-
-    for position in positions:
-        auto_assignment = auto_assignments.get(position.id)
-
-        # Check for pending scheduled assignment
-        pending_member_id = pending_data.get(str(position.id))
-        pending_member = None
-        if pending_member_id:
-            pending_member = ParliamentUser.objects.filter(pk=pending_member_id).first()
-
-        # Find current role holder
-        current_holder = None
-        if position.role:
-            current_holder = ParliamentUser.objects.filter(roles=position.role).first()
-
-        # Determine which member should be pre-selected
-        selected_member = pending_member or auto_assignment
-
-        transition_data.append({
-            'position': position,
-            'role': position.role,
-            'auto_assigned': auto_assignment,
-            'selected_member': selected_member,
-            'current_holder': current_holder,
-            'enabled': selected_member is not None,
-        })
+    transition_data = transition_rows(period, auto_assignments)
 
     context = {
         'period': period,
@@ -336,20 +394,28 @@ def execute_transition(period, transition_data, performed_by=None):
 
 def check_and_execute_scheduled_transitions():
     """
-    Check for any scheduled transitions that are due and execute them.
-    This should be called by a cron job or management command.
+    Run every scheduled transition that's due. Called each minute by the
+    Celery beat task ``tasks.execute_scheduled_slating_transitions``
+    (11-10-26; before that only the ``execute_scheduled_transitions``
+    command ran them, and only where a cron entry had been set up for it).
+    Returns how many ran.
     """
     now = timezone.now()
-    pending_periods = SlatingPeriod.objects.filter(
+    pending_ids = list(SlatingPeriod.objects.filter(
         officer_transition_at__lte=now,
         officer_transition_completed=False,
         officer_transition_data__isnull=False
-    ).exclude(officer_transition_data={})
+    ).exclude(officer_transition_data={}).values_list('pk', flat=True))
 
-    for period in pending_periods:
+    ran = 0
+    for period_id in pending_ids:
         try:
-            results = execute_transition(period, period.officer_transition_data)
-            logger.info("Executed scheduled transition for %s: %d added, %d removed",
-                        period.name, len(results['added']), len(results['removed']))
-        except Exception as e:
-            logger.exception("Error executing scheduled transition for %s", period.name)
+            period = SlatingPeriod.objects.get(pk=period_id)
+            results = run_transition_once(period_id, period.officer_transition_data)
+            if results is not None:
+                ran += 1
+                logger.info("Executed scheduled transition for %s: %d added, %d removed",
+                            period.name, len(results['added']), len(results['removed']))
+        except Exception:
+            logger.exception("Error executing scheduled transition for period id=%s", period_id)
+    return ran
