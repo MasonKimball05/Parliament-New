@@ -35,6 +35,36 @@ def _period_is_locked(period):
     )
 
 
+def is_candidate(user, period):
+    """
+    True if ``user`` has an application in ``period``, of any status
+    (11-10-26). A candidate gets no committee or manager access to the
+    period: not as a committee member, a chair, the manager, nor a site
+    admin stepping in. Drafts count (they mean to run) and so do withdrawn
+    applications (their interview notes still exist).
+
+    The setup pages already refuse to put an applicant on the committee,
+    but the general committee "Add member" page doesn't check, and the
+    site-admin fallback never did: either way a candidate could read every
+    applicant's interview notes, their own included. Checked here, every
+    page and app endpoint that asks these helpers is covered.
+
+    Cached on the user object per period (one query per request).
+    """
+    if user is None or not getattr(user, 'is_authenticated', False):
+        return False
+    cache = user.__dict__.setdefault('_slating_candidate_in', {})
+    if period.pk not in cache:
+        from src.models import SlatingApplication
+        cache[period.pk] = SlatingApplication.objects.filter(period_id=period.pk, applicant_id=user.pk).exists()
+    return cache[period.pk]
+
+
+def admin_may_step_in(user, period):
+    """A site admin with no role in ``period`` gets in only while it isn't locked, and never as a candidate."""
+    return bool(user.is_admin and not _period_is_locked(period) and not is_candidate(user, period))
+
+
 def _user_can_manage(user, period):
     """
     Returns True if the user has chair-level management access to the period.
@@ -43,6 +73,8 @@ def _user_can_manage(user, period):
     slating committee, so committee/manager roles give a pledge nothing.
     """
     if getattr(user, 'is_pledge', False):
+        return False
+    if is_candidate(user, period):
         return False
     if period.slating_manager_id and period.slating_manager_id == user.pk:
         return True
@@ -62,6 +94,8 @@ def _user_can_view(user, period):
     Pledges get nothing (see _user_can_manage).
     """
     if getattr(user, 'is_pledge', False):
+        return False
+    if is_candidate(user, period):
         return False
     if _user_can_manage(user, period):
         return True
@@ -107,7 +141,7 @@ def slating_chair_required(view_func):
                 return view_func(request, period_id, *args, **kwargs)
 
             # Site admin fallback only when period is not yet locked down
-            if request.user.is_admin and not _period_is_locked(period):
+            if admin_may_step_in(request.user, period):
                 return view_func(request, period_id, *args, **kwargs)
         else:
             # No period context — allow site admins (e.g. dashboard actions)
@@ -138,7 +172,7 @@ def slating_committee_required(view_func):
                 return view_func(request, period_id, *args, **kwargs)
 
             # Site admin fallback only when period is not yet locked down
-            if request.user.is_admin and not _period_is_locked(period):
+            if admin_may_step_in(request.user, period):
                 return view_func(request, period_id, *args, **kwargs)
         else:
             if request.user.is_admin:
@@ -172,7 +206,7 @@ def can_manage_period(user, period):
     """
     if _user_can_manage(user, period):
         return True
-    if user.is_admin and not _period_is_locked(period):
+    if admin_may_step_in(user, period):
         return True
     return False
 
@@ -184,7 +218,7 @@ def can_view_applications(user, period):
     """
     if _user_can_view(user, period):
         return True
-    if user.is_admin and not _period_is_locked(period):
+    if admin_may_step_in(user, period):
         return True
     return False
 

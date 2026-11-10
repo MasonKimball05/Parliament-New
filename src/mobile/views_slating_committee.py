@@ -245,7 +245,7 @@ def _application_detail(period, application, user):
             'nominations': [{'position': n.position.title, 'accepted': n.accepted, 'elected': n.elected}
                             for n in profile['nominations']],
             'history': [{
-                'action': e.get_action_display(), 'details': e.details,
+                'action': e.get_action_display(), 'details': e.display_details,
                 'by': e.user.name if e.user_id else None, 'at': _iso(e.timestamp),
             } for e in profile['history']],
         },

@@ -38,12 +38,14 @@ def transfer_refusal(user, period):
     # admin only while the period isn't locked (permissions._period_is_locked:
     # no manager and no committee admin yet). A site admin with no role used
     # to be able to make himself admin of a locked period and read everything.
-    from .permissions import _period_is_locked
+    from .permissions import admin_may_step_in, is_candidate
+    if is_candidate(user, period):   # 11-10-26: a candidate takes no control of their own election
+        return 'forbidden', 'Candidates in this election can\'t take control of it.'
     if slating_committee.admin_id and slating_committee.admin_id == user.pk:
         return None
     if period.slating_manager_id and period.slating_manager_id == user.pk:
         return None
-    if user.is_admin and not _period_is_locked(period):
+    if admin_may_step_in(user, period):
         return None
     return 'forbidden', 'Only the committee admin or the slating manager can transfer control.'
 

@@ -325,12 +325,12 @@ def _user_may_read_slating_application(user, application):
     if application.applicant_id == user.pk:
         return True
 
-    from src.view.slating.permissions import _period_is_locked, _user_can_view
+    from src.view.slating.permissions import _user_can_view, admin_may_step_in
 
     period = application.period
     if _user_can_view(user, period):
         return True
-    return bool(user.is_admin and not _period_is_locked(period))
+    return admin_may_step_in(user, period)
 
 
 @login_required

@@ -16,7 +16,7 @@ from src.models import SlatingActivity, SlatingInterview, SlatingPosition
 from src.tests.slating.test_slating_review_fixes import _Base, member
 
 
-class ApplicantProfileTests(_Base):
+class _ProfileBase(_Base):
 
     def setUp(self):
         super().setUp()
@@ -38,6 +38,9 @@ class ApplicantProfileTests(_Base):
             i.interviewers.add(panelist)
         i.recommended_positions.set(positions)
         return i
+
+
+class ApplicantProfileTests(_ProfileBase):
 
     def test_shows_the_whole_interview(self):
         panelist = member('sr-panel')
@@ -110,3 +113,22 @@ class ApplicantProfileTests(_Base):
             self.interview(completed_at=timezone.now(), panel=self.manager, positions=[self.vp])
         n = count()
         self.assertEqual(n, one)
+
+
+class HistoryLabelTests(_ProfileBase):
+
+    def test_old_status_rows_read_as_labels(self):
+        # Logged before 11-10-26: the raw codes in `details`.
+        SlatingActivity.objects.create(period=self.period, user=self.manager, action='application_reviewed',
+                                       details='Changed X status from submitted to under_review',
+                                       metadata={'application_id': self.app.id, 'old_status': 'submitted',
+                                                 'new_status': 'under_review'})
+        r = self.get()
+        self.assertContains(r, 'Status changed from Submitted to Under Review')
+        self.assertNotContains(r, 'under_review')
+
+    def test_new_rows_store_labels(self):
+        from src.view.slating.applications_review import save_review
+        save_review(self.period, self.app, self.manager, 'under_review', '')
+        row = SlatingActivity.objects.get(action='application_reviewed')
+        self.assertIn('from Submitted to Under Review', row.details)

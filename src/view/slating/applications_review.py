@@ -137,6 +137,24 @@ def ranked_positions(application, titles):
     return out
 
 
+def _status_label(status):
+    """'under_review' -> 'Under Review' (the application status's display name)."""
+    return dict(SlatingApplication.STATUS_CHOICES).get(status, status)
+
+
+def history_details(event):
+    """
+    What the applicant page's History says for one activity row. A status
+    change is rebuilt from its metadata with the statuses' display names:
+    rows logged before 11-10-26 hold the raw codes in ``details``
+    ("from submitted to under_review").
+    """
+    meta = event.metadata or {}
+    if event.action == 'application_reviewed' and meta.get('old_status') and meta.get('new_status'):
+        return f"Status changed from {_status_label(meta['old_status'])} to {_status_label(meta['new_status'])}"
+    return event.details
+
+
 def save_review(period, application, user, new_status, review_notes, verify_gpa=False, unverify_gpa=False):
     """
     The review panel's save: a new status (logged when it changes), the
@@ -153,7 +171,8 @@ def save_review(period, application, user, new_status, review_notes, verify_gpa=
                 period=period,
                 user=user,
                 action='application_reviewed',
-                details=f'Changed {application.applicant.name} status from {old_status} to {new_status}',
+                details=(f'Changed {application.applicant.name} status from {_status_label(old_status)} '
+                         f'to {_status_label(new_status)}'),
                 metadata={'application_id': application.id, 'old_status': old_status, 'new_status': new_status}
             )
 
@@ -276,6 +295,8 @@ def applicant_profile(application, tiered_positions):
         .select_related('user').defer(*member_defer('user'))
         .order_by('-timestamp')[:PROFILE_ACTIVITY_LIMIT]
     )
+    for event in history:
+        event.display_details = history_details(event)
     return {
         'interviews': interviews,
         'completed_interviews': len(completed),
@@ -386,7 +407,7 @@ def bulk_update_status(request, period_id):
         period=period,
         user=request.user,
         action='application_reviewed',
-        details=f'Bulk updated {updated} applications to {new_status}',
+        details=f'Bulk updated {updated} applications to {_status_label(new_status)}',
         metadata={'application_ids': app_ids, 'new_status': new_status}
     )
 

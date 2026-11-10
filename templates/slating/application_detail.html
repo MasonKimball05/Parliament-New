@@ -288,7 +288,7 @@
                 {% for event in history %}
                 <li class="px-4 py-3 sm:px-6 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
                     <div class="text-sm text-gray-800 dark:text-gray-200 min-w-0">
-                        <span class="font-medium">{{ event.get_action_display }}</span>{% if event.details %}<span class="text-gray-600 dark:text-gray-400"> · {{ event.details }}</span>{% endif %}
+                        <span class="font-medium">{{ event.get_action_display }}</span>{% if event.display_details %}<span class="text-gray-600 dark:text-gray-400"> · {{ event.display_details }}</span>{% endif %}
                         {% if event.user %}<span class="text-gray-500 dark:text-gray-400"> · {{ event.user.name }}</span>{% endif %}
                     </div>
                     <time class="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap" datetime="{{ event.timestamp|date:'c' }}">{{ event.timestamp|date:"M j, g:i A" }}</time>
