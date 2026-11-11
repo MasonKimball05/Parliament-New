@@ -989,7 +989,12 @@ class PledgeClassArchive(models.Model):
         on_delete=models.CASCADE,
         related_name='pledge_class_archives',
     )
-    name = models.CharField(max_length=120, help_text='e.g. "Fall 2026 pledge class".')
+    name = models.CharField(max_length=120, help_text='e.g. "Theta class (Fall 2026)".')
+    #: 11-11-26: the semester the class was initiated in ("Fall 2026"; Spring
+    #: is January-June, as src/pledge_classes.py). One archive per committee
+    #: and semester: everyone initiated that semester goes in it, including
+    #: a pledge held back from an earlier semester.
+    term = models.CharField(max_length=20, blank=True, db_index=True)
     initiated_at = models.DateTimeField(
         help_text='When the class was initiated. Meetings before this belong to it, not the next class.',
     )

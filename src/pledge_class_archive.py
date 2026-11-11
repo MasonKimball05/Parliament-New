@@ -16,9 +16,9 @@ showed that day.
     {
       "version": 1,
       "tasks":    [{id, title, type, type_label, phase, points, is_required, due_date, max_score}],
-      "pledges":  [{user_id, name, role_number, phase, points, max_points, points_percent,
-                    completed, total, percent, big, attendance: {present, late, excused, absent},
-                    note}],
+      "pledges":  [{user_id, name, role_number, pledge_class, phase, points, max_points,
+                    points_percent, completed, total, percent, big,
+                    attendance: {present, late, excused, absent}, note}],
       "results":  {task id: {user_id: {status, status_label, score, completed_at, notes,
                                       reviewed_by} | {"na": true}}},
       "meetings": [{id, title, date, type_label, points, attendance: {user_id: status}}],
@@ -28,20 +28,23 @@ showed that day.
 
 Keys in JSON are strings: task ids and user ids alike.
 
-A second initiation batch within ``MERGE_WINDOW`` of an archive (a pledge
-initiated a few days after the rest of his class) joins that archive rather
-than starting a new one.
+**One archive per semester** (11-11-26, Mason: "auto archives their specific
+information into the semester's PC archive. We've had multi-semester pledges
+when we felt they were not ready for initiation"). The archive is keyed by
+the semester of initiation (``term``; Spring is January-June, as the
+pledge-class registry). Everyone initiated that semester goes in it: the
+class, a straggler a few days later, and a pledge held back from an earlier
+semester (his row keeps his own ``pledge_class``). A held-back pledge keeps
+the earlier semester's meetings he was on the roster for, in his points and
+in the meeting list.
 
 Corrections (``rename``, ``edit_pledge``, ``edit_result``) are for the
 education admin only (chairs and site admins: ``access['is_full_access']``);
 each is recorded in ``edits``.
 """
-from datetime import timedelta
-
 from django.utils import timezone
 
 SNAPSHOT_VERSION = 1
-MERGE_WINDOW = timedelta(days=7)
 
 RESULT_STATUSES = (
     ('pending', 'Pending Review'),
@@ -75,29 +78,29 @@ def education_committees():
     return Committee.objects.filter(is_education_committee=True, is_active=True).order_by('pk')
 
 
-def default_name(when, pledges=()):
-    """
-    'Theta class (Fall 2026)': the class most of ``pledges`` belong to (their
-    pledge_class / pledge_class_greek), else the registry's class for
-    ``when`` (src/pledge_classes.py). The admin can rename it.
-    """
-    from collections import Counter
+def term_for(when):
+    """'Fall 2026': the semester of ``when`` (Spring is January-June, as src/pledge_classes.py)."""
+    local = timezone.localtime(when)
+    return f"{'Fall' if local.month >= 7 else 'Spring'} {local.year}"
+
+
+def default_name(when):
+    """'Theta class (Fall 2026)': the registry's class for that semester. The admin can rename it."""
     from src import pledge_classes
-    seen = Counter((p.pledge_class or '').strip() for p in pledges if (p.pledge_class or '').strip())
-    entry = None
-    if seen:
-        entry = pledge_classes.class_by_label(seen.most_common(1)[0][0], today=timezone.localdate(when))
-    entry = entry or pledge_classes.current_class(today=timezone.localdate(when))
+    term = term_for(when)
+    entry = pledge_classes.class_by_label(term, today=timezone.localdate(when))
+    if entry is None:
+        return f'{term} pledge class'
     if entry['is_founders']:
-        return f'Founders ({entry["label"]})'
-    return f'{entry["greek"]} class ({entry["label"]})'
+        return f'Founders ({term})'
+    return f'{entry["greek"]} class ({term})'
 
 
 def _iso(dt):
     return timezone.localtime(dt).isoformat() if dt else None
 
 
-def build_snapshot(committee, pledges, role_numbers=None, since='latest'):
+def build_snapshot(committee, pledges, role_numbers=None, since='latest', as_of=None):
     """
     The snapshot ``data`` for ``pledges`` (a queryset) on ``committee``'s
     dashboard, as it stands now. ``role_numbers``: {user_id: roll number}
@@ -109,7 +112,7 @@ def build_snapshot(committee, pledges, role_numbers=None, since='latest'):
     role_numbers = role_numbers or {}
     if since == 'latest':
         since = meetings_since(committee)
-    overview = education_overview(committee, pledges=pledges, since=since)
+    overview = education_overview(committee, pledges=pledges, since=since, as_of=as_of)
     pledge_list = list(overview['pledges'])
     pledge_ids = [p.pk for p in pledge_list]
 
@@ -144,12 +147,15 @@ def build_snapshot(committee, pledges, role_numbers=None, since='latest'):
             }
         results[str(row['task'].pk)] = cells
 
-    # This class's meetings: everything since the previous archived class.
-    meetings_qs = (EducationMeeting.objects.filter(committee=committee, event__date_time__lte=timezone.now())
-                   .select_related('event').order_by('event__date_time'))
+    # This class's meetings: everything since the previous archived class,
+    # plus earlier ones a held-back pledge here was on the roster for.
+    meetings_qs = (EducationMeeting.objects.filter(committee=committee, event__date_time__lte=as_of or timezone.now())
+                   .select_related('event'))
     if since:
-        meetings_qs = meetings_qs.filter(event__date_time__gte=since)
-    meetings = list(meetings_qs)
+        from django.db.models import Q
+        meetings_qs = meetings_qs.filter(
+            Q(event__date_time__gte=since) | Q(attendance_records__pledge_id__in=pledge_ids)).distinct()
+    meetings = sorted(meetings_qs, key=lambda m: m.event.date_time)
     attendance = {}
     for r in EducationMeetingAttendance.objects.filter(meeting__in=meetings, pledge_id__in=pledge_ids):
         attendance.setdefault(r.meeting_id, {})[r.pledge_id] = r.status
@@ -177,6 +183,7 @@ def build_snapshot(committee, pledges, role_numbers=None, since='latest'):
             'user_id': p.pk,
             'name': p.name,
             'role_number': role_numbers.get(p.pk) or p.role_number or '',
+            'pledge_class': (p.pledge_class or '').strip(),
             'phase': p.pledge_phase,
             'points': ps.get('points', 0),
             'max_points': ps.get('max_points', 0),
@@ -227,38 +234,54 @@ def _merge(data, new):
     return len(added)
 
 
-def archive_initiated(pledges, actor=None, role_numbers=None, when=None):
+def _save_into_term(committee, pledges, role_numbers, when, actor_name, created_by, as_of=None, note=None):
     """
-    Snapshot ``pledges`` (a queryset, about to be initiated) on every active
-    education committee. Joins an archive from the last ``MERGE_WINDOW``,
-    else starts one. Returns the archives touched. Call before the pledges
-    stop being pledges; runs inside the caller's transaction.
+    Snapshot ``pledges`` into ``committee``'s archive for the semester of
+    ``when``: added to it if one exists (anyone already in it is left
+    alone), else a new one. Returns the archive, or None if nothing to save.
     """
     from src.models import PledgeClassArchive
+    term = term_for(when)
+    archive = (PledgeClassArchive.objects.select_for_update()
+               .filter(committee=committee, term=term).order_by('initiated_at').first())
+    # Joining a semester's archive: that semester's cutoff, not its own.
+    since = meetings_since(committee, before=archive.initiated_at) if archive else meetings_since(committee, before=when)
+    snap = build_snapshot(committee, pledges, role_numbers, since=since, as_of=as_of)
+    if not snap['pledges']:
+        return None
+    if archive is None:
+        if note:
+            snap['edits'].append({'at': _iso(timezone.now()), 'by': actor_name, 'what': note})
+        return PledgeClassArchive.objects.create(
+            committee=committee, name=default_name(when), term=term, initiated_at=when,
+            created_by=created_by, data=snap)
+    data = archive.data or {}
+    added = _merge(data, snap)
+    if not added:
+        return archive
+    data.setdefault('edits', []).append({
+        'at': _iso(timezone.now()), 'by': actor_name,
+        'what': note or f'{added} more initiated this semester and added to this class.',
+    })
+    archive.data = data
+    archive.save(update_fields=['data', 'updated_at'])
+    return archive
+
+
+def archive_initiated(pledges, actor=None, role_numbers=None, when=None):
+    """
+    Snapshot ``pledges`` (a queryset, about to be initiated) into the
+    semester's archive on every active education committee. Returns the
+    archives touched. Call before the pledges stop being pledges; runs
+    inside the caller's transaction.
+    """
     when = when or timezone.now()
     touched = []
     for committee in education_committees():
-        recent = (PledgeClassArchive.objects.select_for_update()
-                  .filter(committee=committee, initiated_at__gte=when - MERGE_WINDOW)
-                  .order_by('-initiated_at').first())
-        since = meetings_since(committee, before=recent.initiated_at) if recent else 'latest'
-        snap = build_snapshot(committee, pledges, role_numbers, since=since)
-        if not snap['pledges']:
-            continue
-        if recent is not None:
-            data = recent.data or {}
-            added = _merge(data, snap)
-            data.setdefault('edits', []).append({
-                'at': _iso(when), 'by': actor.name if actor else 'Initiation',
-                'what': f'{added} more pledge{"" if added == 1 else "s"} initiated and added to this class.',
-            })
-            recent.data = data
-            recent.save(update_fields=['data', 'updated_at'])
-            touched.append(recent)
-            continue
-        touched.append(PledgeClassArchive.objects.create(
-            committee=committee, name=default_name(when, list(pledges)), initiated_at=when,
-            created_by=actor if actor and actor.pk else None, data=snap))
+        archive = _save_into_term(committee, pledges, role_numbers, when,
+                                  actor.name if actor else 'Initiation', actor if actor and actor.pk else None)
+        if archive is not None:
+            touched.append(archive)
     return touched
 
 
@@ -353,3 +376,46 @@ def edit_result(archive, user, task_id, user_id, status, score):
                         f'to {_RESULT_LABELS[status]}{score_txt}.')
     archive.save(update_fields=['data', 'updated_at'])
     return True
+
+
+# ── Backfill (classes initiated before 11-10-26) ──────────────────────────────
+
+def _archived_ids(committee):
+    from src.models import PledgeClassArchive
+    ids = set()
+    for data in PledgeClassArchive.objects.filter(committee=committee).values_list('data', flat=True):
+        ids.update(p['user_id'] for p in (data or {}).get('pledges', []))
+    return ids
+
+
+def backfill_from_log(log, save=True):
+    """
+    Rebuild the class initiated in ``log`` (an ``initiate_pledges``
+    ActivityLog row) as its dashboard stood then: only tasks that existed,
+    meetings held and adjustments made by that time. Initiation keeps
+    members' ids, so their results, answers and attendance are still linked.
+    Members already in an archive are skipped; the rest go into that
+    semester's archive. Returns [(committee, archive or unsaved snapshot
+    dict)]; ``save=False`` is a dry run.
+    """
+    from src.models import ParliamentUser
+    when = log.timestamp
+    ids = list((log.metadata or {}).get('pledge_ids') or [])
+    role_numbers = (log.metadata or {}).get('role_numbers') or {}
+    note = ('Rebuilt from the records still in the database, as the dashboard stood at initiation. '
+            'This class was initiated before classes were saved automatically.')
+    out = []
+    for committee in education_committees():
+        todo = ParliamentUser.objects.filter(pk__in=set(ids) - _archived_ids(committee)).order_by('name')
+        if not todo.exists():
+            continue
+        if not save:
+            since = meetings_since(committee, before=when)
+            snap = build_snapshot(committee, todo, role_numbers, since=since, as_of=when)
+            out.append((committee, {'name': default_name(when), **snap}))
+            continue
+        archive = _save_into_term(committee, todo, role_numbers, when, 'Backfill',
+                                  log.user if log.user_id else None, as_of=when, note=note)
+        if archive is not None:
+            out.append((committee, archive))
+    return out

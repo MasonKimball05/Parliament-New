@@ -61,6 +61,7 @@ is recorded in its edit history); everyone else with education access reads it.
           <div class="flex flex-wrap items-center gap-x-6 gap-y-1">
             <div class="min-w-[10rem] flex-1">
               <p class="text-sm font-semibold text-gray-900 dark:text-white">{{ p.name }}{% if p.role_number %} <span class="font-normal text-gray-500 dark:text-gray-400">#{{ p.role_number }}</span>{% endif %}</p>
+              {% if p.pledge_class and p.pledge_class != archive.term %}<p class="text-xs text-gray-500 dark:text-gray-400">Pledged {{ p.pledge_class }}</p>{% endif %}
               {% if p.big %}<p class="text-xs text-gray-500 dark:text-gray-400">Big: {{ p.big }}</p>{% endif %}
             </div>
             <div class="text-sm text-gray-700 dark:text-gray-300"><span class="font-semibold text-gray-900 dark:text-white">{{ p.points }}</span> / {{ p.max_points }} pts{% if p.points_percent is not None %} <span class="text-gray-500 dark:text-gray-400">({{ p.points_percent }}%)</span>{% endif %}</div>

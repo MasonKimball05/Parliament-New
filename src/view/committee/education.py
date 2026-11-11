@@ -336,7 +336,7 @@ def _require_education_permission_or_404(access, key):
     return None
 
 
-def education_overview(committee, pledges=None, since='latest'):
+def education_overview(committee, pledges=None, since='latest', as_of=None):
     """
     The education dashboard's numbers, shared by `education_home` and the app's
     dashboard (src/mobile/views_education.py) so the two cannot disagree: the
@@ -348,9 +348,12 @@ def education_overview(committee, pledges=None, since='latest'):
     the class being initiated. Meetings held before the latest archived
     class's initiation are that class's, so they no longer count toward the
     next class's points or show as its recent meetings. ``since`` overrides
-    that cutoff (None: every meeting).
+    that cutoff (None: every meeting). ``as_of`` (a past datetime) gives the
+    numbers as they stood then: only tasks that existed, meetings held and
+    adjustments made by that time (rebuilding a class initiated before
+    classes were saved: ``manage.py backfill_pledge_class``).
     """
-    tasks = (PledgeTask.objects.filter(is_active=True)
+    tasks = (PledgeTask.objects.filter(is_active=True, **({'created_at__lte': as_of} if as_of else {}))
              # v3.17.3: created_by joined but never rendered by education.html
              # 09-22-26: `song` joined too — the grid shows the linked song's
              # title per row (song-type tasks), and My Tasks (pledge_tasks.py)
@@ -420,7 +423,7 @@ def education_overview(committee, pledges=None, since='latest'):
     # Meetings (v3.20.0). Upcoming first, then the most recent past ones —
     # a chair opening this page is either planning the next meeting or taking
     # attendance for the one that just happened.
-    now = timezone.now()
+    now = as_of or timezone.now()
     meetings_qs = (
         EducationMeeting.objects
         .filter(committee=committee, **({'event__date_time__gte': since} if since else {}))
@@ -478,6 +481,17 @@ def education_overview(committee, pledges=None, since='latest'):
     quiz_marks_map = quiz_marks(tasks, pledges)
     meeting_points_by_pk = {m.pk: m.points for m in all_past_meetings if m.points}
     max_meeting_points = sum(meeting_points_by_pk.values())
+    # 11-11-26: a meeting from before the cutoff (an archived class's) still
+    # counts for a pledge who was on its roster, i.e. has an attendance row:
+    # one held back a semester keeps his first semester's meetings. A new
+    # pledge has no rows for them, so they don't count against him.
+    earlier_points = {}
+    if since:
+        earlier_points = dict(
+            EducationMeeting.objects
+            .filter(committee=committee, event__date_time__lt=since, points__gt=0)
+            .values_list('pk', 'points'))
+    points_by_meeting = {**earlier_points, **meeting_points_by_pk}
 
     # One query for every pledge's attendance across this committee's past
     # meetings, grouped in Python — avoids a query per pledge or per
@@ -487,10 +501,10 @@ def education_overview(committee, pledges=None, since='latest'):
     # that value from `all_past_meetings` above, so this only ever touches
     # `record.meeting_id` (no query) and `record.status`.
     attendance_by_pledge = {}
-    if meeting_points_by_pk:
+    if points_by_meeting:
         for record in (
             EducationMeetingAttendance.objects
-            .filter(meeting_id__in=meeting_points_by_pk, pledge__in=pledges)
+            .filter(meeting_id__in=points_by_meeting, pledge__in=pledges)
         ):
             attendance_by_pledge.setdefault(record.pledge_id, []).append(record)
 
@@ -515,13 +529,15 @@ def education_overview(committee, pledges=None, since='latest'):
             points_for(task_by_pk[pk], completion_map.get((pk, pledge.pk)), pledge.pk, quiz_marks_map)
             for pk in applicable_task_pks
         )
+        records = attendance_by_pledge.get(pledge.pk, [])
         earned_meeting_points = sum(
-            meeting_points_by_pk.get(r.meeting_id, 0)
-            for r in attendance_by_pledge.get(pledge.pk, [])
+            points_by_meeting.get(r.meeting_id, 0)
+            for r in records
             if r.status in EducationMeetingAttendance.EARNS_POINTS
         )
+        held_over_max = sum(earlier_points.get(r.meeting_id, 0) for r in records)
         ps['points'] = earned_task_points + earned_meeting_points
-        ps['max_points'] = max_task_points + max_meeting_points
+        ps['max_points'] = max_task_points + max_meeting_points + held_over_max
         ps['points_percent'] = (
             round(ps['points'] / ps['max_points'] * 100) if ps['max_points'] else None
         )
@@ -539,7 +555,7 @@ def education_overview(committee, pledges=None, since='latest'):
     # tracked below — not built yet).
     adjustments = list(
         PledgePointAdjustment.objects
-        .filter(committee=committee, pledge__in=pledges)
+        .filter(committee=committee, pledge__in=pledges, **({'created_at__lte': as_of} if as_of else {}))
         .select_related('created_by')
         .defer(*member_defer('created_by'))
         .order_by('-created_at')

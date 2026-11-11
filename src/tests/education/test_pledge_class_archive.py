@@ -77,7 +77,7 @@ class SnapshotAtInitiationTests(_Base):
         a = self.archive()
         self.assertEqual(next(t for t in a.data['tasks'] if t['id'] == self.task.pk)['title'], 'Learn the creed')
 
-    def test_a_straggler_the_same_week_joins_the_class(self):
+    def test_a_straggler_the_same_semester_joins_the_class(self):
         self.initiate(self.pledge, numbers={'P-C7JKZY': '501'})
         self.initiate(self.other_pledge, numbers={'P-9QW2LM': '502'})
         self.assertEqual(PledgeClassArchive.objects.count(), 1)
@@ -87,7 +87,32 @@ class SnapshotAtInitiationTests(_Base):
         two = next(p for p in a.data['pledges'] if p['user_id'] == 'P-9QW2LM')
         self.assertEqual(two['attendance']['absent'], 1)
         self.assertEqual(a.data['meetings'][0]['attendance'].get('P-9QW2LM'), 'absent')
-        self.assertIn('1 more pledge initiated', a.data['edits'][-1]['what'])
+        self.assertIn('1 more initiated this semester', a.data['edits'][-1]['what'])
+        self.assertEqual(a.term, 'Fall 2026')
+
+    def test_a_pledge_held_back_a_semester_keeps_his_first_semester(self):
+        """Spring's class was saved without him; he's initiated with Fall's."""
+        import datetime as dt
+        from django.utils.timezone import make_aware
+        spring_meeting = meeting(self.committee, self.chair, make_aware(dt.datetime(2026, 4, 2, 19)), points=7,
+                                 title='Spring history night')
+        EducationMeetingAttendance.objects.create(meeting=spring_meeting, pledge=self.other_pledge, status='present')
+        PledgeClassArchive.objects.create(committee=self.committee, name='Eta class (Spring 2026)',
+                                          term='Spring 2026', initiated_at=make_aware(dt.datetime(2026, 5, 3, 12)),
+                                          data={'pledges': []})
+        self.other_pledge.pledge_class = 'Spring 2026'
+        self.other_pledge.save()
+        # Live dashboard: the Spring meeting counts for him (on its roster), not for the Fall pledge.
+        live = {ps['pledge'].pk: ps for ps in education_overview(self.committee)['pledge_summaries']}
+        self.assertEqual(live['P-9QW2LM']['max_points'] - live['P-C7JKZY']['max_points'], 7)
+        self.initiate(self.pledge, self.other_pledge, numbers={'P-C7JKZY': '501', 'P-9QW2LM': '502'})
+        fall = PledgeClassArchive.objects.get(term='Fall 2026')
+        held = next(p for p in fall.data['pledges'] if p['user_id'] == 'P-9QW2LM')
+        self.assertEqual(held['pledge_class'], 'Spring 2026')
+        self.assertEqual(held['attendance']['present'], 1)       # Spring's meeting
+        self.assertIn('Spring history night', [m['title'] for m in fall.data['meetings']])
+        r = self.client.get(reverse('education_class_archive', args=[self.committee.code, fall.pk]))
+        self.assertContains(r, 'Pledged Spring 2026')
 
     def test_initiation_goes_ahead_if_the_snapshot_fails(self):
         with mock.patch('src.pledge_class_archive.build_snapshot', side_effect=RuntimeError('boom')):
@@ -176,3 +201,52 @@ class ArchivePageTests(_Base):
         other.chairs.add(self.chair)
         r = self.client.get(reverse('education_class_archive', args=['EDU2', self.a.pk]))
         self.assertEqual(r.status_code, 404)
+
+
+class BackfillTests(_Base):
+    """11-11-26: rebuild a class initiated before classes were saved (Sunday's, on the server)."""
+
+    def setUp(self):
+        super().setUp()
+        self.before = {ps['pledge'].pk: ps for ps in education_overview(self.committee)['pledge_summaries']}
+        with mock.patch('src.pledge_class_archive.archive_initiated'):   # the old initiation: nothing saved
+            self.initiate(self.pledge, self.other_pledge, numbers={'P-C7JKZY': '501', 'P-9QW2LM': '502'})
+        self.assertFalse(PledgeClassArchive.objects.exists())
+        later = timezone.now() + timedelta(hours=2)
+        # The next class's things, after the initiation: none belong to it.
+        t = PledgeTask.objects.create(title='Next class task', points=50)
+        PledgeTask.objects.filter(pk=t.pk).update(created_at=later)
+        meeting(self.committee, self.chair, later, points=40, title='Next class meeting')
+        adj = PledgePointAdjustment.objects.create(committee=self.committee, pledge=self.pledge, current_delta=9,
+                                                   max_delta=0, reason='After the fact', created_by=self.chair)
+        PledgePointAdjustment.objects.filter(pk=adj.pk).update(created_at=later)
+
+    def run_cmd(self, *args):
+        import io
+        from django.core.management import call_command
+        out = io.StringIO()
+        call_command('backfill_pledge_class', *args, stdout=out)
+        return out.getvalue()
+
+    def test_dry_run_saves_nothing(self):
+        out = self.run_cmd('--dry-run')
+        self.assertIn('Would save "Theta class (Fall 2026)"', out)
+        self.assertFalse(PledgeClassArchive.objects.exists())
+
+    def test_rebuilds_the_class_as_it_stood(self):
+        out = self.run_cmd()
+        self.assertIn('1 class page(s) saved', out)
+        a = self.archive()
+        people = {p['user_id']: p for p in a.data['pledges']}
+        one = people['P-C7JKZY']
+        self.assertEqual((one['points'], one['max_points']),
+                         (self.before['P-C7JKZY']['points'], self.before['P-C7JKZY']['max_points']))
+        self.assertEqual(one['role_number'], '501')
+        self.assertNotIn('Next class task', [t['title'] for t in a.data['tasks']])
+        self.assertNotIn('Next class meeting', [m['title'] for m in a.data['meetings']])
+        self.assertEqual([r['reason'] for r in a.data['adjustments']['P-C7JKZY']], ['Helped set up'])
+        self.assertEqual(a.data['results'][str(self.quiz.pk)]['P-C7JKZY']['score'], 18)
+        self.assertIn('Rebuilt from the records', a.data['edits'][0]['what'])
+        # Running it again changes nothing.
+        self.assertIn('Skipped', self.run_cmd())
+        self.assertEqual(PledgeClassArchive.objects.count(), 1)
