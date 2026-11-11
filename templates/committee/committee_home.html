@@ -22,8 +22,11 @@
     <!-- Header Banner -->
     <div class="bg-gradient-to-br from-primary-600 via-primary-700 to-primary-800 rounded-xl shadow-lg p-4 sm:p-5 mb-6 text-white relative overflow-hidden">
         <div class="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-yellow-400/60 to-transparent pointer-events-none"></div>
-        <div class="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <div class="flex items-center gap-3 sm:gap-4 flex-1 min-w-0">
+        {% comment %}11-10-26: the buttons used to sit in a row that never shrank, so with four of them the
+        committee's name was squeezed into a column a few letters wide. Now the header stacks until there's room
+        for both, the buttons wrap onto more lines instead, and the name keeps a sensible width.{% endcomment %}
+        <div class="relative flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+            <div class="flex items-center gap-3 sm:gap-4 flex-1 min-w-0 lg:min-w-[18rem]">
                 <img src="{% static 'images/am-coat-of-arms.png' %}" alt="Alpha Mu Coat of Arms"
                      class="w-12 h-12 sm:w-14 sm:h-14 rounded-full object-contain bg-white/10 p-1 shadow-md flex-shrink-0">
                 <div class="flex-1 min-w-0">
@@ -45,7 +48,7 @@
             </div>
 
             <!-- Action buttons -->
-            <div class="flex flex-col sm:flex-row gap-2 flex-shrink-0">
+            <div class="flex flex-wrap gap-2 lg:justify-end lg:max-w-[60%]">
                 {% if committee.is_recruitment_committee %}
                 <a href="{% url 'recruitment_dashboard' committee.code %}"
                    class="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-white/20 hover:bg-white/30 text-white transition">
