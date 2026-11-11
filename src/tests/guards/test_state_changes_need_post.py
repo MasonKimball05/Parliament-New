@@ -60,6 +60,7 @@ VERBS = {
 
 #: Routes that may act on a GET, keyed by URL name, each with the reason.
 GET_IS_FINE = {
+    'education_class_archive': 'a read-only page (a previous pledge class); "archive" is in its name, not its action',
     'two_factor_dismiss': 'hides the 2FA setup prompt for this session for an hour',
     'admin_v2_push_subscriptions': 'a list page; "push" is in its name, not its action',
     'admin:logout': "Django admin's own",

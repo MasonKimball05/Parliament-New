@@ -1472,7 +1472,10 @@ class EducationDashboardQueryBudgetTests(QueryBudgetMixin, TestCase):
     #: the due-reveal check (`reveal_due_bigs`), the pledges' pairings, and the
     #: big picker's candidate list. None is per pledge, and the scaling test
     #: below still passes.
-    BUDGET = 43  # v3.48.1: +1, the v3.47.0 last_seen_at UPDATE (cold path, once per session per 5 min)
+    #: 11-10-26: 43 → 45, two constant queries for previous pledge classes:
+    #: the cutoff (meetings before the latest archived class's initiation are
+    #: that class's) and the "Previous Pledge Classes" card's list.
+    BUDGET = 45
 
     def setUp(self):
         from django.utils import timezone as tz

@@ -558,6 +558,16 @@ def initiate_pledge_batch(actor, data, request=None):
         # class is a single chapter decision and it either happened or it did
         # not.
         with transaction.atomic():
+            # 11-10-26: freeze the class's education dashboard first, while
+            # they're still pledges (src/pledge_class_archive.py). In its own
+            # savepoint: a snapshot that fails is logged, and the initiation
+            # (the chapter's decision) still happens.
+            try:
+                with transaction.atomic():
+                    from src.pledge_class_archive import archive_initiated
+                    archive_initiated(pledges, actor if getattr(actor, 'pk', None) else None, role_numbers)
+            except Exception:
+                logger.exception('Pledge class archive failed; initiating anyway')
             for pledge in pledges:
                 pledge.member_type = 'Member'
                 pledge.role_number = role_numbers.get(pledge.user_id)

@@ -1,0 +1,254 @@
+{% extends "base.html" %}
+{% comment %}
+A previous pledge class (11-10-26): the education dashboard frozen when the
+class was initiated. View: src/view/committee/education_archive.py; data:
+src/pledge_class_archive.py. The education admin can correct it (each change
+is recorded in its edit history); everyone else with education access reads it.
+{% endcomment %}
+
+{% block title %}{{ archive.name }} — {{ committee.name }}{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gray-50 dark:bg-gray-900{% if ui_refresh %} rf-ct rf-ct-edu{% endif %}">
+
+  <div class="bg-gradient-to-r from-primary-600 via-primary-700 to-primary-800 text-white py-8 shadow-lg{% if ui_refresh %} rf-ct-band{% endif %}">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div class="min-w-0">
+          <p class="text-primary-200 text-sm mb-1">{{ committee.name }} · Previous pledge class</p>
+          <h1 class="text-3xl font-bold break-words">{{ archive.name }}</h1>
+          <p class="text-primary-100 text-sm mt-1">Initiated {{ archive.initiated_at|date:"F j, Y" }} · {{ pledges|length }} member{{ pledges|length|pluralize }} · {{ tasks|length }} task{{ tasks|length|pluralize }}</p>
+        </div>
+        <a href="{% url 'education_home' code=committee.code %}" class="text-primary-200 hover:text-white text-sm shrink-0">← Education Dashboard</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+
+    <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-5 py-4 text-sm text-gray-700 dark:text-gray-300">
+      <p><span class="font-semibold text-gray-900 dark:text-white">A saved snapshot.</span> This is the education dashboard as it stood when this class was initiated. Changes to tasks or meetings on the dashboard don't affect it.</p>
+      {% if can_edit %}<p class="mt-1 text-gray-500 dark:text-gray-400">As the education admin you can correct it below. Every change is recorded in the edit history at the bottom.</p>{% endif %}
+      {% if archive.notes %}<p class="mt-3 whitespace-pre-line">{{ archive.notes }}</p>{% endif %}
+    </div>
+
+    {% if can_edit %}
+    <details class="rounded-xl bg-white dark:bg-gray-800 shadow-sm">
+      <summary class="cursor-pointer px-6 py-4 text-sm font-semibold text-gray-900 dark:text-white">Rename or add notes</summary>
+      <form method="post" action="{% url 'education_class_archive_edit' code=committee.code archive_pk=archive.pk %}" class="px-6 pb-5 space-y-3">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="rename">
+        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Name
+          <input type="text" name="name" value="{{ archive.name }}" maxlength="120" required class="mt-1 block w-full rounded-md border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white px-3 py-2 text-sm">
+        </label>
+        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Notes
+          <textarea name="notes" rows="3" class="mt-1 block w-full rounded-md border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white px-3 py-2 text-sm" placeholder="Anything worth remembering about this class">{{ archive.notes }}</textarea>
+        </label>
+        <button type="submit" class="px-4 py-2 rounded-lg bg-primary-600 hover:bg-primary-700 text-white text-sm font-semibold">Save</button>
+      </form>
+    </details>
+    {% endif %}
+
+    <!-- Members -->
+    <div id="class-pledges" class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+      <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
+        <h2 class="text-lg font-bold text-gray-900 dark:text-white">Members</h2>
+        <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Points and required tasks as they stood at initiation, with point adjustments included.</p>
+      </div>
+      <div class="divide-y divide-gray-100 dark:divide-gray-700">
+        {% for p in pledges %}
+        <div class="px-6 py-3">
+          <div class="flex flex-wrap items-center gap-x-6 gap-y-1">
+            <div class="min-w-[10rem] flex-1">
+              <p class="text-sm font-semibold text-gray-900 dark:text-white">{{ p.name }}{% if p.role_number %} <span class="font-normal text-gray-500 dark:text-gray-400">#{{ p.role_number }}</span>{% endif %}</p>
+              {% if p.big %}<p class="text-xs text-gray-500 dark:text-gray-400">Big: {{ p.big }}</p>{% endif %}
+            </div>
+            <div class="text-sm text-gray-700 dark:text-gray-300"><span class="font-semibold text-gray-900 dark:text-white">{{ p.points }}</span> / {{ p.max_points }} pts{% if p.points_percent is not None %} <span class="text-gray-500 dark:text-gray-400">({{ p.points_percent }}%)</span>{% endif %}</div>
+            <div class="text-sm text-gray-700 dark:text-gray-300">{{ p.completed }} / {{ p.total }} required tasks</div>
+            <div class="text-xs text-gray-500 dark:text-gray-400">Meetings: {{ p.attendance.present }} present · {{ p.attendance.late }} late · {{ p.attendance.excused }} excused · {{ p.attendance.absent }} absent</div>
+          </div>
+          {% if p.note %}<p class="mt-1 text-sm text-gray-600 dark:text-gray-400 whitespace-pre-line">{{ p.note }}</p>{% endif %}
+          {% if can_edit %}
+          <details class="mt-2">
+            <summary class="cursor-pointer text-xs font-medium text-primary-600 dark:text-primary-400">Correct points or add a note</summary>
+            <form method="post" action="{% url 'education_class_archive_edit' code=committee.code archive_pk=archive.pk %}" class="mt-2 flex flex-wrap items-end gap-3">
+              {% csrf_token %}
+              <input type="hidden" name="action" value="pledge">
+              <input type="hidden" name="user_id" value="{{ p.user_id }}">
+              <label class="text-xs font-medium text-gray-600 dark:text-gray-300">Points
+                <input type="number" name="points" value="{{ p.points }}" class="mt-1 block w-24 rounded-md border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white px-2 py-1.5 text-sm">
+              </label>
+              <label class="text-xs font-medium text-gray-600 dark:text-gray-300">Out of
+                <input type="number" name="max_points" min="0" value="{{ p.max_points }}" class="mt-1 block w-24 rounded-md border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white px-2 py-1.5 text-sm">
+              </label>
+              <label class="text-xs font-medium text-gray-600 dark:text-gray-300 flex-1 min-w-[12rem]">Note
+                <input type="text" name="note" maxlength="500" value="{{ p.note }}" class="mt-1 block w-full rounded-md border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white px-2 py-1.5 text-sm">
+              </label>
+              <button type="submit" class="px-3 py-1.5 rounded-lg bg-primary-600 hover:bg-primary-700 text-white text-sm font-semibold">Save</button>
+            </form>
+          </details>
+          {% endif %}
+        </div>
+        {% empty %}
+        <p class="px-6 py-6 text-sm text-gray-500 dark:text-gray-400">No members in this class.</p>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Task results -->
+    <div id="class-results" class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+      <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
+        <h2 class="text-lg font-bold text-gray-900 dark:text-white">Task Results</h2>
+        <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">"—" means the task wasn't assigned to that member.</p>
+      </div>
+      {% if task_rows and pledges %}
+      <div class="overflow-x-auto">
+        <table class="min-w-full text-sm">
+          <thead class="bg-gray-50 dark:bg-gray-700/50">
+            <tr>
+              <th scope="col" class="px-4 py-2 text-left font-semibold text-gray-700 dark:text-gray-300 min-w-[14rem]">Task</th>
+              {% for p in pledges %}<th scope="col" class="px-3 py-2 text-left font-semibold text-gray-700 dark:text-gray-300 whitespace-nowrap">{{ p.name }}</th>{% endfor %}
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+            {% for row in task_rows %}
+            <tr>
+              <th scope="row" class="px-4 py-2 text-left font-normal align-top">
+                <span class="block font-medium text-gray-900 dark:text-white">{{ row.task.title }}</span>
+                <span class="block text-xs text-gray-500 dark:text-gray-400">{{ row.task.type_label }}{% if row.task.points %} · {{ row.task.points }} pts{% endif %}{% if row.task.is_required %} · required{% endif %}</span>
+              </th>
+              {% for p, cell in row.cells %}
+              <td class="px-3 py-2 align-top whitespace-nowrap">
+                {% if cell.na %}<span class="text-gray-400 dark:text-gray-500">—</span>
+                {% else %}
+                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
+                  {% if cell.status == 'completed' %}bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300
+                  {% elif cell.status == 'incomplete' %}bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300
+                  {% elif cell.status == 'waived' %}bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300
+                  {% else %}bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300{% endif %}">{{ cell.status_label }}</span>
+                {% if cell.score is not None %}<span class="ml-1 text-xs text-gray-600 dark:text-gray-400">{{ cell.score }}{% if row.task.max_score %}/{{ row.task.max_score }}{% endif %}</span>{% endif %}
+                {% endif %}
+              </td>
+              {% endfor %}
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% if can_edit %}
+      <form method="post" action="{% url 'education_class_archive_edit' code=committee.code archive_pk=archive.pk %}" class="px-6 py-4 border-t border-gray-100 dark:border-gray-700 flex flex-wrap items-end gap-3">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="result">
+        <p class="w-full text-sm font-semibold text-gray-900 dark:text-white">Correct a result</p>
+        <label class="text-xs font-medium text-gray-600 dark:text-gray-300">Member
+          <select name="user_id" required class="mt-1 block rounded-md border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white px-2 py-1.5 text-sm">
+            {% for p in pledges %}<option value="{{ p.user_id }}">{{ p.name }}</option>{% endfor %}
+          </select>
+        </label>
+        <label class="text-xs font-medium text-gray-600 dark:text-gray-300">Task
+          <select name="task_id" required class="mt-1 block max-w-[18rem] rounded-md border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white px-2 py-1.5 text-sm">
+            {% for t in tasks %}<option value="{{ t.id }}">{{ t.title }}</option>{% endfor %}
+          </select>
+        </label>
+        <label class="text-xs font-medium text-gray-600 dark:text-gray-300">Status
+          <select name="status" class="mt-1 block rounded-md border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white px-2 py-1.5 text-sm">
+            {% for value, label in RESULT_STATUSES %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
+          </select>
+        </label>
+        <label class="text-xs font-medium text-gray-600 dark:text-gray-300">Score (optional)
+          <input type="number" name="score" min="0" class="mt-1 block w-24 rounded-md border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white px-2 py-1.5 text-sm">
+        </label>
+        <button type="submit" class="px-3 py-1.5 rounded-lg bg-primary-600 hover:bg-primary-700 text-white text-sm font-semibold">Save</button>
+      </form>
+      {% endif %}
+      {% else %}
+      <p class="px-6 py-6 text-sm text-gray-500 dark:text-gray-400">No tasks were recorded.</p>
+      {% endif %}
+    </div>
+
+    <!-- Meetings -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+      <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
+        <h2 class="text-lg font-bold text-gray-900 dark:text-white">Meeting Attendance</h2>
+      </div>
+      {% if meeting_rows and pledges %}
+      <div class="overflow-x-auto">
+        <table class="min-w-full text-sm">
+          <thead class="bg-gray-50 dark:bg-gray-700/50">
+            <tr>
+              <th scope="col" class="px-4 py-2 text-left font-semibold text-gray-700 dark:text-gray-300 min-w-[14rem]">Meeting</th>
+              {% for p in pledges %}<th scope="col" class="px-3 py-2 text-left font-semibold text-gray-700 dark:text-gray-300 whitespace-nowrap">{{ p.name }}</th>{% endfor %}
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+            {% for row in meeting_rows %}
+            <tr>
+              <th scope="row" class="px-4 py-2 text-left font-normal align-top">
+                <span class="block font-medium text-gray-900 dark:text-white">{{ row.meeting.title }}</span>
+                <span class="block text-xs text-gray-500 dark:text-gray-400">{% if row.date %}{{ row.date|date:"M j, Y" }} · {% endif %}{{ row.meeting.type_label }}{% if row.meeting.points %} · {{ row.meeting.points }} pts{% endif %}</span>
+              </th>
+              {% for p, status, label in row.cells %}
+              <td class="px-3 py-2 align-top whitespace-nowrap text-xs {% if status == 'absent' %}text-red-700 dark:text-red-300{% elif status == 'present' or status == 'late' %}text-green-700 dark:text-green-300{% else %}text-gray-600 dark:text-gray-400{% endif %}">{{ label }}</td>
+              {% endfor %}
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <p class="px-6 py-6 text-sm text-gray-500 dark:text-gray-400">No meetings were recorded for this class.</p>
+      {% endif %}
+    </div>
+
+    {% if adjustment_rows %}
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+      <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
+        <h2 class="text-lg font-bold text-gray-900 dark:text-white">Point Adjustments</h2>
+        <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Manual changes made on the dashboard while they were pledges. Already included in the points above.</p>
+      </div>
+      <ul class="divide-y divide-gray-100 dark:divide-gray-700">
+        {% for p, rows in adjustment_rows %}{% for a in rows %}
+        <li class="px-6 py-2.5 text-sm text-gray-700 dark:text-gray-300">
+          <span class="font-medium text-gray-900 dark:text-white">{{ p.name }}</span>:
+          {% if a.current_delta %}{{ a.current_delta|stringformat:"+d" }} points{% endif %}{% if a.current_delta and a.max_delta %}, {% endif %}{% if a.max_delta %}{{ a.max_delta|stringformat:"+d" }} possible{% endif %}
+          {% if a.reason %}· {{ a.reason }}{% endif %}
+          <span class="text-xs text-gray-500 dark:text-gray-400">· {{ a.created_by }}, {{ a.created_at }}</span>
+        </li>
+        {% endfor %}{% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+      <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
+        <h2 class="text-lg font-bold text-gray-900 dark:text-white">Edit History</h2>
+      </div>
+      {% if edits %}
+      <ul class="divide-y divide-gray-100 dark:divide-gray-700">
+        {% for e in edits %}
+        <li class="px-6 py-2.5 text-sm text-gray-700 dark:text-gray-300 flex flex-wrap justify-between gap-x-4 gap-y-1">
+          <span>{{ e.what }} <span class="text-gray-500 dark:text-gray-400">· {{ e.by }}</span></span>
+          {% if e.when %}<time class="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap" datetime="{{ e.at }}">{{ e.when|date:"M j, Y g:i A" }}</time>{% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="px-6 py-6 text-sm text-gray-500 dark:text-gray-400">No changes since it was saved.</p>
+      {% endif %}
+    </div>
+
+    {% if archives|length > 1 %}
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+      <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
+        <h2 class="text-base font-bold text-gray-900 dark:text-white">Other Classes</h2>
+      </div>
+      <ul class="divide-y divide-gray-100 dark:divide-gray-700">
+        {% for a in archives %}{% if a.pk != archive.pk %}
+        <li><a href="{% url 'education_class_archive' code=committee.code archive_pk=a.pk %}" class="block px-6 py-3 text-sm text-primary-700 dark:text-primary-300 hover:bg-gray-50 dark:hover:bg-gray-700/40">{{ a.name }} <span class="text-gray-500 dark:text-gray-400">· {{ a.initiated_at|date:"M j, Y" }}</span></a></li>
+        {% endif %}{% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

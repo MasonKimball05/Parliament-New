@@ -1,0 +1,32 @@
+{% comment %}
+Education dashboard: previous pledge classes (11-10-26), each frozen at
+initiation (src/pledge_class_archive.py). View: education_class_archive.
+{% endcomment %}
+<div id="previous-classes" class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+  <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
+    <h2 class="text-base font-bold text-gray-900 dark:text-white">Previous Pledge Classes</h2>
+    <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+      Each class's tasks, results, points and attendance, saved when they were initiated.
+    </p>
+  </div>
+  {% if class_archives %}
+  <ul class="divide-y divide-gray-100 dark:divide-gray-700">
+    {% for a in class_archives %}
+    <li>
+      <a href="{% url 'education_class_archive' code=committee.code archive_pk=a.pk %}"
+         class="flex items-center justify-between gap-3 px-6 py-3 hover:bg-gray-50 dark:hover:bg-gray-700/40 transition">
+        <span class="min-w-0">
+          <span class="block text-sm font-semibold text-gray-900 dark:text-white">{{ a.name }}</span>
+          <span class="block text-xs text-gray-500 dark:text-gray-400">Initiated {{ a.initiated_at|date:"M j, Y" }} · {{ a.pledge_count }} member{{ a.pledge_count|pluralize }}</span>
+        </span>
+        <span class="text-sm text-primary-600 dark:text-primary-400 shrink-0" aria-hidden="true">View →</span>
+      </a>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="px-6 py-6 text-sm text-gray-500 dark:text-gray-400">
+    None yet. When pledges are initiated, their class is saved here automatically.
+  </p>
+  {% endif %}
+</div>

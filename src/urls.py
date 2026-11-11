@@ -87,6 +87,7 @@ from src.view.committee.recruitment import (
     candidate_update_status,
     add_candidate_note, delete_candidate_note,
 )
+from src.view.committee.education_archive import education_class_archive, education_class_archive_edit
 from src.view.committee.education import (
     education_home, education_add_task, education_edit_task, education_toggle_completion,
     education_delete_task, education_toggle_task_published,
@@ -995,6 +996,10 @@ urlpatterns = [
     # Education dashboard (pledge tracker + page access controls)
     path('committee/<str:code>/education/', education_home, name='education_home'),
     path('committee/<str:code>/education/study-hours/', education_study_hours, name='education_study_hours'),
+    path('committee/<str:code>/education/classes/<int:archive_pk>/', education_class_archive,
+         name='education_class_archive'),
+    path('committee/<str:code>/education/classes/<int:archive_pk>/edit/', education_class_archive_edit,
+         name='education_class_archive_edit'),
     path('committee/<str:code>/education/tasks/add/', education_add_task, name='education_add_task'),
     path('committee/<str:code>/education/tasks/<int:task_pk>/edit/', education_edit_task, name='education_edit_task'),
     path('committee/<str:code>/education/tasks/<int:task_pk>/toggle/<str:pledge_pk>/', education_toggle_completion, name='education_toggle_completion'),

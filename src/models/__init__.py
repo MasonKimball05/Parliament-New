@@ -260,6 +260,7 @@ from src.models.education import (
     EducationMemberPermission,
     PledgePointAdjustment,
     PledgeBigAssignment,
+    PledgeClassArchive,
 )
 
 # Feature Flags (defined in separate module)

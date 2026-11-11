@@ -28,6 +28,7 @@ from django.utils.http import url_has_allowed_host_and_scheme
 from django.db.models import Count, Q
 
 from src.feature_flag_decorators import require_page_enabled
+from src.models import PledgeClassArchive
 from src.models import (  # noqa: F401 PledgeQuizAnswer used in the quiz submissions view
     Committee, ParliamentUser, PledgeTask, PledgeTaskCompletion,
     PledgePageRestriction, PledgeTaskQuestion, PledgeQuizAnswer,
@@ -335,12 +336,19 @@ def _require_education_permission_or_404(access, key):
     return None
 
 
-def education_overview(committee):
+def education_overview(committee, pledges=None, since='latest'):
     """
     The education dashboard's numbers, shared by `education_home` and the app's
     dashboard (src/mobile/views_education.py) so the two cannot disagree: the
     task list, the active pledges, the task × pledge grid, each pledge's
     progress and points so far (with manual adjustments), and the meetings.
+
+    11-10-26: ``pledges`` (default: the active pledges) lets the pledge-class
+    archive (src/pledge_class_archive.py) take the same numbers for exactly
+    the class being initiated. Meetings held before the latest archived
+    class's initiation are that class's, so they no longer count toward the
+    next class's points or show as its recent meetings. ``since`` overrides
+    that cutoff (None: every meeting).
     """
     tasks = (PledgeTask.objects.filter(is_active=True)
              # v3.17.3: created_by joined but never rendered by education.html
@@ -351,7 +359,11 @@ def education_overview(committee):
              .select_related('song')
              .prefetch_related(member_prefetch('assigned_to'))
              .order_by('display_order', 'due_date', 'title'))
-    pledges = ParliamentUser.objects.filter(member_type='Pledge', is_active=True).order_by('name')
+    if pledges is None:
+        pledges = ParliamentUser.objects.filter(member_type='Pledge', is_active=True).order_by('name')
+    if since == 'latest':
+        from src.pledge_class_archive import meetings_since
+        since = meetings_since(committee)
 
     # Build completion map: {(task_pk, pledge_pk): PledgeTaskCompletion}
     completions = PledgeTaskCompletion.objects.filter(
@@ -411,7 +423,7 @@ def education_overview(committee):
     now = timezone.now()
     meetings_qs = (
         EducationMeeting.objects
-        .filter(committee=committee)
+        .filter(committee=committee, **({'event__date_time__gte': since} if since else {}))
         .select_related('event')
         .prefetch_related('homework')
         # One grouped count instead of a query per meeting for the roll-up.
@@ -674,6 +686,8 @@ def education_home(request, code):
         # the bare `|safe` filter.
         'adjustments_history_json': _script_safe_json(adjustments_history),
         'POINT_ADJUSTMENT_LIMIT': POINT_ADJUSTMENT_LIMIT,
+        # 11-10-26: previous pledge classes, frozen at initiation.
+        'class_archives': PledgeClassArchive.objects.filter(committee=committee).order_by('-initiated_at'),
     }
     return render(request, 'committee/education_dashboard.html', context)
 

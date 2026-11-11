@@ -968,3 +968,50 @@ class PledgeBigAssignment(models.Model):
                 return 'no time set'
             return f'reveals {timezone.localtime(self.reveals_at).strftime("%-m/%-d at %-I:%M %p")}'
         return 'draft'
+
+
+class PledgeClassArchive(models.Model):
+    """
+    A pledge class, frozen at initiation (11-10-26, Mason): "When pledges are
+    initiated also have it archive the current education dashboard... it's
+    closed and is mainly to just act as a snapshot for later", with the
+    education admin able to make manual changes after.
+
+    ``data`` is a snapshot, not live relations: the next class reuses and
+    edits the same tasks and meetings, and the points rules change over
+    time, so reading the old class through today's tables would rewrite its
+    history. Built by ``src/pledge_class_archive.py``; its shape is
+    documented there. Corrections go through that module too, and each is
+    appended to ``data['edits']`` (who, when, what changed).
+    """
+    committee = models.ForeignKey(
+        'Committee',
+        on_delete=models.CASCADE,
+        related_name='pledge_class_archives',
+    )
+    name = models.CharField(max_length=120, help_text='e.g. "Fall 2026 pledge class".')
+    initiated_at = models.DateTimeField(
+        help_text='When the class was initiated. Meetings before this belong to it, not the next class.',
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='+',
+    )
+    notes = models.TextField(blank=True)
+    data = models.JSONField(default=dict)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-initiated_at']
+        verbose_name = 'Pledge Class Archive'
+        verbose_name_plural = 'Pledge Class Archives'
+
+    def __str__(self):
+        return self.name
+
+    @property
+    def pledge_count(self):
+        return len((self.data or {}).get('pledges', []))

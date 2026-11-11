@@ -208,6 +208,15 @@
     color: var(--rf-text-muted);
     border-bottom: 1px solid var(--rf-separator);
 }
+/* A row's own header cell (the task or meeting name down the left of a grid,
+   e.g. a previous pledge class) reads as content, not a column label. */
+.ui-refresh .rf-ct table tbody th[scope="row"] {
+    font-size: inherit;
+    letter-spacing: normal;
+    text-transform: none;
+    color: var(--rf-text);
+    border-bottom: 0;
+}
 .ui-refresh .rf-ct table tbody { background-color: transparent; }
 .ui-refresh .rf-ct table td { color: var(--rf-text); }
 .ui-refresh .rf-ct table td :is(.text-gray-500, .text-gray-400) { color: var(--rf-text-muted); }
