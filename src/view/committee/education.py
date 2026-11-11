@@ -712,6 +712,10 @@ def education_home(request, code):
         # 11-10-26: previous pledge classes, frozen at initiation.
         'class_archives': PledgeClassArchive.objects.filter(committee=committee).order_by('-initiated_at'),
     }
+    # 11-11-26: "Clear all tasks", and undoing the latest clear (education admin).
+    if access['is_full_access']:
+        from src.pledge_class_archive import last_clear
+        context['last_clear'], context['cleared_tasks'] = last_clear()
     return render(request, 'committee/education_dashboard.html', context)
 
 

@@ -1477,7 +1477,9 @@ class EducationDashboardQueryBudgetTests(QueryBudgetMixin, TestCase):
     #: that class's) and the "Previous Pledge Classes" card's list.
     #: 11-11-26: 45 → 46, the held-back points reset setting (a SiteSetting,
     #: cached after the first read; this test starts with a cold cache).
-    BUDGET = 46
+    #: 11-11-26: 46 → 47, the education admin's "latest Clear all tasks" check
+    #: (one activity-log lookup; a second only when there's a clear to undo).
+    BUDGET = 47
 
     def setUp(self):
         from django.utils import timezone as tz

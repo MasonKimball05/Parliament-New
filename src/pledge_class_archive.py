@@ -657,3 +657,53 @@ def save_held_back(now=None):
             archive.data = data
             archive.save(update_fields=['data', 'updated_at'])
     return recorded
+
+
+# ── Clearing the dashboard's tasks for a new semester (11-11-26) ──────────────
+
+CLEAR_ACTION = 'education_clear_tasks'
+
+
+def clear_tasks(user, request=None):
+    """
+    Hide every current pledge task (Mason, 11-11-26: a "clear all tasks"
+    button). Tasks are deactivated like a single delete, not erased: pledges'
+    results, quiz answers and earlier attempts stay, class pages keep their
+    copies, and ``restore_cleared_tasks`` brings the batch back. Returns how
+    many were cleared.
+    """
+    from src.models import ActivityLog, PledgeTask
+    ids = list(PledgeTask.objects.filter(is_active=True).values_list('pk', flat=True))
+    if not ids:
+        return 0
+    PledgeTask.objects.filter(pk__in=ids).update(is_active=False, updated_at=timezone.now())
+    ActivityLog.log_activity(
+        action_type='other', user=user, request=request,
+        description=f'{user.name} cleared {len(ids)} pledge task{"" if len(ids) == 1 else "s"} from the education dashboard',
+        metadata={'action': CLEAR_ACTION, 'task_ids': ids})
+    return len(ids)
+
+
+def last_clear():
+    """The latest clear that can still be undone: (log row, tasks still hidden), or (None, [])."""
+    from src.models import ActivityLog, PledgeTask
+    log = (ActivityLog.objects.filter(metadata__action=CLEAR_ACTION).select_related('user')
+           .order_by('-timestamp').first())
+    if log is None:
+        return None, []
+    hidden = list(PledgeTask.objects.filter(pk__in=log.metadata.get('task_ids') or [], is_active=False))
+    return (log, hidden) if hidden else (None, [])
+
+
+def restore_cleared_tasks(user, request=None):
+    """Bring back the tasks hidden by the latest clear. Returns how many."""
+    from src.models import ActivityLog, PledgeTask
+    log, hidden = last_clear()
+    if not hidden:
+        return 0
+    PledgeTask.objects.filter(pk__in=[t.pk for t in hidden]).update(is_active=True, updated_at=timezone.now())
+    ActivityLog.log_activity(
+        action_type='other', user=user, request=request,
+        description=f'{user.name} restored {len(hidden)} cleared pledge task{"" if len(hidden) == 1 else "s"}',
+        metadata={'action': 'education_restore_tasks', 'task_ids': [t.pk for t in hidden], 'cleared_log': log.pk})
+    return len(hidden)

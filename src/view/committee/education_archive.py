@@ -172,3 +172,38 @@ def education_held_back_setting(request, code):
     messages.success(request, 'Held-back pledges\' points will reset at the start of each semester.' if on
                      else 'Held-back pledges keep their points into the next semester.')
     return redirect(f"{reverse('education_home', args=[committee.code])}#previous-classes")
+
+
+@login_required
+@require_page_enabled('committee_home')
+@require_POST
+def education_clear_tasks(request, code):
+    """'Clear all tasks' (11-11-26): the education admin hides every current task; undoable."""
+    from src.pledge_class_archive import clear_tasks
+    committee, access = _education_committee_or_404(code, request.user)
+    if not access['is_full_access']:
+        raise Http404
+    n = clear_tasks(request.user, request)
+    if n:
+        messages.success(request, f'Cleared {n} task{"" if n == 1 else "s"}. Pledges\' results are kept, and you '
+                                  'can restore them from the dashboard.')
+    else:
+        messages.info(request, 'There were no tasks to clear.')
+    return redirect('education_home', code=committee.code)
+
+
+@login_required
+@require_page_enabled('committee_home')
+@require_POST
+def education_restore_cleared_tasks(request, code):
+    """Undo the latest 'Clear all tasks'."""
+    from src.pledge_class_archive import restore_cleared_tasks
+    committee, access = _education_committee_or_404(code, request.user)
+    if not access['is_full_access']:
+        raise Http404
+    n = restore_cleared_tasks(request.user, request)
+    if n:
+        messages.success(request, f'Restored {n} task{"" if n == 1 else "s"}.')
+    else:
+        messages.info(request, 'Nothing to restore.')
+    return redirect('education_home', code=committee.code)

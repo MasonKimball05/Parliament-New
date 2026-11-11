@@ -88,7 +88,8 @@ from src.view.committee.recruitment import (
     add_candidate_note, delete_candidate_note,
 )
 from src.view.committee.education_archive import (
-    education_class_archive, education_class_archive_edit, education_held_back_setting, education_rerequire_task,
+    education_class_archive, education_class_archive_edit, education_clear_tasks, education_held_back_setting,
+    education_rerequire_task, education_restore_cleared_tasks,
 )
 from src.view.committee.education import (
     education_home, education_add_task, education_edit_task, education_toggle_completion,
@@ -1004,6 +1005,9 @@ urlpatterns = [
          name='education_class_archive_edit'),
     path('committee/<str:code>/education/classes/held-back-setting/', education_held_back_setting,
          name='education_held_back_setting'),
+    path('committee/<str:code>/education/tasks/clear/', education_clear_tasks, name='education_clear_tasks'),
+    path('committee/<str:code>/education/tasks/restore-cleared/', education_restore_cleared_tasks,
+         name='education_restore_cleared_tasks'),
     path('committee/<str:code>/education/pledge/<str:pledge_pk>/rerequire/', education_rerequire_task,
          name='education_rerequire_task'),
     path('committee/<str:code>/education/tasks/add/', education_add_task, name='education_add_task'),

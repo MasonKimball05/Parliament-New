@@ -189,3 +189,34 @@ class NewSemesterTests(_Base):
         self.assertTrue(reset_enabled())
         self.client.post(url, {})
         self.assertFalse(reset_enabled())
+
+
+class ClearAllTasksTests(_Base):
+    """11-11-26: "Clear all tasks" hides every current task; results stay; undoable."""
+
+    def test_clear_then_restore(self):
+        from src.view.officer.manage_members import initiate_pledge_batch
+        initiate_pledge_batch(self.chair, {'pledges': [{'user_id': 'P-C7JKZY', 'role_number': '601'}]})
+        PledgeTask.objects.create(title='Second task', points=5)
+        self.client.post(reverse('education_clear_tasks', args=[self.committee.code]))
+        self.assertFalse(PledgeTask.objects.filter(is_active=True).exists())
+        self.assertTrue(PledgeTaskCompletion.objects.filter(task=self.task).exists())    # results kept
+        dash = self.client.get(reverse('education_home', args=[self.committee.code]))
+        self.assertContains(dash, '2 tasks cleared')
+        self.assertNotContains(dash, 'Task Completion Grid')
+        # The saved class page still has the task.
+        a = PledgeClassArchive.objects.get()
+        self.assertContains(self.client.get(reverse('education_class_archive', args=[self.committee.code, a.pk])),
+                            'Learn the creed')
+        self.client.post(reverse('education_restore_cleared_tasks', args=[self.committee.code]))
+        self.assertEqual(PledgeTask.objects.filter(is_active=True).count(), 2)
+        self.assertNotContains(self.client.get(reverse('education_home', args=[self.committee.code])), 'tasks cleared')
+
+    def test_only_the_education_admin(self):
+        from src.models import EducationMemberPermission
+        manager = make_user('9400', 'Task Manager')
+        EducationMemberPermission.objects.create(committee=self.committee, user=manager, can_manage_tasks=True)
+        self.client.force_login(manager)
+        self.assertEqual(self.client.post(reverse('education_clear_tasks', args=[self.committee.code])).status_code, 404)
+        self.assertTrue(PledgeTask.objects.filter(is_active=True).exists())
+        self.assertNotContains(self.client.get(reverse('education_home', args=[self.committee.code])), 'Clear all tasks')
