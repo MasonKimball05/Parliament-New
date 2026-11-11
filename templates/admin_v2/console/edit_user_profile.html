@@ -42,6 +42,10 @@ options; no inline script).
                             <option value="{{ val }}" {% if target.member_type == val %}selected{% endif %}>{{ label }}</option>
                             {% endfor %}
                         </select></label>
+                    {% if target.member_type == 'Pledge' %}
+                    <label class="ac-id-label"><span><input type="checkbox" name="confirm_skip_initiation"> Initiate anyway</span>
+                        <span class="ac-muted">Changing a pledge's type here skips Initiate Pledges (his roll number and pledge class record). Use Initiate Pledges when you can.</span></label>
+                    {% endif %}
                     <label class="ac-id-label">Member status
                         <select name="member_status" class="ac-select">
                             {% for val, label in target.MEMBER_STATUS %}

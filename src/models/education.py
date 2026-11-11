@@ -1020,3 +1020,39 @@ class PledgeClassArchive(models.Model):
     @property
     def pledge_count(self):
         return len((self.data or {}).get('pledges', []))
+
+
+class PledgeTaskAttempt(models.Model):
+    """
+    An earlier attempt at a task, kept when the committee re-requires it
+    (11-11-26, Mason: for a pledge held back a semester, "keep a record of
+    what they have done and the option to re-require it while keeping both
+    the previous and current task data"). Re-requiring copies the completion
+    (and a quiz's answers) here, then clears them so the task is open again.
+    Written by ``src/pledge_class_archive.rerequire_task``.
+    """
+    task = models.ForeignKey(PledgeTask, on_delete=models.CASCADE, related_name='earlier_attempts')
+    pledge = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='earlier_task_attempts')
+    status = models.CharField(max_length=20)
+    score = models.PositiveSmallIntegerField(null=True, blank=True)
+    notes = models.TextField(blank=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    reviewed_by_name = models.CharField(max_length=200, blank=True)
+    #: A quiz's answers: [{question, answer, is_correct}].
+    answers = models.JSONField(default=list, blank=True)
+    #: The semester the attempt belongs to ("Spring 2026").
+    term = models.CharField(max_length=20, blank=True)
+    rerequired_at = models.DateTimeField(auto_now_add=True)
+    rerequired_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+                                      related_name='+')
+
+    class Meta:
+        ordering = ['-rerequired_at']
+        verbose_name = 'Earlier Task Attempt'
+        verbose_name_plural = 'Earlier Task Attempts'
+
+    def __str__(self):
+        return f'{self.pledge} — {self.task.title} ({self.status}, {self.term})'
+
+    def get_status_display(self):
+        return dict(PledgeTaskCompletion.STATUS_CHOICES).get(self.status, self.status)

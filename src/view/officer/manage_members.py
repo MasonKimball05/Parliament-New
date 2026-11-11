@@ -283,6 +283,12 @@ def apply_member_edit(actor, member, data, request=None):
         type_error = member_type_change_error(actor, data['member_type'], member)
         if type_error:
             raise MemberChangeRefused({'error': type_error}, status=403)
+        # 11-11-26: a pledge becomes a member through Initiate Pledges, unless
+        # "Initiate anyway" is ticked (then his class snapshot is saved first).
+        from src.pledge_class_archive import INITIATE_ANYWAY_FIELD, pledge_type_change_error
+        skip_error = pledge_type_change_error(member, data['member_type'], bool(data.get(INITIATE_ANYWAY_FIELD)), actor)
+        if skip_error:
+            raise MemberChangeRefused({'error': skip_error, 'code': 'use_initiate_pledges'}, status=409)
 
     # v3.50.1 — roles that make the holder an admin can only be given or taken
     # by an admin. Checked before anything is saved.

@@ -1924,6 +1924,14 @@ def edit_user_profile(request, user_id):
             return redirect('admin_v2_edit_user_profile', user_id=user_id)
 
         if action == 'core':
+            # 11-11-26: a pledge becomes a member through Initiate Pledges,
+            # unless "Initiate anyway" is ticked (his class snapshot is saved first).
+            from src.pledge_class_archive import INITIATE_ANYWAY_FIELD, pledge_type_change_error
+            skip_error = pledge_type_change_error(target, request.POST.get('member_type'),
+                                                  request.POST.get(INITIATE_ANYWAY_FIELD) == 'on', request.user)
+            if skip_error:
+                messages.error(request, skip_error)
+                return redirect('admin_v2_edit_user_profile', user_id=user_id)
             target.name = request.POST.get('name', target.name).strip()
             target.preferred_name = request.POST.get('preferred_name', '').strip()
             target.member_type = request.POST.get('member_type', target.member_type)

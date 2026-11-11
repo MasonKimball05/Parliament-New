@@ -57,11 +57,24 @@
 
     <!-- Tasks -->
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
-      <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
-        <h2 class="text-base font-bold text-gray-900 dark:text-white">Tasks</h2>
-        <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-          Only tasks that apply to {{ pledge.name }}. Marking happens on the dashboard grid.
-        </p>
+      <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 class="text-base font-bold text-gray-900 dark:text-white">Tasks</h2>
+          <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+            Only tasks that apply to {{ pledge.name }}. Marking happens on the dashboard grid.
+          </p>
+        </div>
+        {% if access.can_manage_tasks %}
+        {% comment %}11-11-26: a pledge held back a semester can be asked to redo his tasks; his earlier results stay under each one.{% endcomment %}
+        <form method="post" action="{% url 'education_rerequire_task' code=committee.code pledge_pk=pledge.pk %}" class="shrink-0">
+          {% csrf_token %}
+          <input type="hidden" name="all" value="1">
+          <button type="submit" data-confirm="Re-require every task {{ pledge.name }} has a result for? His earlier results are kept under each task, and the tasks open again for him."
+            class="px-3 py-1.5 text-sm font-semibold rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700">
+            Re-require all tasks
+          </button>
+        </form>
+        {% endif %}
       </div>
 
       {% if task_rows %}
@@ -116,6 +129,20 @@
               <span class="text-gray-500 dark:text-gray-400 italic">{{ row.completion.notes }}</span>
               {% endif %}
             </div>
+            {% if row.attempts %}
+            <ul class="mt-1.5 space-y-0.5 text-xs text-gray-500 dark:text-gray-400">
+              {% for a in row.attempts %}
+              <li>Earlier ({{ a.term|default:"previous attempt" }}): <span class="font-medium text-gray-700 dark:text-gray-300">{{ a.get_status_display }}</span>{% if a.score is not None %} · {{ a.score }}{% if row.task.max_score %}/{{ row.task.max_score }}{% endif %}{% endif %}{% if a.notes %} · <span class="italic">{{ a.notes }}</span>{% endif %}{% if a.answers %} · {{ a.answers|length }} answer{{ a.answers|length|pluralize }} kept{% endif %} · re-required {{ a.rerequired_at|date:"M j, Y" }}</li>
+              {% endfor %}
+            </ul>
+            {% endif %}
+            {% if access.can_manage_tasks and row.completion %}
+            <form method="post" action="{% url 'education_rerequire_task' code=committee.code pledge_pk=pledge.pk %}" class="mt-1.5">
+              {% csrf_token %}
+              <input type="hidden" name="task_pk" value="{{ row.task.pk }}">
+              <button type="submit" data-confirm="Re-require &quot;{{ row.task.title }}&quot; for {{ pledge.name }}? His current result is kept as an earlier attempt and the task opens again." class="text-xs font-medium text-primary-600 dark:text-primary-400 hover:underline">Re-require</button>
+            </form>
+            {% endif %}
           </div>
 
           <span class="text-xs font-semibold px-2.5 py-1 rounded-full shrink-0

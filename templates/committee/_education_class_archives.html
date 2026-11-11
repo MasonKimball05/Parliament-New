@@ -9,6 +9,17 @@ initiation (src/pledge_class_archive.py). View: education_class_archive.
       Each class's tasks, results, points and attendance, saved when they were initiated.
     </p>
   </div>
+  {% if access.is_full_access %}
+  <form method="post" action="{% url 'education_held_back_setting' code=committee.code %}" class="px-6 py-3 border-b border-gray-100 dark:border-gray-700 flex flex-wrap items-center gap-3 text-sm">
+    {% csrf_token %}
+    <label class="inline-flex items-center gap-2 text-gray-700 dark:text-gray-300">
+      <input type="checkbox" name="reset"{% if reset_held_back_points %} checked{% endif %}>
+      Reset a held-back pledge's points at the start of each semester
+    </label>
+    <button type="submit" class="px-3 py-1 rounded-lg bg-primary-600 hover:bg-primary-700 text-white text-xs font-semibold">Save</button>
+    <p class="w-full text-xs text-gray-500 dark:text-gray-400">Either way, the points he reached are kept on the previous semester's class page.</p>
+  </form>
+  {% endif %}
   {% if class_archives %}
   <ul class="divide-y divide-gray-100 dark:divide-gray-700">
     {% for a in class_archives %}
@@ -17,7 +28,7 @@ initiation (src/pledge_class_archive.py). View: education_class_archive.
          class="flex items-center justify-between gap-3 px-6 py-3 hover:bg-gray-50 dark:hover:bg-gray-700/40 transition">
         <span class="min-w-0">
           <span class="block text-sm font-semibold text-gray-900 dark:text-white">{{ a.name }}</span>
-          <span class="block text-xs text-gray-500 dark:text-gray-400">Initiated {{ a.initiated_at|date:"M j, Y" }} · {{ a.pledge_count }} member{{ a.pledge_count|pluralize }}</span>
+          <span class="block text-xs text-gray-500 dark:text-gray-400">{% if a.data.no_initiations %}No one initiated{% else %}Initiated {{ a.initiated_at|date:"M j, Y" }} · {{ a.pledge_count }} member{{ a.pledge_count|pluralize }}{% endif %}{% if a.data.held_back %} · {{ a.data.held_back|length }} held back{% endif %}</span>
         </span>
         <span class="text-sm text-primary-600 dark:text-primary-400 shrink-0" aria-hidden="true">View →</span>
       </a>

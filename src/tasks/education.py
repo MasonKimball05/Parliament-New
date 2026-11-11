@@ -29,3 +29,17 @@ def location_time_tick():
     if credited or closed:
         logger.info('Timed check-in: %s credited, %s visit(s) closed.', credited, closed)
     return credited, closed
+
+
+@shared_task(name='tasks.save_held_back_pledges')
+def save_held_back_pledges():
+    """
+    Daily (11-11-26): once a new semester has started, record each pledge held
+    back from the last one on that semester's class page, and reset his
+    points if the committee chose to (src/pledge_class_archive.save_held_back).
+    Does nothing for anyone already recorded.
+    """
+    from src.pledge_class_archive import save_held_back
+    recorded = save_held_back()
+    if recorded:
+        logger.info(f"[tasks] save_held_back_pledges: recorded={recorded}")

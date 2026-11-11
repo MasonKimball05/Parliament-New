@@ -17,7 +17,7 @@ is recorded in its edit history); everyone else with education access reads it.
         <div class="min-w-0">
           <p class="text-primary-200 text-sm mb-1">{{ committee.name }} · Previous pledge class</p>
           <h1 class="text-3xl font-bold break-words">{{ archive.name }}</h1>
-          <p class="text-primary-100 text-sm mt-1">Initiated {{ archive.initiated_at|date:"F j, Y" }} · {{ pledges|length }} member{{ pledges|length|pluralize }} · {{ tasks|length }} task{{ tasks|length|pluralize }}</p>
+          <p class="text-primary-100 text-sm mt-1">{% if archive.data.no_initiations %}No one was initiated this semester{% else %}Initiated {{ archive.initiated_at|date:"F j, Y" }} · {{ pledges|length }} member{{ pledges|length|pluralize }} · {{ tasks|length }} task{{ tasks|length|pluralize }}{% endif %}{% if held_back %} · {{ held_back|length }} held back{% endif %}</p>
         </div>
         <a href="{% url 'education_home' code=committee.code %}" class="text-primary-200 hover:text-white text-sm shrink-0">← Education Dashboard</a>
       </div>
@@ -49,6 +49,7 @@ is recorded in its edit history); everyone else with education access reads it.
     </details>
     {% endif %}
 
+    {% if pledges or not archive.data.no_initiations %}
     <!-- Members -->
     <div id="class-pledges" class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
       <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
@@ -86,6 +87,12 @@ is recorded in its edit history); everyone else with education access reads it.
                 <input type="text" name="note" maxlength="500" value="{{ p.note }}" class="mt-1 block w-full rounded-md border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white px-2 py-1.5 text-sm">
               </label>
               <button type="submit" class="px-3 py-1.5 rounded-lg bg-primary-600 hover:bg-primary-700 text-white text-sm font-semibold">Save</button>
+            </form>
+            <form method="post" action="{% url 'education_class_archive_edit' code=committee.code archive_pk=archive.pk %}" class="mt-3">
+              {% csrf_token %}
+              <input type="hidden" name="action" value="remove">
+              <input type="hidden" name="user_id" value="{{ p.user_id }}">
+              <button type="submit" data-confirm="Remove {{ p.name }} from this class? Their results are kept under Removed, and you can restore them." class="text-xs font-medium text-red-700 dark:text-red-300 hover:underline">Remove from this class</button>
             </form>
           </details>
           {% endif %}
@@ -200,6 +207,36 @@ is recorded in its edit history); everyone else with education access reads it.
       <p class="px-6 py-6 text-sm text-gray-500 dark:text-gray-400">No meetings were recorded for this class.</p>
       {% endif %}
     </div>
+    {% endif %}
+
+    {% if held_back %}
+    <div id="class-held-back" class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+      <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
+        <h2 class="text-lg font-bold text-gray-900 dark:text-white">Held Back</h2>
+        <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Pledging this semester but not initiated with this class. Their record as it stood when the next semester started.</p>
+      </div>
+      <div class="divide-y divide-gray-100 dark:divide-gray-700">
+        {% for h in held_back %}
+        <details class="px-6 py-3">
+          <summary class="cursor-pointer flex flex-wrap items-center gap-x-6 gap-y-1 text-sm">
+            <span class="font-semibold text-gray-900 dark:text-white min-w-[10rem]">{{ h.pledge.name }}</span>
+            <span class="text-gray-700 dark:text-gray-300"><span class="font-semibold">{{ h.pledge.points }}</span> / {{ h.pledge.max_points }} pts</span>
+            <span class="text-gray-700 dark:text-gray-300">{{ h.pledge.completed }} / {{ h.pledge.total }} required tasks</span>
+            {% if h.points_reset %}<span class="text-xs text-gray-500 dark:text-gray-400">Points reset for the next semester</span>{% endif %}
+          </summary>
+          <div class="mt-2 grid gap-4 sm:grid-cols-2 text-xs">
+            <ul class="space-y-0.5">
+              {% for r in h.results %}<li class="text-gray-700 dark:text-gray-300">{{ r.task }}: <span class="font-medium">{{ r.status_label }}</span>{% if r.score is not None %} · {{ r.score }}{% endif %}</li>{% empty %}<li class="text-gray-500 dark:text-gray-400">No task results.</li>{% endfor %}
+            </ul>
+            <ul class="space-y-0.5">
+              {% for m in h.meetings %}<li class="text-gray-700 dark:text-gray-300">{{ m.title }}: <span class="font-medium">{{ m.status|capfirst }}</span></li>{% empty %}<li class="text-gray-500 dark:text-gray-400">No meetings recorded.</li>{% endfor %}
+            </ul>
+          </div>
+        </details>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
 
     {% if adjustment_rows %}
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
@@ -216,6 +253,30 @@ is recorded in its edit history); everyone else with education access reads it.
           <span class="text-xs text-gray-500 dark:text-gray-400">· {{ a.created_by }}, {{ a.created_at }}</span>
         </li>
         {% endfor %}{% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+
+    {% if removed %}
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+      <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
+        <h2 class="text-lg font-bold text-gray-900 dark:text-white">Removed</h2>
+        <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Taken off this class page. Their results are kept here.</p>
+      </div>
+      <ul class="divide-y divide-gray-100 dark:divide-gray-700">
+        {% for r in removed %}
+        <li class="px-6 py-3 flex flex-wrap items-center justify-between gap-3 text-sm">
+          <span class="text-gray-700 dark:text-gray-300"><span class="font-medium text-gray-900 dark:text-white">{{ r.pledge.name }}</span> · {{ r.pledge.points }} / {{ r.pledge.max_points }} pts · removed by {{ r.removed_by }}</span>
+          {% if can_edit %}
+          <form method="post" action="{% url 'education_class_archive_edit' code=committee.code archive_pk=archive.pk %}">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="restore">
+            <input type="hidden" name="user_id" value="{{ r.pledge.user_id }}">
+            <button type="submit" class="text-xs font-medium text-primary-600 dark:text-primary-400 hover:underline">Restore</button>
+          </form>
+          {% endif %}
+        </li>
+        {% endfor %}
       </ul>
     </div>
     {% endif %}

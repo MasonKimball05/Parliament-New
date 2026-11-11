@@ -261,6 +261,7 @@ from src.models.education import (
     PledgePointAdjustment,
     PledgeBigAssignment,
     PledgeClassArchive,
+    PledgeTaskAttempt,
 )
 
 # Feature Flags (defined in separate module)

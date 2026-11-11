@@ -46,6 +46,13 @@ SCHEDULES = [
         'task': 'tasks.reveal_due_bigs',
         'interval': {'every': 1, 'period': IntervalSchedule.MINUTES},
     },
+    # 11-11-26: held-back pledges go on last semester's class page once a new
+    # semester starts (and their points reset, if the committee chose that).
+    {
+        'name': 'Record held-back pledges',
+        'task': 'tasks.save_held_back_pledges',
+        'crontab': {'hour': '4', 'minute': '5'},  # 4:05 AM Central daily
+    },
     {
         'name': 'Auto open/close committee votes',
         'task': 'tasks.auto_open_close_committee_votes',

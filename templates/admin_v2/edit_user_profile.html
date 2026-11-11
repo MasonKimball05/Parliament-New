@@ -51,6 +51,12 @@
                         {% endfor %}
                     </select>
                 </div>
+                {% if target.member_type == 'Pledge' %}
+                <div class="sm:col-span-2">
+                    <label class="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300"><input type="checkbox" name="confirm_skip_initiation"> Initiate anyway</label>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">Changing a pledge's type here skips Initiate Pledges (his roll number and pledge class record). Use Initiate Pledges when you can.</p>
+                </div>
+                {% endif %}
                 <div>
                     <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Member status</label>
                     <select name="member_status"

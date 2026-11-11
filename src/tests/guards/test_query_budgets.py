@@ -1475,7 +1475,9 @@ class EducationDashboardQueryBudgetTests(QueryBudgetMixin, TestCase):
     #: 11-10-26: 43 → 45, two constant queries for previous pledge classes:
     #: the cutoff (meetings before the latest archived class's initiation are
     #: that class's) and the "Previous Pledge Classes" card's list.
-    BUDGET = 45
+    #: 11-11-26: 45 → 46, the held-back points reset setting (a SiteSetting,
+    #: cached after the first read; this test starts with a cold cache).
+    BUDGET = 46
 
     def setUp(self):
         from django.utils import timezone as tz
@@ -1559,7 +1561,8 @@ class EducationPledgeDetailQueryBudgetTests(QueryBudgetMixin, TestCase):
 
     #: Measured 08-20-26 on sqlite, cold cache, on the fixture below
     #: (10 tasks, 5 completions, 6 meetings attended): 34.
-    BUDGET = 35  # v3.48.1: +1, the v3.47.0 last_seen_at UPDATE (cold path, once per session per 5 min)
+    #: 11-11-26: 35 → 36, the pledge's earlier attempts at re-required tasks (one query).
+    BUDGET = 36
 
     def setUp(self):
         from django.utils import timezone as tz

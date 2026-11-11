@@ -65,6 +65,7 @@ from src.tasks.db_health import (
 from src.tasks.education import (
     location_time_tick,
     reveal_due_bigs,
+    save_held_back_pledges,
 )
 from src.tasks.mobile_push import (
     check_expo_push_receipts,

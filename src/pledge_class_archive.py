@@ -419,3 +419,241 @@ def backfill_from_log(log, save=True):
         if archive is not None:
             out.append((committee, archive))
     return out
+
+
+def remove_member(archive, user, user_id):
+    """
+    Take a member off the class page (11-11-26: an initiation made by
+    mistake). Everything about him moves to ``data['removed']``, so
+    ``restore_member`` can put him back.
+    """
+    data = archive.data
+    p = _pledge(archive, user_id)
+    data['pledges'] = [x for x in data['pledges'] if x['user_id'] != user_id]
+    results = {tid: cells.pop(user_id) for tid, cells in data.get('results', {}).items() if user_id in cells}
+    attendance = {str(m['id']): m['attendance'].pop(user_id)
+                  for m in data.get('meetings', []) if user_id in m.get('attendance', {})}
+    adjustments = data.get('adjustments', {}).pop(user_id, [])
+    data.setdefault('removed', []).append({
+        'pledge': p, 'results': results, 'attendance': attendance, 'adjustments': adjustments,
+        'removed_at': _iso(timezone.now()), 'removed_by': user.name,
+    })
+    _log(archive, user, f'Removed {p["name"]} from this class (kept under Removed, and can be restored).')
+    archive.save(update_fields=['data', 'updated_at'])
+
+
+def restore_member(archive, user, user_id):
+    data = archive.data
+    entry = next((r for r in data.get('removed', []) if r['pledge']['user_id'] == user_id), None)
+    if entry is None:
+        raise ArchiveEditError('That member isn\'t in the removed list.')
+    data['removed'].remove(entry)
+    data.setdefault('pledges', []).append(entry['pledge'])
+    data['pledges'].sort(key=lambda x: (x['name'] or '').lower())
+    for tid, cell in entry['results'].items():
+        data.setdefault('results', {}).setdefault(tid, {})[user_id] = cell
+    for m in data.get('meetings', []):
+        if str(m['id']) in entry['attendance']:
+            m.setdefault('attendance', {})[user_id] = entry['attendance'][str(m['id'])]
+    if entry['adjustments']:
+        data.setdefault('adjustments', {})[user_id] = entry['adjustments']
+    _log(archive, user, f'Restored {entry["pledge"]["name"]} to this class.')
+    archive.save(update_fields=['data', 'updated_at'])
+
+
+# ── Initiating outside Initiate Pledges (11-11-26) ────────────────────────────
+
+INITIATE_ANYWAY_FIELD = 'confirm_skip_initiation'
+SKIPPING_INITIATION = (
+    'Use Initiate Pledges to initiate a pledge: it gives him his roll number and saves his pledge '
+    'class\'s education record. To change his member type here anyway, tick "Initiate anyway".'
+)
+
+
+def pledge_type_change_error(member, new_type, confirmed, actor=None):
+    """
+    Mason, 11-11-26: "restrict, but not prevent fully" turning a pledge into
+    a member from a member editor (Admin v2's, the officers' Edit Member).
+    Without ``confirmed`` the change is refused with the reason; with it, his
+    class snapshot is saved first (as Initiate Pledges does) and '' is
+    returned. Also '' for any change that isn't from Pledge to something else.
+    """
+    if member is None or member.member_type != 'Pledge' or not new_type or new_type == 'Pledge':
+        return ''
+    if not confirmed:
+        return SKIPPING_INITIATION
+    import logging
+    from django.db import transaction
+    from src.models import ParliamentUser
+    try:
+        with transaction.atomic():
+            archive_initiated(ParliamentUser.objects.filter(pk=member.pk), actor if getattr(actor, 'pk', None) else None)
+    except Exception:
+        logging.getLogger(__name__).exception('Pledge class archive failed; changing the member type anyway')
+    return ''
+
+
+# ── Re-requiring a task (a pledge held back a semester; 11-11-26) ─────────────
+
+#: Reason prefix on the point adjustment a semester reset writes (``reset_points``).
+RESET_REASON = 'Semester reset: '
+
+
+def rerequire_task(task, pledge, user, committee=None):
+    """
+    Open ``task`` again for ``pledge``: his completion (and a quiz's answers)
+    are copied to a ``PledgeTaskAttempt`` and cleared. If his points were
+    reset since he did it, the task comes back out of that reset (an
+    adjustment), so he isn't docked for redoing it. Raises ArchiveEditError
+    when there's nothing to re-require.
+    """
+    from src.models import PledgePointAdjustment, PledgeQuizAnswer, PledgeTaskAttempt, PledgeTaskCompletion
+    from src.pledge_points import points_for, quiz_marks
+
+    completion = (PledgeTaskCompletion.objects.filter(task=task, pledge=pledge)
+                  .select_related('reviewed_by').first())
+    answers = list(PledgeQuizAnswer.objects.filter(question__task=task, pledge=pledge)
+                   .order_by('question__display_order', 'pk'))
+    if completion is None and not answers:
+        raise ArchiveEditError(f'{pledge.name} hasn\'t done "{task.title}" yet, so there\'s nothing to re-require.')
+    done_at = (completion.completed_at or completion.updated_at) if completion else answers[-1].submitted_at
+    earned = points_for(task, completion, pledge.pk, quiz_marks([task], [pledge])) if completion else 0
+
+    PledgeTaskAttempt.objects.create(
+        task=task, pledge=pledge,
+        status=completion.status if completion else 'pending',
+        score=completion.score if completion else None,
+        notes=(completion.notes or '') if completion else '',
+        completed_at=completion.completed_at if completion else None,
+        reviewed_by_name=(completion.reviewed_by.name if completion and completion.reviewed_by else ''),
+        answers=[{'question': a.question.question_text, 'answer': a.answer_text, 'is_correct': a.is_correct}
+                 for a in answers],
+        term=term_for(done_at), rerequired_by=user if getattr(user, 'pk', None) else None,
+    )
+    reset = (PledgePointAdjustment.objects.filter(pledge=pledge, reason__startswith=RESET_REASON)
+             .order_by('-created_at').first())
+    if reset is not None and done_at and done_at < reset.created_at:
+        possible = (task.points or 0) if task.is_live else 0
+        if earned or possible:
+            PledgePointAdjustment.objects.create(
+                committee=reset.committee, pledge=pledge, current_delta=earned, max_delta=possible,
+                reason=f'Re-required "{task.title}": taken back out of the semester reset'[:200],
+                created_by=user if getattr(user, 'pk', None) else None)
+    PledgeQuizAnswer.objects.filter(pk__in=[a.pk for a in answers]).delete()
+    if completion is not None:
+        completion.delete()
+
+
+# ── Held-back pledges at the start of a semester (11-11-26) ───────────────────
+
+#: SiteSetting key: reset held-back pledges' points when a new semester starts.
+RESET_SETTING = 'education_reset_held_back_points'
+
+
+def reset_enabled():
+    from src.models_feature_flags import SiteSetting
+    return bool(SiteSetting.get_setting(RESET_SETTING, False))
+
+
+def set_reset_enabled(on, user):
+    from django.core.cache import cache
+    from src.models_feature_flags import SiteSetting
+    SiteSetting.objects.update_or_create(key=RESET_SETTING, defaults={
+        'display_name': 'Reset held-back pledges\' points each semester',
+        'description': 'Education: when a new semester starts, a pledge held back from the last one starts '
+                       'at zero points; the points he reached stay on last semester\'s class page.',
+        'category': 'general', 'setting_type': 'boolean', 'value': 'true' if on else 'false',
+        'default_value': 'false', 'last_modified_by': getattr(user, 'name', '') or '',
+    })
+    cache.delete(SiteSetting._cache_key(RESET_SETTING))
+
+
+def semester_start(when):
+    """Midnight on January 1 or July 1 (local) of ``when``'s semester."""
+    from datetime import datetime
+    local = timezone.localtime(when)
+    return timezone.make_aware(datetime(local.year, 1 if local.month <= 6 else 7, 1))
+
+
+def previous_term(term):
+    season, year = term.split()
+    return f'Fall {int(year) - 1}' if season == 'Spring' else f'Spring {year}'
+
+
+def held_back_pledges(committee, start):
+    """Active pledges with education records from before ``start``: they pledged last semester too."""
+    from django.db.models import Q
+    from src.models import ParliamentUser
+    return (ParliamentUser.objects.filter(member_type='Pledge', is_active=True)
+            .filter(Q(education_meeting_attendance__meeting__committee=committee,
+                      education_meeting_attendance__meeting__event__date_time__lt=start)
+                    | Q(task_completions__created_at__lt=start))
+            .distinct().order_by('name'))
+
+
+def save_held_back(now=None):
+    """
+    At the start of a semester, give every held-back pledge a frozen entry
+    on the previous semester's class page (``data['held_back']``: his points,
+    required tasks, attendance and task results as they stood), creating
+    that page if nobody was initiated that semester. With the reset option
+    on, his points then start again at zero (one adjustment, which the
+    dashboard's history shows and a chair can delete). Safe to run daily:
+    anyone already recorded for that semester is skipped. Returns how many
+    were recorded.
+    """
+    from django.db import transaction
+    from src.models import PledgeClassArchive, PledgePointAdjustment
+    now = now or timezone.now()
+    start = semester_start(now)
+    last = previous_term(term_for(now))
+    reset = reset_enabled()
+    recorded = 0
+    for committee in education_committees():
+        pledges = list(held_back_pledges(committee, start))
+        if not pledges:
+            continue
+        with transaction.atomic():
+            archive = (PledgeClassArchive.objects.select_for_update()
+                       .filter(committee=committee, term=last).first())
+            if archive is None:
+                archive = PledgeClassArchive.objects.create(
+                    committee=committee, name=default_name(start - timezone.timedelta(days=1)), term=last,
+                    initiated_at=start - timezone.timedelta(seconds=1),
+                    data={'version': SNAPSHOT_VERSION, 'tasks': [], 'pledges': [], 'results': {}, 'meetings': [],
+                          'adjustments': {}, 'edits': [], 'no_initiations': True})
+            data = archive.data
+            done = {h['pledge']['user_id'] for h in data.get('held_back', [])}
+            todo = [p for p in pledges if p.pk not in done]
+            if not todo:
+                continue
+            from src.models import ParliamentUser
+            snap = build_snapshot(committee, ParliamentUser.objects.filter(pk__in=[p.pk for p in todo]),
+                                  since=meetings_since(committee, before=archive.initiated_at), as_of=start)
+            titles = {str(t['id']): t['title'] for t in snap['tasks']}
+            for entry in snap['pledges']:
+                uid = entry['user_id']
+                data.setdefault('held_back', []).append({
+                    'pledge': entry,
+                    'results': [{'task': titles.get(tid, ''), **cells[uid]}
+                                for tid, cells in snap['results'].items() if uid in cells and not cells[uid].get('na')],
+                    'meetings': [{'title': m['title'], 'date': m['date'], 'status': m['attendance'][uid]}
+                                 for m in snap['meetings'] if uid in m['attendance']],
+                    'saved_at': _iso(now),
+                    'points_reset': reset,
+                })
+                recorded += 1
+                if reset and (entry['points'] or entry['max_points']):
+                    pledge = next(p for p in todo if p.pk == uid)
+                    PledgePointAdjustment.objects.create(
+                        committee=committee, pledge=pledge,
+                        current_delta=-entry['points'], max_delta=-entry['max_points'],
+                        reason=f'{RESET_REASON}reached {entry["points"]}/{entry["max_points"]} in {last}'[:200])
+            data.setdefault('edits', []).append({
+                'at': _iso(now), 'by': 'New semester',
+                'what': (f'{len(todo)} held-back pledge{"" if len(todo) == 1 else "s"} recorded as they stood '
+                         f'at the end of {last}{" (points then reset)" if reset else ""}.'),
+            })
+            archive.data = data
+            archive.save(update_fields=['data', 'updated_at'])
+    return recorded

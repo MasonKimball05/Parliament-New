@@ -8,12 +8,15 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils.dateparse import parse_datetime
 from django.views.decorators.http import require_POST
 
 from src.feature_flag_decorators import require_page_enabled
 from src.models import PledgeClassArchive
-from src.pledge_class_archive import RESULT_STATUSES, ArchiveEditError, edit_pledge, edit_result, rename
+from src.pledge_class_archive import (
+    RESULT_STATUSES, ArchiveEditError, edit_pledge, edit_result, remove_member, rename, restore_member,
+)
 from src.view.committee.education import _education_committee_or_404
 
 ATTENDANCE_LABELS = {'pending': '—', 'present': 'Present', 'late': 'Late', 'excused': 'Excused', 'absent': 'Absent'}
@@ -57,6 +60,8 @@ def archive_context(archive):
         'meeting_rows': meeting_rows,
         'adjustment_rows': adjustment_rows,
         'edits': edits,
+        'removed': list(reversed(data.get('removed', []))),
+        'held_back': data.get('held_back', []),
         'RESULT_STATUSES': RESULT_STATUSES,
     }
 
@@ -96,6 +101,12 @@ def education_class_archive_edit(request, code, archive_pk):
             changed = edit_result(archive, request.user, request.POST.get('task_id'),
                                   request.POST.get('user_id', ''), request.POST.get('status'),
                                   request.POST.get('score'))
+        elif action == 'remove':
+            remove_member(archive, request.user, request.POST.get('user_id', ''))
+            changed = True
+        elif action == 'restore':
+            restore_member(archive, request.user, request.POST.get('user_id', ''))
+            changed = True
         else:
             raise ArchiveEditError('Unknown change.')
     except ArchiveEditError as e:
@@ -105,5 +116,59 @@ def education_class_archive_edit(request, code, archive_pk):
             messages.success(request, 'Saved. The change is recorded in this class\'s edit history.')
         else:
             messages.info(request, 'Nothing changed.')
-    anchor = {'pledge': '#class-pledges', 'result': '#class-results'}.get(action, '')
+    anchor = {'pledge': '#class-pledges', 'remove': '#class-pledges', 'restore': '#class-pledges',
+              'result': '#class-results'}.get(action, '')
     return redirect(f"{request.path.rsplit('edit/', 1)[0]}{anchor}")
+
+
+@login_required
+@require_page_enabled('committee_home')
+@require_POST
+def education_rerequire_task(request, code, pledge_pk):
+    """
+    Re-require a task (``task_pk``) or every task he has a result for
+    (``all``) for a pledge, keeping the earlier attempt (11-11-26: a pledge
+    held back a semester). For whoever can manage tasks.
+    """
+    from django.db import transaction
+    from src.models import ParliamentUser, PledgeTask, PledgeTaskCompletion
+    from src.pledge_class_archive import rerequire_task
+    committee, access = _education_committee_or_404(code, request.user)
+    if not access['can_manage_tasks']:
+        raise Http404
+    pledge = get_object_or_404(ParliamentUser, pk=pledge_pk, member_type='Pledge')
+    if request.POST.get('all'):
+        tasks = list(PledgeTask.objects.filter(
+            is_active=True, pk__in=PledgeTaskCompletion.objects.filter(pledge=pledge).values('task_id')))
+    else:
+        tasks = [get_object_or_404(PledgeTask, pk=request.POST.get('task_pk') or 0, is_active=True)]
+    try:
+        with transaction.atomic():
+            for task in tasks:
+                rerequire_task(task, pledge, request.user, committee)
+    except ArchiveEditError as e:
+        messages.error(request, str(e))
+    else:
+        if not tasks:
+            messages.info(request, f'{pledge.name} has no task results to re-require.')
+        else:
+            n = len(tasks)
+            messages.success(request, f'Re-required {n} task{"" if n == 1 else "s"} for {pledge.name}. '
+                                      'His earlier results are kept under each task.')
+    return redirect('education_pledge_detail', code=committee.code, pledge_pk=pledge.pk)
+
+
+@login_required
+@require_page_enabled('committee_home')
+@require_POST
+def education_held_back_setting(request, code):
+    """The education admin turns the semester points reset for held-back pledges on or off."""
+    from src.pledge_class_archive import set_reset_enabled
+    committee, access = _education_committee_or_404(code, request.user)
+    if not access['is_full_access']:
+        raise Http404
+    on = request.POST.get('reset') == 'on'
+    set_reset_enabled(on, request.user)
+    messages.success(request, 'Held-back pledges\' points will reset at the start of each semester.' if on
+                     else 'Held-back pledges keep their points into the next semester.')
+    return redirect(f"{reverse('education_home', args=[committee.code])}#previous-classes")

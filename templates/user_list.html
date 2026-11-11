@@ -882,6 +882,10 @@
                                 </select>
                             </div>
                         </div>
+                        <div id="edit-skip-initiation-row" class="hidden">
+                            <label class="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300"><input type="checkbox" id="edit-skip-initiation"> Initiate anyway</label>
+                            <p class="text-xs text-gray-500 dark:text-gray-400">Changing a pledge's type here skips Initiate Pledges (his roll number and pledge class record). Use Initiate Pledges when you can.</p>
+                        </div>
 
                         <!-- Roles -->
                         <div>
@@ -1354,6 +1358,8 @@ async function openEditModal(userId) {
             document.getElementById('edit-preferred-name').value = member.preferred_name;
             document.getElementById('edit-email').value = member.email;
             document.getElementById('edit-member-type').value = member.member_type;
+            document.getElementById('edit-skip-initiation').checked = false;
+            document.getElementById('edit-skip-initiation-row').classList.toggle('hidden', member.member_type !== 'Pledge');
             document.getElementById('edit-member-status').value = member.member_status;
 
             // Display last login
@@ -1404,6 +1410,7 @@ async function submitEditMember(e) {
         preferred_name: document.getElementById('edit-preferred-name').value,
         email: document.getElementById('edit-email').value || null,
         member_type: document.getElementById('edit-member-type').value,
+        confirm_skip_initiation: document.getElementById('edit-skip-initiation').checked,
         member_status: document.getElementById('edit-member-status').value,
         roles: selectedRoles,
     };

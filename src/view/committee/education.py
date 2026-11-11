@@ -29,6 +29,7 @@ from django.db.models import Count, Q
 
 from src.feature_flag_decorators import require_page_enabled
 from src.models import PledgeClassArchive
+from src.pledge_class_archive import reset_enabled
 from src.models import (  # noqa: F401 PledgeQuizAnswer used in the quiz submissions view
     Committee, ParliamentUser, PledgeTask, PledgeTaskCompletion,
     PledgePageRestriction, PledgeTaskQuestion, PledgeQuizAnswer,
@@ -239,6 +240,11 @@ def _get_education_access(user, committee):
     a `request`; every call site is already inside a decorated view.
     """
     is_chair = committee.chairs.filter(pk=user.pk).exists()
+    # 11-11-26 (Mason): "there is not always a VP of Education, but when
+    # there is he is always on the committee": whoever holds the committee's
+    # role (its admin) has a chair's access, whether or not he's listed as one.
+    if not is_chair and committee.role_id:
+        is_chair = user.roles.filter(pk=committee.role_id).exists()
     if is_chair or user.is_admin:
         return {
             'is_chair': is_chair,
@@ -702,6 +708,7 @@ def education_home(request, code):
         # the bare `|safe` filter.
         'adjustments_history_json': _script_safe_json(adjustments_history),
         'POINT_ADJUSTMENT_LIMIT': POINT_ADJUSTMENT_LIMIT,
+        'reset_held_back_points': reset_enabled(),
         # 11-10-26: previous pledge classes, frozen at initiation.
         'class_archives': PledgeClassArchive.objects.filter(committee=committee).order_by('-initiated_at'),
     }
@@ -1691,6 +1698,12 @@ def pledge_progress(committee, pledge):
         .select_related('task')
     }
 
+    # 11-11-26: earlier attempts at re-required tasks (a pledge held back a semester).
+    from src.models import PledgeTaskAttempt
+    attempts = {}
+    for a in PledgeTaskAttempt.objects.filter(pledge=pledge, task__in=tasks).order_by('-rerequired_at'):
+        attempts.setdefault(a.task_id, []).append(a)
+
     task_rows = []
     for task in tasks:
         assigned_pks = {u.pk for u in task.assigned_to.all()}
@@ -1702,6 +1715,7 @@ def pledge_progress(committee, pledge):
         task_rows.append({
             'task': task,
             'completion': completion,
+            'attempts': attempts.get(task.pk, []),
             # v3.46.1 — a task his phase has not unlocked is hidden from him
             # (src/pledge_phases.py), so it cannot be overdue for him: he has
             # no way to do it. His own My Tasks page already agrees.
@@ -1772,6 +1786,10 @@ def education_pledge_detail(request, code, pledge_pk):
     Read-only on purpose. Marking still happens on the grid and the attendance
     page, so there is one place to change each thing and this page cannot
     disagree with them.
+
+    11-11-26: one write lives here, re-requiring a task for a pledge held back
+    a semester (``education_rerequire_task``): it isn't marking, and this is
+    the page where his earlier attempts are shown.
     """
     committee, access = _education_committee_or_404(code, request.user)
     is_chair = access['is_chair']
