@@ -302,6 +302,8 @@ urlpatterns = [
          views_slating_committee.SlatingScheduleInterviewView.as_view(), name='mobile_slating_schedule_interview'),
     path('slating/interviews/<int:interview_id>/', views_slating_committee.SlatingCompleteInterviewView.as_view(),
          name='mobile_slating_interview'),
+    path('slating/interviews/<int:interview_id>/draft/', views_slating_committee.SlatingInterviewDraftView.as_view(),
+         name='mobile_slating_interview_draft'),
     path('slating/periods/<int:period_id>/attendance/', views_slating_committee.SlatingAttendanceView.as_view(),
          name='mobile_slating_attendance'),
     path('slating/periods/<int:period_id>/paper-ballots/', views_slating_committee.SlatingPaperBallotsView.as_view(),

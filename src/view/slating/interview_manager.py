@@ -186,6 +186,39 @@ def save_completion(interview, user, notes, strengths, concerns, recommendation,
     )
 
 
+class DraftConflict(Exception):
+    """Someone else saved this interview since the draft's copy was loaded."""
+
+
+def save_draft(interview, notes, strengths, concerns, recommendation, position_ids, base_updated=None):
+    """
+    The record-interview page's background save (11-12-26: notes were lost
+    when the connection dropped mid-interview). Writes the form's fields
+    only: it doesn't mark the interview completed, change the application's
+    status or log anything; Save Interview Notes still does all that.
+
+    ``base_updated`` is the interview's ``updated_at`` as the page last saw
+    it (ISO). If it has moved on since (another committee member saved),
+    raises DraftConflict rather than overwrite them. Returns the new
+    ``updated_at``.
+    """
+    from django.utils.dateparse import parse_datetime
+    if interview.notes_destroyed:
+        raise DraftConflict('These notes were destroyed under the bylaws.')
+    if base_updated:
+        seen = parse_datetime(base_updated)
+        if seen is not None and interview.updated_at and abs((interview.updated_at - seen).total_seconds()) > 0.001:
+            raise DraftConflict('Someone else saved notes on this interview since you opened it.')
+    interview.notes = notes
+    interview.strengths = strengths
+    interview.concerns = concerns
+    interview.recommendation = recommendation
+    interview.save(update_fields=['notes', 'strengths', 'concerns', 'recommendation', 'updated_at'])
+    period = interview.application.period
+    interview.recommended_positions.set(SlatingPosition.objects.filter(id__in=position_ids or [], period=period))
+    return interview.updated_at
+
+
 def destroy_period_notes(period, user):
     """Destroy every interview's confidential notes for ``period`` (bylaws); logged. Returns the count."""
     interviews = SlatingInterview.objects.filter(
@@ -363,6 +396,8 @@ def complete_interview(request, interview_id):
             # re-running the M2M query once per checkbox (an N+1).
             'recommended_ids': set(interview.recommended_positions.values_list('id', flat=True)),
             'recommendation_choices': SlatingInterview.RECOMMENDATION_CHOICES,
+            # 11-12-26: the background draft save refuses if someone else saved since.
+            'interview_updated': interview.updated_at.isoformat() if interview.updated_at else '',
         }
         return render(request, 'slating/complete_interview.html', context)
 
@@ -376,6 +411,33 @@ def complete_interview(request, interview_id):
 
     messages.success(request, f'Interview notes saved for {interview.application.applicant.name}.')
     return redirect('slating_interviews', period_id=period.id)
+
+
+@login_required
+def interview_draft(request, interview_id):
+    """
+    POST the record-interview form's fields as a draft (background save,
+    11-12-26); JSON ``{saved_at, updated}``, or 409 ``{error, conflict}``.
+    Same access as the form itself.
+    """
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST only.'}, status=405)
+    interview = get_object_or_404(SlatingInterview.objects.select_related('application__period'), id=interview_id)
+    if not can_view_applications(request.user, interview.application.period):
+        return JsonResponse({'error': 'Only slating committee members can take interview notes.'}, status=403)
+    position_ids = [p for p in request.POST.getlist('recommended_positions') if p.isdigit()]
+    try:
+        updated = save_draft(interview,
+                             request.POST.get('notes', '').strip(),
+                             request.POST.get('strengths', '').strip(),
+                             request.POST.get('concerns', '').strip(),
+                             request.POST.get('recommendation', ''),
+                             position_ids,
+                             base_updated=request.POST.get('base_updated') or None)
+    except DraftConflict as e:
+        return JsonResponse({'error': str(e), 'conflict': True}, status=409)
+    return JsonResponse({'saved_at': timezone.localtime(updated).strftime('%-I:%M %p'),
+                         'updated': updated.isoformat()})
 
 
 @login_required

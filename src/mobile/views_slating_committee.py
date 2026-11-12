@@ -369,6 +369,8 @@ class SlatingCompleteInterviewView(_SlatingBase):
         period = interview.application.period
         return {
             'interview': _interview_json(interview, notes=True),
+            # 11-12-26: the background draft save sends this back (src/view/slating/interview_manager.save_draft).
+            'updated': interview.updated_at.isoformat() if interview.updated_at else None,
             'period_id': period.id,
             'positions': [{'id': p.id, 'title': p.title} for p in period.positions.filter(is_active=True)],
             'recommendation_choices': [{'value': k, 'label': v} for k, v in SlatingInterview.RECOMMENDATION_CHOICES],
@@ -389,6 +391,38 @@ class SlatingCompleteInterviewView(_SlatingBase):
                         recommendation, positions)
         interview.refresh_from_db()
         return Response(self.payload(interview))
+
+
+class SlatingInterviewDraftView(SlatingCompleteInterviewView):
+    """
+    ``POST slating/interviews/<id>/draft/`` (11-12-26): the notes screen's
+    background save. ``{notes, strengths, concerns, recommendation,
+    recommended_positions, base_updated}`` -> ``{updated, saved_at}``; 409
+    ``conflict`` if someone else saved since ``base_updated``. Doesn't mark
+    the interview completed (src/view/slating/interview_manager.save_draft).
+    """
+    web_page = 'slating_interview_draft'
+
+    def get(self, request, interview_id):
+        raise exceptions.MethodNotAllowed('GET')
+
+    def post(self, request, interview_id):
+        from django.utils import timezone
+        from src.view.slating.interview_manager import DraftConflict, save_draft
+        interview = self.interview(request, interview_id)
+        data = _form_data(request)
+        recommendation = data.get('recommendation') or ''
+        if recommendation and recommendation not in dict(SlatingInterview.RECOMMENDATION_CHOICES):
+            raise BadRequest('That isn’t a recommendation.', code='invalid_input')
+        positions = [p for p in data.getlist('recommended_positions') if str(p).isdigit()]
+        try:
+            updated = save_draft(interview, (data.get('notes') or '').strip(), (data.get('strengths') or '').strip(),
+                                 (data.get('concerns') or '').strip(), recommendation, positions,
+                                 base_updated=data.get('base_updated') or None)
+        except DraftConflict as e:
+            raise VoteRefused('conflict', str(e), 409)
+        return Response({'updated': updated.isoformat(),
+                         'saved_at': timezone.localtime(updated).strftime('%-I:%M %p')})
 
 
 class SlatingDestroyNotesView(_SlatingBase):

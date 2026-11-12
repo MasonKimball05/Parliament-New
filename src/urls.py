@@ -343,7 +343,7 @@ from src.view.slating import (
     form_builder, manage_positions, add_position, edit_position, delete_position, copy_default_positions,
     apply_view, my_applications, withdraw_application,
     applications_list, application_detail, submit_review, bulk_update_status, import_applications, fill_imported_answers, remove_imported_applications, record_paper_ballots,
-    interview_list, schedule_interview, complete_interview, destroy_interview_notes,
+    interview_list, schedule_interview, complete_interview, destroy_interview_notes, interview_draft,
     build_slate, approve_slate, slate_preview, view_approved_slate, edit_approved_slate, manual_results, copy_slate, assign_write_in, remove_write_in,
     slating_vote, individual_vote, close_voting, reset_votes,
     view_results, publish_results, results_summary,
@@ -1371,6 +1371,7 @@ urlpatterns = [
     path('slating/period/<int:period_id>/interviews/', interview_list, name='slating_interviews'),
     path('slating/application/<int:app_id>/schedule-interview/', schedule_interview, name='slating_schedule_interview'),
     path('slating/interview/<int:interview_id>/complete/', complete_interview, name='slating_complete_interview'),
+    path('slating/interview/<int:interview_id>/draft/', interview_draft, name='slating_interview_draft'),
     path('slating/period/<int:period_id>/destroy-notes/', destroy_interview_notes, name='slating_destroy_notes'),
 
     # Slating Slate Building
