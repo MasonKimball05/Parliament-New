@@ -13,6 +13,7 @@ from django.contrib.auth.decorators import login_required
 from django.utils import timezone
 from src.models import SlatingPeriod, SlatingApplication
 from .period_setup import check_and_auto_transition_status
+from .apply import with_applicant_status
 from src.models.users import member_defer
 from .permissions import (
     _period_is_locked, applicant_ineligibility, can_manage_period, can_view_applications,
@@ -137,7 +138,7 @@ def slating_dashboard(request):
     # User's applications
     my_applications = SlatingApplication.objects.filter(
         applicant=user
-    ).select_related('period').order_by('-created_at')
+    ).select_related('period').prefetch_related('interviews').order_by('-created_at')
 
     # Check if user has pending applications (draft)
     draft_applications = my_applications.filter(status='draft')
@@ -175,7 +176,8 @@ def slating_dashboard(request):
         'open_periods': open_periods,
         'voting_periods': voting_periods,
         'voted_period_ids': list(voted_period_ids),
-        'my_applications': my_applications,
+        # 11-14-26: what each applicant is shown of his own status (apply.status_for_applicant).
+        'my_applications': with_applicant_status(my_applications),
         'draft_applications': draft_applications,
         'is_committee_member': is_committee_member,
         'is_committee_chair': is_committee_chair,

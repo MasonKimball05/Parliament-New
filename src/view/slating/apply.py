@@ -366,6 +366,45 @@ def _handle_application_submit(request, period, user, existing_app, form_fields,
     return redirect('slating_my_applications')
 
 
+# ── What an applicant sees of his own status (11-14-26) ─────────────────────
+
+#: From these period statuses on, the slate is public and so is his real status.
+STATUS_PUBLIC_FROM = ('voting_open', 'voting_closed', 'results_published', 'archived')
+#: The committee's decisions: invisible to the applicant until then.
+DECISION_STATUSES = ('recommended', 'not_recommended', 'slated')
+
+
+def status_for_applicant(application):
+    """
+    ``(status, label)`` as the applicant himself is shown it (Mason, 11-14-26).
+    Placing someone on the slate builder sets his application to "Slated",
+    even on a draft slate, and a reviewer can mark it Recommended or Not
+    Recommended; showing him that told him where he stood before the chapter
+    saw the slate. Until voting opens: Recommended / Not Recommended / Slated
+    read "Interviewed" if he has had his interview, else "Submitted"; Under
+    Review reads "Submitted". What he already knows (Draft, Interview
+    Scheduled, Interviewed, Withdrawn) is unchanged. The committee always
+    sees the real status. ``application.interviews`` is best prefetched.
+    """
+    from src.models import SlatingApplication
+    status = application.status
+    if application.period.status not in STATUS_PUBLIC_FROM:
+        if status == 'under_review':
+            status = 'submitted'
+        elif status in DECISION_STATUSES:
+            interviewed = any(i.completed_at for i in application.interviews.all())
+            status = 'interviewed' if interviewed else 'submitted'
+    return status, dict(SlatingApplication.STATUS_CHOICES).get(status, status)
+
+
+def with_applicant_status(applications):
+    """Each application with ``shown_status`` / ``shown_status_label`` set (a list)."""
+    out = list(applications)
+    for a in out:
+        a.shown_status, a.shown_status_label = status_for_applicant(a)
+    return out
+
+
 @login_required
 def my_applications(request):
     """
@@ -377,7 +416,7 @@ def my_applications(request):
     ).select_related('period').prefetch_related('interviews').order_by('-created_at')
 
     context = {
-        'applications': applications,
+        'applications': with_applicant_status(applications),
     }
 
     return render(request, 'slating/my_applications.html', context)
@@ -428,6 +467,7 @@ def view_application(request, app_id):
         id=app_id,
         applicant=request.user
     )
+    application.shown_status, application.shown_status_label = status_for_applicant(application)
 
     # Get responses
     responses = application.responses.select_related('field').all()

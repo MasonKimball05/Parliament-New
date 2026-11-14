@@ -41,7 +41,11 @@ class SlatingAppTests(_Base):
         self.assertEqual((p['status'], p['voting_open'], p['can_vote'], p['has_voted']),
                          ('voting_open', True, True, False))
         self.assertEqual(body['applications'][0]['status'], 'submitted')
-        self.assertTrue(body['applications'][0]['can_withdraw'])
+        # 11-14-26: Withdraw only while nominations are open, as on the website.
+        self.assertFalse(body['applications'][0]['can_withdraw'])
+        from src.models import SlatingPeriod
+        SlatingPeriod.objects.filter(pk=self.period.pk).update(status='nominations_open')
+        self.assertTrue(self.call('get', 'slating/').json()['applications'][0]['can_withdraw'])
 
     def test_slate_vote_needs_reauth_then_records_once(self):
         ballot = self.call('get', self.vote_path()).json()

@@ -112,18 +112,22 @@ class SlatingHubView(_SlatingBase):
         periods = list(SlatingPeriod.objects.exclude(status='archived').order_by('-created_at'))
         for period in periods:
             check_and_auto_transition_status(period)   # as slating_dashboard does on every load
-        apps = (SlatingApplication.objects.filter(applicant=user)
-                .select_related('period').order_by('-created_at'))
+        from src.view.slating.apply import with_applicant_status
+        apps = with_applicant_status(SlatingApplication.objects.filter(applicant=user)
+                                     .select_related('period').prefetch_related('interviews').order_by('-created_at'))
         return Response({
             'periods': [_period_json(p, user) for p in periods],
             'applications': [{
                 'id': a.id,
                 'period': a.period.name,
                 'period_id': a.period_id,
-                'status': a.status,
-                'status_label': a.get_status_display(),
+                # 11-14-26: his status as he's shown it (apply.status_for_applicant).
+                'status': a.shown_status,
+                'status_label': a.shown_status_label,
                 'submitted_at': _iso(a.submitted_at),
-                'can_withdraw': a.status in WITHDRAWABLE,
+                # Only while nominations are open, as the website: in deliberation,
+                # a button some candidates had and others didn't told them who was slated.
+                'can_withdraw': a.status in WITHDRAWABLE and a.period.status == 'nominations_open',
             } for a in apps],
             'can_vote': bool(user.can_vote),
             # 11-04-26: the dashboard's "+ New" (create_period is site admins only).

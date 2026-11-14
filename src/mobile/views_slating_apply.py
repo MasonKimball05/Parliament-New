@@ -106,6 +106,8 @@ class SlatingApplyView(_ApplyBase):
         if existing:
             for response in existing.responses.select_related('field').all():
                 answers[str(response.field_id)] = response_value(response)
+        from src.view.slating.apply import status_for_applicant
+        shown = status_for_applicant(existing) if existing else (None, None)
         return Response({
             'period': {
                 'id': period.id,
@@ -125,8 +127,8 @@ class SlatingApplyView(_ApplyBase):
             } for p in positions],
             'application': {
                 'id': existing.id,
-                'status': existing.status,
-                'status_label': existing.get_status_display(),
+                'status': shown[0],
+                'status_label': shown[1],
                 'reported_gpa': _num_or_none(existing.reported_gpa),
                 'has_gpa_screenshot': bool(existing.gpa_screenshot),
                 'preferences': _preferences(existing),
@@ -164,8 +166,9 @@ class SlatingMyApplicationsView(MobileAPIView):
     web_page_toggle = False   # @login_required only
 
     def get(self, request):
-        apps = (SlatingApplication.objects.filter(applicant=request.user)
-                .select_related('period').prefetch_related('interviews').order_by('-created_at'))
+        from src.view.slating.apply import with_applicant_status
+        apps = with_applicant_status(SlatingApplication.objects.filter(applicant=request.user)
+                                     .select_related('period').prefetch_related('interviews').order_by('-created_at'))
         rows = []
         for a in apps:
             interview = next(iter(a.interviews.all()), None)   # the web's app.interviews.first
@@ -175,8 +178,8 @@ class SlatingMyApplicationsView(MobileAPIView):
                 'period': a.period.name,
                 'period_status': a.period.status,
                 'period_status_label': a.period.get_status_display(),
-                'status': a.status,
-                'status_label': a.get_status_display(),
+                'status': a.shown_status,
+                'status_label': a.shown_status_label,
                 'submitted_at': _iso(a.submitted_at),
                 'positions_count': len(a.get_preferred_positions()),
                 'reported_gpa': _num_or_none(a.reported_gpa),
