@@ -34,14 +34,16 @@
                 </span>
             </label>
             {% if s.kind == 'nominations' and s.nominees %}
-            <div class="ml-6 mt-1 flex flex-wrap gap-3">
+            {% comment %}11-14-26: with three or more running the chair chooses who goes on: each nominee's votes on the last ballot, ties for last flagged.{% endcomment %}
+            <div class="ml-6 mt-1 flex flex-wrap gap-x-4 gap-y-1.5">
                 {% for n in s.nominees %}
                 <label class="inline-flex items-center gap-1 text-xs text-gray-600 dark:text-gray-300">
-                    <input type="checkbox" name="nominees_{{ s.position.id }}" value="{{ n.id }}" checked class="h-3.5 w-3.5 rounded text-primary-600">{{ n.name }}
+                    <input type="checkbox" name="nominees_{{ s.position.id }}" value="{{ n.id }}" {% if n.id in s.default_nominees %}checked{% endif %} class="h-3.5 w-3.5 rounded text-primary-600">{{ n.name }}
+                    {% if s.last_ballot %}{% if n.id in s.last_ballot.on_ballot %}{% for vid, v in s.last_ballot.votes.items %}{% if vid == n.id %}<span class="text-gray-500 dark:text-gray-400">· {{ v }} vote{{ v|pluralize }}</span>{% endif %}{% endfor %}{% if n.id in s.last_ballot.tied_last %} <span class="px-1.5 rounded bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200">tied for last</span>{% endif %}{% else %}<span class="text-gray-400">· dropped</span>{% endif %}{% endif %}
                 </label>
                 {% endfor %}
-                <span class="text-xs text-gray-400">(untick to narrow, e.g. to the top two)</span>
             </div>
+            <p class="ml-6 mt-1 text-xs text-gray-500 dark:text-gray-400">{% if s.last_ballot %}Votes from round {{ s.last_ballot.attempt }}. {% endif %}Untick whoever doesn't go on to this ballot. At least two stay on.{% if s.last_ballot.tied_last %} There's a tie for last: the chapter decides who goes on.{% endif %}</p>
             {% endif %}
         </div>
         {% empty %}

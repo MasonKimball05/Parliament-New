@@ -289,6 +289,11 @@ def validate_round(period, vote_type, position_ids=None, threshold=None, abstain
             chosen = [int(n) for n in (nominees or {}).get(str(pid), []) if str(n).isdigit() and int(n) in accepted]
             if len(chosen or accepted) < 1:
                 raise RoundError('no_nominees', f'{s.position.title} needs at least one accepted nominee.')
+            # 11-14-26: a pick-one ballot with one name elects him on a single
+            # vote (abstentions don't count against him), so narrowing stops at two.
+            if len(accepted) > 1 and len(chosen) == 1:
+                raise RoundError('one_nominee', f'Leave at least two nominees on the ballot for {s.position.title}. '
+                                                'If the chapter has settled it, record that decision instead.')
             if chosen:
                 narrowed[str(pid)] = chosen
     config = {'positions': ids}
@@ -543,6 +548,36 @@ def winners(period):
     return {s.position.id: s.winner.member for s in position_states(period) if s.winner is not None}
 
 
+def last_ballot(period, state):
+    """
+    The latest closed round that had ``state``'s floor-nominations position
+    on its ballot, for the chair's next-round form (11-14-26: with three or
+    more running, the chair chooses who goes on to the next ballot, so the
+    form shows how each did). None if it hasn't been voted on yet. Returns
+    ``{attempt, votes: {nominee id: n}, on_ballot: [ids], tied_last: [ids]}``;
+    ``tied_last`` is set only when two or more on a ballot of three or more
+    share the fewest votes (the chair decides who goes on).
+    """
+    if state.kind != KIND_NOMINATIONS:
+        return None
+    for rnd in period.rounds.filter(status__in=('passed', 'failed')).order_by('-attempt'):
+        config = dict(rnd.ballot or {})
+        if state.position.id not in (config.get('positions') or []):
+            continue
+        tally = position_tally(period, state, rnd.attempt, config)
+        accepted = [n.id for n in state.all_nominees if n.accepted]
+        on_ballot = [int(i) for i in (config.get('nominees') or {}).get(str(state.position.id), [])] or accepted
+        votes = {n_id: tally['picks'].get(f'n{n_id}', 0) for n_id in on_ballot}
+        tied = []
+        if len(on_ballot) > 2 and votes:
+            fewest = min(votes.values())
+            tied = [n_id for n_id, v in votes.items() if v == fewest]
+            if len(tied) < 2:
+                tied = []
+        return {'attempt': rnd.attempt, 'votes': votes, 'on_ballot': on_ballot, 'tied_last': tied}
+    return None
+
+
 def election_context(period):
     """What the chair's controls need (web setup page and the app): positions, ballot, defaults."""
     slate = primary_slate(period)
@@ -558,6 +593,12 @@ def election_context(period):
     last = period.rounds.exclude(status__in=('voided', 'open')).order_by('-attempt').first()
     slate_possible = any(s.kind == KIND_APPROVE for s in undecided)
     last_slate_failed = bool(last and last.vote_type != 'individual' and last.status == 'failed')
+    # 11-14-26: for a floor-nominations position already voted on, each
+    # nominee's votes last time; the next ballot starts with those who were on
+    # the last one (the chair unticks whoever doesn't go on).
+    for st in selectable:
+        st.last_ballot = last_ballot(period, st)
+        st.default_nominees = set(st.last_ballot['on_ballot']) if st.last_ballot else {n.id for n in st.nominees}
     from src.models import SlatingAttendance
     return {
         'states': states,

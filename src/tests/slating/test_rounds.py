@@ -180,3 +180,76 @@ class RoundsTests(_Base):
             r = self.client.get(reverse(name, args=[self.period.id]))
             self.assertEqual(r.status_code, 200, name)
         self.assertContains(self.client.get(reverse('slating_period_setup', args=[self.period.id])), 'Next round')
+
+    def test_four_floor_nominees_narrowed_round_by_round(self):
+        """11-14-26: more than two running for an open position; the chair picks who goes on each round."""
+        from src.slating_rounds import election_context
+        for i in range(6):
+            v = member(f'rr-w{i}')
+            SlatingAttendance.objects.create(period=self.period, member=v)
+            self.voters.append(v)                                           # 11 voters
+        self.slate_votes(*['approve'] * 11)
+        self.close()
+        noms = [SlatingNominee.objects.create(period=self.period, position=self.treas, member=member(f'rr-n{i}'),
+                                              accepted=True) for i in range(4)]
+        a, b, c, d = noms
+        pick = lambda counts: [{self.treas: f'n{n.id}'} for n, k in counts for _ in range(k)]
+
+        # Round 2: all four, 51%. A 4, B 3, C 2, D 2: no one has a majority.
+        self.open('individual', [self.treas], threshold='51', abstain_set='1')
+        self.position_votes(pick([(a, 4), (b, 3), (c, 2), (d, 2)]))
+        self.close()
+        self.assertFalse(self.state(self.treas).decided)
+        st = next(x for x in election_context(self.period)['selectable'] if x.position == self.treas)
+        self.assertEqual(st.last_ballot['votes'], {a.id: 4, b.id: 3, c.id: 2, d.id: 2})
+        self.assertEqual(sorted(st.last_ballot['tied_last']), sorted([c.id, d.id]))
+        page = self.client.get(reverse('slating_period_setup', args=[self.period.id])).content.decode()
+        self.assertIn('tied for last', page)
+        self.assertIn('4 votes', page)
+
+        # The chair can't narrow to one (a single name would win on one vote).
+        self.open('individual', [self.treas], threshold='51', abstain_set='1', **{f'nominees_{self.treas.id}': [a.id]})
+        self.assertEqual(self.period.status, 'deliberation')
+
+        # Round 3: the chapter drops D. A 5, B 4, C 2: still no majority.
+        self.open('individual', [self.treas], threshold='51', abstain_set='1',
+                  **{f'nominees_{self.treas.id}': [a.id, b.id, c.id]})
+        decided, ballot, voted, config = individual_ballot(self.period, self.slate, self.voter)
+        self.assertEqual(config['nominees'][str(self.treas.id)], [a.id, b.id, c.id])
+        self.position_votes(pick([(a, 5), (b, 4), (c, 2)]))
+        self.close()
+        st = next(x for x in election_context(self.period)['selectable'] if x.position == self.treas)
+        self.assertEqual(st.default_nominees, {a.id, b.id, c.id})          # D stays off by default
+        self.assertEqual(st.last_ballot['tied_last'], [])
+        r = self.client.get(reverse('slating_period_setup', args=[self.period.id])).content.decode()
+        self.assertIn('dropped', r)
+
+        # Round 4: the top two. A 6, B 5 = 54.5%: A is elected.
+        self.open('individual', [self.treas], threshold='51', abstain_set='1',
+                  **{f'nominees_{self.treas.id}': [a.id, b.id]})
+        self.position_votes(pick([(a, 6), (b, 5)]))
+        self.close()
+        self.assertEqual(self.state(self.treas).winner.name, a.member.name)
+        a.refresh_from_db(), d.refresh_from_db()
+        self.assertTrue(a.elected)
+        self.assertFalse(d.elected)
+
+    def test_app_chair_screen_has_the_last_ballot(self):
+        from src.tests.mobile.sess_helpers import bearer, make_device
+        import json as _json
+        self.slate_votes(*['approve'] * 5)
+        self.close()
+        a, b, c = [SlatingNominee.objects.create(period=self.period, position=self.treas, member=member(f'rr-m{i}'),
+                                                 accepted=True) for i in range(3)]
+        self.open('individual', [self.treas], abstain_set='1')
+        self.position_votes([{self.treas: f'n{a.id}'}] * 2 + [{self.treas: f'n{b.id}'}] * 2 + [{self.treas: f'n{c.id}'}])
+        self.close()
+        from django.test import Client
+        api = Client()
+        r = api.get(f'/api/mobile/v1/slating/periods/{self.period.id}/chair/', **bearer(make_device(self.manager)[1]))
+        self.assertEqual(r.status_code, 200, r.content)
+        pos = next(p for p in r.json()['positions'] if p['id'] == self.treas.id)
+        votes = {n['id']: (n['last_votes'], n['on_last_ballot'], n['tied_last']) for n in pos['nominees']}
+        self.assertEqual(votes[a.id], (2, True, False))
+        self.assertEqual(votes[c.id], (1, True, False))
+        self.assertEqual(pos['last_ballot_round'], self.period.current_voting_attempt)

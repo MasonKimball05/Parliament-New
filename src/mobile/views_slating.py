@@ -341,6 +341,7 @@ def _chair_overview(period):
     attempt = period.current_voting_attempt
     positions = []
     for st in ctx['states']:
+        lb = getattr(st, 'last_ballot', None)
         positions.append({
             'id': st.position.id,
             'title': st.position.title,
@@ -354,7 +355,12 @@ def _chair_overview(period):
             'allow_abstain': st.position.allow_abstain,
             'options': [{'key': o.key, 'name': o.name} for o in st.options()],
             'nominees': [{'id': n.id, 'name': n.name, 'user_id': n.member.user_id, 'accepted': n.accepted,
-                          'elected': n.elected} for n in st.all_nominees],
+                          'elected': n.elected,
+                          # 11-14-26: how each did on the last ballot (slating_rounds.last_ballot).
+                          'last_votes': (lb['votes'].get(n.id) if lb else None),
+                          'on_last_ballot': (n.id in lb['on_ballot']) if lb else None,
+                          'tied_last': bool(lb and n.id in lb['tied_last'])} for n in st.all_nominees],
+            'last_ballot_round': lb['attempt'] if lb else None,
         })
     live = period.status == 'voting_open'
     return {
