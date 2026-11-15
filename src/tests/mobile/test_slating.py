@@ -100,6 +100,44 @@ class SlatingAppTests(_Base):
         r = self.call('post', self.vote_path(), {'password': PW, 'choices': {}})
         self.assertEqual(r.json()['error'], 'already_voted')
 
+    def test_passkey_grant_casts_once_on_this_phone(self):
+        """11-15-26: the app's "Vote with passkey" sends the Votes tab's one-use grant."""
+        import base64
+        from types import SimpleNamespace
+        from unittest.mock import patch
+        from src.models.webauthn import WebAuthnCredential
+        cred = b'\x09slate-passkey'
+        WebAuthnCredential.objects.create(user=self.voter, credential_id=cred, public_key=b'pk',
+                                          sign_count=1, name='Phone')
+        raw = base64.urlsafe_b64encode(cred).rstrip(b'=').decode()
+
+        def grant(access=None):
+            begin = self.call('post', 'votes/reauth/passkey/begin/', {}, access=access).json()
+            with patch('webauthn.verify_authentication_response', return_value=SimpleNamespace(new_sign_count=2)):
+                return self.call('post', 'votes/reauth/passkey/complete/', {
+                    'challenge_id': begin['challenge_id'],
+                    'credential': {'id': raw, 'rawId': raw, 'type': 'public-key', 'response': {}},
+                }, access=access).json()['reauth_grant']
+
+        # A grant from another of his phones doesn't work here.
+        _, ipad, _ = make_device(self.voter, name='iPad')
+        r = self.call('post', self.vote_path(), {'choice': 'approve', 'reauth_grant': grant(access=ipad)})
+        self.assertEqual((r.status_code, r.json()['error']), (401, 'reauth_failed'))
+        self.assertFalse(SlatingBallot.objects.exists())
+
+        self.period.vote_type = 'individual'
+        self.period.save()
+        g = grant()
+        r = self.call('post', self.vote_path(), {'reauth_grant': g, 'choices': {
+            str(self.pres.id): 'approve', str(self.vp.id): 'reject'}})
+        self.assertEqual(r.status_code, 200, r.content)
+        self.assertEqual(SlatingBallot.objects.filter(voter=self.voter).count(), 2)
+        # One use: a next round can't reuse it.
+        self.period.vote_type = 'slate'
+        self.period.save()
+        r = self.call('post', self.vote_path(), {'choice': 'approve', 'reauth_grant': g})
+        self.assertEqual(r.json()['error'], 'reauth_failed')
+
     def test_withdraw(self):
         r = self.call('post', f'slating/applications/{self.app.id}/withdraw/', {})
         self.assertEqual(r.status_code, 200)
