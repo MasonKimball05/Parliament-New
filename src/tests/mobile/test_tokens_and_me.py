@@ -174,12 +174,21 @@ class MeTests(MobileTestCase):
 class ThrottleTests(MobileTestCase):
 
     def test_login_is_throttled_per_ip(self):
-        statuses = [self.post('auth/login/', {}).status_code for _ in range(11)]
-        self.assertEqual(statuses[:10], [400] * 10)
-        self.assertEqual(statuses[10], 429)
+        # 11-15-26: per IP the bucket fits a chapter on one network (60/min).
+        statuses = [self.post('auth/login/', {}).status_code for _ in range(61)]
+        self.assertEqual(statuses[:60], [400] * 60)
+        self.assertEqual(statuses[60], 429)
         body = self.post('auth/login/', {}).json()
         self.assertEqual(body['error'], 'throttled')
         self.assertGreater(body['retry_after'], 0)
+
+    def test_login_is_throttled_per_device_at_ten(self):
+        hdr = {'HTTP_X_DEVICE_ID': 'install-one'}
+        statuses = [self.post('auth/login/', {}, **hdr).status_code for _ in range(11)]
+        self.assertEqual(statuses[:10], [400] * 10)
+        self.assertEqual(statuses[10], 429)
+        # Other phones on the same network still get in.
+        self.assertEqual(self.post('auth/login/', {}, HTTP_X_DEVICE_ID='install-two').status_code, 400)
 
     def test_device_id_header_has_its_own_bucket(self):
         from src.mobile import api

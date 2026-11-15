@@ -251,9 +251,9 @@ class MobileThrottleScopeTests(TestCase):
 
     @override_settings(MOBILE_API_THROTTLE_RATE='1000/min')
     def test_pre_auth_throttles_stay_strict(self):
-        statuses = [self.api.post('/api/mobile/v1/auth/login/', {},
-                                  content_type='application/json').status_code for _ in range(11)]
-        self.assertEqual(statuses[-1], 429)
+        statuses = [self.api.post('/api/mobile/v1/auth/login/', {}, content_type='application/json',
+                                  HTTP_X_DEVICE_ID='install-strict').status_code for _ in range(11)]
+        self.assertEqual(statuses[-1], 429)   # per phone: 10/min
 
 
 class MeLinksTests(MobileTestCase):

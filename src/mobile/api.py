@@ -63,6 +63,17 @@ DEFAULT_RATES = {
     'verify': '10/min',
     'passkey': '20/min',
     'refresh': '30/min',
+    # 11-15-26: the per-IP buckets, sized for a chapter on one network. At a
+    # chapter meeting everyone on the house Wi-Fi shares one public IP, and a
+    # load test of 36 members signing in at once had 4 of 12 app users turned
+    # away by the 10/min login bucket (it counts every request, successful or
+    # not). Per phone the limits above still apply, and guessing a password is
+    # still stopped by the per-account and per-IP failure lockouts
+    # (src/login_pipeline.py), which count failures only.
+    'login_ip': '60/min',
+    'verify_ip': '60/min',
+    'passkey_ip': '60/min',
+    'refresh_ip': '120/min',
 }
 
 _DEVICE_ID_OK = re.compile(r'^[A-Za-z0-9_.:-]{1,64}$')
@@ -78,8 +89,9 @@ class _MobileAuthThrottle(SimpleRateThrottle):
         pass
 
     def get_rate_for(self, scope):
+        """The rate for ``scope``: ``<scope>_<kind>`` (e.g. ``login_ip``) if set, else ``<scope>``."""
         rates = {**DEFAULT_RATES, **getattr(settings, 'MOBILE_AUTH_THROTTLE_RATES', {})}
-        return rates.get(scope)
+        return rates.get(f'{scope}_{self.kind}', rates.get(scope))
 
     def identity(self, request):
         raise NotImplementedError
