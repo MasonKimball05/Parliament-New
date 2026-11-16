@@ -88,6 +88,15 @@ class Command(BaseCommand):
             user.member_type = 'Member'
             user.member_status = 'Active'
             user.is_active = True
+            # 11-16-26: reviewers try Settings → Delete account on the demo
+            # account. Re-running this reopens it fully: is_active alone left
+            # it pending (still hidden from member lists, and purged at 30
+            # days), so the next review couldn't sign in.
+            reopened = bool(user.deletion_requested_at or user.account_deleted_at)
+            user.deletion_requested_at = None
+            user.deletion_requested_via = ''
+            user.account_deleted_at = None
+            user.is_anonymized = False
             user.is_admin = False
             user.is_quarantined = False
             user.force_password_change = False
@@ -116,6 +125,8 @@ class Command(BaseCommand):
         on_committees = (user.committees.exists() or user.chair_roles.exists())
         verb = 'Created' if created else 'Reset'
         self.stdout.write(self.style.SUCCESS(f'{verb} the App Review account.'))
+        if reopened:
+            self.stdout.write('It had been deleted (Settings → Delete account); it is open again.')
         self.stdout.write('')
         self.stdout.write(f'  Username: {username}')
         self.stdout.write(f'  Password: {password}')

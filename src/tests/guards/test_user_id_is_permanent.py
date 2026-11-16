@@ -256,6 +256,10 @@ _CREATION_SITES = {
     # the post-save redirect — nothing upstream generated an id for it). This
     # is the same generation used by Add Member, just reached from /admin/.
     ('src/admin.py', 'save_model'),
+    # The made-up chapter for App Store screenshots (11-16-26): it inserts new
+    # `DEMO-` members into a scratch database (it refuses one with real
+    # members) and never touches an existing row's key.
+    ('src/management/commands/seed_demo_chapter.py', 'user'),
 }
 
 

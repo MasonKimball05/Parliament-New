@@ -366,6 +366,24 @@ class CommandTests(MobileTestCase):
         self.assertNotEqual(self.login('appreview', password=new_password).status_code, 200)
 
     @REVIEW
+    def test_reset_reopens_an_account_the_reviewer_deleted(self):
+        """11-16-26: reviewers try Delete account; the next review must still sign in."""
+        from src import account_deletion
+        self.run_command()
+        user = ParliamentUser.objects.get(username='appreview')
+        account_deletion.request_deletion(user, 'app')
+        user.refresh_from_db()
+        self.assertTrue(account_deletion.is_pending(user))
+        out = self.run_command()
+        self.assertIn('it is open again', out)
+        user.refresh_from_db()
+        self.assertFalse(account_deletion.is_pending(user))
+        self.assertTrue(user.is_active)
+        cache.clear()
+        password = re.search(r'Password: (\S+)', out).group(1)
+        self.assertEqual(self.login('appreview', password=password).status_code, 200)
+
+    @REVIEW
     def test_reset_removes_an_enrolled_authenticator(self):
         self.run_command()
         user = ParliamentUser.objects.get(username='appreview')
