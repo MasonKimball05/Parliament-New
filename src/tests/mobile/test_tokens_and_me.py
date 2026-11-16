@@ -154,6 +154,11 @@ class MeTests(MobileTestCase):
         SiteSetting.set_setting('mobile_android_latest_build', 99)
         self.assertEqual(self.get_me(access).json()['app_update'],          # the device is iOS
                          {'latest_build': 14, 'min_build': 9, 'url': 'https://testflight.apple.com/join/abc'})
+        # 11-16-26: App Review's account is never prompted or blocked (its build may be older).
+        from src.mobile.views_auth import app_update
+        with self.settings(APP_REVIEW_USERNAMES=frozenset({user.username})):
+            self.assertEqual(app_update('ios', user), {'latest_build': 0, 'min_build': 0, 'url': ''})
+        self.assertEqual(app_update('ios', user)['min_build'], 9)
 
     def test_can_post_announcements_matches_the_announcement_page(self):
         # Same rule as officer_required on create_announcement: officers,

@@ -490,7 +490,7 @@ def _links(user):
     return {'education': education_dashboard_url(user)}
 
 
-def app_update(platform):
+def app_update(platform, user=None):
     """
     The newest build of the app and the oldest one still allowed, for the
     app's "Update available" notice (10-29-26). Set in Admin v2 → Site
@@ -499,6 +499,11 @@ def app_update(platform):
     0 means "not set" (no notice).
     """
     from src.models_feature_flags import SiteSetting
+    from src.app_review import is_app_review_account
+    if is_app_review_account(user):
+        # 11-16-26: App Review installs the build under review, which may be
+        # older than the testers' latest. It is never told to update or blocked.
+        return {'latest_build': 0, 'min_build': 0, 'url': ''}
     prefix = 'mobile_android' if platform == 'android' else 'mobile_ios'
     return {
         'latest_build': SiteSetting.get_setting(f'{prefix}_latest_build', 0) or 0,
@@ -580,7 +585,7 @@ class MeView(MobileAPIView):
                 'house_map': PageToggle.is_page_enabled('house_map'),  # v4.4.0
             },
             'links': _links(user),
-            'app_update': app_update(device.platform),
+            'app_update': app_update(device.platform, user),
             'device': {
                 'device_id': str(device.public_id),
                 'platform': device.platform,
