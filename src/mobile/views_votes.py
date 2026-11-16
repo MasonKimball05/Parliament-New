@@ -38,7 +38,7 @@ from django.utils import timezone
 from rest_framework import exceptions
 from rest_framework.response import Response
 
-from src import ballots
+from src import ballots, practice_ballot
 from src.mobile.api import MobileAPIView, check_web_page
 from src.models import Legislation, Vote
 from src.models.mobile import MobileAuthTicket
@@ -105,6 +105,11 @@ class VoteListView(_VotesBase):
         voted = set(Vote.objects.filter(user=user, legislation__in=rows)
                     .values_list('legislation_id', flat=True))
         attendance = ballots.attendance_ok(user)
+        votes = [_summary(leg, voted) for leg in rows]
+        if practice_ballot.applies(user):
+            # 11-16-26: the demo account votes on a practice ballot instead (src/practice_ballot.py).
+            attendance = True
+            votes.append(practice_ballot.summary(user))
         return Response({
             'me': {
                 'can_vote': bool(user.can_vote),
@@ -112,7 +117,7 @@ class VoteListView(_VotesBase):
                 'can_cast_now': bool(user.can_vote) and attendance,
                 'has_passkeys': user.webauthn_credentials.exists(),
             },
-            'votes': [_summary(leg, voted) for leg in rows],
+            'votes': votes,
             'committees': committee_summaries(user),
         })
 
@@ -120,6 +125,8 @@ class VoteListView(_VotesBase):
 class VoteDetailView(_VotesBase):
 
     def get(self, request, legislation_id):
+        if legislation_id == practice_ballot.PRACTICE_ID and practice_ballot.applies(request.user):
+            return Response({'vote': practice_ballot.detail(request.user)})
         leg = _on_ballot().filter(pk=legislation_id).first()
         if leg is None:
             raise Http404
@@ -164,6 +171,13 @@ class VoteCastView(_VotesBase):
         # The web's cast endpoint is restrictable by its own url name.
         check_web_page(user, 'cast_vote', toggle=False)
         data = request.data if isinstance(request.data, dict) else {}
+        if legislation_id == practice_ballot.PRACTICE_ID and practice_ballot.applies(user):
+            _confirm_identity(request, data)
+            receipt, error = practice_ballot.cast(user, data.get('choices') or (
+                [data['choice']] if data.get('choice') is not None else None))
+            if error:
+                raise VoteRefused('invalid_choice', error)
+            return Response({'ok': True, 'receipt': receipt, 'choices_count': 1})
         try:
             ballots.check_eligible(user)
         except ballots.BallotError as exc:

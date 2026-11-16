@@ -13,6 +13,7 @@ class Notification(models.Model):
         ('chat_mention', 'Chat Mention'),
         ('chat_report', 'Chat Message Reported'),
         ('quote_report', 'Quote Reported'),
+        ('content_report', 'Profile or Idea Reported'),
         ('security', 'Security Alert'),
         ('excuse_reviewed', 'Excuse Reviewed'),
         ('role_kb_available', 'Knowledge Base Notes Available'),

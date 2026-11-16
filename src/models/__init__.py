@@ -41,6 +41,8 @@ from src.models.committees import (
     Committee,
     CommitteePermissions,
     CommitteeLegislation,
+    CommitteeChairBallot,
+    CommitteeChairElection,
     CommitteeVote,
 )
 
@@ -94,6 +96,7 @@ from src.models.chat import (
     ChatChannelPermission,
     ChatMessage,
     ChatMessageReport,
+    ContentReport,
     ChatNotificationPreference,
     ChatReadReceipt,
     ChatUserMute,
@@ -288,6 +291,8 @@ __all__ = [
     'Committee',
     'CommitteePermissions',
     'CommitteeLegislation',
+    'CommitteeChairBallot',
+    'CommitteeChairElection',
     'CommitteeVote',
     # Documents
     'CommitteeMinutes',
@@ -329,6 +334,7 @@ __all__ = [
     'ChatChannelPermission',
     'ChatMessage',
     'ChatMessageReport',
+    'ContentReport',
     'ChatNotificationPreference',
     'ChatReadReceipt',
     'ChatUserMute',

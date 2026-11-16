@@ -477,3 +477,55 @@ class CommitteeVote(models.Model):
         # Allow multiple votes per user for multi-select plurality voting
         # Uniqueness is enforced per user+legislation+choice to prevent duplicate selections
         unique_together = ('user', 'legislation', 'vote_choice')
+
+
+class CommitteeChairElection(models.Model):
+    """
+    A committee electing its chair from among its members, in the app
+    (11-16-26: the Education Oversight Committee, src/committee_chair_election.py).
+    One open at a time per committee. Ballots are secret: who voted is kept
+    (one each), how is only ever shown as totals once it closes.
+    """
+
+    STATUS_OPEN = 'open'
+    STATUS_CLOSED = 'closed'
+    STATUS_CANCELLED = 'cancelled'
+    STATUS_CHOICES = [(STATUS_OPEN, 'Open'), (STATUS_CLOSED, 'Closed'), (STATUS_CANCELLED, 'Cancelled')]
+
+    committee = models.ForeignKey(Committee, on_delete=models.CASCADE, related_name='chair_elections')
+    opened_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True,
+                                  related_name='chair_elections_opened')
+    opened_at = models.DateTimeField(auto_now_add=True)
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default=STATUS_OPEN)
+    closed_at = models.DateTimeField(null=True, blank=True)
+    closed_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+                                  related_name='chair_elections_closed')
+    #: Who won (None for a tie, or no votes, or cancelled).
+    winner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+                               related_name='chair_elections_won')
+    #: ``{user_id: votes}`` once closed, for the result.
+    totals = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        ordering = ['-opened_at']
+        constraints = [
+            models.UniqueConstraint(fields=['committee'], condition=models.Q(status='open'),
+                                    name='one_open_chair_election_per_committee'),
+        ]
+
+    def __str__(self):
+        return f'{self.committee} chair election ({self.status})'
+
+
+class CommitteeChairBallot(models.Model):
+    election = models.ForeignKey(CommitteeChairElection, on_delete=models.CASCADE, related_name='ballots')
+    voter = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+                              related_name='chair_ballots_cast')
+    choice = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+                               related_name='chair_ballots_received')
+    cast_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['election', 'voter'], name='one_chair_ballot_per_voter'),
+        ]

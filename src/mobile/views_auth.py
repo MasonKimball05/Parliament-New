@@ -53,11 +53,12 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.signals import user_logged_in
 from django.core.cache import cache
+from django.urls import reverse
 from django.utils import timezone
 from django_otp import user_has_device
 from rest_framework.response import Response
 
-from src import login_pipeline as lp
+from src import login_pipeline as lp, terms
 from src.mobile.api import MobileAPIView, PreAuthAPIView
 from src.mobile.tokens import create_device, rotate, token_response
 from src.mobile.views_directory import photo_path
@@ -545,6 +546,10 @@ class MeView(MobileAPIView):
             # Two-factor in the app (views_two_factor.py): whether it is on, and
             # by being present, that this server has account/two-factor/.
             'has_2fa': user_has_device(user),
+            # 11-16-26 (guideline 1.2): the app asks the member to accept the
+            # Terms of Use before showing anything (src/terms.py, terms/accept/).
+            'terms': {'accepted': terms.has_accepted(user), 'version': terms.current_version(),
+                      'url': reverse('terms')},
             # FeatureFlag fails OPEN for an unseeded flag, exactly as the views do.
             # No 'calendar' flag: that FeatureFlag row is dead (it never gated
             # anything; see prune_dead_feature_flags.py). The calendar's real

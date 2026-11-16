@@ -248,7 +248,8 @@ def feature_ideas(status_filter='', priority_filter=''):
     tickets, in progress first, then acknowledged, new, resolved, won't do,
     duplicate; newest first within each.
     """
-    ideas = FeedbackRequest.objects.filter(request_type='feature_idea').select_related('submitted_by').defer(
+    # 11-16-26: an idea hidden after member reports (src/content_reports.py) leaves the board.
+    ideas = FeedbackRequest.objects.filter(request_type='feature_idea', hidden_at__isnull=True).select_related('submitted_by').defer(
         *member_defer('submitted_by')
     ).annotate(status_priority=_status_order()).order_by('status_priority', '-submitted_at')
 
@@ -261,7 +262,7 @@ def feature_ideas(status_filter='', priority_filter=''):
 
 def feature_idea_counts():
     """The board's four summary cards (unfiltered)."""
-    idea_base = FeedbackRequest.objects.filter(request_type='feature_idea')
+    idea_base = FeedbackRequest.objects.filter(request_type='feature_idea', hidden_at__isnull=True)
     return {
         'total_count': idea_base.count(),
         'new_count': idea_base.filter(status='new').count(),
@@ -283,8 +284,9 @@ def feedback_visible_to(feedback, user):
     and the app (src/mobile/views_support_history.py). Anything that isn't
     a feature idea counts as private (the attachment view's fail-closed form).
     """
-    if feedback.request_type == 'feature_idea':
+    if feedback.request_type == 'feature_idea' and feedback.hidden_at is None:
         return True
+    # A support ticket, or an idea hidden after member reports (11-16-26).
     return feedback.submitted_by_id == user.pk or can_manage_feedback(user)
 
 

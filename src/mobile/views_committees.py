@@ -60,6 +60,10 @@ def _person(user):
     }
 
 
+from src.committee_chair_election import allows as chair_elections_allowed  # noqa: E402
+from src.education_oversight import in_oversight  # noqa: E402
+
+
 class _Access:
     """The viewer's standing in one committee, as ``committee_home`` works it out."""
 
@@ -241,6 +245,10 @@ class CommitteeDashboardView(_CommitteeView):
                 'archived': committee.is_archived,
                 'active': committee.is_active,
                 'kinds': _kinds(committee),
+                # 11-16-26: no VP of Education, so the committee and its elected chair lead
+                # (src/education_oversight.py); and whether it elects its chair in the app.
+                'oversight': in_oversight(committee),
+                'chair_election': chair_elections_allowed(committee),
             },
             'me': {
                 'roles': access.roles(),

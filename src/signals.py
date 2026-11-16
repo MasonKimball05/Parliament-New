@@ -582,3 +582,52 @@ def _groupme_take_down_announcement(sender, instance, **kwargs):
 def _groupme_take_down_event(sender, instance, **kwargs):
     from src.groupme import messages_to_take_down, queue_take_down
     queue_take_down(messages_to_take_down(event=instance))
+
+
+# ============================================================================
+# Education Oversight Committee (11-16-26, src/education_oversight.py)
+# ============================================================================
+
+from src.models import Committee  # noqa: E402
+
+
+@receiver(m2m_changed, sender=ParliamentUser.roles.through, dispatch_uid='education_oversight_name')
+def _education_oversight_name(sender, instance, action, pk_set, reverse, **kwargs):
+    """The VP of Education role changed hands: rename the committee for oversight, or back."""
+    if action not in ('post_add', 'post_remove', 'post_clear'):
+        return
+    from src import education_oversight
+    try:
+        if reverse:   # role.users changed: instance is the Role
+            education_oversight.sync_names_for_roles([instance.pk])
+        elif pk_set:
+            education_oversight.sync_names_for_roles(pk_set)
+        else:         # a member's roles were cleared: any education committee may be affected
+            for committee in education_oversight.education_committees():
+                education_oversight.sync_name(committee)
+    except Exception:
+        logger.exception('Error syncing the education committee name')
+
+
+@receiver(m2m_changed, sender=Committee.chairs.through, dispatch_uid='education_oversight_chairs')
+def _education_oversight_chairs(sender, instance, action, pk_set, reverse, **kwargs):
+    """The education committee's chair is a Chair member type (officer tools); stepping down reverts it."""
+    from src import education_oversight
+    if action == 'pre_clear':
+        # post_clear has no pk_set: remember who was chair.
+        instance._education_chairs_before = (
+            [instance] if reverse else list(instance.chairs.all()))
+        return
+    if action not in ('post_add', 'post_remove', 'post_clear'):
+        return
+    try:
+        if reverse:   # user.committee chairs changed: instance is the member
+            users = [instance]
+        elif action == 'post_clear':
+            users = getattr(instance, '_education_chairs_before', [])
+        else:
+            users = list(ParliamentUser.objects.filter(pk__in=pk_set or []))
+        for user in users:
+            education_oversight.sync_chair_member_type(user)
+    except Exception:
+        logger.exception('Error syncing an education committee chair\'s member type')

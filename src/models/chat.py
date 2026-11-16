@@ -583,3 +583,58 @@ class ChatUserMute(models.Model):
 
     def __str__(self):
         return f'{self.muter_id} mutes {self.muted_id}'
+
+
+class ContentReport(models.Model):
+    """
+    A member reporting another member's profile (photo, About me) or an idea
+    on the ideas board (11-16-26, App Store guideline 1.2: every place one
+    member's content reaches others can be reported). Chat messages and quotes
+    have their own reports (ChatMessageReport, QuoteReport). Rules:
+    src/content_reports.py. Who reported is visible to officers only.
+    """
+
+    KIND_PROFILE = 'profile'
+    KIND_IDEA = 'idea'
+    KIND_CHOICES = [(KIND_PROFILE, 'Profile'), (KIND_IDEA, 'Idea')]
+    STATUS_OPEN = 'open'
+    STATUS_DISMISSED = 'dismissed'
+    STATUS_ACTIONED = 'actioned'
+    STATUS_CHOICES = [
+        (STATUS_OPEN, 'Open'),
+        (STATUS_DISMISSED, 'Dismissed'),
+        (STATUS_ACTIONED, 'Content removed'),
+    ]
+
+    kind = models.CharField(max_length=10, choices=KIND_CHOICES)
+    #: The profile's member, or whoever submitted the idea.
+    member = models.ForeignKey('ParliamentUser', on_delete=models.CASCADE, null=True, blank=True,
+                               related_name='content_reports_received')
+    idea = models.ForeignKey('FeedbackRequest', on_delete=models.CASCADE, null=True, blank=True,
+                             related_name='reports')
+    reporter = models.ForeignKey('ParliamentUser', on_delete=models.CASCADE,
+                                 related_name='content_reports_made')
+    reason = models.CharField(max_length=20, choices=ChatMessageReport.REASON_CHOICES)
+    details = models.TextField(blank=True, max_length=1000)
+    created_at = models.DateTimeField(auto_now_add=True)
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default=STATUS_OPEN)
+    reviewed_by = models.ForeignKey('ParliamentUser', on_delete=models.SET_NULL, null=True,
+                                    blank=True, related_name='content_reports_reviewed')
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    action_note = models.CharField(max_length=500, blank=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        constraints = [
+            # One open report per reporter per thing (a closed one can be reported again).
+            models.UniqueConstraint(fields=['kind', 'member', 'reporter'],
+                                    condition=models.Q(kind='profile', status='open'),
+                                    name='unique_open_profile_report'),
+            models.UniqueConstraint(fields=['kind', 'idea', 'reporter'],
+                                    condition=models.Q(kind='idea', status='open'),
+                                    name='unique_open_idea_report'),
+        ]
+        indexes = [models.Index(fields=['status', '-created_at'], name='content_report_status_idx')]
+
+    def __str__(self):
+        return f'Report {self.pk} on {self.kind} ({self.status})'

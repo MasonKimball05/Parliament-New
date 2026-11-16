@@ -699,6 +699,12 @@ class FeedbackRequest(models.Model):
         help_text='Admin who resolved/closed this'
     )
 
+    # 11-16-26 (App Store guideline 1.2): an idea is readable by every member,
+    # so members can report one (src/content_reports.py). Enough reports, or an
+    # officer acting on one, hide it from the ideas board pending review.
+    hidden_at = models.DateTimeField(null=True, blank=True,
+                                     help_text='Hidden from the ideas board after member reports')
+
     class Meta:
         ordering = ['-submitted_at']
         verbose_name = 'Feedback / Support Request'

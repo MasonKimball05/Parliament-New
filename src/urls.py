@@ -371,6 +371,7 @@ from src.view.songbook import (
 )
 from src.view.public_songbook import public_songbook_list, public_song_detail
 from src.view.legal import privacy_policy, support, terms
+from src.view import content_reports as content_report_views
 from src.view.csp_report import csp_report
 from src.view.csrf_token import csrf_token_refresh
 from src.view.site_monitor import static_asset_fingerprints
@@ -582,6 +583,10 @@ urlpatterns = [
 
     # Officer Pages
     path('officers/', officer_home, name='officer_home'),
+    # Reported profiles and ideas (11-16-26, App Store guideline 1.2).
+    path('officers/reported-content/', content_report_views.content_report_list, name='content_reports'),
+    path('officers/reported-content/<int:report_id>/review/', content_report_views.content_report_review,
+         name='content_report_review'),
     path('officers/chapter-stats/', chapter_stats, name='chapter_stats'),
     path('officers/mobile-app/', mobile_app, name='officer_mobile_app'),
     path('officers/events/<int:event_id>/time/', event_time, name='event_time'),

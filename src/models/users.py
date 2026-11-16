@@ -350,6 +350,11 @@ class ParliamentUser(AbstractBaseUser):
         default=False,
         help_text='True after the user has viewed their backup codes on the reveal page. Reset when codes are regenerated.'
     )
+    # 11-16-26 (App Store guideline 1.2): the Terms of Use, accepted once in
+    # the app before member content is shown (src/terms.py). The version is
+    # the Terms' date, so a change to the Terms asks again.
+    terms_accepted_at = models.DateTimeField(null=True, blank=True)
+    terms_version = models.CharField(max_length=20, blank=True, default='')
     role_number = models.CharField(
         max_length=30,
         unique=True,
@@ -778,6 +783,8 @@ ANONYMIZE_FIELDS_KEPT = {
     'has_default_password': 'moot once the account can no longer log in',  # nosec B105 # field name, not a credential
     'onboarding_complete': 'checklist progress, not identity',
     'onboarding_data': 'checklist progress, not identity',
+    'terms_accepted_at': 'when the Terms were accepted: a record of consent, not identity',
+    'terms_version': 'which Terms were accepted: a record of consent, not identity',
     'is_quarantined': 'security flag; irrelevant once removed, kept for audit context',
     'email_flagged': 'about the now-cleared email; the reason text is scrubbed separately',
     'email_flagged_at': 'a timestamp',

@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+
+{% block title %}Reported content{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div class="mb-6">
+        <a href="{% url 'officer_home' %}" class="text-sm text-primary-600 dark:text-primary-400 hover:underline">&larr; Officer tools</a>
+        <h1 class="text-3xl font-bold text-gray-900 dark:text-white mt-2 mb-2">Reported content</h1>
+        <p class="text-gray-600 dark:text-gray-400">Member profiles and ideas that members reported. (Chat messages and quotes have their own lists.) An idea reported by {{ auto_hide_threshold }} or more members is hidden until you review it. Removing a profile's content deletes the photo and clears About me; removing an idea hides it from the ideas board. Who reported is visible to officers only.</p>
+    </div>
+
+    <div class="flex flex-wrap gap-2 mb-4">
+        {% for value, label in statuses %}
+        <a href="{% url 'content_reports' %}?status={{ value }}"
+           class="px-3 py-1 rounded-full text-sm border {% if value == status %}bg-primary-600 text-white border-primary-600{% else %}border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300{% endif %}">{{ label }}</a>
+        {% endfor %}
+    </div>
+
+    <div class="space-y-4">
+        {% for report in reports %}
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-5 border-l-4 {% if report.status == 'open' %}border-red-500{% else %}border-gray-300 dark:border-gray-600{% endif %}">
+            <div class="flex flex-wrap items-baseline justify-between gap-2 mb-2">
+                <span class="font-semibold text-gray-900 dark:text-white">{{ report.get_reason_display }}</span>
+                <span class="text-xs text-gray-500 dark:text-gray-400">{{ report.get_kind_display }} &middot; {{ report.created_at|date:"M j, g:i A" }}</span>
+            </div>
+            <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3 mb-3">
+                {% if report.kind == 'profile' %}
+                <p class="text-sm text-gray-500 dark:text-gray-400 mb-1">{{ report.member.name }}&rsquo;s profile</p>
+                <p class="text-gray-900 dark:text-gray-100 break-words">{{ report.member.about_me|default:"(No About me)"|linebreaksbr }}</p>
+                {% else %}
+                <p class="text-sm text-gray-500 dark:text-gray-400 mb-1">Idea by {{ report.member.name|default:"Anonymous" }}{% if report.idea.hidden_at %} &middot; hidden{% endif %}</p>
+                <p class="font-medium text-gray-900 dark:text-gray-100 break-words">{{ report.idea.title }}</p>
+                <p class="text-gray-900 dark:text-gray-100 break-words">{{ report.idea.description|linebreaksbr }}</p>
+                {% endif %}
+            </div>
+            <p class="text-sm text-gray-600 dark:text-gray-300">Reported by {{ report.reporter.name }}{% if report.details %}: &ldquo;{{ report.details }}&rdquo;{% endif %}</p>
+            {% if report.status == 'open' %}
+            <form method="post" action="{% url 'content_report_review' report.id %}" class="mt-3 flex flex-wrap items-center gap-2">
+                {% csrf_token %}
+                <input type="text" name="note" maxlength="500" placeholder="Note (optional)" class="flex-1 min-w-[12rem] px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-700 dark:text-white">
+                <button type="submit" name="action" value="dismiss" class="px-4 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition">Dismiss</button>
+                <button type="submit" name="action" value="remove" class="px-4 py-2 text-sm bg-red-600 text-white rounded-md hover:bg-red-700 transition">{% if report.kind == 'profile' %}Remove photo and About me{% else %}Hide idea{% endif %}</button>
+            </form>
+            {% else %}
+            <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">{{ report.get_status_display }}{% if report.reviewed_by %} by {{ report.reviewed_by.name }}{% endif %}{% if report.reviewed_at %} &middot; {{ report.reviewed_at|date:"M j, g:i A" }}{% endif %}{% if report.action_note %} &middot; {{ report.action_note }}{% endif %}</p>
+            {% endif %}
+        </div>
+        {% empty %}
+        <p class="text-gray-500 dark:text-gray-400">No reports here.</p>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

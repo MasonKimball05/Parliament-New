@@ -20,6 +20,8 @@ from src.mobile import (
     views_account, views_chat_safety,
 )
 from src.mobile import views_legislation_drafts
+from src.mobile import views_content_reports
+from src.mobile import views_chair_election
 from src.mobile import views_qr
 from src.mobile import views_legislation_manage
 from src.mobile import views_committee_management
@@ -122,6 +124,8 @@ urlpatterns = [
     path('polls/<int:announcement_id>/', views_excuses_polls.PollView.as_view(), name='mobile_poll'),
     path('members/', views_directory.MemberListView.as_view(), name='mobile_members'),
     path('members/<str:user_id>/', views_directory.MemberCardView.as_view(), name='mobile_member'),
+    path('members/<str:user_id>/report/', views_content_reports.ProfileReportView.as_view(),
+         name='mobile_member_report'),
     path('members/<str:user_id>/photo/', views_directory.MemberPhotoView.as_view(),
          name='mobile_member_photo'),
     path('calendar/subscription/', views_calendar.CalendarSubscriptionView.as_view(),
@@ -373,6 +377,8 @@ urlpatterns = [
     path('support/bug-reports/', views_support_history.MyBugReportsView.as_view(), name='mobile_my_bug_reports'),
     path('support/feedback/mine/', views_support_history.MyFeedbackView.as_view(), name='mobile_my_feedback'),
     path('support/feedback/ideas/', views_support_history.FeedbackIdeasView.as_view(), name='mobile_feedback_ideas'),
+    path('support/feedback/ideas/<int:idea_id>/report/', views_content_reports.IdeaReportView.as_view(),
+         name='mobile_feedback_idea_report'),
     # Bug tracker, detail pages and the two admin pages (v4.4.2, views_support_history.py)
     path('support/bug-tracker/', views_support_history.BugTrackerView.as_view(), name='mobile_bug_tracker'),
     path('support/bug-tracker/admin/', views_support_history.BugAdminView.as_view(), name='mobile_bug_admin'),
@@ -548,6 +554,8 @@ urlpatterns = [
     path('cnb/resolutions/<int:resolution_id>/', views_cnb.CnbResolutionView.as_view(), name='mobile_cnb_resolution'),
     path('committees/', views_committees.CommitteeListView.as_view(), name='mobile_committees'),
     path('committees/<str:code>/', views_committees.CommitteeDashboardView.as_view(), name='mobile_committee'),
+    path('committees/<str:code>/chair-election/', views_chair_election.ChairElectionView.as_view(),
+         name='mobile_committee_chair_election'),
     path('committees/<str:code>/members/', views_committees.CommitteeMembersView.as_view(),
          name='mobile_committee_members'),
     path('committees/<str:code>/documents/', views_committees.CommitteeDocumentsView.as_view(),
@@ -734,6 +742,12 @@ urlpatterns = [
          name='mobile_committee_edit'),
     path('officer/committees/<int:committee_id>/delete/', views_committee_settings.CommitteeDeleteView.as_view(),
          name='mobile_committee_delete'),
+    # Terms acceptance and profile/idea reports (11-16-26, views_content_reports.py; guideline 1.2)
+    path('terms/accept/', views_content_reports.TermsAcceptView.as_view(), name='mobile_terms_accept'),
+    path('officer/content-reports/', views_content_reports.ContentReportListView.as_view(),
+         name='mobile_content_reports'),
+    path('officer/content-reports/<int:report_id>/', views_content_reports.ContentReportReviewView.as_view(),
+         name='mobile_content_report_review'),
     # Chat reports and mutes (v4.4.0, views_chat_safety.py; Apple guideline 1.2)
     path('chat/messages/<int:message_id>/report/', views_chat_safety.ReportMessageView.as_view(),
          name='mobile_chat_report'),

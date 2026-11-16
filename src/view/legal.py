@@ -13,6 +13,9 @@ from django.conf import settings
 from django.shortcuts import render
 
 EFFECTIVE_DATE = date(2026, 10, 31)
+#: The Terms of Use's own date (11-16-26). It is the version members accept in
+#: the app (src/terms.py), so changing the Terms and bumping it asks everyone again.
+TERMS_EFFECTIVE_DATE = date(2026, 11, 16)
 
 
 def privacy_policy(request):
@@ -27,4 +30,4 @@ def support(request):
 
 
 def terms(request):
-    return render(request, 'legal/terms.html', {'effective_date': EFFECTIVE_DATE})
+    return render(request, 'legal/terms.html', {'effective_date': TERMS_EFFECTIVE_DATE})
