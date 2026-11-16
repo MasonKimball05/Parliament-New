@@ -198,12 +198,12 @@ class Command(BaseCommand):
         from src.models.users import TwoFactorRequirement
         now = timezone.now()
 
-        members = [self.user(i + 1, f, l, pledge_class=pc, graduation_year=y, majors=m, house=h)
+        members = [self.user(i + 1, f, l, pledge_class=pc, graduation_year=y, majors=[m], house=h)
                    for i, (f, l, pc, y, m, h) in enumerate(MEMBERS)]
         for i, (f, l, pc, y, m, h) in enumerate(PLEDGES):     # for the directory and education screens
-            self.user(50 + i, f, l, 'Pledge', pledge_class=pc, graduation_year=y, majors=m, house=h)
+            self.user(50 + i, f, l, 'Pledge', pledge_class=pc, graduation_year=y, majors=[m], house=h)
         demo = self.user(99, 'Alex', 'Rivera', 'Officer', username=DEMO_USERNAME, pledge_class='Fall 2023',
-                         graduation_year=2027, majors='Political Science', house='Gordon',
+                         graduation_year=2027, majors=['Political Science'], house='Gordon',
                          about_me='Chapter secretary. Ask me about minutes, the calendar or the songbook.')
         password = _password()
         demo.set_password(password)

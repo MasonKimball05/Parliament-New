@@ -32,6 +32,7 @@ class SeedDemoChapterTests(TestCase):
         password = re.search(r'Sign in as demo / (\S+)', out).group(1)
         self.assertEqual(ParliamentUser.objects.filter(user_id__startswith='DEMO-').count(), 24)
         self.assertTrue(all(u.email.endswith('@example.com') for u in ParliamentUser.objects.all()))
+        self.assertEqual(ParliamentUser.objects.get(username='demo').majors, ['Political Science'])
         self.assertGreaterEqual(Event.objects.count(), 7)
         self.assertEqual(Song.objects.count(), 4)
         self.assertEqual(Quote.objects.count(), 3)
