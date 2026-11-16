@@ -464,7 +464,8 @@ class SlatingChairPositionView(_ChairView):
                 member = ParliamentUser.objects.filter(user_id=data.get('user_id'), member_status='Active').first()
                 if member is None:
                     raise RoundError('not_found', 'Choose an active member.')
-                add_nominee(period, request.user, pid, member, accepted=bool(data.get('accepted')))
+                add_nominee(period, request.user, pid, member, accepted=bool(data.get('accepted')),
+                            allow_committee=bool(data.get('allow_committee')))
             elif action in ('accept_nominee', 'unaccept_nominee'):
                 set_nominee_accepted(period, nid, action == 'accept_nominee')
             elif action == 'remove_nominee':

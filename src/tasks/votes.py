@@ -183,26 +183,29 @@ def auto_open_close_committee_votes():
 
 @shared_task(name='tasks.auto_open_close_slating_votes')
 def auto_open_close_slating_votes():
-    """Open and close slating period voting on schedule."""
+    """
+    Follow each election's schedule, the same way the slating pages do
+    (``check_and_auto_transition_status``): the first round opens at
+    ``voting_open_at`` through the chair's own Open, an open round closes at
+    ``voting_close_at`` by counting it, and results publish on their date.
+
+    11-16-26: this used to flip the status directly. Once beat ran it every
+    minute, any election back in deliberation after a round closed was set
+    to voting_open again (on chapter night: Close Voting "didn't stick", the
+    round showed as round 1 with nothing decided), and a scheduled close
+    marked voting closed without counting the round.
+    """
     from src.models import SlatingPeriod
-    now = timezone.now()
-    opened = 0
-    closed = 0
-
-    for period in SlatingPeriod.objects.filter(status='deliberation', voting_open_at__isnull=False, voting_open_at__lte=now):
-        period.status = 'voting_open'
-        period.save(update_fields=['status'])
-        opened += 1
-        logger.info(f"[tasks] Auto-opened slating voting for period id={period.id}")
-
-    for period in SlatingPeriod.objects.filter(status='voting_open', voting_close_at__isnull=False, voting_close_at__lte=now):
-        period.status = 'voting_closed'
-        period.save(update_fields=['status'])
-        closed += 1
-        logger.info(f"[tasks] Auto-closed slating voting for period id={period.id}")
-
-    if opened or closed:
-        logger.info(f"[tasks] auto_open_close_slating_votes: opened={opened}, closed={closed}")
+    from src.view.slating.period_setup import check_and_auto_transition_status
+    changed = 0
+    for period in SlatingPeriod.objects.exclude(status__in=['results_published', 'archived']):
+        try:
+            if check_and_auto_transition_status(period):
+                changed += 1
+        except Exception:   # one election's problem doesn't stop the others
+            logger.exception(f"[tasks] slating schedule failed for period id={period.id}")
+    if changed:
+        logger.info(f"[tasks] auto_open_close_slating_votes: {changed} election(s) moved on schedule")
 
 
 @shared_task(name='tasks.execute_scheduled_slating_transitions')

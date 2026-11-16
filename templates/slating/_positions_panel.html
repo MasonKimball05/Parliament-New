@@ -82,6 +82,7 @@
                         {% for m in nominee_members %}<option value="{{ m.user_id }}">{{ m.name }}</option>{% endfor %}
                     </select>
                     <label class="inline-flex items-center gap-1 text-xs text-gray-600 dark:text-gray-300"><input type="checkbox" name="accepted" checked class="h-3.5 w-3.5 rounded">Accepted</label>
+                    <label class="inline-flex items-center gap-1 text-xs text-gray-600 dark:text-gray-300" title="Slating committee members can't run unless the chapter decides to allow it. It's noted in the activity log."><input type="checkbox" name="allow_committee" class="h-3.5 w-3.5 rounded">Slating committee member (the chapter allowed it)</label>
                     <button type="submit" class="text-xs px-2 py-1 rounded-md bg-primary-600 text-white hover:bg-primary-700">Add nominee</button>
                 </form>
                 {% endif %}

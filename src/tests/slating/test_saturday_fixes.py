@@ -437,6 +437,28 @@ class SlateTests(_Fix):
         add_nominee(self.period, self.manager, self.treas.id, pledge)
         self.assertEqual(list(SlatingNominee.objects.values_list('member', flat=True)), [pledge.pk])
 
+    def test_the_chapter_can_allow_a_committee_member_from_the_floor(self):
+        """11-16-26: the chapter elected a slating committee member; the chair records the exception."""
+        from src.models import SlatingActivity
+        from src.slating_rounds import decide_manually, position_states
+        with self.assertRaises(RoundError) as e:
+            add_nominee(self.period, self.manager, self.treas.id, self.committee_member, accepted=True)
+        self.assertIn('the chapter allowed it', str(e.exception))
+        # The exception lifts only the committee rule.
+        alum = member('sf-alum4')
+        ParliamentUser.objects.filter(pk=alum.pk).update(member_status='Alumni')
+        alum.refresh_from_db()
+        with self.assertRaises(RoundError):
+            add_nominee(self.period, self.manager, self.treas.id, alum, allow_committee=True)
+        n = add_nominee(self.period, self.manager, self.treas.id, self.committee_member, accepted=True,
+                        allow_committee=True)
+        self.assertTrue(SlatingActivity.objects.filter(metadata__committee_exception=True).exists())
+        SlatingPeriod.objects.filter(pk=self.period.pk).update(status='voting_closed',
+                                                               extra_settings={'round_ended': True})
+        decide_manually(self.fresh(), self.manager, self.treas.id, f'n{n.id}', 'Elected from the floor')
+        state = next(s for s in position_states(self.fresh()) if s.position.id == self.treas.id)
+        self.assertEqual(state.winner.name, self.committee_member.name)
+
     def test_the_slating_manager_counts_as_on_the_committee(self):
         """11-05-26: the manager can't apply or be a write-in either."""
         from src.view.slating.apply import apply_refusal

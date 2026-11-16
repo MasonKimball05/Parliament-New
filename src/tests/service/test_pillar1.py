@@ -308,61 +308,45 @@ class AutoOpenCloseSlatingVotesTaskTests(TestCase):
             **kwargs,
         )
 
-    def test_opens_voting_when_time_arrives(self):
+    def test_a_closed_round_is_never_reopened(self):
+        """11-16-26: back in deliberation after round 1, the clock left it alone (it used to reopen it)."""
         from src.tasks import auto_open_close_slating_votes
-        period = self._make_period(
-            'deliberation',
-            voting_open_at=timezone.now() - timedelta(minutes=1),
-        )
-
+        period = self._make_period('deliberation', current_voting_attempt=1,
+                                   voting_open_at=timezone.now() - timedelta(hours=1))
         auto_open_close_slating_votes()
-
-        period.refresh_from_db()
-        self.assertEqual(period.status, 'voting_open')
-
-    def test_does_not_open_early(self):
-        from src.tasks import auto_open_close_slating_votes
-        period = self._make_period(
-            'deliberation',
-            voting_open_at=timezone.now() + timedelta(hours=1),
-        )
-
-        auto_open_close_slating_votes()
-
         period.refresh_from_db()
         self.assertEqual(period.status, 'deliberation')
 
-    def test_closes_voting_when_time_arrives(self):
+    def test_does_not_open_without_an_approved_slate(self):
+        """The first round opens only as the chair's Open would: with an approved slate."""
         from src.tasks import auto_open_close_slating_votes
-        period = self._make_period(
-            'voting_open',
-            voting_close_at=timezone.now() - timedelta(minutes=1),
-        )
-
+        period = self._make_period('deliberation', voting_open_at=timezone.now() - timedelta(minutes=1))
         auto_open_close_slating_votes()
-
         period.refresh_from_db()
-        self.assertEqual(period.status, 'voting_closed')
+        self.assertEqual(period.status, 'deliberation')
+
+    def test_follows_the_pages_schedule_for_every_live_election(self):
+        from unittest.mock import patch
+        from src.tasks import auto_open_close_slating_votes
+        live = self._make_period('deliberation')
+        self._make_period('results_published')
+        with patch('src.view.slating.period_setup.check_and_auto_transition_status',
+                   return_value=False) as check:
+            auto_open_close_slating_votes()
+        self.assertEqual([c.args[0].pk for c in check.call_args_list], [live.pk])
 
     def test_does_not_close_early(self):
         from src.tasks import auto_open_close_slating_votes
-        period = self._make_period(
-            'voting_open',
-            voting_close_at=timezone.now() + timedelta(hours=1),
-        )
-
+        period = self._make_period('voting_open', current_voting_attempt=1,
+                                   voting_close_at=timezone.now() + timedelta(hours=1))
         auto_open_close_slating_votes()
-
         period.refresh_from_db()
         self.assertEqual(period.status, 'voting_open')
 
     def test_ignores_periods_without_timestamps(self):
-        """A period with no voting_open_at / voting_close_at is never auto-transitioned."""
         from src.tasks import auto_open_close_slating_votes
-        period = self._make_period('deliberation')  # no timestamps
-
+        period = self._make_period('deliberation')
         auto_open_close_slating_votes()
-
         period.refresh_from_db()
         self.assertEqual(period.status, 'deliberation')
 

@@ -813,7 +813,8 @@ def position_action(request, period_id):
             member = ParliamentUser.objects.filter(user_id=request.POST.get('member_id'), member_status='Active').first()
             if member is None:
                 raise RoundError('not_found', 'Choose an active member.')
-            add_nominee(period, request.user, position_id, member, accepted=request.POST.get('accepted') == 'on')
+            add_nominee(period, request.user, position_id, member, accepted=request.POST.get('accepted') == 'on',
+                        allow_committee=request.POST.get('allow_committee') == 'on')
         elif action in ('accept_nominee', 'unaccept_nominee'):
             set_nominee_accepted(period, nominee_id, action == 'accept_nominee')
         elif action == 'remove_nominee':

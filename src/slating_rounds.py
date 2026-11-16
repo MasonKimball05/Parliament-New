@@ -504,15 +504,26 @@ def set_open_nominations(period, user, position_id, on):
         details=f'{position.title}: floor nominations {"opened" if on else "closed"}')
 
 
-def add_nominee(period, user, position_id, member, accepted=False):
+def add_nominee(period, user, position_id, member, accepted=False, allow_committee=False):
     position = period.positions.filter(pk=position_id, is_active=True, open_nominations=True).first()
     if position is None:
         raise RoundError('not_open', 'Open nominations for that position first.')
     # 11-05-26: a floor nominee meets the applicants' rules, isn't a pledge,
     # and isn't on the slating committee (the chapter's rule).
-    from src.view.slating.permissions import nominee_ineligibility
+    # 11-16-26: the chapter can make an exception for a slating committee
+    # member (it elected one from the floor). The chair ticks "the chapter
+    # allowed it" (``allow_committee``); only that rule is lifted, and it's logged.
+    from src.view.slating.permissions import COMMITTEE_CANT_RUN, nominee_ineligibility
     reason = nominee_ineligibility(member, period)
-    if reason:
+    if reason == COMMITTEE_CANT_RUN and allow_committee:
+        SlatingActivity.objects.create(
+            period=period, user=user, action='period_status_changed',
+            details=f'{position.title}: {member.name} nominated from the floor although on the slating '
+                    'committee (the chapter allowed it)',
+            metadata={'position': position.title, 'committee_exception': True, 'member': member.pk})
+    elif reason:
+        if reason == COMMITTEE_CANT_RUN:
+            reason += ' If the chapter decided to allow it, tick “Slating committee member (the chapter allowed it)”.'
         raise RoundError('ineligible', reason)
     nominee, created = SlatingNominee.objects.get_or_create(
         position=position, member=member,
