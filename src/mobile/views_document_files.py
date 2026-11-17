@@ -17,14 +17,25 @@ shows it and offers Share / Save / Print.
 
 Each mirrors its web view's pledge restriction (check_web_page on the web
 url_name); none of those pages has a page toggle.
+
+* ``GET site-file/<site path>`` — any other uploaded file the payloads link
+  by its site path (Kai and service-hours attachments and form file answers,
+  a slating GPA screenshot, a draft's document, a resolution's /media/ file).
+  The path is resolved and, only if it names one of SITE_FILE_VIEWS, handed to
+  that web view itself, so each file keeps exactly its website access rule
+  (the views are already the single source of truth for who may read what;
+  see src/view/serve_private_upload.py). Anything else, a redirect (a refused
+  feature flag) or an error is a 404.
 """
 from zoneinfo import ZoneInfo
 
-from django.http import HttpResponse
+from django.http import Http404, HttpResponse
+from django.urls import Resolver404, resolve
 from django.utils import timezone
 from rest_framework import exceptions
+from rest_framework.views import APIView
 
-from src.mobile.api import MobileAPIView
+from src.mobile.api import MobileAPIView, check_web_page
 from src.models import AttendanceExcuse, Legislation
 from src.view.serve_private_upload import _stream_private_file
 
@@ -74,4 +85,51 @@ class CnbPdfView(MobileAPIView):
         response = HttpResponse(buf.read(), content_type='application/pdf')
         response['Content-Disposition'] = f'inline; filename="{name}"'
         response['X-Content-Type-Options'] = 'nosniff'
+        return _private(response)
+
+
+#: Web views that stream one uploaded file and decide access themselves. Only
+#: these may be reached through site-file/; never a page, never a form.
+SITE_FILE_VIEWS = frozenset({
+    'kai_report_attachment', 'kai_response_file',
+    'kai_commendation_attachment', 'kai_commendation_response_file',
+    'slating_gpa_screenshot', 'slating_response_file',
+    'excuse_document',
+    'service_hours_attachment', 'service_hours_response_file',
+    'bug_report_screenshot', 'feedback_attachment',
+    'legislation_draft_document',
+    'serve_media',   # members' uploads; it refuses PRIVATE_MEDIA_PREFIXES itself
+})
+
+
+class SiteFileView(MobileAPIView):
+    #: The guard test wants a web page name; the real one depends on the path,
+    #: so get() checks the resolved view's page and initial() skips the default.
+    web_page = 'serve_media'
+    web_page_toggle = False
+
+    def initial(self, request, *args, **kwargs):
+        APIView.initial(self, request, *args, **kwargs)
+
+    def get(self, request, site_path):
+        path = '/' + site_path
+        if '..' in path or '\\' in path:
+            raise exceptions.NotFound()
+        try:
+            match = resolve(path)
+        except Resolver404:
+            raise exceptions.NotFound()
+        if match.url_name not in SITE_FILE_VIEWS:
+            raise exceptions.NotFound()
+        check_web_page(request.user, match.url_name, toggle=False)
+        # DRF has set request._request.user to the token's member, so the web
+        # view's @login_required and its own access rule see the same person.
+        try:
+            response = match.func(request._request, *match.args, **match.kwargs)
+        except Http404:
+            raise exceptions.NotFound()
+        if response.status_code != 200:
+            if hasattr(response, 'close'):
+                response.close()
+            raise exceptions.NotFound()
         return _private(response)

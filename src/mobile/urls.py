@@ -817,6 +817,7 @@ urlpatterns = [
     path('excuses/<int:excuse_id>/document/file/', views_document_files.ExcuseDocumentFileView.as_view(),
          name='mobile_excuse_document_file'),
     path('cnb/pdf/', views_document_files.CnbPdfView.as_view(), name='mobile_cnb_pdf'),
+    path('site-file/<path:site_path>', views_document_files.SiteFileView.as_view(), name='mobile_site_file'),
     # Batch 6: C&B manager and resolution notes (views_cnb_manage.py), password
     # and browser sessions (views_account_security.py), event sign-up list.
     path('cnb/manage/', views_cnb_manage.CnbManageView.as_view(), name='mobile_cnb_manage'),

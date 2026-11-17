@@ -116,3 +116,56 @@ class CnbPdfTests(_Base):
 
     def test_cnb_payload_carries_the_file(self):
         self.assertEqual(self.get('cnb/').json()['web']['pdf_file'], 'cnb/pdf/')
+
+
+class SiteFileTests(_Base):
+    """site-file/<path>: only file-serving web views, each with its own rule."""
+
+    def setUp(self):
+        super().setUp()
+        import shutil
+        import tempfile
+        self.media = tempfile.mkdtemp(prefix='parliament-site-file-')
+        self.addCleanup(shutil.rmtree, self.media, ignore_errors=True)
+        override = override_settings(MEDIA_ROOT=self.media, MEDIA_ACCEL_PREFIX='')
+        override.enable()
+        self.addCleanup(override.disable)
+        self.other = make_user('df-3')
+        _, self.other_access, _ = make_device(self.other)
+        from src.models import LegislationDraft
+        self.draft = LegislationDraft.objects.create(
+            author=self.user, title='Dues', description='d', document=_pdf('dues.pdf'),
+            planned_available_at=timezone.now() + timedelta(days=14))
+        self.draft_path = f'site-file/legislation/drafts/{self.draft.id}/document/'
+
+    def test_a_draft_document_is_its_authors_alone(self):
+        r = self.get(self.draft_path)
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(_body(r), b'%PDF-1.4 fake')
+        self.assertEqual(r['Cache-Control'], 'private, no-store')
+        self.assertIn('filename', r['Content-Disposition'])
+        self.assertEqual(self.get(self.draft_path, self.other_access).status_code, 404)
+        self.assertEqual(self.api.get(API + self.draft_path).status_code, 401)
+
+    def test_a_members_upload_under_media(self):
+        import os
+        os.makedirs(os.path.join(self.media, 'legislation_docs'))
+        with open(os.path.join(self.media, 'legislation_docs', 'r1.pdf'), 'wb') as f:
+            f.write(b'%PDF-1.4 res')
+        r = self.get('site-file/media/legislation_docs/r1.pdf')
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(_body(r), b'%PDF-1.4 res')
+        # serve_media's own private-directory refusal still applies
+        name = os.path.relpath(self.draft.document.path, self.media)
+        self.assertEqual(self.get(f'site-file/media/{name}', self.other_access).status_code, 404)
+
+    def test_only_file_views_and_no_traversal(self):
+        for path in ('site-file/home/', 'site-file/profile/', 'site-file/api/mobile/v1/me/',
+                     'site-file/media/legislation_docs/../legislation_drafts/x.pdf', 'site-file/nowhere/'):
+            self.assertEqual(self.get(path).status_code, 404, path)
+
+    def test_pledge_restriction_on_the_web_page(self):
+        pledge = make_user('df-pl2', member_type='Pledge')
+        _, pa, _ = make_device(pledge)
+        restrict('serve_media', phases=())
+        self.assertEqual(self.get('site-file/media/legislation_docs/r1.pdf', pa).status_code, 403)
