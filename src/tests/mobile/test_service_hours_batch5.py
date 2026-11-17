@@ -520,3 +520,41 @@ class CalendarLinkTests(_Base):
         d = self.call('get', f'events/{se.event_id}/', access=self.amy_access).json()['event']
         self.assertIsNone(d['service_event'])
         self.assertTrue(d['is_service_event'])
+
+
+class AdjustmentTests(_Base):
+    """11-17-26: hour adjustments in the app (add/delete_service_adjustment's rules)."""
+
+    def url(self, rest=''):
+        return f'officer/service-hours/periods/{self.period.id}/adjustments/{rest}'
+
+    def test_grant_deduct_list_and_remove(self):
+        from src.models import ServiceHoursAdjustment
+        r = self.call('post', self.url(), {'member': self.amy.user_id, 'hours': 2.5, 'reason': 'Drove the van'})
+        self.assertEqual(r.status_code, 201, r.content)
+        self.assertIn('granted 2.50 hours to Amy Able', r.json()['message'])
+        r = self.call('post', self.url(), {'member': self.amy.user_id, 'hours': -1, 'reason': 'Left early'})
+        d = r.json()
+        self.assertEqual([a['hours'] for a in d['adjustments']], [-1.0, 2.5])
+        self.assertEqual(d['totals'], [{'user_id': self.amy.user_id, 'hours': 1.5}])
+        self.assertIn(self.bob.user_id, [m['user_id'] for m in d['members']])
+        a = ServiceHoursAdjustment.objects.get(hours=Decimal('-1'))
+        self.assertEqual(a.adjusted_by, self.vpp)
+        r = self.call('delete', self.url(f'{a.id}/'))
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(len(r.json()['adjustments']), 1)
+
+    def test_the_dashboards_checks(self):
+        for body, msg in (({'member': self.amy.user_id, 'hours': 2, 'reason': ' '}, 'Reason'),
+                          ({'member': self.amy.user_id, 'hours': 0, 'reason': 'x'}, 'zero'),
+                          ({'member': self.amy.user_id, 'hours': 'lots', 'reason': 'x'}, 'Invalid'),
+                          ({'member': self.amy.user_id, 'hours': 5000, 'reason': 'x'}, '999.99')):
+            r = self.call('post', self.url(), body)
+            self.assertEqual(r.status_code, 400, body)
+            self.assertIn(msg, r.json()['detail'])
+        self.assertEqual(self.call('post', self.url(), {'member': 'nobody', 'hours': 1, 'reason': 'x'}).status_code, 404)
+
+    def test_vpp_only(self):
+        self.assertEqual(self.call('get', self.url(), access=self.officer_access).status_code, 403)
+        self.assertEqual(self.call('post', self.url(), {'member': self.amy.user_id, 'hours': 1, 'reason': 'x'},
+                                   access=self.amy_access).status_code, 403)

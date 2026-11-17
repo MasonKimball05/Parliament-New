@@ -28,6 +28,16 @@ Expectations (``manage_member_expectations``):
 * ``DELETE officer/service-hours/periods/<id>/expectations/<eid>/`` — the
   member goes back to the default.
 
+Hour adjustments (``add_service_adjustment``, ``delete_service_adjustment``,
+``get_member_adjustments``; 11-17-26, once on the dashboard only):
+
+* ``GET  officer/service-hours/periods/<id>/adjustments/`` — the period's
+  adjustments, newest first, each member's net total, and the members who can
+  be adjusted (active, not advisors). ``POST {member, hours, reason}`` grants
+  (positive) or deducts (negative) hours; a reason is required, as on the
+  dashboard. 201.
+* ``DELETE officer/service-hours/periods/<id>/adjustments/<aid>/`` — removes one.
+
 Service events (``service_events_list``, ``create_service_event``,
 ``service_event_detail``, ``edit_service_event``, ``delete_service_event``,
 ``service_event_attendance``, ``finalize_service_event``):
@@ -52,7 +62,8 @@ Every write goes through the web views' own helpers, so the checks, the
 pre-approved submissions finalizing creates, the reminder re-arming on a date
 change and the activity log rows are the website's.
 """
-from decimal import Decimal
+import logging
+from decimal import Decimal, InvalidOperation
 
 from django.db.models import Count
 from django.shortcuts import get_object_or_404
@@ -66,8 +77,11 @@ from src.mobile.views_directory import photo_path
 from src.mobile.views_excuses_polls import BadRequest
 from src.mobile.views_service_hours import _form_data, _form_errors
 from src.mobile.views_service_review import _ServiceReviewView, _iso, _num
-from src.models import ServiceMemberExpectation, ServicePeriod
+from src.models import ParliamentUser, ServiceHoursAdjustment, ServiceMemberExpectation, ServicePeriod
+from src.models.users import member_defer
 from src.view import service_hours as web
+
+logger = logging.getLogger('function_calls')
 
 #: The attendance POST's present list, at most (a roster is a few dozen).
 MAX_PRESENT = 1000
@@ -222,6 +236,88 @@ class ServiceExpectationView(_ServiceReviewView):
         response = _expectations_response(period)
         response.data['message'] = (f'Removed custom expectation for {name}. They will use the default '
                                     f'({period.default_hours_required} hours).')
+        return response
+
+
+# ── Hour adjustments ─────────────────────────────────────────────────────────
+
+#: ServiceHoursAdjustment.hours is max_digits=5, decimal_places=2.
+MAX_ADJUSTMENT = Decimal('999.99')
+
+
+def _adjustments_response(period):
+    rows = list(ServiceHoursAdjustment.objects.filter(period=period)
+                .select_related('member', 'adjusted_by')
+                .defer(*member_defer('member', 'adjusted_by')).order_by('-created_at'))
+    totals = {}
+    for a in rows:
+        totals[a.member_id] = totals.get(a.member_id, Decimal('0')) + a.hours
+    members = (ParliamentUser.objects.filter(member_status='Active').exclude(member_type='Advisor')
+               .order_by('name').only('user_id', 'name', 'member_type'))
+    return Response({
+        'period': _period_json(period),
+        'adjustments': [{
+            'id': a.id,
+            'member': {'user_id': a.member_id, 'name': a.member.name, 'photo': photo_path(a.member)},
+            'hours': _num(a.hours),
+            'reason': a.reason,
+            'adjusted_by': a.adjusted_by.name if a.adjusted_by_id else 'System',
+            'created_at': _iso(a.created_at),
+        } for a in rows],
+        'totals': [{'user_id': uid, 'hours': _num(h)} for uid, h in totals.items()],
+        'members': [{'user_id': m.user_id, 'name': m.name, 'member_type': m.member_type} for m in members],
+    })
+
+
+class ServiceAdjustmentListView(_ServiceReviewView):
+    web_page = 'add_service_adjustment'
+    web_page_toggle = False   # a @vpp_required JSON endpoint, no page toggle
+    parser_classes = [JSONParser]
+
+    def get(self, request, period_id):
+        return _adjustments_response(get_object_or_404(ServicePeriod, id=period_id))
+
+    def post(self, request, period_id):
+        """add_service_adjustment's checks, and its log line."""
+        period = get_object_or_404(ServicePeriod, id=period_id)
+        body = _body(request)
+        reason = str(body.get('reason') or '').strip()[:2000]
+        if not reason:
+            raise BadRequest('Reason is required for hour adjustments', code='invalid_input')
+        try:
+            hours = Decimal(str(body.get('hours'))).quantize(Decimal('0.01'))
+        except (InvalidOperation, ValueError):
+            raise BadRequest('Invalid hours value', code='invalid_input')
+        if not hours.is_finite() or hours == 0:
+            raise BadRequest('Hours cannot be zero', code='invalid_input')
+        if abs(hours) > MAX_ADJUSTMENT:
+            raise BadRequest(f'Adjust by at most {MAX_ADJUSTMENT} hours at a time.', code='invalid_input')
+        member = get_object_or_404(ParliamentUser, user_id=str(body.get('member') or ''))
+        ServiceHoursAdjustment.objects.create(period=period, member=member, hours=hours, reason=reason,
+                                              adjusted_by=request.user)
+        word = 'granted' if hours > 0 else 'deducted'
+        logger.info(f'Service hours adjustment: {request.user.name} {word} {abs(hours)} hrs to '
+                    f'{member.name} for {period.name}')
+        response = _adjustments_response(period)
+        response.data['message'] = (f'Successfully {word} {abs(hours)} hours '
+                                    f'{"to" if hours > 0 else "from"} {member.name}.')
+        response.status_code = 201
+        return response
+
+
+class ServiceAdjustmentView(_ServiceReviewView):
+    web_page = 'delete_service_adjustment'
+    web_page_toggle = False
+
+    def delete(self, request, period_id, adjustment_id):
+        period = get_object_or_404(ServicePeriod, id=period_id)
+        a = get_object_or_404(ServiceHoursAdjustment.objects.select_related('member'), id=adjustment_id, period=period)
+        word = 'granted' if a.hours > 0 else 'deducted'
+        logger.info(f'Service hours adjustment deleted: {abs(a.hours)} hrs {word} to {a.member.name} '
+                    f'removed by {request.user.name}')
+        a.delete()
+        response = _adjustments_response(period)
+        response.data['message'] = 'Adjustment removed successfully.'
         return response
 
 
