@@ -345,3 +345,55 @@ class AttendanceDashboardTests(_Base):
         self.client.force_login(self.officer)
         self.assertEqual(self.client.get(reverse('attendance_dashboard') + '?range=0').status_code, 200)
         self.assertEqual(self.client.get(reverse('officer_member_attendance', args=['mem-1'])).status_code, 200)
+
+
+class AnnouncementExtrasTests(_Base):
+    """11-17-26: linked documents and GroupMe from the app (create/edit_announcement's steps)."""
+
+    def setUp(self):
+        super().setUp()
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from src.models import CommitteeDocument, GroupMeChannel
+        self.doc = CommitteeDocument.objects.create(
+            title='Budget', uploaded_by=self.officer, published_to_chapter=True,
+            document=SimpleUploadedFile('budget.pdf', b'%PDF-1.4', content_type='application/pdf'))
+        self.addCleanup(self.doc.document.delete, save=False)
+        self.draft = CommitteeDocument.objects.create(
+            title='Draft', uploaded_by=self.officer, published_to_chapter=False,
+            document=SimpleUploadedFile('draft.pdf', b'%PDF-1.4', content_type='application/pdf'))
+        self.addCleanup(self.draft.document.delete, save=False)
+        self.brothers = GroupMeChannel.objects.create(name='Brothers', group_id='1', bot_id='botB1',
+                                                      audience=['Member'])
+        self.pledges = GroupMeChannel.objects.create(name='Pledges', group_id='2', bot_id='botP1',
+                                                     audience=['Pledge'])
+
+    def test_options(self):
+        d = self.call('get', 'officer/announcements/options/').json()
+        self.assertEqual([x['title'] for x in d['documents']], ['Budget'])
+        self.assertEqual([c['name'] for c in d['groupme']['channels']], ['Brothers', 'Pledges'])
+        self.assertEqual(self.call('get', 'officer/announcements/options/',
+                                   access=self.member_access).status_code, 403)
+
+    def test_create_links_documents_and_ticks_allowed_groups(self):
+        with patch('src.groupme.schedule_dispatch') as dispatch:
+            r = self.call('post', 'officer/announcements/', {
+                'title': 'Dues', 'content': 'Pay up', 'visible_to': ['Member'],
+                'linked_document_ids': [self.doc.id, self.draft.id],
+                'groupme_channel_ids': [self.brothers.id, self.pledges.id]})
+        self.assertEqual(r.status_code, 201, r.content)
+        a = r.json()['announcement']
+        self.assertEqual(a['linked_document_ids'], [self.doc.id])          # published documents only
+        self.assertEqual(a['groupme']['channel_ids'], [self.brothers.id])  # the audience rule
+        dispatch.assert_called_once()
+
+    def test_edit_without_them_leaves_them(self):
+        with patch('src.groupme.schedule_dispatch'):
+            aid = self.call('post', 'officer/announcements/', {
+                'title': 'Dues', 'content': 'Pay up', 'linked_document_ids': [self.doc.id],
+                'groupme_channel_ids': [self.brothers.id]}).json()['announcement']['id']
+            self.call('patch', f'officer/announcements/{aid}/', {'title': 'Dues!'})
+            a = self.call('get', f'officer/announcements/{aid}/').json()['announcement']
+            self.assertEqual((a['linked_document_ids'], a['groupme']['channel_ids']), ([self.doc.id], [self.brothers.id]))
+            self.call('patch', f'officer/announcements/{aid}/', {'linked_document_ids': [], 'groupme_channel_ids': []})
+            a = self.call('get', f'officer/announcements/{aid}/').json()['announcement']
+            self.assertEqual((a['linked_document_ids'], a['groupme']['channel_ids']), ([], []))

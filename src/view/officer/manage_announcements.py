@@ -169,12 +169,30 @@ def _save_groupme_channels(request, announcement):
     whatever the browser sent) and, if the announcement is live, post it once
     the transaction commits. Does nothing once it has gone out.
     """
+    save_announcement_channels(announcement, request.POST.getlist('groupme_channel_ids'))
+
+
+def save_linked_documents(announcement, doc_ids):
+    """Link the chosen chapter documents (published ones only), or clear them."""
+    ids = [int(i) for i in doc_ids if str(i).isdecimal()]
+    if ids:
+        announcement.linked_documents.set(
+            CommitteeDocument.objects.filter(id__in=ids, published_to_chapter=True))
+    else:
+        announcement.linked_documents.clear()
+
+
+def save_announcement_channels(announcement, channel_ids):
+    """
+    _save_groupme_channels' work from a list of ids (11-17-26: the app's
+    announcement form sends one). Does nothing once it has gone out.
+    """
     if announcement.groupme_dispatched_at:
         return
     from src.groupme import channel_allowed, schedule_dispatch
     from src.models import GroupMeChannel
 
-    ids = [int(i) for i in request.POST.getlist('groupme_channel_ids') if i.isdecimal()]
+    ids = [int(i) for i in channel_ids if str(i).isdecimal()]
     chosen = [c for c in GroupMeChannel.objects.filter(is_active=True, pk__in=ids)
               if channel_allowed(announcement.visible_to, c)]
     announcement.groupme_channels.set(chosen)
@@ -213,14 +231,7 @@ def create_announcement(request):
             announcement.save()
 
             # Save linked documents (M2M — must be after save())
-            linked_doc_ids = request.POST.getlist('linked_document_ids')
-            if linked_doc_ids:
-                valid_docs = CommitteeDocument.objects.filter(
-                    id__in=linked_doc_ids, published_to_chapter=True
-                )
-                announcement.linked_documents.set(valid_docs)
-            else:
-                announcement.linked_documents.clear()
+            save_linked_documents(announcement, request.POST.getlist('linked_document_ids'))
 
             # Note: We don't create in-app notifications for announcements because
             # announcements have their own dedicated display system (home page popup,
@@ -786,14 +797,7 @@ def edit_announcement(request, announcement_id):
         if form.is_valid():
             form.save()
             # Save linked documents
-            linked_doc_ids = request.POST.getlist('linked_document_ids')
-            if linked_doc_ids:
-                valid_docs = CommitteeDocument.objects.filter(
-                    id__in=linked_doc_ids, published_to_chapter=True
-                )
-                announcement.linked_documents.set(valid_docs)
-            else:
-                announcement.linked_documents.clear()
+            save_linked_documents(announcement, request.POST.getlist('linked_document_ids'))
             # v3.49.0 — GroupMe echo (no-op once it has been posted)
             _save_groupme_channels(request, announcement)
             messages.success(request, 'Announcement updated successfully!')

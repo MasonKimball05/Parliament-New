@@ -183,7 +183,7 @@ class OfficerHubView(_OfficerView):
 ANNOUNCEMENT_FIELDS = ('title', 'content', 'publish_at', 'event_date', 'visible_to', 'is_active')
 
 
-def _announcement_json(a, stats=None):
+def _announcement_json(a, stats=None, detail=False):
     now = timezone.now()
     status = ('inactive' if not a.is_active
               else 'scheduled' if a.publish_at and a.publish_at > now else 'live')
@@ -203,7 +203,52 @@ def _announcement_json(a, stats=None):
     }
     if stats is not None:
         out['views'] = {'seen': stats['total_views'], 'audience': stats['target_audience']}
+    if detail:
+        # 11-17-26: linked documents and GroupMe, once on the website only
+        out['linked_document_ids'] = list(a.linked_documents.values_list('id', flat=True))
+        out['groupme'] = {
+            'channel_ids': list(a.groupme_channels.values_list('pk', flat=True)),
+            'posted_at': _iso(a.groupme_dispatched_at),
+            'posted_to': sorted(set(a.groupme_messages.filter(kind='announcement')
+                                    .values_list('channel_name', flat=True))),
+        }
     return out
+
+
+def _id_list(body, key):
+    """A list of ids the app sent under `key`, or None when it sent none (left as it is)."""
+    v = body.get(key)
+    return [i for i in v if isinstance(i, int) or str(i).isdecimal()][:200] if isinstance(v, list) else None
+
+
+def _save_announcement_extras(announcement, body):
+    """create/edit_announcement's linked documents and GroupMe steps, when the app sent them."""
+    from src.view.officer.manage_announcements import save_announcement_channels, save_linked_documents
+    docs = _id_list(body, 'linked_document_ids')
+    if docs is not None:
+        save_linked_documents(announcement, docs)
+    channels = _id_list(body, 'groupme_channel_ids')
+    if channels is not None:
+        save_announcement_channels(announcement, channels)
+
+
+class OfficerAnnouncementOptionsView(_OfficerView):
+    """11-17-26: what the app's announcement form offers: chapter documents and GroupMe groups."""
+    web_page = 'create_announcement'
+
+    def get(self, request):
+        from src.models import CommitteeDocument, GroupMeChannel
+        from src.models.groupme import AUDIENCE_KEYS
+        return Response({
+            'documents': [{'id': d.id, 'title': d.title} for d in
+                          CommitteeDocument.objects.filter(published_to_chapter=True).only('id', 'title')
+                          .order_by('title')],
+            'groupme': {
+                'channels': [{'id': c.id, 'name': c.name, 'audience': list(c.audience or [])}
+                             for c in GroupMeChannel.objects.filter(is_active=True).order_by('name')],
+                'all_audiences': list(AUDIENCE_KEYS),
+            },
+        })
 
 
 def _audiences():
@@ -248,7 +293,10 @@ class OfficerAnnouncementListView(_OfficerView):
         if send_email and announcement.is_published():
             from src.notifications import send_announcement_notification
             emailed = send_announcement_notification(announcement, initiated_by=request.user)
-        return Response({'announcement': _announcement_json(announcement), 'emailed': emailed}, status=201)
+        # After the email, as the website's GroupMe post waits for its email step.
+        _save_announcement_extras(announcement, body)
+        return Response({'announcement': _announcement_json(announcement, detail=True), 'emailed': emailed},
+                        status=201)
 
 
 class OfficerAnnouncementRecipientsView(_OfficerView):
@@ -270,7 +318,8 @@ class OfficerAnnouncementView(_OfficerView):
 
     def get(self, request, announcement_id):
         a = self._get(announcement_id)
-        return Response({'announcement': _announcement_json(a, a.get_view_stats()), 'audiences': _audiences()})
+        return Response({'announcement': _announcement_json(a, a.get_view_stats(), detail=True),
+                         'audiences': _audiences()})
 
     def patch(self, request, announcement_id):
         a = self._get(announcement_id)
@@ -281,7 +330,8 @@ class OfficerAnnouncementView(_OfficerView):
         if not form.is_valid():
             _form_error(form)
         form.save()
-        return Response({'announcement': _announcement_json(a)})
+        _save_announcement_extras(a, body)
+        return Response({'announcement': _announcement_json(a, detail=True)})
 
     def delete(self, request, announcement_id):
         self._get(announcement_id).delete()

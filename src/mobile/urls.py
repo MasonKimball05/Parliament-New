@@ -208,6 +208,8 @@ urlpatterns = [
          name='mobile_officer_checkin_place'),
     path('officer/announcements/', views_officer.OfficerAnnouncementListView.as_view(),
          name='mobile_officer_announcements'),
+    path('officer/announcements/options/', views_officer.OfficerAnnouncementOptionsView.as_view(),
+         name='mobile_officer_announcement_options'),
     path('officer/announcements/recipients/', views_officer.OfficerAnnouncementRecipientsView.as_view(),
          name='mobile_officer_announcement_recipients'),
     path('officer/announcements/<int:announcement_id>/poll/', views_officer_tools.OfficerPollView.as_view(),
