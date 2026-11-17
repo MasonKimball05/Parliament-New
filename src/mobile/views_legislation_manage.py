@@ -49,6 +49,7 @@ multipart with a ``document`` (checked by ``validate_uploaded_file``, then by
 one when a file was picked; an app build without the file picker sends JSON
 and a bill that needs a file is attached on the website.
 """
+import os
 from datetime import datetime, timedelta, timezone as dt_timezone
 
 from django.core.exceptions import ValidationError
@@ -633,7 +634,9 @@ def _bill_fields(leg):
         'allow_abstain': leg.allow_abstain,
         'required_percentage': leg.required_percentage,
         'posted_by': {'id': leg.posted_by_id, 'name': leg.posted_by.name} if leg.posted_by_id else None,
-        'document': ({'view': reverse('view_document', args=[leg.id])} if leg.document else None),
+        'document': ({'view': reverse('view_document', args=[leg.id]),
+                      'file': f'legislation/{leg.id}/document/file/',   # 11-17-26: the app's viewer
+                      'name': os.path.basename(leg.document.name)} if leg.document else None),
     }
 
 

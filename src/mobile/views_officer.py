@@ -30,6 +30,7 @@ pages an officer reaches for on a phone. Officers, chairs and admins only
   ``{statuses: {user_id: present|late|absent}, excused: {user_id: reason},
   finalize}``. Read-only once finalized.
 """
+import os
 from datetime import timedelta
 
 from django.core.paginator import Paginator
@@ -459,6 +460,9 @@ def _excuse_json(x):
         'reviewed_by': x.reviewed_by.get_display_name() if x.reviewed_by_id else None,
         'review_notes': x.review_notes or '',
         'document_path': reverse('excuse_document', args=[x.id]) if x.supporting_document else None,
+        # 11-17-26: the file itself, for the app's document viewer (views_document_files.py)
+        'document': ({'file': f'excuses/{x.id}/document/file/',
+                      'name': os.path.basename(x.supporting_document.name)} if x.supporting_document else None),
     }
 
 

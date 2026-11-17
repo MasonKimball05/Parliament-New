@@ -27,6 +27,7 @@ from src.mobile import views_legislation_manage
 from src.mobile import views_committee_management
 from src.mobile import views_landing_page
 from src.mobile import views_kai_filing
+from src.mobile import views_document_files
 from src.mobile import views_officer_roles
 from src.mobile import views_education_manage
 from src.mobile import (
@@ -810,6 +811,12 @@ urlpatterns = [
          name='mobile_officer_document'),
     path('officer/documents/<int:doc_id>/file/', views_document_manage.ManageDocumentFileView.as_view(),
          name='mobile_officer_document_file'),
+    # 11-17-26: documents that opened as site pages, now files for the native viewer
+    path('legislation/<int:legislation_id>/document/file/',
+         views_document_files.LegislationDocumentFileView.as_view(), name='mobile_legislation_document_file'),
+    path('excuses/<int:excuse_id>/document/file/', views_document_files.ExcuseDocumentFileView.as_view(),
+         name='mobile_excuse_document_file'),
+    path('cnb/pdf/', views_document_files.CnbPdfView.as_view(), name='mobile_cnb_pdf'),
     # Batch 6: C&B manager and resolution notes (views_cnb_manage.py), password
     # and browser sessions (views_account_security.py), event sign-up list.
     path('cnb/manage/', views_cnb_manage.CnbManageView.as_view(), name='mobile_cnb_manage'),

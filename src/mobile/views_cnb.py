@@ -125,6 +125,7 @@ class CnbDocumentsView(MobileAPIView):
             'web': {
                 'viewer': reverse('constitution_bylaws'),
                 'pdf': reverse('cnb_document_pdf'),
+                'pdf_file': 'cnb/pdf/',   # 11-17-26: the app's document viewer
                 'new_resolution': reverse('cnb_create_resolution'),
             },
         })

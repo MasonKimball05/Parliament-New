@@ -30,6 +30,7 @@ member's committees that have open ballots (``committees``).
 """
 import json
 import logging
+import os
 
 from django.core.cache import cache
 from django.http import Http404
@@ -69,6 +70,13 @@ def _on_ballot():
     return (Legislation.objects
             .filter(available_at__lte=timezone.now(), voting_closed=False)
             .exclude(status__in=Legislation.CLOSED_STATUSES))
+
+
+def _document_file(leg):
+    """A bill's attached document for the app's viewer, or None."""
+    if not leg.document:
+        return None
+    return {'file': f'legislation/{leg.id}/document/file/', 'name': os.path.basename(leg.document.name)}
 
 
 def _options(leg):
@@ -141,6 +149,8 @@ class VoteDetailView(_VotesBase):
             'required_percentage': leg.required_percentage if leg.vote_mode == 'percentage' else None,
             'required_number': leg.required_number if leg.vote_mode == 'piecewise' else None,
             'document_url': (reverse('view_document', args=[leg.id]) if leg.document else None),
+            # 11-17-26: the file itself, for the app's document viewer (views_document_files.py)
+            'document': _document_file(leg),
         }})
 
 

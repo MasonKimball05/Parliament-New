@@ -33,6 +33,7 @@ builds open.
 A bill still on the ballot (``on_ballot``) opens in the app's vote screen
 (``votes/<id>/``, src/mobile/views_votes.py), which serves only those.
 """
+import os
 from urllib.parse import quote
 
 from django.shortcuts import get_object_or_404
@@ -86,7 +87,9 @@ def _on_ballot(leg, now):
 def _document(leg):
     if not leg.document:
         return None
-    return {'view': reverse('view_document', args=[leg.id]), 'download': leg.document.url}
+    return {'view': reverse('view_document', args=[leg.id]), 'download': leg.document.url,
+            # 11-17-26: the file itself, for the app's document viewer (views_document_files.py)
+            'file': f'legislation/{leg.id}/document/file/', 'name': os.path.basename(leg.document.name)}
 
 
 def _bill(item, user, now):
