@@ -55,6 +55,19 @@ class AnnouncementTests(_Base):
         self.assertEqual([a['title'] for a in body['announcements']], ['New', 'Old'])
         self.assertIsNone(body['next_before'])
 
+    def test_linked_documents_carry_the_viewer_file(self):
+        from src.models import CommitteeDocument
+        doc = CommitteeDocument.objects.create(
+            title='Budget', uploaded_by=self.user, published_to_chapter=True,
+            document=SimpleUploadedFile('budget.pdf', b'%PDF-1.4 fake', content_type='application/pdf'))
+        self.addCleanup(doc.document.delete, save=False)
+        a = self.announce('With doc')
+        a.linked_documents.add(doc)
+        d = self.get('announcements/').json()['announcements'][0]['documents'][0]
+        self.assertEqual(d['file'], f'documents/{doc.id}/file/')
+        self.assertTrue(d['file_name'].endswith('.pdf'))
+        self.assertEqual(self.get(d['file']).status_code, 200)
+
     def test_pages_with_before(self):
         for i in range(5):
             self.announce(f'A{i}')

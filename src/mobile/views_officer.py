@@ -18,10 +18,13 @@ pages an officer reaches for on a phone. Officers, chairs and admins only
   on the site and from the email, who has and hasn't seen it.
 * Events (``create_event`` / ``edit_event`` / ``delete_event``):
   ``POST officer/events/``; ``GET/PATCH/DELETE officer/events/<id>/``. Through
-  ``EventForm``, starting from the event's own values, so the settings the app
-  doesn't show (recurrence, reminders' second slot, the check-in area, GroupMe)
-  stay as they are. A series edit or delete takes ``scope`` like the web form.
-  The app creates single events; repeating ones are made on the website.
+  ``EventForm``, starting from the event's own values, so a setting the app
+  doesn't send stays as it is. A series edit or delete takes ``scope`` like the
+  web form. 11-17-26: the rest of the form too: a repeating series on create
+  (``recurrence_*``, generated as create_event does), the second reminder and
+  email copies, the check-in area (``checkin_latitude/longitude/radius_m``,
+  ``checkin_save_as``), a minimum stay, study hours, and GroupMe reminders
+  (``groupme: {channel_ids, hours}``, set_event_channels).
 * Excuses (``review_excuses``): ``GET officer/excuses/?status=``,
   ``POST officer/excuses/<id>/`` ``{action: approve|deny, notes}`` —
   ``AttendanceExcuse.approve/deny``, which notify the member.
@@ -332,12 +335,22 @@ class OfficerAnnouncementStatsView(_OfficerView):
 EVENT_FIELDS = ('title', 'description', 'date_time', 'location', 'visible_to', 'is_active',
                 'requires_attendance', 'allow_excuses', 'excuse_deadline',
                 'requires_signup', 'max_signups', 'signups_open', 'allow_waitlist',
-                'reminder_1_enabled', 'reminder_1_hours_before')
+                'reminder_1_enabled', 'reminder_1_hours_before',
+                # 11-17-26: the form's "more settings", once on the website only
+                'rsvp_email_enabled', 'reminder_1_email_enabled',
+                'reminder_2_enabled', 'reminder_2_hours_before', 'reminder_2_email_enabled',
+                'checkin_latitude', 'checkin_longitude', 'checkin_radius_m', 'checkin_save_as',
+                'checkin_min_minutes', 'is_study_hours', 'duration_minutes')
+#: Repeating: set when an event is created (as on the website, where the series
+#: is generated once); an edit leaves the series' rule alone.
+RECURRENCE_FIELDS = ('recurrence_type', 'recurrence_interval', 'recurrence_unit', 'recurrence_days',
+                     'recurrence_end_date')
 
 
-def _event_body(body):
+def _event_body(body, creating=False):
     """The app's names → EventForm's (a committee goes by code)."""
-    out = {k: body[k] for k in EVENT_FIELDS if k in body}
+    fields = EVENT_FIELDS + (RECURRENCE_FIELDS if creating else ())
+    out = {k: ('' if body[k] is None else body[k]) for k in fields if k in body}
     if 'committee' in body:
         code = body['committee']
         if code:
@@ -371,6 +384,21 @@ def _event_json(e):
         'reminder_1_enabled': e.reminder_1_enabled,
         'reminder_1_hours_before': e.reminder_1_hours_before,
         'attendance_finalized': e.attendance_finalized,
+        'rsvp_email_enabled': e.rsvp_email_enabled,
+        'reminder_1_email_enabled': e.reminder_1_email_enabled,
+        'reminder_2_enabled': e.reminder_2_enabled,
+        'reminder_2_hours_before': e.reminder_2_hours_before,
+        'reminder_2_email_enabled': e.reminder_2_email_enabled,
+        'checkin': ({'latitude': float(e.checkin_latitude), 'longitude': float(e.checkin_longitude),
+                     'radius_m': e.checkin_radius_m} if e.checkin_radius_m else None),
+        'checkin_min_minutes': e.checkin_min_minutes,
+        'is_study_hours': e.is_study_hours,
+        'duration_minutes': e.duration_minutes,
+        'groupme': {
+            'channel_ids': list(e.groupme_channels.values_list('pk', flat=True)),
+            'hours': e.groupme_reminder_hours,
+            'reminded_at': _iso(e.groupme_reminded_at),
+        },
         'is_recurring': bool(e.is_recurring or e.parent_event_id),
         'scope_counts': scope_counts(e),
         'web_path': reverse('edit_event', args=[e.id]),
@@ -384,7 +412,48 @@ def _event_options():
                        for c in Committee.objects.filter(is_active=True, code__gt='').order_by('name')],
         # 11-06-26: the site setting a new event's reminder starts at.
         'reminder_default_hours': default_reminder_hours(),
+        **_event_more_options(),
     }
+
+
+def _event_more_options():
+    """11-17-26: what the app needs for the form's once website-only settings."""
+    from src import location_checkin
+    from src.forms.events import EventForm as _Form
+    from src.models import GroupMeChannel
+    from src.models.groupme import AUDIENCE_KEYS
+    checkin_on = location_checkin.enabled()
+    return {
+        'recurrence_types': [{'value': v, 'label': label} for v, label in Event.RECURRENCE_CHOICES],
+        'recurrence_units': [{'value': v, 'label': label}
+                             for v, label in Event._meta.get_field('recurrence_unit').choices],
+        'checkin': ({
+            'enabled': True,
+            'min_radius_m': location_checkin.MIN_RADIUS_M,
+            'max_radius_m': location_checkin.MAX_RADIUS_M,
+            'places': [{'id': p.id, 'name': p.name, 'latitude': float(p.latitude),
+                        'longitude': float(p.longitude), 'radius_m': p.radius_m}
+                       for p in CheckinPlace.objects.order_by('name')],
+            'min_minutes': [{'value': str(v), 'label': label} for v, label in _Form.CHECKIN_MINUTES if v != ''],
+            'study_lengths': [{'value': str(v), 'label': label} for v, label in _Form.STUDY_LENGTHS],
+        } if checkin_on else {'enabled': False}),
+        'groupme': {
+            'channels': [{'id': c.id, 'name': c.name, 'audience': list(c.audience or [])}
+                         for c in GroupMeChannel.objects.filter(is_active=True).order_by('name')],
+            'hours': list(Event.GROUPME_REMINDER_HOURS),
+            # channel_allowed treats a channel with no audience as all of these
+            'all_audiences': list(AUDIENCE_KEYS),
+        },
+    }
+
+
+def _groupme_body(body):
+    """(channel_ids, hours) when the app sent its GroupMe choice, else None (left as it was)."""
+    g = body.get('groupme')
+    if not isinstance(g, dict):
+        return None
+    ids = g.get('channel_ids') if isinstance(g.get('channel_ids'), list) else []
+    return ids, g.get('hours', '')
 
 
 class OfficerEventCreateView(_OfficerView):
@@ -396,15 +465,27 @@ class OfficerEventCreateView(_OfficerView):
     def post(self, request):
         body = request.data if isinstance(request.data, dict) else {}
         data = _form_data(EventForm)
-        data.update(_event_body(body))
-        data['is_recurring'] = False      # repeating events are made on the website
+        data.update(_event_body(body, creating=True))
         form = EventForm(data)
         if not form.is_valid():
             _form_error(form)
-        event = form.save(commit=False)
-        event.created_by = request.user
-        event.save()
-        return Response({'event': _event_json(event)}, status=201)
+        # create_event's own steps (src/view/officer/manage_events.py).
+        from src.groupme import set_event_channels
+        from src.view.officer.manage_events import generate_recurring_events
+        with transaction.atomic():
+            event = form.save(commit=False)
+            event.created_by = request.user
+            event.save()
+            form.save_checkin_place(request.user)
+            series = []
+            if event.is_recurring and event.recurrence_type != 'none':
+                series = generate_recurring_events(event)
+                for instance in series:
+                    instance.save()
+            groupme = _groupme_body(body)
+            if groupme is not None:
+                set_event_channels([event, *series], *groupme)
+        return Response({'event': _event_json(event), 'occurrences': len(series)}, status=201)
 
 
 class OfficerEventView(_OfficerView):
@@ -429,13 +510,21 @@ class OfficerEventView(_OfficerView):
             _form_error(form)
         with transaction.atomic():
             form.save()
-            # edit_event's own steps, minus the GroupMe boxes (left as they were).
+            form.save_checkin_place(request.user)
+            # edit_event's own steps; the GroupMe choice only when the app sent one.
             affected_ids = list(affected_events(event, scope, pivot=before['date_time'])
                                 .values_list('pk', flat=True).distinct())
+            already_reminded = set(Event.objects.filter(
+                pk__in=affected_ids, groupme_reminded_at__isnull=False).values_list('pk', flat=True))
             others = apply_series_edit(event, before, set(form.changed_data), scope)
             if event.date_time != before['date_time']:
                 Event.objects.filter(pk__in=affected_ids, date_time__gt=timezone.now()).update(
                     reminder_1_sent_at=None, reminder_2_sent_at=None, groupme_reminded_at=None)
+            groupme = _groupme_body(body)
+            if groupme is not None:
+                from src.groupme import set_event_channels
+                set_event_channels(list(Event.objects.filter(pk__in=affected_ids)
+                                        .exclude(pk__in=already_reminded)), *groupme)
         event.refresh_from_db()
         return Response({'event': _event_json(event), 'others_updated': others})
 

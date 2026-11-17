@@ -594,11 +594,20 @@ def save_event_channels(request, events):
     "hours before" on each of `events` (one event, or a recurring series). An
     event whose reminder already went out is left alone.
     """
+    set_event_channels(events, request.POST.getlist('groupme_channel_ids'),
+                       request.POST.get('groupme_reminder_hours', ''))
+
+
+def set_event_channels(events, channel_ids, raw_hours):
+    """
+    save_event_channels' work, from values rather than a form post (11-17-26:
+    the app's event form sends a list of ids and the hours).
+    """
     from src.models import Event, GroupMeChannel
 
-    ids = [int(i) for i in request.POST.getlist('groupme_channel_ids') if i.isdecimal()]
+    ids = [int(i) for i in channel_ids if str(i).isdecimal()]
     channels = list(GroupMeChannel.objects.filter(is_active=True, pk__in=ids))
-    raw = request.POST.get('groupme_reminder_hours', '')
+    raw = str(raw_hours or '')
     hours = int(raw) if raw.isdecimal() and int(raw) in Event.GROUPME_REMINDER_HOURS else 24
     for event in events:
         if event.groupme_reminded_at:

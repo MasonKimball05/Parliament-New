@@ -15,6 +15,7 @@ and a read is recorded the way the web page records one (``view_source``
 officers' view counts). Polls and linked documents are answered on the
 website, so they come with the URL to open there.
 """
+import os
 from datetime import timedelta
 
 from django.db.models import Q
@@ -82,7 +83,10 @@ def _serialize(a, responded):
         'event_date': a.event_date.isoformat() if a.event_date else None,
         'poll': _poll(a, responded),
         'documents': [{'id': d.id, 'title': d.title,
-                       'url': reverse('view_chapter_document', args=[d.id])}
+                       'url': reverse('view_chapter_document', args=[d.id]),
+                       # 11-17-26: the app's document viewer (documents/<id>/file/, the same rule)
+                       'file': f'documents/{d.id}/file/',
+                       'file_name': os.path.basename(d.document.name) if d.document else ''}
                       for d in a.linked_documents.all()],
     }
 
