@@ -220,10 +220,11 @@ class HomeTests(_Base):
             Announcement.objects.create(title=f'A{i}', content='c', posted_by=self.user)
         with CaptureQueriesContext(connection) as ctx:
             self.assertEqual(self.get('home/').status_code, 200)
-        # 3 for the page (ballots, events, announcements; nothing per row) plus
+        # 4 for the page (ballots, events, announcements, and since 11-17-26 the
+        # transition-checklist cards; nothing per row) plus
         # 4 for authentication (device + TOTP + static + 2FA requirement), run
         # once and shared by the middlewares and DRF (check_access_token).
-        self.assertLessEqual(len(ctx.captured_queries), 7,
+        self.assertLessEqual(len(ctx.captured_queries), 8,
                              '\n'.join(q['sql'][:120] for q in ctx.captured_queries))
 
 

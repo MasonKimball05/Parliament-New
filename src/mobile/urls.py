@@ -28,6 +28,7 @@ from src.mobile import views_committee_management
 from src.mobile import views_landing_page
 from src.mobile import views_kai_filing
 from src.mobile import views_document_files
+from src.mobile import views_transition_checklist
 from src.mobile import views_officer_roles
 from src.mobile import views_education_manage
 from src.mobile import (
@@ -823,6 +824,11 @@ urlpatterns = [
     path('excuses/<int:excuse_id>/document/file/', views_document_files.ExcuseDocumentFileView.as_view(),
          name='mobile_excuse_document_file'),
     path('cnb/pdf/', views_document_files.CnbPdfView.as_view(), name='mobile_cnb_pdf'),
+    # 11-17-26: the role transition checklist (views_transition_checklist.py)
+    path('transitions/checklist/<int:role_history_id>/',
+         views_transition_checklist.TransitionChecklistView.as_view(), name='mobile_transition_checklist'),
+    path('transitions/checklist/items/<int:status_id>/toggle/',
+         views_transition_checklist.TransitionChecklistToggleView.as_view(), name='mobile_transition_checklist_toggle'),
     path('site-file/<path:site_path>', views_document_files.SiteFileView.as_view(), name='mobile_site_file'),
     # Batch 6: C&B manager and resolution notes (views_cnb_manage.py), password
     # and browser sessions (views_account_security.py), event sign-up list.

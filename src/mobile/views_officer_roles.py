@@ -210,6 +210,7 @@ class OfficerTransitionsView(_OfficerView):
                     'checklist_web_path': (
                         reverse('transition_checklist', args=[h['checklist_history_id']])
                         if h['checklist_history_id'] else None),
+                    'checklist_id': h['checklist_history_id'] or None,   # 11-17-26: the app's screen
                 } for h in d['holders']],
             })
         filled = sum(1 for d in rows if d['holder_count'])
@@ -256,4 +257,5 @@ class OfficerTransferRoleView(_OfficerView):
             'role_history_id': role_history.id if role_history else None,
             'checklist_web_path': (reverse('transition_checklist', args=[role_history.id])
                                    if role_history else None),
+            'checklist_id': role_history.id if role_history else None,   # 11-17-26: the app's screen
         })

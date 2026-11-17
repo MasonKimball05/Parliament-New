@@ -34,6 +34,7 @@ from src.mobile.deeplinks import push_data_for_url
 from src.models import Announcement, Event, Legislation, Vote
 from src.models.users import member_defer
 from src.utils.visibility import visible_to_q
+from src.view.home import transition_checklist_cards
 
 PENDING_VOTES = 5
 EVENTS = 3
@@ -176,4 +177,11 @@ class HomeView(MobileAPIView):
                 'chat': (unread_chat_count(user)
                          if _may_open(user, 'chat_index', 'chats') else None),
             },
+            # 11-17-26: the website home's transition-checklist card(s), for an
+            # incoming officer with an unfinished handoff list.
+            'transition_checklists': [
+                {'id': c['role_history_id'], 'role_name': c['role_history__role_name'],
+                 'done': c['done'], 'total': c['total']}
+                for c in transition_checklist_cards(user)
+            ],
         })
