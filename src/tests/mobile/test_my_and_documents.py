@@ -144,3 +144,13 @@ class DocumentTests(_Base):
         _, access, _ = make_device(pledge)
         restrict('chapter_documents', phases=())
         self.assertEqual(self.get('documents/', access=access).json()['error'], 'pledge_restricted')
+
+    def test_can_manage_is_the_vpp_rule(self):
+        """11-17-26: the screen links to the manager for the VPP and admins only."""
+        from src.models import Role
+        self.assertFalse(self.get('my/service-hours/').json()['can_manage'])
+        vpp = make_user('my-vpp')
+        role, _ = Role.objects.get_or_create(code='VPP', defaults={'name': 'Vice President of Programming'})
+        vpp.roles.add(role)
+        _, vpp_access, _ = make_device(vpp)
+        self.assertTrue(self.get('my/service-hours/', vpp_access).json()['can_manage'])

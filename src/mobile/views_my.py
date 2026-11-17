@@ -27,6 +27,7 @@ from src.feature_flag_decorators import check_feature_enabled
 from src.mobile.api import MobileAPIView
 from src.models import ChapterFolder, CommitteeDocument, ServiceHoursAdjustment, ServiceHoursSubmission
 from src.models.users import member_defer
+from src.permissions import user_is_vpp
 from src.utils.content_disposition import apply_disposition
 
 DAYS = {30, 90, 180, 365, 0}
@@ -107,6 +108,8 @@ class MyServiceHoursView(MobileAPIView):
             } if period else None,
             'progress': progress,
             'adjustments': adjustments,
+            # 11-17-26: the VPP (and admins) get a way into the manager from here
+            'can_manage': user_is_vpp(request.user),
             'submissions': [{
                 'id': s.id,
                 'hours': _num(s.hours),
