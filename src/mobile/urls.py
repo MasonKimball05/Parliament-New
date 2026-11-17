@@ -898,6 +898,8 @@ urlpatterns = [
          name='mobile_account_passkey_rename'),
     path('account/passkeys/<int:pk>/delete/', views_passkeys.PasskeyDeleteView.as_view(),
          name='mobile_account_passkey_delete'),
+    path('events/<int:event_id>/signups/export/', views_calendar.EventSignupExportView.as_view(),
+         name='mobile_event_signup_export'),
     path('events/<int:event_id>/signups/', views_calendar.EventSignupListView.as_view(),
          name='mobile_event_signups'),
     # Check-in and poll QR codes shown from the app (v4.4.3)

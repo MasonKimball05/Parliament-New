@@ -26,7 +26,6 @@ runs the website view's own code:
   ``rebuild_account``), which write the AdminActionLog rows and send the
   emails. Refusals are 400 with ``DeletionRefused``'s code and message.
 """
-import logging
 
 from django.shortcuts import get_object_or_404
 from rest_framework import exceptions
@@ -36,7 +35,6 @@ from src.mobile.site_admin import SiteAdminAPIView
 from src.mobile.views_site_admin import BadRequest, _http, _iso, _person, _text
 from src.models import ParliamentUser
 
-geo_logger = logging.getLogger('admin_actions')
 
 PAGE_VISITS_LIMIT = 200
 
@@ -166,17 +164,8 @@ class _ExportView(SiteAdminAPIView):
 
     def get(self, request):
         from src.view import admin_v2_exports
-        if getattr(request.auth, 'login_geo_suspicious', False):
-            geo = getattr(request.auth, 'login_geo', None) or {}
-            country = geo.get('country') or 'Unknown'
-            location = f"{geo['city']}, {country}" if geo.get('city') else country
-            geo_logger.warning(
-                f"GEO_BLOCK: User '{request.user.user_id}' attempted to access "
-                f"restricted export '{request.path}' (view={self.web_page}) "
-                f"from non-US location ({location}). Blocked."
-            )
-            raise exceptions.PermissionDenied(
-                'Exports are not available on a sign-in from outside the United States.', code='geo_restricted')
+        from src.mobile.api import refuse_export_abroad
+        refuse_export_abroad(request, self.web_page)
         return getattr(admin_v2_exports, self.csv)(_http(request), request.query_params)
 
 

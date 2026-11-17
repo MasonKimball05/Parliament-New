@@ -478,3 +478,23 @@ class EventSignupListTests(_Api):
         e = Event.objects.create(title='Chapter', description='d', created_by=self.officer,
                                  date_time=timezone.now() + timedelta(days=1))
         self.assertEqual(self.call('get', f'events/{e.id}/signups/', self.o).status_code, 404)
+
+    def test_the_csv_export_matches_the_website(self):
+        """11-17-26: events/<id>/signups/export/ is event_signup_export's file."""
+        r = self.call('get', f'events/{self.event.id}/signups/export/', self.o)
+        self.assertEqual(r.status_code, 200, r.content)
+        self.assertEqual(r['Content-Type'], 'text/csv')
+        web = Client()
+        web.force_login(self.officer)
+        self.assertEqual(r.content, web.get(reverse('event_signup_export', args=[self.event.id])).content)
+        self.assertEqual(self.call('get', f'events/{self.event.id}/signups/export/',
+                                   self.signed_in(self.member)).status_code, 403)
+
+    def test_the_csv_is_refused_to_a_sign_in_from_abroad(self):
+        from src.models import MobileDevice
+        device, access, _ = make_device(self.officer)
+        MobileDevice.objects.filter(pk=device.pk).update(login_geo_suspicious=True,
+                                                         login_geo={'country': 'Elsewhere'})
+        r = self.call('get', f'events/{self.event.id}/signups/export/', bearer(access))
+        self.assertEqual(r.status_code, 403)
+        self.assertEqual(r.json()['error'], 'geo_restricted')

@@ -249,7 +249,7 @@ class EventSignupListView(_CalendarBase):
     ``GET events/<id>/signups/``: the officer sign-up list (``event_signup_list``,
     ``officer_required`` + the calendar toggle): confirmed, waitlist and
     cancelled, through the page's own query (``event_signups.roster``). The CSV
-    export stays on the website (a bulk member-data export, geo-restricted).
+    is ``events/<id>/signups/export/`` (EventSignupExportView).
     """
     web_page = 'event_signup_list'
     web_page_toggle = False   # the calendar toggle is checked below, as the page's decorator does
@@ -292,6 +292,26 @@ class EventSignupListView(_CalendarBase):
             'waitlist_count': len(waitlist),
             'web_path': reverse('event_signup_list', args=[event.id]),
         })
+
+
+
+class EventSignupExportView(EventSignupListView):
+    """
+    ``GET events/<id>/signups/export/`` (11-17-26): ``event_signup_export``'s CSV
+    (Name and Email for everyone signed up), for officers and chairs with the
+    calendar on, as the list. A bulk member-data export, so refused to an
+    install signed in from abroad, as the website refuses it to such a session.
+    """
+    web_page = 'event_signup_export'
+
+    def get(self, request, event_id):
+        from src.mobile.api import refuse_export_abroad
+        from src.view.calendar import signup_export_response
+        event = Event.objects.filter(pk=event_id, is_active=True, requires_signup=True).first()
+        if event is None:
+            raise Http404
+        refuse_export_abroad(request, self.web_page)
+        return signup_export_response(event)
 
 
 class CalendarSubscriptionView(MobileAPIView):

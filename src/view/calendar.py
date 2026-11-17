@@ -839,13 +839,17 @@ def event_signup_export(request, event_id):
     keyed on URL name precisely because this route has a parameter in the
     middle of it and could not be expressed as a path prefix.
     """
-    from django.utils.http import content_disposition_header
-    from src.utils.export_utils import safe_csv_writer
-
     # v3.17.3 revived this view (see event_signup_list for the history);
     # v3.17.5 moved the gate onto @officer_required so Chairs are admitted and
     # the denial is logged. Do not put the inline `is_officer` check back.
     event = get_object_or_404(Event, pk=event_id, is_active=True, requires_signup=True)
+    return signup_export_response(event)
+
+
+def signup_export_response(event):
+    """The sign-up CSV for `event` (shared with the app, 11-17-26). The caller has checked access."""
+    from django.utils.http import content_disposition_header
+    from src.utils.export_utils import safe_csv_writer
 
     all_active = (
         EventSignup.objects

@@ -173,6 +173,28 @@ def check_web_page(user, url_name, toggle=True):
                                               code='pledge_restricted')
 
 
+def refuse_export_abroad(request, web_page):
+    """
+    The website refuses bulk member-data exports to a session signed in from
+    abroad (GeoRestrictionMiddleware); the app refuses them to an install that
+    signed in from abroad (MobileDevice.login_geo_suspicious), with the same
+    GEO_BLOCK log line. 403 ``geo_restricted``.
+    """
+    import logging
+    if not getattr(request.auth, 'login_geo_suspicious', False):
+        return
+    geo = getattr(request.auth, 'login_geo', None) or {}
+    country = geo.get('country') or 'Unknown'
+    location = f"{geo['city']}, {country}" if geo.get('city') else country
+    logging.getLogger('admin_actions').warning(
+        f"GEO_BLOCK: User '{request.user.user_id}' attempted to access "
+        f"restricted export '{request.path}' (view={web_page}) "
+        f"from non-US location ({location}). Blocked."
+    )
+    raise exceptions.PermissionDenied(
+        'Exports are not available on a sign-in from outside the United States.', code='geo_restricted')
+
+
 # ── Bases ────────────────────────────────────────────────────────────────────
 
 class MobileAPIView(APIView):
