@@ -100,7 +100,7 @@ class MyServiceHoursView(MobileAPIView):
         submissions = (ServiceHoursSubmission.objects
                        .filter(submitted_by=user).exclude(status='draft')
                        .select_related('period', 'reviewed_by').defer(*member_defer('reviewed_by'))
-                       .order_by('-submitted_at')[:SUBMISSION_LIMIT])
+                       .order_by('-service_date', '-submitted_at')[:SUBMISSION_LIMIT])  # 11-17-26: by service date
         return Response({
             'period': {
                 'id': period.id, 'name': period.name,

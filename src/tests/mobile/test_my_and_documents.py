@@ -99,6 +99,20 @@ class ServiceHoursTests(_Base):
         self.assertEqual([s['organization'] for s in body['submissions']], ['Park', 'Food bank'])
         self.assertEqual(body['adjustments'][0]['reason'], 'Retreat')
 
+    def test_submissions_newest_service_date_first(self):
+        """11-17-26: by the day of the service, not when it was submitted (ties: newest submission)."""
+        today = timezone.localdate()
+        period = ServicePeriod.objects.create(name='Fall', start_date=today - timedelta(days=10),
+                                              end_date=today + timedelta(days=10), is_active=True)
+        now = timezone.now()
+        for n, (org, days_ago) in enumerate((('Tue', 1), ('Wed', 0), ('Mon', 2), ('Tue again', 1))):
+            s = ServiceHoursSubmission.objects.create(period=period, submitted_by=self.user, hours=Decimal('2'),
+                                                      service_date=today - timedelta(days=days_ago),
+                                                      organization=org, description='x', status='approved')
+            ServiceHoursSubmission.objects.filter(pk=s.pk).update(submitted_at=now + timedelta(minutes=n))
+        body = self.get('my/service-hours/').json()
+        self.assertEqual([s['organization'] for s in body['submissions']], ['Wed', 'Tue again', 'Tue', 'Mon'])
+
     def test_no_period(self):
         body = self.get('my/service-hours/').json()
         self.assertIsNone(body['period'])
