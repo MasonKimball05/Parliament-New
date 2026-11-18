@@ -25,7 +25,7 @@ def _run():
     return out.getvalue(), code
 
 
-@override_settings(APP_REVIEW_USERNAMES=frozenset({'appreview'}), GEOIP_CITY_DB='/nonexistent.mmdb')
+@override_settings(APP_REVIEW_USERNAMES=frozenset({'appreview'}), GEOIP_CITY_DB='missing-GeoLite2-City.mmdb')
 class AppReviewCheckTests(TestCase):
 
     def setUp(self):
