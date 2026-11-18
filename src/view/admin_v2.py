@@ -673,6 +673,10 @@ def seed_dashboard_defaults():
     _seed_site_settings(CHAT_SETTINGS_DEFAULTS + EVENT_REMINDER_DEFAULTS + APP_UPDATE_DEFAULTS)
 
 
+CELERY_WORKERS_UP_CACHE_KEY = 'admin_v2:celery_workers_up'
+CELERY_WORKERS_UP_TTL = 60
+
+
 def dashboard_celery_summary():
     """The dashboard's Celery card: workers answering a ping, scheduled tasks,
     stale and disabled ones. v4.4.3: factored out of `admin_v2_dashboard` for
@@ -681,8 +685,16 @@ def dashboard_celery_summary():
     try:
         from django_celery_beat.models import PeriodicTask as _PT, IntervalSchedule as _IV
         from celery import current_app as _celery_app
-        ping = _celery_app.control.inspect(timeout=1).ping() or {}
-        celery_summary['workers_up'] = bool(ping)
+        # 11-18-26: a broadcast ping collects replies until the timeout, so it
+        # cost every dashboard load a full second even with a healthy worker.
+        # One reply is enough to say "up" (limit=1 returns as soon as it
+        # arrives), and the answer is kept for a minute, so a dead worker
+        # costs the 1-second wait at most once a minute.
+        workers_up = cache.get(CELERY_WORKERS_UP_CACHE_KEY)
+        if workers_up is None:
+            workers_up = bool(_celery_app.control.inspect(timeout=1, limit=1).ping())
+            cache.set(CELERY_WORKERS_UP_CACHE_KEY, workers_up, CELERY_WORKERS_UP_TTL)
+        celery_summary['workers_up'] = workers_up
         tasks = list(_PT.objects.select_related('interval', 'crontab').all())
         celery_summary['task_count'] = len(tasks)
         celery_summary['disabled_count'] = sum(1 for t in tasks if not t.enabled)
