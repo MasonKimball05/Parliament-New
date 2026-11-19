@@ -758,7 +758,10 @@ class MonitoringReaderLivenessTests(TestCase):
         with patch.object(performance, 'SAMPLE_ONE_IN', 1):
             client.get(reverse('home'))  # generate at least one metric
 
-        response = client.get(reverse('debug_performance_metrics'))
+        # v4.4.15: the debug API needs the admin-v2 gate (tested in
+        # test_debug_api_gate.py); this test is about the numbers, so pass it.
+        with patch('src.view.admin_v2.admin_v2_fully_authenticated', return_value=True):
+            response = client.get(reverse('debug_performance_metrics'))
         self.assertEqual(response.status_code, 200)
         payload = response.json()
 

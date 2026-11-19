@@ -18,15 +18,45 @@ from django.template import engines
 
 
 def admin_required(view_func):
-    """Decorator to require admin access for debug endpoints"""
+    """
+    Gate for every /api/debug/ endpoint.
+
+    v4.4.15 (11-19-26 pentest, attack-surface item 1): this used to accept any
+    `is_admin`. These endpoints run raw SQL, toggle feature flags, clear caches
+    and logs and edit the session, so they now need the full admin-v2 gate —
+    the developer allowlist (ADMIN_V2_USER_IDS) AND a live admin-v2 sign-in —
+    the same accounts and step-up as Admin v2 and the app's Site admin. Local
+    development (DEBUG) keeps them open. Anyone else gets a 404: the debug API's
+    existence isn't something to advertise.
+    """
     @wraps(view_func)
     def wrapper(request, *args, **kwargs):
         if not request.user.is_authenticated:
             return JsonResponse({'error': 'Authentication required'}, status=401)
-        if not getattr(request.user, 'is_admin', False):
-            return JsonResponse({'error': 'Admin access required'}, status=403)
+        if not settings.DEBUG:
+            from src.view.admin_v2 import admin_v2_fully_authenticated
+            if not (getattr(request.user, 'is_admin', False) and admin_v2_fully_authenticated(request)):
+                return JsonResponse({'error': 'Not found'}, status=404)
         return view_func(request, *args, **kwargs)
     return wrapper
+
+
+#: v4.4.15 — session keys the debug panel may never set or delete. Each one is
+#: (part of) an authentication or authorization decision: who you are, whether
+#: your second factor / admin-v2 step-up / passkey re-auth happened, who you were
+#: before "log in as" (`src.impersonation.SESSION_ORIGINAL_ID`; every `_` key is
+#: Django's or the app's own bookkeeping), which device or location you signed in from. Writing any
+#: of them would let the panel grant what the real flow checks.
+PROTECTED_SESSION_PREFIXES = (
+    '_', 'admin_v2_', 'otp_', 'webauthn_', 'login_geo', 'mobile_device',
+    'impersonat', 'original_', 'login_as', '2fa_', 'new_backup_codes',
+    'temp_password', 'fresh_vote_receipt',
+)
+
+
+def _protected_session_key(key):
+    k = str(key).lower()
+    return k.startswith(PROTECTED_SESSION_PREFIXES)
 
 
 @require_http_methods(["GET"])
@@ -147,7 +177,7 @@ def debug_database_info(request):
 
     return JsonResponse({
         'engine': db_settings['ENGINE'].split('.')[-1],
-        'name': db_settings.get('NAME', 'N/A'),
+        'name': str(db_settings.get('NAME', 'N/A')),  # v4.4.15: a Path on SQLite, which JsonResponse can't encode
         'host': db_settings.get('HOST', 'localhost'),
         'port': db_settings.get('PORT', 'default'),
         'conn_max_age': db_settings.get('CONN_MAX_AGE', 0),
@@ -254,6 +284,8 @@ def debug_session_edit(request):
         key = data.get('key')
         value = data.get('value')
 
+        if action in ('set', 'delete') and key and _protected_session_key(key):
+            return JsonResponse({'error': f'Session key "{key}" is protected'}, status=403)
         if action == 'set' and key:
             request.session[key] = value
             return JsonResponse({'success': True, 'message': f'Session key "{key}" set'})

@@ -35,6 +35,30 @@ class RestrictionsApplyEverywhereTests(EducationFixtureMixin, TestCase):
         self.assertEqual(self.as_pledge('songbook', phase='1').status_code, 403)
         self.assertEqual(self.as_pledge('songbook', phase='2').status_code, 200)
 
+    def test_a_restriction_covers_the_pages_under_it(self):
+        """v4.4.15 (pentest F01): restricting the directory left its export
+        (everyone's email and phone as CSV/XLSX) and the profile cards open."""
+        self.client.force_login(self.pledge)
+        export, card = reverse('export_directory'), reverse('profile_card', args=[self.brother.user_id])
+        self.assertEqual(self.client.get(export).status_code, 200)
+        PledgePageRestriction.objects.create(url_name='member_directory', allowed_phases=[])
+        cache.clear()
+        self.assertEqual(self.client.get(reverse('member_directory')).status_code, 403)
+        self.assertEqual(self.client.get(export).status_code, 403)
+        self.assertEqual(self.client.get(export + '?format=xlsx').status_code, 403)
+        self.assertEqual(self.client.get(card).status_code, 403)
+        # A brother still gets all of it.
+        self.client.force_login(self.brother)
+        self.assertEqual(self.client.get(export).status_code, 200)
+
+    def test_section_parents_never_include_always_allowed_pages(self):
+        from src.middleware.pledge_pages import section_parents
+        self.assertEqual(section_parents('export_directory'), ('member_directory',))
+        self.assertEqual(section_parents('member_directory'), ())
+        for name in restrictable_url_names():
+            for parent in section_parents(name):
+                self.assertFalse(is_always_allowed(parent), (name, parent))
+
     def test_brothers_are_never_blocked(self):
         PledgePageRestriction.objects.create(url_name='songbook', allowed_phases=[])
         self.client.force_login(self.brother)

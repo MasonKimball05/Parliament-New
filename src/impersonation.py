@@ -55,6 +55,32 @@ SESSION_ORIGINAL_ID = '_impersonating_original_user_id'
 SESSION_ORIGINAL_NAME = '_impersonating_original_user_name'
 
 
+#: v4.4.15 (pentest attack-surface item 3) — who may START impersonating.
+#: The same single-account pin as `bug_admin_required` (src/decorators.py) and
+#: `_is_owner_session` (src/middleware/security.py): deliberately an id, not a
+#: role an admin could hand out. On `multi-chapter` this becomes
+#: `src.permissions.is_platform_owner`; swap the body when main is merged in.
+PLATFORM_OWNER_USER_ID = '73'
+
+
+def may_impersonate(actor, target):
+    """
+    True only for the platform owner, never toward their own account.
+
+    Before v4.4.15 any `is_admin` could sign in as any member, including other
+    admins and the owner, from a plain GET link. Being an admin is an
+    operational role (CLAUDE.md's confidentiality boundary); signing in as
+    someone else reaches everything that person can see, Kai and ballots
+    included, so it belongs to the one account that already can.
+    """
+    return bool(
+        actor is not None and getattr(actor, 'is_authenticated', False)
+        and getattr(actor, 'is_admin', False)
+        and str(getattr(actor, 'user_id', '')) == PLATFORM_OWNER_USER_ID
+        and target is not None and target.pk != actor.pk
+    )
+
+
 def is_impersonating(request):
     """
     True when this request is an admin acting as another user.

@@ -55,6 +55,11 @@ EXEMPT = {
     'confirm_email_change',
     # Django admin plumbing; Django itself does the redirecting.
     'admin_login_redirect',
+    # v4.4.15: the impersonation confirm page. Reached from the Django admin's
+    # "Login As User" button (admin:login_as_user redirects here), and it now
+    # renders a page because GET shows the confirmation. Its name has a hyphen,
+    # which the reference scan's [a-z0-9_] pattern can't match.
+    'login-as',
     # Deliberately unauthenticated pages meant to be shared as a bare URL
     # (rush, parents, nationals). They are not in the member nav on purpose.
     'public_songbook',

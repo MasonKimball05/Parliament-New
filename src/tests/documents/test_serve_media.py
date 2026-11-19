@@ -232,8 +232,13 @@ class PrivateMediaDirectoriesAreNotServedHere(TestCase):
         comparison would refuse it, and the failure would be invisible — refusing
         to serve a file looks exactly like the guard working.
         """
-        resp = self.client.get(reverse('serve_media', kwargs={
-            'path': 'legislation_drafts_public/ok.pdf'}))
+        # v4.4.15: /media/ now refuses unclassified folders, so the folder is
+        # classified public here; what's under test is still that the PRIVATE
+        # check compares whole path segments.
+        from src.view import serve_media as sm
+        with mock.patch.object(sm, 'PUBLIC_MEDIA_PREFIXES', sm.PUBLIC_MEDIA_PREFIXES | {'legislation_drafts_public'}):
+            resp = self.client.get(reverse('serve_media', kwargs={
+                'path': 'legislation_drafts_public/ok.pdf'}))
         self.assertEqual(resp.status_code, 200)
 
     def test_the_private_set_names_only_directories_that_have_their_own_view(self):

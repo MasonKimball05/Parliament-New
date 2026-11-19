@@ -65,7 +65,15 @@ class PledgePageRestrictionMiddleware:
             return None
         from src.models.education import PledgePageRestriction
         phase = getattr(user, 'pledge_phase', None) or 'all'
-        if PledgePageRestriction.is_allowed(url_name, phase):
+        # v4.4.15 (pentest F01): a restriction on a section's page also covers the
+        # routes under its path. Restricting `member_directory` (directory/) used
+        # to leave `export_directory` (directory/export/: everyone's email and
+        # phone as CSV/XLSX) and `profile_card` (directory/<id>/card/) open,
+        # because the match was on the exact url_name alone.
+        for name in (url_name, *section_parents(url_name)):
+            if not PledgePageRestriction.is_allowed(name, phase):
+                break
+        else:
             return None
         if is_mobile_api(request):
             return mobile_json_error('pledge_restricted', 403)
@@ -73,6 +81,44 @@ class PledgePageRestrictionMiddleware:
 
 
 _RESTRICTABLE = None
+_PARENTS = None
+
+
+def _literal_prefix(route):
+    """The part of a route before its first parameter: 'directory/<str:user_id>/card/' → 'directory/'."""
+    return route.split('<', 1)[0]
+
+
+def section_parents(url_name):
+    """
+    v4.4.15 — the named pages whose path contains this route's path: for
+    'export_directory' (directory/export/) that is ('member_directory',) since
+    'directory/' is a prefix of it. Only parameter-free routes count as a
+    section, the empty path (home) never does, and always-allowed pages are
+    left out so they can never block anything beneath them.
+    """
+    global _PARENTS
+    if _PARENTS is None:
+        from django.urls import URLPattern, URLResolver, get_resolver
+        routes = {}
+
+        def walk(patterns, prefix=''):
+            for p in patterns:
+                if isinstance(p, URLResolver):
+                    walk(p.url_patterns, prefix + str(p.pattern))
+                elif isinstance(p, URLPattern) and p.name and '^' not in str(p.pattern):
+                    routes.setdefault(p.name, prefix + str(p.pattern))
+        walk(get_resolver().url_patterns)
+        sections = {name: route for name, route in routes.items()
+                    if route and '<' not in route and route.endswith('/')
+                    and not is_always_allowed(name)}
+        _PARENTS = {}
+        for name, route in routes.items():
+            lit = _literal_prefix(route)
+            _PARENTS[name] = tuple(sorted(
+                parent for parent, sroute in sections.items()
+                if parent != name and lit.startswith(sroute) and route != sroute))
+    return _PARENTS.get(url_name, ())
 
 
 def restrictable_url_names():

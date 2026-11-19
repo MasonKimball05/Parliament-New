@@ -214,6 +214,14 @@ class MobileAPIView(APIView):
         super().initial(request, *args, **kwargs)
         if self.web_page:
             check_web_page(request.user, self.web_page, toggle=self.web_page_toggle)
+            # v4.4.15 (pentest F02): the web's abroad block is a middleware keyed
+            # on url_name, and it can't see a Bearer request's user. Per-view
+            # `refuse_export_abroad` calls were the app's copy of it, and
+            # ActivityLogsExportView and HoneypotClearView never got one. Doing
+            # it here from the same set means a new export view can't miss it.
+            from src.middleware.geo_restriction import RESTRICTED_EXPORT_VIEWS
+            if self.web_page in RESTRICTED_EXPORT_VIEWS:
+                refuse_export_abroad(request, self.web_page)
 
     def get_exception_handler(self):
         return mobile_exception_handler

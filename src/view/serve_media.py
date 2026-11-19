@@ -57,6 +57,11 @@ MEDIA_ACCEL_PREFIX = os.getenv('MEDIA_ACCEL_PREFIX', '')
 #: it belongs here AND needs its own ownership-aware view.** Adding the view
 #: without adding the entry is the bug this set was written for.
 #:
+#: ⚠️ v4.4.15 — NO LONGER TRUE: /media/ now DENIES a folder that isn't in
+#: PUBLIC_MEDIA_PREFIXES or OBJECT_CHECKED_MEDIA_PREFIXES (see serve_media).
+#: This set still matters: it documents the folders that have their own view,
+#: and the guard test requires every folder to be classified somewhere.
+#:
 #: ⚠️ v3.19.6 — AND THE COMMENT ABOVE WAS WRONG ABOUT "THE FIRST SUCH THING".
 #: `legislation_drafts/` was the ninth. v3.19.5 stated the property correctly,
 #: built the right mechanism, and put one entry in it — because nothing ever
@@ -118,15 +123,47 @@ PRIVATE_MEDIA_PREFIXES = frozenset({
 PUBLIC_MEDIA_PREFIXES = frozenset({
     'legislation_docs',
     'committee_minutes',
-    'committee_documents',
     'committee_legislation',
-    'document_versions',
     'profile_pictures',
     'songbook',
     'landing_photos',
     'passed_resolutions',
     'og_images',
 })
+
+
+def _committee_document_visible(user, name):
+    from src.models.documents import CommitteeDocument
+    docs = CommitteeDocument.objects.filter(document=name).select_related('committee', 'uploaded_by')
+    return any(doc.can_user_view(user) for doc in docs)
+
+
+def _document_version_visible(user, name):
+    from src.models.documents import DocumentVersion
+    versions = (DocumentVersion.objects.filter(file=name)
+                .select_related('document__committee', 'document__uploaded_by'))
+    return any(v.document.can_user_view(user) for v in versions)
+
+
+#: v4.4.15 — DIRECTORIES WHOSE FILES CARRY THEIR OWN PER-OBJECT RULE.
+#:
+#: The 11-19-26 pentest (F03) showed the cost of `committee_documents` sitting
+#: in PUBLIC_MEDIA_PREFIXES: a document set to "Committee Members Only",
+#: "Chairs Only", "Officers Only" or "Custom" was hidden from the listing but
+#: downloadable here by any member or pledge who knew the file name — and the
+#: names are the uploader's own, so they are guessable.
+#:
+#: These can't simply move to PRIVATE_MEDIA_PREFIXES: about fifteen templates
+#: link `doc.document.url` directly, and a document's rule is "it depends on
+#: the document", not "never through /media/". So /media/ asks the document:
+#: it finds the row(s) that own the file and applies `can_user_view`, exactly
+#: as the per-object views do. No owning row → 404 (an orphaned file has no
+#: rule to grant it). Each value is `check(user, name) -> bool`, where `name`
+#: is the path relative to MEDIA_ROOT, i.e. the FileField's stored name.
+OBJECT_CHECKED_MEDIA_PREFIXES = {
+    'committee_documents': _committee_document_visible,   # CommitteeDocument.document
+    'document_versions': _document_version_visible,       # DocumentVersion.file (→ its document's rule)
+}
 
 
 @login_required
@@ -149,7 +186,26 @@ def serve_media(request, path):
     #
     # 404 and not 403, matching `_get_own_draft`: whether a given draft exists is
     # itself author-private, and a 403 answers that question.
-    if os.path.relpath(resolved, media_root).split(os.sep)[0] in PRIVATE_MEDIA_PREFIXES:
+    rel = os.path.relpath(resolved, media_root)
+    first_segment = rel.split(os.sep)[0]
+    if first_segment in PRIVATE_MEDIA_PREFIXES:
+        raise Http404('File not found')
+
+    # v4.4.15 (pentest F03): the owning object decides. Checked on the resolved
+    # path for the same reason as above; 404 rather than 403 for the same reason.
+    check = OBJECT_CHECKED_MEDIA_PREFIXES.get(first_segment)
+    if check is not None and not check(request.user, rel.replace(os.sep, '/')):
+        raise Http404('File not found')
+
+    # v4.4.15 (pentest attack-surface item 7): DENY BY DEFAULT. Before this, a
+    # folder in neither set was served to every member, the "inherits /media/'s
+    # promise by default" rule the comment above PRIVATE_MEDIA_PREFIXES warns
+    # about, and the way committee documents ended up public (F03). Now a file is
+    # served only from a folder someone has classified on purpose: public, or
+    # object-checked. Anything else (a new folder, a file at the root) is a 404
+    # until it is classified, and test_media_classification makes sure every
+    # model's folder is.
+    if check is None and first_segment not in PUBLIC_MEDIA_PREFIXES:
         raise Http404('File not found')
 
     if not os.path.isfile(resolved):

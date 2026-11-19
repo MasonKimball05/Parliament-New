@@ -117,12 +117,15 @@ class ChangelogDoesNotLeakAcrossVisitorsTests(TestCase):
             theme_of(light_client.get('/changelog/')), 'light',
             'a light-mode member is being served the dark-mode cached page')
 
-        self.assertEqual(theme_of(Client().get('/changelog/')), 'light',
-                         'anonymous visitors should get the default theme')
+        # v4.4.15: the changelog needs sign-in, so an anonymous visitor is sent to log in.
+        self.assertEqual(Client().get('/changelog/').status_code, 302)
 
     def test_a_dark_member_is_not_given_the_anonymous_page(self):
-        """The exact reported symptom: anonymous primes it, members go light."""
-        Client().get('/changelog/')                     # anonymous primes
+        """The exact reported symptom: one visitor primes it, the next gets their theme.
+        (v4.4.15: primed by a light member now that anonymous visitors can't open it.)"""
+        primer = Client()
+        primer.force_login(self.light_member)
+        primer.get('/changelog/')                       # a light member primes
         dark_client = Client()
         dark_client.force_login(self.dark_admin)
         self.assertEqual(
@@ -147,19 +150,19 @@ class ChangelogDoesNotLeakAcrossVisitorsTests(TestCase):
         admin_client.force_login(self.dark_admin)
         admin_client.get('/changelog/')                 # primes the cache
 
-        body = Client().get('/changelog/').content.decode()
-        self.assertNotIn('Dark Admin', body,
+        # v4.4.15: anonymous visitors get the login redirect, not a page body.
+        response = Client().get('/changelog/')
+        self.assertEqual(response.status_code, 302)
+        self.assertNotIn('Dark Admin', response.content.decode(),
                          'a member name is being served to the public')
-        # Link hrefs, not the word "Admin" — that appears ~64 times in the
-        # changelog prose itself and is not a leak.
-        self.assertNotIn('href="/admin-v2', body)
-        self.assertNotIn('href="/admin/', body)
 
     def test_all_viewer_dependent_public_pages_behave(self):
         for url in VIEWER_DEPENDENT_PUBLIC_PAGES:
             with self.subTest(url=url):
                 cache.clear()
-                Client().get(url)                       # anonymous primes
+                primer = Client()
+                primer.force_login(self.light_member)
+                primer.get(url)                         # a light member primes
                 dark_client = Client()
                 dark_client.force_login(self.dark_admin)
                 response = dark_client.get(url)
@@ -229,6 +232,9 @@ class ChangelogDetailCacheKeysAreBoundedTests(TestCase):
     def setUp(self):
         cache.clear()
         self.addCleanup(cache.clear)
+        # v4.4.15: the changelog needs sign-in.
+        self.member = make_user('cl-bound', 'Bound Member', 'light')
+        self.client.force_login(self.member)
 
     @staticmethod
     def _detail_keys():
@@ -236,9 +242,8 @@ class ChangelogDetailCacheKeysAreBoundedTests(TestCase):
         return [k for k in backend if 'changelog_detail_v1:' in k]
 
     def test_unknown_versions_create_no_cache_entries(self):
-        client = Client()
         for n in range(25):
-            client.get(f'/changelog/junk{n}deadbeef/')
+            self.client.get(f'/changelog/junk{n}deadbeef/')
         self.assertEqual(
             self._detail_keys(), [],
             'an anonymous visitor minted cache entries for versions that do '
@@ -246,12 +251,12 @@ class ChangelogDetailCacheKeysAreBoundedTests(TestCase):
         )
 
     def test_unknown_version_is_a_404_not_a_cached_200(self):
-        response = Client().get('/changelog/nosuchversion/')
+        response = self.client.get('/changelog/nosuchversion/')
         self.assertEqual(response.status_code, 404)
 
     def test_a_real_version_is_still_cached(self):
         """The bound must not cost the saving it was added to protect."""
-        response = Client().get('/changelog/v3.17.3/')
+        response = self.client.get('/changelog/v3.17.3/')
         self.assertEqual(response.status_code, 200)
         self.assertIsNotNone(cache.get('changelog_detail_v1:v3.17.3'))
 

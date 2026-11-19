@@ -546,6 +546,8 @@ class PageAccessView(_ManageView):
 
 class DeletePageAccessView(PageAccessView):
     """``education_delete_page_restriction``."""
+    # v4.4.15: inherits PageAccessView.get(), which has no restriction_id (500 on GET).
+    http_method_names = ['post', 'options']
 
     def post(self, request, code, restriction_id):
         self.setup_access(request, code)

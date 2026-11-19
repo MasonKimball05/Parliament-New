@@ -374,6 +374,28 @@ def admin_v2_passkey_auth_complete(request):
     return JsonResponse({'ok': True, 'redirect': reverse('admin_v2_dashboard')})
 
 
+def admin_v2_fully_authenticated(request):
+    """
+    v4.4.15 — both halves of the admin-v2 gate as a plain yes/no, with no
+    redirects, messages or session writes: on the ADMIN_V2_USER_IDS allowlist,
+    AND a live admin-v2 sign-in (password + ADMIN_V2_SECRET_KEY, or passkey)
+    from the last 7 days. Same rules as `require_admin_v2_auth`, for callers
+    that answer JSON (the debug API) rather than redirect.
+    """
+    user = getattr(request, 'user', None)
+    if not is_admin_v2_allowlisted(user):
+        return False
+    if not request.session.get('admin_v2_authenticated'):
+        return False
+    try:
+        auth_time = datetime.fromisoformat(request.session.get('admin_v2_auth_time') or '')
+    except (ValueError, TypeError):
+        return False
+    if auth_time.tzinfo is None:
+        auth_time = timezone.make_aware(auth_time)
+    return timezone.now() - auth_time <= timedelta(days=7)
+
+
 def require_admin_v2_auth(view_func):
     """
     Decorator to require Admin v2 authentication
