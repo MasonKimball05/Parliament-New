@@ -222,7 +222,9 @@ class ChangelogViewTests(TestCase):
 
         # The page's pillar cards are written out in the template; every word
         # the app shows must be on the page, in the same order.
-        page = _page_text(Client().get('/roadmap/').content)
+        web = Client()
+        web.force_login(self.user)  # v4.4.15: sign-in required
+        page = _page_text(web.get('/roadmap/').content)
         want = [body['badge'], body['title'], body['summary']]
         for pillar in body['pillars']:
             want += [pillar['icon'], pillar['title'], pillar['summary']]
@@ -239,7 +241,10 @@ class ChangelogViewTests(TestCase):
 
     def test_web_pages_still_render(self):
         web = Client()
+        web.force_login(self.user)  # v4.4.15: sign-in required
         version = cl.detailed_changelog_entries()[0]['version']
+        for url in ('/changelog/', f'/changelog/{version}/', '/roadmap/'):
+            self.assertEqual(Client().get(url).status_code, 302, f'{url} must need sign-in')
         for url in ('/changelog/', f'/changelog/{version}/', '/roadmap/'):
             self.assertEqual(web.get(url).status_code, 200, url)
 

@@ -91,13 +91,22 @@ class ChangelogPageRendersGroupsFromTheRealDirectoryTests(TestCase):
     doesn't need updating every time a new changelog is added.
     """
 
+    def _member_client(self):
+        # v4.4.15: the changelog needs sign-in.
+        from src.models import ParliamentUser
+        user, _ = ParliamentUser.objects.get_or_create(
+            user_id='cl-group', defaults={'name': 'Group Member', 'username': 'cl-group', 'member_type': 'Member'})
+        client = Client()
+        client.force_login(user)
+        return client
+
     def test_the_page_renders_one_group_per_minor_series_on_disk(self):
         import pathlib
         SRC = pathlib.Path(__file__).resolve().parent.parent.parent
         on_disk = [p.name for p in (SRC.parent / 'changelogs').glob('v*.md')]
         expected_minors = {(parse_version(f)[0], parse_version(f)[1]) for f in on_disk}
 
-        response = Client().get('/changelog/')
+        response = self._member_client().get('/changelog/')
         self.assertEqual(response.status_code, 200)
         html = response.content.decode()
 
@@ -106,7 +115,7 @@ class ChangelogPageRendersGroupsFromTheRealDirectoryTests(TestCase):
                 self.assertIn(f'{major}.{minor}.x', html)
 
     def test_the_newest_group_panel_is_not_hidden_by_default(self):
-        response = Client().get('/changelog/')
+        response = self._member_client().get('/changelog/')
         html = response.content.decode()
         # The FIRST panel's `class="..."` attribute belongs to the newest
         # series (groups are sorted newest-first) and must not start with
@@ -119,7 +128,7 @@ class ChangelogPageRendersGroupsFromTheRealDirectoryTests(TestCase):
         self.assertFalse(following.startswith('hidden'), following)
 
     def test_older_group_panels_are_hidden_by_default(self):
-        response = Client().get('/changelog/')
+        response = self._member_client().get('/changelog/')
         html = response.content.decode()
         # There should be at least one hidden panel given more than one
         # minor series exists on disk (true today: 2.x and 3.x both have

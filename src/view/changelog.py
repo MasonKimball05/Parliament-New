@@ -5,6 +5,7 @@ import logging
 import os
 import re
 import markdown
+from django.contrib.auth.decorators import login_required
 from django.shortcuts import render
 from django.conf import settings
 from django.core.cache import cache
@@ -204,6 +205,10 @@ def group_changelogs_by_minor(entries):
     return grouped
 
 
+# v4.4.15 (pentest attack-surface item 2): sign-in required. The changelog files
+# describe past security bugs in detail (what was exposed and how it was fixed),
+# which is a reading list for an attacker on a public page.
+@login_required
 def changelog(request):
     """
     Display the changelog/version history page.
@@ -269,6 +274,7 @@ def known_versions():
     return versions
 
 
+@login_required
 def changelog_detail(request, version):
     """
     Display a specific version's detailed changelog.
@@ -435,6 +441,7 @@ ROADMAP_PREREQUISITES = [
 ]
 
 
+@login_required
 def roadmap(request):
     # No caching: the context below is literal lists built in Python, so there
     # was nothing to save — @cache_page here bought no speed and shared one

@@ -625,6 +625,9 @@ class OfficerExcuseListView(_OfficerView):
 
 
 class OfficerExcuseReviewView(OfficerExcuseListView):
+    # v4.4.15: it inherits the list's get(), which takes no excuse_id, so a GET
+    # here was a TypeError → 500 (found by the 11-19-26 pentest sweep). POST only.
+    http_method_names = ['post', 'options']
 
     def post(self, request, excuse_id):
         excuse = get_object_or_404(AttendanceExcuse.objects.select_related('user', 'event'), pk=excuse_id)

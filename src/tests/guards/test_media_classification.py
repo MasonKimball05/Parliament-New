@@ -42,7 +42,13 @@ from django.apps import apps
 from django.db import models
 from django.test import TestCase
 
-from src.view.serve_media import PRIVATE_MEDIA_PREFIXES, PUBLIC_MEDIA_PREFIXES
+from src.view.serve_media import (
+    OBJECT_CHECKED_MEDIA_PREFIXES, PRIVATE_MEDIA_PREFIXES, PUBLIC_MEDIA_PREFIXES,
+)
+
+#: v4.4.15: the third class — /media/ serves these only after the owning
+#: object's own rule (e.g. CommitteeDocument.can_user_view) says yes.
+OBJECT_CHECKED = frozenset(OBJECT_CHECKED_MEDIA_PREFIXES)
 
 
 def _upload_prefix(field):
@@ -117,7 +123,7 @@ class EveryUploadDirectoryIsClassified(TestCase):
                 )
                 continue
 
-            if prefix in PRIVATE_MEDIA_PREFIXES or prefix in PUBLIC_MEDIA_PREFIXES:
+            if prefix in PRIVATE_MEDIA_PREFIXES or prefix in PUBLIC_MEDIA_PREFIXES or prefix in OBJECT_CHECKED:
                 continue
 
             unclassified.append(
@@ -142,6 +148,10 @@ class EveryUploadDirectoryIsClassified(TestCase):
             PRIVATE_MEDIA_PREFIXES & PUBLIC_MEDIA_PREFIXES, frozenset(),
             'A directory cannot be both public-to-members and private.',
         )
+        self.assertEqual(
+            OBJECT_CHECKED & (PRIVATE_MEDIA_PREFIXES | PUBLIC_MEDIA_PREFIXES), frozenset(),
+            'An object-checked directory must not also be in the public or private set.',
+        )
 
     def test_no_classified_prefix_is_unused(self):
         """
@@ -160,7 +170,7 @@ class EveryUploadDirectoryIsClassified(TestCase):
             if prefix:
                 live.add(prefix)
 
-        stale = (PRIVATE_MEDIA_PREFIXES | PUBLIC_MEDIA_PREFIXES) - live
+        stale = (PRIVATE_MEDIA_PREFIXES | PUBLIC_MEDIA_PREFIXES | OBJECT_CHECKED) - live
         self.assertEqual(
             stale, set(),
             f'Classified but no model writes there any more: {sorted(stale)}. '

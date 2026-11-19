@@ -1,6 +1,7 @@
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth.decorators import login_required
-from django.shortcuts import get_object_or_404, redirect
+from django.http import Http404
+from django.shortcuts import get_object_or_404, redirect, render
 from ..models import ParliamentUser, ActivityLog
 from django.contrib.auth import login
 import logging
@@ -13,7 +14,7 @@ logger = logging.getLogger('function_calls')
 # ⚠️ v3.21.3 — these names live in `src/impersonation.py`, which is also where
 # the list of what impersonation bypasses is written down. Re-exported here so
 # existing imports of this module keep working.
-from src.impersonation import SESSION_ORIGINAL_ID, SESSION_ORIGINAL_NAME  # noqa: F401
+from src.impersonation import SESSION_ORIGINAL_ID, SESSION_ORIGINAL_NAME, may_impersonate  # noqa: F401
 
 
 @staff_member_required
@@ -30,6 +31,14 @@ def login_as_view(request, user_id):
     to return to their own account rather than getting stuck.
     """
     target = get_object_or_404(ParliamentUser, pk=user_id)
+
+    # v4.4.15: platform owner only, and only by POST. A GET shows a confirmation
+    # page; the switch itself is a CSRF-protected form, so a link or an <img>
+    # on another page can't start it. Anyone else gets a 404.
+    if not may_impersonate(request.user, target):
+        raise Http404('Not found')
+    if request.method != 'POST':
+        return render(request, 'login_as_confirm.html', {'target': target})
 
     # Capture original admin info before login() flushes the session
     original_id   = request.user.user_id

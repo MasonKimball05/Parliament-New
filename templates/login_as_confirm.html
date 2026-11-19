@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Log in as {{ target.get_display_name }} - Parliament{% endblock %}
+{% block content %}
+<div class="min-h-[50vh] flex items-center justify-center px-4">
+  <div class="max-w-md w-full bg-white dark:bg-gray-800 rounded-xl shadow p-6 text-center">
+    <h1 class="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">Log in as {{ target.get_display_name }}?</h1>
+    <p class="text-sm text-gray-600 dark:text-gray-300 mb-6">
+      You'll see everything this member can see until you return to your own account.
+      This is logged.
+    </p>
+    <form method="post" action="{% url 'login-as' target.pk %}" class="flex gap-3 justify-center">
+      {% csrf_token %}
+      <a href="{% url 'home' %}" class="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200">Cancel</a>
+      <button type="submit" class="px-4 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-medium">Log in as {{ target.get_display_name }}</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

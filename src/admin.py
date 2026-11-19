@@ -21,7 +21,7 @@ from django.contrib.auth.decorators import user_passes_test
 import os
 from django.contrib.admin.models import LogEntry
 from django.urls import reverse, path
-from django.shortcuts import redirect, render
+from django.shortcuts import get_object_or_404, redirect, render
 from django.contrib.auth import login
 from django.utils.html import format_html
 from django.db.models import Count, Q
@@ -494,22 +494,15 @@ class ParliamentUserAdmin(admin.ModelAdmin):
             messages.error(request, 'User not found')
             return redirect('/admin/')
 
-        original_id   = request.user.user_id
-        original_name = request.user.get_display_name()
-
-        target.backend = AUTH_BACKEND_PATH
-        login(request, target)
-
-        request.session[SESSION_ORIGINAL_ID]   = original_id
-        request.session[SESSION_ORIGINAL_NAME] = original_name
-
-        security_logger.warning(
-            f"ADMIN IMPERSONATION START: {original_name} (ID: {original_id}) "
-            f"logged in as {target.username} (ID: {target.user_id})"
-        )
-        logger.info(f"{original_name} logged in as {target.username}")
-        messages.success(request, f'You are now logged in as {target.name}')
-        return redirect('home')
+        # v4.4.15: this used to sign in as the target right here, on a GET, for
+        # any admin. It now applies the one rule (`may_impersonate`: platform
+        # owner only, never yourself) and hands over to the confirm-and-POST
+        # page, so there is a single place that starts an impersonation.
+        from src.impersonation import may_impersonate
+        if not may_impersonate(request.user, target):
+            messages.error(request, 'Only the platform owner can log in as another member.')
+            return redirect('/admin/')
+        return redirect('login-as', user_id=target.pk)
 
 
 @admin.register(Legislation, site=admin_site)
@@ -1739,7 +1732,7 @@ class ScheduledMaintenanceAdmin(admin.ModelAdmin):
 
     def start_maintenance_view(self, request, pk):
         """View to start maintenance immediately"""
-        obj = ScheduledMaintenance.objects.get(pk=pk)
+        obj = get_object_or_404(ScheduledMaintenance, pk=pk)  # v4.4.15: was .get() → 500 on a stale link
         if not obj.maintenance_started and not obj.completed_at:
             obj.start_maintenance()
             self.message_user(request, f"Maintenance started: {obj.title}", messages.SUCCESS)
@@ -1756,7 +1749,7 @@ class ScheduledMaintenanceAdmin(admin.ModelAdmin):
 
     def complete_maintenance_view(self, request, pk):
         """View to complete maintenance"""
-        obj = ScheduledMaintenance.objects.get(pk=pk)
+        obj = get_object_or_404(ScheduledMaintenance, pk=pk)  # v4.4.15: was .get() → 500 on a stale link
         if not obj.completed_at:
             obj.complete_maintenance()
             self.message_user(request, f"Maintenance completed: {obj.title}", messages.SUCCESS)
@@ -1773,7 +1766,12 @@ class ScheduledMaintenanceAdmin(admin.ModelAdmin):
 
     def change_view(self, request, object_id, form_url='', extra_context=None):
         extra_context = extra_context or {}
-        obj = ScheduledMaintenance.objects.get(pk=object_id)
+        # v4.4.15: `.get()` raised on a missing or non-numeric id (500). Django's own
+        # change_view handles that with a "doesn't exist" redirect, so hand over.
+        try:
+            obj = ScheduledMaintenance.objects.get(pk=int(object_id))
+        except (ValueError, TypeError, ScheduledMaintenance.DoesNotExist):
+            return super().change_view(request, object_id, form_url, extra_context)
 
         # Add action buttons context
         extra_context['show_start_button'] = not obj.maintenance_started and not obj.completed_at

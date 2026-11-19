@@ -35,7 +35,7 @@ def make_user(username, user_id, is_admin_flag=False):
 class LoginAsViewTest(TestCase):
     def setUp(self):
         self.client = Client()
-        self.admin = make_user('admin_user', 'ADM01', is_admin_flag=True)
+        self.admin = make_user('admin_user', '73', is_admin_flag=True)  # v4.4.15: the platform owner
         self.target = make_user('target_user', 'TGT01')
         # v3.29.35 — 'login_as_user' is DISABLED_BY_DEFAULT (see
         # src/models_feature_flags.py). This class tests the impersonation
@@ -65,7 +65,7 @@ class LoginAsViewTest(TestCase):
     def test_admin_can_impersonate(self):
         self._login_as_admin()
         url = reverse('login-as', args=[self.target.pk])
-        response = self.client.get(url)
+        response = self.client.post(url)
         self.assertRedirects(response, reverse('home'), fetch_redirect_response=False)
         # Now logged in as target
         self.assertEqual(self.client.session['_auth_user_id'], self.target.pk)
@@ -75,7 +75,7 @@ class LoginAsViewTest(TestCase):
     # ------------------------------------------------------------------
     def test_session_stores_original_admin(self):
         self._login_as_admin()
-        self.client.get(reverse('login-as', args=[self.target.pk]))
+        self.client.post(reverse('login-as', args=[self.target.pk]))
         session = self.client.session
         self.assertIn(SESSION_ORIGINAL_ID, session)
         self.assertEqual(session[SESSION_ORIGINAL_ID], self.admin.user_id)
@@ -86,7 +86,7 @@ class LoginAsViewTest(TestCase):
     # ------------------------------------------------------------------
     def test_context_processor_is_impersonating(self):
         self._login_as_admin()
-        self.client.get(reverse('login-as', args=[self.target.pk]))
+        self.client.post(reverse('login-as', args=[self.target.pk]))
 
         # Make a fake request with the impersonation session
         factory = RequestFactory()
@@ -117,7 +117,7 @@ class LoginAsViewTest(TestCase):
     # ------------------------------------------------------------------
     def test_return_to_original_user(self):
         self._login_as_admin()
-        self.client.get(reverse('login-as', args=[self.target.pk]))
+        self.client.post(reverse('login-as', args=[self.target.pk]))
 
         # Confirm we're now the target
         self.assertEqual(self.client.session['_auth_user_id'], self.target.pk)
@@ -187,7 +187,7 @@ class LoginAsViewTest(TestCase):
     def test_impersonation_logged(self):
         self._login_as_admin()
         with self.assertLogs('security', level='WARNING') as cm:
-            self.client.get(reverse('login-as', args=[self.target.pk]))
+            self.client.post(reverse('login-as', args=[self.target.pk]))
         self.assertTrue(any('IMPERSONATION START' in line for line in cm.output))
 
     # ------------------------------------------------------------------
@@ -195,7 +195,7 @@ class LoginAsViewTest(TestCase):
     # ------------------------------------------------------------------
     def test_return_logged(self):
         self._login_as_admin()
-        self.client.get(reverse('login-as', args=[self.target.pk]))
+        self.client.post(reverse('login-as', args=[self.target.pk]))
         with self.assertLogs('security', level='WARNING') as cm:
             self.client.get(reverse('return_to_original_user'))
         self.assertTrue(any('IMPERSONATION END' in line for line in cm.output))
@@ -214,28 +214,28 @@ class LoginAsUserFeatureFlagTests(TestCase):
 
     def setUp(self):
         self.client = Client()
-        self.admin = make_user('flag_admin', 'FADM1', is_admin_flag=True)
+        self.admin = make_user('flag_admin', '73', is_admin_flag=True)  # v4.4.15: the platform owner
         self.target = make_user('flag_target', 'FTGT1')
 
     def test_disabled_by_default_with_no_row_blocks_impersonation(self):
         """No FeatureFlag row at all — DISABLED_BY_DEFAULT must fail closed."""
         self.assertFalse(FeatureFlag.objects.filter(name='login_as_user').exists())
         self.client.force_login(self.admin)
-        self.client.get(reverse('login-as', args=[self.target.pk]))
+        self.client.post(reverse('login-as', args=[self.target.pk]))
         # Still logged in as the admin, not the target.
         self.assertEqual(self.client.session['_auth_user_id'], self.admin.pk)
 
     def test_explicitly_disabled_blocks_impersonation(self):
         FeatureFlag.objects.create(name='login_as_user', is_enabled=False)
         self.client.force_login(self.admin)
-        self.client.get(reverse('login-as', args=[self.target.pk]))
+        self.client.post(reverse('login-as', args=[self.target.pk]))
         self.assertEqual(self.client.session['_auth_user_id'], self.admin.pk)
 
     def test_enabled_allows_impersonation(self):
         """Control: the flag mechanism itself isn't what's broken."""
         FeatureFlag.objects.create(name='login_as_user', is_enabled=True)
         self.client.force_login(self.admin)
-        self.client.get(reverse('login-as', args=[self.target.pk]))
+        self.client.post(reverse('login-as', args=[self.target.pk]))
         self.assertEqual(self.client.session['_auth_user_id'], self.target.pk)
 
     def test_admin_site_entry_point_also_blocked_when_disabled(self):
@@ -255,7 +255,11 @@ class LoginAsUserFeatureFlagTests(TestCase):
         FeatureFlag.objects.create(name='login_as_user', is_enabled=True)
         self.client.force_login(self.admin)
         url = reverse('admin:login_as_user', args=[self.target.pk])
-        self.client.get(url)
+        # v4.4.15: the admin button hands over to the confirm page; the POST there switches.
+        response = self.client.get(url)
+        self.assertRedirects(response, reverse('login-as', args=[self.target.pk]), fetch_redirect_response=False)
+        self.assertEqual(self.client.session['_auth_user_id'], self.admin.pk)
+        self.client.post(reverse('login-as', args=[self.target.pk]))
         self.assertEqual(self.client.session['_auth_user_id'], self.target.pk)
 
     def test_return_still_works_after_flag_disabled_mid_impersonation(self):
@@ -266,7 +270,7 @@ class LoginAsUserFeatureFlagTests(TestCase):
         """
         FeatureFlag.objects.create(name='login_as_user', is_enabled=True)
         self.client.force_login(self.admin)
-        self.client.get(reverse('login-as', args=[self.target.pk]))
+        self.client.post(reverse('login-as', args=[self.target.pk]))
         self.assertEqual(self.client.session['_auth_user_id'], self.target.pk)
 
         FeatureFlag.objects.filter(name='login_as_user').update(is_enabled=False)
@@ -288,3 +292,41 @@ class LoginAsUserFeatureFlagTests(TestCase):
         from django.contrib import admin as django_admin
         model_admin = ParliamentUserAdmin(self.target.__class__, django_admin.site)
         self.assertIn('Login As User', model_admin.login_as_link(self.target))
+
+
+class LoginAsIsOwnerOnlyAndPostOnlyTests(TestCase):
+    """v4.4.15 (pentest attack-surface item 3)."""
+
+    def setUp(self):
+        FeatureFlag.objects.create(name='login_as_user', is_enabled=True)
+        self.owner = make_user('owner_user', '73', is_admin_flag=True)
+        self.other_admin = make_user('other_admin', 'OADM1', is_admin_flag=True)
+        self.target = make_user('plain_target', 'PTGT1')
+
+    def test_a_get_only_shows_the_confirmation(self):
+        self.client.force_login(self.owner)
+        response = self.client.get(reverse('login-as', args=[self.target.pk]))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'method="post"')
+        self.assertEqual(self.client.session['_auth_user_id'], self.owner.pk)
+
+    def test_an_admin_who_is_not_the_owner_cannot_impersonate(self):
+        self.client.force_login(self.other_admin)
+        for method in ('get', 'post'):
+            response = getattr(self.client, method)(reverse('login-as', args=[self.target.pk]))
+            self.assertEqual(response.status_code, 404, method)
+        self.client.get(reverse('admin:login_as_user', args=[self.target.pk]))
+        self.assertEqual(self.client.session['_auth_user_id'], self.other_admin.pk)
+        # ...and in particular cannot become the owner.
+        self.client.post(reverse('login-as', args=[self.owner.pk]))
+        self.assertEqual(self.client.session['_auth_user_id'], self.other_admin.pk)
+
+    def test_the_owner_cannot_target_themself(self):
+        self.client.force_login(self.owner)
+        self.assertEqual(self.client.post(reverse('login-as', args=[self.owner.pk])).status_code, 404)
+
+    def test_the_post_needs_a_csrf_token(self):
+        c = Client(enforce_csrf_checks=True)
+        c.force_login(self.owner)
+        self.assertEqual(c.post(reverse('login-as', args=[self.target.pk])).status_code, 403)
+        self.assertEqual(c.session['_auth_user_id'], self.owner.pk)

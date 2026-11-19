@@ -130,6 +130,18 @@ class ActivityLogsExportTests(_Base):
         flag('activity_logs', False)
         self.assertEqual(self.get(self.officer, 'officer/activity-logs/export/').json()['error'], 'feature_disabled')
 
+    def test_refused_to_a_sign_in_from_abroad(self):
+        """v4.4.15 (pentest F02): the web 403s this export for a session signed in
+        from abroad; the app returned the CSV to a device signed in from abroad."""
+        from src.models import MobileDevice
+        MobileDevice.objects.filter(user=self.officer).update(
+            login_geo_suspicious=True, login_geo={'country': 'Elsewhere'})
+        r = self.get(self.officer, 'officer/activity-logs/export/')
+        self.assertEqual(r.status_code, 403)
+        self.assertEqual(r.json()['error'], 'geo_restricted')
+        # The list (not an export) stays available, as on the web.
+        self.assertEqual(self.get(self.officer, 'officer/activity-logs/').status_code, 200)
+
     def test_the_websites_file_redacted_and_logged(self):
         r = self.get(self.officer, 'officer/activity-logs/export/?q=Bill')
         self.assertEqual(r.status_code, 200)
