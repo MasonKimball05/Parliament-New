@@ -189,6 +189,10 @@ def transition_officers(request, period_id):
             # Get the effective date
             effective_date_str = request.POST.get('effective_date')
             effective_time_str = request.POST.get('effective_time', '00:00')
+            # 11-20-26: editing a scheduled transition prefills the date, and a
+            # hidden input still posts. "Execute immediately" means now.
+            if request.POST.get('timing') == 'immediate':
+                effective_date_str = ''
 
             picks = {}
             for position in period.positions.filter(is_active=True):
@@ -252,6 +256,9 @@ def transition_officers(request, period_id):
         elif action == 'cancel_scheduled':
             cancel_scheduled_transition(period, request.user)
             messages.info(request, 'Scheduled transition cancelled.')
+            # 11-20-26: Role Transitions lists scheduled transitions with a Cancel.
+            if request.POST.get('return_to') == 'role_transitions':
+                return redirect('role_transitions')
             return redirect('slating_transition', period_id=period.id)
 
     # GET: Build the transition form data
@@ -264,6 +271,9 @@ def transition_officers(request, period_id):
         'has_auto_assignments': any(d['auto_assigned'] for d in transition_data),
         'has_scheduled': period.officer_transition_at is not None,
         'scheduled_date': period.officer_transition_at,
+        # 11-20-26: the form opens on the saved schedule, so re-saving an edit
+        # keeps it scheduled (it defaulted to "Execute immediately").
+        'scheduled_local': localtime(period.officer_transition_at) if period.officer_transition_at else None,
     }
 
     return render(request, 'slating/transition_confirm.html', context)

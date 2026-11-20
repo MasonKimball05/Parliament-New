@@ -43,7 +43,9 @@ from src.view.officer.manage_roles import (
     RoleChangeRefused, assign_role, assignable_members, create_role, delete_role_checked, holders_by_role,
     unassign_role, update_role,
 )
-from src.view.officer.transitions import execute_role_transfer, role_transition_rows, transition_candidates
+from src.view.officer.transitions import (
+    execute_role_transfer, role_transition_rows, scheduled_slating_transitions, transition_candidates,
+)
 
 INCOMING_TYPES = ('Officer', 'Chair', 'Member')
 ROLE_FIELDS = ('name', 'code', 'description', 'one_per_chapter', 'grants_admin')
@@ -222,6 +224,22 @@ class OfficerTransitionsView(_OfficerView):
             'can_transfer': not role_change_error(user, None),
             'incoming_types': list(INCOMING_TYPES),
             'web_path': reverse('role_transitions'),
+            # 11-20-26: transitions scheduled from slating that haven't run.
+            # can_edit: the caller may open the slating transition to change
+            # or cancel it (site admins).
+            'scheduled': [{
+                'period_id': sched['period'].id,
+                'period_name': sched['period'].name,
+                'scheduled_at': sched['at'].isoformat(),
+                'can_edit': sched['can_edit'],
+                'changes': [{
+                    'position': c['position'].title,
+                    'role': c['role'].name if c['role'] else None,
+                    'new': c['new'].name,
+                    'removed': c['removed'],
+                    'already': c['already'],
+                } for c in sched['changes']],
+            } for sched in scheduled_slating_transitions(user)],
         })
 
 

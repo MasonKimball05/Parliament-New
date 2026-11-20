@@ -102,6 +102,26 @@ def transition_candidates():
     )
 
 
+def scheduled_slating_transitions(user):
+    """
+    Officer transitions scheduled from a slating period that haven't run yet,
+    soonest first (11-20-26: once scheduled, they showed nowhere). Each:
+    ``period``, ``at``, ``changes`` (``planned_role_changes``: role, who gets
+    it, who loses it) and ``can_edit`` (the slating transition's own rule:
+    site admins, results published). The same filter the scheduler runs.
+    """
+    from src.models import SlatingPeriod
+    from src.view.slating.transition import planned_role_changes, transition_refusal
+    periods = (SlatingPeriod.objects.filter(officer_transition_at__isnull=False, officer_transition_completed=False)
+               .exclude(officer_transition_data={}).order_by('officer_transition_at'))
+    return [{
+        'period': period,
+        'at': period.officer_transition_at,
+        'changes': planned_role_changes(period, period.officer_transition_data or {}),
+        'can_edit': transition_refusal(user, period) is None,
+    } for period in periods]
+
+
 @login_required
 @officer_required
 def role_transitions(request):
@@ -138,6 +158,7 @@ def role_transitions(request):
         'total_roles': len(roles_data),
         'filled_count': filled_count,
         'vacant_count': vacant_count,
+        'scheduled_transitions': scheduled_slating_transitions(request.user),
     }
     return render(request, 'officer/role_transitions.html', context)
 

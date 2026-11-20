@@ -56,6 +56,9 @@
                     <p class="mt-1 text-sm text-yellow-700 dark:text-yellow-300">
                         Officer transition is scheduled for <strong>{{ scheduled_date|date:"F j, Y" }} at {{ scheduled_date|time:"g:i A" }}</strong>
                     </p>
+                    <p class="mt-1 text-sm text-yellow-700 dark:text-yellow-300">
+                        The form below shows the scheduled picks and time. Change them and confirm to update the schedule.
+                    </p>
                 </div>
             </div>
             <form method="post" class="ml-4">
@@ -181,14 +184,14 @@
             <div class="px-4 py-5 sm:p-6">
                 <div class="flex flex-col sm:flex-row gap-4">
                     <div class="flex items-center">
-                        <input type="radio" name="timing" id="timing_immediate" value="immediate" checked
+                        <input type="radio" name="timing" id="timing_immediate" value="immediate"{% if not scheduled_local %} checked{% endif %}
                             class="h-4 w-4 text-primary-600 border-gray-300 focus:ring-primary-500">
                         <label for="timing_immediate" class="ml-2 text-sm text-gray-700 dark:text-gray-300">
                             Execute immediately
                         </label>
                     </div>
                     <div class="flex items-center">
-                        <input type="radio" name="timing" id="timing_scheduled" value="scheduled"
+                        <input type="radio" name="timing" id="timing_scheduled" value="scheduled"{% if scheduled_local %} checked{% endif %}
                             class="h-4 w-4 text-primary-600 border-gray-300 focus:ring-primary-500">
                         <label for="timing_scheduled" class="ml-2 text-sm text-gray-700 dark:text-gray-300">
                             Schedule for later
@@ -196,16 +199,16 @@
                     </div>
                 </div>
 
-                <div id="dateInputs" class="mt-4 hidden">
+                <div id="dateInputs" class="mt-4{% if not scheduled_local %} hidden{% endif %}">
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
                             <label for="effective_date" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Date</label>
-                            <input type="date" name="effective_date" id="effective_date"
+                            <input type="date" name="effective_date" id="effective_date"{% if scheduled_local %} value="{{ scheduled_local|date:'Y-m-d' }}"{% endif %}
                                 class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:text-white sm:text-sm">
                         </div>
                         <div>
                             <label for="effective_time" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Time</label>
-                            <input type="time" name="effective_time" id="effective_time" value="00:00"
+                            <input type="time" name="effective_time" id="effective_time" value="{% if scheduled_local %}{{ scheduled_local|date:'H:i' }}{% else %}00:00{% endif %}"
                                 class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:text-white sm:text-sm">
                         </div>
                     </div>
@@ -225,7 +228,7 @@
                     </svg>
                 </div>
                 <div class="ml-3">
-                    <h3 class="text-sm font-medium text-red-800 dark:text-red-200" id="warningText">This action will immediately transfer roles</h3>
+                    <h3 class="text-sm font-medium text-red-800 dark:text-red-200" id="warningText">{% if scheduled_local %}This will schedule the role transfer for the specified date{% else %}This action will immediately transfer roles{% endif %}</h3>
                     <p class="mt-1 text-sm text-red-700 dark:text-red-300">
                         The selected members will receive their new officer roles and current holders will have those roles removed.
                     </p>
