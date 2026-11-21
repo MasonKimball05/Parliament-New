@@ -20,8 +20,18 @@ class DashboardCeleryPingTests(TestCase):
         cache.delete(admin_v2.CELERY_WORKERS_UP_CACHE_KEY)
         self.addCleanup(cache.delete, admin_v2.CELERY_WORKERS_UP_CACHE_KEY)
 
+    def _patch_inspect(self, **kw):
+        # Patch the app the view imports, not celery's Control class: another
+        # test can swap in a different current app, which the class patch
+        # then misses.
+        app = mock.MagicMock()
+        if kw:
+            app.control.inspect.configure_mock(**kw)
+        return mock.patch('celery.current_app', app), app.control.inspect
+
     def test_stops_at_the_first_reply_and_caches_it(self):
-        with mock.patch('celery.app.control.Control.inspect') as inspect:
+        patcher, inspect = self._patch_inspect()
+        with patcher:
             inspect.return_value.ping.return_value = {'worker@host': {'ok': 'pong'}}
             self.assertTrue(admin_v2.dashboard_celery_summary()['workers_up'])
             self.assertTrue(admin_v2.dashboard_celery_summary()['workers_up'])
@@ -29,13 +39,15 @@ class DashboardCeleryPingTests(TestCase):
         self.assertTrue(cache.get(admin_v2.CELERY_WORKERS_UP_CACHE_KEY))
 
     def test_no_reply_is_remembered_too(self):
-        with mock.patch('celery.app.control.Control.inspect') as inspect:
+        patcher, inspect = self._patch_inspect()
+        with patcher:
             inspect.return_value.ping.return_value = None
             self.assertFalse(admin_v2.dashboard_celery_summary()['workers_up'])
             self.assertFalse(admin_v2.dashboard_celery_summary()['workers_up'])
         inspect.assert_called_once()
 
     def test_a_broker_error_is_not_cached(self):
-        with mock.patch('celery.app.control.Control.inspect', side_effect=OSError('broker down')):
+        patcher, _ = self._patch_inspect(side_effect=OSError('broker down'))
+        with patcher:
             self.assertFalse(admin_v2.dashboard_celery_summary()['workers_up'])
         self.assertIsNone(cache.get(admin_v2.CELERY_WORKERS_UP_CACHE_KEY))
