@@ -100,6 +100,37 @@ class ParliamentAdminSite(admin.AdminSite):
 
         return super().index(request, extra_context)
 
+    def register(self, model_or_iterable, admin_class=None, **options):
+        """11-22-26: join each change list's foreign-key columns by default.
+
+        Django's own join for a ForeignKey column is a bare select_related(),
+        which skips nullable foreign keys, so a nullable column (a chat
+        message's channel, say) cost a query per row. An admin that sets
+        list_select_related itself (to also join a relation its columns print,
+        like an application's applicant) keeps its own. Checked for every
+        admin by src/tests/admin/test_changelist_joins.py.
+        """
+        super().register(model_or_iterable, admin_class, **options)
+        models = [model_or_iterable] if isinstance(model_or_iterable, type) else model_or_iterable
+        for model in models:
+            model_admin = self._registry[model]
+            if model_admin.list_select_related is not False:
+                continue
+            fks = tuple(
+                name for name in model_admin.list_display
+                if isinstance(name, str) and _is_foreign_key(model, name))
+            if fks:
+                model_admin.list_select_related = fks
+
+
+def _is_foreign_key(model, name):
+    from django.core.exceptions import FieldDoesNotExist
+    try:
+        field = model._meta.get_field(name)
+    except FieldDoesNotExist:
+        return False
+    return field.many_to_one or field.one_to_one
+
 # Use custom admin site
 admin_site = ParliamentAdminSite(name='parliament_admin')
 admin.site = admin_site
