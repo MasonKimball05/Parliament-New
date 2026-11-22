@@ -2,7 +2,8 @@
 The app's Slating screens (mobile plan, Phase 3i) — the member side.
 
 * ``GET slating/`` — the hub (``slating_dashboard``): every period not
-  archived, with what this member can do in it (apply, vote, see results),
+  archived (and, under ``archived``, the archived ones this member ran or
+  reviewed), with what this member can do in it (apply, vote, see results),
   their own applications, and whether they're on a period's slating
   committee or run it.
 * ``POST slating/applications/<id>/withdraw/`` — ``withdraw_application``.
@@ -113,6 +114,7 @@ class SlatingHubView(_SlatingBase):
         for period in periods:
             check_and_auto_transition_status(period)   # as slating_dashboard does on every load
         from src.view.slating.apply import with_applicant_status
+        from src.view.slating.dashboard import archived_period_rows
         apps = with_applicant_status(SlatingApplication.objects.filter(applicant=user)
                                      .select_related('period').prefetch_related('interviews').order_by('-created_at'))
         return Response({
@@ -130,6 +132,16 @@ class SlatingHubView(_SlatingBase):
                 'can_withdraw': a.status in WITHDRAWABLE and a.period.status == 'nominations_open',
             } for a in apps],
             'can_vote': bool(user.can_vote),
+            # 11-22-26: archived periods this member ran or reviewed, so the chair
+            # can still destroy the interview notes or delete the period.
+            'archived': [{
+                'id': r['period'].id,
+                'name': r['period'].name,
+                'term': r['period'].academic_term,
+                'is_chair': r['can_manage'],
+                'is_committee': r['can_review'],
+                'notes_remaining': r['notes_remaining'],
+            } for r in archived_period_rows(user)],
             # 11-04-26: the dashboard's "+ New" (create_period is site admins only).
             'can_create_period': bool(user.is_admin),
         })

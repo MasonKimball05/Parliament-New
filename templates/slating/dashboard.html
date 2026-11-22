@@ -104,6 +104,45 @@
         </div>
         {% endif %}
 
+        {# 11-22-26: archived periods stay reachable for whoever ran or reviewed them (destroy interview notes, delete). #}
+        {% if archived_rows %}
+        <div data-archived-elections class="bg-white dark:bg-gray-800 shadow-sm rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden{% if ui_refresh %} rf-sl-card{% endif %}">
+            <div class="px-5 py-3.5 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50{% if ui_refresh %} rf-sl-cardhead{% endif %}">
+                <h3 class="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide">Archived Elections</h3>
+            </div>
+            <ul class="divide-y divide-gray-200 dark:divide-gray-700">
+                {% for row in archived_rows %}{% with period=row.period %}
+                <li class="px-5 py-4" data-archived-period="{{ period.id }}">
+                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                        <div class="flex-1 min-w-0">
+                            <p class="text-sm font-semibold text-gray-900 dark:text-white truncate">{{ period.name }}</p>
+                            <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{{ period.academic_term }} &middot;
+                                {% if row.notes_remaining %}<span class="text-amber-700 dark:text-amber-400">{{ row.notes_remaining }} interview{{ row.notes_remaining|pluralize }} still {{ row.notes_remaining|pluralize:"has,have" }} notes</span>{% else %}interview notes destroyed{% endif %}
+                            </p>
+                        </div>
+                        <div class="flex flex-wrap items-center gap-2">
+                            <a href="{% url 'slating_interviews' period_id=period.id %}"
+                               class="inline-flex items-center px-3 py-1 rounded-lg text-xs font-medium border border-primary-600 text-primary-600 dark:text-primary-400 dark:border-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors{% if ui_refresh %} rf-sl-ghost{% endif %}">
+                                Interviews &rarr;
+                            </a>
+                            <a href="{% url 'slating_results' period_id=period.id %}"
+                               class="inline-flex items-center px-3 py-1 rounded-lg text-xs font-medium border border-primary-600 text-primary-600 dark:text-primary-400 dark:border-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors{% if ui_refresh %} rf-sl-ghost{% endif %}">
+                                Results &rarr;
+                            </a>
+                            {% if row.can_manage %}
+                            <a href="{% url 'slating_period_setup' period_id=period.id %}"
+                               class="inline-flex items-center px-3 py-1 rounded-lg text-xs font-medium border border-primary-600 text-primary-600 dark:text-primary-400 dark:border-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors{% if ui_refresh %} rf-sl-ghost{% endif %}">
+                                Manage election &rarr;
+                            </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </li>
+                {% endwith %}{% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+
         <!-- My Applications -->
         {% if my_applications %}
         <div class="bg-white dark:bg-gray-800 shadow-sm rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden{% if ui_refresh %} rf-sl-card{% endif %}">

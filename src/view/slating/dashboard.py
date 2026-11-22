@@ -112,6 +112,28 @@ def period_actions(period, user):
     }
 
 
+def archived_period_rows(user):
+    """11-22-26: archived periods this member can still manage or review.
+
+    The dashboard (and the app's hub) list only active periods, so once a
+    period was archived nothing linked to it, and its chair couldn't get back
+    to destroy the interview notes or delete it. Each row: the period, the
+    ``period_actions`` flags, and how many interviews still have notes.
+    """
+    from src.models import SlatingInterview
+    periods = list(SlatingPeriod.objects.filter(status='archived')
+                   .select_related('slating_manager', 'slating_committee__admin')
+                   .order_by('-created_at'))
+    rows = []
+    for p in periods:
+        actions = period_actions(p, user)
+        if not (actions['can_manage'] or actions['can_review']):
+            continue
+        notes = SlatingInterview.objects.filter(application__period=p, notes_destroyed=False).count()
+        rows.append({'period': p, **actions, 'notes_remaining': notes})
+    return rows
+
+
 @login_required
 def slating_dashboard(request):
     """
@@ -172,6 +194,7 @@ def slating_dashboard(request):
     ).order_by('-results_publish_at')[:5]
 
     context = {
+        'archived_rows': archived_period_rows(user),
         'active_periods': active_periods,
         'open_periods': open_periods,
         'voting_periods': voting_periods,
