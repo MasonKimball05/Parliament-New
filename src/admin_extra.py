@@ -182,6 +182,7 @@ class AnnouncementPollAnswerAdmin(ReadOnlyAdmin):
     identity to answer content on anonymous polls. Aggregate results for
     anonymous polls live in the app."""
     list_display = ('response', 'question', 'text_answer')
+    list_select_related = ('response__poll', 'response__respondent', 'question')
     search_fields = ('text_answer',)
 
     def get_queryset(self, request):
@@ -191,6 +192,7 @@ class AnnouncementPollAnswerAdmin(ReadOnlyAdmin):
 @admin.register(AnnouncementEmailRecipient, site=admin_site)
 class AnnouncementEmailRecipientAdmin(ReadOnlyAdmin):
     list_display = ('email_log', 'user_name', 'user_email', 'status', 'created_at')
+    list_select_related = ('email_log__announcement',)
     list_filter = ('status',)
     search_fields = ('user_name', 'user_email')
 
@@ -293,6 +295,7 @@ class ArticleAdmin(admin.ModelAdmin):
 @admin.register(Section, site=admin_site)
 class SectionAdmin(admin.ModelAdmin):
     list_display = ('article', 'number', 'title', 'display_order', 'is_active', 'amendment_protected')
+    list_select_related = ('article__document',)
     list_filter = ('is_active', 'amendment_protected')
     search_fields = ('title', 'number', 'content')
 
@@ -414,6 +417,7 @@ class CommitteeVoteAdmin(ReadOnlyAdmin):
     anonymous_vote legislation are excluded — the admin must not bypass the
     app-layer anonymity promise (previously voter identity was visible here)."""
     list_display = ('legislation', 'user', 'vote_choice', 'is_active', 'created_at')
+    list_select_related = ('legislation__committee', 'user')
     list_filter = ('vote_choice', 'is_active')
     search_fields = ('legislation__title', 'user__username', 'user__name')
 
@@ -448,6 +452,7 @@ class MinutesSectionAdmin(admin.ModelAdmin):
 class MinutesMotionAdmin(admin.ModelAdmin):
     list_display = ('section', 'motion_type', 'result', 'received_second',
                     'votes_for', 'votes_against', 'votes_abstain')
+    list_select_related = ('section__minutes',)
     list_filter = ('motion_type', 'result', 'received_second')
     search_fields = ('motion_text',)
 
@@ -540,6 +545,7 @@ class EventReminderLogAdmin(ViewDeleteAdmin):
 @admin.register(EventReminderRecipient, site=admin_site)
 class EventReminderRecipientAdmin(ReadOnlyAdmin):
     list_display = ('reminder_log', 'user_name', 'user_member_type', 'status', 'email_status', 'viewed_at')
+    list_select_related = ('reminder_log__event',)
     list_filter = ('status', 'email_status')
     search_fields = ('user_name',)
 
@@ -702,6 +708,7 @@ class RecruitmentCandidateAdmin(admin.ModelAdmin):
 @admin.register(RecruitmentCandidateNote, site=admin_site)
 class RecruitmentCandidateNoteAdmin(admin.ModelAdmin):
     list_display = ('candidate', 'author', 'created_at', 'updated_at')
+    list_select_related = ('candidate__committee', 'author')
     search_fields = ('candidate__name', 'body')
 
 
@@ -716,6 +723,7 @@ class RecruitmentEventAdmin(admin.ModelAdmin):
 @admin.register(RecruitmentEventRSVP, site=admin_site)
 class RecruitmentEventRSVPAdmin(admin.ModelAdmin):
     list_display = ('recruitment_event', 'user', 'status', 'checked_in', 'updated_at')
+    list_select_related = ('recruitment_event__event', 'user')
     list_filter = ('status', 'checked_in')
     search_fields = ('user__username', 'user__name')
 
@@ -776,11 +784,13 @@ class ServiceFormFieldAdmin(admin.ModelAdmin):
 @admin.register(ServiceFieldResponse, site=admin_site)
 class ServiceFieldResponseAdmin(ReadOnlyAdmin):
     list_display = ('submission', 'field', 'created_at')
+    list_select_related = ('submission__submitted_by', 'field')
 
 
 @admin.register(ServiceActivity, site=admin_site)
 class ServiceActivityAdmin(ReadOnlyAdmin):
     list_display = ('submission', 'user', 'action', 'timestamp')
+    list_select_related = ('submission__submitted_by', 'user')
     list_filter = ('action',)
     date_hierarchy = 'timestamp'
 
@@ -823,6 +833,7 @@ class SlatingApplicationResponseAdmin(ReadOnlyAdmin):
     SlatingFormField.is_confidential is enforced at the app layer only, and
     this view would show confidential answers to every Django admin."""
     list_display = ('application', 'field', 'created_at')
+    list_select_related = ('application__applicant', 'application__period', 'field')
     exclude = ('text_value', 'number_value', 'json_value', 'file_value')
 
 
@@ -835,6 +846,7 @@ class SlatingInterviewAdmin(ReadOnlyAdmin):
     admin must not expose it. Scheduling/outcome metadata stays visible."""
     list_display = ('application', 'scheduled_at', 'completed_at', 'recommendation',
                     'notes_destroyed')
+    list_select_related = ('application__applicant', 'application__period')
     list_filter = ('recommendation', 'notes_destroyed')
     exclude = ('notes', 'strengths', 'concerns')
 
@@ -851,6 +863,8 @@ class SlateAdmin(admin.ModelAdmin):
 class SlateCandidateAdmin(admin.ModelAdmin):
     list_display = ('slate', 'position', 'application', 'write_in_member',
                     'is_runoff', 'display_order')
+    list_select_related = (
+        'slate__period', 'position__period', 'application__applicant', 'application__period', 'write_in_member')
     list_filter = ('is_runoff',)
 
 
@@ -880,6 +894,7 @@ class SlatingBallotAdmin(NoRowPagesMixin, ReadOnlyAdmin):
     in SlatingVote without a voter FK). Never edit; ballot integrity is
     hash-chained."""
     list_display = ('period', 'voter', 'voting_attempt', 'vote_type', 'position')
+    list_select_related = ('period', 'voter', 'position__period')
     list_filter = ('vote_type', 'voting_attempt')
     # 11-05-26 (secret ballot): no timing and no creation order. Listed by the
     # random hash, columns not sortable (a sort's tie-break is the pk, i.e.
@@ -903,6 +918,7 @@ class SlatingVoteAdmin(NoRowPagesMixin, ReadOnlyAdmin):
     UUID, so neither timing nor sequence exists to leak."""
     list_display = ('period', 'slate', 'slate_candidate', 'voting_attempt',
                     'vote_choice')
+    list_select_related = ('period', 'slate__period', 'slate_candidate__position')
     list_filter = ('vote_choice', 'voting_attempt')
     # 11-05-26: the model's own ordering is -voted_at, so the list came out in
     # the order ballots were cast and paired row for row with SlatingBallot's

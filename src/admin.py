@@ -308,10 +308,15 @@ class RoleAdmin(admin.ModelAdmin):
         }),
     )
 
+    # 11-22-26: counted in the change list's one query, not one query per row.
+    def get_queryset(self, request):
+        return super().get_queryset(request).annotate(_member_count=Count('parliamentuser', distinct=True))
+
     def member_count(self, obj):
-        count = obj.parliamentuser_set.count()
+        count = obj._member_count
         return f"{count} member{'s' if count != 1 else ''}"
     member_count.short_description = 'Members'
+    member_count.admin_order_field = '_member_count'
 
 
 @admin.register(TransitionChecklistItem, site=admin_site)
@@ -329,6 +334,7 @@ class TransitionChecklistItemAdmin(admin.ModelAdmin):
 class TransitionChecklistStatusAdmin(admin.ModelAdmin):
     """Read-mostly: completion state lives on the checklist page; this is for auditing/fixups."""
     list_display = ('item', 'role_history', 'completed_by', 'completed_at')
+    list_select_related = ('item__role', 'role_history__user', 'completed_by')
     list_filter = ('completed_at',)
     search_fields = ('item__text', 'role_history__user__name', 'role_history__role_name')
     raw_id_fields = ('item', 'role_history', 'completed_by')
@@ -572,10 +578,14 @@ class LegislationAdmin(admin.ModelAdmin):
     status_badge.short_description = 'Status'
     status_badge.admin_order_field = 'status'
 
+    # 11-22-26: counted in the change list's one query, not one query per row.
+    def get_queryset(self, request):
+        return super().get_queryset(request).annotate(_vote_count=Count('vote', distinct=True))
+
     def vote_count(self, obj):
-        count = Vote.objects.filter(legislation=obj).count()
-        return f'{count} votes'
+        return f'{obj._vote_count} votes'
     vote_count.short_description = 'Votes'
+    vote_count.admin_order_field = '_vote_count'
 
     def has_delete_permission(self, request, obj=None):
         # Prevent deleting passed legislation
@@ -760,15 +770,22 @@ class CommitteeAdmin(admin.ModelAdmin):
         }),
     )
 
+    # 11-22-26: counted in the change list's one query, not one query per row.
+    def get_queryset(self, request):
+        return super().get_queryset(request).annotate(
+            _member_count=Count('members', distinct=True), _chair_count=Count('chairs', distinct=True))
+
     def member_count(self, obj):
-        count = obj.members.count()
+        count = obj._member_count
         return f'{count} member{"s" if count != 1 else ""}'
     member_count.short_description = 'Members'
+    member_count.admin_order_field = '_member_count'
 
     def chair_count(self, obj):
-        count = obj.chairs.count()
+        count = obj._chair_count
         return f'{count} chair{"s" if count != 1 else ""}'
     chair_count.short_description = 'Chairs'
+    chair_count.admin_order_field = '_chair_count'
 
 @admin.register(DocumentTag, site=admin_site)
 class DocumentTagAdmin(admin.ModelAdmin):
@@ -797,10 +814,15 @@ class DocumentTagAdmin(admin.ModelAdmin):
     color_badge.short_description = 'Tag'
     color_badge.admin_order_field = 'name'
 
+    # 11-22-26: counted in the change list's one query, not one query per row.
+    def get_queryset(self, request):
+        return super().get_queryset(request).annotate(_document_count=Count('documents', distinct=True))
+
     def document_count(self, obj):
-        count = obj.documents.count()
+        count = obj._document_count
         return f"{count} document{'s' if count != 1 else ''}"
     document_count.short_description = 'Documents'
+    document_count.admin_order_field = '_document_count'
 
 
 class DocumentVersionInline(admin.TabularInline):
@@ -863,6 +885,10 @@ class CommitteeDocumentAdmin(admin.ModelAdmin):
         }),
     )
 
+    def get_queryset(self, request):
+        # 11-22-26: tag_list reads the prefetched tags instead of a query per row.
+        return super().get_queryset(request).prefetch_related('tags')
+
     def tag_list(self, obj):
         return ', '.join([tag.name for tag in obj.tags.all()[:3]])
     tag_list.short_description = 'Tags'
@@ -871,6 +897,7 @@ class CommitteeDocumentAdmin(admin.ModelAdmin):
 @admin.register(DocumentVersion, site=admin_site)
 class DocumentVersionAdmin(admin.ModelAdmin):
     list_display = ('document', 'version_number', 'uploaded_by', 'uploaded_at', 'get_file_size_display')
+    list_select_related = ('document__committee', 'uploaded_by')
     list_filter = ('uploaded_at', 'document__committee')
     search_fields = ('document__title', 'change_notes', 'uploaded_by__name')
     readonly_fields = ('uploaded_at', 'file_size')
@@ -897,10 +924,14 @@ class AnnouncementAdmin(admin.ModelAdmin):
     is_active_badge.short_description = 'Status'
     is_active_badge.admin_order_field = 'is_active'
 
+    # 11-22-26: counted in the change list's one query, not one query per row.
+    def get_queryset(self, request):
+        return super().get_queryset(request).annotate(_view_count=Count('views', distinct=True))
+
     def view_count(self, obj):
-        count = UserAnnouncementView.objects.filter(announcement=obj).count()
-        return f'{count} views'
+        return f'{obj._view_count} views'
     view_count.short_description = 'Views'
+    view_count.admin_order_field = '_view_count'
 
     fieldsets = (
         ('Announcement Details', {
