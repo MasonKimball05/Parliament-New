@@ -6,6 +6,7 @@ Create, edit, and manage slating periods.
 
 from .position_manager import default_slate_positions
 from .tallies import open_round, slate_tally
+from .interview_manager import DESTROY_FROM, committee_records_left
 from src.slating_rounds import election_context
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
@@ -778,6 +779,8 @@ def edit_period(request, period_id):
         'approval_locked': approval_locked(period),
         # 10-29-26: positions, rounds and floor nominations (src/slating_rounds.py).
         'election': election,
+        # 11-22-26: Destroy the committee's notes, here as well as on Interviews.
+        'destroy': committee_records_left(period) if period.status in DESTROY_FROM else None,
         # 11-05-26: the applicants' rule (pledges may run; no advisors).
         'nominee_members': (list(ParliamentUser.objects.filter(
             member_status='Active').exclude(member_type='Advisor').order_by('name'))

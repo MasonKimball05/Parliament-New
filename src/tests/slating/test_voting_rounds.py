@@ -233,8 +233,15 @@ class DestroyNotesTests(_Base):
     def test_button_is_there_and_works(self):
         interview = SlatingInterview.objects.create(application=self.app, notes='secret notes')
         self.client.force_login(self.manager)
+        # 11-22-26: not before the results are published.
         page = self.client.get(reverse('slating_interviews', args=[self.period.id]))
-        self.assertContains(page, 'Destroy interview notes')
+        self.assertContains(page, 'Available once the results are published.')
+        self.client.post(reverse('slating_destroy_notes', args=[self.period.id]), {'confirm': 'DESTROY'})
+        interview.refresh_from_db()
+        self.assertFalse(interview.notes_destroyed)
+        type(self.period).objects.filter(pk=self.period.pk).update(status='results_published')
+        page = self.client.get(reverse('slating_interviews', args=[self.period.id]))
+        self.assertContains(page, 'Destroy the committee’s notes')
         self.client.post(reverse('slating_destroy_notes', args=[self.period.id]), {'confirm': 'DESTROY'})
         interview.refresh_from_db()
         self.assertTrue(interview.notes_destroyed)

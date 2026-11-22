@@ -99,6 +99,8 @@ class SlatingCommitteeRefreshTests(_Base):
 
     def test_interview_pages(self):
         p = self.period.id
+        # 11-22-26: Destroy notes is offered once the results are published.
+        type(self.period).objects.filter(pk=p).update(status='results_published')
         self.off_and_on(reverse('slating_interviews', args=[p]),
                         [' rf-sc rf-sc-interviews"', ' rf-sc-tabbar"', ' rf-sc-tabs"', ' rf-sc-rows"',
                          ' rf-sc-danger"'],

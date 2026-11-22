@@ -60,7 +60,7 @@ from src.view.slating.attendance import (
     ATTENDANCE_CLOSED, ATTENDANCE_STATUSES, attendance_roster, mark_all_present, mark_attendance,
 )
 from src.view.slating.interview_manager import (
-    apps_without_interview, committee_interviewers, destroy_period_notes, mark_whole_committee, period_interviews,
+    DestroyRefused, apps_without_interview, committee_interviewers, committee_records_left, destroy_period_notes, mark_whole_committee, period_interviews,
     save_completion, save_schedule, schedule_refusal,
 )
 from src.view.slating.paper_ballots import (
@@ -305,6 +305,8 @@ class SlatingInterviewsView(_SlatingBase):
             'interviewers': [_member(u) for u in sorted(committee, key=lambda u: u.name)],
             'notes_remaining': SlatingInterview.objects.filter(
                 application__period=period, notes_destroyed=False).count(),
+            # 11-22-26: what Destroy notes still erases, and whether it may run yet.
+            'destroy': committee_records_left(period),
             'can_manage': can_manage_period(request.user, period),
             'status_filter': status_filter,
         })
@@ -433,7 +435,11 @@ class SlatingDestroyNotesView(_SlatingBase):
         data = _form_data(request)
         if data.get('confirm') != 'DESTROY':
             raise BadRequest('Please type DESTROY to confirm.', code='invalid_input')
-        return Response({'ok': True, 'destroyed': destroy_period_notes(period, request.user)})
+        try:
+            destroyed = destroy_period_notes(period, request.user)
+        except DestroyRefused as e:   # 11-22-26: only once the results are published
+            raise VoteRefused('too_early', str(e), 409)
+        return Response({'ok': True, 'destroyed': destroyed})
 
 
 # ── Attendance, paper ballots, results ───────────────────────────────────────

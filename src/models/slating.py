@@ -692,9 +692,13 @@ class SlatingInterview(models.Model):
         self.notes = '[DESTROYED - Slate Approved]'
         self.strengths = ''
         self.concerns = ''
+        # 11-22-26: the recommendation is the committee's judgment too.
+        self.recommendation = ''
+        self.recommended_positions.clear()
+        if not self.notes_destroyed:
+            self.destroyed_at = timezone.now()
+            self.destroyed_by = user
         self.notes_destroyed = True
-        self.destroyed_at = timezone.now()
-        self.destroyed_by = user
         self.save()
 
 

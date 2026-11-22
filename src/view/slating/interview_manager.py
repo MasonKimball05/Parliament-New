@@ -219,27 +219,84 @@ def save_draft(interview, notes, strengths, concerns, recommendation, position_i
     return interview.updated_at
 
 
+#: 11-22-26: the committee's record of an election, destroyed together once
+#: the results are out (bylaws): interview notes and recommendations, the
+#: verdicts on applications, review notes, GPA checks and slates nobody
+#: voted on. What stays: the applications as sent, interview dates and who
+#: interviewed, every slate that was voted on, and the results.
+DESTROY_FROM = ('results_published', 'archived')
+DESTROY_REFUSAL = 'The committee’s notes can be destroyed once the results are published.'
+#: Application statuses that record the committee's judgment; reset to "submitted".
+VERDICT_STATUSES = ('under_review', 'interview_scheduled', 'interviewed', 'recommended', 'not_recommended', 'slated')
+
+
+class DestroyRefused(Exception):
+    pass
+
+
+def _records(period):
+    from django.db.models import Q
+    interviews = SlatingInterview.objects.filter(application__period=period)
+    apps = SlatingApplication.objects.filter(period=period)
+    return {
+        'interviews': interviews.filter(
+            Q(notes_destroyed=False) | ~Q(recommendation='') | Q(recommended_positions__isnull=False)).distinct(),
+        'applications': apps.filter(
+            Q(status__in=VERDICT_STATUSES) | ~Q(review_notes='') | Q(reviewer__isnull=False)
+            | Q(gpa_verified=True) | Q(gpa_level__isnull=False) | Q(gpa_screenshot__gt='')),
+        'slates': period.slates.filter(is_approved=False, total_votes=0, votes__isnull=True).distinct(),
+    }
+
+
+def committee_records_left(period):
+    """What Destroy notes would still erase: ``{interviews, applications, slates}`` counts, and ``allowed``."""
+    counts = {k: qs.count() for k, qs in _records(period).items()}
+    return {**counts, 'any': any(counts.values()), 'allowed': period.status in DESTROY_FROM}
+
+
 def destroy_period_notes(period, user):
-    """Destroy every interview's confidential notes for ``period`` (bylaws); logged. Returns the count."""
-    interviews = SlatingInterview.objects.filter(
-        application__period=period,
-        notes_destroyed=False
-    )
+    """Destroy the committee's confidential record of ``period`` (bylaws); logged.
 
-    count = 0
-    for interview in interviews:
-        interview.destroy_notes(user)
-        count += 1
+    11-22-26: was the interview notes only. Now also each interview's
+    recommendation and recommended positions, the committee's verdicts on the
+    applications (back to "submitted"), review notes and reviewer, GPA
+    screenshots, levels and verification, and slates nobody voted on. Only
+    once the results are published. Returns how many interviews it touched.
+    """
+    from django.db import transaction
+    if period.status not in DESTROY_FROM:
+        raise DestroyRefused(DESTROY_REFUSAL)
+    records = _records(period)
+    with transaction.atomic():
+        interviews = list(records['interviews'])
+        for interview in interviews:
+            interview.destroy_notes(user)
+        apps = list(records['applications'])
+        screenshots = [a.gpa_screenshot.name for a in apps if a.gpa_screenshot]
+        SlatingApplication.objects.filter(pk__in=[a.pk for a in apps], status__in=VERDICT_STATUSES).update(
+            status='submitted')
+        SlatingApplication.objects.filter(pk__in=[a.pk for a in apps]).update(
+            review_notes='', reviewer=None, gpa_verified=False, gpa_level=None, gpa_screenshot=None)
+        slates = list(records['slates'].values_list('pk', flat=True))
+        period.slates.filter(pk__in=slates).delete()
+        SlatingActivity.objects.create(
+            period=period,
+            user=user,
+            action='notes_destroyed',
+            details=(f'Destroyed the committee’s notes: {len(interviews)} interviews, '
+                     f'{len(apps)} applications, {len(slates)} unused slates'),
+            metadata={'count': len(interviews), 'applications': len(apps), 'slates': len(slates)},
+        )
 
-    # Log activity
-    SlatingActivity.objects.create(
-        period=period,
-        user=user,
-        action='notes_destroyed',
-        details=f'Destroyed confidential notes for {count} interviews',
-        metadata={'count': count}
-    )
-    return count
+        def remove_files():
+            storage = SlatingApplication._meta.get_field('gpa_screenshot').storage
+            for name in screenshots:
+                try:
+                    storage.delete(name)
+                except Exception:   # a missing file is already gone
+                    pass
+        transaction.on_commit(remove_files)
+    return len(interviews)
 
 
 @login_required
@@ -269,6 +326,7 @@ def interview_list(request, period_id):
         'can_schedule': can_view_applications(request.user, period),   # 11-06-26: the whole committee
         'notes_remaining': SlatingInterview.objects.filter(
             application__period=period, notes_destroyed=False).count(),
+        'destroy': committee_records_left(period),   # 11-22-26
         'apps_without_interview': apps_without,
         'interviewers_list': interviewers_list,
         'status_filter': status_filter,
@@ -455,9 +513,15 @@ def destroy_interview_notes(request, period_id):
     # Confirm action
     if request.POST.get('confirm') != 'DESTROY':
         messages.error(request, 'Please type DESTROY to confirm.')
-        return redirect('slating_interviews', period_id=period_id)
+        return redirect('slating_period_setup' if request.POST.get('return_to') == 'setup' else 'slating_interviews',
+                        period_id=period_id)
 
-    count = destroy_period_notes(period, request.user)
+    back = 'slating_period_setup' if request.POST.get('return_to') == 'setup' else 'slating_interviews'
+    try:
+        destroy_period_notes(period, request.user)
+    except DestroyRefused as e:
+        messages.error(request, str(e))
+        return redirect(back, period_id=period_id)
 
-    messages.success(request, f'Destroyed confidential notes for {count} interviews.')
-    return redirect('slating_interviews', period_id=period_id)
+    messages.success(request, 'Destroyed the committee’s notes for this election.')
+    return redirect(back, period_id=period_id)

@@ -1,0 +1,27 @@
+{# 11-22-26: Destroy the committee's notes (interviews page and election setup). Needs period, destroy, return_to. #}
+<div data-destroy-records class="bg-white dark:bg-gray-800 shadow-sm rounded-xl border border-red-200 dark:border-red-800 p-5{% if ui_refresh %} rf-sc-danger{% endif %}">
+    <h3 class="text-base font-semibold text-gray-900 dark:text-white">Destroy the committee’s notes</h3>
+    {% if not destroy.any %}
+    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Nothing left to destroy. The committee’s notes for this election have been destroyed.</p>
+    {% else %}
+    <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">As the bylaws require once the minutes are approved, this permanently erases:</p>
+    <ul class="mt-2 text-sm text-gray-600 dark:text-gray-300 list-disc pl-5 space-y-0.5">
+        <li>interview notes, strengths, concerns, recommendation levels and recommended positions{% if destroy.interviews %} ({{ destroy.interviews }} interview{{ destroy.interviews|pluralize }}){% endif %}</li>
+        <li>the committee’s verdicts on applications (Recommended, Not recommended, Slated and the rest go back to Submitted), review notes, and GPA screenshots, levels and checks{% if destroy.applications %} ({{ destroy.applications }} application{{ destroy.applications|pluralize }}){% endif %}</li>
+        <li>draft and alternative slates nobody voted on{% if destroy.slates %} ({{ destroy.slates }}){% endif %}</li>
+    </ul>
+    <p class="mt-2 text-sm text-gray-600 dark:text-gray-300">The applications as sent, interview dates and who interviewed, every slate that was voted on, and the results stay. This can’t be undone.</p>
+    {% if destroy.allowed %}
+    <form method="post" action="{% url 'slating_destroy_notes' period_id=period.id %}" class="mt-3 flex flex-wrap items-center gap-3">
+        {% csrf_token %}
+        <input type="hidden" name="return_to" value="{{ return_to }}">
+        <label for="destroy-confirm-{{ return_to }}" class="text-sm text-gray-700 dark:text-gray-300">Type <strong>DESTROY</strong> to confirm:</label>
+        <input type="text" name="confirm" id="destroy-confirm-{{ return_to }}" required autocomplete="off" pattern="DESTROY"
+            class="w-40 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white text-sm">
+        <button type="submit" class="inline-flex items-center px-4 py-2 rounded-md text-sm font-medium text-white bg-red-600 hover:bg-red-700">Destroy notes</button>
+    </form>
+    {% else %}
+    <p class="mt-2 text-sm font-medium text-gray-700 dark:text-gray-300">Available once the results are published.</p>
+    {% endif %}
+    {% endif %}
+</div>

@@ -353,6 +353,8 @@
 </div>
 {% endif %}
 
+{% if destroy %}<div class="mb-6">{% include 'slating/_destroy_records.html' with return_to='setup' %}</div>{% endif %}
+
 {% if election.states %}{% include 'slating/_positions_panel.html' %}{% endif %}
 
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">

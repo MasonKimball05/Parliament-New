@@ -401,11 +401,14 @@ class InterviewTests(_AppBase):
         r = self.call('post', path, {'confirm': 'yes'}, user=self.manager)
         self.assertEqual((r.status_code, r.json()['error']), (400, 'invalid_input'))
         r = self.call('post', path, {'confirm': 'DESTROY'}, user=self.manager)
+        self.assertEqual((r.status_code, r.json()['error']), (409, 'too_early'))   # 11-22-26
+        SlatingPeriod.objects.filter(pk=self.period.pk).update(status='results_published')
+        r = self.call('post', path, {'confirm': 'DESTROY'}, user=self.manager)
         self.assertEqual(r.json(), {'ok': True, 'destroyed': 1})
         interview.refresh_from_db()
         self.assertTrue(interview.notes_destroyed)
         self.assertEqual((interview.strengths, interview.destroyed_by), ('', self.manager))
-        self.assertTrue(SlatingActivity.objects.filter(action='notes_destroyed', metadata={'count': 1}).exists())
+        self.assertTrue(SlatingActivity.objects.filter(action='notes_destroyed', metadata__count=1).exists())
 
 
 # ── Attendance, paper ballots, results ───────────────────────────────────────
